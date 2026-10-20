@@ -199,7 +199,7 @@ int MonGen::RollEncounterGroupSize(const W8MonsterRecord* record)
    companion groups, attach scripts and formation state, and register the main
    group as a live random encounter. The bit-5 form is only valid for hostile
    factions while one of the three story facts is set. */
-unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
+bool MonGen::GenerateEncounter(const glm::vec3* position)
 {
     W8EncounterCompanionRecord companion_records[2];
     bool companion_active[2] = {false, false};
@@ -214,14 +214,14 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     int index;
 
     if ((flags & W8_MONGEN_DISABLED) != 0 || encounter_table_index == -1) {
-        return 0;
+        return false;
     }
 
     table = GetEncounterTable(encounter_table_index);
-    if (!table) return 0;
+    if (!table) return false;
     const auto* selected = SelectEncounterCandidate(*table);
     if (!selected) {
-        return 0;
+        return false;
     }
 
     species = selected->species;
@@ -235,7 +235,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
         DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                     "species {:d} has been DELETED!",
                                     species));
-        return 0;
+        return false;
     }
 
     /* Retail computes this total even though the surviving release path never
@@ -255,7 +255,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
         if (GetFactionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
             (!GetFact(W8_FACT_DESTINAE_POSSESS) && !GetFact(W8_FACT_ASTRAL_POSSESS) &&
              !GetFact(W8_FACT_CHAOS_POSSESS))) {
-            return 0;
+            return false;
         }
     }
 
@@ -291,7 +291,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
                          fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                      "species {:d} has been DELETED, chum of species {:d}!",
                                      companion_species, species));
-            return 0;
+            return false;
         }
 
         int companion_group_count = RollDice(&companion_record->group_size_dice);
@@ -313,7 +313,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
                                group->MemberCount(), group_name, companion_count, companion_word,
                                selected->challenge_level));
     }
-    return 1;
+    return true;
 }
 
 /* Refuse generation while global gameplay modes block it, while the generator

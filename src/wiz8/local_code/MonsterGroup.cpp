@@ -333,13 +333,13 @@ const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
    rather than a counted walk.
 
    The despawn paths and the standalone emission share this canonical body. */
-unsigned char RemoveAllGroupMembers(W8MonsterGroup* monster_group)
+bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
 {
     for (auto index = monster_group->MemberIds().size(); index > 0; --index) {
         const int location_id = monster_group->MemberLocationId(index - 1);
-        if (!RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn)) return 0;
+        if (!RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn)) return false;
     }
-    return 1;
+    return true;
 }
 
 /* Brings every member of a group into the world. Front to back, and the list
@@ -432,20 +432,20 @@ W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
    and acts on its lead member. A broken link - a leader id that resolves to no
    group - stops the walk and reports success anyway, as does a null group,
    which is why every path returns one. */
-unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
-                                        bool follow_leader)
+bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
+                               bool follow_leader)
 {
     if (monster_group != 0) {
         while (follow_leader && monster_group->leader_group_id != 0) {
             monster_group = FindMonsterGroup(monster_group->leader_group_id);
             if (monster_group == 0) {
-                return 1;
+                return true;
             }
         }
         W8MonsterInfo* monster_info = FindMonster(monster_group->leader_location_id);
         monster_info->p3D->nav.ConfigureMovementToPosition(position);
     }
-    return 1;
+    return true;
 }
 
 /* Sets a group's formation and pushes it straight onto every member's live
@@ -1172,7 +1172,7 @@ void MarkMonsterGroupForRemoval(int group_id)
 /* Moves a group off the encounter list onto the live list and brings every one
    of its members into the live monster list. Answers 1 when the group was
    actually waiting on the encounter list. */
-unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
+bool GiveBirthToMonster(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* member_info;
     unsigned int index;
@@ -1195,9 +1195,9 @@ unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
             }
         }
         RefreshOutwardSightForAllMonsters();
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Respawns a same-sized group of a different monster id beside the source

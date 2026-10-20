@@ -51,7 +51,7 @@ void CloseKeyboardMenu(void);
 /* Open the keyboard-action menu for one party slot. */
 void OpenKeyboardMenuForSlot(int slot);
 /* Build the panel and one row per selectable menu entry. */
-unsigned char BuildKeyboardMenu(void);
+bool BuildKeyboardMenu(void);
 /* Re-enable the menu's region set and every row region. */
 void EnableKeyboardMenuInput(void);
 /* Whether the cursor sits inside the menu panel rectangle. */
@@ -64,7 +64,7 @@ void RedrawKeyboardMenuPanel(bool invalidate);
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box,
    the record-mode console or a bound MGS command. */
-unsigned char HandleMainGameInputEvent(const InputEvent* input);
+bool HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

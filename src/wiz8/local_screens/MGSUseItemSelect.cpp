@@ -160,7 +160,7 @@ static void CreateUseItemSelectControls(void)
     item.setTooltip([] { return Data().strings[98]; });
 }
 
-unsigned char OpenUseItemSelectView(int slot)
+bool OpenUseItemSelectView(int slot)
 {
 
     UpdateScreenOverlays(0);
@@ -181,7 +181,7 @@ unsigned char OpenUseItemSelectView(int slot)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
-    return 1;
+    return true;
 }
 
 void CloseUseItemSelectView(void)

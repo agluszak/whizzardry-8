@@ -8,6 +8,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <type_traits>
 
@@ -1044,6 +1045,22 @@ template<class Field> void check_field_width(const Field*, std::size_t disk_byte
     if (sizeof(Field) != disk_bytes) throw std::logic_error("retail field width mismatch");
 }
 
+/* Retail writers stored flags as arbitrary nonzero bytes, which must not be
+   copied into a bool directly: bool fields and bool arrays load as "nonzero". */
+template<class Field> void load_field(Field* destination, std::span<const std::byte> bytes)
+{
+    using Element = std::remove_all_extents_t<Field>;
+    const auto nonzero = [](std::byte b) { return b != std::byte{0}; };
+    if constexpr (std::is_same_v<Field, bool>) {
+        *destination = nonzero(bytes[0]);
+    } else if constexpr (std::is_same_v<std::remove_extent_t<Field>, bool>) {
+        std::ranges::transform(bytes, std::begin(*destination), nonzero);
+    } else {
+        static_assert(!std::is_same_v<Element, bool>);
+        std::memcpy(destination, bytes.data(), bytes.size());
+    }
+}
+
 template<class T> void decode(std::span<const std::byte> disk, T& runtime)
 {
     if (disk.size() > sizeof(typename Record<T>::Disk))
@@ -1057,7 +1074,7 @@ template<class T> void decode(std::span<const std::byte> disk, T& runtime)
         decoded, std::span<const std::byte>(image),
         [](auto* destination, auto bytes) {
             check_field_width(destination, bytes.size());
-            std::memcpy(destination, bytes.data(), bytes.size());
+            load_field(destination, std::span<const std::byte>(bytes));
         },
         [](std::string& destination, auto bytes, Encoding encoding) {
             if (encoding == Encoding::utf16)

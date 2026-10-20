@@ -494,7 +494,7 @@ void W8CharacterEvent::Complete()
     }
 }
 
-unsigned char W8CharacterEvent::IsConditionMet(unsigned int event_type)
+bool W8CharacterEvent::IsConditionMet(unsigned int event_type)
 {
     do {
         switch (event_type) {
@@ -526,11 +526,11 @@ unsigned char W8CharacterEvent::IsConditionMet(unsigned int event_type)
             if (character->hp_current < static_cast<unsigned int>(trigger_value) ||
                 character->highest_condition != W8_CONDITION_NONE) {
                 QueueCharacterEvent(character, 84, 0, 0x7f);
-                return 0;
+                return false;
             }
-            return 1;
+            return true;
         default:
-            return 1;
+            return true;
         }
     } while (1);
 }
@@ -596,7 +596,7 @@ std::string GetCharacterVoicePath(const W8Character& character, unsigned int eve
 /* What a character says in place of a missing voice sample. */
 #define FALLBACK_VOICE_TEXT "Ouch play this sound."
 
-unsigned char W8CharacterEvent::PlayEventSound(std::string_view quote)
+bool W8CharacterEvent::PlayEventSound(std::string_view quote)
 {
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int sound_event = event_type;
@@ -625,7 +625,7 @@ unsigned char W8CharacterEvent::PlayEventSound(std::string_view quote)
     BeginPortraitVoice(party_slot, voice_playback, sound_path,
                        ComputePortraitMessageDuration(
                            event_type > 0x91 ? std::string_view(FALLBACK_VOICE_TEXT) : quote));
-    return 1;
+    return true;
 }
 
 void W8CharacterEventQueue::RecordDispatchedEvent(unsigned int event_type, unsigned int party_slot)
@@ -640,7 +640,7 @@ void W8CharacterEventQueue::RecordDispatchedEvent(unsigned int event_type, unsig
     recent_event_clock = MonotonicMilliseconds() + (5000);
 }
 
-unsigned char W8CharacterEvent::Dispatch()
+bool W8CharacterEvent::Dispatch()
 {
     unsigned int party_slot;
     unsigned int descriptor_index;
@@ -651,11 +651,11 @@ unsigned char W8CharacterEvent::Dispatch()
     std::string quote;
 
     if (character == 0) {
-        return 0;
+        return false;
     }
     party_slot = CharacterPointerToPartySlot(character);
     if (!MapEventTypeToDescriptorIndex(event_type, &descriptor_index)) {
-        return 0;
+        return false;
     }
     if ((flags & W8_EVENT_BYPASS_CHECKS) == 0) {
         if (!CanDispatchCharacterEvent(party_slot, event_type) || IsConditionMet(event_type) == 0) {
@@ -665,11 +665,11 @@ unsigned char W8CharacterEvent::Dispatch()
             event_type != static_cast<unsigned int>(g_special_event1)) {
             if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
                 QueueCharacterEvent(character, g_special_event1, 0, 0x7f);
-                return 0;
+                return false;
             }
             if (character->uiCondition[W8_CONDITION_INSANE] != 0) {
                 QueueCharacterEvent(character, g_special_event21, 0, 0x7f);
-                return 0;
+                return false;
             }
         }
     }
@@ -684,11 +684,11 @@ unsigned char W8CharacterEvent::Dispatch()
             npc = GetNpcState(npc_index);
             row->pending_event_type = event_type;
             if (npc == 0) {
-                return 1;
+                return true;
             }
             if (npc->name_style == W8_NPC_VI_DOMINA && event_type > 0x8b && event_type < 0x92 &&
                 GetLoadedLevelID() != 0) {
-                return 0;
+                return false;
             }
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(1);
@@ -703,7 +703,7 @@ unsigned char W8CharacterEvent::Dispatch()
             }
             slot->active_character_event = this;
             CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
-            return 1;
+            return true;
         }
         quote = GetPartyQuoteText(*character, event_type);
         if (PlayEventSound(quote) != 0) {
@@ -714,23 +714,23 @@ unsigned char W8CharacterEvent::Dispatch()
                 slot->active_character_event = this;
                 row->pending_event_type = event_type;
                 slot->pending_event_type = event_type;
-                return 1;
+                return true;
             }
             SetPartyPortraitEventState(party_slot, true, event_type, {}, 1);
             slot->pending_event_type = event_type;
-            return 1;
+            return true;
         }
         Complete();
         if (quote.empty()) {
-            return 0;
+            return false;
         }
         CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
         CurrentGame().speech.RestartFollowUpClock(this);
-        return 0;
+        return false;
     }
 finish_without_dispatch:
     Complete();
-    return 0;
+    return false;
 }
 
 namespace {
@@ -1068,39 +1068,39 @@ bool W8CharacterEventQueue::HasEventCharacter(unsigned int event_type, unsigned 
             static_cast<unsigned char>(1 << (party_slot & 31))) != 0;
 }
 
-unsigned char W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entry)
+bool W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entry)
 {
     if (entry == 0 || active_event_type == -1 ||
         entry->event_type != static_cast<unsigned int>(active_event_type)) {
-        return 1;
+        return true;
     }
 
     unsigned int party_slot = CharacterPointerToPartySlot(entry->character);
     if (party_slot == static_cast<unsigned int>(active_party_slot)) {
-        return 1;
+        return true;
     }
 
     if (TimeUntilDeadline(recent_event_clock) == 0) {
         active_event_type = -1;
         active_party_slot = -1;
-        return 1;
+        return true;
     }
 
     unsigned int event_type = entry->event_type;
     unsigned int descriptor_index;
     if (!MapEventTypeToDescriptorIndex(event_type, &descriptor_index)) {
-        return 1;
+        return true;
     }
     if (g_character_event_descriptors[descriptor_index].coalesce_duplicates == 0) {
-        return 1;
+        return true;
     }
 
     entry->original_event_type = event_type;
     if (event_type == 4) {
-        return 0;
+        return false;
     }
     entry->event_type = 10;
-    return 1;
+    return true;
 }
 
 bool W8CharacterEventQueue::HasActiveEvents()
@@ -1562,7 +1562,7 @@ void RequeueSelectedPortraitEvent(void)
 
 /* Occupied slots with portrait_event_active set still have a portrait/voice record in
    flight; trap-trigger follow-up waits until none of those are active. */
-unsigned char PartyPortraitEventsIdle(void)
+bool PartyPortraitEventsIdle(void)
 {
     W8PartySlotRow* row = CurrentGame().party.rows;
     const W8MonsterManagerEntry* current;
@@ -1570,10 +1570,10 @@ unsigned char PartyPortraitEventsIdle(void)
     for (current = CurrentGame().monster_manager_entries;
          current < &CurrentGame().monster_manager_entries[8]; ++current, ++row) {
         if (row->fOccupied && current->portrait_event_active) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 static void SetCurrentPortraitPose(W8PortraitAnimation& record, int pose)

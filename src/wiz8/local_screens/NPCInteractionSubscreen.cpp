@@ -152,7 +152,7 @@ void HideNpcQuoteBubbleRegion()
 }
 
 static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
-static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
+static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
 static void HandleNpcDialogueDeparture(unsigned char value);
 static void CreateNpcDialogueControls(void);
@@ -204,7 +204,7 @@ static void RequestNpcSpellService3(void);
 static void RequestNpcSpellService41(void);
 static void RequestNpcCharacterService(void);
 static void ConfirmNpcTradePurchase(void);
-static unsigned char AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
+static bool AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
 void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 static W8NpcInteractionState g_npc_interaction_storage;
@@ -665,7 +665,7 @@ void DispatchPendingNpcScriptNotice(void)
    disposition band picks the hostile or friendly entry. */
 static void CloseActiveNpcDialogueLayout();
 
-static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force)
+static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force)
 {
     W8NpcInteractionState* state;
     W8MonsterInfo* info;
@@ -776,7 +776,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     g_npc_interaction_state->text_box_collapsed = true;
     space = " ";
     ShowNotice(W8_FONT_PALETTE_YELLOW, space, 3);
-    return 1;
+    return true;
 }
 
 /* Stage `npc` as the dialogue NPC: bind its monster's location, clear its
@@ -3551,9 +3551,9 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 
 /* Retail ICF shares this constant-return callback with the retained body at
    0x005b1740; this typed source callback has no separate address marker. */
-static unsigned char AcceptNpcDialogueItem(W8NpcState*, W8ItemInstance*, int)
+static bool AcceptNpcDialogueItem(W8NpcState*, W8ItemInstance*, int)
 {
-    return 1;
+    return true;
 }
 
 /* While NPC script deferral holds character events during an open dialogue,
@@ -4252,7 +4252,7 @@ bool IsNpcDialogueTextInputActive(void)
     return CurrentGame().activity.conversation &&
            g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
 }
-unsigned char SetNpcDialoguePanelVisible(unsigned char value)
+bool SetNpcDialoguePanelVisible(unsigned char value)
 {
     W8NpcDialogueTextController* controller;
 
@@ -4274,7 +4274,7 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
             RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
             RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
             g_npc_interaction_state->dialogue_panel_hidden = true;
-            return 1;
+            return true;
         }
 
         controller = g_npc_interaction_state->ui->transcript.get();
@@ -4286,9 +4286,9 @@ unsigned char SetNpcDialoguePanelVisible(unsigned char value)
         SyncNpcDialogueTranscriptScrollButtons();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         g_npc_interaction_state->dialogue_panel_hidden = false;
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 bool FinishNpcVoiceIfSessionActive(void)
 {

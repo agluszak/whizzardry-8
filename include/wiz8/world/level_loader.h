@@ -91,4 +91,4 @@ class LevelSpatialIndex;
 struct World;
 
 std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner);
-unsigned char BuildCollisionIndex(LevelSpatialIndex* game_data);
+bool BuildCollisionIndex(LevelSpatialIndex* game_data);

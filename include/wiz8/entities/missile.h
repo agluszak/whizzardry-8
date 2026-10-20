@@ -51,7 +51,7 @@ struct MissileFlight {
     bool unknown_1c{};
 };
 
-unsigned char UpdateMissileAI(MissileFlight* record);
+bool UpdateMissileAI(MissileFlight* record);
 float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps);
 
 /* The copy path allocates 0x328 bytes and invokes CyclePlayer's copy constructor

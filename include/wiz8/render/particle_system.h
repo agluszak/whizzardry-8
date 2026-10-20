@@ -49,7 +49,7 @@ public:
        by the submitted batch. Their retail names remain unavailable. */
     void Update(); /* 0x00499FA0 */
     void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
-    unsigned char ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement);
+    bool ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement);
 
     ParticleSystem& operator=(const ParticleSystem&) = delete;
 

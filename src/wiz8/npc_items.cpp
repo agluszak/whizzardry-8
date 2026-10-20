@@ -157,7 +157,7 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     return index;
 }
 
-unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
+bool MaintainNpcStock(W8NpcState* npc, bool force)
 {
     W8NpcItemEntry* entry;
     const W8NpcItemStockRule* rule;
@@ -207,17 +207,17 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
     if (static_cast<unsigned int>(CurrentGame().status.world_clock - npc->maintenance_clock) <
             0x15180 &&
         !force) {
-        return 0;
+        return false;
     }
     DecayNpcInventory(npc);
     RestockNpcItems(npc);
     RemoveDepletedNpcStock(npc);
     npc->maintenance_clock = CurrentGame().status.world_clock;
     npc->restock_clock = CurrentGame().status.world_clock;
-    return 1;
+    return true;
 }
 
-unsigned char PopulateNpcStock(W8NpcState* npc)
+bool PopulateNpcStock(W8NpcState* npc)
 {
     const W8NpcItemStockRule* rule;
     std::size_t rule_count;
@@ -232,7 +232,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
     rule_count = npc->record->item_stock_rules.size();
     if (rule_count == 0) {
         npc->items.clear();
-        return 1;
+        return true;
     }
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
         rule = &npc->record->item_stock_rules[rule_index];
@@ -263,7 +263,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
     SortNpcItems(npc);
     npc->maintenance_clock = CurrentGame().status.world_clock;
     npc->restock_clock = CurrentGame().status.world_clock;
-    return 1;
+    return true;
 }
 
 /* Order the stock as the item pool orders items; equal entries keep their order. */
@@ -444,8 +444,8 @@ std::size_t GetNpcItemCount(W8NpcState* npc)
 
 static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
 
-static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
-                                   bool suppress_payment)
+static bool SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
+                          bool suppress_payment)
 {
     W8ItemInstance stack;
     int amount;
@@ -462,10 +462,10 @@ static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsign
                 item->stack_count = 1;
             }
             AddNpcItemFromInstance(npc, item, quantity);
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& selection)
@@ -697,16 +697,16 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     return {W8TradeOutcome::Complete, false, !drops.empty()};
 }
 
-unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity)
+bool ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity)
 {
     W8NpcItemEntry* entry;
 
     if (quantity == 0) {
-        return 0;
+        return false;
     }
     entry = GetNpcItemAt(npc, index);
     if (entry == 0) {
-        return 0;
+        return false;
     }
     if (Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->item.stack_count < quantity) {
@@ -715,7 +715,7 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
         entry->item.stack_count -= quantity;
         if (entry->item.stack_count == 0) {
             entry->quantity = 0;
-            return 1;
+            return true;
         }
     } else {
         if (entry->quantity < quantity) {
@@ -723,7 +723,7 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
         }
         entry->quantity -= quantity;
     }
-    return 1;
+    return true;
 }
 
 /* Remove ordinary stock that is neither protected by its item flags nor kept

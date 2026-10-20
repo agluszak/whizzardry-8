@@ -156,14 +156,13 @@ void StartAmbientSoundList(World& world);
 void PositionAmbientSoundByName(World* /* unused */, std::string_view name);
 void StopAmbientSoundByName(World* /* unused */, std::string_view name);
 void ToggleAmbientSoundByName(std::string_view name);
-unsigned char AddAmbientSound(World* world, std::string_view name,
-                              const W8AmbientSoundConfig* config, const glm::vec3* position,
-                              const glm::vec3* region_min, const glm::vec3* region_max,
-                              int volume_min, int volume_max, int time_min, int time_max,
-                              int speed_min, int speed_max, float radius, bool looping,
-                              unsigned char bounded, const glm::vec3* region_center,
-                              float region_angle, const glm::vec3* region_axis,
-                              const glm::vec3* region_scale, unsigned char shared);
+bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundConfig* config,
+                     const glm::vec3* position, const glm::vec3* region_min,
+                     const glm::vec3* region_max, int volume_min, int volume_max, int time_min,
+                     int time_max, int speed_min, int speed_max, float radius, bool looping,
+                     unsigned char bounded, const glm::vec3* region_center, float region_angle,
+                     const glm::vec3* region_axis, const glm::vec3* region_scale,
+                     unsigned char shared);
 
 void SaveAmbientSoundList(wiz8::File& handle);
 struct W8AmbientSoundState {

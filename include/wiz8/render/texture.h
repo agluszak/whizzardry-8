@@ -113,7 +113,7 @@ public:
     int IsFinished() const;
     unsigned char Prepare();
     void UpdateFrame();
-    int isSurfaceLoaded() const { return surface != nullptr; }
+    bool isSurfaceLoaded() const { return surface != nullptr; }
     SDL_Surface* getSurface() const { return surface.get(); }
     bool hasAlpha();
     void loadSurface();

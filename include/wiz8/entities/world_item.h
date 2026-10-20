@@ -71,6 +71,6 @@ struct WorldItemEntity {
     bool IsRadarBlipLit();
 };
 
-unsigned char RunItemTrigger(WorldItemEntity* item);
+bool RunItemTrigger(WorldItemEntity* item);
 std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

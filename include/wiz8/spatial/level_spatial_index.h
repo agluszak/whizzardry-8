@@ -246,9 +246,9 @@ public:
 
     /* Returns whether the pairing ended up recorded; every recovered caller
        discards it. */
-    unsigned char RegisterObjectCell(W8OctreeObjectKind kind, int id, const glm::ivec3& point);
-    unsigned char MoveObjectToCell(W8OctreeObjectKind kind, int id, const glm::ivec3& point);
-    unsigned char UnregisterObject(W8OctreeObjectKind kind, int id);
+    bool RegisterObjectCell(W8OctreeObjectKind kind, int id, const glm::ivec3& point);
+    bool MoveObjectToCell(W8OctreeObjectKind kind, int id, const glm::ivec3& point);
+    bool UnregisterObject(W8OctreeObjectKind kind, int id);
 };
 
 /* The two compact records stored in an OCT file.  A branch is its two shorts
@@ -318,7 +318,7 @@ public:
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
-    unsigned char ReadWGDList(wiz8::File& file, int poly_type);
+    bool ReadWGDList(wiz8::File& file, int poly_type);
     /* Selects a switch interface's state: the matching state group's
        conditional polygons clear surface flag 0x10 while every other state's
        polygons set it. */
@@ -507,8 +507,8 @@ public:
     unsigned char PrepareNavigatorTarget(NavigatorMovement* movement, float radius,
                                          float separation);
     unsigned char PrepareNavigatorPatrol(NavigatorMovement* movement, float minimum, float maximum);
-    unsigned char LinkNavigatorTarget(NavigatorMovement* movement, const glm::vec3* target,
-                                      float separation);
+    bool LinkNavigatorTarget(NavigatorMovement* movement, const glm::vec3* target,
+                             float separation);
     /* The path surface's normal at `position`; straight up without a
        pathing service. */
     glm::vec3 pathSurfaceNormal(const glm::vec3& position) const;

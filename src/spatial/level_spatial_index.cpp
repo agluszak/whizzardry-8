@@ -767,15 +767,15 @@ unsigned char LevelSpatialIndex::PrepareNavigatorPatrol(NavigatorMovement* movem
     return result;
 }
 
-unsigned char LevelSpatialIndex::LinkNavigatorTarget(NavigatorMovement* movement,
-                                                     const glm::vec3* target, float separation)
+bool LevelSpatialIndex::LinkNavigatorTarget(NavigatorMovement* movement, const glm::vec3* target,
+                                            float separation)
 {
     PathSearchScratch path_search;
     if (pathing != 0) {
         return pathing->LinkAttachmentTarget(path_search, movement->attachment.get(),
                                              movement->navigation_filter, target, separation);
     }
-    return 0;
+    return false;
 }
 
 /* The cell-walk probes and the trace helpers the two line-of-sight bodies use.
@@ -1074,8 +1074,8 @@ no_probes:;
 /* Second Remove emission (0x00438C90 above is the other), serving the
    keyboard/automap tables' callers. */
 
-unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, int id,
-                                                       const glm::ivec3& point)
+bool W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, int id,
+                                              const glm::ivec3& point)
 {
     unsigned int object_key = PackOctreeObjectKey(kind, id);
     unsigned int cell_key = PackOctreeCellKey(point.x, point.y, point.z);
@@ -1086,23 +1086,23 @@ unsigned char W8OctreeObjectRegistry::MoveObjectToCell(W8OctreeObjectKind kind, 
     InsertIndexValue(by_object, object_key, cell_value);
     RemoveIndexValue(by_cell, cell_key, object_value);
     InsertIndexValue(by_cell, cell_key, object_value);
-    return 1;
+    return true;
 }
 
-unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, int id)
+bool W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, int id)
 {
     unsigned int object_key = PackOctreeObjectKey(kind, id);
     int object_value = static_cast<int>(object_key);
     const auto slot = by_object.equal_range(object_key).first;
     if (slot == by_object.end()) {
-        return 0;
+        return false;
     }
     const auto cell_key = static_cast<unsigned int>(slot->second);
     by_object.erase(slot);
     RemoveIndexValue(by_cell, cell_key, object_value);
     // Retail advances through the erased slot's free-list link and normally
     // ends here. Preserve the single-pair removal without dereferencing erase.
-    return 1;
+    return true;
 }
 
 /* Record that one object now occupies one cell.
@@ -1116,8 +1116,8 @@ unsigned char W8OctreeObjectRegistry::UnregisterObject(W8OctreeObjectKind kind, 
 
    The two indexes are the same pair AddCollidablePropBounds keeps: one keyed by
    cell, one keyed by object. */
-unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind, int id,
-                                                         const glm::ivec3& point)
+bool W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind, int id,
+                                                const glm::ivec3& point)
 {
     unsigned int object_key = PackOctreeObjectKey(kind & 0xffff, id);
     int occupied = LookupIndexValue(by_object, object_key);
@@ -1127,7 +1127,7 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
            and the old y byte is shifted too far. Preserve that test. */
         if (point.x == 0 && (((occupied - 1) & 0xff00) << 8) == point.y &&
             OctreeCellKeyZ(occupied) == point.z) {
-            return 1;
+            return true;
         }
         unsigned int occupied_key = static_cast<unsigned int>(occupied);
         int object_value = static_cast<int>(object_key);
@@ -1151,7 +1151,7 @@ unsigned char W8OctreeObjectRegistry::RegisterObjectCell(W8OctreeObjectKind kind
     InsertIndexValue(by_object, object_key, cell_value);
     RemoveIndexValue(by_cell, cell_key, object_value);
     InsertIndexValue(by_cell, cell_key, object_value);
-    return 1;
+    return true;
 }
 
 /* Register one collidable prop against every octree cell its bounding box

@@ -49,7 +49,7 @@ struct W8SpellCastingView {
     bool dialog_confirmed;
 };
 
-unsigned char OpenSpellCastingView(int party_slot);
+bool OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);

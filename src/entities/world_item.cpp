@@ -216,21 +216,21 @@ void WorldItemEntity::LightRadarBlip()
     countdown = MonotonicMilliseconds() + 10000;
 }
 
-unsigned char RunItemTrigger(WorldItemEntity* item)
+bool RunItemTrigger(WorldItemEntity* item)
 {
     if (!item) {
-        return 0;
+        return false;
     }
     Trigger* trigger = item->trigger;
     if (!trigger) {
-        return 1;
+        return true;
     }
     trigger->Run(-1);
     if (trigger->action_state == W8TriggerActionState::inactive ||
         trigger->action_state == W8TriggerActionState::fallback_action) {
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item)

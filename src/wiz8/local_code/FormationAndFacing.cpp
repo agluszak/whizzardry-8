@@ -618,7 +618,7 @@ int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second)
 
 /* Whether the second monster is looking away from the first, measured the
    shortest way round like IsPartyLookingAwayFrom. */
-int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
+bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
 {
     glm::vec3 first_position = first->p3D->nav.GetPosition();
     glm::vec3 second_position = second->p3D->nav.GetPosition();
@@ -626,9 +626,9 @@ int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second)
     float facing = second->p3D->nav.GetYaw();
 
     if (static_cast<float>(g_facing_tolerance1) <= ShortestAngleDistance(bearing, facing)) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The monster's bearing off the camera direction folded into one of the four
@@ -691,7 +691,7 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
 
 /* Whether the monster sits on the side opposite the one the character faces -
    the being-snuck-up-on test. */
-int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
+bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
 {
     glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
     signed char side;
@@ -712,7 +712,7 @@ int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
         break;
     default:
         Fail("FALSE");
-        return 0;
+        return false;
     }
     difference = side - CurrentGame().party.formation.positions[party_slot].facing;
     if (difference < 0) {

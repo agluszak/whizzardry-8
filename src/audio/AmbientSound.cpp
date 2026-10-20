@@ -554,14 +554,13 @@ W8AmbientSound::~W8AmbientSound()
 
 /* Build a complete ambient-sound row and attach it to the world's list. The
    twenty parameters and their widths come directly from the stack reads. */
-unsigned char AddAmbientSound(World* world, std::string_view name,
-                              const W8AmbientSoundConfig* config, const glm::vec3* position,
-                              const glm::vec3* region_min, const glm::vec3* region_max,
-                              int volume_min, int volume_max, int time_min, int time_max,
-                              int speed_min, int speed_max, float radius, bool looping,
-                              unsigned char bounded, const glm::vec3* region_center,
-                              float region_angle, const glm::vec3* region_axis,
-                              const glm::vec3* region_scale, unsigned char shared)
+bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundConfig* config,
+                     const glm::vec3* position, const glm::vec3* region_min,
+                     const glm::vec3* region_max, int volume_min, int volume_max, int time_min,
+                     int time_max, int speed_min, int speed_max, float radius, bool looping,
+                     unsigned char bounded, const glm::vec3* region_center, float region_angle,
+                     const glm::vec3* region_axis, const glm::vec3* region_scale,
+                     unsigned char shared)
 {
     auto sound = std::make_unique<W8AmbientSound>();
 
@@ -585,7 +584,7 @@ unsigned char AddAmbientSound(World* world, std::string_view name,
     sound->bounded = bounded;
     sound->shared = shared;
     world->audio.emitters.push_back(std::move(sound));
-    return 1;
+    return true;
 }
 
 /* The by-name script operations share one lookup and the same start/stop

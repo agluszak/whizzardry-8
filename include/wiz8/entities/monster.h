@@ -96,7 +96,7 @@ public:
     Monster& operator=(const Monster&) = delete;
     ~Monster();
 
-    unsigned char CanEnterCycle(signed char cycle);
+    bool CanEnterCycle(signed char cycle);
     void UpdateRepresentation(World* world);
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
@@ -251,8 +251,8 @@ public:
     bool HasLineOfSightToMonster(Monster* monster);
     void GetMonsterSightFlags(Monster* monster, bool* primary, bool* secondary);
     bool HasLineOfSightFromPoint(glm::vec3 point);
-    int IsFacingMonster(Monster* monster);
-    int IsFacingPlayer();
+    bool IsFacingMonster(Monster* monster);
+    bool IsFacingPlayer();
     void ApplyRepresentationScale();
     void RefreshStandingHeight();
 

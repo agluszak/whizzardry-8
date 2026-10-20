@@ -68,7 +68,7 @@ constexpr std::array all_fonts = {
 };
 }
 
-unsigned char InitializeMenuFonts(void)
+bool InitializeMenuFonts(void)
 {
     const std::array fonts{
         std::tuple{&g_large_font, "Data\\Fonts\\LargeFont.sti", FONT_GLOW_GREEN},
@@ -100,7 +100,7 @@ unsigned char InitializeMenuFonts(void)
     for (size_t index = 0; index < fonts.size(); ++index) {
         const auto& [role, filename, shade] = fonts[index];
         if (!loaded[index].load(filename)) {
-            return 0;
+            return false;
         }
     }
     for (size_t index = 0; index < fonts.size(); ++index) {
@@ -115,7 +115,7 @@ unsigned char InitializeMenuFonts(void)
     for (size_t index = 0; index < fonts.size(); ++index)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
     g_font_state_palettes.swap(palettes);
-    return 1;
+    return true;
 }
 
 void ReleaseMenuFonts()
