@@ -1951,11 +1951,11 @@ void OpenNpcDialogueTranscriptLayout(void)
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptCategoryFilter(
         CurrentGame().npc_interaction.dialogue_category_filter);
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptSorted(
-        CurrentGame().npc_interaction.transcript_sorted);
+        CurrentGame().story.dialogue_keywords_sorted);
     CurrentGame().npc_interaction.ui->transcript->Expand();
     SyncNpcDialogueTranscriptScrollButtons();
     SyncDialogueCategoryButtons();
-    if (CurrentGame().npc_interaction.transcript_sorted) {
+    if (CurrentGame().story.dialogue_keywords_sorted) {
         SetNpcActionPressed(W8_NPC_CONTROL_SORT_BUTTON, true);
     } else {
         SetNpcActionPressed(W8_NPC_CONTROL_SORT_BUTTON, false);
@@ -2152,12 +2152,12 @@ static void SyncNpcDialogueListFilter(void)
     if (CurrentGame()
             .npc_interaction.ui->actions[W8_NPC_CONTROL_SORT_BUTTON]
             .interaction.selected) {
-        CurrentGame().npc_interaction.transcript_sorted = true;
+        CurrentGame().story.dialogue_keywords_sorted = true;
     } else {
-        CurrentGame().npc_interaction.transcript_sorted = false;
+        CurrentGame().story.dialogue_keywords_sorted = false;
     }
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptSorted(
-        CurrentGame().npc_interaction.transcript_sorted);
+        CurrentGame().story.dialogue_keywords_sorted);
 }
 
 static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueCategory category)
@@ -4176,18 +4176,12 @@ void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory cate
                                                        : W8_DIALOGUE_CATEGORY_MISC;
         }
     }
-    for (int index = 0;
-         index < static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size());
-         ++index) {
-        if (CompareTextIgnoreAsciiCase(
-                (CurrentGame().npc_interaction.dialogue_transcript[index])->text, keyword) == 0) {
-            return;
-        }
-    }
-    auto record = std::make_unique<W8DialogueTranscriptRecord>();
-    record->text = keyword;
-    record->category = category;
-    CurrentGame().npc_interaction.dialogue_transcript.push_back(std::move(record));
+    auto& keywords = CurrentGame().story.dialogue_keywords;
+    if (std::ranges::any_of(keywords, [&](const W8DialogueTranscriptRecord& known) {
+            return CompareTextIgnoreAsciiCase(known.text, keyword) == 0;
+        }))
+        return;
+    keywords.push_back({.text = std::string(keyword), .category = category});
 }
 
 void RecordLevelEntryDialogueState(void)

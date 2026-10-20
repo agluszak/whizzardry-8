@@ -199,14 +199,14 @@ Unlayered code may use the layers.
   - the party and the status record;
   - the random stream, `rng`;
   - the story (`story.h`): facts, faction dispositions and relations, the journal, NPC
-    states and level-script variables;
+    states, level-script variables and the dialogue keywords the party has heard;
   - the text boxes' message log;
   - combat and the spell effects still in progress;
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
-  - the NPC conversation: its progress (`npc_dialogue`), its interface state and saved
-    transcript (`npc_interaction`, which also stages the next script notice), the quote
+  - the NPC conversation: its progress (`npc_dialogue`), its interface state
+    (`npc_interaction`, which also stages the next script notice), the quote
     or portrait message on screen and the NPC voice (`npc_presentation`, `npc_speech`)
     and the Al-Sedexus scene;
   - the shared spell cooldowns;

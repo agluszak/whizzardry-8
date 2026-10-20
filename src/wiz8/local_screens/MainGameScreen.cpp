@@ -2067,18 +2067,12 @@ void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory
 
 void W8NpcDialogueTextController::RestoreTranscriptEntries()
 {
-    W8DialogueTranscriptRecord* record;
     W8NpcDialogueTextController* controller;
-    int index;
 
-    for (index = 0;
-         index < static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size());
-         ++index) {
-        record = CurrentGame().npc_interaction.dialogue_transcript[index].get();
-        AddTranscriptEntry(record->text, record->category, 0);
-    }
+    for (const auto& keyword : CurrentGame().story.dialogue_keywords)
+        AddTranscriptEntry(keyword.text, keyword.category, 0);
     InvalidateAll();
-    if (CurrentGame().npc_interaction.dialogue_transcript.empty()) {
+    if (CurrentGame().story.dialogue_keywords.empty()) {
         CurrentGame().npc_interaction.dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         controller = CurrentGame().npc_interaction.ui->transcript.get();
         controller->SetTranscriptCategoryFilter(
@@ -6136,13 +6130,11 @@ void ClearHighlightOverlayRegion(void)
    redraw the controller. */
 void W8NpcDialogueTextController::SaveTranscriptEntries()
 {
-    CurrentGame().npc_interaction.dialogue_transcript.clear();
+    auto& keywords = CurrentGame().story.dialogue_keywords;
+    keywords.clear();
     for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        auto record = std::make_unique<W8DialogueTranscriptRecord>();
         W8DialogTextEntry* entry = text_area.GetEntry(index);
-        record->text = entry->GetText();
-        record->category = entry->m_category;
-        CurrentGame().npc_interaction.dialogue_transcript.push_back(std::move(record));
+        keywords.push_back({.text = std::string(entry->GetText()), .category = entry->m_category});
     }
 }
 

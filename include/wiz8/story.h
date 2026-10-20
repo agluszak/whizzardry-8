@@ -8,6 +8,7 @@
 
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 
 /* One fact change as the journal lists it. */
@@ -67,4 +68,8 @@ struct Story {
        hold them. */
     std::vector<std::unique_ptr<W8NpcState>> retired_npcs;
     std::vector<W8LocationVariable> location_variables;
+    /* The dialogue keywords the party has heard, in the transcript's order, and whether
+       the transcript lists them sorted. Saves store them in the NPCI section. */
+    std::vector<W8DialogueTranscriptRecord> dialogue_keywords;
+    bool dialogue_keywords_sorted = false;
 };

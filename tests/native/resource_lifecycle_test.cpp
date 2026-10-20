@@ -44,7 +44,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
-#include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
@@ -132,7 +131,7 @@ static void queued_state_teardown(GameSession& session)
 {
     AddDialogueTranscriptKeyword("Monastery", W8_DIALOGUE_CATEGORY_PLACES);
     AddDialogueTranscriptKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES);
-    REQUIRE((static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size()) == 2));
+    REQUIRE((CurrentGame().story.dialogue_keywords.size() == 2));
     auto& dialogue = CurrentGame().npc_dialogue;
     dialogue.QueuePortraitMessage(std::string(80, 't'));
     dialogue.QueuePortraitMessage(std::string(80, 't'), W8ExperienceNoticePayload{});
@@ -140,7 +139,7 @@ static void queued_state_teardown(GameSession& session)
     dialogue.QueuePortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
     REQUIRE(dialogue.has_queued_actions());
     session.begin();
-    REQUIRE(CurrentGame().npc_interaction.dialogue_transcript.empty());
+    REQUIRE(CurrentGame().story.dialogue_keywords.empty());
     REQUIRE((!CurrentGame().npc_dialogue.has_queued_actions()));
 }
 
