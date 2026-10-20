@@ -208,6 +208,7 @@ static void ConfirmNpcTradePurchase(void);
 static bool AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
 void OnNpcDialogClosed(W8NpcDialog& dialog);
 
+W8NpcInteractionState::W8NpcInteractionState() = default;
 W8NpcInteractionState::~W8NpcInteractionState() = default;
 
 /* MonotonicMilliseconds sample for the trade-item highlight timeout. */

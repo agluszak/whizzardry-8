@@ -117,7 +117,7 @@ public:
     W8NpcDialogue npc_dialogue;
     /* The conversation's interface: layouts, trade tables, the saved transcript and the
        staged script notice. */
-    W8NpcInteractionState npc_interaction{};
+    W8NpcInteractionState npc_interaction;
     // The quote or portrait message on screen and the NPC voice that speaks it.
     W8NpcPresentation npc_presentation = W8NpcPresentation::none;
     W8NpcSpeech npc_speech;
