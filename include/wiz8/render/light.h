@@ -131,7 +131,7 @@ public:
 public:
     void Reset();                                              /* 0x0049D070 */
     void SetDefinitionTime(float time);                        /* 0x0049C940 */
-    void Update();                                             /* 0x0049C960 */
+    void Update(float world_seconds);                                             /* 0x0049C960 */
 
     float positionalX() const { return m_position.x; }
     float positionalY() const { return m_position.y; }
@@ -152,15 +152,16 @@ public:
     /* Raised by light-toggle triggers; the save path serializes the names of
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
-    /* MonotonicMilliseconds()/1000 timestamp of the last intensity/color update. */
-    float m_level_time;
+    /* Held-world seconds of the last intensity/color update. */
+    float m_level_time = -1;
+    std::optional<float> animation_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */
     float m_level;
     std::optional<KeyframeTrack> path_ai;
     /* Current path entry index, advanced by m_path_direction. */
     int m_path_index;
-    /* MonotonicMilliseconds()/1000 timestamp of the last path advance. */
-    float m_path_time;
+    /* Held-world seconds of the last path advance. */
+    float m_path_time = -1;
     /* Path step direction, +1 or -1 under the ping-pong flag. */
     int m_path_direction;
     Prop* m_prop; /* 0x254 */
@@ -169,7 +170,7 @@ public:
           const glm::vec3* second_color);
     void SetVisible(bool visible);
     void SetRange(float range);
-    void Update(const glm::vec3* position);
+    void Update(const glm::vec3* position, float world_seconds);
     void StartFadeOut();
 
 public:

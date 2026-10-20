@@ -1532,14 +1532,14 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.SetTexture(outer);
     REQUIRE(particles.activateParticle(false));
-    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    inner->playback->elapsed = std::chrono::milliseconds{1000};
     REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
     particles.AdvanceSimulation();
     REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
     inner->SetFrame(0);
-    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    inner->playback->elapsed = std::chrono::milliseconds{1000};
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);

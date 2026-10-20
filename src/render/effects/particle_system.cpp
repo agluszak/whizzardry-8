@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -547,7 +548,8 @@ void ParticleSystem::AdvanceSimulation()
     // An IFL frame can itself be animated. Resolve the selected chain here
     // so every view later consumes the same complete playback snapshot.
     for (unsigned index = 0; index < texture_frames.size(); ++index)
-        if (particle_active[index]) texture_frames[index]->resolve();
+        if (particle_active[index])
+            texture_frames[index]->UpdateFrame(std::chrono::milliseconds(GameClockMilliseconds()));
     Update();
 
     if (emission_limit != 0 && emission_count >= emission_limit) {

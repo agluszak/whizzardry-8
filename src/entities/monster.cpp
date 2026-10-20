@@ -1478,7 +1478,8 @@ void Monster::UpdateRepresentation(World* world)
             SetModelInstanceExclusionMask(model, 4);
         }
         if (monster_light != 0) {
-            monster_light->Update(&position);
+            monster_light->Update(&position,
+                                  std::chrono::duration<float>(CurrentGame().visual_time).count());
         }
         if (!visual.enabled) {
             visual.enabled = true;

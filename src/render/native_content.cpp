@@ -98,6 +98,11 @@ NativeContent::NativeContent(vsg::ref_ptr<vsg::Node> source, std::shared_ptr<Mat
     if (parts.empty()) throw std::runtime_error("Native content has no supported indexed geometry");
 }
 
+void NativeContent::advanceTextures(std::chrono::milliseconds now)
+{
+    if (texture) texture->UpdateFrame(now);
+}
+
 void NativeContent::prepare(RenderContext& context, const ScenePass& pass)
 {
     DrawShader shader;

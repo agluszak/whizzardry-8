@@ -207,7 +207,7 @@ vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t sh
 
 vsg::ref_ptr<vsg::ImageInfo> RenderContext::texture(Texture* source, int reduction)
 {
-    return source ? source->imageInfo(reduction, frame_number) : white;
+    return source ? source->imageInfo(reduction) : white;
 }
 
 vsg::ref_ptr<vsg::BindDescriptorSet> RenderContext::descriptor(std::uint32_t set,

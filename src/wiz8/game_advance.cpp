@@ -20,6 +20,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/environment.h"
@@ -61,6 +62,11 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         AdvancePartyVoices();
     }
     if (!activity.in_world()) return;
+    if (!advancement.held && !SharedGameTimersHeld()) {
+        visual_time += elapsed;
+        for (auto* world : {level.sky.get(), level.primary.get()})
+            if (world) world->scene->advanceVisuals(visual_time);
+    }
 
     search_sweep_due -= elapsed;
     sight_due -= elapsed;

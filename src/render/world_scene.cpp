@@ -554,6 +554,24 @@ MeshInstance* WorldScene::addStaticMesh(std::unique_ptr<MeshInstance> mesh)
     static_meshes.push_back(std::move(mesh));
     return result;
 }
+void WorldScene::advanceVisuals(std::chrono::milliseconds now)
+{
+    struct Advance : vsg::Visitor {
+        std::chrono::milliseconds now;
+        explicit Advance(std::chrono::milliseconds now) : now(now) {}
+        void apply(vsg::Object& object) override { object.traverse(*this); }
+        void apply(vsg::Transform& transform) override
+        {
+            if (auto* instance = dynamic_cast<render::InstanceNode*>(&transform))
+                instance->advanceTextures(now);
+            if (auto* native = dynamic_cast<render::NativeContent*>(&transform))
+                native->advanceTextures(now);
+            transform.traverse(*this);
+        }
+    } advance(now);
+    root->accept(advance);
+}
+
 void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame,
                          std::uint64_t frame_number)
 {

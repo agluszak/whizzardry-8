@@ -6,7 +6,6 @@
 #include "glm/common.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/math.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/vsg_scene.h"
 
@@ -19,7 +18,6 @@ Light::Light(WorldScene* scene, e_preset preset)
     m_path_direction = 1;
     m_position = glm::vec3(0);
     m_level = 0;
-    m_level_time = m_path_time = MonotonicMilliseconds() * .001f;
 
     enable_flags = 0;
     enable_flags = 0;
@@ -61,7 +59,8 @@ Light& Light::operator=(const Light& other)
         m_path_index = other.m_path_index;
         m_path_direction = other.m_path_direction;
         m_level = other.m_level;
-        m_level_time = m_path_time = MonotonicMilliseconds() * .001f;
+        m_level_time = m_path_time = -1;
+        animation_time.reset();
         m_prop = other.m_prop;
         m_save_marked = other.m_save_marked;
         attenuation_model = other.attenuation_model;

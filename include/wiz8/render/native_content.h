@@ -22,6 +22,7 @@ public:
     explicit NativeContent(vsg::ref_ptr<vsg::Node> source, std::shared_ptr<Material> material,
                            std::shared_ptr<Texture> texture = {});
     void prepare(RenderContext& context, const ScenePass& pass);
+    void advanceTextures(std::chrono::milliseconds now);
 
 private:
     struct Part {

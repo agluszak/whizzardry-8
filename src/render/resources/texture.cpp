@@ -22,7 +22,6 @@
 
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
@@ -119,13 +118,11 @@ void Texture::setWrapT(e_wrap value)
     parameters.wrap_t = value;
 }
 
-Texture* Texture::resolve(std::optional<std::uint64_t> visual_frame)
+Texture* Texture::resolve()
 {
     if (playback) {
-        UpdateFrame(visual_frame);
-        return playback->textures.empty()
-                   ? nullptr
-                   : playback->textures.at(playback->frame)->resolve(visual_frame);
+        return playback->textures.empty() ? nullptr
+                                          : playback->textures.at(playback->frame)->resolve();
     }
     if (!source_path.empty() && !surface &&
         !(texture_flags_ & (1u << FLAG_GENERATESURFACE_FAILURE)))
@@ -168,12 +165,11 @@ void Texture::invalidate()
     image_reduction = -1;
 }
 
-vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
-                                                std::optional<std::uint64_t> visual_frame)
+vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction)
 {
-    auto* current = resolve(visual_frame);
+    auto* current = resolve();
     if (!current) return {};
-    if (current != this) return current->imageInfo(reduction, visual_frame);
+    if (current != this) return current->imageInfo(reduction);
     auto effective = parameters;
     if (effective.mag == FILTER_DEFAULT) effective.mag = defaults.mag;
     if (effective.min == FILTER_DEFAULT) effective.min = defaults.min;
@@ -238,7 +234,6 @@ void Texture::setupDefaultValues()
 Texture::Texture(TexturePlayback playback) : Texture()
 {
     this->playback = std::move(playback);
-    this->playback->frame_tick = MonotonicMilliseconds();
 }
 Texture::Texture(std::filesystem::path path, bool preload) : Texture()
 {
@@ -252,8 +247,8 @@ Texture::Texture(const Texture& other) : Texture()
     if (playback) {
         playback->frame = 0;
         playback->direction = 1;
-        playback->frame_tick = MonotonicMilliseconds();
-        playback->visual_frame.reset();
+        playback->elapsed = {};
+        playback->last_update.reset();
     }
 }
 void Texture::releaseSurface()
@@ -288,23 +283,31 @@ void Texture::SetFrame(int frame)
 {
     if (!playback) return;
     playback->frame = frame;
-    playback->frame_tick = MonotonicMilliseconds();
+    playback->elapsed = {};
 }
 void Texture::AddTexture(std::shared_ptr<Texture> texture)
 {
     playback->textures.push_back(std::move(texture));
     texture_flags_ |= 1u << FLAG_DIRTY_DEFAULTS;
 }
-void Texture::UpdateFrame(std::optional<std::uint64_t> visual_frame)
+void Texture::setAnimationClock(TextureClock clock)
 {
-    if (!playback) return;
+    if (!playback || playback->clock == clock) return;
+    playback->clock = clock;
+    playback->last_update.reset();
+    for (const auto& frame : playback->textures)
+        if (frame) frame->setAnimationClock(clock);
+}
+
+void Texture::UpdateFrame(std::chrono::milliseconds now, TextureClock clock)
+{
+    if (!playback || playback->clock != clock) return;
     auto& state = *playback;
-    // A texture can occur in many batches and views. Its animation, including
-    // random triggers, advances only once for an explicitly stamped frame.
-    if (visual_frame) {
-        if (state.visual_frame == visual_frame) return;
-        state.visual_frame = visual_frame;
-    }
+    if (state.last_update == now) return;
+    if (state.last_update && now >= *state.last_update) state.elapsed += now - *state.last_update;
+    state.last_update = now;
+    for (const auto& frame : state.textures)
+        if (frame) frame->UpdateFrame(now, clock);
     const int count = static_cast<int>(state.textures.size());
 
     if (count == 0) return;
@@ -326,7 +329,7 @@ void Texture::UpdateFrame(std::optional<std::uint64_t> visual_frame)
             state.running = true;
             state.direction = 0;
             state.frame = 0;
-            state.frame_tick = MonotonicMilliseconds();
+            state.elapsed = {};
         }
         if (!state.running) {
             return;
@@ -336,8 +339,7 @@ void Texture::UpdateFrame(std::optional<std::uint64_t> visual_frame)
         return;
     }
 
-    const int elapsed_frames =
-        static_cast<int>((MonotonicMilliseconds() - state.frame_tick) * state.frame_rate * 0.001f);
+    const int elapsed_frames = static_cast<int>(state.elapsed.count() * state.frame_rate * 0.001f);
     if (state.animation_mode == W8_TEXTURE_ANIM_LOOP) {
         int next = (state.direction * elapsed_frames) % count;
         if (next < state.frame) {

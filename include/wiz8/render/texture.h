@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdint>
 #pragma once
 #include <filesystem>
@@ -19,6 +20,8 @@ enum W8TextureTriggerMode {
     W8_TEXTURE_TRIGGER_RANDOM_START = 2
 };
 
+enum class TextureClock { World, Presentation };
+
 class Texture;
 struct TexturePlayback {
     std::vector<std::shared_ptr<Texture>> textures;
@@ -27,8 +30,9 @@ struct TexturePlayback {
     W8TextureAnimationMode animation_mode = W8_TEXTURE_ANIM_LOOP;
     int initial_frame = 0;
     float frame_rate = 15.0f;
-    std::uint64_t frame_tick = 0;
-    std::optional<std::uint64_t> visual_frame;
+    TextureClock clock = TextureClock::World;
+    std::chrono::milliseconds elapsed{};
+    std::optional<std::chrono::milliseconds> last_update;
     W8TextureTriggerMode trigger_mode = W8_TEXTURE_TRIGGER_CONTINUOUS;
     float probability = -1.0f;
     bool running = false;
@@ -75,7 +79,7 @@ public:
     Texture(const Texture& other);
 
     Texture& operator=(const Texture& other);
-    Texture* resolve(std::optional<std::uint64_t> visual_frame = {});
+    Texture* resolve();
     // The current animation snapshot, without advancing its clock or random
     // triggers. Particle simulation advances before any views consume it.
     Texture* currentFrame();
@@ -92,8 +96,7 @@ public:
     void invalidate();
     // The texture owns its graphics representation. Animated textures resolve
     // their current image here rather than freezing a frame at asset load time.
-    vsg::ref_ptr<vsg::ImageInfo> imageInfo(int reduction = 0,
-                                           std::optional<std::uint64_t> visual_frame = {});
+    vsg::ref_ptr<vsg::ImageInfo> imageInfo(int reduction = 0);
     void setSurfacePtr(std::shared_ptr<SDL_Surface> pixels);
     SDL_Surface* getSurfacePtr() const { return surface.get(); }
     std::shared_ptr<SDL_Surface> surface;
@@ -122,7 +125,9 @@ public:
     void AddTexture(std::shared_ptr<Texture> texture);
     int IsFinished() const;
     unsigned char Prepare();
-    void UpdateFrame(std::optional<std::uint64_t> visual_frame = {});
+    // The owner advances a chosen clock before any views consume the snapshot.
+    void UpdateFrame(std::chrono::milliseconds now, TextureClock clock = TextureClock::World);
+    void setAnimationClock(TextureClock clock);
     bool isSurfaceLoaded() const { return surface != nullptr; }
     SDL_Surface* getSurface() const { return surface.get(); }
     bool hasAlpha();

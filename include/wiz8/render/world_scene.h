@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -67,6 +68,7 @@ public:
                                        vsg::ref_ptr<vsg::ViewportState>,
                                        std::uint64_t frame_number);
     void pick(const vsg::Camera&, std::span<Pick>) const;
+    void advanceVisuals(std::chrono::milliseconds now);
 
     glm::vec3 getAmbientLight() const { return ambient_light; }
     glm::vec3 getFogColor() const { return fog_color; }
