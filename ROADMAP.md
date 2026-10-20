@@ -20,8 +20,8 @@ of it:
   reaches the game through `CurrentGame()` (about 3,500 uses). The game's state has moved
   into `Game`; the main game's HUD is `MainGameScreen::hud`, reached through
   `MainGameHud()`, and `g_localized_strings` (about 1,080 uses) is now `Data().strings`.
-- **The step is driven by a screen.** `Game::advance` runs the simulation, but only the
-  main game screen calls it, and the screen router still sets `Activity::place`.
+- **The step still reads the clock.** `Game::advance(elapsed)` is the one step, but the
+  code it calls still keeps its own deadlines on the monotonic clock.
 - **Rules drive presentation directly.** Inventory and party report events, but other
   rules still call presentation (notices, redraws, cursor, screen ids), and 33 of the 57
   `local_code` files include screen headers.
@@ -121,19 +121,14 @@ the licensed runtime scenarios after every step.
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
    - This absorbs "characters by slot, items by location" below.
-4. **One step.** `Game::advance` runs the world's simulation (ARCHITECTURE.md,
-   "Stepping").
-   - Speech and the portrait voice state machine (`ProcessDeferredCharacterEvents`,
-     `UpdateCharacterEventState`) still run from the frame, mixed with portrait
-     presentation; split them and move the speech part into the step.
-   - The step reads the clock itself (`w8_get_ticks`, the level's elapsed-time
-     accumulators); pass the elapsed time in (`advance(elapsed)`) so that tests can step
-     a game deterministically.
-   - Game time follows the activity, not the screen: camp commands set `Activity::place`
-     instead of the screen router, and `Place::Menu` goes because a covered screen does
-     not step.
-   - With one step, the world's hold can be read once per step instead of being reported
-     from every call site of `SyncWorldAdvancement` (ARCHITECTURE.md, "Advancement").
+4. **One step.** `Game::advance(elapsed)` is the game's step (ARCHITECTURE.md,
+   "Stepping"); its own countdowns, the frame delta and the environment clock take the
+   elapsed time it is given. What it calls still reads the monotonic clock: the surprise
+   fade, autosave pacing, the combat turn's `action_clock` and waits, the monster
+   manager, props and monster generators (`W8GameTimer`/`W8IntervalGate` on the shared
+   clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
+   Move each onto the elapsed time the step passes down so that a test can step a game
+   deterministically; then add a test that steps a small game with explicit times.
 5. **Presentation owned by screens.**
    - Combat no longer touches `MainGameScreen::hud` (`W8LevelRuntimeBlock`, formerly
      `g_level_block`) except to skip repainting during a review transition, and it
