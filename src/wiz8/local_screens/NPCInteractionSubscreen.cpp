@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -757,8 +758,10 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
             }
         }
     }
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     CancelMouselook();
     info = GetNpcMonsterInfo(npc);
     if (info != 0) {
@@ -772,7 +775,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
         }
         info->p3D->ForwardReferencePosition(0);
     }
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     g_npc_interaction_state->text_box_collapsed = true;
     space = " ";
     ShowNotice(W8_FONT_PALETTE_YELLOW, space, 3);
@@ -1156,8 +1159,10 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     RefreshMainGameLayout();
     g_npc_text_fields.reset();
     g_npc_interaction_state->ui.reset();
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
          index++) {
         ClearMonsterCharm(GetMonsterListEntry(index));
@@ -1168,7 +1173,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
             SetTargetCursor(W8_CURSOR_NONE);
         } else {
             CurrentGame().party.held.item = g_npc_interaction_state->pending_item;
-            SetItemCursor(0);
             g_npc_interaction_state->held_item_pending = false;
         }
         W8NpcState* npc = g_npc_interaction_state->dialogue_npc;
@@ -1471,7 +1475,9 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
             {kInfoDialogX, 0x48});
         dialog->SetText("");
 
-        dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
+        dialog->on_close = [] {
+            if (auto* hud = MainGameHud()) hud->repaint.everything = true;
+        };
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
@@ -1796,7 +1802,7 @@ void ShowNpcDialogueTopicMenu(void)
     } else {
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, false);
     }
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     SelectTextBox(3);
 }
 
@@ -1953,7 +1959,7 @@ void OpenNpcDialogueTranscriptLayout(void)
     } else {
         SetNpcActionPressed(W8_NPC_CONTROL_SORT_BUTTON, false);
     }
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     for (index = 0; index < 8; ++index) {
         if (CurrentGame().party.rows[index].fOccupied) {
             DisableMainGamePortraitSlot(index);
@@ -2262,7 +2268,7 @@ static void OpenNpcDialogueOptionLayout(void)
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
     RebuildNpcTradeItemList(true);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 static void SelectNpcTradePoolControls(W8NpcDialogueControlSlot previous,
@@ -2407,7 +2413,9 @@ static void OpenNpcItemAssay(void)
             {kInfoDialogX, 0x48});
         dialog->SetText("");
 
-        dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
+        dialog->on_close = [] {
+            if (auto* hud = MainGameHud()) hud->repaint.everything = true;
+        };
         OpenModal(std::unique_ptr<ModalContent>(dialog));
     }
 }
@@ -2643,7 +2651,7 @@ static void OpenNpcDialogueMode5Layout(void)
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2, false);
     }
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_3, true);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     SelectTextBox(2);
     if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(2);
@@ -2798,7 +2806,7 @@ static void OpenNpcDialogueMode1Layout(void)
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_SERVICES) {
         RefreshNpcServiceAvailability(CurrentGame().status.selected_character);
     }
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     SelectTextBox(2);
     if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(2);
@@ -3813,9 +3821,11 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
                 g_npc_interaction_state->quote_x + g_npc_interaction_state->quote_width,
                 g_npc_interaction_state->quote_y + g_npc_interaction_state->quote_height);
         }
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.layout = true;
+            hud->repaint.portraits.set();
+            hud->repaint.portrait_panel = true;
+        }
     } else if (auto* camp = FindScreen<CampScreen>()) {
         camp->InvalidateAll();
     }
@@ -3886,10 +3896,12 @@ static void SetNpcDialogueHidden(char value)
         SetNpcDialogueInputEnabled(0, false);
         g_npc_interaction_state->ui->transcript->ClearBackground();
         EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(1);
+            hud->repaint.portraits.set(3);
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
         if (auto* fields = TextFieldGroup::Focused()) fields->SetBlocksMouse(0, true);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, false);
         DisableNpcTradeActions();
@@ -3918,7 +3930,7 @@ static void SetNpcDialogueHidden(char value)
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_5, true);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_6, true);
     }
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     g_npc_interaction_state->dialogue_hidden = value;
 }
 
@@ -4066,7 +4078,6 @@ void CloseNpcDialogueForCamp(void)
     EndNpcDialogueSession(false);
     if (g_npc_interaction_state->held_item_pending) {
         CurrentGame().party.held.item = g_npc_interaction_state->pending_item;
-        SetItemCursor(0);
         return;
     }
     SetTargetCursor(W8_CURSOR_NONE);
@@ -4268,11 +4279,13 @@ bool SetNpcDialoguePanelVisible(unsigned char value)
             controller = g_npc_interaction_state->ui->transcript.get();
             controller->ClearBackground();
             EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
-            RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+            if (auto* hud = MainGameHud()) {
+                hud->repaint.portraits.set(1);
+                hud->repaint.portraits.set(3);
+                hud->repaint.portraits.set(5);
+                hud->repaint.portraits.set(7);
+                hud->repaint.layout = true;
+            }
             g_npc_interaction_state->dialogue_panel_hidden = true;
             return true;
         }
@@ -4284,7 +4297,7 @@ bool SetNpcDialoguePanelVisible(unsigned char value)
         controller = g_npc_interaction_state->ui->transcript.get();
         controller->Expand();
         SyncNpcDialogueTranscriptScrollButtons();
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+        if (auto* hud = MainGameHud()) hud->repaint.layout = true;
         g_npc_interaction_state->dialogue_panel_hidden = false;
         return true;
     }

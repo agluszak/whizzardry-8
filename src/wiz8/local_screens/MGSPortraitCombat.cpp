@@ -264,7 +264,7 @@ static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
 static void SubMenuButtonSurprise(W8ButtonWidget* button)
 {
     RequestCamp();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     DrawSubMenuCharacterAction();
 }
 
@@ -272,7 +272,7 @@ static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 {
     ToggleSearchMode();
     button->SetPressed(CurrentGame().status.search_mode ? 1 : 0);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     DrawSubMenuCharacterAction();
 }
 
@@ -315,7 +315,7 @@ static void SubMenuButtonOpenMenu1(W8ButtonWidget* button)
 static void SubMenuButtonToggleCombat(W8ButtonWidget* button)
 {
     ToggleCombatMode();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     DrawSubMenuCharacterAction();
 }
 
@@ -327,7 +327,7 @@ void DestroySubMenuControls(void)
     SetSubMenuButtonTooltips(1);
     MainGameHud()->open_submenu.reset();
     DestroySubMenuPanel();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 void ReopenSubMenuPanel(void)

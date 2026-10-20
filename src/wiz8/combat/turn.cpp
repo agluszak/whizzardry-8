@@ -165,9 +165,9 @@ void Combat::finishAction(Game& game, const CombatActor& actor)
             break;
         default:
             ResetCombatSlot(&row->committed.target);
-            RequestPartySlotRedraw(slot);
+            CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(slot)});
             if (slot == game.status.selected_character) {
-                RequestRedrawParty();
+                CurrentGame().events.push(MonstersChanged{});
             }
             SetCharacterCombatAction(slot, row->remembered.basic(), 0);
         }
@@ -277,7 +277,8 @@ void Combat::scheduleNextActor(Game& game)
                 combat_row->phase = 0;
                 if (!combat_row->dead) {
                     combat_row->dead = true;
-                    RequestRedraw((1 << slot) | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+                    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(slot)});
+                    CurrentGame().events.push(CombatProgressChanged{});
                 }
             }
         }
@@ -303,7 +304,7 @@ void Combat::scheduleNextActor(Game& game)
                 combat->phase = 0;
                 if (!combat->active) {
                     combat->active = true;
-                    RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
+                    CurrentGame().events.push(CombatProgressChanged{});
                 }
             }
         }

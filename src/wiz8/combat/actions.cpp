@@ -222,7 +222,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
     if (game.combat.has_value()) {
         if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
             game.combat->characters[party_slot].dead = true;
-            RequestRedraw((1 << party_slot) | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+            CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
+            CurrentGame().events.push(CombatProgressChanged{});
         }
         if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, false)) {
             slot->executing.kind = W8_ACTION_NONE;
@@ -708,7 +709,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         monster_info->pCombat->settle_ticks = 0;
     }
     monster_info->pCombat->active = true;
-    RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    CurrentGame().events.push(CombatProgressChanged{});
     setStepOf(MonsterActor{monster_info->location_id}, ActionStep::resolving);
 }
 

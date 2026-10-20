@@ -24,7 +24,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
@@ -33,6 +32,7 @@
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/activity.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/unicode.h"
@@ -149,8 +149,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, W8NpcScriptQ
             HoldNpcSpeech(g_speech, wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
         }
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
-                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, W8_NOTICE_WRAP_TEXT_BOX);
         return W8NpcSubquoteOutcome::presented;
     }
 
@@ -234,8 +233,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, W8NpcScriptQ
     }
     prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
     display_text = prefixed_text;
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
-               (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, W8_NOTICE_WRAP_TEXT_BOX);
     return W8NpcSubquoteOutcome::presented;
 }
 

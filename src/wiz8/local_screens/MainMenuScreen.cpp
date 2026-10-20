@@ -16,7 +16,6 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
@@ -177,7 +176,7 @@ bool MainMenuScreen::enter(const ScreenRequest&)
     if (PreviousScreen() != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
     }
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
 
     if (!g_pending_main_menu_message.empty()) {
         dialog_.reset(CreateMessageDialog());

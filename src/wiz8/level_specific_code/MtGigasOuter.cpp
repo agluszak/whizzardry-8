@@ -5,7 +5,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
-#include "wiz8/cursor.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/gameplay_constants.h"
@@ -155,7 +154,6 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
         ReplaceHeldItem(ctx.game, MakeItem(0x290, false, false, false));
-        SetItemCursor(0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);

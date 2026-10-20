@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -226,7 +227,7 @@ static void ApplyPendingMouselook(void);
 void ApplyPendingTooltip(void);
 void UpdateCombatPortraitStatus(void);
 void UpdateKeyboardMenu(void);
-void InvalidateRedrawRegions(unsigned int redraw_flags);
+void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRepaint& requested);
 void InvalidatePortraitPanel(void);
 
 void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
@@ -361,8 +362,10 @@ int OpenLockInteraction(Trigger* trigger)
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     if (resume) {
         LockInteraction()->EnablePanels(1);
         LockInteraction()->m_tumbler_panel->InvalidateAll();
@@ -403,9 +406,11 @@ void EndLockInteractMode(char suspend)
     }
     SelectTextBox(0);
     RefreshMainGameLayout();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.layout = true;
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
 }
 
 static bool CanSelectedCharacterCastKnockKnock()
@@ -1750,8 +1755,10 @@ int OpenTrapInteraction(Trigger* trigger)
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     if (resume) {
         TrapInteraction()->EnablePanelInput(true);
         TrapInteraction()->m_text_panel->InvalidateAll();
@@ -1804,9 +1811,11 @@ void EndTrapInteractMode(char suspend)
     }
     SelectTextBox(0);
     RefreshMainGameLayout();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.layout = true;
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
 }
 
 /* Per-frame trap interact service: repaint the screen's action panel. */
@@ -1946,19 +1955,25 @@ void W8NpcDialogueTextController::Collapse()
     InvalidateAll();
     InvalidateRegion(0x1dc, top, 0x269, 0x140);
     if (top < 0x67) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(1);
+            hud->repaint.portraits.set(3);
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
     } else if (top < 0xbc) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(3);
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
     } else if (top < 0x111) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
     } else {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) hud->repaint.portraits.set(7);
     }
     scroll_height = line_height;
     bounds.left = 0x1dc + 6;
@@ -2009,24 +2024,30 @@ void W8NpcDialogueTextController::ClearBackground()
     top = ((1 - scroll_height / line_height) * line_height - margin) + 0x11b;
     EraseRegion(0x1dc, top, 0x269, 0x140);
     if (top < 0x67) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_1);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(1);
+            hud->repaint.portraits.set(3);
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
         return;
     }
     if (top < 0xbc) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_3);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(3);
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
         return;
     }
     if (top < 0x111) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_5);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portraits.set(5);
+            hud->repaint.portraits.set(7);
+        }
         return;
     }
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_7);
+    if (auto* hud = MainGameHud()) hud->repaint.portraits.set(7);
 }
 
 bool W8NpcDialogueTextController::IsExpanded()
@@ -2071,7 +2092,7 @@ void RefreshFlaggedMainGameState(void)
     }
 }
 
-/* Invalidate rectangles keyed by redraw bits. The
+/* The rectangle each repainted part invalidates, in InvalidateRepaintedRegions' order. The
    first eight entries are the portrait-slot columns (zero base rects, scaled
    by portrait_hover_x_origin and shifted by portrait_refresh_image). */
 struct W8MainGameInvalidateRect {
@@ -2219,7 +2240,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
     ConfigureMainGameHudButtons();
     CreateLevelButtons();
     CreateConditionButtons();
-    InitializeMainGameLevelBlock();
+    InitializeMainGameLevelBlock(*hud);
     ScrollTextBoxToCursor();
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
@@ -2262,11 +2283,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         }
     }
     DrainInputEventQueue();
-    if (CurrentGame().party.held.item.iItemNo != -1) {
-        SetItemCursor(0);
-    } else {
-        ClearHeldItemDisplay();
-    }
+    ResetPointerCursor();
     SetTargetingMode(W8_TARGET_NEED_NONE);
     SetUiCanvasAlphaTestEnabled(true);
     if (LockInteractionSuspended()) {
@@ -2401,7 +2418,7 @@ void MainGameScreen::frame()
     if (g_modal_owner) {
         // A modal takes the pointer back from mouselook and from any targeting cursor.
         CancelMouselook();
-        UpdateHeldItemCursor();
+        ResetPointerCursor();
     }
     // A screen fade, and the party-death or ending screen it leads to, takes the frame.
     if (MainGameHud()->screen_fade_running) {
@@ -2418,7 +2435,7 @@ void MainGameScreen::frame()
     if (std::exchange(resume_conversation, false)) SyncDialogueNpcStateAndMarkPending();
     if (SkillIncreasesShownNow(CurrentGame())) FlushDeferredSkillNotices(CurrentGame());
     SyncPartyPortraitVitalsBars();
-    if (g_modal_owner && ProcessModalOwner()) RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    if (g_modal_owner && ProcessModalOwner()) hud->repaint.portrait_panel = true;
     SetWorldResumeInput(CurrentGame().advancement.paused && !InteractionBlocksWorldAdvancement());
     DrainNpcDialogueDeferralInput();
     FlushInputWhileWorldCursorGate();
@@ -2452,7 +2469,7 @@ void MainGameScreen::frame()
     if (IsScreenTransitionPending()) {
         // A pending transition holds the world until another screen covers it.
         step_timer.restart();
-        DrawMainGameScreen();
+        DrawMainGameScreen(*hud);
         return;
     }
     SDL_Point point;
@@ -2543,7 +2560,7 @@ void MainGameScreen::frame()
             SelectPartyCharacter(next);
         }
     }
-    DrawMainGameScreen();
+    DrawMainGameScreen(*hud);
 }
 
 /* Suspension retains the allocation and resource strip. A full leave also
@@ -2595,11 +2612,8 @@ bool MainGameScreen::leave(ScreenDeparture departure)
         }
     }
 
-    UpdateHeldItemCursor();
-    if (MainGameHud()->held_item_display != -1) {
-        MainGameHud()->held_item_display = -1;
-        UpdateHeldItemCursor();
-    }
+    MainGameHud()->held_item_display = -1;
+    ResetPointerCursor();
 
     CloseMainGameOverlays();
 
@@ -2650,21 +2664,25 @@ void OnQuitGameDialogClosed(bool accepted)
     }
 }
 
-/* Ask for part of the screen to be redrawn. A request made while another
-   screen is up, or before the HUD state exists, is dropped rather than
-   queued - which is what makes the block the only place redraw state lives. */
-void RequestRedraw(unsigned int mask)
+/* Every part, as a full repaint draws them. */
+MainGameRepaint RepaintOfEverything()
 {
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr) {
-        MainGameHud()->redraw_flags |= mask;
-    }
+    MainGameRepaint all;
+    all.everything = all.panels = true;
+    all.portraits.set();
+    all.roof_and_spell_icons = all.layout = all.radar = all.text_box = all.submenu_buttons =
+        all.submenu_panel = all.formation = all.portrait_panel = all.monster_list =
+            all.options_button = all.combat_stance = all.combat_progress = all.character_action =
+                all.combat_effects = true;
+    return all;
 }
 
-/* Consume the live redraw_flags word: clear the primary surface, refresh the
-   chrome panels the current UI mode owns, and repaint any dirty party slots. */
-void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
+/* Repaint what the HUD's record holds: clear the primary surface for a full repaint,
+   refresh the chrome panels the current UI mode owns, and repaint the recorded party
+   slots. Painting a part may record more parts, which this draw paints too. */
+void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
 {
-    unsigned int redraw_flags;
+    auto& repaint = hud.repaint;
     bool keyboard_menu_invalidate;
     int party_slot;
     int text_box_variant;
@@ -2674,29 +2692,31 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     short health_percent;
     W8MainGameInvalidateRect* portrait_rect;
 
-    redraw_flags = MainGameHud()->redraw_flags;
-    if (redraw_flags == W8_MAIN_REDRAW_ALL) {
+    if (repaint.everything) {
         ClearPrimarySurface();
-    } else if ((redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
-        MainGameHud()->redraw_flags = redraw_flags | W8_MAIN_REDRAW_CHROME;
+        repaint = RepaintOfEverything();
+    } else if (repaint.layout) {
+        repaint.radar = repaint.text_box = repaint.submenu_buttons = repaint.submenu_panel =
+            repaint.formation = repaint.options_button = repaint.combat_stance =
+                repaint.character_action = true;
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) != 0) {
+    if (repaint.portrait_panel) {
         if (CurrentGame().combat.has_value()) {
-            RequestRedraw(W8_MAIN_REDRAW_COMBAT_EFFECTS);
+            repaint.combat_effects = true;
         } else {
             InvalidatePortraitPanel();
         }
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_COMBAT_EFFECTS) != 0) {
+    if (repaint.combat_effects) {
         RefreshCombatEffectHud();
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        repaint.portrait_panel = true;
         for (party_slot = 0; party_slot < 8; ++party_slot) {
-            if (MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
-                RequestRedraw(1U << (party_slot & 0x1f));
+            if (hud.portrait_refresh_pending[party_slot] != 0) {
+                repaint.portraits.set(party_slot);
             }
         }
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) != 0) {
+    if (repaint.portrait_panel) {
         if (!CurrentGame().advancement.held) {
             if (PartyMovementPanelShown()) {
                 InvalidatePartyMovementPanel();
@@ -2711,26 +2731,24 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
             g_modal_owner->RequestModalRedraw();
         }
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_MONSTER_LIST) != 0) {
+    if (repaint.monster_list) {
         RedrawCombatMonsterList(presentation.subject_valid);
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS) != 0) {
-        MainGameHud()->redraw_flags |= W8_MAIN_REDRAW_COMBAT_PROGRESS;
+    if (repaint.roof_and_spell_icons) {
+        repaint.combat_progress = true;
         RedrawRoofButtons();
         RefreshSpellIconHudRows();
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_COMBAT_PROGRESS) != 0 &&
-        CurrentGame().combat.has_value() && CurrentGame().combat->round_active) {
+    if (repaint.combat_progress && CurrentGame().combat.has_value() &&
+        CurrentGame().combat->round_active) {
         health_percent = GetCombatActionProgress(0);
         combat_clip = {0, 0, health_percent * 0x11e / 100 + 0xb1, 0x1e0};
         ScopedClipRect clipped(GetFrameBufferSurface(), combat_clip);
         CatalogArtwork::Load(0x8d, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 2);
     }
     if (FormationPanelOpen()) {
-        if (((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) == 0) ||
-            MainGameHud()->condition_orb_party_slot != -1 ||
-            MainGameHud()->enchantment_orb_party_slot != -1 ||
-            MainGameHud()->portrait_overlay_party_slot != -1) {
+        if ((!repaint.portrait_panel) || hud.condition_orb_party_slot != -1 ||
+            hud.enchantment_orb_party_slot != -1 || hud.portrait_overlay_party_slot != -1) {
             show_portraits = false;
         } else {
             show_portraits = true;
@@ -2739,23 +2757,21 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         portrait_rect = &g_main_game_invalidate_rects[party_slot];
-        if ((MainGameHud()->redraw_flags & (1U << (party_slot & 0x1f))) == 0) {
+        if (!repaint.portraits.test(party_slot)) {
             if (CurrentGame().monster_manager_entries[party_slot].portrait_stats_dirty) {
-                RedrawPartyPortraitBars(party_slot,
-                                        MainGameHud()->portrait_refresh_pending[party_slot] == 0);
+                RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
             }
             if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open) {
                 RedrawKeyboardMenuPanel(false);
             }
         } else {
             keyboard_menu_invalidate = false;
-            if (MainGameHud()->highlight.LightsPortrait(party_slot) ||
-                party_slot == MainGameHud()->held_item_display) {
+            if (hud.highlight.LightsPortrait(party_slot) || party_slot == hud.held_item_display) {
                 keyboard_menu_invalidate = true;
             }
             RedrawPartyPortraitOverlay(party_slot, keyboard_menu_invalidate, true,
-                                       MainGameHud()->portrait_refresh_pending[party_slot] == 0);
-            if (MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
+                                       hud.portrait_refresh_pending[party_slot] == 0);
+            if (hud.portrait_refresh_pending[party_slot] != 0) {
                 InvalidateRegion(portrait_rect->left, portrait_rect->top, portrait_rect->right,
                                  portrait_rect->bottom);
             }
@@ -2764,16 +2780,16 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
             }
         }
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
+    if (repaint.layout) {
         RedrawLayoutArrowButtons();
         CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0x269, 0x166);
         InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1);
     }
     if (gpSCSV) {
-        if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX) != 0) {
+        if (repaint.text_box) {
             gpSCSV->dirty[1] = true;
         }
-        if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_LAYOUT) == 0) {
+        if (!repaint.layout) {
             SetSpellCastingPanelsActive(false);
         } else {
             SetSpellCastingPanelsActive(true);
@@ -2781,10 +2797,10 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
         goto finish_mode_overlays;
     }
     if (ItemUseDraft()) {
-        if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX) != 0) {
+        if (repaint.text_box) {
             InvalidateUseItemSelectPanel();
         }
-        if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_LAYOUT) == 0) {
+        if (!repaint.layout) {
             UpdateUseItemSelect(false);
         } else {
             UpdateUseItemSelect(true);
@@ -2794,29 +2810,27 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
     if (!CurrentGame().activity.conversation ||
         (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue)) {
         if (IsLockInteractionActive()) {
-            if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
+            if (repaint.layout) {
                 InvalidateLockInteractionPanels();
             }
             goto finish_mode_overlays;
         }
         if (IsTrapInteractionActive()) {
-            if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_LAYOUT) != 0) {
+            if (repaint.layout) {
                 RedrawTextBoxComplete();
             }
             goto finish_mode_overlays;
         }
-        redraw_flags = MainGameHud()->redraw_flags & W8_MAIN_REDRAW_RADAR;
-        if (redraw_flags == 0 || MainGameHud()->radar_map_visible == 0) {
-            if (redraw_flags != 0) {
+        if (!repaint.radar || hud.radar_map_visible == 0) {
+            if (repaint.radar) {
                 ClearSurfaceRect(0x17, 0x166, 0x80, 0x1c2);
             }
         } else {
             CatalogArtwork::Load(0x84, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x17,
                                                             0x166);
         }
-        redraw_flags = MainGameHud()->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX;
-        if (redraw_flags == 0 || MainGameHud()->action_panel_visible == 0) {
-            if (redraw_flags != 0) {
+        if (!repaint.text_box || hud.action_panel_visible == 0) {
+            if (repaint.text_box) {
                 ClearSurfaceRect(0x80, 0x166, 0x200, 0x1c2);
             }
         } else {
@@ -2838,9 +2852,8 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
                                                             text_box_variant, 0x8a, 0x168);
         }
     draw_formation_panel:
-        redraw_flags = MainGameHud()->redraw_flags & W8_MAIN_REDRAW_FORMATION;
-        if (redraw_flags == 0 || !MainGameHud()->formation_board_visible) {
-            if (redraw_flags != 0) {
+        if (!repaint.formation || !hud.formation_board_visible) {
+            if (repaint.formation) {
                 ClearSurfaceRect(0x200, 0x166, 0x268, 0x1c2);
             }
         } else {
@@ -2849,10 +2862,10 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
         }
         goto finish_mode_overlays;
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX) != 0) {
+    if (repaint.text_box) {
         InvalidateMainGameActionPanelRect(0);
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_LAYOUT) == 0) {
+    if (!repaint.layout) {
         if (HasNpcDialogueDirtyPanels()) {
             ActivateNpcDialoguePanels(false);
         }
@@ -2860,22 +2873,22 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
         ActivateNpcDialoguePanels(true);
     }
 finish_mode_overlays:
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_TEXT_BOX) != 0) {
+    if (repaint.text_box) {
         RedrawTextBoxScrollChrome();
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_SUBMENU_BUTTONS) != 0) {
+    if (repaint.submenu_buttons) {
         RedrawSubMenuButtons();
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_CHARACTER_ACTION) != 0) {
+    if (repaint.character_action) {
         DrawSubMenuCharacterAction();
     }
-    if (MainGameHud()->open_submenu) {
-        RefreshSubMenuPanel((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_SUBMENU_PANEL) != 0);
+    if (hud.open_submenu) {
+        RefreshSubMenuPanel(repaint.submenu_panel);
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_OPTIONS_BUTTON) != 0) {
+    if (repaint.options_button) {
         RedrawOptionsDiskButton();
     }
-    if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_COMBAT_STANCE) != 0) {
+    if (repaint.combat_stance) {
         RedrawCombatStanceButtons();
     }
 }
@@ -2883,41 +2896,33 @@ finish_mode_overlays:
 /* Draw the main-game frame: sync facing and radar, repaint the requested
    regions and invalidate their rectangles, paint overlays, and present.
    MainGameScreenFrame calls it after its update and on a pending transition. */
-void DrawMainGameScreen(void)
+void DrawMainGameScreen(W8LevelRuntimeBlock& hud)
 {
     int stopped_line;
 
     SyncPartyFacingFromCamera();
-    const auto presentation = BuildTargetingPresentation();
+    const auto presentation = BuildTargetingPresentation(hud);
     ApplyTargetingPresentation(presentation);
     UpdateRadarBlips(presentation);
-    if (MainGameHud()->action_panel_visible == 0 && !CurrentGame().activity.conversation &&
+    if (hud.action_panel_visible == 0 && !CurrentGame().activity.conversation &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !gpSCSV && !ItemUseDraft()) {
         stopped_line = FindStoppedTextLine();
-        if (stopped_line != -1 &&
-            MainGameHud()->text_lines[4 + CurrentGame().status.text_line_cursor] !=
-                static_cast<unsigned int>(stopped_line)) {
-            RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+        if (stopped_line != -1 && hud.text_lines[4 + CurrentGame().status.text_line_cursor] !=
+                                      static_cast<unsigned int>(stopped_line)) {
+            hud.repaint.text_box = true;
         }
     }
-    const unsigned int requested = MainGameHud()->redraw_flags;
-    if (requested != 0) {
-        ApplyMainGameRedrawFlags(presentation);
+    const MainGameRepaint requested = hud.repaint;
+    if (requested.any()) {
+        ApplyMainGameRepaint(hud, presentation);
     }
-    // A layout repaint draws the chrome panels, which invalidate themselves.
-    unsigned int invalidated = requested;
-    if (requested != W8_MAIN_REDRAW_ALL && (requested & W8_MAIN_REDRAW_LAYOUT) != 0) {
-        invalidated &= ~W8_MAIN_REDRAW_CHROME;
-    }
-    if (invalidated != 0) {
-        InvalidateRedrawRegions(invalidated);
-    }
-    MainGameHud()->redraw_flags = 0;
+    InvalidateRepaintedRegions(hud, requested);
+    hud.repaint = {};
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
             g_modal_owner->RefreshModal();
         }
-        if (MainGameHud()->open_submenu) {
+        if (hud.open_submenu) {
             UpdateSubMenuAutoClose();
         }
         if (!CurrentGame().combat.has_value()) {
@@ -2940,12 +2945,12 @@ void DrawMainGameScreen(void)
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
-        if (MonotonicMilliseconds() - MainGameHud()->tick > 499) {
+        if (MonotonicMilliseconds() - hud.tick > 499) {
             if (g_video_inspector_enabled && !gpSCSV && !CurrentGame().activity.conversation &&
                 !ItemUseDraft() && !IsLockInteractionActive() && !IsTrapInteractionActive()) {
                 DrawVideoInspector(0xdc, 0x32);
             }
-            MainGameHud()->tick = MonotonicMilliseconds();
+            hud.tick = MonotonicMilliseconds();
         }
         if (MainGameHud()->formation_board_visible) {
             CreateFormationBoardOverlay();
@@ -2985,12 +2990,6 @@ void RefreshTrackedPortraitOverlay(void)
         DismissHighlightOverlay();
         DrawPortraitStatusOverlay(MainGameHud()->condition_highlight_party_slot);
     }
-}
-
-/* Request the party portion of the main-game redraw. */
-void RequestRedrawParty(void)
-{
-    RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
 }
 
 /* Redraw the combat monster-group list at the left edge of the main screen:
@@ -3170,8 +3169,11 @@ void SelectPartyCharacter(int party_slot)
         CloseKeyboardMenu();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    RequestRedraw(1 << (party_slot & 0x1f) | W8_MAIN_REDRAW_SUBMENU_BUTTONS |
-                  W8_MAIN_REDRAW_CHARACTER_ACTION);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.portrait(party_slot);
+        hud->repaint.submenu_buttons = true;
+        hud->repaint.character_action = true;
+    }
     if (auto& combat = CurrentGame().combat) combat->target_picked = true;
 }
 
@@ -3194,17 +3196,23 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     if (MainGameHud()->condition_highlight_party_slot == static_cast<int>(party_slot)) {
         MainGameHud()->condition_highlight_party_slot = -1;
         DismissHighlightOverlay();
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL | W8_MAIN_REDRAW_PORTRAITS);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portrait_panel = true;
+            hud->repaint.portraits.set();
+        }
     } else if (MainGameHud()->condition_highlight_party_slot != -1) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     }
 
     if (MainGameHud()->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
         MainGameHud()->portrait_overlay_party_slot = -1;
         DismissHighlightOverlay();
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL | W8_MAIN_REDRAW_PORTRAITS);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.portrait_panel = true;
+            hud->repaint.portraits.set();
+        }
     } else if (MainGameHud()->portrait_overlay_party_slot != -1) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     }
 
     if (g_main_game_mode == W8_MAIN_GAME_NPC_DIALOGUE) {
@@ -3226,7 +3234,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     if (MainGameHud()->highlight.kind == W8_HIGHLIGHT_TARGET) MainGameHud()->highlight = {};
     MainGameHud()->portrait_refresh_pending[party_slot] = 1;
     MainGameHud()->portrait_refresh_image[party_slot] = 0x69;
-    RequestRedraw(1u << (party_slot & 0x1f));
+    if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     MainGame()->edge_targets[party_slot]->setEnabled(false);
     if (!CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open) {
         EnableMainGamePortraitSlot(party_slot);
@@ -3667,11 +3675,6 @@ void DrawPortraitEnchantmentOverlay(int party_slot)
     }
 }
 
-void RequestRedrawCombatBar(void)
-{
-    RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS);
-}
-
 /* Raise a modal notice line over the main game: enter mode 5 (tearing down
    whichever of the NPC-dialogue, message-box, or dialogue-highlight modes was
    current), then create the kind-1 message dialog, size it, and install the
@@ -3811,42 +3814,67 @@ W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
     {0, 0, 0, 0, 0, 0, 0},
 };
 
-/* Invalidate the rectangle of each requested redraw bit, placed by the
-   current portrait layout. */
-void InvalidateRedrawRegions(unsigned int redraw_flags)
+/* Invalidate the rectangle of each part a draw was asked to repaint, placed by the
+   current portrait layout; a full repaint invalidates the whole screen. A layout repaint
+   draws the chrome panels, which invalidate themselves. */
+void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRepaint& requested)
 {
-    unsigned char bit;
-    W8MainGameInvalidateRect* entry;
     int left;
     int top;
     int right;
     int bottom;
     int delta;
 
-    if (redraw_flags == W8_MAIN_REDRAW_ALL) {
+    if (requested.everything) {
         ClearVideoDirtyBlocks();
         return;
     }
-
-    for (bit = 0, entry = g_main_game_invalidate_rects; bit < 23; ++bit, ++entry) {
-        if ((redraw_flags & (1u << (bit & 0x1f))) == 0) {
+    const bool chrome = !requested.layout;
+    // Indexed as g_main_game_invalidate_rects.
+    const std::array<bool, 22> parts{
+        requested.portraits[0],
+        requested.portraits[1],
+        requested.portraits[2],
+        requested.portraits[3],
+        requested.portraits[4],
+        requested.portraits[5],
+        requested.portraits[6],
+        requested.portraits[7],
+        requested.roof_and_spell_icons,
+        requested.layout,
+        chrome && requested.radar,
+        chrome && requested.text_box,
+        chrome && requested.submenu_buttons,
+        chrome && requested.submenu_panel,
+        chrome && requested.formation,
+        requested.portrait_panel,
+        false,
+        requested.monster_list,
+        chrome && requested.options_button,
+        chrome && requested.combat_stance,
+        requested.combat_progress,
+        chrome && requested.character_action,
+    };
+    for (std::size_t index = 0; index < parts.size(); ++index) {
+        if (!parts[index]) {
             continue;
         }
+        const W8MainGameInvalidateRect* entry = &g_main_game_invalidate_rects[index];
         left = entry->left;
         top = entry->top;
         right = entry->right;
         bottom = entry->bottom;
         if (entry->x_scale != 0) {
-            delta = MainGameHud()->portrait_hover_x_origin * entry->x_scale;
+            delta = hud.portrait_hover_x_origin * entry->x_scale;
             left += delta;
             right += delta;
         }
         if (entry->apply_y_offset != 0) {
-            top += MainGameHud()->portrait_y_shift;
-            bottom += MainGameHud()->portrait_y_shift;
+            top += hud.portrait_y_shift;
+            bottom += hud.portrait_y_shift;
         }
         if (entry->refresh_image_index != ~0u) {
-            delta = MainGameHud()->portrait_refresh_image[entry->refresh_image_index];
+            delta = hud.portrait_refresh_image[entry->refresh_image_index];
             if ((entry->refresh_image_index & 1) == 0) {
                 left += delta;
                 right += delta;
@@ -4024,7 +4052,7 @@ void UpdateCombatPortraitStatus(void)
    re-arms the slot from the cursor row, and expiry closes the menu. */
 void UpdateKeyboardMenu(void)
 {
-    RequestRedraw(W8_MAIN_REDRAW_FRAME);
+    if (auto* hud = MainGameHud()) hud->repaint.panels = true;
     if ((!CurrentGame().combat.has_value() && MainGameHud()->keyboard_menu_open) ||
         (MainGameHud()->combat_slot != -1 && !IsPartySlotEligible(MainGameHud()->combat_slot))) {
         CloseKeyboardMenu();
@@ -4101,11 +4129,11 @@ void ClearPortraitRefreshSlot(int slot)
         MainGameHud()->portrait_refresh_image[slot] = 0;
         row = &g_main_game_invalidate_rects[slot];
         EraseRegion(row->left - 1, row->top, row->right + 1, row->bottom);
-        RequestRedraw(1 << (slot & 0x1f));
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
         MainGame()->edge_targets[slot]->setEnabled(true);
         DisableMainGamePortraitSlot(slot);
 
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     }
 }
 
@@ -4177,14 +4205,14 @@ void RefreshMainGameLayout()
     } else {
         MainGameHud()->portrait_y_shift = 0;
     }
-    RequestRedraw(W8_MAIN_REDRAW_ALL);
+    if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     SetMouseCursorHotspot(0, 0);
     SyncSystemCursor();
     SetViewportMode(GetMainGameViewportMode());
     if (CurrentGame().combat.has_value()) {
         MainGameHud()->refresh_combat_panel = 1;
     }
-    RequestRedrawCombatBar();
+    if (auto* hud = MainGameHud()) hud->repaint.roof_and_spell_icons = true;
     SyncMainGameModeInput();
 }
 
@@ -4348,7 +4376,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 (event.captured_buttons & SDL_BUTTON_LMASK) != 0) {
                 MainGameHud()->portrait_overlay_party_slot = slot;
                 if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr) {
-                    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
                     return UiResult::Handled;
                 }
             }
@@ -4376,14 +4404,14 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         g_main_game_mode = W8_MAIN_GAME_DEFAULT;
                         return UiResult::Handled;
                     }
-                    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
                     if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
                         return UiResult::Handled;
                     }
                     if (MainGameHud() == nullptr) {
                         return UiResult::Handled;
                     }
-                    RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+                    if (auto* hud = MainGameHud()) hud->repaint.portraits.set();
                 } else if (IsNpcDialogueCursorActive() == 0) {
                     if (targeting) {
                         if (aim_ok) {
@@ -4446,9 +4474,9 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 }
             }
             if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr) {
-                RequestRedraw(1 << (slot & 0x1f));
+                if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
                 if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr) {
-                    RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+                    if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
                     return UiResult::Handled;
                 }
             }
@@ -4525,10 +4553,10 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     DismissHighlightOverlay();
                     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
                         MainGameHud() != nullptr) {
-                        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                        if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
                         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
                             MainGameHud() != nullptr) {
-                            RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+                            if (auto* hud = MainGameHud()) hud->repaint.portraits.set();
                             return UiResult::Pass;
                         }
                     }
@@ -4583,7 +4611,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
                 if ((hud->*selection) != -1) {
                     (hud->*selection) = -1;
                     DismissHighlightOverlay();
-                    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
                 }
             } else {
                 if (event.action == UiPointerAction::Enter) {
@@ -4592,7 +4620,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
                         if (IsLeftButtonHeld() && (character->*effect) != none) {
                             (hud->*selection) = slot;
                             if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
-                                RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                                hud->repaint.portrait_panel = true;
                         }
                         target.setTooltip(
                             [tooltip_kind] { return Data().strings[24 + tooltip_kind]; });
@@ -4610,7 +4638,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
         }
         (hud->*selection) = -1;
         DismissHighlightOverlay();
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
         return UiResult::Handled;
     }
 
@@ -4618,7 +4646,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
         return UiResult::Handled;
     }
     (hud->*selection) = slot;
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     return UiResult::Handled;
 }
 
@@ -4671,7 +4699,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
     }
 
     if (previous_mode != MainGameHud()->portrait_assay_hover_mode) {
-        RequestRedraw(1 << (slot & 0x1f));
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
     }
 
     if ((event.button == UiPointerButton::Left) ||
@@ -4766,13 +4794,13 @@ UiResult PortraitOverlayHoverInput(const UiPointerEvent& event, HitTarget& targe
                 MainGameHud()->portrait_overlay_party_slot = -1;
                 DismissHighlightOverlay();
             }
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+            if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
             return UiResult::Pass;
         }
         MainGameHud()->portrait_overlay_party_slot = -1;
         DismissHighlightOverlay();
     }
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     return UiResult::Handled;
 }
 
@@ -5188,7 +5216,7 @@ UiResult MonsterListInput(const UiPointerEvent& event)
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
             CurrentGame().status.selected_character != -1 && group_id != -1 &&
-            CurrentCombatSubjectIsValid()) {
+            CurrentCombatSubjectIsValid(*MainGameHud())) {
             AimAtMonsterGroupMember(CurrentGame().status.selected_character, group);
         }
         return UiResult::Handled;
@@ -5344,7 +5372,7 @@ bool LoadCurrentLevelData(void)
         UnloadSkyWorld();
         LeaveLevel();
         g_world_cleanup_flag = false;
-        UpdateHeldItemCursor();
+        ResetPointerCursor();
     }
     return true;
 }
@@ -5427,10 +5455,10 @@ void ApplyPendingTooltip(void)
     MainGameHud()->tooltip_pending = false;
     if (previous.slot != -1 &&
         (!previous.IsFormation() || CurrentScreenState().id == W8_SCREEN_MAIN_GAME)) {
-        RequestRedraw(1u << (previous.slot & 0x1f));
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(previous.slot);
     }
     if (next.slot != -1) {
-        RequestRedraw(1u << (next.slot & 0x1f));
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(next.slot);
         MainGameHud()->highlight = next;
     }
     if ((previous.slot != -1 && previous.IsFormation()) ||
@@ -5496,7 +5524,7 @@ void SetCombatSelection(int value)
                 MainGameHud()->highlighted_item = value;
         }
     }
-    RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
+    if (auto* hud = MainGameHud()) hud->repaint.monster_list = true;
     VideoRemoveToolTip();
     unsigned int delay = g_settings.tooltip_delay_ms;
     if (delay > 500) {
@@ -5559,8 +5587,8 @@ void SetCombatAction(int value)
 {
     if (MainGameHud()->action_group == value) return;
     MainGameHud()->action_group = value;
-    SetTargetCursor(GetTargetingCursorForState(CurrentCombatSubjectIsValid()));
-    RequestRedraw(W8_MAIN_REDRAW_MONSTER_LIST);
+    SetTargetCursor(GetTargetingCursorForState(CurrentCombatSubjectIsValid(*MainGameHud())));
+    if (auto* hud = MainGameHud()) hud->repaint.monster_list = true;
 }
 
 /* With no modal or NPC dialogue up, draw the bottom prompt strip: the catalog
@@ -5601,14 +5629,20 @@ void SetRadarMapVisible(bool visible)
         } else {
             ZoomRadarMapOut();
         }
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.layout = true;
+            hud->repaint.portrait_panel = true;
+        }
     } else {
         MainGameHud()->radar_map_visible = 0;
         MainGame()->radar_target->setEnabled(false);
         MainGame()->radar.setEnabled(false);
         EnableRadarMap(false);
         ReleaseRadarMap();
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.layout = true;
+            hud->repaint.portrait_panel = true;
+        }
     }
     if (visible != was_visible) {
         SetViewportMode(GetMainGameViewportMode());
@@ -5623,11 +5657,17 @@ void SetActionPanelVisible(bool visible)
     if (visible) {
         MainGameHud()->action_panel_visible = visible;
         EnableActionPanelRegions();
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.layout = true;
+            hud->repaint.portrait_panel = true;
+        }
     } else {
         MainGameHud()->action_panel_visible = 0;
         DisableCombatRegions();
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.layout = true;
+            hud->repaint.portrait_panel = true;
+        }
     }
     if (visible != was_visible) {
         SetViewportMode(GetMainGameViewportMode());
@@ -5649,7 +5689,10 @@ void SetFormationBoardVisible(bool visible)
         MainGame()->formation.setEnabled(false);
         ReleaseFormationBoard();
     }
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT | W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.layout = true;
+        hud->repaint.portrait_panel = true;
+    }
     if (visible != was_visible) {
         SetViewportMode(GetMainGameViewportMode());
     }
@@ -5986,7 +6029,7 @@ void PresentWorldAdvancement(bool held, bool hold_changed)
             if (PartyMovementPanelShown()) UpdatePartyMovementPanel();
             EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
         }
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     }
 }
 
@@ -6010,7 +6053,9 @@ void OpenMonsterInfoDialog(int location_id)
     }
     W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
     dialog->SetText("");
-    dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
+    dialog->on_close = [] {
+        if (auto* hud = MainGameHud()) hud->repaint.everything = true;
+    };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -6031,7 +6076,9 @@ void OpenAssayDialog(const W8ItemInstance& item, int character_slot)
     }
     dialog->SetText("");
 
-    dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
+    dialog->on_close = [] {
+        if (auto* hud = MainGameHud()) hud->repaint.everything = true;
+    };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
 
@@ -6116,10 +6163,10 @@ void ClearHighlightOverlayRegion(void)
         if (MainGameHud()->dialogue_y <
             static_cast<unsigned int>(
                 g_viewport_modes[static_cast<unsigned int>(MainGameHud()->camera_mode)].top)) {
-            RequestRedrawCombatBar();
+            if (auto* hud = MainGameHud()) hud->repaint.roof_and_spell_icons = true;
         }
         if (MainGameHud()->dialogue_y + MainGameHud()->dialogue_height > 0x166) {
-            RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+            if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
         }
     }
 }
@@ -6723,8 +6770,10 @@ void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext conte
 
             RequestPartySlotRedraw(actor);
             if (actor == CurrentGame().status.selected_character) {
-                RequestRedrawParty();
-                RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+                if (auto* hud = MainGameHud()) {
+                    hud->repaint.monster_list = true;
+                    hud->repaint.character_action = true;
+                }
             }
             if (auto& combat = CurrentGame().combat) combat->target_picked = false;
         }

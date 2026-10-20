@@ -56,8 +56,6 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom);
 bool GetCursorPositionInViewport(glm::vec2* position);
 /* The tracked cursor tip in normalized screen coordinates. */
 glm::vec2 GetCursorScaledPosition();
-void UpdateHeldItemCursor(void);
 void ClearHeldItemDisplay(void);
-void SetItemCursor(int overlay_video_object); /* 0x0055F160 */
 
 #endif

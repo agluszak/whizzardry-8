@@ -643,8 +643,8 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
     REQUIRE(observed == std::vector<std::size_t>{Event{PartySlotChanged{}}.index(),
                                                  Event{EquipmentSettled{}}.index(),
                                                  Event{CharacterNotice{}}.index()});
-    game.events.push(HeldItemChanged{});
-    REQUIRE(observed.back() == Event{HeldItemChanged{}}.index());
+    game.events.push(PartyLoadChanged{});
+    REQUIRE(observed.back() == Event{PartyLoadChanged{}}.index());
     REQUIRE(game.events.pending().empty());
 }
 

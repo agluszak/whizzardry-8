@@ -270,12 +270,10 @@ static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> repl
 {
     auto& party = game.party;
     std::bitset<W8_PARTY_SLOT_COUNT> changed_hands;
-    bool hand = false;
     bool any = false;
     for (const auto location : replaced) {
         if (location.storage == W8ItemStorage::None) continue;
         any = true;
-        hand |= location.storage == W8ItemStorage::Hand;
         if (location.storage == W8ItemStorage::Equipment && IsHandSlot(location.slot))
             changed_hands.set(location.character);
         for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -286,7 +284,6 @@ static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> repl
         }
     }
     SettleActiveParty(game, changed_hands);
-    if (hand) game.events.push(HeldItemChanged{});
     if (any) game.events.push(EquipmentSettled{});
 }
 

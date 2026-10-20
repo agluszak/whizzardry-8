@@ -14,7 +14,6 @@
 #include "npc_trade_price.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -685,7 +684,6 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
 
         CurrentGame().party.held.actor = -1;
         CurrentGame().party.held.origin = {};
-        SetItemCursor(0);
     }
     SettleActiveParty(CurrentGame());
     for (std::size_t slot : acquired) {

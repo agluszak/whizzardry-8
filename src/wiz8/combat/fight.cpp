@@ -22,7 +22,8 @@
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/party_movement.h"
 #include "wiz8/combat/range.h"
-#include "wiz8/cursor.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
@@ -36,7 +37,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
@@ -63,14 +63,13 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
+#include "wiz8/monster_cycles.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
@@ -83,7 +82,6 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/string_database.h"
@@ -158,7 +156,6 @@ bool Game::beginCombat(int surprise)
     if (status.vi_event_stage == 1) {
         status.vi_event_stage = 2;
     }
-    UpdateHeldItemCursor();
     if (surprise_possible) {
         ResolveSurpriseHold();
     }
@@ -177,15 +174,8 @@ bool Game::beginCombat(int surprise)
     fight.enemies_engaged = CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0;
     fight.round_active = true;
     ApplyWorldAdvancement(*this, advancement.hold);
-    if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
     party_movement_mode = false;
-    DisablePortraitControls();
-    MainGame()->combat.setEnabled(true);
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
-                  W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
-                  W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
-                  W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 |
-                  W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
+    events.push(CombatBegan{});
     CheckMonsterGroupsEnterCombat();
     events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x224], 1});
     RollCombatSurprise(static_cast<char>(surprise));
@@ -215,7 +205,7 @@ bool Game::beginCombat(int surprise)
             monster_info->pCombat->phase = 0;
             monster_info->pCombat->active = true;
             monster_info->pCombat->settle_ticks = 0;
-            RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
+            CurrentGame().events.push(CombatProgressChanged{});
             if (monster_info->hp_current > 0 &&
                 monster_info->highest_condition < W8_CONDITION_WEBBED &&
                 monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
@@ -233,7 +223,7 @@ bool Game::beginCombat(int surprise)
     }
     ResetPartyCombatRows();
     DetectMonsterGroups();
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
     planned_formation = party.formation;
     SaveCombatFormation();
     fight.search_mode_saved = status.search_mode;
@@ -265,9 +255,9 @@ void ResetPartyCombatRows(void)
         ResetCombatSlot(&row.executing.target);
 
         ResetCombatSlot(&row.committed.target);
-        RequestPartySlotRedraw(slot);
+        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(slot)});
         if (slot == static_cast<unsigned int>(CurrentGame().status.selected_character)) {
-            RequestRedrawParty();
+            CurrentGame().events.push(MonstersChanged{});
         }
         SetCharacterCombatAction(slot, row.remembered.basic(), 0);
         CurrentGame().combat->characters[slot].combat_status = W8_COMBAT_PORTRAIT_EMPTY;
@@ -561,11 +551,8 @@ void BeginCombatExecution(void)
     ++CurrentGame().combat->combat_update_count;
     UpdateAllMonsterAI();
     AssignCombatPhases();
-    RequestRedraw(
-        W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 | W8_MAIN_REDRAW_PORTRAIT_2 |
-        W8_MAIN_REDRAW_PORTRAIT_3 | W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
-        W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 | W8_MAIN_REDRAW_COMBAT_PROGRESS);
-    RequestRedraw(W8_MAIN_REDRAW_COMBAT_STANCE);
+    CurrentGame().events.push(CombatProgressChanged{.whole_party = true});
+    CurrentGame().events.push(CombatStanceChanged{});
 
     if (g_settings.verbose_combat_messages != 0 &&
         CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE) {
@@ -726,9 +713,9 @@ void DropCharacterFromRound(int party_slot)
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
     ResetCombatSlot(&row->committed.target);
-    RequestPartySlotRedraw(party_slot);
+    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     if (party_slot == CurrentGame().status.selected_character) {
-        RequestRedrawParty();
+        CurrentGame().events.push(MonstersChanged{});
     }
     SetCharacterCombatAction(party_slot, row->remembered.basic(), 0);
 }
@@ -847,7 +834,7 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
     monster_info->pCombat->phase = 0;
     monster_info->pCombat->active = true;
     monster_info->pCombat->settle_ticks = 0;
-    RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    CurrentGame().events.push(CombatProgressChanged{});
 
     if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED &&
         monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
@@ -977,7 +964,8 @@ void SwitchCharacterTo(int party_slot, W8ActionKind action)
         row->executing.target = row->committed.target;
     }
     CurrentGame().combat->characters[party_slot].dead = true;
-    RequestRedraw(1 << party_slot | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
+    CurrentGame().events.push(CombatProgressChanged{});
     if (action == W8_ACTION_DEFEND && row->committed.kind != action) {
         CurrentGame().combat->characters[party_slot].defend_switched = true;
     }
@@ -997,7 +985,7 @@ void Game::endCombat(bool forced_cleanup)
     if (PartyMovementPanelShown()) {
         ReleasePartyMovement();
     }
-    RequestRedrawCombatBar();
+    CurrentGame().events.push(PartyEffectsChanged{});
 
     SetTargetingMode(W8_TARGET_NEED_NONE);
     RemoveConditionFromEveryone(W8_CONDITION_SLOWED);
@@ -1039,23 +1027,7 @@ void Game::endCombat(bool forced_cleanup)
         ToggleSearchMode();
     }
     ZoomRadarMapOut();
-    /* A suspended main game re-arms its input when it is entered again. While
-       quitting, the suspended main game is the current screen as it is left,
-       but its controls were already released when it was suspended. */
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && PortraitControlsExist()) {
-        EnablePortraitAdvanceRegions();
-        MainGame()->combat.setEnabled(false);
-    }
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-        !MainGameHud()->review_transition_active) {
-        ClearSurfaceRect(0x17, 0x34, 0x2d, 0x159);
-        ClearSurfaceRect(0x253, 0x34, 0x269, 0x159);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
-                      W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
-                      W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
-                      W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 |
-                      W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
-    }
+    events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
     }
@@ -1064,7 +1036,7 @@ void Game::endCombat(bool forced_cleanup)
     // Armor without the combat actions, and the shared load deferred during combat.
     SettleActiveParty(*this);
     ClearLevelMovementState();
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
     ResetWorldCursorRange();
     if (activity.in_world()) {
         ApplyCombatEndEffects();
@@ -1216,7 +1188,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
         !row->dead) {
         CatchUpCombatActor(row);
     }
-    RequestRedraw(1 << (party_slot & 0x1f));
+    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     CurrentGame().combat->target_picked = false;
     if (action_kind == W8_ACTION_EQUIP) {
         CurrentGame().events.push(
@@ -1594,7 +1566,7 @@ void AdvanceCombatRound(void)
     if (g_camera_sway_active) {
         UpdateCampFatigue(10);
     }
-    RequestRedrawCombatBar();
+    CurrentGame().events.push(PartyEffectsChanged{});
     CurrentGame().combat->execution_active = 0;
     CurrentGame().combat->round_active = true;
     if (CurrentGame().combat->pending_death_count != 0) {
@@ -1657,10 +1629,7 @@ void AdvanceCombatRound(void)
         }
         ++index;
     }
-    RequestRedraw(
-        W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 | W8_MAIN_REDRAW_PORTRAIT_2 |
-        W8_MAIN_REDRAW_PORTRAIT_3 | W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
-        W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    CurrentGame().events.push(CombatProgressChanged{.whole_party = true});
     CheckMonsterGroupsLeaveCombat();
     UpdateMonsterGroupEngagement();
     CheckMonsterGroupsEnterCombat();

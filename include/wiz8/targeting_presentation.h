@@ -16,8 +16,13 @@ struct W8TargetingPresentation {
     std::unordered_map<int, W8MonsterPresentation> monsters;
     std::vector<int> area_targets;
     bool subject_valid = false;
+    // The world item under the pointer, by runtime id.
+    int hovered_item = -1;
 };
 
-W8TargetingPresentation BuildTargetingPresentation();
+struct W8LevelRuntimeBlock;
+
+// What the main game's HUD hovers and highlights, as the scene, radar and list show it.
+W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hud);
 void ApplyTargetingPresentation(const W8TargetingPresentation& presentation);
-bool CurrentCombatSubjectIsValid();
+bool CurrentCombatSubjectIsValid(const W8LevelRuntimeBlock& hud);
