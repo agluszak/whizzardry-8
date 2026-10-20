@@ -1,6 +1,7 @@
 #include "wiz8/game.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <utility>
