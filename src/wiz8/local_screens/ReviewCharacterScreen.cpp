@@ -1155,7 +1155,7 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
     g_fade_out = fade_out;
     g_fade_callback = callback;
     g_fade_flag = render_each_tick;
-    g_level_block->review_transition_done = true;
+    g_level_block->screen_fade_running = true;
     if (fullscreen_scene_last) {
         SetFullscreenSceneLast(1);
     }
@@ -1189,12 +1189,12 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
    released and the stored callback runs. Returns g_fade_flag. */
 unsigned char UpdateScreenFade(void)
 {
-    if (!g_level_block->review_transition_done) {
+    if (!g_level_block->screen_fade_running) {
         return 0;
     }
     std::uint64_t elapsed = w8_get_ticks() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
-        g_level_block->review_transition_done = false;
+        g_level_block->screen_fade_running = false;
         if (g_fade_out == 0) {
             g_fade_overlay->color.a = 1.0f;
             RenderFrame();
@@ -1253,7 +1253,7 @@ void PumpReviewTransition(void)
     InputEvent input;
     bool exit_review;
 
-    if (!g_level_block->review_transition_active || g_level_block->review_transition_done) {
+    if (!g_level_block->review_transition_active || g_level_block->screen_fade_running) {
         return;
     }
     if (g_ending_autosave) {

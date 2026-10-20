@@ -248,8 +248,10 @@ struct W8LevelRuntimeBlock {
     bool portrait_right_hold_armed;
     unsigned char formation_board_alternate;
     unsigned char radar_map_alternate;
+    /* The party-death or ending screen is up, from its first fade until the
+       closing fade's EndReviewTransition. */
     bool review_transition_active;
-    /* The review-screen transition finished; gates its early-out. */
-    bool review_transition_done;
+    /* A BeginScreenFade ramp is in progress; the main game's frame advances it. */
+    bool screen_fade_running;
     uint64_t countdown5;
 };
