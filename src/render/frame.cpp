@@ -285,11 +285,9 @@ try {
     return false;
 }
 
-/* Apply the configured window size and restore VSG presentation. */
+/* Restore VSG presentation at the window's current physical size. */
 bool OpenRendererWindow(void)
 {
-    if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
-        return false;
     if (!g_renderer->reopen()) return false;
     g_flush_pending = !videoSurfaceOwner;
     return true;
@@ -333,7 +331,8 @@ void VideoFullScreen(bool enabled)
     if (ghWindow && g_renderer && g_video_active && !videoSurfaceOwner) {
         g_flush_pending = false;
         g_renderer->close();
-        OpenRendererWindow();
+        if (SDL_SetWindowFullscreen(ghWindow, enabled) && SDL_SyncWindow(ghWindow))
+            OpenRendererWindow();
     }
 }
 
@@ -362,8 +361,6 @@ void SuspendVideoManager(void)
             g_flush_pending = false;
             g_renderer->close();
         }
-        SDL_MinimizeWindow(ghWindow);
-        FreeMouseCursor();
     }
 }
 
@@ -373,11 +370,8 @@ bool RestoreVideoManager(void)
         return 1;
     }
     if (!ghWindow || !g_renderer) return false;
-    SDL_ShowWindow(ghWindow);
-    SDL_RestoreWindow(ghWindow);
     if (!g_renderer->isOpen() && !OpenRendererWindow()) return false;
     g_video_active = true;
-    SDL_RaiseWindow(ghWindow);
     ResetVideoDirtyState();
     return true;
 }
