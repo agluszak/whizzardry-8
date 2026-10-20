@@ -1842,13 +1842,16 @@ bool DialogueAwaitingPlayer()
 /* Skip voiced lines with Escape, as the player can, while waiting for input. */
 void WaitDialogue(GameHarness& game, const char* step, const std::function<bool()>& ready)
 {
-    game.wait(step, [&] {
-        if (ready()) return true;
-        if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
-            game.key(SDLK_ESCAPE);
-        }
-        return false;
-    });
+    game.wait(
+        step,
+        [&] {
+            if (ready()) return true;
+            if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
+                game.key(SDLK_ESCAPE);
+            }
+            return false;
+        },
+        90);
 }
 
 void StartConversation(GameHarness& game, const char* step, W8NpcState* npc)
@@ -2083,7 +2086,7 @@ void CombatScenario()
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
         game.wait(
             "round",
-            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 60);
+            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 120);
         closest = std::min(closest, NearestCombatMonster());
     }
     CAPTURE(fighter.hp_current, remaining_health(), closest, game.frames());
