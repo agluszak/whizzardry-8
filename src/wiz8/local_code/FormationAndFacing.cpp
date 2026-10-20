@@ -13,9 +13,9 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -93,7 +93,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
             continue;
         }
         if (edited_position->bQuadrant != live_position->bQuadrant) {
-            PostCharacterNotice(slot, g_localized_strings[0x248]);
+            PostCharacterNotice(slot, Data().strings[0x248]);
         }
         row = live_position->bQuadrant;
         if (working.ubQuadrantOccupants[row] < 3) {
@@ -115,7 +115,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
             working.positions[slot].facing = live_position->facing;
             if (edited_position->bQuadrant != row) {
                 PostCharacterNotice(
-                    slot, fmt::sprintf(g_localized_strings[0x249], &g_formation_row_names[row][0]));
+                    slot, fmt::sprintf(Data().strings[0x249], &g_formation_row_names[row][0]));
             }
         } else {
             signed char new_rows[3] = {4, 2, 3};
@@ -127,7 +127,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 for (column = 0; column < 3; ++column) {
                     if (working.bOccupantChar[new_row][column] == -1) {
                         SetFormationPosition(&working, slot, new_row, column, false, false, true);
-                        PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24a],
+                        PostCharacterNotice(slot, fmt::sprintf(Data().strings[0x24a],
                                                                &g_formation_row_names[new_row][0]));
                         placed = true;
                         break;
@@ -219,7 +219,7 @@ void RestoreCombatFormation(void)
                sizeof(W8PartyFormationState));
         RefreshFormationBoard();
         RefreshRadarMap();
-        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x24b], 0);
+        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x24b], 0);
     }
 }
 
@@ -490,13 +490,13 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
         }
         if (announce) {
             if (new_row != -1) {
-                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24c],
-                                                       &g_formation_row_names[new_row][0]));
+                PostCharacterNotice(
+                    slot, fmt::sprintf(Data().strings[0x24c], &g_formation_row_names[new_row][0]));
                 return;
             }
             if (old_row != -1) {
-                PostCharacterNotice(slot, fmt::sprintf(g_localized_strings[0x24d],
-                                                       &g_formation_row_names[old_row][0]));
+                PostCharacterNotice(
+                    slot, fmt::sprintf(Data().strings[0x24d], &g_formation_row_names[old_row][0]));
             }
         }
     }
@@ -562,8 +562,7 @@ void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
         SetFormationPosition(formation, slot, row, seat, false, true, true);
         return;
     }
-    PostCharacterNotice(slot,
-                        fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
+    PostCharacterNotice(slot, fmt::sprintf(Data().strings[0x24e], &g_formation_row_names[row][0]));
 }
 
 /* Swap two party slots' formation positions: the second takes the first's
@@ -601,8 +600,8 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
             SetFormationPosition(formation, slot_a, row, seat, false, true, true);
             return;
         }
-        PostCharacterNotice(
-            slot_a, fmt::sprintf(g_localized_strings[0x24e], &g_formation_row_names[row][0]));
+        PostCharacterNotice(slot_a,
+                            fmt::sprintf(Data().strings[0x24e], &g_formation_row_names[row][0]));
     }
 }
 

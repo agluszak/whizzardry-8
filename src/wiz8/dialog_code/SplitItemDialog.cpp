@@ -21,11 +21,10 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/platform/input.h"
@@ -77,7 +76,7 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     m_remaining = item->stack_count;
     m_stack_total = item->stack_count;
     if (count == -1) {
-        if (g_item_records[item->iItemNo].maximum_quantity <= 0xa) {
+        if (Data().items[item->iItemNo].maximum_quantity <= 0xa) {
             split_count = 1;
         } else {
             split_count = item->stack_count >> 1;
@@ -180,7 +179,7 @@ void W8SplitItemDialog::CreateTextBuffers()
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
         m_texts[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
+            &bounds, Data().strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
     m_texts[2]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
@@ -190,19 +189,19 @@ void W8SplitItemDialog::CreateTextBuffers()
         m_texts[11]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         m_texts[13]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         if (m_mode == W8_ITEM_SPLIT_SELL) {
-            m_texts[1]->SetText(g_localized_strings[274], g_wiz_text_font_secondary);
-            header = g_localized_strings[268];
+            m_texts[1]->SetText(Data().strings[274], g_wiz_text_font_secondary);
+            header = Data().strings[268];
         } else {
-            m_texts[1]->SetText(g_localized_strings[275], g_wiz_text_font_secondary);
-            header = g_localized_strings[276];
+            m_texts[1]->SetText(Data().strings[275], g_wiz_text_font_secondary);
+            header = Data().strings[276];
         }
         m_texts[0]->SetText(header, g_wiz_text_font_secondary);
     }
     m_texts[3]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
         fmt::format(
-            "{} ({})", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
-            g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
+            "{} ({})", Data().strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
+            Data().strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
         g_wiz_text_font_secondary);
 }
 

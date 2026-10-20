@@ -28,6 +28,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -42,7 +43,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -60,6 +60,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
@@ -103,10 +104,10 @@ static void BeginPartyCamping()
     }
     if (!AnyCharacterEngaged()) {
         surprise.unengaged = true;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x794]);
     } else {
         surprise.unengaged = false;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x790], 8));
+        ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(Data().strings[0x790], 8));
     }
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
@@ -228,7 +229,7 @@ void RequestCamp(void)
         return;
     }
     if (CurrentGame().combat.active()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x774]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
         return;
     }
     if (!HasLevelDataVector() && HasLevelWalkableContact()) {
@@ -241,7 +242,7 @@ void RequestCamp(void)
         BeginPartyCamping();
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x796]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x796]);
 }
 
 /* Complete the pending character events, reset the occupied slots' portrait
@@ -283,7 +284,7 @@ void UpdateSurpriseMode(void)
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
-            level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
+            level_scale = Data().levels[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
             GameTimeAccumulator().SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
@@ -321,7 +322,7 @@ void UpdateSurpriseMode(void)
 void AcknowledgeSurprise(void)
 {
     if (surprise.unengaged && !CurrentGame().combat.active()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x794]);
         return;
     }
     ResolveSurpriseHold();
@@ -353,16 +354,16 @@ void EndSurprise(void)
     std::string text;
     if (!surprise.unengaged) {
         if (surprise.deadline_turns == 0) {
-            text = g_localized_strings[0x793];
+            text = Data().strings[0x793];
         } else if (surprise.deadline_turns <
                    static_cast<unsigned int>(CurrentGame().status.world_clock)) {
-            text = g_localized_strings[0x791];
+            text = Data().strings[0x791];
         } else {
-            text = g_localized_strings[0x792];
+            text = Data().strings[0x792];
         }
     } else {
         surprise.unengaged = false;
-        text = AnyCharacterEngaged() ? g_localized_strings[0x795] : g_localized_strings[0x792];
+        text = AnyCharacterEngaged() ? Data().strings[0x795] : Data().strings[0x792];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, text);
 
@@ -408,9 +409,9 @@ void ResolveSurpriseWake(void)
                 static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
             if (roll < 1) {
                 PostCharacterNotice(
-                    slot, fmt::sprintf(
-                              g_localized_strings[0x243],
-                              g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
+                    slot,
+                    fmt::sprintf(Data().strings[0x243],
+                                 Data().strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
             } else {
                 SetCharacterCondition(slot, W8_CONDITION_ASLEEP, roll / 0x1e + 1, 0, 0, 0);
             }
@@ -430,41 +431,6 @@ void ResolveSurpriseWake(void)
         RequestRedraw(1 << slot);
     }
     EnableMenuButtonBanks();
-}
-
-/* The hit-point, stamina and per-realm spell regeneration rates
-   are one tick of the pool ceiling's share, twenty points of base and a
-   twelveth of a minute each; the modifier block's three regeneration-boost flags
-   raise their rate by half. */
-void RebuildCharacterRegenRates(W8Character* character)
-{
-    float rate;
-    int realm;
-
-    rate = (static_cast<unsigned int>(character->uiHPMax) * 0.4f + 20.0f) * 0.0041666669f;
-    character->health_regen_rate = rate;
-    if (character->bonus.boost_health_regen != 0) {
-        character->health_regen_rate = rate * 1.5f;
-    }
-
-    rate = (static_cast<unsigned int>(character->uiStaminaMax) * 0.9f + 20.0f) * 0.0041666669f;
-    character->stamina_regen_rate = rate;
-    if (character->bonus.boost_stamina_regen != 0) {
-        character->stamina_regen_rate = rate * 1.5f;
-    }
-
-    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        if (character->sp_max[realm] == 0) {
-            character->spell_regen_rates[realm * 2] = 0.0f;
-            continue;
-        }
-        rate =
-            (static_cast<unsigned int>(character->sp_max[realm]) * 0.65f + 20.0f) * 0.0041666669f;
-        character->spell_regen_rates[realm * 2] = rate;
-        if (character->bonus.boost_spell_regen != 0) {
-            character->spell_regen_rates[realm * 2] = rate * 1.5f;
-        }
-    }
 }
 
 /* The monster counterpart of the character regen rebuild: the same pool-share
@@ -506,8 +472,8 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
         slot->duration -= minutes;
         return false;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x1b4],
-                                                   g_spell_records[slot->effect_id].display_name));
+    ShowNotice(W8_FONT_PALETTE_BEIGE,
+               fmt::sprintf(Data().strings[0x1b4], Data().spells[slot->effect_id].display_name));
     if (GetViewDistance() != g_encounter_culling_rate) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
@@ -674,9 +640,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
                         party_slot,
-                        fmt::sprintf(
-                            g_localized_strings[0x270],
-                            g_localized_strings[g_character_description_first_ids[attribute]]));
+                        fmt::sprintf(Data().strings[0x270],
+                                     Data().strings[g_character_description_first_ids[attribute]]));
                 }
                 break;
             }
@@ -689,10 +654,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     character->uiHPMax -= loss;
                     character->hp_adjustment -= loss;
                     if (loss == 1) {
-                        PostCharacterNotice(party_slot, g_localized_strings[0x26e]);
+                        PostCharacterNotice(party_slot, Data().strings[0x26e]);
                     } else {
-                        PostCharacterNotice(party_slot,
-                                            fmt::sprintf(g_localized_strings[0x26f], loss));
+                        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x26f], loss));
                     }
                     unsigned int current = character->hp_current;
                     if (1 < current) {
@@ -712,7 +676,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     unsigned int loss = Random(4) + 1;
                     character->uiStaminaMax -= loss;
                     character->fatigue_penalty += loss;
-                    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x271], loss));
+                    PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x271], loss));
                     int stamina = character->stamina;
                     if (1 < stamina) {
                         if (loss >= stamina - 1U) {
@@ -1325,7 +1289,7 @@ void UpdateCampFatigue(int ticks)
             }
             if (!CurrentGame().status.party_fatigued) {
                 CurrentGame().status.party_fatigued = true;
-                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1da]);
+                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1da]);
             }
         }
     }

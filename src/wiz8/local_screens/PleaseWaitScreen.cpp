@@ -24,9 +24,9 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/assertion.h"
@@ -129,19 +129,19 @@ void PleaseWaitScreen::frame()
 {
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        caption = g_localized_strings[0x6ef];
+        caption = Data().strings[0x6ef];
         break;
     case W8_PLEASE_WAIT_LOAD_GAME: {
-        const auto& strings = g_localized_strings;
+        const auto& strings = Data().strings;
         caption = name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
     } break;
     case W8_PLEASE_WAIT_SAVE_GAME:
-        caption = g_localized_strings[0x6f2].c_str();
+        caption = Data().strings[0x6f2].c_str();
         break;
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
         if (static_cast<unsigned int>(parameter) < W8_LEVEL_COUNT) {
-            caption = fmt::format("{} {}...", g_localized_strings[0x6f3],
-                                  g_localized_strings[g_level_name_indices[parameter]]);
+            caption = fmt::format("{} {}...", Data().strings[0x6f3],
+                                  Data().strings[g_level_name_indices[parameter]]);
         } else if (parameter == 0x38) {
             caption = "Entering default level...";
         } else {
@@ -190,8 +190,7 @@ void PleaseWaitScreen::frame()
                             previous_path.c_str(), error.what());
             }
         }
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, saved ? Data().strings[0x6f4] : Data().strings[0x6f6]);
         // Keep the saving notice up for at least half a second, without spinning.
         if (const auto shown = w8_get_ticks() - entered_tick; shown < 500)
             std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));

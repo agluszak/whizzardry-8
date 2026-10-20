@@ -29,6 +29,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -1261,7 +1262,7 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
     if (spell_id == W8_SPELL_NONE) {
         return false;
     }
-    if (g_spell_records[spell_id].monster_castable == 0) {
+    if (Data().spells[spell_id].monster_castable == 0) {
         return false;
     }
     if (IsSpellBlockedForMonster(monster_info, spell_id)) {
@@ -1273,7 +1274,7 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
     if (spell_id == W8_SPELL_SUMMON_ELEMENTAL && monster_info->elemental_summon != -1) {
         return false;
     }
-    if (g_spell_records[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
         return false;
     }
     if (needs_target) {
@@ -1577,7 +1578,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         if (index > 0x71) {
             return false;
         }
-        if (g_spell_records[spell_id].alchemy_spell != 0 &&
+        if (Data().spells[spell_id].alchemy_spell != 0 &&
             character->skills[W8_SKILL_SPELLBOOK_ALCHEMY].level != 0) {
             return false;
         }
@@ -1723,7 +1724,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_BOILING_BLOOD_EXPLOSION:
     default:
         DebugMessage(0, fmt::format("WARNING: MonsterSpellTargetOK - unlisted spell {:d}({})",
-                                    spell_id, g_spell_records[spell_id].display_name));
+                                    spell_id, Data().spells[spell_id].display_name));
         break;
     }
     return true;
@@ -1989,7 +1990,7 @@ bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id)
     if (target_type > W8_TARGET_TYPE_ENEMY_GROUP && target_type < W8_TARGET_TYPE_ALL_ENEMIES) {
         return AimMonsterAtSpellTarget(monster_info, spell_id);
     }
-    if (g_spell_records[spell_id].needs_aim != 0) {
+    if (Data().spells[spell_id].needs_aim != 0) {
         return ResolveTargetPoint(&monster_info->Target, false);
     }
     return true;

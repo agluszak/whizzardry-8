@@ -26,11 +26,11 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -730,7 +730,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         if (!CurrentGame().surprise_possible &&
                             (g_sight_fade_in_tick == 0 || now - g_sight_fade_in_tick > 199)) {
                             g_sight_fade_in_tick = now;
-                            ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1dd]);
+                            ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1dd]);
                         }
                     }
                     monster_info->party_threat.sight_state = W8_SIGHT_SEEN;
@@ -749,7 +749,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 if (!CurrentGame().surprise_possible &&
                     (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
                     g_sight_fade_out_tick = now;
-                    ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1de]);
+                    ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1de]);
                 }
             }
             if (monster_info->party_threat.last_seen_clock == 0) {

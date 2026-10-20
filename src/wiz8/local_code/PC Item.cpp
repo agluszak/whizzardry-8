@@ -9,14 +9,14 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "retail_item_payloads.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/item_payloads.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -25,24 +25,21 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
@@ -54,13 +51,15 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/notices.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/utility.h"
@@ -76,7 +75,7 @@ enum { W8_ITEM_BUNDLE_SIZE = 25 };
 unsigned int GetItemUnitWeight(const W8ItemInstance* item)
 {
     if (item != 0) {
-        return g_item_records[item->iItemNo].weight;
+        return Data().items[item->iItemNo].weight;
     }
     return 0;
 }
@@ -86,16 +85,15 @@ unsigned int GetItemUnitWeight(const W8ItemInstance* item)
    everything else is worth exactly what one of it is worth. */
 unsigned int GetItemStackValue(const W8ItemInstance* item)
 {
-    if (g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return (item->stack_count * g_item_records[item->iItemNo].value +
-                (W8_ITEM_BUNDLE_SIZE - 1)) /
+    if (Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        return (item->stack_count * Data().items[item->iItemNo].value + (W8_ITEM_BUNDLE_SIZE - 1)) /
                W8_ITEM_BUNDLE_SIZE;
     }
-    if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
+    if (Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         item->stack_count > 1) {
-        return g_item_records[item->iItemNo].value * item->stack_count;
+        return Data().items[item->iItemNo].value * item->stack_count;
     }
-    return g_item_records[item->iItemNo].value;
+    return Data().items[item->iItemNo].value;
 }
 
 /* Where an item of this kind wants to go. Two of the thirteen equipment
@@ -104,7 +102,7 @@ unsigned int GetItemStackValue(const W8ItemInstance* item)
    pair, which the character-creation screens do not fill. */
 W8EquipSlot GetItemDefaultEquipSlot(int item_id)
 {
-    switch (g_item_records[item_id].equip_class) {
+    switch (Data().items[item_id].equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
     case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
         return W8_EQUIP_SLOT_PRIMARY_WEAPON;
@@ -161,7 +159,7 @@ W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot)
 /* No weapon skill at all, which GetItemEquipSlotMask treats as a data error. */
 enum { W8_WEAPON_SKILL_NONE = -1 };
 
-/* The g_localized_strings message each item use kind shows for whatever the item
+/* The Data().strings message each item use kind shows for whatever the item
    was used on, read at every other entry. The last six ids, from
    W8_ITEM_PROPERTY_MESSAGE_FIRST, are the item property labels. */
 unsigned short g_item_use_messages[25] = {
@@ -344,9 +342,9 @@ static const std::array<std::string_view, 145> g_item_video_object_fallback_name
 
 std::shared_ptr<const SpriteSheet> ItemSprites(int item_id)
 {
-    if (item_id < 0 || static_cast<unsigned int>(item_id) >= g_item_records.size())
+    if (item_id < 0 || static_cast<unsigned int>(item_id) >= Data().items.size())
         throw std::out_of_range(fmt::format("Item {} has no record", item_id));
-    const auto& record = g_item_records[item_id];
+    const auto& record = Data().items[item_id];
     std::string_view name = record.video_object_name;
     if (name.empty()) name = g_item_video_object_fallback_names.at(record.unidentified_name_index);
     std::string path = fmt::format("Data\\Items\\{}", name);
@@ -365,12 +363,12 @@ std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quant
     unsigned int name_index;
 
     if (item->identified) {
-        name = g_item_records[item->iItemNo].display_name;
+        name = Data().items[item->iItemNo].display_name;
     } else {
-        name_index = g_item_records[item->iItemNo].unidentified_name_index;
+        name_index = Data().items[item->iItemNo].unidentified_name_index;
         if (g_generic_item_names[name_index].empty()) {
-            name = fmt::sprintf(g_localized_strings[0x1e7],
-                                g_localized_strings[g_generic_item_name_notice[name_index]]);
+            name = fmt::sprintf(Data().strings[0x1e7],
+                                Data().strings[g_generic_item_name_notice[name_index]]);
             g_generic_item_names[name_index] = name;
         }
         name = g_generic_item_names[name_index];
@@ -389,7 +387,7 @@ std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quant
 unsigned char GetItemEquipClass(const W8ItemInstance* item)
 {
     if (item != 0) {
-        return g_item_records[item->iItemNo].equip_class;
+        return Data().items[item->iItemNo].equip_class;
     }
     return 0;
 }
@@ -398,7 +396,7 @@ unsigned char GetItemEquipClass(const W8ItemInstance* item)
 unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item)
 {
     if (item != 0) {
-        return g_item_records[item->iItemNo].unidentified_name_index;
+        return Data().items[item->iItemNo].unidentified_name_index;
     }
     return 0;
 }
@@ -407,8 +405,8 @@ unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item)
 bool ItemsShareEquipClass(const W8ItemInstance* first, const W8ItemInstance* second)
 {
     if (first != 0 && second != 0) {
-        return g_item_records[first->iItemNo].equip_class ==
-               g_item_records[second->iItemNo].equip_class;
+        return Data().items[first->iItemNo].equip_class ==
+               Data().items[second->iItemNo].equip_class;
     }
     return false;
 }
@@ -417,8 +415,8 @@ bool ItemsShareEquipClass(const W8ItemInstance* first, const W8ItemInstance* sec
 bool ItemsShareUnidentifiedName(const W8ItemInstance* first, const W8ItemInstance* second)
 {
     if (first != 0 && second != 0) {
-        return g_item_records[first->iItemNo].unidentified_name_index ==
-               g_item_records[second->iItemNo].unidentified_name_index;
+        return Data().items[first->iItemNo].unidentified_name_index ==
+               Data().items[second->iItemNo].unidentified_name_index;
     }
     return false;
 }
@@ -427,7 +425,7 @@ bool ItemsShareUnidentifiedName(const W8ItemInstance* first, const W8ItemInstanc
    being taken off or swapped away. */
 bool IsItemBoundToWearer(const W8ItemInstance* item)
 {
-    if (item->iItemNo != -1 && g_item_records[item->iItemNo].binds_on_equip != 0 && item->bound) {
+    if (item->iItemNo != -1 && Data().items[item->iItemNo].binds_on_equip != 0 && item->bound) {
         return true;
     }
     return false;
@@ -447,18 +445,18 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
 {
     unsigned short slots = 0;
 
-    switch (g_item_records[item_id].equip_class) {
+    switch (Data().items[item_id].equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
     case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
     case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
-        if (g_item_records[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
+        if (Data().items[item_id].weapon_skill == W8_WEAPON_SKILL_NONE) {
             DebugMessage(
                 0, fmt::format("ERROR - Item {} is a weapon without a skill specified -> Charles",
-                               g_item_records[item_id].display_name));
+                               Data().items[item_id].display_name));
             return 0;
         }
-        if ((g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
+        if ((Data().items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
             if (primary_off_hand_free) {
                 slots = W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_PRIMARY_WEAPON);
             }
@@ -469,7 +467,7 @@ unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
         }
         slots = W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_PRIMARY_WEAPON) |
                 W8_EQUIP_SLOT_BIT(W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON);
-        if ((g_item_records[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) == 0) {
+        if ((Data().items[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) == 0) {
             return slots;
         }
         if (primary_main_hand_free) {
@@ -525,12 +523,13 @@ bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip
         ignore_worn_items;
     primary_main_hand_free =
         character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 ||
-        (g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo].flags &
+        (Data().items[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo].flags &
          W8_ITEM_FLAG_TWO_HANDED) == 0 ||
         ignore_worn_items;
     alternate_main_hand_free =
         character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == -1 ||
-        (g_item_records[character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo]
+        (Data()
+             .items[character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo]
              .flags &
          W8_ITEM_FLAG_TWO_HANDED) == 0 ||
         ignore_worn_items;
@@ -550,24 +549,24 @@ bool CanHoldItemsTogether(int first_item_id, int second_item_id)
     if (first_item_id == -1 || second_item_id == -1) {
         return true;
     }
-    if ((g_item_records[first_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0 ||
-        (g_item_records[second_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
+    if ((Data().items[first_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0 ||
+        (Data().items[second_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
         return false;
     }
-    if (g_item_records[first_item_id].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
-        g_item_records[second_item_id].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return CompatiblePartnerItems(first_item_id, second_item_id);
+    if (Data().items[first_item_id].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
+        Data().items[second_item_id].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        return CompatiblePartnerItems(Data(), first_item_id, second_item_id);
     }
-    if (g_item_records[second_item_id].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
-        g_item_records[first_item_id].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return CompatiblePartnerItems(second_item_id, first_item_id);
+    if (Data().items[second_item_id].equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
+        Data().items[first_item_id].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        return CompatiblePartnerItems(Data(), second_item_id, first_item_id);
     }
-    if (g_item_records[first_item_id].equip_class >= W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+    if (Data().items[first_item_id].equip_class >= W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         return true;
     }
-    if (g_item_records[second_item_id].equip_class < W8_ITEM_EQUIP_CLASS_AMMUNITION) {
-        return g_item_records[first_item_id].range_category ==
-               g_item_records[second_item_id].range_category;
+    if (Data().items[second_item_id].equip_class < W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        return Data().items[first_item_id].range_category ==
+               Data().items[second_item_id].range_category;
     }
     return true;
 }
@@ -636,7 +635,7 @@ bool FindUnmetItemRequirement(const W8Character* character, const W8ItemDatabase
    already learned or are strong enough to trigger. */
 bool CanCharacterUseItem(const W8Character* character, int item_id)
 {
-    const W8ItemDatabaseRecord* record = &g_item_records[item_id];
+    const W8ItemDatabaseRecord* record = &Data().items[item_id];
     unsigned int spell_id;
     unsigned int minimum_caster_level;
 
@@ -714,9 +713,9 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
     if (item->iItemNo < -1) {
         Fail("pPCItem->iItemNo >= -1");
     }
-    if (item->iItemNo >= static_cast<int>(g_item_records.size())) {
+    if (item->iItemNo >= static_cast<int>(Data().items.size())) {
         // c-style-cast-ok: verbatim retail assert string
-        Fail("pPCItem->iItemNo < (INT32) g_item_records.size()");
+        Fail("pPCItem->iItemNo < (INT32) Data().items.size()");
     }
     if (item->iItemNo == -1) {
         return false;
@@ -725,7 +724,7 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
         return false;
     }
 
-    record = &g_item_records[item->iItemNo];
+    record = &Data().items[item->iItemNo];
     if ((record->flags & W8_ITEM_FLAG_MUST_EQUIP_TO_USE) != 0 ||
         GetItemDefaultEquipSlot(item->iItemNo) != W8_EQUIP_SLOT_NONE) {
         if (!IsItemWornByCharacter(character, item)) {
@@ -789,13 +788,13 @@ std::string GetItemDisplayName(const W8ItemInstance* item)
     std::string built;
 
     if (item->identified) {
-        return g_item_records[item->iItemNo].display_name;
+        return Data().items[item->iItemNo].display_name;
     }
 
-    name_index = g_item_records[item->iItemNo].unidentified_name_index;
+    name_index = Data().items[item->iItemNo].unidentified_name_index;
     if (g_generic_item_names[name_index].empty()) {
-        built = fmt::sprintf(g_localized_strings[0x1e7],
-                             g_localized_strings[g_generic_item_name_notice[name_index]]);
+        built = fmt::sprintf(Data().strings[0x1e7],
+                             Data().strings[g_generic_item_name_notice[name_index]]);
         g_generic_item_names[name_index] = built;
     }
     return g_generic_item_names[name_index];
@@ -819,7 +818,7 @@ bool CanUnequipSlotItem(const W8Character* character, W8EquipSlot equip_slot)
 {
     const W8ItemInstance* item = &character->EquippedItem[equip_slot];
 
-    if (item->iItemNo != -1 && g_item_records[item->iItemNo].binds_on_equip != 0 &&
+    if (item->iItemNo != -1 && Data().items[item->iItemNo].binds_on_equip != 0 &&
         !item->bind_announced && g_equip_slot_icons[equip_slot] != -1 &&
         character->uiCondition[W8_CONDITION_DEAD] == 0) {
         return false;
@@ -923,8 +922,8 @@ bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item
 W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identified,
                         bool mark_special)
 {
-    if (static_cast<unsigned int>(item_id) >= g_item_records.size()) {
-        Fail("uiItemNo < g_item_records.size()",
+    if (static_cast<unsigned int>(item_id) >= Data().items.size()) {
+        Fail("uiItemNo < Data().items.size()",
              fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
     }
 
@@ -932,7 +931,7 @@ W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identifie
     auto* item = &result;
 
     item->iItemNo = item_id;
-    const W8ItemDatabaseRecord* record = &g_item_records[item_id];
+    const W8ItemDatabaseRecord* record = &Data().items[item_id];
     if (record->quantity_kind != W8_ITEM_QUANTITY_NONE) {
         int maximum = record->initial_quantity.Maximum();
         if (maximum >= 256) {
@@ -969,7 +968,7 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
     if (item->iItemNo == -1) {
         return;
     }
-    if (g_item_records[item->iItemNo].binds_on_equip == 0 || item->bind_announced) {
+    if (Data().items[item->iItemNo].binds_on_equip == 0 || item->bind_announced) {
         if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
             item->bound = true;
         }
@@ -978,12 +977,12 @@ void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
     if (g_equip_slot_icons[equip_slot] != -1 && !item->bound) {
         item->bound = true;
         ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(g_localized_strings[0x1ea], FormatItemDisplayName(item, true)));
+                   fmt::sprintf(Data().strings[0x1ea], FormatItemDisplayName(item, true)));
     }
 }
 
 /* The spell an item carries, with both bounds on the item id asserted - the
-   second names the database count as g_item_records.size(). */
+   second names the database count as Data().items.size(). */
 int GetItemSpell(const W8ItemInstance* item)
 {
     if (item == 0) {
@@ -992,10 +991,10 @@ int GetItemSpell(const W8ItemInstance* item)
     if (item->iItemNo == -1) {
         Fail("pPCItem->iItemNo != -1");
     }
-    if (item->iItemNo >= static_cast<int>(g_item_records.size())) {
-        Fail("pPCItem->iItemNo < (INT32) g_item_records.size()");
+    if (item->iItemNo >= static_cast<int>(Data().items.size())) {
+        Fail("pPCItem->iItemNo < (INT32) Data().items.size()");
     }
-    return g_item_records[item->iItemNo].spell_id;
+    return Data().items[item->iItemNo].spell_id;
 }
 
 /* Let the whole party have a go at identifying one item. Everybody able
@@ -1031,7 +1030,7 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
     unsigned int score = strength * 3;
 
     AdjustIntegerByPercent(&score, percent);
-    if (g_item_records[item->iItemNo].identify_difficulty <= score) {
+    if (Data().items[item->iItemNo].identify_difficulty <= score) {
         if (item == 0) {
             Fail("pPCItem");
         }
@@ -1058,8 +1057,8 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
         return 1;
     }
 
-    attempts = g_item_records[item->iItemNo].identify_difficulty / 3;
-    if (g_item_records[item->iItemNo].identify_difficulty % 3 != 0) {
+    attempts = Data().items[item->iItemNo].identify_difficulty / 3;
+    if (Data().items[item->iItemNo].identify_difficulty % 3 != 0) {
         ++attempts;
     }
     candidate = attempts * 3;
@@ -1067,7 +1066,7 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
         candidate -= 3;
         score = candidate;
         AdjustIntegerByPercent(&score, percent);
-        if (score < g_item_records[item->iItemNo].identify_difficulty) {
+        if (score < Data().items[item->iItemNo].identify_difficulty) {
             return attempts;
         }
         --attempts;
@@ -1090,8 +1089,8 @@ int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned 
     for (slot = 0; slot < 12; ++slot) {
         W8ItemInstance* item = &character->EquippedItem[slot];
 
-        if (item->iItemNo != -1 && g_item_records[item->iItemNo].binds_on_equip != 0) {
-            if (score < g_item_records[item->iItemNo].identify_difficulty) {
+        if (item->iItemNo != -1 && Data().items[item->iItemNo].binds_on_equip != 0) {
+            if (score < Data().items[item->iItemNo].identify_difficulty) {
                 ++still_hidden;
             } else {
                 ++revealed;
@@ -1110,7 +1109,7 @@ int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned 
    bytes at 0x06f, the spell-bearing byte at 0x08c or the three at 0x06c. */
 bool ItemHasHiddenProperties(int item_id)
 {
-    const W8ItemDatabaseRecord* record = &g_item_records[item_id];
+    const W8ItemDatabaseRecord* record = &Data().items[item_id];
     unsigned int index;
 
     for (index = 0; index < 9; ++index) {
@@ -1139,7 +1138,7 @@ W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
 {
     if (item == nullptr) return W8_RANGE_NONE;
     const int spell_id = GetItemSpell(item);
-    return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : g_spell_records[spell_id].range_category;
+    return spell_id == W8_SPELL_NONE ? W8_RANGE_NONE : Data().spells[spell_id].range_category;
 }
 
 /* One character's attempt at identifying an item. Their strength is a sixth of
@@ -1159,7 +1158,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     }
 
     strength = static_cast<char>(character->skills[W8_SKILL_ARTIFACTS].level / 6);
-    if (static_cast<char>(g_item_records[item->iItemNo].identify_difficulty) > strength) {
+    if (static_cast<char>(Data().items[item->iItemNo].identify_difficulty) > strength) {
         return false;
     }
 
@@ -1169,11 +1168,11 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     item->identified = true;
     item->spell_hint = true;
     item->unknown_08 = 1;
-    if (static_cast<char>(g_item_records[item->iItemNo].identify_difficulty + 3) <= strength) {
+    if (static_cast<char>(Data().items[item->iItemNo].identify_difficulty + 3) <= strength) {
         item->bound = true;
     }
 
-    margin = strength - g_item_records[item->iItemNo].identify_difficulty;
+    margin = strength - Data().items[item->iItemNo].identify_difficulty;
     if (margin >= 0 && margin < 3) {
         PracticeCharacterSkill(character, W8_SKILL_ARTIFACTS, 2, true);
     }
@@ -1189,8 +1188,7 @@ void BindEveryPartyItem(void)
 
     if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active &&
         !CurrentGame().party_movement_mode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -1198,37 +1196,7 @@ void BindEveryPartyItem(void)
             BindCharacterItems(party_slot, false);
         }
     }
-    ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1ed]);
-}
-
-/* Set the wield kind for one primary hand from the item it holds. An empty
-   hand wields nothing; otherwise the item's equipment class selects the kind,
-   with class two in the off hand deferring to the primary hand's item unless
-   that item carries the paired flag. */
-void SetHandType(W8Character* character, W8EquipSlot slot)
-{
-    if (character == 0) {
-        Fail("pPC != NULL");
-    }
-    if (static_cast<unsigned int>(slot) > W8_EQUIP_SLOT_FEET) {
-        Fail("uiSlot < SLOT_COUNT");
-    }
-    int hand;
-    if (slot == W8_EQUIP_SLOT_PRIMARY_WEAPON) {
-        hand = 0;
-    } else {
-        if (slot != W8_EQUIP_SLOT_SECONDARY_WEAPON) {
-            std::string message =
-                fmt::format("SetHandType: ERROR: uiSlot {:d} is not a hand/weapon slot!",
-                            fmt::underlying(slot));
-            Fail("FALSE", message);
-            return;
-        }
-        hand = 1;
-    }
-    character->Hand[hand].uiHolds =
-        WeaponHandKind(character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                       character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON], hand);
+    ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1ed]);
 }
 
 /* The binding difficulty of a character's worn items: the worst identify
@@ -1242,9 +1210,9 @@ unsigned int GetEquipmentBindingDifficulty(int character_index)
 
     for (int remaining = 12; remaining != 0; --remaining) {
         int item_id = slot->iItemNo;
-        if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 && !slot->bind_announced &&
-            max_difficulty < g_item_records[item_id].identify_difficulty) {
-            max_difficulty = g_item_records[item_id].identify_difficulty;
+        if (item_id != -1 && Data().items[item_id].binds_on_equip != 0 && !slot->bind_announced &&
+            max_difficulty < Data().items[item_id].identify_difficulty) {
+            max_difficulty = Data().items[item_id].identify_difficulty;
         }
         ++slot;
     }
@@ -1358,8 +1326,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
     }
     default:
         if (choose_character || !CanCharacterUseItem(character, item->iItemNo) ||
-            g_item_records[item->iItemNo].value / character->uiExpLevel <= 500 ||
-            !item->identified) {
+            Data().items[item->iItemNo].value / character->uiExpLevel <= 500 || !item->identified) {
             return;
         }
         message = 55;
@@ -1373,8 +1340,8 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
 /* Whether the item's equip class is directly usable (0x17/0x19). */
 bool IsUsableItemClass(W8ItemInstance* item)
 {
-    if (g_item_records[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
-        g_item_records[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_OTHER) {
+    if (Data().items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
+        Data().items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_OTHER) {
         return false;
     }
     return true;
@@ -1388,7 +1355,7 @@ bool IsUsableItemClass(W8ItemInstance* item)
    spell the moment admits. */
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 {
-    const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
@@ -1411,32 +1378,32 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
                           std::function<void(bool)> callback)
 {
-    const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     W8Character* character = &CurrentGame().party.characters[character_index];
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
         if (CurrentGame().combat.active() || gXStatus.fCampMode || LockInteractionSuspended() ||
             TrapInteractionSuspended()) {
-            ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
+            ShowNoticeLine(Data().strings[0x7a6], callback, true, false);
             return true;
         }
         return false;
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
         record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
-        ShowNoticeLine(g_localized_strings[0x7a7], callback, true, false);
+        ShowNoticeLine(Data().strings[0x7a7], callback, true, false);
         return true;
     }
     if (ItemUseDraft()) {
         if (!SpellHasAnyValidTarget(character_index, record->spell_id,
                                     ItemClassNormalizesTarget(record))) {
-            ShowNoticeLine(g_localized_strings[0x7a8], callback, true, false);
+            ShowNoticeLine(Data().strings[0x7a8], callback, true, false);
             return true;
         }
     }
     if (!SpellUsableNow(record->spell_id, false)) {
-        ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
+        ShowNoticeLine(Data().strings[0x7a6], callback, true, false);
         return true;
     }
     return false;
@@ -1447,7 +1414,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 static bool IsActivatableServiceItem(W8Character* character, W8ItemInstance* item)
 {
     if (item->iItemNo != -1 && CanCharacterActivateItem(character, item)) {
-        const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
+        const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
             record->equip_class != W8_ITEM_EQUIP_CLASS_OTHER && item->identified &&
             (record->spell_id == W8_SPELL_CHARM || record->spell_id == W8_SPELL_MINDREAD)) {
@@ -1503,7 +1470,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
         return failure * 8 / 10;
     case W8_SKILL_MUSIC:
     case W8_SKILL_ENGINEERING:
-        shortfall = g_spell_records[spell_id].spell_level * 0xf;
+        shortfall = Data().spells[spell_id].spell_level * 0xf;
         if (skill_level < shortfall) {
             failure += (shortfall - skill_level) / 3;
         }
@@ -1513,7 +1480,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
                            : character->profession_levels[W8_PROFESSION_GADGETEER];
         adjusted_power = (minimum_caster_level - caster_level) - 1 + static_cast<int>(power);
         if (adjusted_power > 0) {
-            return failure + g_spell_records[spell_id].spell_level * adjusted_power;
+            return failure + Data().spells[spell_id].spell_level * adjusted_power;
         }
         break;
     case W8_SKILL_ARTIFACTS:
@@ -1538,7 +1505,7 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
     else
         row.target_out_of_combat = action.target;
     StagePartySlotItemUse(party_slot, item, &action.target);
-    if (g_item_records[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
+    if (Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
         OpenCharacterScreenForPartySlot(party_slot, true);
         return;
@@ -1566,7 +1533,7 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
    is marked used, reported as a finding, or practised on afterwards. */
 int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power)
 {
-    const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int spell_id = record->spell_id;
     W8TargetSource target;
@@ -1641,8 +1608,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     if (effect == 1) {
         if (g_settings.verbose_combat_messages != 0 || !item->identified) {
             ShowNotice(W8_FONT_PALETTE_WHITE,
-                       fmt::sprintf(g_localized_strings[0x1f4], GetItemDisplayName(item),
-                                    g_spell_records[spell_id].display_name, power),
+                       fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(item),
+                                    Data().spells[spell_id].display_name, power),
                        -1);
             if (g_settings.verbose_combat_messages == 0) {
                 SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
@@ -1650,8 +1617,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         }
         item->spell_hint = true;
     } else if (effect == 3) {
-        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a9],
-                                                     FormatItemDisplayName(item, false)));
+        PostCharacterNotice(
+            party_slot, fmt::sprintf(Data().strings[0x1a9], FormatItemDisplayName(item, false)));
     }
 
     if (skill != W8_SKILL_NONE) {
@@ -1659,7 +1626,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
                                 &CurrentGame().party.rows[party_slot].target_out_of_combat,
                                 power)) {
             PracticeCharacterSkill(character, skill,
-                                   g_spell_records[spell_id].spell_level + (power >> 1), false);
+                                   Data().spells[spell_id].spell_level + (power >> 1), false);
         }
     }
     return effect;

@@ -12,8 +12,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/platform/assertion.h"
 
@@ -132,7 +132,7 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
     return W8_FACTION_FRIENDLY;
 }
 
-/* The g_localized_strings name id for each faction row; the two filler
+/* The Data().strings name id for each faction row; the two filler
    factions reuse the unaligned name. */
 static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
     0x5a1, 0x5a2, 0x5a3, 0x5a4, 0x5a5, 0x5a6, 0x5a7, 0x5a8, 0x5a9, 0x5aa, 0x5ab,
@@ -163,14 +163,14 @@ void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
     if (band != old_band) {
         g_factions[faction].band_changed_clock = CurrentGame().status.world_clock;
         if (band < old_band) {
-            notice = g_localized_strings[0x245];
+            notice = Data().strings[0x245];
             palette = 0;
         } else {
-            notice = g_localized_strings[0x246];
+            notice = Data().strings[0x246];
             palette = 5;
         }
-        ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
-                                         g_localized_strings[g_faction_name_ids[faction]], notice));
+        ShowNotice(palette, fmt::sprintf(Data().strings[0x247],
+                                         Data().strings[g_faction_name_ids[faction]], notice));
     }
 }
 
@@ -272,16 +272,16 @@ void AdjustFactionDisposition(signed char faction, char delta)
         g_factions[faction].band_changed_clock = CurrentGame().status.world_clock;
     }
     if (g_factions[faction].disposition_score < old_score) {
-        notice = g_localized_strings[0x245];
+        notice = Data().strings[0x245];
         palette = 0;
     } else if (g_factions[faction].disposition_score > old_score) {
-        notice = g_localized_strings[0x246];
+        notice = Data().strings[0x246];
         palette = 5;
     } else {
         return;
     }
-    ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
-                                     g_localized_strings[g_faction_name_ids[faction]], notice));
+    ShowNotice(palette, fmt::sprintf(Data().strings[0x247],
+                                     Data().strings[g_faction_name_ids[faction]], notice));
 }
 
 /* Write both faction tables into the open FATA chunk: the 21x21 relation

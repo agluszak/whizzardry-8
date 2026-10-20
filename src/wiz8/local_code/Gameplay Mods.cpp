@@ -7,19 +7,17 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -69,109 +67,6 @@ void RebuildPartyEffectBlock(void)
     }
     SetSkyNodeVisible(true);
     SetCameraLightIntensity(modifiers.light + kEnvironmentNearScale);
-}
-
-/* Fold the worn items into one character's equipment bonus block: the twelve
-   equipment slots are walked, the two alternate hand slots are skipped, the
-   two hand slots contribute no attack values, and the six per-item
-   resistance bytes are summed and clamped into the block's resistance run. */
-void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBlock* equipment_bonus)
-{
-    int resistance_totals[6] = {0};
-    unsigned int slot;
-    int index;
-
-    for (slot = 0; slot < 12; ++slot) {
-        int item_id = character->EquippedItem[slot].iItemNo;
-        if (slot == 8 || slot == 9 || item_id == -1) {
-            continue;
-        }
-        const W8ItemDatabaseRecord* record = &g_item_records[item_id];
-        if (slot != 6 && slot != 7) {
-            equipment_bonus->damage_bonus += record->attack_damage_bonus;
-            equipment_bonus->hit_bonus += record->attack_hit_bonus;
-        }
-        equipment_bonus->health_regen_adjustment += record->health_regen_bonus;
-        equipment_bonus->stamina_regen_adjustment += record->stamina_regen_bonus;
-        equipment_bonus->spell_regen_adjustment += record->spell_regen_bonus;
-        if (record->modifier_0b1_index != -1) {
-            equipment_bonus->skill_bonus[record->modifier_0b1_index] += record->modifier_0b1_value;
-        }
-        if (record->modifier_0b3_index != -1) {
-            equipment_bonus->attribute_adjustments[record->modifier_0b3_index] +=
-                record->modifier_0b3_value;
-        }
-        for (index = 0; index < 6; ++index) {
-            resistance_totals[index] += record->resistance_bonus[index];
-        }
-    }
-
-    for (index = 0; index < 6; ++index) {
-        int value = resistance_totals[index];
-        if (value < -0x7c) {
-            value = -0x7d;
-        } else if (value > 0x7c) {
-            value = 0x7d;
-        }
-        equipment_bonus->resistance_bonus[index] = static_cast<signed char>(value);
-    }
-}
-
-/* Add one modifier block into another: the byte fields sum, the six flags
-   latch, and the light and max-combined bytes keep the larger source. */
-void ApplyModifierBlock(W8GameplayModifierBlock* target, const W8GameplayModifierBlock* source)
-{
-    unsigned int index;
-
-    target->damage_bonus += source->damage_bonus;
-    target->hit_bonus += source->hit_bonus;
-    target->attack_bonus += source->attack_bonus;
-    target->damage_percent += source->damage_percent;
-    target->armor_class_adjustment += source->armor_class_adjustment;
-    target->armor_flat += source->armor_flat;
-    target->armor_matchup += source->armor_matchup;
-    target->damage_reduction_adjustment += source->damage_reduction_adjustment;
-    target->resistance_bonus_all += source->resistance_bonus_all;
-    target->damage_per_minute += source->damage_per_minute;
-    target->health_regen_adjustment += source->health_regen_adjustment;
-    target->stamina_regen_adjustment += source->stamina_regen_adjustment;
-    target->spell_regen_adjustment += source->spell_regen_adjustment;
-    for (index = 0; index < 7; ++index) {
-        target->attribute_adjustments[index] += source->attribute_adjustments[index];
-    }
-    for (index = 0; index < 0x29; ++index) {
-        target->skill_bonus[index] += source->skill_bonus[index];
-    }
-    for (index = 0; index < 6; ++index) {
-        target->resistance_bonus[index] += source->resistance_bonus[index];
-    }
-    if (source->boost_health_regen != 0) {
-        target->boost_health_regen = 1;
-    }
-    if (source->boost_stamina_regen != 0) {
-        target->boost_stamina_regen = 1;
-    }
-    if (source->boost_spell_regen != 0) {
-        target->boost_spell_regen = 1;
-    }
-    if (source->out_of_formation != 0) {
-        target->out_of_formation = 1;
-    }
-    if (source->detect_secrets != 0) {
-        target->detect_secrets = 1;
-    }
-    if (source->sight_override != 0) {
-        target->sight_override = 1;
-    }
-    if (target->light < source->light) {
-        target->light = source->light;
-    }
-    if (target->value < source->value) {
-        target->value = source->value;
-    }
-    if (target->missile_deflect_chance < source->missile_deflect_chance) {
-        target->missile_deflect_chance = source->missile_deflect_chance;
-    }
 }
 
 /* Fold the party's twelve effect slots into the shared modifier block. */
@@ -259,17 +154,6 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
             }
         }
     }
-}
-
-/* Rebuild one character's derived modifier block from the equipment,
-   condition and party blocks without rerunning the derived stats. */
-void RebuildCharacterModifierBlock(W8Character* character,
-                                   const W8GameplayModifierBlock* party_modifiers)
-{
-    memset(&character->bonus, 0, sizeof(W8GameplayModifierBlock));
-    ApplyModifierBlock(&character->bonus, &character->equipment_bonus);
-    ApplyModifierBlock(&character->bonus, &character->condition_modifiers);
-    if (party_modifiers) ApplyModifierBlock(&character->bonus, party_modifiers);
 }
 
 /* Rebuild one party member's condition/enchantment modifier block from the

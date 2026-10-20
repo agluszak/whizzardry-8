@@ -1,0 +1,221 @@
+#include "wiz8/loaded_game_data.h"
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <regex>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include "asset_paths.h"
+#include "retail_records.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
+#include "wiz8/data/missile_records.h"
+#include "wiz8/data/records.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/retail_text_records.h"
+#include "wiz8/unicode.h"
+
+namespace {
+GameData loaded;
+
+[[noreturn]] void Malformed(std::string_view file)
+{
+    throw std::runtime_error("Malformed " + std::string(file));
+}
+
+std::unique_ptr<wiz8::File> OpenDatabase(std::string_view name)
+{
+    return wiz8::open_file(wiz8::asset_path("Data\\Databases\\" + std::string(name)),
+                           wiz8::OpenMode::read);
+}
+
+// Windows localization uses %S for UTF-16 strings and I64 for integers.
+// Convert that vocabulary once during import; {fmt} handles runtime formatting.
+std::string ImportLocalizedPattern(std::string text)
+{
+    static const std::regex specifier(
+        R"(%%|%([-+ #0]*[0-9]*(?:\.[0-9]+)?)(?:[hl])?S|%([-+ #0]*[0-9]*(?:\.[0-9]+)?)I64([diuoxX]))");
+    std::string result;
+    std::size_t position = 0;
+    for (auto it = std::sregex_iterator(text.begin(), text.end(), specifier);
+         it != std::sregex_iterator(); ++it) {
+        const auto& match = *it;
+        result.append(text, position, match.position() - position);
+        if (match.str() == "%%")
+            result += "%%";
+        else if (match[3].matched)
+            result += "%" + match[2].str() + "ll" + match[3].str();
+        else
+            result += "%" + match[1].str() + "s";
+        position = match.position() + match.length();
+    }
+    result.append(text, position);
+    return result;
+}
+
+/* MissileTables.dbs: each row is a 0x101-byte editor prefix followed by the
+   0x1e5-byte runtime record. */
+std::vector<W8MissileTableRecord> ReadMissileDatabase()
+{
+    auto handle = OpenDatabase("MissileTables.dbs");
+    std::int32_t count;
+    std::uint32_t version;
+    handle->read_exact(&count, sizeof(count));
+    handle->read_exact(&version, sizeof(version));
+    if (count < 0 || count > 100000) Malformed("MissileTables.dbs");
+    std::vector<W8MissileTableRecord> rows(count);
+    for (auto& row : rows) {
+        handle->seek(0x101, wiz8::SeekOrigin::current);
+        if (wiz8::retail::read(*handle, row).bytes != wiz8::retail::kMissileTableRecordBytes)
+            Malformed("MissileTables.dbs");
+    }
+    return rows;
+}
+} // namespace
+
+std::vector<std::string> ReadStringTable(std::string_view path)
+{
+    auto handle = wiz8::open_file(wiz8::asset_path(path));
+    int count;
+    handle->read_exact(&count, 4);
+    if (count <= 0 || count > 100000) throw std::runtime_error("Invalid localization entry count");
+    std::vector<std::string> strings;
+    strings.reserve(count);
+    for (int index = 0; index < count; ++index) {
+        int byte_count;
+        handle->read_exact(&byte_count, 4);
+        if (byte_count < 0 || byte_count > 1024 * 1024 || byte_count % 2)
+            throw std::runtime_error("Invalid localization text length");
+        std::vector<std::byte> bytes(byte_count);
+        handle->read_exact(bytes.data(), bytes.size());
+        strings.push_back(ImportLocalizedPattern(wiz8::text::from_utf16le(bytes, true)));
+    }
+    return strings;
+}
+
+std::vector<W8ItemDatabaseRecord> ReadItemDatabase()
+{
+    return wiz8::retail::read_database<W8ItemDatabaseRecord>(*OpenDatabase("Items.DBS"));
+}
+
+/* ItemTables.DBS carries fixed 0x100-byte category names, then table records. */
+W8ItemTables ReadItemTables()
+{
+    auto handle = OpenDatabase("ItemTables.DBS");
+    unsigned int category_count;
+    handle->read_exact(&category_count, sizeof(category_count));
+    const auto remaining = handle->size() - handle->tell();
+    if (remaining < std::int64_t(sizeof(unsigned int)) ||
+        category_count > (remaining - std::int64_t(sizeof(unsigned int))) / 0x100)
+        Malformed("ItemTables.DBS");
+    W8ItemTables result{.categories = std::vector<std::string>(category_count)};
+    for (auto& category : result.categories) {
+        std::array<char, 256> bytes;
+        handle->read_exact(bytes.data(), bytes.size());
+        const auto end = std::find(bytes.begin(), bytes.end(), '\0');
+        if (end == bytes.end()) Malformed("ItemTables.DBS");
+        category.assign(bytes.begin(), end);
+    }
+
+    unsigned int table_count;
+    handle->read_exact(&table_count, sizeof(table_count));
+    if (table_count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8ItemTableRecord)))
+        Malformed("ItemTables.DBS");
+    result.tables.resize(table_count);
+    handle->read_exact(result.tables.data(), result.tables.size() * sizeof(W8ItemTableRecord));
+    for (const auto& table : result.tables)
+        if (std::find(std::begin(table.name), std::end(table.name), '\0') == std::end(table.name))
+            Malformed("ItemTables.DBS");
+    return result;
+}
+
+/* NPC.DBS records carry an optional sub-list, stored after the record when its
+   leading count exceeds one and its 0x9D flag is clear: a count, then that many
+   six-byte elements appended to a freshly created list. */
+std::vector<W8NpcDatabaseRecord> ReadNpcDatabase()
+{
+    auto handle = OpenDatabase("NPC.DBS");
+    unsigned int count;
+    handle->read_exact(&count, sizeof(count));
+    if (count >
+        (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes))
+        Malformed("NPC.DBS");
+    std::vector<W8NpcDatabaseRecord> records(count);
+    for (unsigned int index = 0; index < count; ++index) {
+        auto& record = records[index];
+        wiz8::retail::read_exact(*handle, record);
+        if (record.no_item_stock != 0 || record.version <= 1) continue;
+        unsigned int entry_count;
+        handle->read_exact(&entry_count, sizeof(entry_count));
+        const auto remaining = handle->size() - handle->tell();
+        const auto following_records =
+            std::int64_t(count - index - 1) * std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
+        if (remaining < following_records ||
+            entry_count >
+                (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
+            entry_count > std::numeric_limits<int>::max())
+            Malformed("NPC.DBS");
+        record.item_stock_rules.resize(entry_count);
+        for (auto& rule : record.item_stock_rules) handle->read_exact(&rule, sizeof(rule));
+    }
+    return records;
+}
+
+/* SpellTables.dbs: a count, a version, then rows that each begin with a 257-byte
+   label. Spell ids in retail records are 16-bit. */
+std::vector<W8SpellRuntimeRecord> ReadSpellDatabase()
+{
+    auto handle = wiz8::open_file(wiz8::asset_path("data/databases/spelltables.dbs"));
+    std::int32_t count;
+    std::uint32_t version;
+    handle->read_exact(&count, sizeof(count));
+    handle->read_exact(&version, sizeof(version));
+    constexpr std::int64_t entry_bytes = 0x101 + wiz8::retail::kSpellRuntimeRecordBytes;
+    if (count <= 0 || count > std::numeric_limits<std::uint16_t>::max() ||
+        std::int64_t(count) * entry_bytes > handle->size() - handle->tell())
+        Malformed("SpellTables.dbs");
+    std::vector<W8SpellRuntimeRecord> records(count);
+    for (auto& record : records) {
+        handle->seek(0x101, wiz8::SeekOrigin::current);
+        if (wiz8::retail::read(*handle, record).bytes != wiz8::retail::kSpellRuntimeRecordBytes)
+            Malformed("SpellTables.dbs");
+    }
+    return records;
+}
+
+GameData LoadGameData(std::string_view string_data_path)
+{
+    auto item_tables = ReadItemTables();
+    return {
+        .strings = ReadStringTable(string_data_path),
+        .items = ReadItemDatabase(),
+        .item_table_categories = std::move(item_tables.categories),
+        .item_tables = std::move(item_tables.tables),
+        .spells = ReadSpellDatabase(),
+        .npcs = ReadNpcDatabase(),
+        .facts = wiz8::retail::read_database<W8FactDatabaseRecord>(*OpenDatabase("FACT.DBS"),
+                                                                   std::size(g_fact_values)),
+        .levels = wiz8::retail::read_database<W8LevelDatabaseRecord>(*OpenDatabase("LEVELS.DBS")),
+        .missiles = ReadMissileDatabase(),
+    };
+}
+
+const GameData& Data()
+{
+    return loaded;
+}
+
+void InstallGameData(GameData data)
+{
+    loaded = std::move(data);
+}

@@ -5,10 +5,10 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "wiz8/data/item_records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/rules/character.h"
@@ -261,7 +261,7 @@ struct NpcDatabaseRecord {
     /* 0x060: one bit per named-person alias the NPC answers to; read as one
        dword by FindNpcNameOrPlaceQuote. */
     unsigned int name_alias_mask;
-    /* 0x064: one-based index into g_item_tables selecting the record's item
+    /* 0x064: one-based index into GameData::item_tables selecting the record's item
        table, copied into the runtime state. */
     int item_table_id;
     /* 0x068: one bit per service the NPC offers. */

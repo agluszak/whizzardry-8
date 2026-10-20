@@ -473,7 +473,7 @@ private:
 /* The open camp's state, or null. */
 W8CampScreenState* CampScreenState();
 
-/* One g_localized_strings id per primary attribute row; defined in
+/* One Data().strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
 extern int g_attribute_label_ids[7];
 

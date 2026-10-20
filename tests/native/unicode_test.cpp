@@ -12,8 +12,8 @@
 
 #include "retail_records.h"
 #include "wiz8/data/attack_modes.h"
+#include "wiz8/data/missile_records.h"
 #include "wiz8/data/records.h"
-#include "wiz8/entities/missile.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/unicode.h"

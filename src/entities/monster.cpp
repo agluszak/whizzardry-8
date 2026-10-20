@@ -57,6 +57,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -2083,7 +2084,7 @@ void Monster::HandleAnimationFrame(unsigned char previous_frame)
          (spell_frame == 0 && visual.subcycle == 1))) {
         if (spell_effect_armed) {
             spell_effect_armed = false;
-            CreateAttachedSpellEffect(g_spell_records[g_spell_index].resource_name,
+            CreateAttachedSpellEffect(Data().spells[g_spell_index].resource_name,
                                       g_spell_effect_frame, this, 0, 0);
             return;
         }
@@ -2157,7 +2158,7 @@ prepare_attack:
     }
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
-    if (static_cast<unsigned int>(missile_type) >= g_missile_table.size()) {
+    if (static_cast<unsigned int>(missile_type) >= Data().missiles.size()) {
         DebugMessage(0, fmt::format("WARNING: {} has invalid missile type {:d} for attack {:d}",
                                     record->name0, missile_type, attack_index));
         missile_type = 0;

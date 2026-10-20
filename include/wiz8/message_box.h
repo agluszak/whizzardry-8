@@ -137,7 +137,7 @@ struct W8NpcPartyScriptLine {
     int party_slot;
 };
 
-/* Show g_localized_strings[`string_index`] as a portrait message. */
+/* Show Data().strings[`string_index`] as a portrait message. */
 struct W8NpcPortraitString {
     int string_index;
 };

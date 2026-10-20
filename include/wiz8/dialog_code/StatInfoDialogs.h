@@ -24,8 +24,8 @@ protected:
                                  [this](int first) { ScrollTextArea(textarea, first); }}};
     W8ButtonWidget button{InputLayer()};
     W8DialogTextArea textarea;
-    unsigned int m_title_id;  /* g_localized_strings index, DrawTitle */
-    unsigned int m_detail_id; /* g_localized_strings index, PopulateText */
+    unsigned int m_title_id;  /* Data().strings index, DrawTitle */
+    unsigned int m_detail_id; /* Data().strings index, PopulateText */
 };
 
 class W8AttributeInfoDialog : public W8StatInfoDialogBase {

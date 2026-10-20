@@ -1,17 +1,15 @@
-#include "wiz8/party_stats.h"
+#include "wiz8/rules/party_stats.h"
 
 #include <span>
 
-#include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/skills.h"
-#include "wiz8/item_rules.h"
-#include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
@@ -23,14 +21,15 @@
 /* Calculate from resolved attributes, skills and equipment. Live equipment
    reconciliation and presentation are separate operations at the caller. */
 // FUNCTION: WIZ8 0x004ed9d0
-static CharacterStatsUpdate RecalculateCharacterStatsFromAttributes(W8Character& subject,
+static CharacterStatsUpdate RecalculateCharacterStatsFromAttributes(const GameData& data,
+                                                                    W8Character& subject,
                                                                     CharacterStatRules rules)
 {
     auto* character = &subject;
     const bool hp_exhausted = RecalculateCharacterHitPoints(character);
     RecalculateCharacterStamina(character);
-    RecalculateRealmSpellPoints(character);
-    CalcArmorClasses(character, rules.defensive_action);
+    RecalculateRealmSpellPoints(data, character);
+    CalcArmorClasses(data, character, rules.defensive_action);
     RebuildCharacterRegenRates(character);
 
     character->damage_reduction = 0;
@@ -48,7 +47,7 @@ static CharacterStatsUpdate RecalculateCharacterStatsFromAttributes(W8Character&
     RecalculateCharacterResistances(character);
 
     RecalculateCarryingCapacity(character);
-    return {true, RecalculateInventoryWeight(*character), hp_exhausted};
+    return {true, RecalculateInventoryWeight(data, *character), hp_exhausted};
 }
 
 namespace {
@@ -69,18 +68,20 @@ bool UpdateCharacterLoad(W8Character& character)
                      character.carrying_capacity);
     return previous != character.load_category;
 }
-void RecalculateLoadModifiers(W8Character& character, CharacterStatRules rules)
+void RecalculateLoadModifiers(const GameData& data, W8Character& character,
+                              CharacterStatRules rules)
 {
     CalcInitiative(&character);
-    CalcAttacks(&character, rules.damaged_android);
-    CalcArmorClasses(&character, rules.defensive_action);
+    CalcAttacks(data, &character, rules.damaged_android);
+    CalcArmorClasses(data, &character, rules.defensive_action);
 }
 }
 
-static void RecalculateCharacterLoadStats(W8Character& character, CharacterStatRules rules)
+static void RecalculateCharacterLoadStats(const GameData& data, W8Character& character,
+                                          CharacterStatRules rules)
 {
     UpdateCharacterLoad(character);
-    RecalculateLoadModifiers(character, rules);
+    RecalculateLoadModifiers(data, character, rules);
 }
 
 /* Carrying capacity from strength and the carrying trait. The two attributes
@@ -101,16 +102,16 @@ bool RecalculateCarryingCapacity(W8Character* character)
 
 /* Sum inventory weight and report the capacity crossing to the caller. */
 // FUNCTION: WIZ8 0x004edc60
-InventoryWeightChange RecalculateInventoryWeight(W8Character& subject)
+InventoryWeightChange RecalculateInventoryWeight(const GameData& data, W8Character& subject)
 {
     auto* character = &subject;
     unsigned int previous = character->inventory_weight;
     character->inventory_weight = 0;
     for (auto& item : character->EquippedItem) {
-        character->inventory_weight += GetItemStackWeight(&item);
+        character->inventory_weight += GetItemStackWeight(data, &item);
     }
     for (auto& item : character->backpack) {
-        character->inventory_weight += GetItemStackWeight(&item);
+        character->inventory_weight += GetItemStackWeight(data, &item);
     }
     return {previous != character->inventory_weight,
             previous < character->carrying_capacity &&
@@ -121,7 +122,7 @@ InventoryWeightChange RecalculateInventoryWeight(W8Character& subject)
    capacity, retaining slot order for ties and the original half-unit rounding.
    Only the shares are assigned; load bands are the caller's to update. */
 // FUNCTION: WIZ8 0x004edd20
-static void DistributePartyWeight(W8Party& party)
+static void DistributePartyWeight(const GameData& data, W8Party& party)
 {
     int capacity[8];
     int unassigned[8];
@@ -142,7 +143,7 @@ static void DistributePartyWeight(W8Party& party)
 
     unsigned int party_weight = 0;
     for (const auto& item : std::span{party.item_pool}.first(party.item_count)) {
-        party_weight += GetItemStackWeight(&item);
+        party_weight += GetItemStackWeight(data, &item);
     }
 
     for (party_weight >>= 1; party_weight != 0; --party_weight) {
@@ -165,7 +166,7 @@ static void DistributePartyWeight(W8Party& party)
 }
 
 // Apply the load timing: false when shared weight was not redistributed now.
-static bool AssignPartyLoad(W8Party& party, const PartyStatRules& rules)
+static bool AssignPartyLoad(const GameData& data, W8Party& party, const PartyStatRules& rules)
 {
     switch (rules.load_timing) {
     case PartyLoadTiming::Disabled:
@@ -176,47 +177,47 @@ static bool AssignPartyLoad(W8Party& party, const PartyStatRules& rules)
     case PartyLoadTiming::Immediate:
         break;
     }
-    DistributePartyWeight(party);
+    DistributePartyWeight(data, party);
     party.redistribution_pending = false;
     return true;
 }
 
-bool RefreshPartyLoad(W8Party& party, const PartyStatRules& rules)
+bool RefreshPartyLoad(const GameData& data, W8Party& party, const PartyStatRules& rules)
 {
-    if (!AssignPartyLoad(party, rules)) return false;
+    if (!AssignPartyLoad(data, party, rules)) return false;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.rows[slot].fOccupied && UpdateCharacterLoad(party.characters[slot]))
-            RecalculateLoadModifiers(party.characters[slot], rules.characters[slot]);
+            RecalculateLoadModifiers(data, party.characters[slot], rules.characters[slot]);
     return true;
 }
 
-CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
+CharacterStatsUpdate UpdateStandaloneCharacterStats(const GameData& data, W8Character& character,
                                                     CharacterStatRules rules)
 {
     if (!IsCharacterDefined(character)) return {};
-    EvaluateCharacterInputs(character, nullptr);
-    auto update = RecalculateCharacterStatsFromAttributes(character, rules);
+    EvaluateCharacterInputs(data, character, nullptr);
+    auto update = RecalculateCharacterStatsFromAttributes(data, character, rules);
     character.party_weight_share = 0;
-    RecalculateCharacterLoadStats(character, rules);
+    RecalculateCharacterLoadStats(data, character, rules);
     return update;
 }
 
-W8PartyStats UpdatePartyStats(W8Party& party, const PartyStatRules& rules)
+W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyStatRules& rules)
 {
     W8PartyStats result;
     auto& characters = party.characters;
     // Establish every capacity and inventory weight before allocating the shared pool.
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.rows[slot].fOccupied || !IsCharacterDefined(characters[slot])) continue;
-        EvaluateCharacterInputs(characters[slot],
+        EvaluateCharacterInputs(data, characters[slot],
                                 characters[slot].fInParty ? &party.modifiers : nullptr);
         result.characters[slot] =
-            RecalculateCharacterStatsFromAttributes(characters[slot], rules.characters[slot]);
+            RecalculateCharacterStatsFromAttributes(data, characters[slot], rules.characters[slot]);
         if (rules.load_timing == PartyLoadTiming::Disabled) characters[slot].party_weight_share = 0;
     }
-    result.load_redistributed = AssignPartyLoad(party, rules);
+    result.load_redistributed = AssignPartyLoad(data, party, rules);
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (result.characters[slot].valid)
-            RecalculateCharacterLoadStats(characters[slot], rules.characters[slot]);
+            RecalculateCharacterLoadStats(data, characters[slot], rules.characters[slot]);
     return result;
 }

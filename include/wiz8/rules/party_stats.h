@@ -8,6 +8,7 @@
    the inputs that come from combat and NPC story state explicitly; live_party.h
    supplies the active session's. */
 
+struct GameData;
 struct W8Character;
 struct W8Party;
 
@@ -33,7 +34,7 @@ struct CharacterStatsUpdate {
     // A lowered hit-point ceiling exhausted the current pool.
     bool hp_exhausted = false;
 };
-InventoryWeightChange RecalculateInventoryWeight(W8Character& character);
+InventoryWeightChange RecalculateInventoryWeight(const GameData& data, W8Character& character);
 bool RecalculateCarryingCapacity(W8Character* character);
 // Derived values written by a party recalculation, and the transitions they imply.
 // Applying those transitions (death, notices) belongs to the caller.
@@ -43,9 +44,9 @@ struct W8PartyStats {
 };
 // Recalculate every occupied member from its equipment, attributes and conditions,
 // then the shared load.
-W8PartyStats UpdatePartyStats(W8Party& party, const PartyStatRules& rules);
+W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyStatRules& rules);
 // Redistribute the shared load; false when nothing was redistributed.
-bool RefreshPartyLoad(W8Party& party, const PartyStatRules& rules);
+bool RefreshPartyLoad(const GameData& data, W8Party& party, const PartyStatRules& rules);
 // A character outside any party: no party modifiers and no shared load.
-CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
+CharacterStatsUpdate UpdateStandaloneCharacterStats(const GameData& data, W8Character& character,
                                                     CharacterStatRules rules);

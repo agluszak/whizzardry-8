@@ -29,6 +29,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -40,21 +41,18 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
@@ -64,17 +62,19 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/utility.h"
@@ -191,8 +191,8 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
 {
     auto* item = CurrentGame().party.itemAt(location);
     if (item->iItemNo != -1 && item->stack_count > 1 &&
-        (g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
-        g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+        (Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
+        Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         auto dialog = std::make_unique<W8SplitItemDialog>(W8_ITEM_SPLIT_INVENTORY, item, -1,
                                                           SDL_Point{kSplitDialogX, kSplitDialogY});
         dialog->SetText("");
@@ -202,7 +202,7 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
                                    static_cast<unsigned>(screen.ReviewedPartySlot())](int count) {
             if (count <= 0) return;
             if (!SplitItemStack(source, static_cast<unsigned>(count), actor)) {
-                screen.ShowNotice(g_localized_strings[0x915], 0, true, false);
+                screen.ShowNotice(Data().strings[0x915], 0, true, false);
                 return;
             }
             SetItemCursor(0);
@@ -267,15 +267,15 @@ void W8CampItemsPage::ReportCastResult(int party_slot)
     character = CurrentGame().party.characters + party_slot;
     if (result == 0) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
-        text = fmt::sprintf(g_localized_strings[0x1be], character->name, 0, 1, 0);
+        text = fmt::sprintf(Data().strings[0x1be], character->name, 0, 1, 0);
         screen.ShowNotice(text, 0, true, false);
     } else if (result == 1) {
         wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
-        text = fmt::sprintf(g_localized_strings[0x1bd], character->name, 0, 1, 0);
+        text = fmt::sprintf(Data().strings[0x1bd], character->name, 0, 1, 0);
         screen.ShowNotice(text, 0, true, false);
     } else if (result == 2) {
         wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
-        text = fmt::sprintf(g_localized_strings[0x1bc], character->name, 0, 1, 0);
+        text = fmt::sprintf(Data().strings[0x1bc], character->name, 0, 1, 0);
         screen.ShowNotice(text, 0, true, false);
     }
     screen.redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -362,7 +362,7 @@ int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 
 bool CanSplitItemStack(const W8ItemInstance* item)
 {
-    const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
         return false;
     }
@@ -410,7 +410,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
-            const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
+            const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
             if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0 ||
                 record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
                 return;
@@ -483,11 +483,11 @@ void W8CampItemsPage::UnequipBothHands(void)
     if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active &&
         !CurrentGame().party_movement_mode &&
         CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
-        screen.ShowNotice(g_localized_strings[0x903], 0, true, false);
+        screen.ShowNotice(Data().strings[0x903], 0, true, false);
         return;
     }
     if (!IsPartySlotEligible(screen.ReviewedPartySlot())) {
-        screen.ShowNotice(g_localized_strings[0x917], 0, true, false);
+        screen.ShowNotice(Data().strings[0x917], 0, true, false);
         return;
     }
     character = CurrentGame().party.characters + screen.ReviewedPartySlot();
@@ -501,7 +501,7 @@ void W8CampItemsPage::UnequipBothHands(void)
         screen.redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
         return;
     }
-    screen.ShowNotice(g_localized_strings[0x916], 0, true, false);
+    screen.ShowNotice(Data().strings[0x916], 0, true, false);
 }
 
 // FUNCTION: WIZ8 0x005BB140
@@ -616,15 +616,15 @@ std::string W8CampItemsPage::CampItemTooltip(int slot, W8ItemStorage storage)
     if (!item) return {};
     std::string text = item->iItemNo == -1 ? std::string{} : FormatItemDisplayName(item, false);
     if (storage == W8ItemStorage::Equipment) {
-        const auto& label = g_localized_strings[g_equip_slot_label_ids[slot]];
+        const auto& label = Data().strings[g_equip_slot_label_ids[slot]];
         return text.empty() ? std::string(label) : fmt::format("{} ({})", text, label);
     }
     if (item->iItemNo != -1) {
-        const auto& record = g_item_records[item->iItemNo];
+        const auto& record = Data().items[item->iItemNo];
         if (record.category == W8_ITEM_CATEGORY_SPELL_SOURCE && record.spell_id != W8_SPELL_NONE &&
             screen.reviewed->spell_learned[record.spell_id] &&
             (item->identified || item->spell_hint))
-            text += fmt::format(" ({})", g_localized_strings[0x930]);
+            text += fmt::format(" ({})", Data().strings[0x930]);
     }
     return text;
 }
@@ -845,7 +845,7 @@ void W8CampItemsPage::CreateCampItemControls()
                 AfterUiDispatch(action);
             return UiResult::Handled;
         });
-        if (help >= 0) target.setTooltip([help] { return std::string(g_localized_strings[help]); });
+        if (help >= 0) target.setTooltip([help] { return std::string(Data().strings[help]); });
         return &target;
     };
     for (int index = 0; index < 7; ++index)
@@ -1177,21 +1177,21 @@ void W8CampItemsPage::DrawCampCharacterInfo(void)
                                                              0x26);
         }
     }
-    DrawRcsText(g_localized_strings[0x91b], 0x159, 10, 0xce,
+    DrawRcsText(Data().strings[0x91b], 0x159, 10, 0xce,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(g_localized_strings[0x91c], 0x15e, 0x18, 0x65,
+    DrawRcsText(Data().strings[0x91c], 0x15e, 0x18, 0x65,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x91d], 0x15e, 0x26, 0x65,
+    DrawRcsText(Data().strings[0x91d], 0x15e, 0x26, 0x65,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
     text = FormatUnsignedIntegerWithCommas(character->experience);
     DrawRcsText(text, 0x1c0, 0x18, 0x67, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     text = FormatUnsignedIntegerWithCommas(character->experience_goal);
     DrawRcsText(text, 0x1c0, 0x26, 0x67, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(g_localized_strings[0x91e], 0x144, 0x3a, 0x45,
+    DrawRcsText(Data().strings[0x91e], 0x144, 0x3a, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x91f], 0x144, 0x48, 0x45,
+    DrawRcsText(Data().strings[0x91f], 0x144, 0x48, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x920], 0x144, 0x56, 0x45,
+    DrawRcsText(Data().strings[0x920], 0x144, 0x56, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
     text = fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
     DrawRcsText(text, 0x18d, 0x3a, 0x2c, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1205,16 +1205,16 @@ void W8CampItemsPage::DrawCampCharacterInfo(void)
                        character->carrying_capacity / 10);
     DrawRcsTextJustified(text, 0x18d, 0x56, 0x2c, 0xc,
                          g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    text = fmt::format("{}: {:d}, {}: {:d}", g_localized_strings[0x8c0],
-                       character->inventory_weight / 10, g_localized_strings[0x8c1],
-                       character->party_weight_share / 10);
+    text =
+        fmt::format("{}: {:d}, {}: {:d}", Data().strings[0x8c0], character->inventory_weight / 10,
+                    Data().strings[0x8c1], character->party_weight_share / 10);
     item_controls.help_text = text;
     g_wiz_text_font_secondary.resetPalette();
-    DrawRcsText(g_localized_strings[0x921], 0x144, 0x72, 0x75,
+    DrawRcsText(Data().strings[0x921], 0x144, 0x72, 0x75,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     top = 0x3a;
     for (index = 0; index < 7; ++index) {
-        DrawRcsText(g_localized_strings[g_attribute_label_ids[index]], 0x1c2, top, 0x4c,
+        DrawRcsText(Data().strings[g_attribute_label_ids[index]], 0x1c2, top, 0x4c,
                     g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text = fmt::format("{:d}", character->attributes[index].effective);
         DrawRcsText(text, 0x212, top, 0x14, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1238,11 +1238,11 @@ void W8CampItemsPage::DrawCampCharacterInfo(void)
             .drawAndInvalidate(GetFrameBufferSurface(), frame, 0x22d, top);
         top += 0x18;
     }
-    DrawRcsText(g_localized_strings[0x922], 0x144, 0x80, 0x45,
+    DrawRcsText(Data().strings[0x922], 0x144, 0x80, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
     text = fmt::format("{:d}", character->armor_class_total);
     DrawRcsText(text, 0x18d, 0x80, 0x2c, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    DrawRcsText(g_localized_strings[0x923], 0x144, 0x8e, 0x45,
+    DrawRcsText(Data().strings[0x923], 0x144, 0x8e, 0x45,
                 g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
     text = fmt::format("{:d}", character->armor_class_average);
     DrawRcsText(text, 0x18d, 0x8e, 0x2c, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -1263,7 +1263,7 @@ void W8CampItemsPage::DrawCampBackpackItems(void)
 
     if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER) != 0) {
         CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
-        DrawRcsBoldText(g_localized_strings[0x92b], 0xc, 0xae, 0x5d,
+        DrawRcsBoldText(Data().strings[0x92b], 0xc, 0xae, 0x5d,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     }
     for (slot = 0; slot < 8; ++slot) {
@@ -1290,7 +1290,7 @@ void W8CampItemsPage::DrawCampBackpackItems(void)
                 CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
             }
         }
-        if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 &&
+        if (item_id != -1 && Data().items[item_id].binds_on_equip != 0 &&
             character->backpack[slot].bound) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
@@ -1338,7 +1338,7 @@ void W8CampItemsPage::DrawCampEquipmentItems(void)
                 int paired =
                     character->EquippedItem[GetPairedEquipSlot(static_cast<W8EquipSlot>(slot))]
                         .iItemNo;
-                if (paired != -1 && (g_item_records[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
+                if (paired != -1 && (Data().items[paired].flags & W8_ITEM_FLAG_TWO_HANDED) != 0) {
                     CatalogArtwork::Load(0x146, 0).drawAndInvalidate(GetFrameBufferSurface(), 0,
                                                                      region->x, region->y);
                 }
@@ -1381,7 +1381,7 @@ void W8CampItemsPage::DrawCampEquipmentItems(void)
     no_armor_label:
         CatalogArtwork::Load(0x115, 0).drawAndInvalidate(GetFrameBufferSurface(), region->frame + 3,
                                                          region->x - 2, region->y - 2);
-        if (item_id != -1 && g_item_records[item_id].binds_on_equip != 0 &&
+        if (item_id != -1 && Data().items[item_id].binds_on_equip != 0 &&
             character->EquippedItem[slot].bound) {
             CatalogArtwork::Load(0x115, 0).drawAndInvalidate(
                 GetFrameBufferSurface(), region->frame + 2, region->x - 2, region->y - 2);
@@ -1443,7 +1443,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
         return;
     }
     if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
-        DrawRcsBoldText(g_localized_strings[0x92c], 0x1e6, 0xae, 0x8d,
+        DrawRcsBoldText(Data().strings[0x92c], 0x1e6, 0xae, 0x8d,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
         text = FormatUnsignedIntegerWithCommas(CurrentGame().party.gold);
         DrawRcsText(text, 0x229, 0x1a9, 0x30,
@@ -1478,7 +1478,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
         if (!item->identified) {
             CatalogArtwork::Load(0x11b, 0).draw(GetFrameBufferSurface(), 0, left, top);
         }
-        if (g_item_records[item->iItemNo].binds_on_equip != 0 && item->bound) {
+        if (Data().items[item->iItemNo].binds_on_equip != 0 && item->bound) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
         if (pool_targets[i]->hovered()) {
@@ -1511,7 +1511,7 @@ void W8CampItemsPage::DrawCampItemQuantity(W8ItemInstance* item, int left, int t
     std::string text;
     int height;
 
-    switch (g_item_records[item->iItemNo].quantity_kind) {
+    switch (Data().items[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_NONE:
         break;
     case W8_ITEM_QUANTITY_STACK:
@@ -1645,7 +1645,7 @@ void W8CampItemsPage::SelectPendingCampCharacter()
             kCharacterEventFullVolume);
     } else {
         std::string text = fmt::sprintf(
-            g_localized_strings[0x931],
+            Data().strings[0x931],
             CurrentGame().party.characters[*CurrentGame().party.companion_inventory].name);
         screen.ShowNotice(text, 0, true, false);
     }
@@ -1682,8 +1682,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     /* A held stackable whose name kind the clicked item merges with counts as
        the same item for the use-merge path below. */
     if ((CurrentGame().party.held.item.iItemNo != -1) && item->iItemNo != -1 &&
-        GetItemMergeKind(item->iItemNo, &related_kind) &&
-        g_item_records[CurrentGame().party.held.item.iItemNo].unidentified_name_index ==
+        GetItemMergeKind(Data(), item->iItemNo, &related_kind) &&
+        Data().items[CurrentGame().party.held.item.iItemNo].unidentified_name_index ==
             related_kind) {
         same_kind = true;
     }
@@ -1706,33 +1706,33 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         return;
     }
     if (!GameStarted()) {
-        text = g_localized_strings[0x900];
+        text = Data().strings[0x900];
         screen.ShowNotice(text, 0, true, false);
         return;
     }
     character = &CurrentGame().party.characters[screen.ReviewedPartySlot()];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0 &&
         (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
-        text = g_localized_strings[0x907];
+        text = Data().strings[0x907];
         screen.ShowNotice(text, 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_WEBBED] != 0 &&
         (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
-        text = g_localized_strings[0x908];
+        text = Data().strings[0x908];
         screen.ShowNotice(text, 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0 &&
         (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
-        text = g_localized_strings[0x909];
+        text = Data().strings[0x909];
         screen.ShowNotice(text, 0, true, false);
         return;
     }
     if (character->highest_condition >= W8_CONDITION_TURNCOAT && origin != W8ItemStorage::Pool &&
         (CurrentGame().party.held.item.iItemNo != -1) &&
         CurrentGame().party.held.actor != screen.ReviewedPartySlot()) {
-        text = g_localized_strings[0x901];
+        text = Data().strings[0x901];
         screen.ShowNotice(text, 0, true, false);
         return;
     }
@@ -1744,16 +1744,16 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     bool gated = true;
     if (CurrentGame().combat.active() && origin != W8ItemStorage::Pool) {
         if (!(CurrentGame().party.held.item.iItemNo != -1) ||
-            ((g_item_records[CurrentGame().party.held.item.iItemNo].equip_class ==
+            ((Data().items[CurrentGame().party.held.item.iItemNo].equip_class ==
                   W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
-              g_item_records[CurrentGame().party.held.item.iItemNo].equip_class ==
+              Data().items[CurrentGame().party.held.item.iItemNo].equip_class ==
                   W8_ITEM_EQUIP_CLASS_AMMUNITION) &&
              CurrentGame().party.held.actor == screen.ReviewedPartySlot() &&
              (origin != W8ItemStorage::Equipment ||
               HeldItemFitsPairedSlot(screen.ReviewedPartySlot(), equip_slot)))) {
             if (item->iItemNo == -1 ||
-                g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
-                g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION ||
+                Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
+                Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION ||
                 same_kind) {
                 gated = false;
             }
@@ -1784,7 +1784,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         StartBreathCycle(party_slot, false);
         W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         if (row->pending_action == W8_ACTION_USE_ITEM &&
-            g_item_records
+            Data().items
                     [CurrentGame().party.itemAt(row->pending_action_detail.item_use.item)->iItemNo]
                         .spell_id == W8_SPELL_IDENTIFY_ITEM) {
             reidentify = true;
@@ -1855,7 +1855,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
        bound mark; the next click then unequips them. */
     if (item->iItemNo != -1 && origin == W8ItemStorage::Equipment) {
         if (!CanUnequipSlotItem(screen.reviewed, equip_slot)) {
-            text = g_localized_strings[0x90b];
+            text = Data().strings[0x90b];
             screen.ShowNotice(text, 0, true, false);
             if (item->bound) {
                 return;
@@ -1882,7 +1882,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         /* Fold the held stack onto a matching stack; for the pool the scan
            continues across every row until the held stack is consumed. */
         if ((CurrentGame().party.held.item.iItemNo != -1) &&
-            g_item_records[CurrentGame().party.held.item.iItemNo].quantity_kind ==
+            Data().items[CurrentGame().party.held.item.iItemNo].quantity_kind ==
                 W8_ITEM_QUANTITY_STACK) {
             if (item->iItemNo != -1 && item->iItemNo == CurrentGame().party.held.item.iItemNo) {
                 const auto outcome = MergeInventoryStacks(location, {W8ItemStorage::Hand});
@@ -1911,7 +1911,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                         changed = true;
                         RebuildCampItemList();
                     } else {
-                        text = g_localized_strings[0x90c];
+                        text = Data().strings[0x90c];
                         screen.ShowNotice(text, 0, true, false);
                     }
                 } else if (slot_index < CurrentGame().party.item_count) {
@@ -1950,7 +1950,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                         paired_slot = GetPairedEquipSlot(equip_slot);
                         paired = &screen.reviewed->EquippedItem[paired_slot];
                         if (!CanUnequipSlotItem(screen.reviewed, paired_slot)) {
-                            text = g_localized_strings[0x916];
+                            text = Data().strings[0x916];
                             screen.ShowNotice(text, 0, true, false);
                             if (paired->bound) {
                                 return;
@@ -1962,7 +1962,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                             MarkCampCharacterPending(paired);
                         }
                         if (!EquipHeldItemAndStowPartner(screen.ReviewedPartySlot(), equip_slot)) {
-                            screen.ShowNotice(g_localized_strings[0x90c], 0, true, false);
+                            screen.ShowNotice(Data().strings[0x90c], 0, true, false);
                             return;
                         }
                         changed = true;
@@ -2078,7 +2078,7 @@ void W8CampItemsPage::MarkCampCharacterPending(W8ItemInstance* item)
 void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
 {
     int index;
-    W8SpellRuntimeRecord* spell;
+    const W8SpellRuntimeRecord* spell;
     W8ItemInstance* held = &CurrentGame().party.held.item;
 
     for (index = 0; index < W8_CAMP_ACTION_BUTTON_COUNT; ++index) {
@@ -2151,7 +2151,7 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                     CurrentGame().combat.active()) {
                     break;
                 }
-                spell = &g_spell_records[W8_SPELL_IDENTIFY_ITEM];
+                spell = &Data().spells[W8_SPELL_IDENTIFY_ITEM];
                 if (spell->spell_point_cost > screen.reviewed->iSPLeft[spell->realm]) {
                     break;
                 }
@@ -2172,7 +2172,7 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                     CurrentGame().combat.active()) {
                     break;
                 }
-                spell = &g_spell_records[W8_SPELL_REMOVE_CURSE];
+                spell = &Data().spells[W8_SPELL_REMOVE_CURSE];
                 if (spell->spell_point_cost > screen.reviewed->iSPLeft[spell->realm]) {
                     break;
                 }

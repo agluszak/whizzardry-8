@@ -33,7 +33,7 @@ struct W8NpcState {
        answer, facts/combat paths set it, and 0xffff is the never-set
        sentinel normalized to zero on load. */
     unsigned short spawned;
-    W8NpcDatabaseRecord* record; /* 0x06 */
+    const W8NpcDatabaseRecord* record; /* 0x06 */
     std::vector<W8NpcItemEntry> items; /* the NPC's stock */
     /* 0x0e and 0x12: two world-clock stamps, both set when the stock is first
        populated. The stock-rule pass reruns once the first is more than 0xa8c0

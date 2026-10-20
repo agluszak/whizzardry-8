@@ -13,9 +13,8 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -29,9 +28,9 @@ std::unique_ptr<UiLayer> right_icons;
 
 std::string EffectHelp(const W8EffectSlot& slot, bool show_duration)
 {
-    return fmt::format("{}: ", g_spell_records[slot.effect_id].display_name) +
-           (show_duration ? fmt::sprintf(g_localized_strings[0x79c], slot.amount, slot.duration)
-                          : fmt::sprintf(g_localized_strings[0x79d], slot.amount));
+    return fmt::format("{}: ", Data().spells[slot.effect_id].display_name) +
+           (show_duration ? fmt::sprintf(Data().strings[0x79c], slot.amount, slot.duration)
+                          : fmt::sprintf(Data().strings[0x79d], slot.amount));
 }
 
 // Effects are already owned by the game. The HUD only owns their hit targets;

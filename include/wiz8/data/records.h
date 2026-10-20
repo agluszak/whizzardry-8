@@ -322,7 +322,7 @@ struct W8NpcDatabaseRecord {
     /* Retail offset 0x060: one bit per named-person alias the NPC answers to; read as one
        dword by FindNpcNameOrPlaceQuote. */
     unsigned int name_alias_mask;
-    /* Retail offset 0x064: one-based index into g_item_tables selecting the record's item
+    /* Retail offset 0x064: one-based index into GameData::item_tables selecting the record's item
        table, copied into the runtime state. */
     int item_table_id;
     /* Retail offset 0x068: one bit per service the NPC offers. */

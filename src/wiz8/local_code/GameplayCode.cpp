@@ -22,6 +22,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -33,7 +34,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSPortraits.h"
@@ -44,6 +44,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_formation.h"
@@ -243,7 +244,7 @@ void RefreshLevelUpReadyNotices(void)
                         text += " " + character->name + " ";
                         wiz8::text::append(text, 0xb5);
                         text += " ";
-                        text = fmt::sprintf(g_localized_strings[0x773], text);
+                        text = fmt::sprintf(Data().strings[0x773], text);
                         *ready_flag = 1;
                         g_npc_dialogue.QueuePortraitMessage(std::move(text),
                                                             W8LevelUpNotice{party_slot});
@@ -346,7 +347,7 @@ void HandleLevelOverride(float fall)
 {
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
     if (count > 0) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x252]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x252]);
         wiz8::sound::play(s_fall_impact_wav,
                           {.volume = std::uint32_t(g_settings.sound_effects_volume)});
         W8Dice dice;
@@ -495,7 +496,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
 
     if (GameStarted()) {
         gXStatus.edited_formation.positions[slot].bOldQuadrant = 0xff;
-        PostCharacterNotice(slot, g_localized_strings[0x250]);
+        PostCharacterNotice(slot, Data().strings[0x250]);
     }
 
     RebuildCharacterModifierBlock(destination, &CurrentGame().party.modifiers);
@@ -525,7 +526,7 @@ void RemoveCharacterFromParty(int party_slot)
                              false, true, true);
     }
     if (GameStarted()) {
-        PostCharacterNotice(party_slot, g_localized_strings[0x251]);
+        PostCharacterNotice(party_slot, Data().strings[0x251]);
     }
     CurrentGame().party.order_slots[CurrentGame().party.rows[party_slot].party_order_index] = -1;
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
@@ -612,7 +613,7 @@ void AwardPartyExperience(int amount, bool alternate_message)
             gXStatus.level_up_notice = true;
         }
     }
-    auto text = fmt::sprintf(g_localized_strings[alternate_message ? 0x231 : 0x232], amount);
+    auto text = fmt::sprintf(Data().strings[alternate_message ? 0x231 : 0x232], amount);
     g_npc_dialogue.QueuePortraitMessage(
         std::move(text),
         W8ExperienceNoticePayload{static_cast<unsigned int>(amount), alternate_message});

@@ -102,13 +102,14 @@ the licensed runtime scenarios after every step.
      `LeaveGameSession`, `ResetMainScreenStateBlock`, `ResetNpcStates`,
      `InitializeFactJournal`, `ResetFactions`, `ClearLocationVariables` and the
      spell-effect list. Each goes when its state moves into the game.
-2. **`GameData`.**
-   - The databases, string table and rule tables become one immutable object that the
-     Application loads and rules receive.
-   - Tests build small `GameData` fixtures instead of swapping globals (`ScopedRecords`).
-   - Message ids get names here.
-   - This lets `item_rules`, `character_stats` and `party_stats` move into `rules`,
-     which reading the item and profession databases prevents today.
+2. **Finish `GameData`.** The databases and the string table are one immutable value
+   (ARCHITECTURE.md, "Layers").
+   - The Application should own it once screens receive it instead of calling `Data()`.
+   - Tests should build small `GameData` fixtures instead of swapping vectors with
+     `ScopedRecords`.
+   - Give message ids names.
+   - Still outside it: the monster database (read per record), encounter tables (reloaded
+     per level), NPC keyword lists and the generic item name cache.
 3. **Inventory and party in `rules`.**
    - Inventory commands, settlement, encumbrance and equipment rules take a
      `RuleContext` and emit events, and the camp and main game screens present them.

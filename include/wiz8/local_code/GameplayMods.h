@@ -26,7 +26,3 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
 void ApplyEnchantmentModifiers(const W8Enchantment* enchantments, W8GameplayModifierBlock* target);
 void ApplyPartyEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* target);
 void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock* target);
-void ApplyModifierBlock(W8GameplayModifierBlock* target, const W8GameplayModifierBlock* source);
-void AccumulateEquipmentModifiers(W8Character* character, W8GameplayModifierBlock* equipment_bonus);
-void RebuildCharacterModifierBlock(W8Character* character,
-                                   const W8GameplayModifierBlock* party_modifiers);

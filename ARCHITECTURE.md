@@ -22,10 +22,16 @@ editor. Shipped `.rlk` region links remain readable.
 The target layering is described in [ROADMAP.md](ROADMAP.md). The layers that exist
 are enforced:
 
-- **`data`** (`include/wiz8/data/`, `src/data/`): content ids, database record types
-  and the constant profession, race, skill and portrait tables.
-- **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model and
-  party storage (`W8Party`, formation).
+- **`data`** (`include/wiz8/data/`, `src/data/`): content ids, database record types,
+  the constant profession, race, skill and portrait tables, and `GameData`. `GameData` is
+  the string table and the item, item-table, spell, NPC, fact, level and missile
+  databases. `LoadGameData` reads all of it once at startup, and a malformed file throws.
+  Unlayered code reads the installed data through `Data()`; tests arrange it through
+  `MutableData()`.
+- **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
+  party storage (`W8Party`, formation), item rules and character derivation (modifier
+  blocks, effective attributes and skills, statistics and the party's shared load).
+  Functions that read the databases take `const GameData&`.
 
 A layer file includes only its own layer, the layers below it, the standard library,
 glm, fmt and three stateless foundation headers (`math.h`, `world/camera_pose.h`,

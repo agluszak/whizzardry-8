@@ -9,15 +9,16 @@
 #include "layouts/learned_spells.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/learned_spells.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -25,13 +26,13 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/PartyImport.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/utility.h"
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
@@ -70,8 +71,8 @@ static int g_profession_starting_spells[15][6] = {
 static int FindItemByLegacyNumber(short item_number)
 {
     unsigned int index = 0;
-    while (index < g_item_records.size()) {
-        if (g_item_records[index].legacy_item_number == item_number) {
+    while (index < Data().items.size()) {
+        if (Data().items[index].legacy_item_number == item_number) {
             return index;
         }
         ++index;
@@ -468,18 +469,18 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 item_index = FindItemByLegacyNumber(source->item_number);
                 if (item_index != -1) {
                     if (item_index != 0x128) {
-                        if (g_item_records[item_index].unidentified_name_index == 0x84 ||
-                            4999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (Data().items[item_index].unidentified_name_index == 0x84 ||
+                            4999 < static_cast<int>(Data().items[item_index].value)) {
                             source++;
                             continue;
                         }
-                        if (2999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (2999 < static_cast<int>(Data().items[item_index].value)) {
                             candidates[0][counts[0]] = *source;
                             ++counts[0];
                             source++;
                             continue;
                         }
-                        if (999 < static_cast<int>(g_item_records[item_index].value)) {
+                        if (999 < static_cast<int>(Data().items[item_index].value)) {
                             candidates[1][counts[1]] = *source;
                             ++counts[1];
                             source++;
@@ -487,7 +488,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                         }
                     }
                     item = MakeItem(item_index, true, true, true);
-                    if (g_item_records[item_index].binds_on_equip == 0) {
+                    if (Data().items[item_index].binds_on_equip == 0) {
                         StoreItemWithCharacterOrParty(character, &item, false, false,
                                                       static_cast<unsigned int>(slot == 0));
                     } else {
@@ -514,12 +515,12 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 entry = &candidates[slot][index];
                 if (0 < entry->item_number) {
                     item_index = FindItemByLegacyNumber(entry->item_number);
-                    price = g_item_records[item_index].value;
+                    price = Data().items[item_index].value;
                     if (!ItemHasHiddenProperties(item_index)) {
                         price /= 2;
                     }
                     if (best_value < price) {
-                        best_value = g_item_records[item_index].value;
+                        best_value = Data().items[item_index].value;
                         best_index = index;
                     }
                 }
@@ -527,7 +528,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             if (best_index != -1) {
                 item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
                 item = MakeItem(item_index, true, true, true);
-                if (g_item_records[item_index].binds_on_equip == 0) {
+                if (Data().items[item_index].binds_on_equip == 0) {
                     StoreItemWithCharacterOrParty(character, &item, false, false, true);
                 } else {
                     AddItemToCharacter(character, &item, false, false, false);
@@ -548,13 +549,13 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             equip_slot = GetItemDefaultEquipSlot(item_id);
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
                 if (!FindCharacterItem(*character,
-                                       ItemOfKind(g_item_records[item_id].unidentified_name_index),
+                                       ItemOfKind(Data().items[item_id].unidentified_name_index),
                                        W8ItemReach::Carried)) {
                     AddItemToCharacter(character, &item, true, false, false);
                 }
             } else {
                 if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
-                    (g_item_records[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
+                    (Data().items[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
                     equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (character->EquippedItem[equip_slot].iItemNo == -1) {

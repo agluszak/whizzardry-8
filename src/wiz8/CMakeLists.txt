@@ -164,6 +164,7 @@ target_sources(wiz8_engine PRIVATE
     startup_ui_state.cpp
     ../render/frame.cpp
     character_skills.cpp
+    loaded_game_data.cpp
     game.cpp
     fact_state.cpp
     ../world/party_camera.cpp
@@ -173,10 +174,7 @@ target_sources(wiz8_engine PRIVATE
     ../entities/cursor.cpp
     ../render/effects/light_animation.cpp
     version.cpp
-    party_stats.cpp
     inventory.cpp
-    character_stats.cpp
-    item_rules.cpp
     live_party.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp

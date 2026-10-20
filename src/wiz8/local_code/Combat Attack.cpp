@@ -18,12 +18,12 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/animation_types.h"
@@ -35,11 +35,10 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -58,7 +57,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
@@ -71,10 +69,13 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -150,14 +151,14 @@ void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* 
     if (hand == 0) {
         slot = W8_EQUIP_SLOT_PRIMARY_WEAPON;
         if (ItemHasSingledOutGenericName(
-                character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo)) {
+                Data(), character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo)) {
             W8EquipSlot partner = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON);
             if (partner != W8_EQUIP_SLOT_NONE) slot = partner;
         }
     } else {
         slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
     }
-    *dice = g_item_records[character->EquippedItem[slot].iItemNo].damage_dice;
+    *dice = Data().items[character->EquippedItem[slot].iItemNo].damage_dice;
 }
 
 int GetCharacterHandDamageBonus(const W8Character* character, int hand)
@@ -654,7 +655,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
                 W8TargetSource* candidate = &candidates[i];
                 CurrentGame().combat.state()->attack_message =
-                    fmt::sprintf(g_localized_strings[0x219], target_name);
+                    fmt::sprintf(Data().strings[0x219], target_name);
                 if (candidate->iType == W8_TARGET_SOURCE_CHARACTER) {
                     PostCharacterNotice(candidate->iChar,
                                         CurrentGame().combat.state()->attack_message);
@@ -671,8 +672,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         Fail("uiSuccessfulCnt > 0");
     }
     W8TargetSource* interposer = &interposers[Random(uiSuccessfulCnt)];
-    CurrentGame().combat.state()->attack_message =
-        fmt::sprintf(g_localized_strings[0x21a], target_name);
+    CurrentGame().combat.state()->attack_message = fmt::sprintf(Data().strings[0x21a], target_name);
     if (interposer->iType == W8_TARGET_SOURCE_CHARACTER) {
         int slot = interposer->iChar;
         PostCharacterNotice(slot, CurrentGame().combat.state()->attack_message);
@@ -680,10 +680,10 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         target->iType = W8_TARGET_KIND_CHARACTER;
         target->iChar = slot;
         ++CurrentGame().combat.state()->characters[slot].interception_count;
-        unsigned int fatigue = g_item_records[CurrentGame()
-                                                  .party.characters[slot]
-                                                  .EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON]
-                                                  .iItemNo]
+        unsigned int fatigue = Data().items[CurrentGame()
+                                                .party.characters[slot]
+                                                .EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON]
+                                                .iItemNo]
                                        .weight /
                                    0x28 +
                                1;
@@ -810,7 +810,7 @@ void ResolveSpellMissileHit(Missile* missile)
     W8TargetSource* source = &missile->m_Source;
     W8CombatSlot* target = &missile->combat_slot;
     W8SpellEffectDefinition* definition = &missile->definition;
-    W8SpellRuntimeRecord* spell;
+    const W8SpellRuntimeRecord* spell;
     W8CombatSlot struck;
     unsigned int magnitude;
     W8MonsterInfo* monster_info;
@@ -820,7 +820,7 @@ void ResolveSpellMissileHit(Missile* missile)
     unsigned int index;
 
     TargetSourceIsCharacter(source, 0);
-    spell = &g_spell_records[MissileSpellId(missile->missile_table_index)];
+    spell = &Data().spells[MissileSpellId(missile->missile_table_index)];
     if (spell->sound_name.size() != 0) {
         wiz8::sound::play(fmt::format("Data\\Missiles\\Sounds\\{}.wav", spell->sound_name));
     }
@@ -948,7 +948,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     const bool target_is_monster = target->iType == W8_TARGET_KIND_MONSTER;
     W8MonsterInfo* monster_info = target_is_monster ? FindMonster(target->iMonsterID) : nullptr;
     TargetSourceIsCharacter(source, 0);
-    text = fmt::format("{} ", g_localized_strings[0x1bf]);
+    text = fmt::format("{} ", Data().strings[0x1bf]);
     target_start = text.size();
     if (target_is_monster) {
         text += GetMonsterName(monster_info, 0, 0);
@@ -957,7 +957,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     }
     if (missile->retargeted) {
         text += " ";
-        text += g_localized_strings[0x1c0];
+        text += Data().strings[0x1c0];
     }
     target_stop = text.size();
     source_color = GetSourceNoticeColor(source);
@@ -967,7 +967,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         HighlightTextBoxRange(target_color, target_start, target_stop, -1);
     }
     if (deflected) {
-        ShowNotice(source_color, g_localized_strings[0x214]);
+        ShowNotice(source_color, Data().strings[0x214]);
         return;
     }
 
@@ -976,20 +976,19 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         hit_location = RollMonsterHitLocation(record);
         if (record->hit_location_chances[hit_location] < 100) {
             location_name =
-                g_localized_strings[g_monster_hit_location_labels[hit_location]
-                                                                 [record->constitution]];
+                Data().strings[g_monster_hit_location_labels[hit_location][record->constitution]];
         } else {
             location_name = "";
         }
     } else {
         hit_location = RollCharacterHitLocation();
-        location_name = g_localized_strings[g_pc_hit_location_labels[hit_location][0]];
+        location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
     }
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNotice(source_color, fmt::sprintf(g_localized_strings[0x20c], location_name));
+        ShowNotice(source_color, fmt::sprintf(Data().strings[0x20c], location_name));
     }
 
-    attack_mode = g_missile_table[missile->missile_table_index].attack_mode;
+    attack_mode = Data().missiles[missile->missile_table_index].attack_mode;
     chance = AttackModeMod(1, attack_mode) + 50 +
              (10 - TargetArmorClassAtLocation(target, attack_mode, hit_location)) * 5;
     penetration_roll = Random(100) + 1;
@@ -1005,10 +1004,10 @@ void ResolveMissileHit(Missile* missile, bool deflected)
             }
             ApplyEffectConditions(source, target, &missile->definition, true, false, 0);
         } else if (g_settings.verbose_combat_messages != 0) {
-            ShowNotice(source_color, g_localized_strings[0x20e]);
+            ShowNotice(source_color, Data().strings[0x20e]);
         }
     } else {
-        ShowNotice(source_color, g_localized_strings[0x20f]);
+        ShowNotice(source_color, Data().strings[0x20f]);
         MakePCHitSound(missile, target, hit_location, -1);
     }
 }
@@ -1162,7 +1161,7 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
                              "no item in it, but holds {:d}",
                              character->name, slot, character->Hand[hand].uiHolds));
         }
-        modes = g_item_records[item->iItemNo].attack_flags;
+        modes = Data().items[item->iItemNo].attack_flags;
     }
     if (modes == 0) {
         Fail("fsAttackModes > 0",
@@ -1192,7 +1191,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     case W8_TARGET_KIND_CHARACTER_INDIRECT:
         break;
     case W8_TARGET_KIND_PARTY:
-        return g_localized_strings[0x1e3];
+        return Data().strings[0x1e3];
     case W8_TARGET_KIND_MONSTER:
         if (target->iMonsterID == -1) {
             Fail("pTarget->iMonsterID != BAD_INDEX");
@@ -1200,19 +1199,18 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
         monster_info = FindMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         if (TargetSourceIsMonster(source, 0) && source->iMonsterID == target->iMonsterID) {
-            return std::string(
-                g_localized_strings[g_gender_name_message_rows[record->name_group][3]]);
+            return std::string(Data().strings[g_gender_name_message_rows[record->name_group][3]]);
         }
         return std::string(GetMonsterName(monster_info, record, 0));
     case W8_TARGET_KIND_GROUP:
         monster_group = FindMonsterGroup(target->iGroupID);
         return std::string(GetMonsterGroupName(monster_group));
     case W8_TARGET_KIND_ALL_ENEMIES:
-        return g_localized_strings[0x1e4];
+        return Data().strings[0x1e4];
     case W8_TARGET_KIND_EIGHT:
-        return g_localized_strings[0x1e5];
+        return Data().strings[0x1e5];
     case W8_TARGET_KIND_ITEM:
-        return fmt::sprintf(g_localized_strings[0x1e6],
+        return fmt::sprintf(Data().strings[0x1e6],
                             FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
     default:
         Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
@@ -1225,8 +1223,8 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     if (TargetSourceIsCharacter(source, 0) && !source->name_known &&
         source->iChar == target->iChar) {
         return std::string(
-            g_localized_strings[g_gender_name_message_rows
-                                    [CurrentGame().party.characters[source->iChar].gender][3]]);
+            Data().strings[g_gender_name_message_rows
+                               [CurrentGame().party.characters[source->iChar].gender][3]]);
     }
     return std::string(CurrentGame().party.characters[target->iChar].name);
 }
@@ -1309,9 +1307,9 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
             return false;
         }
         if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo != -1) {
-            material =
-                g_item_records[character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo]
-                    .material;
+            material = Data()
+                           .items[character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo]
+                           .material;
         } else {
             material = 2;
         }
@@ -1330,7 +1328,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         return false;
     }
     if (g_settings.verbose_combat_messages != 0) {
-        ShowNotice(palette, g_localized_strings[0x213]);
+        ShowNotice(palette, Data().strings[0x213]);
     }
     PlayCombatSound(GetMaterialImpactSound(weapon_class, material), 1, true, -1);
     return true;
@@ -1458,15 +1456,13 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
             if (entry->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
                 PostCharacterNotice(
                     entry->value,
-                    fmt::format(
-                        "{}!",
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                    fmt::format("{}!",
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 ShowNotice(
                     W8_FONT_PALETTE_RUST,
-                    fmt::format(
-                        "{} {}!", entry->text,
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                    fmt::format("{} {}!", entry->text,
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
             }
         }
     }
@@ -1477,7 +1473,7 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
 static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, unsigned int condition,
                                           W8MonsterInfo* monster_info)
 {
-    const std::string& name = g_localized_strings[g_condition_notices[condition].singular];
+    const std::string& name = Data().strings[g_condition_notices[condition].singular];
     if (report->target.iType == W8_TARGET_KIND_MONSTER) {
         ShowNotice(W8_FONT_PALETTE_RUST,
                    fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0), name));
@@ -1503,20 +1499,20 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
     };
     auto postNoticeValue = [&](int index, int text_id) {
         if (report->notice_values[index] > 0)
-            post(fmt::sprintf(g_localized_strings[text_id], report->notice_values[index]));
+            post(fmt::sprintf(Data().strings[text_id], report->notice_values[index]));
     };
 
     if (report->condition_counts[W8_CONDITION_DEAD] == 0) {
         if (report->count == 0) {
-            ShowNotice(palette, g_localized_strings[report->missed ? 0x20b : 0x209]);
+            ShowNotice(palette, Data().strings[report->missed ? 0x20b : 0x209]);
             return;
         }
         if (report->amount == 0) {
-            ShowNotice(palette, g_localized_strings[0x20e]);
+            ShowNotice(palette, Data().strings[0x20e]);
         } else if (report->count == 1) {
-            post(fmt::sprintf(g_localized_strings[0x265], report->amount));
+            post(fmt::sprintf(Data().strings[0x265], report->amount));
         } else if (report->count > 1) {
-            post(fmt::sprintf(g_localized_strings[0x266], report->count, report->amount));
+            post(fmt::sprintf(Data().strings[0x266], report->count, report->amount));
         }
     }
     postNoticeValue(3, 0x267);
@@ -1535,15 +1531,15 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
             for (int index = 0; index < 3; ++index) {
                 static constexpr int text_ids[] = {0x1a6, 0x264, 0x261};
                 if (report->notice_values[index] > 0)
-                    ShowNotice(palette, fmt::sprintf(g_localized_strings[text_ids[index]],
+                    ShowNotice(palette, fmt::sprintf(Data().strings[text_ids[index]],
                                                      report->notice_values[index]));
             }
             if (!monster_attacker && report->notice_values[5] > 0) {
                 const W8Character& character = CurrentGame().party.characters[party_slot];
                 if (character.hp_current == static_cast<unsigned int>(character.uiHPMax))
-                    post(g_localized_strings[0x258]);
+                    post(Data().strings[0x258]);
                 else
-                    post(fmt::sprintf(g_localized_strings[0x25a], report->notice_values[5]));
+                    post(fmt::sprintf(Data().strings[0x25a], report->notice_values[5]));
             }
             for (unsigned int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
                 if (report->condition_counts[condition] == 0 || condition == W8_CONDITION_DRAINED)
@@ -1551,7 +1547,7 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
                 if (condition == W8_CONDITION_MISSING) {
                     if (monster_attacker && report->target.iType == W8_TARGET_KIND_CHARACTER &&
                         GetConditionRecordFlag(report->target.iChar, W8_DEPENDENCE_SWALLOWED))
-                        PostCharacterNotice(report->target.iChar, g_localized_strings[0x1d5]);
+                        PostCharacterNotice(report->target.iChar, Data().strings[0x1d5]);
                     continue;
                 }
                 AnnounceCombatTargetCondition(report, condition, target_monster);
@@ -1736,14 +1732,14 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
     }
     if (swing_missed) {
         if (g_settings.verbose_combat_messages != 0) {
-            ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x209]);
+            ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x209]);
         }
         ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
     } else if (deflected) {
         if (g_settings.verbose_combat_messages == 0) {
             report->missed = true;
         } else {
-            ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x20a]);
+            ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x20a]);
         }
         ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
     } else {
@@ -1778,7 +1774,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                     break;
                 }
             }
-            location_text = g_localized_strings[g_pc_hit_location_labels[hit_location][0]];
+            location_text = Data().strings[g_pc_hit_location_labels[hit_location][0]];
         } else {
             if (CurrentGame().combat.state()->TargetHit.iType != W8_TARGET_KIND_MONSTER) {
                 goto invalid_target;
@@ -1788,8 +1784,8 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
             hit_location = RollMonsterHitLocation(target_record);
             if (target_record->hit_location_chances[hit_location] < 100) {
                 location_text =
-                    g_localized_strings[g_monster_hit_location_labels[hit_location]
-                                                                     [target_record->constitution]];
+                    Data().strings[g_monster_hit_location_labels[hit_location]
+                                                                [target_record->constitution]];
             } else {
                 location_text = "";
             }
@@ -1801,7 +1797,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                                          &CurrentGame().combat.state()->TargetHit, roll, to_hit,
                                          9)) {
                 if (verbose) {
-                    ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x209]);
+                    ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x209]);
                 }
                 if (!TryPanicWoundedCharacter(&CurrentGame().combat.state()->TargetHit) &&
                     CurrentGame().combat.state()->TargetHit.iType == W8_TARGET_KIND_CHARACTER &&
@@ -1825,7 +1821,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                 report->target = CurrentGame().combat.state()->TargetHit;
             } else {
                 ShowNotice(W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(g_localized_strings[0x20c], location_name));
+                           fmt::sprintf(Data().strings[0x20c], location_name));
             }
             queued_fatigue = 2;
             int penetration =
@@ -1858,7 +1854,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                         damage = CapAttackDamageByTargetHealth(damage);
                     } else if (dice_count > 1 && verbose) {
                         ShowNotice(W8_FONT_PALETTE_RUST,
-                                   fmt::sprintf(g_localized_strings[0x20d], dice_count));
+                                   fmt::sprintf(Data().strings[0x20d], dice_count));
                     }
                     MakeMonsterHitSound(attack, &CurrentGame().combat.state()->TargetHit,
                                         hit_location, -1);
@@ -1903,7 +1899,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                 if (!verbose) {
                     ++report->count;
                 } else {
-                    ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[message_id]);
+                    ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[message_id]);
                 }
             }
             if (range < W8_RANGE_LONG) {
@@ -1937,7 +1933,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                         ReportMonsterAttackResult(monster_info,
                                                   &CurrentGame().combat.state()->attack_report);
                     }
-                    CurrentGame().combat.state()->attack_message = g_localized_strings[0x210];
+                    CurrentGame().combat.state()->attack_message = Data().strings[0x210];
                     AnnounceMonsterAttack(monster_info, record, 1);
                 }
             }
@@ -1952,7 +1948,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                     ReportMonsterAttackResult(monster_info, report);
                     PostMonsterNotice(
                         monster_info,
-                        fmt::sprintf(g_localized_strings[0x269],
+                        fmt::sprintf(Data().strings[0x269],
                                      CombatTargetName(&source, &monster_info->Target)));
                 }
                 return W8CombatActionStatus::resolving;
@@ -1963,7 +1959,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
         ReportMonsterAttackResult(monster_info, report);
         if (fumbled || source.target_diverted) {
             PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x269],
+                              fmt::sprintf(Data().strings[0x269],
                                            CombatTargetName(&source, &monster_info->Target)));
             if (CurrentGame().combat.state()->attack_report.deferred) {
                 ReportMonsterAttackResult(monster_info,
@@ -2088,9 +2084,9 @@ static void AppendAttackWeaponName(std::string_view name, int mode)
     if (g_settings.verbose_combat_messages != 0) {
         if (CurrentGame().combat.state()->natural_attack != 0) {
             CurrentGame().combat.state()->attack_message += " ";
-            CurrentGame().combat.state()->attack_message += g_localized_strings[0x215];
+            CurrentGame().combat.state()->attack_message += Data().strings[0x215];
         } else if (mode == W8_ATTACK_MODE_BERSERK) {
-            CurrentGame().combat.state()->attack_message += g_localized_strings[0x215];
+            CurrentGame().combat.state()->attack_message += Data().strings[0x215];
         }
         CurrentGame().combat.state()->attack_message += name;
     }
@@ -2123,7 +2119,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
     CurrentGame().combat.state()->attack_message =
         fmt::format("{} ", GetMonsterName(monster_info, record, 0));
     if (target_changed != 0) {
-        CurrentGame().combat.state()->attack_message += g_localized_strings[0x211];
+        CurrentGame().combat.state()->attack_message += Data().strings[0x211];
         CurrentGame().combat.state()->attack_message += " ";
     }
     if (CurrentGame().combat.state()->natural_attack == 0) {
@@ -2138,14 +2134,14 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
             }
             name_id = g_monster_attack_name_ids[pAttack->weapon_type * 2];
         }
-        CurrentGame().combat.state()->attack_message += g_localized_strings[name_id];
+        CurrentGame().combat.state()->attack_message += Data().strings[name_id];
         CurrentGame().combat.state()->attack_message += " ";
         if (pAttack->ubWeaponNameIndex != 0) {
-            text = g_localized_strings[g_monster_attack_verb_ids[pAttack->ubWeaponNameIndex]];
+            text = Data().strings[g_monster_attack_verb_ids[pAttack->ubWeaponNameIndex]];
             AppendAttackWeaponName(text, action_detail);
         }
     } else {
-        CurrentGame().combat.state()->attack_message += g_localized_strings[0x204];
+        CurrentGame().combat.state()->attack_message += Data().strings[0x204];
         CurrentGame().combat.state()->attack_message += " ";
     }
     if (CurrentGame().combat.state()->natural_attack == 0 && pAttack->ubWeaponNameIndex != 0) {
@@ -2154,16 +2150,16 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
             case W8_ATTACK_MODE_SWING:
             case W8_ATTACK_MODE_THRUST:
             case W8_ATTACK_MODE_THROW:
-                CurrentGame().combat.state()->attack_message += g_localized_strings[0x217];
+                CurrentGame().combat.state()->attack_message += Data().strings[0x217];
                 break;
             case W8_ATTACK_MODE_BERSERK:
-                CurrentGame().combat.state()->attack_message += g_localized_strings[0x218];
+                CurrentGame().combat.state()->attack_message += Data().strings[0x218];
                 break;
             default:
                 break;
             }
         } else {
-            CurrentGame().combat.state()->attack_message += g_localized_strings[0x216];
+            CurrentGame().combat.state()->attack_message += Data().strings[0x216];
         }
     }
     highlight_start = CurrentGame().combat.state()->attack_message.size();
@@ -2218,16 +2214,16 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
     highlight_end = CurrentGame().combat.state()->attack_message.size();
     if (CurrentGame().combat.state()->natural_attack == 0) {
         if (CurrentGame().combat.state()->unaware != 0) {
-            text = g_localized_strings[0x207];
+            text = Data().strings[0x207];
             CurrentGame().combat.state()->attack_message += text;
         }
     } else {
-        CurrentGame().combat.state()->attack_message += g_localized_strings[0x212];
+        CurrentGame().combat.state()->attack_message += Data().strings[0x212];
         if (pAttack->ubWeaponNameIndex == 0) {
             Fail("pAttack->ubWeaponNameIndex != MON_WEAPON_NAME_UNARMED");
         }
         if (pAttack->ubWeaponNameIndex != 0) {
-            text = g_localized_strings[g_monster_attack_verb_ids[pAttack->ubWeaponNameIndex]];
+            text = Data().strings[g_monster_attack_verb_ids[pAttack->ubWeaponNameIndex]];
             CurrentGame().combat.state()->attack_message += text;
         }
     }
@@ -2405,14 +2401,14 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         dice_count -= 1;
     }
     if (target_is_monster && pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
-        if (g_item_records[pPC->EquippedItem[row->current_equip_slot].iItemNo].slays_kind != 0xff &&
-            g_item_records[pPC->EquippedItem[row->current_equip_slot].iItemNo].slays_kind ==
+        if (Data().items[pPC->EquippedItem[row->current_equip_slot].iItemNo].slays_kind != 0xff &&
+            Data().items[pPC->EquippedItem[row->current_equip_slot].iItemNo].slays_kind ==
                 record->kind) {
             dice_count += 1;
         }
         if (row->paired_equip_slot != -1 &&
-            g_item_records[pPC->EquippedItem[row->paired_equip_slot].iItemNo].slays_kind != 0xff &&
-            g_item_records[pPC->EquippedItem[row->paired_equip_slot].iItemNo].slays_kind ==
+            Data().items[pPC->EquippedItem[row->paired_equip_slot].iItemNo].slays_kind != 0xff &&
+            Data().items[pPC->EquippedItem[row->paired_equip_slot].iItemNo].slays_kind ==
                 record->kind) {
             dice_count += 1;
         }
@@ -2425,8 +2421,8 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
             Fail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
         }
         if (pPC->Hand[1].uiHolds != HOLDS_NOTHING) {
-            dice = g_item_records[pPC->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo]
-                       .damage_dice;
+            dice =
+                Data().items[pPC->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo].damage_dice;
         } else {
             dice = pPC->Hand[1].damage_dice;
         }
@@ -2438,11 +2434,12 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         if (pPC->Hand[0].uiHolds != HOLDS_NOTHING) {
             W8EquipSlot paired = W8_EQUIP_SLOT_NONE;
             if (ItemHasSingledOutGenericName(
-                    pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
+                    Data(), pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
                 (paired = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON)) != W8_EQUIP_SLOT_NONE) {
-                dice = g_item_records[pPC->EquippedItem[paired].iItemNo].damage_dice;
+                dice = Data().items[pPC->EquippedItem[paired].iItemNo].damage_dice;
             } else {
-                dice = g_item_records[pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
+                dice = Data()
+                           .items[pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
                            .damage_dice;
             }
         } else {
@@ -2460,7 +2457,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
             if (hand == 0) {
                 W8EquipSlot paired = W8_EQUIP_SLOT_NONE;
                 if (ItemHasSingledOutGenericName(
-                        pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
+                        Data(), pPC->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
                     (paired = GetPairedEquipSlot(W8_EQUIP_SLOT_PRIMARY_WEAPON)) !=
                         W8_EQUIP_SLOT_NONE) {
                     item_id = pPC->EquippedItem[paired].iItemNo;
@@ -2470,7 +2467,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
             } else {
                 item_id = pPC->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo;
             }
-            dice = g_item_records[item_id].damage_dice;
+            dice = Data().items[item_id].damage_dice;
         }
     }
 
@@ -2784,7 +2781,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                                                      0, W8_CONDITION_INDEFINITE, verbose, false, 0);
                     if (!resisted) {
                         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-                            ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x17f]);
+                            ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x17f]);
                             if (Random(100) < 0x32) {
                                 QueueCharacterEvent(&CurrentGame().party.characters[source->iChar],
                                                     g_learn_sound, 0, kCharacterEventFullVolume);
@@ -2796,15 +2793,15 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                                 event->DelayDispatch(800);
                             }
                         } else {
-                            ShowNotice(W8_FONT_PALETTE_RUST, g_localized_strings[0x17f]);
+                            ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x17f]);
                         }
                         if (target->iType == W8_TARGET_KIND_CHARACTER) {
                             PostCharacterNotice(
                                 target->iChar,
                                 fmt::format(
                                     "{}!",
-                                    g_localized_strings[g_condition_notices[W8_CONDITION_DEAD]
-                                                            .singular]));
+                                    Data()
+                                        .strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
                         }
                         if (accumulator != nullptr) {
                             accumulator->condition_counts[W8_CONDITION_DEAD]++;
@@ -3076,7 +3073,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             if (source->iChar == target->iChar) {
                 W8Character* pc = &CurrentGame().party.characters[source->iChar];
-                message += g_localized_strings[g_gender_name_message_rows[pc->gender][3]].c_str();
+                message += Data().strings[g_gender_name_message_rows[pc->gender][3]].c_str();
             } else {
                 message += CurrentGame().party.characters[target->iChar].name.c_str();
             }
@@ -3095,8 +3092,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
         color = GetTargetNoticeColor(source, target);
         highlight_start = static_cast<unsigned char>(message.size());
         if (target->iType == W8_TARGET_KIND_MONSTER && source->iMonsterID == target->iMonsterID) {
-            message +=
-                g_localized_strings[g_gender_name_message_rows[record->name_group][3]].c_str();
+            message += Data().strings[g_gender_name_message_rows[record->name_group][3]].c_str();
         } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
             message += CurrentGame().party.characters[target->iChar].name.c_str();
         } else {
@@ -3168,7 +3164,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         return nullptr;
     }
     if (TargetSourceIsCharacter(source, 0) && target->iType == W8_TARGET_KIND_CHARACTER &&
-        !g_missile_table[missile_type].spell_missile) {
+        !Data().missiles[missile_type].spell_missile) {
         if (use_default_accuracy) {
             return nullptr;
         }
@@ -3200,7 +3196,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
             if (monster != nullptr) {
                 monster->GetPlayerToMonsterSightFlags(&primary, &secondary, &source_position);
             }
-            if (!secondary || (!g_missile_table[missile_type].spell_missile && !primary)) {
+            if (!secondary || (!Data().missiles[missile_type].spell_missile && !primary)) {
                 source_position = cameraLocation();
             }
         }
@@ -3216,7 +3212,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         }
         monster_info = FindMonster(source->iMonsterID);
         monster = monster_info->p3D;
-        if (!g_missile_table[missile_type].spell_missile) {
+        if (!Data().missiles[missile_type].spell_missile) {
             position_ok = monster->GetProjectilePosition(&source_position);
         } else if (!source->point_source) {
             position_ok = monster->GetSpellPosition(&source_position);
@@ -3288,18 +3284,17 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
     W8SpellEffectDefinition attack_block;
     unsigned char item_modifiers[0x10];
     const unsigned char* modifiers;
-    W8ItemDatabaseRecord* weapon;
-    W8ItemDatabaseRecord* paired;
+    const W8ItemDatabaseRecord* weapon;
+    const W8ItemDatabaseRecord* paired;
     unsigned int level;
     unsigned int capped_level;
     unsigned int missile_value;
     int accuracy;
     int i;
-    int missile_type = g_item_records[row->paired_item_id].missile_type;
-    if (g_missile_table.size() <= static_cast<unsigned int>(missile_type)) {
-        DebugMessage(0,
-                     fmt::format("DATA ERROR: Item {} has an invalid missile type ({:d})",
-                                 g_item_records[row->paired_item_id].display_name, missile_type));
+    int missile_type = Data().items[row->paired_item_id].missile_type;
+    if (Data().missiles.size() <= static_cast<unsigned int>(missile_type)) {
+        DebugMessage(0, fmt::format("DATA ERROR: Item {} has an invalid missile type ({:d})",
+                                    Data().items[row->paired_item_id].display_name, missile_type));
         missile_type = 0;
     }
     SetTargetSourceToCharacter(party_slot, &source);
@@ -3310,12 +3305,12 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
         capped_level = 0xf;
     }
     attack_block.power_level = level + capped_level;
-    attack_block.magnitude = g_item_records[row->paired_item_id].damage_dice;
-    weapon = &g_item_records[pc->EquippedItem[row->current_equip_slot].iItemNo];
+    attack_block.magnitude = Data().items[row->paired_item_id].damage_dice;
+    weapon = &Data().items[pc->EquippedItem[row->current_equip_slot].iItemNo];
     missile_value = weapon->missile_magnitude;
     modifiers = weapon->missile_values;
     if (row->paired_equip_slot != -1) {
-        paired = &g_item_records[pc->EquippedItem[row->paired_equip_slot].iItemNo];
+        paired = &Data().items[pc->EquippedItem[row->paired_equip_slot].iItemNo];
         for (i = 0x10; i != 0; i = i - 1) {
             item_modifiers[0x10 - i] =
                 weapon->missile_values[0x10 - i] + paired->missile_values[0x10 - i];
@@ -3433,16 +3428,16 @@ static void AppendAttackMessageSuffix(int mode)
 {
     if (g_settings.verbose_combat_messages != 0 &&
         CurrentGame().combat.state()->natural_attack == 0) {
-        CurrentGame().combat.state()->attack_message += g_localized_strings[0x216];
+        CurrentGame().combat.state()->attack_message += Data().strings[0x216];
     } else if (CurrentGame().combat.state()->natural_attack == 0) {
         switch (mode) {
         case W8_ATTACK_MODE_SWING:
         case W8_ATTACK_MODE_THRUST:
         case W8_ATTACK_MODE_THROW:
-            CurrentGame().combat.state()->attack_message += g_localized_strings[0x217];
+            CurrentGame().combat.state()->attack_message += Data().strings[0x217];
             break;
         case W8_ATTACK_MODE_BERSERK:
-            CurrentGame().combat.state()->attack_message += g_localized_strings[0x218];
+            CurrentGame().combat.state()->attack_message += Data().strings[0x218];
             break;
         }
     }
@@ -3504,7 +3499,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     if (hand == 0) {
         row->current_equip_slot = W8_EQUIP_SLOT_PRIMARY_WEAPON;
         if (ItemHasSingledOutGenericName(
-                character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo)) {
+                Data(), character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo)) {
             row->paired_equip_slot = GetPairedEquipSlot(row->current_equip_slot);
         } else {
             row->paired_equip_slot = W8_EQUIP_SLOT_NONE;
@@ -3522,12 +3517,12 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     }
     if (character->EquippedItem[row->current_equip_slot].iItemNo != -1) {
         row->uiSwingsRemaining +=
-            g_item_records[character->EquippedItem[row->current_equip_slot].iItemNo].swings_bonus;
+            Data().items[character->EquippedItem[row->current_equip_slot].iItemNo].swings_bonus;
     }
     if (row->extra_swings[0] != 0 && hand == 0) {
         if (character->Hand[0].weapon_skill == W8_SKILL_SWORD &&
             character->uiCondition[W8_CONDITION_SLOWED] == 0) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x203]);
+            PostCharacterNotice(party_slot, Data().strings[0x203]);
             if (Random(0xb) + character->profession_levels[character->iProfession] < 0x14) {
                 row->uiSwingsRemaining += 3;
             } else {
@@ -3545,19 +3540,19 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     found = FindCharacterItem(*character, ItemWithId(row->weapon_item_id), W8ItemReach::Worn);
     if (found == nullptr) {
         DebugMessage(1, fmt::format("ERROR: {} does not have a {}!", character->name,
-                                    g_item_records[row->weapon_item_id].display_name));
+                                    Data().items[row->weapon_item_id].display_name));
         return false;
     }
     if (CurrentGame().combat.state()->natural_attack != 0) {
-        CurrentGame().combat.state()->attack_message = g_localized_strings[0x204];
+        CurrentGame().combat.state()->attack_message = Data().strings[0x204];
         CurrentGame().combat.state()->attack_message += " ";
     } else {
         if (hand == 1 && character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo != -1 &&
-            g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
+            Data().items[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
                     .equip_class == W8_ITEM_EQUIP_CLASS_RANGED_WEAPON) {
-            verb = g_localized_strings[g_attack_flag_name_ids[W8_ATTACK_MODE_SHOOT][1]];
+            verb = Data().strings[g_attack_flag_name_ids[W8_ATTACK_MODE_SHOOT][1]];
         } else {
-            verb = g_localized_strings[g_attack_flag_name_ids[mode][1]];
+            verb = Data().strings[g_attack_flag_name_ids[mode][1]];
         }
         CurrentGame().combat.state()->attack_message = verb;
         CurrentGame().combat.state()->attack_message += " ";
@@ -3567,7 +3562,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             AppendAttackMessageSuffix(mode);
         } else {
             if (mode == W8_ATTACK_MODE_BERSERK) {
-                CurrentGame().combat.state()->attack_message += g_localized_strings[0x205];
+                CurrentGame().combat.state()->attack_message += Data().strings[0x205];
                 CurrentGame().combat.state()->attack_message += " ";
             }
         }
@@ -3631,7 +3626,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         }
     } else {
         if (CurrentGame().combat.state()->unaware != 0) {
-            CurrentGame().combat.state()->attack_message += g_localized_strings[0x207];
+            CurrentGame().combat.state()->attack_message += Data().strings[0x207];
         }
     }
     if (row->uiSwingsRemaining > 1) {
@@ -3698,7 +3693,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
             if (!verbose) {
                 report->missed = true;
             } else {
-                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x20a]);
+                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x20a]);
             }
             ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
             outcome = 1;
@@ -3768,7 +3763,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
             if (CharacterHasTrait(character, W8_TRAIT_THROWN_CRITICALS) &&
                 character->Hand[hand].combat_skill == W8_SKILL_RANGED_COMBAT &&
                 character->Hand[hand].weapon_skill == W8_SKILL_THROWING_SLING &&
-                g_item_records[character->EquippedItem[row->current_equip_slot].iItemNo]
+                Data().items[character->EquippedItem[row->current_equip_slot].iItemNo]
                         .unidentified_name_index != 0xd) {
                 guaranteed_penetration = true;
             }
@@ -3786,7 +3781,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
         }
         if (swing_missed) {
             if (g_settings.verbose_combat_messages != 0) {
-                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x209]);
+                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x209]);
             }
             ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
         } else if (!staged_miss) {
@@ -3807,8 +3802,8 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                 hit_location = RollMonsterHitLocation(record);
                 if (record->hit_location_chances[hit_location] < 100) {
                     location_name =
-                        g_localized_strings[g_monster_hit_location_labels[hit_location]
-                                                                         [record->constitution]];
+                        Data().strings[g_monster_hit_location_labels[hit_location]
+                                                                    [record->constitution]];
                 } else {
                     location_name = "";
                 }
@@ -3818,7 +3813,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                     return W8CombatActionStatus::finishing;
                 }
                 hit_location = RollCharacterHitLocation();
-                location_name = g_localized_strings[g_pc_hit_location_labels[hit_location][0]];
+                location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
             }
             if (!guaranteed_hit && to_hit < roll) {
                 /* Retail hands the weapon's material, not its attack sound
@@ -3828,14 +3823,14 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                     weapon_class = 9;
                 } else {
                     weapon_class =
-                        g_item_records[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON]
-                                           .iItemNo]
+                        Data()
+                            .items[character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo]
                             .material;
                 }
                 if (!BlockedForSpecialReason(weapon_class, &CurrentGame().combat.state()->TargetHit,
                                              roll, to_hit, 8)) {
                     if (g_settings.verbose_combat_messages != 0) {
-                        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x209]);
+                        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x209]);
                     }
                     if (character->hp_current / static_cast<float>(character->uiHPMax) <
                         kNavigatorMode3Scale) {
@@ -3858,7 +3853,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                     report->target = CurrentGame().combat.state()->TargetHit;
                 } else {
                     ShowNotice(W8_FONT_PALETTE_WHITE,
-                               fmt::sprintf(g_localized_strings[0x20c], location_name));
+                               fmt::sprintf(Data().strings[0x20c], location_name));
                 }
                 outcome = 2;
                 queued_fatigue = 2;
@@ -3886,7 +3881,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                         } else if (dice_count > 1) {
                             if (verbose) {
                                 ShowNotice(W8_FONT_PALETTE_WHITE,
-                                           fmt::sprintf(g_localized_strings[0x20d], dice_count));
+                                           fmt::sprintf(Data().strings[0x20d], dice_count));
                             }
                             outcome = 5;
                         }
@@ -3926,29 +3921,30 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                                        0x10);
                                 effect.magnitude_base = 0;
                             } else {
-                                memcpy(
-                                    effect.condition_chances,
-                                    g_item_records[character->EquippedItem[row->current_equip_slot]
-                                                       .iItemNo]
-                                        .missile_values,
-                                    0x10);
+                                memcpy(effect.condition_chances,
+                                       Data()
+                                           .items[character->EquippedItem[row->current_equip_slot]
+                                                      .iItemNo]
+                                           .missile_values,
+                                       0x10);
                                 effect.magnitude_base =
-                                    g_item_records[character->EquippedItem[row->current_equip_slot]
-                                                       .iItemNo]
+                                    Data()
+                                        .items[character->EquippedItem[row->current_equip_slot]
+                                                   .iItemNo]
                                         .missile_magnitude;
                                 if (row->paired_equip_slot != -1) {
                                     const unsigned char* paired_values =
-                                        g_item_records[character
-                                                           ->EquippedItem[row->paired_equip_slot]
-                                                           .iItemNo]
+                                        Data()
+                                            .items[character->EquippedItem[row->paired_equip_slot]
+                                                       .iItemNo]
                                             .missile_values;
                                     for (int i = 0; i < 0x10; ++i) {
                                         effect.condition_chances[i] += paired_values[i];
                                     }
                                     effect.magnitude_base +=
-                                        g_item_records[character
-                                                           ->EquippedItem[row->paired_equip_slot]
-                                                           .iItemNo]
+                                        Data()
+                                            .items[character->EquippedItem[row->paired_equip_slot]
+                                                       .iItemNo]
                                             .missile_magnitude;
                                 }
                             }
@@ -3966,10 +3962,11 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                                         }
                                     } else if (hand_attack->weapon_skill ==
                                                W8_SKILL_THROWING_SLING) {
-                                        if (g_item_records
-                                                [character->EquippedItem[row->current_equip_slot]
-                                                     .iItemNo]
-                                                    .unidentified_name_index == 0xd) {
+                                        if (Data()
+                                                .items[character
+                                                           ->EquippedItem[row->current_equip_slot]
+                                                           .iItemNo]
+                                                .unidentified_name_index == 0xd) {
                                             if (CharacterHasTrait(character,
                                                                   W8_TRAIT_RANGED_CRITICALS)) {
                                                 skill_level =
@@ -4040,7 +4037,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                     if (!verbose) {
                         ++report->count;
                     } else {
-                        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[message_id]);
+                        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[message_id]);
                     }
                 }
                 if (range < W8_RANGE_LONG) {
@@ -4056,7 +4053,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
             if (!verbose) {
                 report->missed = true;
             } else {
-                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x20a]);
+                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x20a]);
             }
             ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
         }
@@ -4110,7 +4107,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                 ReportCharacterAttackResult(party_slot, report);
                 PostCharacterNotice(
                     party_slot,
-                    fmt::sprintf(g_localized_strings[0x269],
+                    fmt::sprintf(Data().strings[0x269],
                                  CombatTargetName(&source, &party_row->target_out_of_combat)));
             }
             ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
@@ -4128,7 +4125,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
         if (fumbled || source.target_diverted) {
             PostCharacterNotice(
                 party_slot,
-                fmt::sprintf(g_localized_strings[0x269],
+                fmt::sprintf(Data().strings[0x269],
                              CombatTargetName(&source, &party_row->target_out_of_combat)));
             if (CurrentGame().combat.state()->attack_report.deferred) {
                 ReportCharacterAttackResult(party_slot,

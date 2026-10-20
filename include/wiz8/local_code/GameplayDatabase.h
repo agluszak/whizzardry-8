@@ -19,17 +19,3 @@ bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex
 bool LoadMonsterDatabaseRecord(unsigned int monster_species, W8MonsterRecord* record);
 
 extern unsigned int g_starting_item_ids[];
-
-// The loaded retail databases; each vector owns its records. Replacing or releasing a
-// database invalidates pointers into it.
-extern std::vector<W8FactDatabaseRecord> g_fact_records;
-extern std::vector<W8LevelDatabaseRecord> g_level_records;
-extern std::vector<W8NpcDatabaseRecord> g_npc_records;
-extern std::vector<W8SpellRuntimeRecord> g_spell_records;
-
-bool InitializeItemDatabase(void);
-bool InitializeItemTables(void);
-unsigned int ItemTableCount(void);
-unsigned int ItemTableCategoryCount(void);
-void DestroyItemDatabase(void);
-void DestroyItemTables(void);

@@ -2,8 +2,8 @@
 
 #include <bitset>
 
-#include "wiz8/party_stats.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/party_stats.h"
 
 struct W8Character;
 struct InventoryWeightChange;

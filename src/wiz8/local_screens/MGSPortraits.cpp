@@ -24,6 +24,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -31,17 +32,15 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
@@ -662,8 +661,8 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     entry->effect_icon_end_frame =
         static_cast<unsigned short>(CatalogArtwork::Load(catalog).spriteSheet()->frames.size());
     std::string sound =
-        spell_id != W8_SPELL_NONE && g_spell_records[spell_id].sound_name[0] != 0
-            ? fmt::format("Data\\Spells\\Sounds\\{}.wav", g_spell_records[spell_id].sound_name)
+        spell_id != W8_SPELL_NONE && Data().spells[spell_id].sound_name[0] != 0
+            ? fmt::format("Data\\Spells\\Sounds\\{}.wav", Data().spells[spell_id].sound_name)
             : s_general_magic_sound;
     wiz8::sound::play(sound);
     if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
@@ -799,7 +798,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 g_level_block->portrait_refresh_pending[party_slot] != 0) {
                 main_hand_item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
                 if (main_hand_item_id == -1 ||
-                    (g_item_records[main_hand_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
+                    (Data().items[main_hand_item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
                     show_off_hand_row = false;
                     hp_bar_frame = 0;
                 } else {
@@ -878,7 +877,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                          {(0xd - text_width) / 2 + 3 + band_menu_edge, menu_y + 3}, text);
             }
 
-            text = g_localized_strings[g_profession_name_message_ids[character->iProfession + 16]];
+            text = Data().strings[g_profession_name_message_ids[character->iProfession + 16]];
             if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
                 g_smfnt_font.setPalette(g_font_state_palettes[party_row->party_order_index]);
             }
@@ -1224,7 +1223,7 @@ void CreateConditionButtons()
                 }
                 return UiResult::Handled;
             });
-        icon.target->setTooltip([] { return g_localized_strings[1985]; });
+        icon.target->setTooltip([] { return Data().strings[1985]; });
     }
     DisableConditionButtons();
 }

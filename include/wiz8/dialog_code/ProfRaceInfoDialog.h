@@ -51,9 +51,9 @@ private:
 protected:
     CatalogArtwork m_uiArtwork;
     unsigned int m_uiSummaryImage;
-    unsigned int m_uiNameId;    /* g_localized_strings index */
-    unsigned int m_uiHeadingId; /* g_localized_strings index */
-    unsigned int m_uiDetailId;  /* g_localized_strings index */
+    unsigned int m_uiNameId;    /* Data().strings index */
+    unsigned int m_uiHeadingId; /* Data().strings index */
+    unsigned int m_uiDetailId;  /* Data().strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
     W8DialogScrollBar m_scroll_bar{InputLayer(),
                                    {"Data\\Main Interface\\main_scroll.sti",

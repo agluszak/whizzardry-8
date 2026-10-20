@@ -30,11 +30,11 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -46,18 +46,16 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/learned_spells.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -66,7 +64,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -82,7 +79,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
@@ -91,11 +87,14 @@
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -237,12 +236,11 @@ void W8CampSpellsPage::DrawCampSpellPages(void)
             CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, left, top);
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b, top + 8},
-                     fmt::format("{}:", g_localized_strings[0x8c7]));
+                     fmt::format("{}:", Data().strings[0x8c7]));
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x72, top + 8},
-                     g_localized_strings[0x8c9]);
+                     Data().strings[0x8c9]);
             g_wiz_text_font_secondary.resetPalette();
-            width = g_wiz_text_font_secondary.textWidth(
-                fmt::format("{}: ", g_localized_strings[0x8c7]));
+            width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", Data().strings[0x8c7]));
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                      {left + 0x1b + width, top + 8},
                      fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
@@ -268,8 +266,7 @@ void W8CampSpellsPage::DrawCampSpellPages(void)
                     learned_spells.spell_ids_by_realm[realm][learned_spells.scroll[realm] + row];
                 if (spell_targets[realm]->hovered() && selected_spell_row == row) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
-                } else if (g_spell_records[spell_id].spell_point_cost <=
-                               character->iSPLeft[realm] &&
+                } else if (Data().spells[spell_id].spell_point_cost <= character->iSPLeft[realm] &&
                            SpellUsableNow(spell_id, false)) {
                     palette = g_wiz_text_font_secondary.glyphs->colors;
                 } else {
@@ -277,12 +274,12 @@ void W8CampSpellsPage::DrawCampSpellPages(void)
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
                 width = g_wiz_text_font_secondary.codepointPrefixWidth(
-                    fmt::format("{:03d}", g_spell_records[spell_id].spell_point_cost), 3);
+                    fmt::format("{:03d}", Data().spells[spell_id].spell_point_cost), 3);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1c, row_top},
-                         g_spell_records[spell_id].display_name);
+                         Data().spells[spell_id].display_name);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {left + 0xb1 - width, row_top},
-                         fmt::format("{:3d}", g_spell_records[spell_id].spell_point_cost));
+                         fmt::format("{:3d}", Data().spells[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
             g_wiz_text_font_secondary.resetPalette();
@@ -323,7 +320,7 @@ void W8CampSpellsPage::DrawCampResistances(void)
     int width;
 
     CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
-    text = g_localized_strings[0x8ca];
+    text = Data().strings[0x8ca];
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
              {(0x134 - width) / 2 + 0x144, 0x1e}, text);
@@ -454,52 +451,52 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
     if (!redraw) return;
     m_dirty = false;
     screen.items.InvalidateControls();
-    DrawRcsText(g_localized_strings[0x935], 0x15e, 0x84, 0x4e,
+    DrawRcsText(Data().strings[0x935], 0x15e, 0x84, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
     text = fmt::format("{:d}", screen.reviewed->kill_count);
     DrawRcsText(text, 0x1ae, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-    DrawRcsText(g_localized_strings[0x936], 0x15e, 0x92, 0x4e,
+    DrawRcsText(Data().strings[0x936], 0x15e, 0x92, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
     text = fmt::format("{:d}", screen.reviewed->death_count);
     DrawRcsText(text, 0x1ae, 0x92, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     if (m_combat_view) {
-        DrawRcsText(g_localized_strings[0x8b0], 0x15b, 10, 0x11d,
+        DrawRcsText(Data().strings[0x8b0], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8b1], 0x15e, 0x30, 0x4e,
+        DrawRcsText(Data().strings[0x8b1], 0x15e, 0x30, 0x4e,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
         text = fmt::format("{:d}", screen.reviewed->initiative);
         DrawRcsText(text, 0x1ae, 0x30, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         if (screen.reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
             screen.reviewed->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-            DrawRcsText(g_localized_strings[0x8b5], 0x1d6, 0x22, 0x50,
+            DrawRcsText(Data().strings[0x8b5], 0x1d6, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            DrawRcsText(g_localized_strings[0x8b4], 0x228, 0x22, 0x50,
+            DrawRcsText(Data().strings[0x8b4], 0x228, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         } else {
-            DrawRcsText(g_localized_strings[0x8b2], 0x1d6, 0x22, 0x50,
+            DrawRcsText(Data().strings[0x8b2], 0x1d6, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            DrawRcsText(g_localized_strings[0x8b3], 0x228, 0x22, 0x50,
+            DrawRcsText(Data().strings[0x8b3], 0x228, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
-        DrawRcsText(g_localized_strings[0x8b6], 0x1f8, 0x30, 0x5e,
+        DrawRcsText(Data().strings[0x8b6], 0x1f8, 0x30, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8bd], 0x1f8, 0x3e, 0x5e,
+        DrawRcsText(Data().strings[0x8bd], 0x1f8, 0x3e, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8bc], 0x1f8, 0x4c, 0x5e,
+        DrawRcsText(Data().strings[0x8bc], 0x1f8, 0x4c, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8ba], 0x1f8, 0x5a, 0x5e,
+        DrawRcsText(Data().strings[0x8ba], 0x1f8, 0x5a, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8bb], 0x1f8, 0x68, 0x5e,
+        DrawRcsText(Data().strings[0x8bb], 0x1f8, 0x68, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8b7], 0x1f8, 0x76, 0x5e,
+        DrawRcsText(Data().strings[0x8b7], 0x1f8, 0x76, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8b8], 0x1f8, 0x84, 0x5e,
+        DrawRcsText(Data().strings[0x8b8], 0x1f8, 0x84, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        DrawRcsText(g_localized_strings[0x8b9], 0x1f8, 0x92, 0x5e,
+        DrawRcsText(Data().strings[0x8b9], 0x1f8, 0x92, 0x5e,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         bool unknown_partner =
             ItemHasSingledOutGenericName(
-                screen.reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
+                Data(), screen.reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
             !screen.reviewed->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].identified;
         for (unsigned int hand = 0; hand < 2; ++hand) {
             W8HandAttack* attack = &screen.reviewed->Hand[hand];
@@ -512,16 +509,16 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                     DrawRcsText("?", x, 0x30 + row * 14, 0x20,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
                 }
-                text = g_localized_strings[0x95c];
+                text = Data().strings[0x95c];
                 text += "?";
-                text += g_localized_strings[0x95b];
+                text += Data().strings[0x95b];
                 text += "?";
-                text += g_localized_strings[0x95a];
+                text += Data().strings[0x95a];
                 text += "?";
                 m_help[hand + 2] = text;
-                text = g_localized_strings[0x959];
+                text = Data().strings[0x959];
                 text += "?";
-                text += g_localized_strings[0x95a];
+                text += Data().strings[0x95a];
                 text += "?";
                 m_help[hand] = text;
                 continue;
@@ -541,18 +538,18 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             DrawRcsText(text, x, 0x30, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             text = fmt::format("{:d}-{:d}", minimum, maximum);
             DrawRcsText(text, x, 0x3e, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            text = g_localized_strings[0x95c];
+            text = Data().strings[0x95c];
             text += fmt::format(" {:d}, ", dice.Minimum());
-            text += g_localized_strings[0x95b];
+            text += Data().strings[0x95b];
             text += fmt::format(" {:d}, ", dice.Maximum());
-            text += g_localized_strings[0x95a];
+            text += Data().strings[0x95a];
             text += fmt::format(" {:+d}%", static_cast<int>(damage_bonus));
             m_help[hand + 2] = text;
             text = fmt::format("{:d}", skill_bonus + hit_bonus);
             DrawRcsText(text, x, 0x4c, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            text = g_localized_strings[0x959];
+            text = Data().strings[0x959];
             text += fmt::format(" {:d}, ", skill_bonus);
-            text += g_localized_strings[0x95a];
+            text += Data().strings[0x95a];
             text += fmt::format(" {:+d}", hit_bonus);
             m_help[hand] = text;
             text = fmt::format("{:d}", attack->attacks);
@@ -567,7 +564,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             DrawRcsText(text, x, 0x92, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         }
     } else {
-        DrawRcsText(g_localized_strings[0x8be], 0x15b, 10, 0x11d,
+        DrawRcsText(Data().strings[0x8be], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         for (unsigned int component = 0; component < 12; ++component) {
             if (component == 11 &&
@@ -576,7 +573,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             int y = (component % 6) * 14 + 0x22;
             int label_x = component / 6 ? 0x1ef : 0x15e;
             int value_x = component / 6 ? 600 : 0x1c7;
-            DrawRcsText(g_localized_strings[g_camp_armor_class_labels[component]], label_x, y, 0x67,
+            DrawRcsText(Data().strings[g_camp_armor_class_labels[component]], label_x, y, 0x67,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
             int value = screen.reviewed->armor_class_components[component];
             if (value) {
@@ -585,7 +582,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             }
         }
-        DrawRcsText(g_localized_strings[0x8bf], 0x1da, 0x84, 0x7c,
+        DrawRcsText(Data().strings[0x8bf], 0x1da, 0x84, 0x7c,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
         text = fmt::format("{:d}%", screen.reviewed->damage_reduction);
         DrawRcsText(text, 600, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
@@ -600,17 +597,17 @@ void W8CampScreenState::CreateCampInput()
         &main_input.add(SDL_Rect{164, 12, 91, 73}, [this](const UiPointerEvent& event) {
             return HandleCampDismissPortrait(event);
         });
-    main_targets[0]->setTooltip([] { return g_localized_strings[2368]; });
+    main_targets[0]->setTooltip([] { return Data().strings[2368]; });
     main_targets[9] =
         &main_input.add(SDL_Rect{106, 96, 197, 14}, [this](const UiPointerEvent& event) {
             return HandleCampCharacterHeader(event);
         });
-    main_targets[9]->setTooltip([] { return g_localized_strings[2362]; });
+    main_targets[9]->setTooltip([] { return Data().strings[2362]; });
     main_targets[10] =
         &main_input.add(SDL_Rect{106, 124, 197, 10}, [this](const UiPointerEvent& event) {
             return HandleCampProfessionHistory(event);
         });
-    main_targets[10]->setTooltip([] { return g_localized_strings[2363]; });
+    main_targets[10]->setTooltip([] { return Data().strings[2363]; });
     for (int slot = 0; slot < 8; ++slot) {
         main_targets[1 + slot] = &main_input.add(
             SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},
@@ -669,7 +666,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
                 if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
                     CurrentGame().party.rows[slot].pending_action == W8_ACTION_EQUIP) {
                     text = fmt::format("{} {}", CurrentGame().party.characters[slot].name,
-                                       g_localized_strings[0x919]);
+                                       Data().strings[0x919]);
                     goto show_equip_message;
                 }
             }
@@ -684,7 +681,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
                     } else {
                         if (count == CurrentGame().combat.state()->equip_pending) {
                             text += " ";
-                            text += fmt::sprintf(g_localized_strings[0x918],
+                            text += fmt::sprintf(Data().strings[0x918],
                                                  CurrentGame().party.characters[slot].name);
                             goto show_equip_message;
                         }
@@ -746,7 +743,7 @@ void W8CampScreenState::Frame()
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                    ShowNotice(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
+                    ShowNotice(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
                 }
             }
             return InputRoute::Handled;
@@ -948,19 +945,19 @@ void W8CampScreenState::DrawCampRegenStats(void)
     g_calligraphy_font.setShade(Font::kNormalShade);
     g_calligraphy_font.setShade(0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 5},
-                          g_localized_strings[0x8ce]);
+                          Data().strings[0x8ce]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 5},
                           fmt::format("{:6.3f}", reviewed->health_regen_rate));
     g_calligraphy_font.setShade(0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x14},
-                          g_localized_strings[0x8cd]);
+                          Data().strings[0x8cd]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 0x14},
                           fmt::format("{:6.3f}", reviewed->stamina_regen_rate));
     g_calligraphy_font.setShade(0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x23},
-                          g_localized_strings[0x8d0]);
+                          Data().strings[0x8d0]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     for (index = 0; index < 6; ++index) {
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font,
@@ -1017,31 +1014,31 @@ bool IsCampActionAllowed(int party_slot)
         if (CurrentGame().combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
             return true;
         }
-        message = g_localized_strings[0x90a];
+        message = Data().strings[0x90a];
     } else {
         row = &CurrentGame().party.rows[party_slot];
         if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
             if (CurrentGame().combat.state()->characters[party_slot].dead) {
                 if (row->pending_action == W8_ACTION_EQUIP) {
-                    message = g_localized_strings[0x903];
+                    message = Data().strings[0x903];
                 } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
-                    message = g_localized_strings[0x904];
+                    message = Data().strings[0x904];
                 } else {
-                    message = g_localized_strings[0x902];
+                    message = Data().strings[0x902];
                 }
             } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
-                message = g_localized_strings[0x903];
+                message = Data().strings[0x903];
             } else {
-                message = g_localized_strings[0x902];
+                message = Data().strings[0x902];
             }
         } else {
             if (row->pending_action == W8_ACTION_EQUIP) {
                 return true;
             }
             if (row->committed_action.kind == W8_ACTION_EQUIP) {
-                message = g_localized_strings[0x904];
+                message = Data().strings[0x904];
             } else {
-                message = g_localized_strings[0x902];
+                message = Data().strings[0x902];
             }
         }
     }
@@ -1051,7 +1048,7 @@ bool IsCampActionAllowed(int party_slot)
 
 bool IsEquippableItemClass(W8ItemInstance* item)
 {
-    char equip_class = g_item_records[item->iItemNo].equip_class;
+    char equip_class = Data().items[item->iItemNo].equip_class;
     if (equip_class != W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
         equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         return false;
@@ -1112,7 +1109,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     row->pending_action_detail.item_use.kind = -1;
     row->pending_action_detail.item_use.item = CurrentGame().party.locateItem(item);
     row->target_out_of_combat = *target;
-    const auto spell = g_item_records[item->iItemNo].spell_id;
+    const auto spell = Data().items[item->iItemNo].spell_id;
     StagePartySlotItemUse(party_slot, item, target);
     const auto use = UseItem(party_slot, CurrentGame().party.locateItem(item));
     result = use.effect;
@@ -1273,7 +1270,7 @@ void PumpReviewTransition(void)
         if (auto name = FindFreeEndingSaveName()) {
             SaveGame(name->c_str(), nullptr);
             g_pending_main_menu_message =
-                (fmt::format("{} {}.{}", g_localized_strings[0x78b], *name, g_save_extension));
+                (fmt::format("{} {}.{}", Data().strings[0x78b], *name, g_save_extension));
         }
         g_ending_autosave = false;
     }
@@ -1308,9 +1305,9 @@ void DrawPartyDeathScreen(void)
 
     CatalogArtwork::Load(0x1df, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
     if (CurrentGame().party_moving) {
-        text = g_localized_strings[0x777];
+        text = Data().strings[0x777];
     } else {
-        text = g_localized_strings[0x778];
+        text = Data().strings[0x778];
     }
     DrawText(GetFrameBufferSurface(), g_level_load_font,
              {0x276 - g_level_load_font.textWidth(text), 0x1c7}, text);
@@ -1365,20 +1362,20 @@ void ShowEndingScreen(void)
     if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
         image = 0x1e1;
         schedule_fade = false;
-        text = g_localized_strings[0x787];
+        text = Data().strings[0x787];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME1\\VOC_ENDGAME1_005.mp3";
     } else if (GetFact(W8_FACT_QUE_ENDGAME2) != 0) {
         image = 0x1e2;
-        text = g_localized_strings[0x788];
+        text = Data().strings[0x788];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME2\\VOC_ENDGAME2_005.mp3";
     } else if (GetFact(W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT) != 0) {
         image = 0x1e2;
-        text = g_localized_strings[0x789];
+        text = Data().strings[0x789];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME3\\VOC_ENDGAME3_000.mp3";
     } else if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         image = 0x1e3;
         fade_to_black = 1;
-        text = g_localized_strings[0x78a];
+        text = Data().strings[0x78a];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME4\\VOC_ENDGAME4_000.mp3";
         music = "CombatLose.MPL";
         g_ending_screen = false;

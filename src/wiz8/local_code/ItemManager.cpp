@@ -20,11 +20,11 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_tables.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/entities/monster.h"
@@ -38,6 +38,7 @@
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -129,8 +130,8 @@ int FindItemTableByName(const char* name)
 {
     int index;
 
-    for (index = 0; index < static_cast<int>(ItemTableCount()); ++index) {
-        if (SDL_strcasecmp(name, g_item_tables[index].name) == 0) {
+    for (index = 0; index < static_cast<int>(Data().item_tables.size()); ++index) {
+        if (SDL_strcasecmp(name, Data().item_tables[index].name) == 0) {
             return index;
         }
     }
@@ -143,9 +144,9 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
 {
     unsigned int party_level = GetAveragePartyLevel();
     std::vector<int> candidates;
-    W8ItemTableRecord* table;
-    W8ItemTableEntry* entry;
-    W8ItemDatabaseRecord* item_record;
+    const W8ItemTableRecord* table;
+    const W8ItemTableEntry* entry;
+    const W8ItemDatabaseRecord* item_record;
     const W8ItemLevelScaleRange* range;
     unsigned int item_value;
     unsigned int total_weight;
@@ -156,12 +157,12 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
 
     table_id &= 0xffff;
     for (entry_index = 0; entry_index < 40; ++entry_index) {
-        table = &g_item_tables[table_id];
+        table = &Data().item_tables[table_id];
         if (table->entries[entry_index].selector != 0) {
-            item_record = &g_item_records[table->entries[entry_index].item_id];
+            item_record = &Data().items[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
                 output_items.push_back(
-                    SpawnItem(g_item_tables[table_id].entries[entry_index].item_id, &position,
+                    SpawnItem(Data().item_tables[table_id].entries[entry_index].item_id, &position,
                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
@@ -181,10 +182,10 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
     }
 
     if (static_cast<int>(candidates.size()) < static_cast<int>(maximum_items) &&
-        g_item_tables[table_id].level_scaled != 0) {
+        Data().item_tables[table_id].level_scaled != 0) {
         candidates.clear();
         for (entry_index = 0; entry_index < 40; ++entry_index) {
-            if (g_item_tables[table_id].entries[entry_index].selector != 0) {
+            if (Data().item_tables[table_id].entries[entry_index].selector != 0) {
                 candidates.push_back(entry_index);
             }
         }
@@ -192,7 +193,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
 
     total_weight = 0;
     for (entry_index = 0; entry_index < static_cast<int>(candidates.size()); ++entry_index) {
-        total_weight += g_item_tables[table_id].entries[candidates[entry_index]].weight;
+        total_weight += Data().item_tables[table_id].entries[candidates[entry_index]].weight;
     }
 
     selected_count = 0;
@@ -202,7 +203,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         }
         position_index = Random(static_cast<int>(candidates.size()));
         entry_index = candidates[position_index];
-        table = &g_item_tables[table_id];
+        table = &Data().item_tables[table_id];
         entry = &table->entries[entry_index];
         random_value = Random(total_weight);
         if (random_value <= entry->weight) {
@@ -224,10 +225,10 @@ int FindItemRecordByName(const char* name)
     int index;
     std::string internal_name;
 
-    for (index = 0; index < static_cast<int>(g_item_records.size()); ++index) {
-        internal_name = g_item_records[index].internal_name;
+    for (index = 0; index < static_cast<int>(Data().items.size()); ++index) {
+        internal_name = Data().items[index].internal_name;
         if (internal_name[0] == 0) {
-            if (SDL_strcasecmp(g_item_records[index].display_name.c_str(), name) == 0) {
+            if (SDL_strcasecmp(Data().items[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {
@@ -243,7 +244,7 @@ bool ItemInfoIsWorldPersistent(const W8WorldItem* item)
     if (item == 0) {
         return false;
     }
-    return (g_item_records[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) != 0;
+    return (Data().items[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) != 0;
 }
 
 void SetWorldItemFalling(W8WorldItem* item, bool enabled)
@@ -457,10 +458,10 @@ void ActivateItem(W8WorldItem* item)
         Fail("!pItemInfo->fActive");
     }
 
-    name = g_item_records[item->item.iItemNo].internal_name;
+    name = Data().items[item->item.iItemNo].internal_name;
     if (name.empty()) {
         name =
-            g_item_model_fallback_names[g_item_records[item->item.iItemNo].unidentified_name_index];
+            g_item_model_fallback_names[Data().items[item->item.iItemNo].unidentified_name_index];
     }
     zItemName = name;
     if (zItemName.find(".ITM") != std::string::npos) {
@@ -721,7 +722,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
     if (item == 0) {
         Fail("pItemInfo != NULL");
     }
-    if (g_item_records[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
+    if (Data().items[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
         W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
         if (dialog != 0) {
             dialog->SetItemGroup(item);

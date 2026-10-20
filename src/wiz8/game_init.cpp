@@ -1,26 +1,24 @@
 #include "wiz8/game_init.h"
 
 #include <cstring>
+#include <exception>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/entities/missile.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
-#include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
@@ -39,8 +37,13 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
 {
     const auto version = FormatVersionBanner(true, true, true);
 
-    LoadLocalizedStrings(!string_data_override.empty() ? string_data_override.c_str()
-                                                       : "Data\\Strings\\StringData.DAT");
+    try {
+        InstallGameData(LoadGameData(!string_data_override.empty()
+                                         ? std::string_view(string_data_override)
+                                         : "Data\\Strings\\StringData.DAT"));
+    } catch (const std::exception&) {
+        return 0;
+    }
     const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
@@ -55,22 +58,7 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     if (!VerifyDataSubdirs()) {
         return 0;
     }
-    if (!InitializeItemDatabase()) {
-        return 0;
-    }
-    if (!InitializeItemTables()) {
-        return 0;
-    }
     if (!LoadMonsterDatabase(0)) {
-        return 0;
-    }
-    if (!InitializeNpcDatabase()) {
-        return 0;
-    }
-    if (!InitializeFactDatabase()) {
-        return 0;
-    }
-    if (!InitializeLevelDatabase()) {
         return 0;
     }
     if (const auto save = load_at_startup ? FindStartupQuickSave() : std::nullopt) {
@@ -82,12 +70,6 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
         RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_SIRTECH});
     }
     InitializeEncounterTables();
-    if (!LoadMissileDatabase()) {
-        ShutdownWithErrorBox("Could not load missile database!");
-    }
-    if (!InitializeSpellDatabase()) {
-        ShutdownWithErrorBox("Could not load spell database!");
-    }
     if (!LoadHitSoundDatabase()) {
         ShutdownWithErrorBox("Could not load hit sound database!");
     }
@@ -106,18 +88,12 @@ void ShutdownGame(bool save_configuration)
     ReleaseGenericItemNames();
     ReleaseNpcStates();
     UnloadEncounterTables();
-    ReleaseSpellDatabase();
-    DestroyItemDatabase();
-    DestroyItemTables();
-    DestroyNpcDatabase();
-    DestroyFactDatabase();
-    DestroyLevelDatabase();
     g_font_state_palettes = {};
     ResetScreenRouting();
     ClearLocationVariables();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();
-    FreeStringTable();
+    InstallGameData({});
     if (save_configuration) SaveGameConfiguration();
 }

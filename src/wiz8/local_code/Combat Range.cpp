@@ -17,8 +17,8 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -186,7 +186,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             trace = true;
             camera.y -= g_default_world_height;
             point.y -= 1e+03f;
-            distance = CalcRangeDistance(g_spell_records[spell_id].range_category);
+            distance = CalcRangeDistance(Data().spells[spell_id].range_category);
         }
         float dx = point.x - camera.x;
         float dz = point.z - camera.z;
@@ -298,7 +298,7 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
         return attack_range ? *attack_range : GetCharAttackRange(character, hand);
     case W8_ACTION_CAST_SPELL:
         if (selected.detail != 0) {
-            return g_spell_records[selected.detail].range_category;
+            return Data().spells[selected.detail].range_category;
         }
         break;
     case W8_ACTION_USE_ITEM:
@@ -349,7 +349,7 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
         return W8_RANGE_TOUCH;
     }
     return static_cast<W8RangeCategory>(
-        g_item_records[character->EquippedItem[6 + (hand != 0)].iItemNo].range_category);
+        Data().items[character->EquippedItem[6 + (hand != 0)].iItemNo].range_category);
 }
 
 /* The furthest range category any of this character's hands can reach at. */
@@ -605,8 +605,8 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
             !IsSpellUsableByMonster(monster_info, static_cast<int>(spell_id), true)) {
             continue;
         }
-        if (static_cast<int>(best) < static_cast<int>(g_spell_records[spell_id].range_category)) {
-            best = g_spell_records[spell_id].range_category;
+        if (static_cast<int>(best) < static_cast<int>(Data().spells[spell_id].range_category)) {
+            best = Data().spells[spell_id].range_category;
             *out_sight = GetMonsterSpellSightIndex(monster_info);
         }
     }
@@ -623,7 +623,7 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
     case W8_MONSTER_ACTION_ATTACK:
         break;
     case W8_MONSTER_ACTION_SPELL:
-        return g_spell_records[monster_info->action_detail].range_category;
+        return Data().spells[monster_info->action_detail].range_category;
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:
         return W8_RANGE_LONG;
     case W8_MONSTER_ACTION_PROTECT:

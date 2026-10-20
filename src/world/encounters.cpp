@@ -33,6 +33,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -395,7 +396,7 @@ bool MonGen::CanGenerateEncounter(bool force)
         }
     }
 
-    const auto& level = g_level_records[GetLoadedLevelID()];
+    const auto& level = Data().levels[GetLoadedLevelID()];
     const int limit = std::clamp(GetWorld()->encounters.random_budget,
                                  level.minimum_random_encounters, level.maximum_random_encounters);
     if (static_cast<int>(CurrentLevelPopulation().activeEncounterLeaders().size()) >= limit) {
@@ -428,7 +429,7 @@ bool MonGen::CanGenerateEncounter(bool force)
 /* Restore the level's encounter budget and population bounds. */
 static void ClampEncounterBudget(World& world)
 {
-    const auto& level = g_level_records[world.level_id];
+    const auto& level = Data().levels[world.level_id];
     world.encounters.random_budget =
         std::clamp(world.encounters.random_budget, level.minimum_encounter_budget,
                    level.maximum_encounter_budget);
@@ -453,10 +454,10 @@ void UpdateRandomEncounterBudget(bool reset_budget)
         elapsed = CurrentGame().status.world_clock -
                   CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock;
         GetWorld()->encounters.random_budget +=
-            elapsed / g_level_records[GetLoadedLevelID()].encounter_budget_period;
+            elapsed / Data().levels[GetLoadedLevelID()].encounter_budget_period;
     } else {
         GetWorld()->encounters.random_budget =
-            g_level_records[GetLoadedLevelID()].maximum_encounter_budget;
+            Data().levels[GetLoadedLevelID()].maximum_encounter_budget;
         elapsed = W8_ENCOUNTER_STALE_SECONDS + 1;
     }
     ClampEncounterBudget(*GetWorld());
@@ -628,7 +629,7 @@ void StartLevelEncounters(World& world)
 {
     for (const auto& generator : world.encounters.generators) generator->timer.Arm();
     if (world.level_id >= 0 && world.level_id < W8_LEVEL_COUNT) {
-        auto& level = g_level_records[world.level_id];
+        auto& level = Data().levels[world.level_id];
         ClampEncounterBudget(world);
         world.encounters.culling_seconds = level.encounter_culling_seconds;
     }

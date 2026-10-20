@@ -11,8 +11,6 @@
 class Monster;
 struct World;
 
-void ReleaseSpellDatabase(void);
-unsigned char InitializeSpellDatabase(void);
 W8SpellTargetType GetSpellTargetType(int spell_id, bool normalize_single_target);
 bool IsCombatEffectSlotSpell(int spell_id);
 int MinimumCasterLevelForSpellLevel(int spell_level);

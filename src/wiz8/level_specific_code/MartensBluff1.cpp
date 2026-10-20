@@ -20,11 +20,11 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/random.h"
@@ -84,7 +84,7 @@ void MartensBluff1Setup(void)
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
                 CreateLocationVar("LiftArrived", 1);
-                ShowString(g_localized_strings[0x71b]);
+                ShowString(Data().strings[0x71b]);
             }
         }
     }

@@ -37,9 +37,9 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
@@ -274,7 +274,7 @@ void InitTextBoxRegions()
             &ui.tabs.add(SDL_Rect{140, 362 + tab * 21, 24, 16}, [tab](const UiPointerEvent& event) {
                 return HandleTextChannel(event, tab == 2 ? 3 : tab);
             });
-        ui.targets[4 + tab]->setTooltip([tab] { return g_localized_strings[33 + tab]; });
+        ui.targets[4 + tab]->setTooltip([tab] { return Data().strings[33 + tab]; });
     }
     ui.targets[7] = &ui.tabs.add(SDL_Rect{128, 358, 384, 93}, {}, -1);
     ui.body.setEnabled(false);
