@@ -11,8 +11,8 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/retail_save_records.h" // IWYU pragma: keep - the NPC state codec copies use.
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
@@ -1912,7 +1912,8 @@ void UpdateNpcEvents(void)
             if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0) {
                 W8NpcState* npc_state = GetNpcState(CurrentGame().party.npcIndex(slot));
                 if (CurrentGame().party.members[slot]->npc_bound && npc_state &&
-                    static_cast<std::int32_t>(CurrentGame().status.world_clock - npc_state->event_clock) > 0x168) {
+                    static_cast<std::int32_t>(CurrentGame().status.world_clock -
+                                              npc_state->event_clock) > 0x168) {
                     if (CurrentGame().rng.below(2) == 0) {
                         npc_state->event_clock =
                             CurrentGame().status.world_clock + CurrentGame().rng.below(6) * 0x3c;

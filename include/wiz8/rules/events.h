@@ -150,10 +150,10 @@ struct WorldItemRemoved {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech, PartySlotChanged,
-                 PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
-                 SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged, CombatantsMoved,
-                 CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
+                 PartySlotChanged, PartyLoadChanged, CombatPanelChanged, CharacterActionChanged,
+                 EquipmentSettled, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
+                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
                  CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
                  CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved>;
 
