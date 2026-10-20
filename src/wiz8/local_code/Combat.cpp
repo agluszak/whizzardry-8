@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include <fmt/format.h>
@@ -207,9 +208,6 @@ bool W8CombatLifecycle::Start(int surprise)
     state_->execution_active = 0;
     state_->round_active = true;
     state_->action_clock = w8_get_ticks();
-    state_->action_status = W8CombatActionStatus::idle;
-    state_->iActionChar = -1;
-    state_->pActionMonsterInfo = 0;
     state_->hit_sound_active = false;
     state_->engaged_missile = 0;
     state_->uiNextPartyAction = W8_PARTY_ACTION_NONE;
@@ -977,8 +975,7 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
     GetMonsterDataForInfo(monster_info);
     FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
     monster_info->p3D->nav.SetHalted(true);
-    CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-    CurrentGame().combat.state()->pActionMonsterInfo = 0;
+    CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
 
     if (!combat->active) {
         return;
@@ -1239,10 +1236,11 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
         if (deferred) {
             SetPendingMoveKind(action);
         } else {
-            if (CurrentGame().combat.state()->action_status == W8CombatActionStatus::scheduled &&
-                CurrentGame().combat.state()->iActionChar != -1) {
-                CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-                CurrentGame().combat.state()->iActionChar = -1;
+            /* A party slot waiting on the action clock gives way to the move. */
+            W8CombatState& state = *CurrentGame().combat.state();
+            if (const auto* scheduled = std::get_if<TurnScheduled>(&state.turn());
+                scheduled && std::holds_alternative<PartyActor>(scheduled->actor)) {
+                state.endTurnOf(scheduled->actor);
             }
             StartPartyMovementAction(action == W8_ACTION_WALK ? W8_PARTY_ACTION_WALK
                                                               : W8_PARTY_ACTION_RUN);
@@ -1305,7 +1303,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     if (action_kind == W8_ACTION_EQUIP) {
         PostCharacterNotice(party_slot, Data().strings[0x225]);
     } else if (previous_action == W8_ACTION_EQUIP &&
-               !(CurrentGame().combat.state()->iActionChar == party_slot &&
+               !(CurrentGame().combat.state()->actingSlot() == party_slot &&
                  CurrentGame().party.rows[party_slot].pending_action == W8_ACTION_EQUIP)) {
         PostCharacterNotice(party_slot, Data().strings[0x226]);
     }
@@ -1526,11 +1524,8 @@ bool AnyCombatMonsterBusy(void)
             if (monster->IsAnimating() != 0 && cycle != W8_MONSTER_CYCLE_IDLE &&
                 cycle != W8_MONSTER_CYCLE_SPICE && cycle != W8_MONSTER_CYCLE_WALK &&
                 cycle != W8_MONSTER_CYCLE_DIE) {
-                if (CurrentGame().combat.state()->action_status !=
-                    W8CombatActionStatus::resolving) {
-                    return true;
-                }
-                if (CurrentGame().combat.state()->pActionMonsterInfo != monster_info) {
+                if (!CurrentGame().combat.state()->resolvingTurnOf(
+                        MonsterActor{monster_info->location_id})) {
                     return true;
                 }
                 if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_CLOSE) {
@@ -2216,7 +2211,7 @@ void ExecuteCharacterAction(int party_slot)
         FatigueCharacter(party_slot, fatigue_cost, true, nullptr);
     }
     if (CurrentGame().combat.active()) {
-        CurrentGame().combat.state()->action_status = W8CombatActionStatus::resolving;
+        CurrentGame().combat.state()->setStepOf(PartyActor{party_slot}, ActionStep::resolving);
     }
 }
 
@@ -2529,7 +2524,8 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
     }
     monster_info->pCombat->active = true;
     RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
-    CurrentGame().combat.state()->action_status = W8CombatActionStatus::resolving;
+    CurrentGame().combat.state()->setStepOf(MonsterActor{monster_info->location_id},
+                                            ActionStep::resolving);
 }
 
 /* The monster flee action: check the monster can and will run, aim it, play
@@ -2613,15 +2609,14 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
    lists, fold in every monster hostile to the source, then resolve the group
    attack. Either way the record's cooldown lands in its combat state and the
    attack costs a tenth of its stamina. */
-W8CombatActionStatus ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info,
-                                                 W8MonsterRecord* record)
+ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     W8TargetSource source;
     std::vector<int> char_targets;
     std::vector<int> monster_targets;
 
     if (!monster_info->pCombat->special_ready) {
-        return W8CombatActionStatus::resolving;
+        return ActionStep::resolving;
     }
     SetTargetSourceToMonster(monster_info, &source);
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
@@ -2637,21 +2632,21 @@ W8CombatActionStatus ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info,
     monster_info->pCombat->special_cooldown = record->special_attack_cooldown;
     FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10,
                    nullptr);
-    return W8CombatActionStatus::finishing;
+    return ActionStep::finishing;
 }
 
 /* The character's breath action: refuse while the previous breath visual is
    still playing, hand it to the world updater, rebuild the spell marker lists
    from the committed target, fold in every hostile monster, resolve the group
    attack as kind 0x1e and tax a fifth of the stamina ceiling. */
-W8CombatActionStatus ExecuteCharacterSpecialAttack(int party_slot)
+ActionStep ExecuteCharacterSpecialAttack(int party_slot)
 {
     W8TargetSource source;
     std::vector<int> char_targets;
     std::vector<int> monster_targets;
 
     if (!CurrentGame().combat.state()->breath_visual->finished) {
-        return W8CombatActionStatus::resolving;
+        return ActionStep::resolving;
     }
     CurrentGame().combat.state()->breath_visual->auto_release = true;
     SetTargetSourceToCharacter(party_slot, &source);
@@ -2667,7 +2662,7 @@ W8CombatActionStatus ExecuteCharacterSpecialAttack(int party_slot)
         static_cast<int>(
             static_cast<unsigned int>(CurrentGame().party.characters[party_slot].uiStaminaMax) / 5),
         false, nullptr);
-    return W8CombatActionStatus::finishing;
+    return ActionStep::finishing;
 }
 
 /* The character's breathe step: face the committed target, rebuild the spell's
@@ -2727,10 +2722,10 @@ bool CreateCharacterBreathEffect(int party_slot)
 /* Step the acting monster's committed action: attack swings, the spell wait,
    the special attack, or the movement kinds - which may retarget, re-decide
    through the AI and bank the next phase. The outcome code lands in
-   action_status while this monster is the action owner. */
+   the turn while this monster still holds it. */
 void StepMonsterCombatAction(W8MonsterInfo* monster_info)
 {
-    W8CombatActionStatus outcome;
+    ActionStep outcome;
     /* MonsterChooseTarget fills the target kind and the chosen monster's id. */
     W8CombatSlot chosen;
     int progress_pct;
@@ -2747,7 +2742,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
         PointCameraAtMonster(monster_info, false, true);
         if (!monster_info->p3D->nav.movement_complete) {
-            outcome = W8CombatActionStatus::resolving;
+            outcome = ActionStep::resolving;
             break;
         }
         if ((monster_info->action_kind == W8_MONSTER_ACTION_APPROACH ||
@@ -2792,7 +2787,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
                 RoundPhaseToStep(&combat->phase, CurrentGame().combat.state()->round_counter);
             }
         }
-        outcome = W8CombatActionStatus::finishing;
+        outcome = ActionStep::finishing;
         break;
     case W8_MONSTER_ACTION_ATTACK:
         record = GetMonsterDataForInfo(monster_info);
@@ -2802,20 +2797,17 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         if (!monster_info->fSpellReleased) {
             Fail("pMonsterInfo->fSpellReleased");
         }
-        outcome = W8CombatActionStatus::resolving;
+        outcome = ActionStep::resolving;
         break;
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:
         record = GetMonsterDataForInfo(monster_info);
         outcome = ExecuteMonsterSpecialAttack(monster_info, record);
         break;
     default:
-        outcome = W8CombatActionStatus::finishing;
+        outcome = ActionStep::finishing;
         break;
     }
-    if (CurrentGame().combat.state()->pActionMonsterInfo == monster_info &&
-        CurrentGame().combat.state()->action_status != outcome) {
-        CurrentGame().combat.state()->action_status = outcome;
-    }
+    CurrentGame().combat.state()->setStepOf(MonsterActor{monster_info->location_id}, outcome);
 }
 
 /* Condition interrupt rolled before an actor's committed action runs: a
@@ -2980,6 +2972,107 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
     PointCameraAtMonster(monster_info, false, true);
 }
 
+CombatWait CombatWaitFor(Game& game)
+{
+    W8CombatState& state = *game.combat.state();
+    if (partyCamera().m_transition_active) {
+        return CombatWait::camera;
+    }
+    if (AnyCombatMonsterBusy()) {
+        return CombatWait::monster;
+    }
+    if (state.hit_sound_active) {
+        if (wiz8::sound::is_playing(state.hit_sound)) {
+            return CombatWait::hit_sound;
+        }
+        state.hit_sound_active = false;
+    }
+    if (!AllSpellEffectsStillRunning()) {
+        return CombatWait::spell_effect;
+    }
+    for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
+        if ((missile == state.engaged_missile ||
+             Data().missiles[missile->missile_table_index].spell_missile != 0) &&
+            missile->BlocksEndingCombat()) {
+            return CombatWait::missile;
+        }
+    }
+    if (game.combat.active()) {
+        for (unsigned int slot = 0; slot < 2; ++slot) {
+            if (game.party.rows[slot].fOccupied && game.party.characters[slot].hp_current != 0 &&
+                game.party.characters[slot].highest_condition < W8_CONDITION_ASLEEP &&
+                state.npc_combat_script_pending[slot]) {
+                return CombatWait::npc_script;
+            }
+        }
+    }
+    return CombatWait::none;
+}
+
+/* Start the scheduled actor's action once the action clock has run out. */
+static void BeginScheduledAction(const CombatActor& actor)
+{
+    if (const auto* party = std::get_if<PartyActor>(&actor)) {
+        ExecuteCharacterAction(party->slot);
+        return;
+    }
+    W8MonsterInfo* monster_info = FindMonster(std::get<MonsterActor>(actor).location_id);
+    ExecuteMonsterAction(monster_info, GetMonsterDataForInfo(monster_info));
+}
+
+/* Step the resolving actor's action and move its turn to what the step reports. */
+static void StepResolvingAction(const CombatActor& actor)
+{
+    const auto* party = std::get_if<PartyActor>(&actor);
+    if (!party) {
+        StepMonsterCombatAction(FindMonster(std::get<MonsterActor>(actor).location_id));
+        return;
+    }
+    const int slot = party->slot;
+    W8ActionKind pending_action = CurrentGame().party.rows[slot].pending_action;
+    ActionStep result;
+    if (pending_action >= W8_ACTION_ATTACK && pending_action < W8_ACTION_BREATHE) {
+        result = ResolveCharacterAttack(slot);
+    } else if (pending_action == W8_ACTION_BREATHE) {
+        result = ExecuteCharacterSpecialAttack(slot);
+    } else {
+        result = ActionStep::finishing;
+    }
+    CurrentGame().combat.state()->setStepOf(actor, result);
+}
+
+/* Settle a finished action: a party slot falls back to its remembered combat
+   choice and takes its next phase; a monster pays the fatigue and may queue
+   another attack this round. The turn becomes idle. */
+static void FinishAction(const CombatActor& actor)
+{
+    const auto* party = std::get_if<PartyActor>(&actor);
+    if (!party) {
+        EndMonsterAttack(FindMonster(std::get<MonsterActor>(actor).location_id));
+        return;
+    }
+    const int slot = party->slot;
+    if (!CurrentGame().combat.state()->characters[slot].action_changed) {
+        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
+        switch (row->committed_action.kind) {
+        case W8_ACTION_ATTACK:
+        case W8_ACTION_BERSERK:
+        case W8_ACTION_DEFEND:
+        case W8_ACTION_PROTECT:
+            break;
+        default:
+            ResetCombatSlot(&row->committed_action.target);
+            RequestPartySlotRedraw(slot);
+            if (slot == CurrentGame().status.selected_character) {
+                RequestRedrawParty();
+            }
+            SetCharacterCombatAction(slot, {row->action_kind, row->action_detail}, 0);
+        }
+    }
+    ComputeCharacterActionPhase(slot);
+    CurrentGame().combat.state()->endTurnOf(actor);
+}
+
 void UpdateCombat(void)
 {
     if (CurrentGame().advancement.held) {
@@ -3005,39 +3098,8 @@ void UpdateCombat(void)
         }
     } else {
         AutoAdvanceSelectedCharacter();
-        if (partyCamera().m_transition_active) {
+        if (CombatWaitFor(CurrentGame()) != CombatWait::none) {
             return;
-        }
-        if (AnyCombatMonsterBusy()) {
-            return;
-        }
-        if (CurrentGame().combat.state()->hit_sound_active) {
-            if (wiz8::sound::is_playing(CurrentGame().combat.state()->hit_sound)) {
-                return;
-            }
-            CurrentGame().combat.state()->hit_sound_active = false;
-        }
-        if (!AllSpellEffectsStillRunning()) {
-            return;
-        }
-        Missile* missile = NextMissile(true);
-        while (missile != 0) {
-            if ((missile == CurrentGame().combat.state()->engaged_missile ||
-                 Data().missiles[missile->missile_table_index].spell_missile != 0) &&
-                missile->BlocksEndingCombat()) {
-                return;
-            }
-            missile = NextMissile(false);
-        }
-        if (CurrentGame().combat.active()) {
-            for (unsigned int slot = 0; slot < 2; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied &&
-                    CurrentGame().party.characters[slot].hp_current != 0 &&
-                    CurrentGame().party.characters[slot].highest_condition < W8_CONDITION_ASLEEP &&
-                    CurrentGame().combat.state()->npc_combat_script_pending[slot]) {
-                    return;
-                }
-            }
         }
     }
     for (unsigned int monster_index = 0;
@@ -3066,125 +3128,30 @@ void UpdateCombat(void)
         BeginCombatExecution();
         return;
     }
-    switch (CurrentGame().combat.state()->action_status) {
-    case W8CombatActionStatus::idle:
-        if (CurrentGame().combat.state()->iActionChar != -1) {
-            Fail("gpCombat->iActionChar == BAD_INDEX");
-        }
-        if (CurrentGame().combat.state()->pActionMonsterInfo != 0) {
-            Fail("gpCombat->pActionMonsterInfo == NULL");
-        }
+    /* The turn is copied: each phase's handler replaces it. */
+    const CombatTurn turn = CurrentGame().combat.state()->turn();
+    if (std::holds_alternative<TurnIdle>(turn)) {
         if (!QueueNpcCombatScript()) {
             ScheduleCombatActor();
-            return;
         }
-        break;
-    case W8CombatActionStatus::scheduled:
+    } else if (const auto* scheduled = std::get_if<TurnScheduled>(&turn)) {
         if (TimeUntilDeadline(CurrentGame().combat.state()->action_clock) == 0) {
             if (g_settings.autoscroll_combat_messages != 0) {
                 CurrentGame().combat.state()->notice_scroll_pending = true;
             }
-            if (CurrentGame().combat.state()->iActionChar != -1) {
-                ExecuteCharacterAction(CurrentGame().combat.state()->iActionChar);
-                return;
-            }
-            if (CurrentGame().combat.state()->pActionMonsterInfo != 0) {
-                ExecuteMonsterAction(
-                    CurrentGame().combat.state()->pActionMonsterInfo,
-                    GetMonsterDataForInfo(CurrentGame().combat.state()->pActionMonsterInfo));
-                return;
-            }
-            Fail("FALSE");
-            return;
+            BeginScheduledAction(scheduled->actor);
         }
-        break;
-    case W8CombatActionStatus::resolving: {
-        int slot = CurrentGame().combat.state()->iActionChar;
-        if (slot == -1) {
-            if (CurrentGame().combat.state()->pActionMonsterInfo != 0) {
-                StepMonsterCombatAction(CurrentGame().combat.state()->pActionMonsterInfo);
-                return;
-            }
-            Fail("FALSE");
-            return;
-        }
-        W8ActionKind pending_action = CurrentGame().party.rows[slot].pending_action;
-        W8CombatActionStatus result;
-        if (pending_action >= W8_ACTION_ATTACK && pending_action < W8_ACTION_BREATHE) {
-            result = ResolveCharacterAttack(slot);
-        } else if (pending_action == W8_ACTION_BREATHE) {
-            result = ExecuteCharacterSpecialAttack(slot);
-        } else {
-            result = W8CombatActionStatus::finishing;
-        }
-        if (CurrentGame().combat.state()->iActionChar == slot &&
-            CurrentGame().combat.state()->action_status != result) {
-            CurrentGame().combat.state()->action_status = result;
-            return;
-        }
-        break;
-    }
-    case W8CombatActionStatus::finishing: {
-        int slot = CurrentGame().combat.state()->iActionChar;
-        if (slot != -1) {
-            if (!CurrentGame().combat.state()->characters[slot].action_changed) {
-                W8PartySlotRow* row = &CurrentGame().party.rows[slot];
-                switch (row->committed_action.kind) {
-                case W8_ACTION_ATTACK:
-                case W8_ACTION_BERSERK:
-                case W8_ACTION_DEFEND:
-                case W8_ACTION_PROTECT:
-                    break;
-                default:
-
-                    ResetCombatSlot(&row->committed_action.target);
-                    RequestPartySlotRedraw(slot);
-                    if (slot == CurrentGame().status.selected_character) {
-                        RequestRedrawParty();
-                    }
-                    SetCharacterCombatAction(slot, {row->action_kind, row->action_detail}, 0);
-                }
-            }
-            ComputeCharacterActionPhase(slot);
-            CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-            CurrentGame().combat.state()->iActionChar = -1;
-            return;
-        }
-        W8MonsterInfo* monster_info = CurrentGame().combat.state()->pActionMonsterInfo;
-        if (monster_info == 0) {
-            Fail("FALSE");
-            return;
-        }
-        GetMonsterDataForInfo(monster_info);
-        FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
-        monster_info->p3D->nav.SetHalted(true);
-        CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-        CurrentGame().combat.state()->pActionMonsterInfo = 0;
-        W8MonsterCombatState* combat = monster_info->pCombat.get();
-        if (combat->active) {
-            if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK &&
-                combat->attacks_per_round != 0 &&
-                ChooseRandomMonsterAction(monster_info, true, false, false)) {
-                combat->phase =
-                    combat->phase + (100U - CurrentGame().combat.state()->round_counter) /
-                                        static_cast<unsigned int>(combat->attacks_per_round + 1);
-                if (combat->phase <= 0x64) {
-                    RoundPhaseToStep(&combat->phase, CurrentGame().combat.state()->round_counter);
-                    return;
-                }
-            }
-            combat->phase = 0;
-            return;
-        }
-        break;
-    }
+    } else if (const auto* resolving = std::get_if<TurnResolving>(&turn)) {
+        StepResolvingAction(resolving->actor);
+    } else {
+        FinishAction(std::get<TurnFinishing>(turn).actor);
     }
 }
 
 void ScheduleCombatActor(void)
 {
-    if (CurrentGame().combat.state()->action_status != W8CombatActionStatus::idle) {
-        Fail("gpCombat->action_status == COMBAT_ACTION_NONE");
+    if (CurrentGame().combat.state()->actor()) {
+        Fail("!CurrentGame().combat.state()->actor()");
     }
     bool free_turn = false;
     for (;;) {
@@ -3202,8 +3169,7 @@ void ScheduleCombatActor(void)
                 W8Character* character = &CurrentGame().party.characters[slot];
                 if (character->hp_current != 0 &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
-                    CurrentGame().combat.state()->action_status = W8CombatActionStatus::scheduled;
-                    CurrentGame().combat.state()->iActionChar = slot;
+                    CurrentGame().combat.state()->schedule(PartyActor{slot});
                     break;
                 }
                 row->pending_action = W8_ACTION_NONE;
@@ -3214,7 +3180,7 @@ void ScheduleCombatActor(void)
                 }
             }
         }
-        if (CurrentGame().combat.state()->action_status == W8CombatActionStatus::idle) {
+        if (!CurrentGame().combat.state()->actor()) {
             for (unsigned int monster_index = 0;
                  monster_index < CurrentLevelPopulation().monster_roster.live().size();
                  ++monster_index) {
@@ -3229,8 +3195,7 @@ void ScheduleCombatActor(void)
                 if (monster_info->hp_current != 0 &&
                     monster_info->highest_condition < W8_CONDITION_ASLEEP &&
                     !monster_info->fMotionless) {
-                    CurrentGame().combat.state()->action_status = W8CombatActionStatus::scheduled;
-                    CurrentGame().combat.state()->pActionMonsterInfo = monster_info;
+                    CurrentGame().combat.state()->schedule(MonsterActor{monster_info->location_id});
                     break;
                 }
                 monster_info->action_kind = W8_MONSTER_ACTION_NONE;
@@ -3241,7 +3206,7 @@ void ScheduleCombatActor(void)
                 }
             }
         }
-        if (CurrentGame().combat.state()->action_status == W8CombatActionStatus::idle &&
+        if (!CurrentGame().combat.state()->actor() &&
             CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
             CurrentGame().combat.state()->uiCurrentPartyActionStatus ==
                 W8_PARTY_ACTION_NOT_STARTED &&
@@ -3261,41 +3226,35 @@ void ScheduleCombatActor(void)
             }
             free_turn = true;
         }
-        if (CurrentGame().combat.state()->action_status != W8CombatActionStatus::idle ||
-            free_turn) {
+        if (CurrentGame().combat.state()->actor() || free_turn) {
             bool interruptible = false;
             bool apply_delay = false;
-            if (CurrentGame().combat.state()->action_status == W8CombatActionStatus::idle) {
+            if (!CurrentGame().combat.state()->actor()) {
                 apply_delay = true;
-            } else if (CurrentGame().combat.state()->pActionMonsterInfo == 0) {
-                int slot = CurrentGame().combat.state()->iActionChar;
-                if (slot == -1) {
-                    apply_delay = true;
+            } else if (const auto slot = CurrentGame().combat.state()->actingSlot()) {
+                W8TargetingContext context;
+                W8ActionKind action;
+                if (!CurrentGame().combat.state()->characters[*slot].dead) {
+                    action = CurrentGame().party.rows[*slot].committed_action.kind;
+                    context = W8_TARGETING_CONTEXT_IN_COMBAT;
                 } else {
-                    W8TargetingContext context;
-                    W8ActionKind action;
-                    if (!CurrentGame().combat.state()->characters[slot].dead) {
-                        action = CurrentGame().party.rows[slot].committed_action.kind;
-                        context = W8_TARGETING_CONTEXT_IN_COMBAT;
-                    } else {
-                        action = CurrentGame().party.rows[slot].pending_action;
-                        context = W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-                    }
-                    if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
-                         action == W8_ACTION_NONE) &&
-                        (g_settings.continuous_combat == 0 ||
-                         CharacterCanSwitchTo(slot, context, false, false))) {
-                        interruptible = true;
-                    }
-                    if ((g_settings.continuous_combat != 0 ||
-                         CharacterCanSwitchTo(slot, context, false, false)) &&
-                        !interruptible) {
-                        apply_delay = true;
-                    }
+                    action = CurrentGame().party.rows[*slot].pending_action;
+                    context = W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+                }
+                if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
+                     action == W8_ACTION_NONE) &&
+                    (g_settings.continuous_combat == 0 ||
+                     CharacterCanSwitchTo(*slot, context, false, false))) {
+                    interruptible = true;
+                }
+                if ((g_settings.continuous_combat != 0 ||
+                     CharacterCanSwitchTo(*slot, context, false, false)) &&
+                    !interruptible) {
+                    apply_delay = true;
                 }
             } else {
                 W8MonsterActionKind action_kind =
-                    CurrentGame().combat.state()->pActionMonsterInfo->action_kind;
+                    FindMonster(*CurrentGame().combat.state()->actingMonster())->action_kind;
                 if (action_kind == W8_MONSTER_ACTION_WAIT ||
                     action_kind == W8_MONSTER_ACTION_PROTECT ||
                     action_kind == W8_MONSTER_ACTION_NONE) {
@@ -3335,9 +3294,8 @@ void ScheduleCombatActor(void)
                 CurrentGame().combat.state()->round_counter += GetPhaseStep();
             }
         }
-        if (CurrentGame().combat.state()->action_status != W8CombatActionStatus::idle ||
-            CurrentGame().party_movement_mode || free_turn ||
-            CurrentGame().combat.state()->round_counter > 0x64) {
+        if (CurrentGame().combat.state()->actor() || CurrentGame().party_movement_mode ||
+            free_turn || CurrentGame().combat.state()->round_counter > 0x64) {
             if (CurrentGame().combat.state()->round_counter > 0x64) {
                 CurrentGame().combat.state()->equip_phase = W8CombatEquipPhase::action_selection;
                 CurrentGame().combat.state()->equip_pending = 0;

@@ -6,6 +6,9 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "wiz8/character_skills.h"
@@ -27,7 +30,35 @@ class SpellVisual;
 
 enum class W8CombatEquipPhase : unsigned char { action_selection, resolving };
 
-enum class W8CombatActionStatus : unsigned char { idle, scheduled, resolving, finishing };
+/* Who acts in a combat turn: a party slot, or a monster by its location id. A
+   monster is resolved through FindMonster when its turn is used. */
+struct PartyActor {
+    int slot;
+    bool operator==(const PartyActor&) const = default;
+};
+struct MonsterActor {
+    int location_id;
+    bool operator==(const MonsterActor&) const = default;
+};
+using CombatActor = std::variant<PartyActor, MonsterActor>;
+
+/* The turn in progress. A scheduled actor waits on the action clock; a
+   resolving one is stepped each frame until its action reports finishing; a
+   finishing one is settled (its next phase) and the turn becomes idle. */
+struct TurnIdle {};
+struct TurnScheduled {
+    CombatActor actor;
+};
+struct TurnResolving {
+    CombatActor actor;
+};
+struct TurnFinishing {
+    CombatActor actor;
+};
+using CombatTurn = std::variant<TurnIdle, TurnScheduled, TurnResolving, TurnFinishing>;
+
+/* What one step of a resolving action reports. */
+enum class ActionStep : unsigned char { resolving, finishing };
 
 /* OnCollision produces HIT or DEFLECTED; attack setup also seeds the result
    when collision is bypassed. The shared combat-state field remains one byte. */
@@ -167,9 +198,6 @@ struct W8CombatState {
     /* Historical offset 0x7ac: the pacing clock the scheduler arms as a w8_get_ticks deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
-    W8CombatActionStatus action_status = W8CombatActionStatus::idle;
-    int iActionChar;
-    struct W8MonsterInfo* pActionMonsterInfo;
     wiz8::sound::Playback hit_sound;
     bool hit_sound_active;
     W8EffectSlot effect_slots[9];
@@ -245,6 +273,67 @@ struct W8CombatState {
        mode back on when it reads nonzero. */
     bool search_mode_saved;
     bool combat_ready;
+
+    const CombatTurn& turn() const { return turn_; }
+    /* The actor holding the turn, null while it is idle. */
+    const CombatActor* actor() const
+    {
+        return std::visit(
+            []<typename Phase>(const Phase& phase) -> const CombatActor* {
+                if constexpr (std::is_same_v<Phase, TurnIdle>) {
+                    return nullptr;
+                } else {
+                    return &phase.actor;
+                }
+            },
+            turn_);
+    }
+    bool holdsTurn(const CombatActor& actor) const
+    {
+        const CombatActor* current = this->actor();
+        return current && *current == actor;
+    }
+    bool resolvingTurnOf(const CombatActor& actor) const
+    {
+        const auto* resolving = std::get_if<TurnResolving>(&turn_);
+        return resolving && resolving->actor == actor;
+    }
+    std::optional<int> actingSlot() const
+    {
+        const CombatActor* current = actor();
+        const auto* party = current ? std::get_if<PartyActor>(current) : nullptr;
+        return party ? std::optional{party->slot} : std::nullopt;
+    }
+    /* The acting monster's location id. */
+    std::optional<int> actingMonster() const
+    {
+        const CombatActor* current = actor();
+        const auto* monster = current ? std::get_if<MonsterActor>(current) : nullptr;
+        return monster ? std::optional{monster->location_id} : std::nullopt;
+    }
+    void schedule(CombatActor actor) { turn_ = TurnScheduled{actor}; }
+    /* Move the actor's turn to the step's phase. A turn the actor no longer
+       holds - ended while its action ran - is left as it is. */
+    void setStepOf(CombatActor actor, ActionStep step)
+    {
+        if (!holdsTurn(actor)) {
+            return;
+        }
+        if (step == ActionStep::resolving) {
+            turn_ = TurnResolving{actor};
+        } else {
+            turn_ = TurnFinishing{actor};
+        }
+    }
+    void endTurnOf(CombatActor actor)
+    {
+        if (holdsTurn(actor)) {
+            turn_ = TurnIdle{};
+        }
+    }
+
+private:
+    CombatTurn turn_ = TurnIdle{};
 };
 
 // Engine participation starts before the gameplay mode and ends after restoration.

@@ -624,14 +624,10 @@ void UpdateSpellEffects(void)
                     if (effect.OrigSource.iMonsterID == -1) {
                         Fail("pOrigSource->iMonsterID != -1");
                     }
-                    W8MonsterInfo* monster_info = FindMonster(effect.OrigSource.iMonsterID);
-                    if (CurrentGame().combat.active() &&
-                        CurrentGame().combat.state()->action_status != W8CombatActionStatus::idle &&
-                        CurrentGame().combat.state()->pActionMonsterInfo != 0 &&
-                        CurrentGame().combat.state()->pActionMonsterInfo->location_id ==
-                            monster_info->location_id) {
-                        CurrentGame().combat.state()->action_status =
-                            W8CombatActionStatus::finishing;
+                    /* The casting monster's turn finishes with its spell. */
+                    if (CurrentGame().combat.active()) {
+                        CurrentGame().combat.state()->setStepOf(
+                            MonsterActor{effect.OrigSource.iMonsterID}, ActionStep::finishing);
                     }
                 }
             }
@@ -3101,13 +3097,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (owner.Source.iMonsterID == -1) {
                 Fail("pOrigSource->iMonsterID != -1");
             }
-            monster_info = FindMonster(owner.Source.iMonsterID);
-            if (CurrentGame().combat.active() &&
-                CurrentGame().combat.state()->action_status != W8CombatActionStatus::idle &&
-                CurrentGame().combat.state()->pActionMonsterInfo != 0 &&
-                CurrentGame().combat.state()->pActionMonsterInfo->location_id ==
-                    monster_info->location_id) {
-                CurrentGame().combat.state()->action_status = W8CombatActionStatus::finishing;
+            if (CurrentGame().combat.active()) {
+                CurrentGame().combat.state()->setStepOf(MonsterActor{owner.Source.iMonsterID},
+                                                        ActionStep::finishing);
             }
         }
         return 2;

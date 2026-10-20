@@ -1,4 +1,5 @@
 #include <span>
+#include <variant>
 #include <vector>
 
 #include <fmt/format.h>
@@ -409,8 +410,8 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
         if (CurrentGame().combat.active() &&
-            CurrentGame().combat.state()->action_status != W8CombatActionStatus::scheduled &&
-            CurrentGame().combat.state()->pActionMonsterInfo == monster) {
+            CurrentGame().combat.state()->holdsTurn(MonsterActor{monster->location_id}) &&
+            !std::holds_alternative<TurnScheduled>(CurrentGame().combat.state()->turn())) {
             EndMonsterAttack(monster);
             monster->action_kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
