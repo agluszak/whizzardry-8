@@ -28,7 +28,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "local_code/SpellEffect.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
 #include "texture_animation.h"
@@ -36,7 +35,6 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/Font.h"
-#include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation.h"
@@ -58,16 +56,12 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -107,6 +101,7 @@
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/simulation_sink.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -2014,7 +2009,7 @@ void Monster::dispatchAnimationFrame(unsigned char previous_frame)
         ((missile_frame > 0 && previous_frame < missile_frame &&
           missile_frame <= visual.subcycle) ||
          (missile_frame == 0 && visual.subcycle == 1))) {
-        HandleAnimationThreshold();
+        if (owner_world && owner_world->simulation) owner_world->simulation->missileReleased(*this);
     }
     HandleAnimationFrame(previous_frame);
     if (!visual.particles.empty()) {
@@ -2025,18 +2020,11 @@ void Monster::dispatchAnimationFrame(unsigned char previous_frame)
 static int g_spell_effect_frame = 1;
 static int g_spell_index;
 
-/* Cycle 25 launches either the queued spell visual or the monster's pending
-   spell action when its animation crosses the configured frame. The cast's
-   return is the stamina charge passed directly to FatigueMonster, establishing
-   MonsterCastsSpell's non-void return. */
+/* Cycle 25 launches either the queued spell visual or, by reporting it to the
+   simulation, the monster's pending spell action when its animation crosses the
+   configured frame. */
 void Monster::HandleAnimationFrame(unsigned char previous_frame)
 {
-    W8MonsterInfo* monster_info;
-    W8MonsterActionKind action_kind;
-    int action_detail;
-    unsigned int power_level;
-    unsigned int fatigue;
-
     if (visual.current_cycle == 25 &&
         ((spell_frame > 0 && previous_frame < spell_frame && spell_frame <= visual.subcycle) ||
          (spell_frame == 0 && visual.subcycle == 1))) {
@@ -2047,100 +2035,8 @@ void Monster::HandleAnimationFrame(unsigned char previous_frame)
             return;
         }
 
-        monster_info = FindMonster(location_id);
-        action_kind = monster_info->action_kind;
-        action_detail = monster_info->action_detail;
-        power_level = monster_info->spell_power_level;
-        if (action_kind == W8_MONSTER_ACTION_SPELL && action_detail != 0 && power_level != 0) {
-            fatigue = MonsterCastsSpell(monster_info, action_detail, power_level);
-            FatigueMonster(monster_info, fatigue, 0);
-            monster_info->fSpellReleased = true;
-        }
+        if (owner_world && owner_world->simulation) owner_world->simulation->spellReleased(*this);
     }
-}
-
-/* Launch the missile at the frame shared by attack cycles 7, 13 and 17. In
-   combat an already-selected attack is reused; otherwise the monster picks a
-   live character and the first database attack that permits a missile mode. */
-void Monster::HandleAnimationThreshold()
-{
-    W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
-    W8TargetSource source;
-    W8SpellEffectDefinition attack_block;
-    W8MonsterAttack* attack;
-    unsigned int attack_index;
-    W8RangeCategory range_category;
-    int missile_type;
-    int accuracy;
-    bool selected_attack;
-    unsigned char monster_value;
-
-    selected_attack = false;
-    monster_info = FindMonster(location_id);
-    record = GetMonsterDataForInfo(monster_info);
-    SetTargetSourceToMonster(monster_info, &source);
-
-    if (CurrentGame().combat.active() &&
-        CurrentGame().combat.state()->resolvingTurnOf(MonsterActor{monster_info->location_id})) {
-        attack_index = monster_info->pCombat->attack_index;
-        selected_attack = true;
-        goto prepare_attack;
-    }
-
-    monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
-    monster_info->Target.iChar = GetRandomCharacter(1, 1, -1, -1);
-    monster_info->Target.iMonsterID = -1;
-    if (monster_info->Target.iChar == -1) {
-        return;
-    }
-
-    for (attack_index = 0; attack_index < W8_MAX_MONSTER_ATTACKS; ++attack_index) {
-        attack = &record->attacks[attack_index];
-        if (attack->fHasAttack != 0 && (attack->attack_modes & 0x110) != 0) {
-            monster_info->action_detail = ChooseAttackMode(attack->attack_modes);
-            goto prepare_attack;
-        }
-    }
-
-    missile_type = 0;
-    range_category = W8_RANGE_EXTREME;
-    ClearAttackBlock(&attack_block);
-    accuracy = 50;
-    goto fire_missile;
-
-prepare_attack:
-    if (attack_index >= W8_MAX_MONSTER_ATTACKS) {
-        Fail("uiAttack < MAX_MONSTER_ATTACKS");
-    }
-    attack = &record->attacks[attack_index];
-    missile_type = attack->missile_type;
-    if (static_cast<unsigned int>(missile_type) >= Data().missiles.size()) {
-        DebugMessage(0, fmt::format("WARNING: {} has invalid missile type {:d} for attack {:d}",
-                                    record->name0, missile_type, attack_index));
-        missile_type = 0;
-    }
-
-    range_category = static_cast<W8RangeCategory>(attack->range_category);
-    ClearAttackBlock(&attack_block);
-    attack_block.magnitude = attack->damage_dice;
-    memcpy(attack_block.condition_chances, attack->missile_values, 0x10);
-    monster_value = record->effective_level;
-    attack_block.power_level = monster_value + (monster_value < 15 ? monster_value : 15);
-    attack_block.magnitude_base = attack->missile_magnitude;
-
-    if (selected_attack) {
-        accuracy = GetMonsterAttackScore(monster_info, attack,
-                                         static_cast<W8AttackMode>(monster_info->action_detail), 0);
-        CombatLog(fmt::format("TO HIT (MISSILE ACCURACY): Chance {:d}", accuracy));
-    } else {
-        accuracy = 50;
-    }
-
-fire_missile:
-    monster_info->fMissileReleased = true;
-    FireMissileSourceToTarget(missile_type, &source, &monster_info->Target, &attack_block,
-                              !selected_attack, range_category, accuracy);
 }
 
 void W8MonsterShakeCallback::RestoreAnimation()

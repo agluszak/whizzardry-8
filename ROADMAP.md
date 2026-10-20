@@ -154,9 +154,11 @@ the licensed runtime scenarios after every step.
 6. **Conditions, magic and combat in `rules`.**
    - Conditions, spells and attack resolution return results and emit events.
    - `Combat` becomes an owned turn system, signalled by animation and missile events.
-     The turn and its waits are values (ARCHITECTURE.md, "The game"); `CombatWaitFor`
-     still polls animation, sound and missiles each frame, and actions still resolve
-     inside `local_code`.
+     The turn and its waits are values, and missiles and monster animations report hits
+     and release frames through the world's `SimulationSink` (ARCHITECTURE.md, "The
+     game"). `CombatWaitFor` still polls animation, sound and missiles each frame,
+     `monster_script.cpp` and `trigger_actions.cpp` still call combat and magic
+     directly, and actions still resolve inside `local_code`.
 7. **Story state.** `Game::story` and `Game::message_log` hold it (ARCHITECTURE.md,
    "The game").
    - NPC scripting and level scripts take a context (the world, the party, story state,

@@ -216,7 +216,6 @@ public:
     void RandomizeAppearanceAndMotion();
     bool IsRenderable(bool alternate);
     void InitializeAnimatedTexture();
-    void HandleAnimationThreshold();
     void HandleAnimationFrame(unsigned char frame);
     void UpdateShakeEvents(unsigned char frame);
     void SetShakeEventVisibility(signed char cycle);

@@ -60,9 +60,9 @@ Unlayered code may use the layers.
 | `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision and traces with per-query scratch, the navigation mesh and `Navigator`. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
-| `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. |
+| `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits and release frames to their world's `SimulationSink` instead of resolving them. |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
-| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. |
+| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world. |
 
 ## Runtime contracts
 

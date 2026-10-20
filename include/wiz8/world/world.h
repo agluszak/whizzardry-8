@@ -44,6 +44,7 @@ class LevelSpatialIndex;
 class Navigator;
 class Missile;
 class SpellVisual;
+class SimulationSink;
 struct MonGen;
 class Light;
 class Prop;
@@ -113,6 +114,8 @@ struct World {
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<Missile>> missiles;
     W8EncounterState encounters;
+    // Where the entities report missile hits and release frames; null reports nowhere.
+    SimulationSink* simulation = nullptr;
 };
 
 /* Typed element access for the homogeneous world lists. */
