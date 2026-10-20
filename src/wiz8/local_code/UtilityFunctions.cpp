@@ -14,7 +14,6 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"

@@ -213,6 +213,8 @@ struct NpcItemEntry {
     std::uint32_t available_at;
     ItemInstance item;
     std::uint8_t quantity;
+    // Retail's alignment padding; written as zeros.
+    std::uint8_t padding_11[3];
 };
 
 #pragma pack(pop)

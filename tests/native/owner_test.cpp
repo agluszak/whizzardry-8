@@ -58,7 +58,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"

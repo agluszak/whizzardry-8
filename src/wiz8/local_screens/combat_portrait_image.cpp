@@ -1,6 +1,5 @@
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_screens/MGSButtons.h"
