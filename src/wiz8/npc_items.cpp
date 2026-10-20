@@ -376,9 +376,10 @@ int RestockNpcItems(W8NpcState* npc)
 /* Rate an item's identify difficulty against the band the party's average level
    supports. Three means the difficulty sits inside the band, zero that it is
    past the upper bound, and one or two grade how far below the lower bound it
-   falls. Every comparison here is signed, so the difficulty byte is read into a
-   char, and the tier is returned byte-sized. The NPC argument is unused by the
-   original. */
+   falls. Every comparison here is signed, so the difficulty byte is read into a signed
+   char, and the tier is returned byte-sized. From an average party level of 39
+   the scaled level wraps negative, as retail's did, and the band drops to one
+   through four. The NPC argument is unused by the original. */
 W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 {
     signed char difficulty;
