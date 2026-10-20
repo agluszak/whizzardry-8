@@ -222,21 +222,25 @@ the licensed runtime scenarios after every step.
      two and the dialogue screen the last.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
-8. **Saves over values.** The GSTA section and the STAT record are codecs over values
-   (`save_codec.h`; ARCHITECTURE.md, "Saves"), and `W8GlobalStatus` is gone: the game's
-   status is a `GameStatus` value that carries its unknown bytes. What remains:
-   - The other game sections (TEXT, TVAR, NPCI, NPCT, NPCF, FATA, JRNL, HYPN) are still
-     written from and read into live state through `CurrentGame()`. Give them `encode` and
-     `decode` over `Story`, the message log and the monster-control effect, so that a save
-     is `encode(GameState, LevelState…)`.
+8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
+   JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
+   ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) is captured from and applied to its world. Decode it into a `LevelState` value
-     (`W8LoadedLevelStatus::Data` is the start) and build the world from that value.
-   - A save copies the CHAR chunks and the other levels' groups from `CurrentGame.SAV` as
-     bytes. Once level states are values, the game can own them instead.
+     LGHT) is still captured from and applied to its world: `SaveStatusHeader` writes the
+     sections from live objects, and `ReadLevelStatus` decodes MONS, ITEM, CUBE, MONG,
+     AUTO, AMBS, PART and LGHT into `W8LoadedLevelStatus::Data` but reads TRIG, APST,
+     LCKS/LOCK and TRES straight into the replacement world. Give those four sections
+     value records, turn `Data` into a `LevelState` value with `encode` and `decode`, and
+     build the world from it.
+   - `CurrentGame.SAV` is still the store for levels the party has left: departure
+     rewrites the departing level's group into it, arrival reads the group back, and a
+     save copies the other levels' groups from it as bytes. Once level states are values,
+     the game owns them (keeping the groups of levels it never decoded intact) and a save
+     encodes them, so `CurrentGame.SAV` goes away.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
-     Split it by owner.
+     Split it by owner. The dialogue transcript the NPCI section saves still lives in the
+     NPC dialogue's interface state (`W8NpcInteractionState`); it belongs to `Story`.
 
 ## Within the layers
 
@@ -274,8 +278,8 @@ each.
   disk records still embed other runtime types, which therefore keep their retail
   layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
   in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
-  `ItemProperties` and `ItemEffects`, and the runtime enums used as disk field types.
-  `W8GameSettings` is read and written raw as the configuration file's CNFG chunk.
+  `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
+  `ItemEffects`, and the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;

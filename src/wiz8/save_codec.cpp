@@ -1,22 +1,35 @@
 #include "wiz8/save_codec.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
+#include <limits>
+#include <memory>
 #include <span>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include "wiz8/checked_integer.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
+#include "wiz8/layouts/npc_dialogue.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/retail_records.h"
+#include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/character.h"
@@ -26,6 +39,8 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/story.h"
+#include "wiz8/unicode.h"
 
 namespace wiz8::retail {
 namespace {
@@ -652,54 +667,98 @@ template<> struct Record<save::LevelStatusHeader> {
 namespace wiz8::save {
 namespace {
 
-void append_sized(std::vector<std::byte>& out, std::span<const std::byte> record)
-{
-    const auto size = static_cast<std::uint32_t>(record.size());
-    const auto prefix = std::as_bytes(std::span(&size, 1));
-    out.insert(out.end(), prefix.begin(), prefix.end());
-    out.insert(out.end(), record.begin(), record.end());
-}
+// A section payload, written front to back.
+class Writer {
+    std::vector<std::byte> out_;
 
-// The GSTA payload's size-prefixed records, read in order.
-class SizedRecords {
+public:
+    void bytes(std::span<const std::byte> data)
+    {
+        out_.insert(out_.end(), data.begin(), data.end());
+    }
+    template<class T> void value(const T& field)
+    {
+        static_assert(std::is_trivially_copyable_v<T>);
+        bytes(std::as_bytes(std::span(&field, 1)));
+    }
+    void flag(bool set) { value(static_cast<std::uint8_t>(set)); }
+    // A NUL-terminated text field of `width` bytes, truncated to fit.
+    void text(std::string_view value, std::size_t width)
+    {
+        std::vector<char> field(width);
+        std::ranges::copy(value.substr(0, width - 1), field.begin());
+        bytes(std::as_bytes(std::span(field)));
+    }
+    template<class T> void record(const T& runtime) { bytes(retail::encode(runtime)); }
+    // A record behind its four-byte length.
+    void sized(std::span<const std::byte> record)
+    {
+        value(static_cast<std::uint32_t>(record.size()));
+        bytes(record);
+    }
+    std::vector<std::byte> take() { return std::move(out_); }
+};
+
+// A section payload, read front to back. Reading past its end throws.
+class Reader {
     std::span<const std::byte> rest_;
 
+public:
+    explicit Reader(std::span<const std::byte> payload) : rest_(payload) {}
+
+    std::size_t remaining() const { return rest_.size(); }
     std::span<const std::byte> take(std::size_t size)
     {
-        if (size > rest_.size()) throw std::runtime_error("truncated game status");
+        if (size > rest_.size()) throw std::runtime_error("truncated save section");
         const auto taken = rest_.first(size);
         rest_ = rest_.subspan(size);
         return taken;
     }
-
-public:
-    explicit SizedRecords(std::span<const std::byte> payload) : rest_(payload) {}
-
-    std::span<const std::byte> next()
+    template<class T> T value()
     {
-        std::uint32_t size;
-        std::memcpy(&size, take(sizeof(size)).data(), sizeof(size));
-        return take(size);
+        static_assert(std::is_trivially_copyable_v<T>);
+        T field{};
+        std::memcpy(&field, take(sizeof(field)).data(), sizeof(field));
+        return field;
     }
+    bool flag() { return value<std::uint8_t>() != 0; }
+    // A NUL-terminated text field of `width` bytes.
+    std::string text(std::size_t width)
+    {
+        const auto field = take(width);
+        const auto* data = reinterpret_cast<const char*>(field.data());
+        const auto* end = static_cast<const char*>(std::memchr(data, 0, width));
+        if (!end) throw std::runtime_error("unterminated save text field");
+        return std::string(data, end);
+    }
+    // A record whose writer may have stored only a prefix of today's layout.
+    template<class T>
+    void record(T& runtime, std::size_t size = sizeof(typename retail::Record<T>::Disk))
+    {
+        if (size > sizeof(typename retail::Record<T>::Disk))
+            throw std::runtime_error("oversized save record");
+        retail::decode(take(size), runtime);
+    }
+    // The bytes of a record behind its four-byte length.
+    std::span<const std::byte> sized() { return take(value<std::uint32_t>()); }
 };
 
 } // namespace
 
 std::vector<std::byte> encode(const GameState& state)
 {
-    std::vector<std::byte> out;
-    append_sized(out, retail::encode(state));
-    for (const auto& character : state.party.characters)
-        append_sized(out, retail::encode(character));
-    for (const auto& row : state.party.rows) append_sized(out, retail::encode(row));
-    return out;
+    Writer out;
+    out.sized(retail::encode(state));
+    for (const auto& character : state.party.characters) out.sized(retail::encode(character));
+    for (const auto& row : state.party.rows) out.sized(retail::encode(row));
+    return out.take();
 }
 
 GameState decode_game_state(std::span<const std::byte> payload)
 {
-    SizedRecords records(payload);
+    Reader records(payload);
     GameState state{};
-    retail::decode(records.next(), state);
+    retail::decode(records.sized(), state);
     auto& [status, party] = state;
     if (party.item_count > std::size(party.item_pool))
         throw std::runtime_error("invalid party inventory count");
@@ -718,7 +777,7 @@ GameState decode_game_state(std::span<const std::byte> payload)
             throw std::runtime_error("invalid message storage count");
     }
     for (auto& character : party.characters) {
-        retail::decode(records.next(), character);
+        retail::decode(records.sized(), character);
         if (character.record_version < 2 &&
             character.original_profession == W8_PROFESSION_FIGHTER &&
             character.profession_levels[W8_PROFESSION_FIGHTER] == 0)
@@ -726,7 +785,7 @@ GameState decode_game_state(std::span<const std::byte> payload)
     }
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         auto& row = party.rows[slot];
-        retail::decode(records.next(), row);
+        retail::decode(records.sized(), row);
         auto& item = row.remembered.item_detail.item_use.item;
         item.character = slot;
         if (!row.fOccupied || !party.itemAt(item)) item = {};
@@ -750,6 +809,411 @@ LevelStatusHeader decode_level_status_header(std::span<const std::byte> payload)
     LevelStatusHeader header;
     retail::decode(payload.first(sizeof(retail::StatusHeader)), header);
     return header;
+}
+
+namespace {
+
+/* A TEXT line on disk. Its first word counts UTF-16 units with the terminator, and the
+   highlight and length fields count UTF-16 units too. The list-pointer word is unused and
+   written as zero. */
+#pragma pack(push, 1)
+struct MessageRecord {
+    std::uint32_t character_count;
+    std::uint8_t font_palette;
+    std::uint8_t highlight_color;
+    std::uint8_t highlight_start;
+    std::uint8_t highlight_stop;
+    std::uint32_t clock;
+    std::uint32_t saved_remaining_ms;
+    std::int32_t link;
+    std::int32_t length;
+    std::uint32_t entries;
+    std::uint8_t unknown_1c[8];
+};
+static_assert(sizeof(MessageRecord) == 0x24);
+
+/* A JRNL entry on disk. Retail writes the alternate-text flag as one byte and leaves the
+   three bytes after it uninitialized. */
+struct JournalRecord {
+    std::int32_t level;
+    std::int32_t fact;
+    std::uint8_t alternate_text;
+    std::array<std::uint8_t, 3> unknown_09;
+};
+static_assert(sizeof(JournalRecord) == 12);
+
+// A FATA standing record on disk.
+struct FactionRecord {
+    std::int8_t disposition_score;
+    std::int32_t offense_count;
+    std::uint8_t unknown_05;
+    std::int32_t band_changed_clock;
+    std::uint8_t encountered;
+    std::array<std::uint8_t, 3> unknown_0b;
+};
+static_assert(sizeof(FactionRecord) == 14);
+#pragma pack(pop)
+
+constexpr std::size_t kTextFieldBytes = 0x80;
+constexpr std::size_t kLocationVariableBytes = 4 + kTextFieldBytes + 4;
+// Retail's NPC character block before it carried its size.
+constexpr std::uint32_t kLegacyNpcCharacterBytes = 0x185c;
+constexpr std::uint8_t kNpcStateVersion = 3;
+constexpr std::uint8_t kTranscriptVersion = 2;
+// A transcript keyword holds fewer UTF-16 units than this.
+constexpr std::int32_t kTranscriptKeywordUnits = 100;
+// A message line longer than this many UTF-16 units is malformed.
+constexpr std::uint32_t kMessageCharacterLimit = 100000;
+
+// UTF-16 units in the first `bytes` bytes of `line`.
+std::size_t utf16_units(std::string_view line, std::size_t bytes)
+{
+    return text::to_utf16(line.substr(0, bytes)).size();
+}
+
+// The byte offset in `line` after `units` UTF-16 units.
+std::size_t utf8_offset(std::string_view line, std::size_t units)
+{
+    std::size_t offset = 0, count = 0;
+    while (offset < line.size() && count < units)
+        count += text::next(line, offset) > 0xffff ? 2 : 1;
+    return offset;
+}
+
+// A highlight bound as the retail byte of UTF-16 units, which saturates.
+std::uint8_t utf16_byte(std::string_view line, std::size_t bytes)
+{
+    return static_cast<std::uint8_t>(std::min<std::size_t>(255, utf16_units(line, bytes)));
+}
+
+} // namespace
+
+std::vector<std::byte> encode(const MessageBoxes& boxes)
+{
+    Writer out;
+    out.value(std::int32_t{1});
+    for (const auto& lines : boxes) {
+        out.value(checked_integer<std::uint32_t>(lines.size()));
+        for (const auto& line : lines) {
+            const auto units = text::to_utf16(line.text).size();
+            MessageRecord record{};
+            record.character_count =
+                line.text.empty() ? 0 : checked_integer<std::uint32_t>(units + 1);
+            record.font_palette = line.font_palette;
+            record.highlight_color = line.highlight_color;
+            record.highlight_start = utf16_byte(line.text, line.highlight_start);
+            record.highlight_stop = utf16_byte(line.text, line.highlight_stop);
+            record.clock = static_cast<std::uint32_t>(line.clock);
+            record.saved_remaining_ms = line.saved_remaining_ms;
+            record.link = line.link;
+            record.length = line.length < 0
+                                ? -1
+                                : checked_integer<std::int32_t>(utf16_units(
+                                      line.text, static_cast<std::size_t>(line.length)));
+            std::ranges::copy(line.unknown_1c, record.unknown_1c);
+            out.value(record);
+            if (record.character_count != 0) {
+                std::vector<std::byte> characters(std::size_t{record.character_count} * 2);
+                text::to_utf16le(line.text, characters);
+                out.bytes(characters);
+            }
+        }
+    }
+    return out.take();
+}
+
+MessageBoxes decode_message_boxes(std::span<const std::byte> payload, float status_version)
+{
+    Reader in(payload);
+    in.value<std::int32_t>(); // The format, always 1.
+    MessageBoxes boxes;
+    for (std::size_t box = 0; box < boxes.size(); ++box) {
+        if (status_version < 1.1f && box == 3) break;
+        const auto count = in.value<std::uint32_t>();
+        if (count > W8_TEXT_BOX_LINES) throw std::runtime_error("invalid message line count");
+        auto& lines = boxes[box];
+        lines.resize(count);
+        for (auto& line : lines) {
+            const auto record = in.value<MessageRecord>();
+            if (record.character_count > kMessageCharacterLimit)
+                throw std::runtime_error("invalid message length");
+            line.text = text::from_utf16le(in.take(std::size_t{record.character_count} * 2));
+            line.font_palette = record.font_palette;
+            line.highlight_color = record.highlight_color;
+            line.highlight_start = utf8_offset(line.text, record.highlight_start);
+            line.highlight_stop = utf8_offset(line.text, record.highlight_stop);
+            line.clock = record.clock;
+            line.saved_remaining_ms = record.saved_remaining_ms;
+            line.link = record.link;
+            line.length = record.length < 0
+                              ? record.length
+                              : checked_integer<int>(utf8_offset(
+                                    line.text, static_cast<std::size_t>(record.length)));
+            std::ranges::copy(record.unknown_1c, line.unknown_1c);
+        }
+    }
+    return boxes;
+}
+
+std::vector<std::byte> encode(std::span<const W8LocationVariable> variables)
+{
+    Writer out;
+    out.value(checked_integer<std::int32_t>(variables.size()));
+    for (const auto& variable : variables) {
+        out.value(std::int32_t{variable.value});
+        out.text(variable.name, kTextFieldBytes);
+        out.value(std::int32_t{variable.level});
+    }
+    return out.take();
+}
+
+std::vector<W8LocationVariable> decode_location_variables(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    const auto count = in.value<std::int32_t>();
+    if (count < 0 || static_cast<std::size_t>(count) > in.remaining() / kLocationVariableBytes)
+        throw std::runtime_error("invalid location variable count");
+    std::vector<W8LocationVariable> variables(static_cast<std::size_t>(count));
+    for (auto& variable : variables) {
+        variable.value = in.value<std::int32_t>();
+        variable.name = in.text(kTextFieldBytes);
+        variable.level = in.value<std::int32_t>();
+    }
+    return variables;
+}
+
+std::vector<std::byte> encode(const DialogueTranscript& transcript)
+{
+    Writer out;
+    out.value(kTranscriptVersion);
+    out.value(checked_integer<std::int32_t>(transcript.keywords.size()));
+    for (const auto& keyword : transcript.keywords) {
+        const auto units = checked_integer<std::int32_t>(text::to_utf16(keyword.text).size());
+        if (units >= kTranscriptKeywordUnits)
+            throw std::runtime_error("transcript keyword too long");
+        std::vector<std::byte> characters((std::size_t(units) + 1) * 2);
+        text::to_utf16le(keyword.text, characters);
+        out.value(units);
+        out.bytes(characters);
+        out.value(keyword.category);
+    }
+    const auto view = transcript.view.value_or(DialogueTranscript::View{});
+    out.value(view.category_filter);
+    out.flag(view.sorted);
+    return out.take();
+}
+
+DialogueTranscript decode_dialogue_transcript(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    const auto version = in.value<std::uint8_t>();
+    const auto count = in.value<std::int32_t>();
+    // Each keyword is at least its length, its terminator and its category.
+    if (version < 1 || version > kTranscriptVersion || count < 0 ||
+        static_cast<std::size_t>(count) > in.remaining() / 7)
+        throw std::runtime_error("invalid dialogue transcript");
+    DialogueTranscript transcript;
+    transcript.keywords.resize(static_cast<std::size_t>(count));
+    for (auto& keyword : transcript.keywords) {
+        const auto units = in.value<std::int32_t>();
+        if (units < 0 || units >= kTranscriptKeywordUnits)
+            throw std::runtime_error("invalid transcript keyword length");
+        const auto characters = in.take((std::size_t(units) + 1) * 2);
+        keyword.text = text::from_utf16le(characters);
+        if (characters.last(2)[0] != std::byte{} || characters.last(2)[1] != std::byte{} ||
+            text::to_utf16(keyword.text).size() != std::size_t(units))
+            throw std::runtime_error("malformed transcript keyword");
+        keyword.category = in.value<W8DialogueCategory>();
+    }
+    if (version > 1) {
+        const auto filter = in.value<W8DialogueCategory>();
+        const auto sorted = in.value<std::uint8_t>();
+        if (filter < W8_DIALOGUE_CATEGORY_ALL || filter > W8_DIALOGUE_CATEGORY_MISC || sorted > 1)
+            throw std::runtime_error("invalid transcript view");
+        transcript.view = DialogueTranscript::View{filter, sorted != 0};
+    }
+    return transcript;
+}
+
+std::vector<std::byte> encode(std::span<const std::unique_ptr<W8NpcState>> npcs)
+{
+    Writer out;
+    out.value(kNpcStateVersion);
+    out.value(checked_integer<std::uint32_t>(npcs.size()));
+    for (const auto& npc : npcs) {
+        out.record(*npc);
+        if (npc->character) out.sized(retail::encode(*npc->character));
+    }
+    for (const auto& npc : npcs) {
+        out.value(checked_integer<std::uint32_t>(npc->items.size()));
+        for (const auto& entry : npc->items) out.record(entry);
+    }
+    return out.take();
+}
+
+std::vector<std::unique_ptr<W8NpcState>> decode_npc_states(std::span<const std::byte> payload,
+                                                           std::size_t npc_record_count)
+{
+    Reader in(payload);
+    const auto version = in.value<std::uint8_t>();
+    const auto count = in.value<std::uint32_t>();
+    if (count > in.remaining() / sizeof(retail::NpcState))
+        throw std::runtime_error("invalid NPC state count");
+    std::vector<std::unique_ptr<W8NpcState>> npcs;
+    npcs.reserve(count);
+    for (std::uint32_t index = 0; index < count; ++index) {
+        retail::NpcState image{};
+        std::memcpy(&image, in.take(sizeof(image)).data(), sizeof(image));
+        auto npc = std::make_unique<W8NpcState>();
+        retail::decode_image(image, *npc);
+        const std::size_t record = npc->name_style == 0 ? index : npc->name_style;
+        if (record >= npc_record_count || record > std::numeric_limits<std::uint8_t>::max())
+            throw std::runtime_error("invalid NPC database index");
+        npc->name_style = static_cast<std::uint8_t>(record);
+        if (image.character != 0) {
+            const auto size = version >= 3 ? in.value<std::uint32_t>() : kLegacyNpcCharacterBytes;
+            in.record(npc->character.emplace(), size);
+        }
+        npcs.push_back(std::move(npc));
+    }
+    if (version > 1) {
+        for (auto& npc : npcs) {
+            const auto items = in.value<std::uint32_t>();
+            if (items > in.remaining() / sizeof(retail::NpcItemEntry))
+                throw std::runtime_error("invalid NPC stock count");
+            npc->items.resize(items);
+            for (auto& entry : npc->items) in.record(entry);
+        }
+    }
+    return npcs;
+}
+
+std::vector<std::byte> encode(const Facts& facts)
+{
+    const auto bytes = std::as_bytes(std::span(facts));
+    return std::vector<std::byte>(bytes.begin(), bytes.end());
+}
+
+Facts decode_facts(std::span<const std::byte> payload)
+{
+    Facts facts{};
+    std::memcpy(facts.data(), Reader(payload).take(facts.size()).data(), facts.size());
+    return facts;
+}
+
+std::vector<std::byte> encode(const Factions& factions)
+{
+    Writer out;
+    for (const auto& row : factions.relations) out.value(row);
+    for (const auto& state : factions.states) {
+        out.value(FactionRecord{state.disposition_score, state.offense_count, state.unknown_05,
+                                state.band_changed_clock, state.encountered, state.unknown_0b});
+    }
+    return out.take();
+}
+
+Factions decode_factions(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    Factions factions;
+    for (auto& row : factions.relations) row = in.value<std::remove_reference_t<decltype(row)>>();
+    for (auto& state : factions.states) {
+        const auto record = in.value<FactionRecord>();
+        state = {record.disposition_score, record.offense_count, record.band_changed_clock,
+                 record.encountered != 0,  record.unknown_05,    record.unknown_0b};
+    }
+    return factions;
+}
+
+std::vector<std::byte> encode(std::span<const W8JournalEntry> journal)
+{
+    Writer out;
+    out.value(std::int32_t{1}); // The format.
+    out.value(checked_integer<std::int32_t>(journal.size()));
+    for (const auto& entry : journal) {
+        out.value(JournalRecord{entry.level, static_cast<std::int32_t>(entry.fact),
+                                entry.alternate_text, entry.unknown_09});
+    }
+    return out.take();
+}
+
+std::vector<W8JournalEntry> decode_journal(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    in.value<std::int32_t>(); // The format, always 1.
+    const auto count = in.value<std::int32_t>();
+    if (count < 0 || static_cast<std::size_t>(count) > in.remaining() / sizeof(JournalRecord))
+        throw std::runtime_error("invalid journal count");
+    std::vector<W8JournalEntry> journal(static_cast<std::size_t>(count));
+    for (auto& entry : journal) {
+        const auto record = in.value<JournalRecord>();
+        entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
+                 record.unknown_09};
+    }
+    return journal;
+}
+
+/* The HYPN record lists the effect's spell, its turns left, its working source and target,
+   the cast's original source and target, four flags and the effect definition. */
+static_assert(std::is_trivially_copyable_v<W8SpellEffectDefinition> &&
+              sizeof(W8SpellEffectDefinition) == 0x30);
+
+std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
+{
+    Writer out;
+    out.value(static_cast<std::int32_t>(monster_control.kind));
+    out.value(std::int32_t{monster_control.turns_remaining});
+    out.record(monster_control.Source);
+    out.record(monster_control.target);
+    out.record(monster_control.OrigSource);
+    out.record(monster_control.OrigTarget);
+    out.flag(monster_control.recast);
+    out.flag(monster_control.sustained);
+    out.flag(monster_control.missiles_pending);
+    out.flag(monster_control.targets_resolved);
+    out.value(monster_control.definition);
+    return out.take();
+}
+
+W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    W8SpellEffectEntry effect{};
+    effect.kind = static_cast<W8SpellId>(in.value<std::int32_t>());
+    effect.turns_remaining = in.value<std::int32_t>();
+    in.record(effect.Source);
+    in.record(effect.target);
+    in.record(effect.OrigSource);
+    in.record(effect.OrigTarget);
+    effect.recast = in.flag();
+    effect.sustained = in.flag();
+    effect.missiles_pending = in.flag();
+    effect.targets_resolved = in.flag();
+    effect.definition = in.value<W8SpellEffectDefinition>();
+    return effect;
+}
+
+// A CHAR section's file name field.
+constexpr std::size_t kStoredCharacterNameBytes = 64;
+
+std::vector<std::byte> encode(const StoredCharacter& stored)
+{
+    if (stored.file_name.empty() || stored.file_name.size() >= kStoredCharacterNameBytes)
+        throw std::runtime_error("invalid stored character name");
+    Writer out;
+    out.text(stored.file_name, kStoredCharacterNameBytes);
+    out.sized(retail::encode(stored.character));
+    return out.take();
+}
+
+StoredCharacter decode_stored_character(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    StoredCharacter stored;
+    stored.file_name = in.text(kStoredCharacterNameBytes);
+    const auto size = in.value<std::uint32_t>();
+    in.record(stored.character, size);
+    return stored;
 }
 
 } // namespace wiz8::save

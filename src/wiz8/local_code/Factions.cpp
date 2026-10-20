@@ -1,16 +1,11 @@
 #include "wiz8/local_code/Factions.h"
 
-#include <algorithm>
-#include <cstdint>
 #include <string>
-#include <vector>
 
 #include <fmt/printf.h>
 
-#include "wiz8/chunk.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
@@ -286,53 +281,4 @@ void AdjustFactionDisposition(signed char faction, char delta)
     }
     ShowNotice(palette, fmt::sprintf(Data().strings[0x247],
                                      Data().strings[g_faction_name_ids[faction]], notice));
-}
-
-namespace {
-// The FATA section's disposition record.
-#pragma pack(push, 1)
-struct FactionRecord {
-    signed char disposition_score;
-    std::int32_t offense_count;
-    std::uint8_t unknown_05;
-    std::int32_t band_changed_clock;
-    std::uint8_t encountered;
-    std::uint8_t unknown_0b[3];
-};
-#pragma pack(pop)
-static_assert(sizeof(FactionRecord) == 14);
-} // namespace
-
-/* Write both faction tables into the open FATA chunk: the 21x21 relation
-   matrix, then the 21 disposition records. */
-void SaveFactionState(wiz8::File& file)
-{
-    const auto& story = CurrentGame().story;
-    for (const auto& row : story.faction_relations) file.write(row.data(), row.size());
-    for (const auto& faction : story.factions) {
-        FactionRecord record{faction.disposition_score,  faction.offense_count, faction.unknown_05,
-                             faction.band_changed_clock, faction.encountered,   {}};
-        std::ranges::copy(faction.unknown_0b, record.unknown_0b);
-        file.write(&record, sizeof(record));
-    }
-}
-
-/* Read the relation matrix and disposition records back from the open FATA
-   chunk, then re-arm the party's fixed score. */
-void LoadFactionState(W8Chunk& file)
-{
-    W8FactionRelations relations;
-    for (auto& row : relations) file.ReadBytes(row.data(), row.size());
-    W8FactionStates factions;
-    for (auto& faction : factions) {
-        FactionRecord record;
-        file.ReadBytes(&record, sizeof(record));
-        faction = {record.disposition_score, record.offense_count, record.band_changed_clock,
-                   record.encountered != 0,  record.unknown_05,    {}};
-        std::ranges::copy(record.unknown_0b, faction.unknown_0b.begin());
-    }
-    auto& story = CurrentGame().story;
-    story.faction_relations = relations;
-    story.factions = factions;
-    story.factions[W8_FACTION_PARTY].disposition_score = 100;
 }

@@ -1,5 +1,4 @@
 #pragma once
-struct W8Chunk;
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,9 +25,6 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_layer.h"
 
-namespace wiz8 {
-class File;
-}
 
 class W8DialogBase;
 struct W8ControlsRect;
@@ -190,8 +186,6 @@ void UpdateNpcTradeSelection(int index, int, int);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
-unsigned char LoadNpcDialogueTranscript(W8Chunk& file);
-unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);
 void RefreshNpcTradePrice(void);

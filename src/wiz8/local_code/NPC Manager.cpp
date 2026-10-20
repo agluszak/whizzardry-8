@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <exception>
 
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
@@ -13,6 +12,7 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/retail_save_records.h" // IWYU pragma: keep - the NPC state codec copies use.
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
@@ -26,10 +26,8 @@
 #if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
 #pragma clang diagnostic pop
 #endif
-#include <limits>
 #include <memory>
 #include <optional>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -41,10 +39,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "message_box.h"
-#include "retail_records.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/checked_integer.h"
-#include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/dice.h"
@@ -55,7 +50,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -81,9 +75,7 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/npc_script_file.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -101,8 +93,6 @@ static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* posi
 static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
-static bool SaveNpcItemLists(wiz8::File& file);
-static bool LoadNpcItemLists(W8Chunk& file);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
@@ -1120,49 +1110,6 @@ void CreateNewGameNpcStates(void)
     }
 }
 
-/* The NPCT section writer: a version byte, the state count, then each 0x13d
-   state block followed by its 0x1862 character block when the NPC carries one.
-   The per-state stock lists trail through the section's file handle. */
-bool SaveNpcStates(wiz8::File& file)
-try {
-    unsigned char version = 3;
-    W8NpcState* npc;
-    unsigned int count;
-    unsigned int index;
-
-    file.write(&version, 1);
-    count = wiz8::checked_integer<unsigned int>(CurrentGame().story.npcs.size());
-    file.write(&count, 4);
-    for (index = 0; index < count; ++index) {
-        npc = CurrentGame().story.npcs[index].get();
-        wiz8::retail::write(file, *npc);
-        if (npc->character) wiz8::retail::write_sized(file, *npc->character);
-    }
-    return SaveNpcItemLists(file);
-} catch (const std::exception&) {
-    return false;
-}
-
-/* The NPCT section reader: release the live states, then rebuild them from the
-   saved blocks. Character blocks carry their size from version 3 on and older
-   saves read as the legacy 0x185c length. Grouped NPCs re-bind to the loaded
-   level; afterwards the missing runtime nodes for unflagged records are
-   created. */
-/* The stock-list tail of the NPCT section: for every NPC state the entry
-   count, then each 0x14-byte stock entry in list order. */
-static bool SaveNpcItemLists(wiz8::File& file)
-try {
-    for (const auto& state_owner : CurrentGame().story.npcs) {
-        auto* npc = state_owner.get();
-        const auto item_count = static_cast<unsigned int>(npc->items.size());
-        file.write(&item_count, sizeof(item_count));
-        for (const auto& entry : npc->items) wiz8::retail::write(file, entry);
-    }
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
 /* Build one runtime NPC state, reusing an unavailable slot or appending a new
    one. Save records and monster bindings refer to these stable slot indices. */
 static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
@@ -1449,73 +1396,16 @@ void ReleaseNpcBinding(int value)
     }
 }
 
-/* Serialize every NPC state record into the open NPCT chunk: a version byte,
-   the live count, then each 0x13d-byte state. A state whose embedded group
-   character exists is followed by a sizeof(W8Character) marker and the
-   character record itself. The item lists are a separate FileWrite pass. */
-
-/* Read every NPC state record back from the open NPCT chunk: a version byte,
-   the serialized count, then each 0x13d-byte state. A state whose serialized
-   group-character pointer is non-null carries a size-prefixed character
-   record behind it (format 3 and later; older saves store a raw 0x185c-byte
-   block). After the pass every state rebinds to its database record through
-   name_style, grouped states reload their script resources, and format two
-   and later append the item lists through the second pass. The walk ends by
-   backfilling runtime nodes for database records no loaded state claims. */
-void LoadNpcStates(W8Chunk& file)
+/* Install the states a save's NPCT section holds, bound to their database records.
+   Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
+   unflagged records no loaded state claims. */
+void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
 {
-    unsigned char version = 3;
-    unsigned int count;
-    unsigned int loaded;
-    unsigned int npc_id;
-    unsigned int size;
-    W8NpcState* npc;
-
-    struct StateRollback {
-        std::vector<std::unique_ptr<W8NpcState>> previous;
-        bool committed = false;
-        StateRollback() { previous.swap(CurrentGame().story.npcs); }
-        StateRollback(const StateRollback&) = delete;
-        ~StateRollback()
-        {
-            if (!committed) previous.swap(CurrentGame().story.npcs);
-        }
-    } rollback;
-    file.ReadBytes(&version, 1);
-    file.ReadBytes(&count, 4);
-    if (count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-        count > (file.RemainingBytes()) / sizeof(wiz8::retail::NpcState)) {
-        throw std::runtime_error("invalid NPC state count");
-    }
-    for (loaded = 0; loaded < count; ++loaded) {
-        const auto image = wiz8::retail::read_image<W8NpcState>(file);
-        const bool has_character = image.character != 0;
-        W8NpcState disk_state;
-        wiz8::retail::decode_image(image, disk_state);
-        const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
-        if (record_id >= Data().npcs.size() ||
-            record_id > std::numeric_limits<unsigned char>::max()) {
-            throw std::runtime_error("invalid NPC database index");
-        }
-        disk_state.name_style = static_cast<unsigned char>(record_id);
-        disk_state.record = &Data().npcs[record_id];
-        if (has_character) {
-            // Version 3 sizes the character block; older saves store 0x185c bytes.
-            size = 0x185c;
-            if (version >= 3) file.ReadBytes(&size, sizeof(size));
-            if (size > wiz8::retail::kCharacterBytes) {
-                throw std::runtime_error("invalid NPC character size");
-            }
-            wiz8::retail::read_exact(file, disk_state.character.emplace(), size);
-        }
-        auto& npcs = CurrentGame().story.npcs;
-        disk_state.partner_index = static_cast<unsigned char>(npcs.size());
-        npcs.reserve(npcs.size() + 1);
-        npcs.push_back(std::make_unique<W8NpcState>(std::move(disk_state)));
-    }
-    for (loaded = 0; loaded < count; ++loaded) {
-        npc = CurrentGame().story.npcs[loaded].get();
-
+    auto& states = CurrentGame().story.npcs;
+    states = std::move(npcs);
+    for (std::size_t index = 0; index < states.size(); ++index) {
+        auto* npc = states[index].get();
+        npc->partner_index = static_cast<unsigned char>(index);
         npc->script_file.reset();
         npc->has_monster = false;
         npc->record = &Data().npcs[npc->name_style];
@@ -1526,43 +1416,13 @@ void LoadNpcStates(W8Chunk& file)
             npc->bound_level = GetLoadedLevelID();
             ReloadNpcScriptResources(npc, GetNpcMonster(npc));
         }
-        if (npc->spawned == 0xffff) {
-            npc->spawned = 0;
-        }
+        if (npc->spawned == 0xffff) npc->spawned = 0;
     }
-    if (version > 1) {
-        if (!LoadNpcItemLists(file)) {
-            throw std::runtime_error("invalid NPC stock lists");
-        }
-    }
-    for (npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+    for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
         if (Data().npcs[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
     }
-    rollback.committed = true;
-}
-
-/* Stage all stock lists before replacing any live NPC's inventory. */
-static bool LoadNpcItemLists(W8Chunk& file)
-try {
-    std::vector<std::vector<W8NpcItemEntry>> pending(CurrentGame().story.npcs.size());
-    for (auto& items : pending) {
-        unsigned int item_count;
-        file.ReadBytes(&item_count, sizeof(item_count));
-        if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-            item_count > file.RemainingBytes() / sizeof(wiz8::retail::NpcItemEntry)) {
-            return false;
-        }
-        items.resize(item_count);
-        for (auto& entry : items) wiz8::retail::read_exact(file, entry);
-    }
-    for (std::size_t npc_index = 0; npc_index < CurrentGame().story.npcs.size(); ++npc_index) {
-        CurrentGame().story.npcs[npc_index]->items = std::move(pending[npc_index]);
-    }
-    return true;
-} catch (const std::exception&) {
-    return false;
 }
 
 /* Hand back the NPC binding selected by a monster-list index, or null when
