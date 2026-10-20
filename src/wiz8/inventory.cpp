@@ -1844,7 +1844,7 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
         /* The one item that is not used on anybody: it hands the level's NPC
            over to the fact that says the party has met them. */
         if (item->iItemNo == 0x29f) {
-            W8NpcState* npc =
+            [[maybe_unused]] W8NpcState* npc =
                 GetNpcState(game.party.rows[CharacterPointerToPartySlot(character)].npc_index);
             assert(npc != 0);
             assert(npc->name_style == W8_NPC_RFS81_A);

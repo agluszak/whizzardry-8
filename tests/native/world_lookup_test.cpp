@@ -236,7 +236,7 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     CurrentGame().status.resume_level = 8; // A pending saved destination is not the active world.
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
-                            Catch::Matchers::ContainsSubstring("Problem loading level"));
+                            Catch::Matchers::ContainsSubstring("cannot read level"));
         REQUIRE(GetWorld() == primary);
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetLoadedLevelID() == 8);
