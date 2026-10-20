@@ -1,7 +1,7 @@
 #include "wiz8/combat/entity_signals.h"
 
-
 #include <algorithm>
+
 #include <fmt/format.h>
 
 #include "wiz8/data/attack_modes.h"
