@@ -19,6 +19,5 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry);
 std::string GetNpcQuoteText(W8NpcState* npc, int type);
 
 bool IsPartySlotEligible(int slot);
-void ClearNpcMessageQueue(void); /* 0x00524C50 */
 
 std::string FormatNpcVoiceSoundPath(W8NpcState* npc);

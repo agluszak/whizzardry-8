@@ -5,6 +5,7 @@
 
 #include "wiz8/character_skills.h"
 
+class GameSession;
 struct W8Character;
 
 enum class W8Wiz7CharacterStatus : unsigned char {
@@ -58,10 +59,10 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 /* Parse the Wizardry 7 save into the import globals - character
    count, records, ending/difficulty selectors and the 96 flag bits. */
 unsigned char LoadWizardry7ImportFile(std::string_view path);
-/* Load the file, reset the run, seed 2500 gold and convert every
+/* Load the file, begin a new game in party creation with 2500 gold and convert every
    imported record into a regular party member. 0 ok, 1 load/pool failure,
    2 when the ending selector carries the value three. */
-unsigned char ImportWizardry7Party(std::string_view path);
+unsigned char ImportWizardry7Party(GameSession& games, std::string_view path);
 
 extern int g_import_character_count;
 extern int g_wiz7_ending; /* Ending selector */

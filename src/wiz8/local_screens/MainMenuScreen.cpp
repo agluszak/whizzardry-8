@@ -56,7 +56,7 @@ bool HandleDeveloperModeKey(const InputEvent*)
 }
 } // namespace
 
-MainMenuScreen::MainMenuScreen() = default;
+MainMenuScreen::MainMenuScreen(GameSession& games) : games_(games) {}
 MainMenuScreen::~MainMenuScreen() = default;
 
 // The load-game item uses the disabled sprite when the party has no saves.
@@ -147,8 +147,7 @@ UiResult MainMenuScreen::handleItem(short item, const UiPointerEvent& event)
 bool MainMenuScreen::enter(const ScreenRequest&)
 {
     ResetVideoFrameState();
-    if (GameInProgress()) LeaveGameSession();
-    EndGame();
+    games_.end();
     has_save_games = SaveGameExists();
     redraw_ = true;
     ClearPrimarySurface();

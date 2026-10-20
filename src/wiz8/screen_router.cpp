@@ -24,6 +24,8 @@ struct SuspendedEntry {
 
 struct ScreenRouter {
     ScreenFactory factory = CreateScreen;
+    // The session the screens begin and end games in.
+    GameSession* games = nullptr;
     ScreenRequest current;
     std::unique_ptr<Screen> screen;
     ScreenRequest pending;
@@ -59,7 +61,7 @@ bool EnterScreen()
         router.screen = std::move(router.resuming);
         return router.screen->resume(router.current);
     }
-    router.screen = router.factory(router.current.id);
+    router.screen = router.factory(router.current.id, *router.games);
     return router.screen->enter(router.current);
 }
 
@@ -88,9 +90,9 @@ bool ApplyReturn()
 bool ApplyRequest()
 {
     /* Retail tests only the low byte of the count. */
-    if (GameInProgress() &&
-        static_cast<unsigned char>(CurrentGame().speech.active_events.size()) != 0) {
-        CurrentGame().speech.CompleteFirstActiveEvent();
+    if (auto* game = router.games->game();
+        game && static_cast<unsigned char>(game->speech.active_events.size()) != 0) {
+        game->speech.CompleteFirstActiveEvent();
     }
     if (router.current.id != W8_SCREEN_NONE) {
         router.previous = router.current.id;
@@ -108,10 +110,11 @@ bool ApplyRequest()
 }
 } // namespace
 
-void ResetScreenRouting(ScreenFactory factory)
+void ResetScreenRouting(GameSession& games, ScreenFactory factory)
 {
     router = {};
     router.factory = factory;
+    router.games = &games;
 }
 
 void RequestScreen(ScreenRequest request, ScreenDeparture departure)
@@ -123,6 +126,14 @@ void RequestScreen(ScreenRequest request, ScreenDeparture departure)
 void ReturnToPreviousScreen()
 {
     router.return_requested = true;
+}
+
+void DiscardSuspendedScreensAbove(W8ScreenId id)
+{
+    while (!router.suspended.empty() && router.suspended.back().request.id != id) {
+        if (auto& screen = router.suspended.back().screen) screen->leave(ScreenDeparture::Discard);
+        router.suspended.pop_back();
+    }
 }
 
 const ScreenRequest& CurrentScreenState()
@@ -195,7 +206,7 @@ void GameLoop()
 void GameloopExit()
 {
     // Complete voice events before leaving gameplay unloads its UI.
-    if (GameInProgress()) CurrentGame().speech.DestroyAllEvents();
+    if (auto* game = router.games ? router.games->game() : nullptr) game->speech.DestroyAllEvents();
 
     ResetMenuFontPalettes();
     // Discard the current screen, then every suspended one without

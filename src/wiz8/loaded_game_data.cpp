@@ -31,7 +31,8 @@
 #include "wiz8/unicode.h"
 
 namespace {
-GameData loaded;
+// The data `Data()` reads, owned by the Application or a test.
+const GameData* installed = nullptr;
 
 [[noreturn]] void Malformed(std::string_view file)
 {
@@ -320,10 +321,11 @@ GameData LoadGameData(std::string_view string_data_path)
 
 const GameData& Data()
 {
-    return loaded;
+    static const GameData empty;
+    return installed ? *installed : empty;
 }
 
-GameData InstallGameData(GameData data)
+const GameData* InstallGameData(const GameData* data)
 {
-    return std::exchange(loaded, std::move(data));
+    return std::exchange(installed, data);
 }

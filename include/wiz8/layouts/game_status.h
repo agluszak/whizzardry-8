@@ -100,9 +100,8 @@ struct GameStatus {
        audit reports those as "Long Quote". */
     unsigned char long_quote = 0;
     bool party_fatigued = false;
-    /* Index of the party member the main-game selection flow is on. The screen reset
-       writes 0xff. */
-    unsigned char selected_party_member = 0;
+    // Index of the party member the main-game selection flow is on; 0xff for none.
+    unsigned char selected_party_member = 0xff;
     // Read as a gate by the main-game frame's world-cursor path.
     unsigned char world_cursor_gate = 0;
     unsigned int camp_tick_ms = 0;

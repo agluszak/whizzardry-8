@@ -38,6 +38,7 @@
 namespace {
 class PleaseWaitScreen final : public Screen {
 public:
+    explicit PleaseWaitScreen(GameSession& games) : games(games) {}
     bool enter(const ScreenRequest& request) override;
     bool resume(const ScreenRequest& request) override;
     void frame() override;
@@ -48,6 +49,8 @@ public:
 private:
     void draw();
 
+    // A load begins a game in it.
+    GameSession& games;
     std::string caption;
     W8PleaseWaitMode mode = W8_PLEASE_WAIT_NEW_GAME;
     int parameter = 0;
@@ -88,6 +91,9 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     case W8_PLEASE_WAIT_LOAD_GAME:
         parameter = request.parameter;
         name = request.name;
+        /* The loaded game replaces the one in progress, so that game's screens go first:
+           a suspended main game leaves its level as it is discarded. */
+        DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         break;
     case W8_PLEASE_WAIT_SAVE_GAME:
         parameter = GetLoadedLevelID();
@@ -155,7 +161,6 @@ void PleaseWaitScreen::frame()
 
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        LeaveGameSession();
         int level;
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);
@@ -166,7 +171,7 @@ void PleaseWaitScreen::frame()
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
-        if (!LoadGame(name)) {
+        if (!LoadGame(games, name)) {
             Fail("fVerify");
         }
         if (!LoadLevel(CurrentGame().status.resume_level, -1, true)) {
@@ -242,7 +247,7 @@ void UpdatePleaseWaitLoadFrame(void)
     }
 }
 
-std::unique_ptr<Screen> CreatePleaseWaitScreen()
+std::unique_ptr<Screen> CreatePleaseWaitScreen(GameSession& games)
 {
-    return std::make_unique<PleaseWaitScreen>();
+    return std::make_unique<PleaseWaitScreen>(games);
 }

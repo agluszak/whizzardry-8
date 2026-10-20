@@ -49,6 +49,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -1075,11 +1076,12 @@ portrait_fx:
     }
 
     if (overlay_ready && CurrentGame().activity.conversation &&
-        g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
-        !g_npc_interaction_state->scripted_dialogue &&
-        !g_npc_interaction_state->dialogue_panel_hidden &&
-        g_npc_dialogue.reply() == W8NpcReplyState::none &&
-        g_npc_interaction_state->dialogue_hidden == 0 && !CurrentGame().activity.scripted_scene) {
+        CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
+        !CurrentGame().npc_interaction.scripted_dialogue &&
+        !CurrentGame().npc_interaction.dialogue_panel_hidden &&
+        CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none &&
+        CurrentGame().npc_interaction.dialogue_hidden == 0 &&
+        !CurrentGame().activity.scripted_scene) {
         SetNpcDialoguePanelVisible(1);
     }
 }

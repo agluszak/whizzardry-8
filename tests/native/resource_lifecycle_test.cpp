@@ -44,7 +44,7 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
-#include "wiz8/npc_interaction.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
@@ -127,21 +127,21 @@ static void npc_script_teardown()
     // Zero-quote scripts still own their name and header.
 }
 
-static void queued_state_teardown()
+// A game's transcript and queued NPC messages end with it; the next game starts empty.
+static void queued_state_teardown(GameSession& session)
 {
     AddDialogueTranscriptKeyword("Monastery", W8_DIALOGUE_CATEGORY_PLACES);
     AddDialogueTranscriptKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES);
-    REQUIRE((static_cast<int>(g_npc_interaction_state->dialogue_transcript.size()) == 2));
-    ClearNpcDialogueTranscript();
-    ClearNpcDialogueTranscript();
-    REQUIRE((g_npc_interaction_state->dialogue_transcript.size() == 0));
-    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'));
-    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'), W8ExperienceNoticePayload{});
-    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
-    g_npc_dialogue.QueuePortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
-    ClearNpcMessageQueue();
-    ClearNpcMessageQueue();
-    REQUIRE((!g_npc_dialogue.has_queued_actions()));
+    REQUIRE((static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size()) == 2));
+    auto& dialogue = CurrentGame().npc_dialogue;
+    dialogue.QueuePortraitMessage(std::string(80, 't'));
+    dialogue.QueuePortraitMessage(std::string(80, 't'), W8ExperienceNoticePayload{});
+    dialogue.QueuePortraitMessage(std::string(80, 't'), W8SkillNoticePayload{});
+    dialogue.QueuePortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
+    REQUIRE(dialogue.has_queued_actions());
+    session.begin();
+    REQUIRE(CurrentGame().npc_interaction.dialogue_transcript.empty());
+    REQUIRE((!CurrentGame().npc_dialogue.has_queued_actions()));
 }
 
 TEST_CASE("Detached SurRender resources outlive shutdown and repeated initialization",
@@ -158,8 +158,8 @@ TEST_CASE("NPC script owns nested quotes until release", "[resources][lifecycle]
 
 TEST_CASE("NPC message queues release their contents", "[resources][lifecycle]")
 {
-    const ScopedGame game;
-    queued_state_teardown();
+    ScopedGame game;
+    queued_state_teardown(game.session);
 }
 
 TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]")
@@ -188,18 +188,18 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
 TEST_CASE("A new game releases the previous game's queued events", "[resources][lifecycle]")
 {
     W8Character character{};
-    const ScopedGame game;
+    ScopedGame game;
     CurrentGame().speech.pending_events.push_back(
         std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
     CurrentGame().gameplay_timer.SetDuration(1.0f);
     CurrentGame().level.replacePrimary(std::make_unique<World>());
 
     // Beginning a game destroys the old one, including its nested events and its worlds.
-    BeginGame();
+    game.session.begin();
     REQUIRE(GetWorld() == nullptr);
     REQUIRE(CurrentGame().speech.IsMainQueueEmpty());
     REQUIRE(CurrentGame().gameplay_timer.m_duration_seconds == 300.0f);
-    EndGame();
+    game.session.end();
     REQUIRE_FALSE(GameInProgress());
 }
 

@@ -2,11 +2,11 @@
 
 #include "wiz8/game.h"
 
-// A game in progress for the scope's duration.
+// A game in progress for the scope's duration, in a session of its own.
 struct ScopedGame {
-    Game& game = BeginGame();
+    GameSession session;
+    Game& game = session.begin();
     ScopedGame() = default;
     ScopedGame(const ScopedGame&) = delete;
     ScopedGame& operator=(const ScopedGame&) = delete;
-    ~ScopedGame() { EndGame(); }
 };

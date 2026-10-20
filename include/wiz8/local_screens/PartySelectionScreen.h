@@ -4,6 +4,8 @@
 
 #include "wiz8/screen.h"
 
+class GameSession;
+
 enum W8PartySelectionMode {
     W8_PARTY_SELECT_CHARACTERS = 0,
     W8_PARTY_SELECT_IMPORT = 1,
@@ -36,6 +38,6 @@ void RefreshPartySelectionPortrait(unsigned int party_slot);
 /* Nonzero while the selector is reviewing an existing character. */
 bool PartySelectionInReviewMode(void);
 /* Assembles the starting party from saved characters or an imported party. */
-std::unique_ptr<Screen> CreatePartySelectionScreen();
+std::unique_ptr<Screen> CreatePartySelectionScreen(GameSession& games);
 /* Starts a new game: leaves for the race intro film chosen by the party. */
 std::unique_ptr<Screen> CreateGameStartRouterScreen();

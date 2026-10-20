@@ -83,7 +83,7 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
     int item_index;
     int sub_index;
 
-    script = g_npc_dialogue.speaker()->script_file.get();
+    script = CurrentGame().npc_dialogue.speaker()->script_file.get();
     for (quote_index = 0; quote_index < script->quote_count; quote_index++) {
         quote = &script->quotes[quote_index];
         for (item_index = 0; item_index < quote->entry_count; item_index++) {
@@ -472,9 +472,4 @@ void W8NpcDialogue::HoldForScene()
 void W8NpcDialogue::ReleaseScene()
 {
     held_by_scene_ = false;
-}
-
-void W8NpcDialogue::Reset()
-{
-    *this = {};
 }

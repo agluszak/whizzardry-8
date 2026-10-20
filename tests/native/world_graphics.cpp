@@ -105,7 +105,7 @@ TEST_CASE("world graphics")
     fprintf(stderr, "world: initialize native application/game\n");
     application = std::make_unique<wiz8::Application>(arguments);
     g_renderer->setCaptureEnabled(true);
-    ResetForNewGame();
+    BeginNewGame(application->games());
     W8Character character{};
     REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));
     REQUIRE(AddCharacterToParty(character, -1) == 2);
@@ -271,7 +271,11 @@ TEST_CASE("world graphics")
     if (mode && strcmp(mode, "save") == 0) {
         REQUIRE(SaveGame("native-test", nullptr));
         fprintf(stderr, "regression: save succeeded\n");
-        REQUIRE(LoadGame("native-test"));
+        // Load as the game does, so the main game of the saved game is discarded first.
+        RequestScreen(
+            {.id = W8_SCREEN_PLEASE_WAIT, .mode = W8_PLEASE_WAIT_LOAD_GAME, .name = "native-test"});
+        for (int frame = 0; frame < 5; ++frame) GameLoop();
+        REQUIRE(CurrentScreenState().id == W8_SCREEN_MAIN_GAME);
         fprintf(stderr, "regression: reload succeeded\n");
     }
     if (mode && strcmp(mode, "angles") == 0) {

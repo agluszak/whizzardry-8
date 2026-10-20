@@ -89,11 +89,6 @@ W8Action* ItemUseDraft()
     return use_item ? &use_item->draft : nullptr;
 }
 
-void ResetUseItemSelection()
-{
-    use_item.reset();
-}
-
 void SetUseItemSelectInputEnabled(bool enabled)
 {
     if (use_item) use_item->input.setEnabled(enabled);

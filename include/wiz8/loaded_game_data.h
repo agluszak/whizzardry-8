@@ -25,9 +25,10 @@ std::vector<W8EncounterTable> ReadEncounterTables();
 // Both keyword files, or no keywords when either is missing or malformed.
 W8DialogueKeywords ReadDialogueKeywords();
 
-/* The game data the program loaded. Transitional: code that does not receive the data
+/* The game data the Application owns. Transitional: code that does not receive the data
    yet reads it here; `rules` and `game` may not, and this goes with its last caller.
-   Before anything is installed it is empty. */
+   While nothing is installed it is empty. */
 const GameData& Data();
-// Replace the loaded game data and return the previous data; empty data releases it.
-GameData InstallGameData(GameData data);
+/* Make `data`, which the caller owns and keeps alive while it is installed, what `Data()`
+   reads, and return what was installed before; null uninstalls. */
+const GameData* InstallGameData(const GameData* data);

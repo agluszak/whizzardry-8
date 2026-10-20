@@ -18,6 +18,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
@@ -127,7 +128,8 @@ void UpdateSubMenuButton(int index)
     }
     if (CurrentGame().activity.conversation &&
         (index != 0 || IsNpcDialogueCursorActive() != 0 ||
-         (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue))) {
+         (CurrentGame().activity.conversation &&
+          CurrentGame().npc_interaction.scripted_dialogue))) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }

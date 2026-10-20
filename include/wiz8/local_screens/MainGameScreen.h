@@ -414,7 +414,6 @@ void OnLeaveGameConfirmClosed(bool accepted);
 
 // Show that the world was held or released, or that its time stopped or resumed.
 void PresentWorldAdvancement(bool held, bool hold_changed);
-void ResetMainGameScreenState(void);
 
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */

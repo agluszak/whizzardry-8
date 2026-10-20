@@ -38,6 +38,7 @@ bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
+class GameSession;
 struct W8Character;
 
 bool SaveCharacter(const W8Character* character, int slot);
@@ -53,8 +54,9 @@ bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
-/* Load a save slot by name; the Please Wait screen drives it. */
-bool LoadGame(std::string_view slot_name);
+/* Load a save slot by name into a new game of `games`, replacing any in progress; the
+   Please Wait screen drives it. */
+bool LoadGame(GameSession& games, std::string_view slot_name);
 
 bool SaveLevelStatus(const char* path);
 struct World;
@@ -84,8 +86,6 @@ void ProcessMainGameAutoSave(void);
 bool SaveMonsterStatus(W8Chunk* chunks);
 void SaveMonsterControlSpellEffect(W8Chunk* chunks);
 void LoadMonsterControlSpellEffect(W8Chunk* chunks);
-
-void LeaveGameSession(void);
 
 std::optional<std::string> SelectQuickSaveSlotForWrite();
 std::optional<std::string> FindFreeEndingSaveName();

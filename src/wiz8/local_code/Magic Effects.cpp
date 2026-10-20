@@ -2373,7 +2373,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
             (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
              monster->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) /
                 2) {
-            g_npc_dialogue.QueueQuote(0x16, false, false, false);
+            CurrentGame().npc_dialogue.QueueQuote(0x16, false, false, false);
         }
         return;
     }
@@ -2424,7 +2424,7 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
     if (!effect->Source.fBackfire) {
         if (TargetResistsCondition(&effect->target, realm, effect->definition.power_level,
                                    W8_CONDITION_NONE)) {
-            g_npc_dialogue.QueueQuote(0x69, false, false, false);
+            CurrentGame().npc_dialogue.QueueQuote(0x69, false, false, false);
             return;
         }
         QueueDialogueNpcRefusal();
@@ -2434,7 +2434,7 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
             (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
              monster->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) /
                 2) {
-            g_npc_dialogue.QueueQuote(0x16, false, false, false);
+            CurrentGame().npc_dialogue.QueueQuote(0x16, false, false, false);
             return;
         }
     }

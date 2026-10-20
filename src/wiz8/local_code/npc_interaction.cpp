@@ -3,13 +3,8 @@
 
 #include "wiz8/combat/combat.h"
 #include "wiz8/game.h"
-#include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/npc_dialogue_view.h"
-#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
-
-W8NpcDialogue g_npc_dialogue;
 
 /* NPC interaction availability and its party-slot eligibility query. Live
    query: 0x00524A10 is a gap between Local Code\Conditions & Enchantments.cpp
@@ -37,12 +32,4 @@ bool IsPartySlotEligible(int slot)
     }
     eligible = character->highest_condition < W8_CONDITION_TURNCOAT;
     return eligible;
-}
-
-void ClearNpcMessageQueue(void)
-{
-
-    ResetNpcPresentation();
-    g_npc_dialogue.Reset();
-    ResetSedexusScene();
 }

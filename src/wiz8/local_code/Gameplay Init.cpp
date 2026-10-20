@@ -21,7 +21,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/quality.h"
@@ -37,28 +36,24 @@
 namespace {
 }
 
-/* The new-game reset. Begin a new game, then clear the item in hand and the
-   carried pool, and grant the six starting item stacks. */
-void ResetForNewGame(void)
+/* The hand and the carried pool start empty, then take the six starting item stacks. */
+Game& BeginNewGame(GameSession& games)
 {
     static constexpr std::array<unsigned int, 6> starting_items = {0x14f, 0x14f, 0x15a,
                                                                    0x15a, 0x15b, 0x155};
-    unsigned int index;
-
-    BeginGame();
-    CurrentGame().party.held.item = W8ItemInstance{.iItemNo = -1};
-    std::ranges::fill(CurrentGame().party.item_pool, W8ItemInstance{.iItemNo = -1});
+    auto& game = games.begin();
+    game.party.held.item = W8ItemInstance{.iItemNo = -1};
+    std::ranges::fill(game.party.item_pool, W8ItemInstance{.iItemNo = -1});
     for (const auto id : starting_items) {
         auto item = MakeItem(id, true, true, true);
         item.stack_count = 1;
-        AddItemToParty(CurrentGame(), &item, false, false);
+        AddItemToParty(game, &item, false, false);
     }
-    CurrentGame().party.gold = 500;
-    CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);
-    InitializePartyFormation(&CurrentGame().party.formation);
-    for (index = 0; index < 8; ++index) {
-        CurrentGame().party.order_slots[index] = 0xffffffff;
-    }
+    game.party.gold = 500;
+    game.status.selected_character = GetNextCharacter(1, 1, -1);
+    InitializePartyFormation(&game.party.formation);
+    std::ranges::fill(game.party.order_slots, 0xffffffff);
+    return game;
 }
 
 /* Raises three flags, optionally hands the caller's target to 0x005A9E70, then
@@ -79,7 +74,6 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
         ReturnToPreviousScreen();
     }
     CreateNewGameNpcStates();
-    ResetMainScreenStateBlock();
     RequestScreen({.id = W8_SCREEN_GAME_START_ROUTER});
 }
 

@@ -246,9 +246,9 @@ void RefreshLevelUpReadyNotices(void)
                         text += " ";
                         text = fmt::sprintf(Data().strings[0x773], text);
                         *ready_flag = 1;
-                        g_npc_dialogue.QueuePortraitMessage(std::move(text),
-                                                            W8LevelUpNotice{party_slot});
-                        g_npc_dialogue.Queue(W8NpcLevelUpReaction{party_slot});
+                        CurrentGame().npc_dialogue.QueuePortraitMessage(
+                            std::move(text), W8LevelUpNotice{party_slot});
+                        CurrentGame().npc_dialogue.Queue(W8NpcLevelUpReaction{party_slot});
                     } else {
                         *ready_flag = 1;
                     }
@@ -613,7 +613,7 @@ void AwardPartyExperience(int amount, bool alternate_message)
         }
     }
     auto text = fmt::sprintf(Data().strings[alternate_message ? 0x231 : 0x232], amount);
-    g_npc_dialogue.QueuePortraitMessage(
+    CurrentGame().npc_dialogue.QueuePortraitMessage(
         std::move(text),
         W8ExperienceNoticePayload{static_cast<unsigned int>(amount), alternate_message});
 }
