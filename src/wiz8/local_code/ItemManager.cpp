@@ -76,8 +76,6 @@ const float g_item_camera_cull_distance = 20000.0f;
    bit 0. */
 bool g_hide_invisible_items = true;
 
-// FUNCTION: WIZ8 0x004f69f0
-
 // FUNCTION: WIZ8 0x004f8130
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 {

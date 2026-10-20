@@ -267,8 +267,6 @@ Substantial but contained work.
 
 Small, local and low-risk.
 
-- Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep
-  them only directly above the definition they name, and remove the rest.
 - Full storage can still lose an item: an unusable item with a full backpack, a
   full 500-entry pool, no drop position and an occupied hand. Pick a deterministic
   outcome and test it.

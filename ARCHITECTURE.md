@@ -17,6 +17,9 @@ codecs, including malformed-input replacement and fixed field limits.
 The game only reads compiled OCT/WPT/PVL geometry; there is no level compiler or
 editor. Shipped `.rlk` region links remain readable.
 
+A retail address annotation (`// FUNCTION: WIZ8 0x…`, `// GLOBAL: WIZ8 0x…`) sits
+directly above the definition it names. One that names no definition is deleted.
+
 ## Layers
 
 The target layering is described in [ROADMAP.md](ROADMAP.md). The layers that exist
