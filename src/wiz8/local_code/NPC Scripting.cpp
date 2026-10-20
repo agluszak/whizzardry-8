@@ -466,11 +466,12 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(Data(), context.game.rng, entry->operand0, true, true, false);
         notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(Data(), &item));
-        if (!context.activity.conversation) {
+        if (!context.activity.conversation && context.party.held.item.iItemNo == -1) {
             context.party.held.item = item;
         } else {
             AddItemToPartyOrDrop(context.game, OwnedItem(item), false);
-            DisplayNpcQuote(notice_text, true);
+            if (item.iItemNo != -1) break;
+            if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
         }
         ClearNpcItemId(session_.npc, entry->operand0);
         if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {

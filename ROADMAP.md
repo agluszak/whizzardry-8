@@ -314,13 +314,6 @@ Substantial but contained work.
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as
   `inventory`, `party`, `party_stats`, `live_party` and `combat/` already are. `PC Item.cpp`
   should split into item rules, identification/binding and display.
-## Easiest follow-ups
-
-Small, local and low-risk.
-
-- Full storage can still lose an item: an unusable item with a full backpack, a
-  full 500-entry pool, no drop position and an occupied hand. Pick a deterministic
-  outcome and test it.
 
 ## Needs research
 

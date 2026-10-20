@@ -638,17 +638,19 @@ glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_ro
    turned into a 2500-unit direction through the camera rotation, traced to
    the first obstruction, shortened by the item radius, settled onto the
    ground and lifted back up. When the spot is free the held instance becomes
-   a world item; otherwise the refusal sound plays. */
+   a world item; otherwise the refusal sound plays. Without a loaded level there is no
+   drop position. */
 std::optional<glm::vec3> FindItemDropPosition()
 {
+    auto* const index = GetWorldSpatialIndex();
+    if (!index) return std::nullopt;
     glm::mat3 rotation;
     rotation = cameraRotation(*GetWorld());
     glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     glm::vec3 camera = cameraLocation();
     direction += camera;
-    if (const auto hit = GetWorldSpatialIndex()->traceSight(camera, direction))
-        direction = hit->point;
+    if (const auto hit = index->traceSight(camera, direction)) direction = hit->point;
 
     glm::vec3 delta = direction - camera;
     delta = glm::dot(delta, delta) == 0
@@ -657,7 +659,7 @@ std::optional<glm::vec3> FindItemDropPosition()
                       static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
 
     glm::vec3 position = camera + delta;
-    position.y = GetWorldSpatialIndex()->settleToGround(position, true, 250).position.y + 125.0f;
+    position.y = index->settleToGround(position, true, 250).position.y + 125.0f;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) return position;
     return std::nullopt;
 }

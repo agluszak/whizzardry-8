@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bitset>
+
 #include <expected>
 #include <functional>
 #include <optional>
@@ -126,9 +128,12 @@ bool ConsumeItemUse(const RuleContext& rules, W8ItemLocation location, bool remo
 struct UnusableEquipment {
     W8ItemInstance item;
     bool weapon_hand = false;
+    unsigned int equip_slot = 0;
+    std::string notice;
 };
 std::optional<UnusableEquipment> TakeUnusableEquipment(const RuleContext& rules,
-                                                       unsigned int party_slot);
+                                                       unsigned int party_slot,
+                                                       std::bitset<W8_EQUIP_SLOT_COUNT> kept = {});
 
 // ---- Losing items and gold
 

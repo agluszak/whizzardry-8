@@ -420,7 +420,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
             !NpcWantsItem(npc, item)) {
             if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
                 returned = true;
-            } else {
+            } else if (item->iItemNo == -1) {
                 dropped = true;
             }
         }
@@ -430,7 +430,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
             if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
                 returned = true;
-            } else {
+            } else if (item->iItemNo == -1) {
                 dropped = true;
             }
         }
