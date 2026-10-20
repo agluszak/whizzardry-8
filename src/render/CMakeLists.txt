@@ -8,7 +8,6 @@ set(NATIVE_RENDER_SOURCES
     renderer.cpp
     vsg_material.cpp
     resources/render_mesh.cpp
-    pipeline/texture_filters.cpp
     resources/image_io.cpp
     resources/image_tga.cpp
     effects/light.cpp
