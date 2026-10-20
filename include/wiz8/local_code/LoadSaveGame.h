@@ -76,9 +76,6 @@ bool SaveStatusHeader(W8Chunk* chunks);
 
 extern bool g_save_pending;
 
-/* Replace one character record in Saves\\CurrentGame.SAV. `slot` is unused. */
-bool SaveCharacterToCurrentGame(std::string_view path, int slot, const W8Character* character);
-bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character);
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);
 bool SaveMonsterStatus(W8Chunk* chunks);

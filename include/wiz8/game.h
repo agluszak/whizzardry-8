@@ -23,6 +23,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
 struct World;
@@ -96,6 +97,9 @@ public:
        seed, as retail did; loot and NPC theft reseed it from saved values. */
     Rng rng;
     Story story;
+    /* Characters kept outside the party under their file names; a started game reads and
+       writes character files here, and a save holds each in a CHAR section. */
+    std::vector<wiz8::save::StoredCharacter> stored_characters;
     W8MessageLog message_log;
     // The fight in progress, if any.
     std::optional<Combat> combat;

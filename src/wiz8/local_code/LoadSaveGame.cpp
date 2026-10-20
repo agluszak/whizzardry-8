@@ -267,14 +267,25 @@ unsigned int ReadWorldItemCount(W8Chunk& chunk)
     return count;
 }
 
-/* CHAR chunks lead with the record's NUL-terminated 64-byte file name. */
+/* Save names and stored characters' file names fit a 64-byte field with its terminator. */
 constexpr int kCharacterNameBytes = 64;
 
-bool ReadCharacterNameMatches(W8Chunk& chunk, std::string_view path)
+// The game's stored character with this file name.
+wiz8::save::StoredCharacter* FindStoredCharacter(Game& game, std::string_view file_name)
 {
-    char name[kCharacterNameBytes];
-    chunk.ReadBytes(name, sizeof(name));
-    return memchr(name, '\0', sizeof(name)) && CompareTextIgnoreAsciiCase(name, path) == 0;
+    const auto found = std::ranges::find_if(game.stored_characters, [&](const auto& stored) {
+        return CompareTextIgnoreAsciiCase(stored.file_name, file_name) == 0;
+    });
+    return found == game.stored_characters.end() ? nullptr : &*found;
+}
+
+// Keep a character under its file name, replacing one stored under the same name.
+void StoreCharacter(Game& game, wiz8::save::StoredCharacter stored)
+{
+    if (auto* existing = FindStoredCharacter(game, stored.file_name))
+        *existing = std::move(stored);
+    else
+        game.stored_characters.push_back(std::move(stored));
 }
 
 /* The STAT record mirrors the id counters and status block of the game's status. */
@@ -790,16 +801,11 @@ void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& ch
     }
 }
 
-/* Copy the CHAR chunks and the other levels' LVLS groups from the running
-   CurrentGame save into a new save. */
+/* Copy the other levels' LVLS groups from the running CurrentGame save into a new save. */
 void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
 {
     source.ForEachChunk([&](unsigned int id) {
-        if (id == W8_CHUNK_LEVEL_STATUS) {
-            if (PeekGroupLevel(source) == GetLoadedLevelID()) return;
-        } else if (id != W8_CHUNK_CHARACTER) {
-            return;
-        }
+        if (id != W8_CHUNK_LEVEL_STATUS || PeekGroupLevel(source) == GetLoadedLevelID()) return;
         RequireSection(destination.CopyCurrentChunkFrom(&source), "save chunk copy");
     });
 }
@@ -835,8 +841,8 @@ static unsigned int g_save_filetime_xor_high = 0xe77c28c1;
 
 /* The path of a loose character file. Before the game starts characters live
    under Saves\Characters (slot -1) or Saves\NPCs; in a started game, a slot
-   whose flag is clear still reads Saves\NPCs and every other name is a CHAR
-   record of the current save. */
+   whose flag is clear still reads Saves\NPCs and every other name is one of the
+   game's stored characters. */
 std::string BuildCharacterFilePath(std::string_view filename, int slot)
 {
     if (!GameStarted())
@@ -851,15 +857,17 @@ std::string BuildCharacterPath(std::string_view name, int slot)
     return BuildCharacterFilePath(fmt::format("{}.CHR", name), slot);
 }
 
-/* Load one character record from its loose file, or from the current save's
-   CHAR chunks in a started game. A failure clears the record. */
+/* Load one character record from its loose file, or from the game's stored characters in
+   a started game. */
 bool LoadCharacter(std::string_view name, W8Character* character, int slot)
 try {
     bool loaded = false;
     try {
         const auto path = BuildCharacterFilePath(name, slot);
         if (GameStarted() && (slot == -1 || CurrentGame().status.flags[slot] != 0)) {
-            loaded = LoadCharacterFromCurrentGame(path, character);
+            const auto* stored = FindStoredCharacter(CurrentGame(), path);
+            if (stored) *character = stored->character;
+            loaded = stored != nullptr;
         } else {
             auto handle =
                 wiz8::open_file(slot == -1 ? wiz8::user_path(path) : wiz8::asset_path(path));
@@ -1018,6 +1026,8 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         current_game.Close();
     }
     auto& game = CurrentGame();
+    for (const auto& stored : game.stored_characters)
+        WriteChunkPayload(chunks, W8_CHUNK_CHARACTER, wiz8::save::encode(stored));
     {
         auto snapshot = CaptureStateForSave(game, chunks.WriteStream());
         // Normalize transient UI state in the save image, without changing the game.
@@ -1427,7 +1437,7 @@ bool SaveGameExists(void)
 }
 
 /* Write a character record. Before the game starts it is a loose file (its
-   read-only bit cleared first); afterwards a CHAR chunk of the current save. */
+   read-only bit cleared first); afterwards one of the game's stored characters. */
 bool SaveCharacter(const W8Character* character, int slot)
 try {
     auto snapshot = *character;
@@ -1436,7 +1446,10 @@ try {
     bool saved = false;
     try {
         if (GameStarted()) {
-            saved = SaveCharacterToCurrentGame(path, slot, &snapshot);
+            // The CHAR section's name field holds the name and its terminator.
+            if (path.empty() || path.size() >= kCharacterNameBytes) return false;
+            StoreCharacter(CurrentGame(), {path, snapshot});
+            saved = true;
         } else {
             const auto status = wiz8::file_status(wiz8::user_path(path));
             if (status && status->read_only) wiz8::clear_read_only(wiz8::user_path(path));
@@ -1449,60 +1462,6 @@ try {
         saved = false;
     }
     return saved;
-} catch (const std::exception&) {
-    return false;
-}
-
-/* Replace every CHAR chunk with this name in the current save by one new
-   record. Malformed CHAR payloads are skipped by loading and can be replaced. */
-bool SaveCharacterToCurrentGame(std::string_view path, int /*slot*/, const W8Character* character)
-try {
-    if (path.empty() || !character || path.size() >= kCharacterNameBytes) return false;
-    W8Chunk source;
-    if (!source.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
-    SaveTransaction transaction(kCurrentGamePath);
-    source.ForEachChunk([&](unsigned int id) {
-        if (id == W8_CHUNK_CHARACTER && source.CurrentChunkExtent() >= kCharacterNameBytes) {
-            if (ReadCharacterNameMatches(source, path)) return;
-            source.RewindCurrentChunk();
-        }
-        RequireSection(transaction.chunks.CopyCurrentChunkFrom(&source), "character save copy");
-    });
-    source.Close();
-    transaction.chunks.WriteChunk(W8_CHUNK_CHARACTER, [&] {
-        char name[kCharacterNameBytes]{};
-        std::ranges::copy(path, name);
-        transaction.chunks.WriteBytes(name, sizeof(name));
-        wiz8::retail::write_sized(transaction.chunks, *character);
-    });
-    transaction.commit();
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
-/* Load the last complete CHAR record with this name from the current save. */
-bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character)
-try {
-    if (path.empty() || !character) return false;
-    W8Chunk chunk;
-    if (!chunk.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
-    std::optional<W8Character> found;
-    chunk.ForEachChunk([&](unsigned int id) {
-        if (id != W8_CHUNK_CHARACTER || chunk.CurrentChunkExtent() < kCharacterNameBytes + 4)
-            return;
-        const bool matches = ReadCharacterNameMatches(chunk, path);
-        const auto size = chunk.ReadValue<unsigned int>();
-        if (!matches || size > wiz8::retail::kCharacterBytes || size > chunk.RemainingBytes())
-            return;
-        W8Character saved{};
-        wiz8::retail::read_exact(chunk, saved, size);
-        found = std::move(saved);
-    });
-    chunk.Close();
-    if (!found) return false;
-    *character = std::move(*found);
-    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -1672,6 +1631,13 @@ try {
             game.party = std::move(saved.party);
             break;
         }
+        case W8_CHUNK_CHARACTER:
+            // A malformed record is skipped; the last complete one under a name wins.
+            try {
+                StoreCharacter(game, wiz8::save::decode_stored_character(ReadChunkPayload(chunks)));
+            } catch (const std::runtime_error&) {
+            }
+            break;
         case W8_CHUNK_MESSAGE_STORAGE:
             InstallMessageBoxes(wiz8::save::decode_message_boxes(ReadChunkPayload(chunks),
                                                                  game.status.retail.save_version),

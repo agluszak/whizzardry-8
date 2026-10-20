@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 
 #include "wiz8/layouts/game_status.h"
@@ -15,6 +16,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/story.h"
 
@@ -110,5 +112,16 @@ std::vector<W8JournalEntry> decode_journal(std::span<const std::byte> payload);
    rebuilt while it runs, not saved. */
 std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control);
 W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload);
+
+/* A CHAR section: a character the game keeps outside the party under its file name, which
+   is shorter than 64 bytes. */
+struct StoredCharacter {
+    std::string file_name;
+    W8Character character{};
+};
+std::vector<std::byte> encode(const StoredCharacter& stored);
+/* Throws std::runtime_error when the name is unterminated or the record does not fit the
+   payload. */
+StoredCharacter decode_stored_character(std::span<const std::byte> payload);
 
 } // namespace wiz8::save

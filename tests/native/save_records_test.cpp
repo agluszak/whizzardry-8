@@ -763,129 +763,40 @@ static void encounter_table_contracts()
     REQUIRE(wiz8::remove_file(wiz8::asset_path(path)));
 }
 
-static void current_game_character_contracts()
+static void stored_character_contracts()
 {
-    W8Chunk chunks;
-    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    chunks.Close();
+    const ScopedGame game;
+    game.game.status.game_started = true;
     W8Character first{}, second{}, loaded{};
     first.name = "Vi";
     first.uiExpLevel = 7;
     second.name = "Bob";
     second.uiExpLevel = 9;
-    REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-    REQUIRE(SaveCharacterToCurrentGame("bob.CHR", -1, &second));
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+    // A started game keeps character files as its own stored characters.
+    REQUIRE((SaveCharacter(&first, -1) && SaveCharacter(&second, -1)));
     first.uiExpLevel = 8;
-    REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-    REQUIRE(LoadCharacterFromCurrentGame("bob.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
-    REQUIRE(
-        (chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) && chunks.ChunkCount() == 2));
-    int visited = 0;
-    chunks.ForEachChunk([&](unsigned id) {
-        REQUIRE(id == 0x52414843);
-        REQUIRE(chunks.CurrentChunkExtent() ==
-                static_cast<int>(64 + 4 + wiz8::retail::kCharacterBytes));
-        ++visited;
-    });
-    REQUIRE(visited == 2);
-    chunks.Close();
-    REQUIRE(!SaveCharacterToCurrentGame(std::string(64, 'x').c_str(), 0, &first));
-    REQUIRE(
-        (chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) && chunks.ChunkCount() == 2));
-    chunks.Close();
+    REQUIRE(SaveCharacter(&first, -1));
+    REQUIRE(game.game.stored_characters.size() == 2);
+    REQUIRE(LoadCharacter("VI.chr", &loaded, -1));
+    REQUIRE(loaded.uiExpLevel == 8);
+    REQUIRE((LoadCharacter("Bob.CHR", &loaded, -1) && loaded.uiExpLevel == 9));
+    REQUIRE(!LoadCharacter("Nobody.CHR", &loaded, -1));
+    W8Character unnamed = first;
+    unnamed.name = std::string(60, 'x');
+    REQUIRE(!SaveCharacter(&unnamed, -1));
 
-    // Fail every read, write, seek, flush, close and publication in turn.
-    // Even after chunk headers have been patched, the published save is unchanged.
-    std::size_t operations;
-    {
-        FileFaults trace;
-        REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-        operations = trace.operations;
-    }
-    W8Character replacement = first;
-    replacement.uiExpLevel = 99;
-    auto snapshot = [] {
-        auto file = wiz8::open_file(wiz8::user_path("saves\\CurrentGame.SAV"));
-        std::string bytes(file->size(), '\0');
-        file->read_exact(bytes.data(), bytes.size());
-        return bytes;
-    };
-    const auto before = snapshot();
-    // Abandoning an unfinished RIFF must never publish over the old record.
-    {
-        wiz8::StagedFile staged(wiz8::user_path("saves\\CurrentGame.SAV"));
-        W8Chunk unfinished;
-        REQUIRE(unfinished.OpenWrite(staged.file()));
-        REQUIRE_THROWS(
-            unfinished.WriteChunk(0x52414843, [] { throw std::runtime_error("abandoned"); }));
-        bool rejected = false;
-        try {
-            unfinished.Close();
-        } catch (const std::exception&) {
-            rejected = true;
-        }
-        REQUIRE(rejected);
-    }
-    REQUIRE(snapshot() == before);
-
-    for (std::size_t operation = 1; operation <= operations; ++operation) {
-        {
-            FileFaults fault(operation);
-            REQUIRE(!SaveCharacterToCurrentGame("vi.CHR", 0, &replacement));
-            REQUIRE(fault.fired);
-        }
-        REQUIRE(snapshot() == before);
-        REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-    }
-    for (unsigned level = 10; level < 20; ++level) {
-        first.uiExpLevel = level;
-        REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-        REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-        REQUIRE((chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) &&
-                 chunks.ChunkCount() == 2));
-        chunks.Close();
-    }
-
-    // A payload that reaches into the next chunk must leave the destination intact.
-    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    char name[64] = "vi.CHR";
-    const auto size = static_cast<unsigned>(wiz8::retail::kCharacterBytes);
-    // Only the first byte of the declared payload is present.
-    chunks.WriteChunk(0x52414843, [&] {
-        chunks.WriteValue(name);
-        chunks.WriteValue(size);
-        chunks.WriteBytes(&first, 1);
-    });
-    chunks.WriteChunk(0x444150, [&] { wiz8::retail::write(chunks, second); });
-    chunks.Close();
-    loaded = second;
-    REQUIRE(!LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
-    // A malformed newer payload does not hide the last complete character.
-    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    chunks.WriteChunk(0x52414843, [&] {
-        chunks.WriteValue(name);
-        chunks.WriteValue(size);
-        wiz8::retail::write(chunks, first);
-    });
-    chunks.WriteChunk(0x52414843, [&] {
-        chunks.WriteValue(name);
-        chunks.WriteValue(size);
-        chunks.WriteBytes(&replacement, 1);
-    });
-    chunks.Close();
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-    REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &replacement));
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(replacement));
+    // A CHAR section: the file name in 64 bytes, then the size-prefixed record.
+    const auto& stored = game.game.stored_characters.front();
+    const auto payload = wiz8::save::encode(stored);
+    REQUIRE(payload.size() == 64 + 4 + wiz8::retail::kCharacterBytes);
+    const auto decoded = wiz8::save::decode_stored_character(payload);
+    REQUIRE(decoded.file_name == "Vi.CHR");
+    REQUIRE(wiz8::retail::encode(decoded.character) == wiz8::retail::encode(stored.character));
+    // A record that reaches past its section, or a name without a terminator, is malformed.
+    REQUIRE_THROWS(wiz8::save::decode_stored_character(std::span(payload).first(64 + 4 + 1)));
+    auto unterminated = payload;
+    std::ranges::fill(std::span(unterminated).first(64), std::byte{'x'});
+    REQUIRE_THROWS(wiz8::save::decode_stored_character(unterminated));
 }
 
 static void save_file_contracts(const std::filesystem::path& user)
@@ -1528,9 +1439,9 @@ TEST_CASE_METHOD(SaveFixture, "Character file records", "[save][records]")
     character_file_contracts(assets, user);
 }
 
-TEST_CASE_METHOD(SaveFixture, "Current-game character replacement", "[save][records]")
+TEST_CASE("Stored characters and their CHAR sections", "[save][records]")
 {
-    current_game_character_contracts();
+    stored_character_contracts();
 }
 
 TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save][npc]")

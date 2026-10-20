@@ -1193,4 +1193,27 @@ W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
     return effect;
 }
 
+// A CHAR section's file name field.
+constexpr std::size_t kStoredCharacterNameBytes = 64;
+
+std::vector<std::byte> encode(const StoredCharacter& stored)
+{
+    if (stored.file_name.empty() || stored.file_name.size() >= kStoredCharacterNameBytes)
+        throw std::runtime_error("invalid stored character name");
+    Writer out;
+    out.text(stored.file_name, kStoredCharacterNameBytes);
+    out.sized(retail::encode(stored.character));
+    return out.take();
+}
+
+StoredCharacter decode_stored_character(std::span<const std::byte> payload)
+{
+    Reader in(payload);
+    StoredCharacter stored;
+    stored.file_name = in.text(kStoredCharacterNameBytes);
+    const auto size = in.value<std::uint32_t>();
+    in.record(stored.character, size);
+    return stored;
+}
+
 } // namespace wiz8::save
