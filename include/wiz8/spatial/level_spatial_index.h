@@ -411,11 +411,10 @@ public:
        negative offset checkpoints the shared index into the base. */
     bool TestPropSunBit(int offset);
     void AddCollidablePropBounds(int index, const BoundingBox& bounds);
-    void VisitPointCopy(unsigned short location_id, glm::vec3* position);
     /* Quantize relative to the spatial minimum, truncating toward zero. */
     glm::ivec3 cellAt(const glm::vec3& position) const; /* 0x00431440 */
     std::uint32_t FindLeaf(const glm::ivec3& point) const;
-    void UpdateMonsterLocation(unsigned short location_id, const glm::vec3* position);
+    void UpdateMonsterLocation(unsigned short location_id, const glm::vec3& position);
     /* Object-kind values the query machinery dispatches on: 3 = GD triangle,
        8 = collidable-prop polygon reference, 9 = path waypoint, 12 = location entry,
        13 = secondary location entry. Registry values pack kind into the high
@@ -431,8 +430,7 @@ public:
                                               unsigned short exclusion) const; /* 0x0042EF00 */
     /* AABB occupancy test: GD triangles, kind-12 location objects (with each
        monster's navigator radius) and collidable-prop surfaces. */
-    unsigned char TestBoxOccupied(const glm::vec3* lower,
-                                  const glm::vec3* upper) const; /* 0x0042EF30 */
+    bool isBoxOccupied(const BoundingBox& box) const; /* 0x0042EF30 */
     /* Append the objects of `kind` inside one cell to the shared query
        buffer; the registry path deduplicates through the scratch object set. */
     unsigned int CollectObjectsInCell(const glm::ivec3& cell, unsigned short kind,
@@ -508,7 +506,9 @@ public:
     unsigned char PrepareNavigatorPatrol(NavigatorMovement* movement, float minimum, float maximum);
     unsigned char LinkNavigatorTarget(NavigatorMovement* movement, const glm::vec3* target,
                                       float separation);
-    void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
+    /* The path surface's normal at `position`; straight up without a
+       pathing service. */
+    glm::vec3 pathSurfaceNormal(const glm::vec3& position) const;
     /* Settle a point onto the walkable surface or, when `test_props`, the
        collidable prop below it, starting `limit` above it. */
     GroundProbe settleToGround(const glm::vec3& position, bool test_props,

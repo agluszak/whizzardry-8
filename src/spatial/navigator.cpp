@@ -858,11 +858,10 @@ void Navigator::UpdateFacing(bool immediate)
         return;
     }
     glm::vec3 forward(0.0f, 0.0f, 1.0f);
-    glm::vec3 normal;
     forward = glm::vec3(
         glm::angleAxis(std::atan2(sin(movement.yaw), cos(movement.yaw)), glm::dvec3(0, 1, 0)) *
         glm::dvec3(forward));
-    NavigationOctree()->GetPathSurfaceNormal(&movement.position, &normal);
+    const glm::vec3 normal = NavigationOctree()->pathSurfaceNormal(movement.position);
     if (movement.pitch_enabled) {
         float angle = static_cast<float>(acos(glm::dot(normal, forward)));
         if (angle < kQuarterTurn) {

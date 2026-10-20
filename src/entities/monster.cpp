@@ -1479,7 +1479,7 @@ void Monster::UpdateRepresentation(World* world)
 
     if (nav.position_dirty || nav.movement.position_adjusted) {
         world->compiledIndex()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
-                                                      &position);
+                                                      position);
     }
 
     /* Only a monster whose current world sector mesh is enabled (or that has

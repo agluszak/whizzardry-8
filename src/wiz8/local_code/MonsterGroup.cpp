@@ -144,7 +144,7 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
         }
         glm::vec3 placed = member->p3D->nav.GetPosition();
         GetWorldSpatialIndex()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
-                                                      &placed);
+                                                      placed);
     }
     return true;
 }

@@ -2420,7 +2420,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
                 attachment->path_length_origin = attachment->path[0].position;
                 attachment->segment_start = attachment->path[0].position;
                 movement->target_position = target;
-                owner_octree->UpdateMonsterLocation(movement->location_id, &advanced);
+                owner_octree->UpdateMonsterLocation(movement->location_id, advanced);
             }
         }
         return arrived;
@@ -2498,7 +2498,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
             }
         }
         ActivateMovementTrigger(movement, false);
-        owner_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+        owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
         return arrived;
     }
     bool ignore_linked_navigator =
@@ -2538,7 +2538,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
             limit = static_cast<float>(g_monster_poster_max_distance);
         }
         if (limit <= distance) {
-            owner_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+            owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
             return arrived;
         }
     }
@@ -2551,7 +2551,7 @@ transitioned:
                 m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
                     static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
                 ++attachment->path_cursor;
-                owner_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+                owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
                 return arrived;
             }
             NavigatorRoute* linked_attachment = linked_route;
@@ -2565,16 +2565,16 @@ transitioned:
                           (attachment->path_destination.z -
                            linked_attachment->path_destination.z)))) {
                 PrepareLinkedNavigator(path_search, movement);
-                owner_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+                owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
                 return arrived;
             }
         } else if (transition != 0) {
-            owner_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+            owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
             return arrived;
         }
     }
     arrived = true;
-    owner_octree->UpdateMonsterLocation(movement->location_id, &movement->position);
+    owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
     return arrived;
 }
 
@@ -3722,17 +3722,17 @@ unsigned short NavigationMesh::FindWaypoint(PathSearchScratch& path_search,
    Unlike SnapWaypointPosition, this operation leaves X and Z exactly
    as supplied. The one-based height stored in the index is converted back to
    the level's world-space Y coordinate. */
-void NavigationMesh::SnapPathHeight(glm::vec3* position)
+glm::vec3 NavigationMesh::snapPathHeight(glm::vec3 position) const
 {
-    unsigned int key = pathCell(*position).key;
+    unsigned int key = pathCell(position).key;
 
     if (key == 0) {
-        return;
+        return position;
     }
 
-    auto* index = &cells;
+    const auto* index = &cells;
     auto slot = index->equal_range(key).first;
-    int height = static_cast<int>((position->y - level_bounds.minimum.y) / span) + 1;
+    int height = static_cast<int>((position.y - level_bounds.minimum.y) / span) + 1;
     unsigned int matched_height;
     bool found = false;
 
@@ -3746,27 +3746,27 @@ void NavigationMesh::SnapPathHeight(glm::vec3* position)
         slot = NextIndexValue(*index, key, slot);
     }
     if (found) {
-        position->y = (matched_height - 1) * span + level_bounds.minimum.y;
+        position.y = (matched_height - 1) * span + level_bounds.minimum.y;
     }
+    return position;
 }
 
 /* Build the path surface normal from height-snapped samples at the current
    point, one X cell over, and one Z cell over. The Z-edge crossed with the
    X-edge gives the upward normal on flat ground, matching the retail order. */
-void NavigationMesh::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal)
+glm::vec3 NavigationMesh::pathSurfaceNormal(const glm::vec3& position) const
 {
-    glm::vec3 origin = *position;
-    glm::vec3 x_sample = *position;
-    glm::vec3 z_sample = *position;
-
-    SnapPathHeight(&origin);
+    glm::vec3 x_sample = position;
+    glm::vec3 z_sample = position;
     x_sample.x += grid_scale;
-    SnapPathHeight(&x_sample);
     z_sample.z += grid_scale;
-    SnapPathHeight(&z_sample);
 
-    *normal = glm::cross(z_sample - origin, x_sample - origin); // NOLINT(misc-include-cleaner)
-    (*normal) = normalizedOrZero((*normal));
+    const glm::vec3 origin = snapPathHeight(position);
+    x_sample = snapPathHeight(x_sample);
+    z_sample = snapPathHeight(z_sample);
+
+    return normalizedOrZero(
+        glm::cross(z_sample - origin, x_sample - origin)); // NOLINT(misc-include-cleaner)
 }
 
 /* Activate the eligible trigger prop intersecting a navigator's next path

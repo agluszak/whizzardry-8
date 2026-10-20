@@ -313,8 +313,10 @@ public:
                          float* direction, float* vertical, bool* dynamic) const;
     unsigned short FindWaypoint(PathSearchScratch& path_search, const glm::vec3& position,
                                 bool exhaustive) const;
-    void SnapPathHeight(glm::vec3* position);
-    void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
+    /* `position` with its height snapped to the path cell under it; X and Z
+       are unchanged, as is Y when no path cell lies in the vertical band. */
+    glm::vec3 snapPathHeight(glm::vec3 position) const;
+    glm::vec3 pathSurfaceNormal(const glm::vec3& position) const;
     void ActivateMovementTrigger(NavigatorMovement* movement, bool use_path_edge);
     unsigned int ClassifyWaypoint(const glm::vec3* position);
     bool FindNearbyPathCell(glm::vec3* position, bool snap_to_cell, bool require_active,
