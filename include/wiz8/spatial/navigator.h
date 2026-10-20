@@ -414,3 +414,6 @@ extern const float g_navigator_linked_radius_scale;
 /* Runtime scale applied to the startup navigator's radius when the trace
    resolver tests the camera sphere; written during startup, not a constant. */
 extern float g_camera_sphere_radius_scale;
+/* A navigator moved since the game last refreshed monster sight and the combat
+   panel; the game step consumes it. */
+extern bool g_navigator_position_changed;

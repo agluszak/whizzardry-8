@@ -120,8 +120,14 @@ the licensed runtime scenarios after every step.
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
    - This absorbs "characters by slot, items by location" below.
-4. **One step.**
-   - Move the frame's simulation order into `Game::advance`.
+4. **One step.** `Game::advance` runs the world's simulation (ARCHITECTURE.md,
+   "Stepping").
+   - Speech and the portrait voice state machine (`ProcessDeferredCharacterEvents`,
+     `UpdateCharacterEventState`) still run from the frame, mixed with portrait
+     presentation; split them and move the speech part into the step.
+   - The step reads the clock itself (`w8_get_ticks`, the level's elapsed-time
+     accumulators); pass the elapsed time in (`advance(elapsed)`) so that tests can step
+     a game deterministically.
    - Game time follows the activity, not the screen: camp commands set `Activity::place`
      instead of the screen router, and `Place::Menu` goes because a covered screen does
      not step.

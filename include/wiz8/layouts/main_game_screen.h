@@ -193,8 +193,6 @@ struct W8LevelRuntimeBlock {
     std::unique_ptr<OverlayQuad> highlight_graphic;
     unsigned int world_update_flags;
     unsigned int camera_motion_flags;
-    uint64_t character_update_timer;
-    uint64_t world_update_timer;
     uint64_t countdown0;
     uint64_t countdown1;
     bool transition_active;

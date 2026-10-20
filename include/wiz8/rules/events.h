@@ -89,11 +89,14 @@ struct WorldAdvancementChanged {
     bool held = false;
     bool hold_changed = false;
 };
+// The party or a monster moved during a fight, so the monster target panel recounts.
+struct CombatantsMoved {};
 
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, PartySlotChanged,
                  PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
-                 HeldItemChanged, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged>;
+                 HeldItemChanged, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
+                 CombatantsMoved>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

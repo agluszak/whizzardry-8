@@ -428,7 +428,6 @@ enum W8MainGameMode {
 extern W8MainGameMode g_main_game_mode;
 extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
-extern bool g_navigator_position_changed;
 void BeginLevelTransition(void);
 void SetViewportMode(W8ViewportMode mode);
 /* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised

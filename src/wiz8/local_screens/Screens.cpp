@@ -321,6 +321,10 @@ struct GameEventPresentation {
         }
     }
     void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
+    void operator()(const CombatantsMoved&) const
+    {
+        if (g_level_block) g_level_block->refresh_combat_panel = 1;
+    }
     void operator()(const CharacterActionChanged&) const
     {
         RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
@@ -398,8 +402,6 @@ void InitializeMainGameLevelBlock(void)
     }
     g_level_block->combat_end_notification = -1;
     RefreshMainGameLayout();
-    g_level_block->character_update_timer = w8_get_ticks() + (0);
-    g_level_block->world_update_timer = w8_get_ticks() + (0);
     g_level_block->countdown0 = w8_get_ticks() + (60000);
     g_level_block->countdown1 = w8_get_ticks() + (0);
     g_level_block->text_box_visible = true;

@@ -47,6 +47,17 @@ public:
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
+    /* One simulation step, in retail order: surprise, autosave pacing, the worlds'
+       props, monsters, movement fatigue and the search sweep or the combat turn,
+       combat starts, sight, groups, nearby world items and the worlds themselves.
+       The main game screen steps the game between reading input and drawing;
+       `hold` says what of it the interface holds this step. */
+    struct StepHold {
+        // A picker or level transition is open, so the combat turn waits.
+        bool combat = false;
+    };
+    void advance(StepHold hold);
+
     W8Party party{};
     W8GlobalStatus status{};
     Story story;
@@ -84,6 +95,9 @@ public:
     SurpriseSequence surprise;
     // When the next search sweep is due.
     std::uint64_t search_pulse_deadline = 0;
+    // When monster sight and the nearby world items are next refreshed.
+    std::uint64_t sight_deadline = 0;
+    std::uint64_t world_items_deadline = 0;
     // The timed autosave has announced itself and saves on its next tick.
     bool save_notice_shown = false;
 
