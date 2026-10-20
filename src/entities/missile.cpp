@@ -49,20 +49,18 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
-#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/simulation_sink.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -878,89 +876,13 @@ void Missile::EnterImpactCycle()
 
 bool Missile::OnCollision(Navigator* other)
 {
-    W8MissileHitResult hit_result;
-    unsigned char deflect_chance;
-
-    if (PartyNavigator() == other) {
-        if (TargetSourceIsCharacter(&m_Source, 0)) {
-            goto miss;
-        }
-        if (combat_slot.iType != W8_TARGET_KIND_PARTY &&
-            combat_slot.iType != W8_TARGET_KIND_CHARACTER) {
-            if (Data().missiles[missile_table_index].spell_missile) {
-                goto miss;
-            }
-            if (combat_slot.iType != W8_TARGET_KIND_NONE) {
-                retargeted = true;
-            }
-            combat_slot.iType = W8_TARGET_KIND_CHARACTER;
-            combat_slot.iChar = GetRandomCharacter(1, 1, -1, -1);
-            combat_slot.iMonsterID = -1;
-            if (CurrentGame().combat.active()) {
-                AnnounceCollisionTarget();
-            }
-        }
-    } else {
-        if (other->movement.location_id <= 0) {
-            goto miss;
-        }
-        Monster* monster = other->monster_owner;
-        if (!monster) goto miss;
-        int location_id = monster->location_id;
-        W8MonsterInfo* monster_info = FindMonster(location_id);
-        if (TargetSourceIsMonster(&m_Source, 0) && m_Source.iMonsterID == location_id) {
-            goto miss;
-        }
-        if (monster_info->hp_current == 0) {
-            goto miss;
-        }
-        if (combat_slot.iType != W8_TARGET_KIND_MONSTER || combat_slot.iMonsterID != location_id) {
-            if (Data().missiles[missile_table_index].spell_missile) {
-                goto miss;
-            }
-            if (combat_slot.iType != W8_TARGET_KIND_NONE) {
-                retargeted = true;
-            }
-            combat_slot.iType = W8_TARGET_KIND_MONSTER;
-            combat_slot.iChar = -1;
-            combat_slot.iMonsterID = location_id;
-            if (CurrentGame().combat.active()) {
-                AnnounceCollisionTarget();
-            }
-        }
-    }
-
-    hit_result = W8_MISSILE_HIT;
-    if (!Data().missiles[missile_table_index].spell_missile) {
-        if (combat_slot.iType == W8_TARGET_KIND_CHARACTER) {
-            deflect_chance =
-                CurrentGame().party.characters[combat_slot.iChar].bonus.missile_deflect_chance;
-        } else {
-            W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
-            deflect_chance = monster_info->modifiers.missile_deflect_chance;
-        }
-        if (deflect_chance > 0 && Random(100) + 1 <= deflect_chance) {
-            hit_result = W8_MISSILE_HIT_DEFLECTED;
-        }
-    }
-
-    if (missile_table_index == 0x23) {
-        CurrentGame().combat.state()->missile_hit_result = hit_result;
-    } else if (CurrentGame().combat.state() != 0 &&
-               CurrentGame().combat.state()->engaged_missile != 0) {
-        CurrentGame().combat.state()->missile_hit_result = hit_result;
-        CurrentGame().combat.state()->TargetHit = combat_slot;
-    } else if (Data().missiles[missile_table_index].spell_missile) {
-        ResolveSpellMissileHit(this);
-    } else {
-        ResolveMissileHit(this, hit_result == W8_MISSILE_HIT_DEFLECTED);
+    if (!owner_world || !owner_world->simulation ||
+        !owner_world->simulation->missileReached(*this, *other)) {
+        return false;
     }
     EnterImpactCycle();
     nav.active = false;
     return true;
-
-miss:
-    return false;
 }
 
 /* glm::mat3::RotateAboutX emitted for this TU; the primary template

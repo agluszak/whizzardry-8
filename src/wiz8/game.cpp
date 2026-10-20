@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "wiz8/combat/entity_signals.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/world/world.h"
 
@@ -25,6 +26,7 @@ Level::~Level()
 
 std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
 {
+    if (world) world->simulation = &CombatEntitySignals();
     return std::exchange(primary, std::move(world));
 }
 

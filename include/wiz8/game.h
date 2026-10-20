@@ -22,7 +22,7 @@
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
-   owns its world; queries borrow it. Replacing a slot hands back the previous owner,
+   owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
    so a world is never reachable from its slot while it is destroyed. */
 struct Level {
     Level();
