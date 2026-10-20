@@ -67,7 +67,7 @@ TEST_CASE_METHOD(CombatFixture, "The party acts before a monster on the same pha
     combat.characters[0].phase = 10;
     combat.characters[1].phase = 10;
     game.party.characters[0].highest_condition = W8_CONDITION_ASLEEP;
-    game.party.rows[0].pending_action = W8_ACTION_ATTACK;
+    game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
     AddMonster(7, 10);
 
     ScheduleCombatActor();
@@ -76,7 +76,7 @@ TEST_CASE_METHOD(CombatFixture, "The party acts before a monster on the same pha
     REQUIRE(scheduled);
     REQUIRE(scheduled->actor == CombatActor{PartyActor{1}});
     // The sleeping member loses its action and counts as having acted.
-    REQUIRE(game.party.rows[0].pending_action == W8_ACTION_NONE);
+    REQUIRE(game.party.rows[0].executing.kind == W8_ACTION_NONE);
     REQUIRE(combat.characters[0].phase == 0);
     REQUIRE(combat.characters[0].dead);
 }

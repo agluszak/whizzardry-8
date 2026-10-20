@@ -3743,7 +3743,7 @@ void FallbackFromUnreachableAction(int party_slot)
     if (!row->fOccupied || CurrentGame().combat.state()->characters[party_slot].dead) {
         return;
     }
-    switch (row->committed_action.kind) {
+    switch (row->committed.kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
         if (CanAnyHandReachTarget(party_slot) &&
@@ -3757,9 +3757,9 @@ void FallbackFromUnreachableAction(int party_slot)
         break;
     case W8_ACTION_CAST_SPELL:
     case W8_ACTION_USE_ITEM: {
-        const bool casting = row->committed_action.kind == W8_ACTION_CAST_SPELL;
+        const bool casting = row->committed.kind == W8_ACTION_CAST_SPELL;
         if (!(casting ? CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]) &&
-                            ActionNeedsExplicitTarget(row->committed_action,
+                            ActionNeedsExplicitTarget(row->committed,
                                                       CurrentGame().activity.conversation_aside)
                       : ItemUseNeedsTarget(party_slot))) {
             break;
@@ -3769,9 +3769,9 @@ void FallbackFromUnreachableAction(int party_slot)
                 (SelectPartyCharacter(party_slot),
                  party_slot == CurrentGame().status.selected_character)) {
                 const int spell_id = casting
-                                         ? row->committed_action.detail
+                                         ? row->committed.detail
                                          : GetItemSpell(CurrentGame().party.itemAt(
-                                               row->committed_action.detail_block.item_use.item));
+                                               row->committed.detail_block.item_use.item));
                 const W8TargetNeed needed_kind =
                     GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
                 ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
@@ -3782,7 +3782,7 @@ void FallbackFromUnreachableAction(int party_slot)
             if (party_slot == CurrentGame().status.selected_character) {
                 if (casting) {
                     OpenSpellCastingView(party_slot);
-                    SelectSpellPowerLevel(row->committed_action.detail_block.spell.power_level - 1);
+                    SelectSpellPowerLevel(row->committed.detail_block.spell.power_level - 1);
                 } else {
                     OpenUseItemSelectView(party_slot);
                     SelectCurrentUseItemLine();
@@ -4011,7 +4011,7 @@ void UpdateCombatPortraitStatus(void)
             } else {
                 status = W8_COMBAT_PORTRAIT_ACTING;
             }
-            image = GetCombatPortraitImage(row->committed_action.kind, row->committed_action.detail,
+            image = GetCombatPortraitImage(row->committed.kind, row->committed.detail,
                                            status, slot);
             alternate = image;
             if (status == W8_COMBAT_PORTRAIT_ACTING) {
@@ -4864,23 +4864,23 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
         }
         {
             W8PartySlotRow* row = &CurrentGame().party.rows[slot];
-            if (row->committed_action.kind == W8_ACTION_CAST_SPELL) {
+            if (row->committed.kind == W8_ACTION_CAST_SPELL) {
 
                 target.setTooltip(
                     [text = fmt::format("{}: {} ({:d})", Data().strings[0x68],
-                                        Data().spells[row->committed_action.detail].display_name,
-                                        row->committed_action.detail_block.spell.power_level)] {
+                                        Data().spells[row->committed.detail].display_name,
+                                        row->committed.detail_block.spell.power_level)] {
                         return std::string(text);
                     });
                 return UiResult::Pass;
             }
-            if (row->committed_action.kind == W8_ACTION_USE_ITEM) {
+            if (row->committed.kind == W8_ACTION_USE_ITEM) {
 
                 target.setTooltip(
                     [text = fmt::format("{}: {}", Data().strings[0x69],
                                         FormatItemDisplayName(
                                             CurrentGame().party.itemAt(
-                                                row->committed_action.detail_block.item_use.item),
+                                                row->committed.detail_block.item_use.item),
                                             false))] { return std::string(text); });
                 return UiResult::Pass;
             }
@@ -5794,7 +5794,7 @@ bool IsMGSActionKeyEnabled(unsigned short command)
             return AnyCharacterEngaged();
         case W8_MGS_ACTION_REPEAT:
             switch (
-                CurrentGame().party.rows[CurrentGame().status.selected_character].queued_action) {
+                CurrentGame().party.rows[CurrentGame().status.selected_character].remembered.repeat_action) {
             case W8_ACTION_BREATHE:
                 return IsMGSActionKeyEnabled(W8_MGS_ACTION_BREATH_ATTACK);
             case W8_ACTION_TURN_UNDEAD:
@@ -5907,7 +5907,7 @@ void RunMGSActionKey(unsigned short command)
         DrawSubMenuCharacterAction();
         break;
     case W8_MGS_ACTION_REPEAT:
-        switch (CurrentGame().party.rows[CurrentGame().status.selected_character].queued_action) {
+        switch (CurrentGame().party.rows[CurrentGame().status.selected_character].remembered.repeat_action) {
         case W8_ACTION_BREATHE:
             RunMGSActionKey(W8_MGS_ACTION_BREATH_ATTACK);
             break;
@@ -6882,7 +6882,7 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             PointCameraAtCombatTarget(&source,
-                                      &CurrentGame().party.rows[selected].committed_action.target);
+                                      &CurrentGame().party.rows[selected].committed.target);
         }
         goto aim_done;
     case W8_TARGET_TYPE_ALL_ENEMIES:

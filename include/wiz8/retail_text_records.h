@@ -176,27 +176,27 @@ template<> struct Record<W8PartySlotRow> {
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
     {
-        if constexpr (!std::is_const_v<Runtime>) runtime.spell.kind = W8_ACTION_CAST_SPELL;
+        if constexpr (!std::is_const_v<Runtime>) runtime.remembered.spell.kind = W8_ACTION_CAST_SPELL;
         value(&runtime.fOccupied,
               bytes.subspan(offsetof(Disk, fOccupied), sizeof(Disk::fOccupied)));
-        value(&runtime.pending_action,
+        value(&runtime.executing.kind,
               bytes.subspan(offsetof(Disk, pending_action), sizeof(Disk::pending_action)));
-        value(&runtime.attack_mode,
+        value(&runtime.executing.attack_mode,
               bytes.subspan(offsetof(Disk, attack_mode), sizeof(Disk::attack_mode)));
-        value(&runtime.committed_action.kind,
+        value(&runtime.committed.kind,
               bytes.subspan(offsetof(Disk, action), sizeof(Disk::action)));
-        value(&runtime.committed_action.detail,
+        value(&runtime.committed.detail,
               bytes.subspan(offsetof(Disk, action_detail0), sizeof(Disk::action_detail0)));
-        value(&runtime.action_kind,
+        value(&runtime.remembered.basic_kind,
               bytes.subspan(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
-        value(&runtime.action_detail,
+        value(&runtime.remembered.basic_detail,
               bytes.subspan(offsetof(Disk, action_detail), sizeof(Disk::action_detail)));
-        value(&runtime.spell.detail,
+        value(&runtime.remembered.spell.detail,
               bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
-        value(&runtime.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
+        value(&runtime.remembered.item_id, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
         constexpr W8ItemStorage storage_kinds[] = {W8ItemStorage::Backpack,
                                                    W8ItemStorage::Equipment, W8ItemStorage::Pool};
-        auto& location = runtime.item_detail.item_use.item;
+        auto& location = runtime.remembered.item_detail.item_use.item;
         if constexpr (std::is_const_v<Runtime>) {
             const auto found = std::ranges::find(storage_kinds, location.storage);
             const unsigned char origin =
@@ -211,7 +211,7 @@ template<> struct Record<W8PartySlotRow> {
             value(&slot, bytes.subspan(offsetof(Disk, item_slot), 2));
             location = {origin < 3 ? storage_kinds[origin] : W8ItemStorage::None, 0, slot};
         }
-        enum_value<signed char>(&runtime.queued_action, bytes.subspan(offsetof(Disk, queued_action),
+        enum_value<signed char>(&runtime.remembered.repeat_action, bytes.subspan(offsetof(Disk, queued_action),
                                                                       sizeof(Disk::queued_action)));
         value(&runtime.party_order_index,
               bytes.subspan(offsetof(Disk, party_order_index), sizeof(Disk::party_order_index)));
@@ -227,7 +227,7 @@ template<> struct Record<W8PartySlotRow> {
               bytes.subspan(offsetof(Disk, pending_event_type), sizeof(Disk::pending_event_type)));
         value(&runtime.portrait_advance,
               bytes.subspan(offsetof(Disk, portrait_advance), sizeof(Disk::portrait_advance)));
-        value(&runtime.action_is_berserk,
+        value(&runtime.remembered.wants_berserk,
               bytes.subspan(offsetof(Disk, action_is_berserk), sizeof(Disk::action_is_berserk)));
         value(&runtime.weapon_swap_pending, bytes.subspan(offsetof(Disk, weapon_swap_pending),
                                                           sizeof(Disk::weapon_swap_pending)));
@@ -242,24 +242,24 @@ template<> struct Record<W8PartySlotRow> {
                 value(&live.spell.unused, field.subspan(4, 4));
             }
         };
-        detail(runtime.pending_action_detail,
+        detail(runtime.executing.detail_block,
                bytes.subspan(offsetof(Disk, pending_action_detail), 8),
-               runtime.pending_action == W8_ACTION_USE_ITEM);
-        detail(runtime.committed_action.detail_block,
+               runtime.executing.kind == W8_ACTION_USE_ITEM);
+        detail(runtime.committed.detail_block,
                bytes.subspan(offsetof(Disk, action_detail1), 8),
-               runtime.committed_action.kind == W8_ACTION_USE_ITEM);
-        detail(runtime.spell.detail_block, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
-        detail(runtime.item_detail, bytes.subspan(offsetof(Disk, item_detail), 8), true);
+               runtime.committed.kind == W8_ACTION_USE_ITEM);
+        detail(runtime.remembered.spell.detail_block, bytes.subspan(offsetof(Disk, spell_detail), 8), false);
+        detail(runtime.remembered.item_detail, bytes.subspan(offsetof(Disk, item_detail), 8), true);
         auto target = [&](auto& live, auto field) { nested(live, field, value, nullptr); };
-        target(runtime.target_out_of_combat,
+        target(runtime.executing.target,
                bytes.subspan(offsetof(Disk, target_out_of_combat), sizeof(CombatTarget)));
-        target(runtime.committed_action.target,
+        target(runtime.committed.target,
                bytes.subspan(offsetof(Disk, target_in_combat), sizeof(CombatTarget)));
-        target(runtime.spell.target,
+        target(runtime.remembered.spell.target,
                bytes.subspan(offsetof(Disk, spell_target), sizeof(CombatTarget)));
-        target(runtime.item_target,
+        target(runtime.remembered.item_target,
                bytes.subspan(offsetof(Disk, item_target), sizeof(CombatTarget)));
-        target(runtime.breath_target,
+        target(runtime.remembered.breath_target,
                bytes.subspan(offsetof(Disk, breath_target), sizeof(CombatTarget)));
     }
 };

@@ -664,7 +664,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
         if (CurrentGame().combat.state()->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
                 if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
-                    CurrentGame().party.rows[slot].pending_action == W8_ACTION_EQUIP) {
+                    CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     text = fmt::format("{} {}", CurrentGame().party.characters[slot].name,
                                        Data().strings[0x919]);
                     goto show_equip_message;
@@ -674,7 +674,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
             unsigned char count = 0;
             for (int slot = 0; slot < 8; ++slot) {
                 if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
-                    CurrentGame().party.rows[slot].pending_action == W8_ACTION_EQUIP) {
+                    CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
                         text = fmt::format("{}", CurrentGame().party.characters[slot].name);
@@ -1019,23 +1019,23 @@ bool IsCampActionAllowed(int party_slot)
         row = &CurrentGame().party.rows[party_slot];
         if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
             if (CurrentGame().combat.state()->characters[party_slot].dead) {
-                if (row->pending_action == W8_ACTION_EQUIP) {
+                if (row->executing.kind == W8_ACTION_EQUIP) {
                     message = Data().strings[0x903];
-                } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
+                } else if (row->committed.kind == W8_ACTION_EQUIP) {
                     message = Data().strings[0x904];
                 } else {
                     message = Data().strings[0x902];
                 }
-            } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
+            } else if (row->committed.kind == W8_ACTION_EQUIP) {
                 message = Data().strings[0x903];
             } else {
                 message = Data().strings[0x902];
             }
         } else {
-            if (row->pending_action == W8_ACTION_EQUIP) {
+            if (row->executing.kind == W8_ACTION_EQUIP) {
                 return true;
             }
-            if (row->committed_action.kind == W8_ACTION_EQUIP) {
+            if (row->committed.kind == W8_ACTION_EQUIP) {
                 message = Data().strings[0x904];
             } else {
                 message = Data().strings[0x902];
@@ -1067,12 +1067,10 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
 
     StartBreathCycle(party_slot, false);
     row = &CurrentGame().party.rows[party_slot];
-    row->pending_action = W8_ACTION_CAST_SPELL;
-    row->attack_mode[0] = spell_id;
-    row->attack_mode[1] = -1;
-    row->pending_action_detail.spell.power_level = power_level;
-    row->pending_action_detail.spell.unused = 0;
-    row->target_out_of_combat = *target;
+    row->executing.start(W8_ACTION_CAST_SPELL, spell_id);
+    row->executing.detail_block.spell.power_level = power_level;
+    row->executing.detail_block.spell.unused = 0;
+    row->executing.target = *target;
     result = ExecuteCharacterSpellCast(party_slot, spell_id, power_level, &cost, false);
     SetPartySlotSpell(party_slot, spell_id, power_level, target);
     FatigueCharacter(party_slot, cost, true, 0);
@@ -1103,12 +1101,10 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
 
     StartBreathCycle(party_slot, false);
     row = &CurrentGame().party.rows[party_slot];
-    row->pending_action = W8_ACTION_USE_ITEM;
-    row->attack_mode[0] = -1;
-    row->attack_mode[1] = -1;
-    row->pending_action_detail.item_use.kind = -1;
-    row->pending_action_detail.item_use.item = CurrentGame().party.locateItem(item);
-    row->target_out_of_combat = *target;
+    row->executing.start(W8_ACTION_USE_ITEM, -1);
+    row->executing.detail_block.item_use.kind = -1;
+    row->executing.detail_block.item_use.item = CurrentGame().party.locateItem(item);
+    row->executing.target = *target;
     const auto spell = Data().items[item->iItemNo].spell_id;
     StagePartySlotItemUse(party_slot, item, target);
     const auto use = UseItem(CurrentGame(), party_slot, CurrentGame().party.locateItem(item));

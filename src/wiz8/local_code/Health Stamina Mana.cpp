@@ -949,7 +949,7 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
     case W8_ACTION_BERSERK: {
         const auto& combat_row = CurrentGame().combat.state()->characters[party_slot];
         attack_mode = static_cast<W8AttackMode>(
-            CurrentGame().party.rows[party_slot].attack_mode[combat_row.current_hand]);
+            CurrentGame().party.rows[party_slot].executing.attack_mode[combat_row.current_hand]);
         if (attack_mode == W8_ATTACK_MODE_PUNCH) {
             cost = Random(3) + 2;
         } else if (attack_mode == W8_ATTACK_MODE_KICK) {
@@ -1064,8 +1064,8 @@ void CharacterDies(int party_slot)
     character->hp_current = 0;
     character->stamina = 0;
 
-    ResetCombatSlot(&row->target_out_of_combat);
-    ResetCombatSlot(&row->committed_action.target);
+    ResetCombatSlot(&row->executing.target);
+    ResetCombatSlot(&row->committed.target);
     if (CurrentGame().combat.active()) {
         RecordCharacterDeath(party_slot);
     }
@@ -1074,7 +1074,7 @@ void CharacterDies(int party_slot)
 
     if (CurrentGame().combat.active()) {
         CurrentGame().combat.state()->endTurnOf(PartyActor{party_slot});
-        row->pending_action = W8_ACTION_NONE;
+        row->executing.kind = W8_ACTION_NONE;
         CurrentGame().combat.state()->characters[party_slot].phase = 0;
         CurrentGame().combat.state()->characters[party_slot].dead = true;
         DropCharacterFromRound(party_slot);

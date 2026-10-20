@@ -1643,11 +1643,11 @@ W8SavedGameStatus DecodeGameStatus(W8Chunk& chunks)
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         auto& row = party.rows[slot];
         wiz8::retail::read_sized(chunks, row);
-        auto& item = row.item_detail.item_use.item;
+        auto& item = row.remembered.item_detail.item_use.item;
         item.character = slot;
         if (!row.fOccupied || !party.itemAt(item)) item = {};
-        if (row.pending_action == W8_ACTION_USE_ITEM)
-            row.pending_action_detail.item_use.item = item;
+        if (row.executing.kind == W8_ACTION_USE_ITEM)
+            row.executing.detail_block.item_use.item = item;
     }
 
     party.formation.reconcile(party.rows);

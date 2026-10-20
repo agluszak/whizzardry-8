@@ -491,13 +491,13 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
         }
         SetTargetSourceToCharacter(party_slot, &source);
         if (CurrentGame().combat.active()) {
-            if ((row->committed_action.target == *target)) {
+            if ((row->committed.target == *target)) {
                 action_targets_enemies = CharacterActionTargetsEnemies(
-                    CurrentGame().party, character, row->committed_action.kind,
-                    row->committed_action.detail, &row->committed_action.detail_block);
+                    CurrentGame().party, character, row->committed.kind,
+                    row->committed.detail, &row->committed.detail_block);
                 if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
                                                    action_targets_enemies)) {
-                    if (row->committed_action.kind == W8_ACTION_PROTECT) {
+                    if (row->committed.kind == W8_ACTION_PROTECT) {
                         DropCharacterFromRound(party_slot);
                     } else {
                         RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
@@ -505,10 +505,10 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
                 }
             }
         }
-        if ((row->target_out_of_combat == *target)) {
+        if ((row->executing.target == *target)) {
             action_targets_enemies =
-                CharacterActionTargetsEnemies(CurrentGame().party, character, row->pending_action,
-                                              row->attack_mode[0], &row->pending_action_detail);
+                CharacterActionTargetsEnemies(CurrentGame().party, character, row->executing.kind,
+                                              row->executing.attack_mode[0], &row->executing.detail_block);
             if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
                                                action_targets_enemies)) {
                 RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
@@ -1743,8 +1743,8 @@ void RefreshAllPartyTargets(void)
             }
 
             if (IsPartySlotEligible(party_slot) &&
-                (row->committed_action.kind == W8_ACTION_ATTACK ||
-                 row->committed_action.kind == W8_ACTION_BERSERK) &&
+                (row->committed.kind == W8_ACTION_ATTACK ||
+                 row->committed.kind == W8_ACTION_BERSERK) &&
                 (row->weapon_swap_pending ||
                  CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false))) {
                 const auto fallback = ChooseFallbackMonsterTarget(
@@ -1875,10 +1875,10 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
     const auto action = SelectCombatAction(actor, context);
     switch (context) {
     case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
-        row.target_out_of_combat = target;
+        row.executing.target = target;
         break;
     case W8_TARGETING_CONTEXT_IN_COMBAT:
-        row.committed_action.target = target;
+        row.committed.target = target;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
         if (gpSCSV)
@@ -1887,13 +1887,13 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
             draft->target = target;
         break;
     case W8_TARGETING_CONTEXT_SPELL:
-        row.spell.target = target;
+        row.remembered.spell.target = target;
         break;
     case W8_TARGETING_CONTEXT_ITEM:
-        row.item_target = target;
+        row.remembered.item_target = target;
         break;
     case W8_TARGETING_CONTEXT_BREATH:
-        row.breath_target = target;
+        row.remembered.breath_target = target;
         break;
     default:
         return;
@@ -1901,13 +1901,13 @@ void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlo
     if (remember_action_target && target.iType != W8_TARGET_KIND_NONE) {
         switch (action.kind) {
         case W8_ACTION_CAST_SPELL:
-            row.spell.target = target;
+            row.remembered.spell.target = target;
             break;
         case W8_ACTION_USE_ITEM:
-            row.item_target = target;
+            row.remembered.item_target = target;
             break;
         case W8_ACTION_BREATHE:
-            row.breath_target = target;
+            row.remembered.breath_target = target;
             break;
         default:
             break;
@@ -2018,7 +2018,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 bool ItemUseNeedsTarget(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    W8ItemInstance* item = CurrentGame().party.itemAt(row->item_detail.item_use.item);
+    W8ItemInstance* item = CurrentGame().party.itemAt(row->remembered.item_detail.item_use.item);
     bool normalize = ItemClassNormalizesTarget(&Data().items[item->iItemNo]);
     switch (GetSpellTargetType(GetItemSpell(item), normalize)) {
     case 3:

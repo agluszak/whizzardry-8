@@ -726,14 +726,14 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
         if (!row.enabled) return Data().strings[0x5a];
         const auto& spell =
-            Data().spells[CurrentGame().party.rows[g_selected_party_slot].spell.detail];
+            Data().spells[CurrentGame().party.rows[g_selected_party_slot].remembered.spell.detail];
         return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(g_selected_party_slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return Data().strings[0x5d];
         const auto& party = CurrentGame().party.rows[g_selected_party_slot];
-        auto* item = CurrentGame().party.itemAt(party.item_detail.item_use.item);
+        auto* item = CurrentGame().party.itemAt(party.remembered.item_detail.item_use.item);
         return fmt::format("{}: {}", Data().strings[0x5d], FormatItemDisplayName(item, false));
     }
     return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
@@ -846,7 +846,7 @@ void RefreshKeyboardMenuRows(void)
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
             offset =
-                Data().spells[CurrentGame().party.rows[g_selected_party_slot].spell.detail].realm *
+                Data().spells[CurrentGame().party.rows[g_selected_party_slot].remembered.spell.detail].realm *
                 7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset =

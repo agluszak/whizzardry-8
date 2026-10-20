@@ -30,6 +30,10 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
 W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
 
 void SetCharacterCombatAction(int party_slot, W8Action action, int notify);
+/* In combat, a member's committed action follows a change of the weapons in hand: an
+   attack keeps a reachable target, and the alternate-hand toggle flips so the
+   hand-attack values are rebuilt. Outside combat it does nothing. */
+void ReconcileCombatHandChange(Game& game, unsigned int party_slot);
 void BeginCombatExecution(void);
 void AssignCombatPhases(void);
 void UpdateCombat(void);
@@ -106,7 +110,6 @@ void EndMonsterAttack(W8MonsterInfo* monster_info);
    the attack starts; `alternate` picks the immediate versus animated turn. */
 void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate);
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info);
-void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail);
 bool CanCharReBreathe(int party_slot);
 bool TryPanicWoundedCharacter(const W8CombatSlot* target);
 short GetCombatActionProgress(int* out_total);

@@ -302,20 +302,16 @@ void ResetPartyCombatRows(void)
         if (!CurrentGame().party.rows[slot].fOccupied) {
             continue;
         }
-        CurrentGame().party.rows[slot].pending_action = W8_ACTION_NONE;
-        CurrentGame().party.rows[slot].attack_mode[0] = -1;
-        CurrentGame().party.rows[slot].attack_mode[1] = -1;
-        ResetCombatSlot(&CurrentGame().party.rows[slot].target_out_of_combat);
+        auto& row = CurrentGame().party.rows[slot];
+        row.executing.start(W8_ACTION_NONE, -1);
+        ResetCombatSlot(&row.executing.target);
 
-        ResetCombatSlot(&CurrentGame().party.rows[slot].committed_action.target);
+        ResetCombatSlot(&row.committed.target);
         RequestPartySlotRedraw(slot);
         if (slot == static_cast<unsigned int>(CurrentGame().status.selected_character)) {
             RequestRedrawParty();
         }
-        SetCharacterCombatAction(slot,
-                                 {CurrentGame().party.rows[slot].action_kind,
-                                  CurrentGame().party.rows[slot].action_detail},
-                                 0);
+        SetCharacterCombatAction(slot, row.remembered.basic(), 0);
         CurrentGame().combat.state()->characters[slot].combat_status = W8_COMBAT_PORTRAIT_EMPTY;
         CurrentGame().combat.state()->characters[slot].portrait_image = -1;
         CurrentGame().combat.state()->characters[slot].portrait_image_alternate = -1;
@@ -362,8 +358,8 @@ bool CombatMayAdvanceContinuously(void)
         if (row->fOccupied && character->hp_current != 0 &&
             CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
             CharacterActionTargetsEnemies(CurrentGame().party, character,
-                                          row->committed_action.kind, row->committed_action.detail,
-                                          &row->committed_action.detail_block)) {
+                                          row->committed.kind, row->committed.detail,
+                                          &row->committed.detail_block)) {
             return true;
         }
     }
@@ -588,7 +584,7 @@ void BeginCombatExecution(void)
         W8CombatCharacterRow* row = &CurrentGame().combat.state()->characters[slot];
         if (party->fOccupied) {
             row->extra_swings[0] = 0;
-            if (party->pending_action == W8_ACTION_ATTACK) {
+            if (party->executing.kind == W8_ACTION_ATTACK) {
                 W8Character* character = &CurrentGame().party.characters[slot];
                 if (CharacterHasTrait(character, W8_TRAIT_LIGHTNING_STRIKE) &&
                     character->Hand[0].weapon_skill == W8_SKILL_SWORD &&
@@ -631,19 +627,19 @@ void BeginCombatExecution(void)
                 !CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
                 continue;
             }
-            if (party->committed_action.kind == W8_ACTION_DEFEND) {
+            if (party->committed.kind == W8_ACTION_DEFEND) {
                 PostCharacterNotice(slot, Data().strings[0x228]);
             }
-            if (party->committed_action.kind == W8_ACTION_PROTECT) {
-                if (party->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
+            if (party->committed.kind == W8_ACTION_PROTECT) {
+                if (party->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
                     PostCharacterNotice(
                         slot,
                         fmt::sprintf(Data().strings[0x229],
                                      CurrentGame()
-                                         .party.characters[party->committed_action.target.iChar]
+                                         .party.characters[party->committed.target.iChar]
                                          .name));
-                } else if (party->committed_action.target.iType == W8_TARGET_KIND_MONSTER) {
-                    W8MonsterInfo* target = FindMonster(party->committed_action.target.iMonsterID);
+                } else if (party->committed.target.iType == W8_TARGET_KIND_MONSTER) {
+                    W8MonsterInfo* target = FindMonster(party->committed.target.iMonsterID);
                     PostCharacterNotice(
                         slot, fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0)));
                 } else {
@@ -720,15 +716,6 @@ void RecordCharacterDeath(int party_slot)
     }
 }
 
-void SetSlotAction(int party_slot, W8ActionKind action_kind, int action_detail)
-{
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-
-    row->action_kind = action_kind;
-    row->action_detail = action_detail;
-    row->action_is_berserk = action_kind == W8_ACTION_BERSERK;
-}
-
 /* Post one line to the combat log, if the log is on. The whole line is
    formatted whether or not it will be shown. */
 void CombatLog(std::string_view text)
@@ -746,8 +733,8 @@ void BeginCombatRound(void)
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].pending_action == W8_ACTION_EQUIP) {
-            CurrentGame().party.rows[party_slot].pending_action = W8_ACTION_NONE;
+        if (CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_EQUIP) {
+            CurrentGame().party.rows[party_slot].executing.kind = W8_ACTION_NONE;
         }
     }
     CurrentGame().combat.state()->equip_phase = W8CombatEquipPhase::action_selection;
@@ -788,12 +775,12 @@ void DropCharacterFromRound(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    ResetCombatSlot(&row->committed_action.target);
+    ResetCombatSlot(&row->committed.target);
     RequestPartySlotRedraw(party_slot);
     if (party_slot == CurrentGame().status.selected_character) {
         RequestRedrawParty();
     }
-    SetCharacterCombatAction(party_slot, {row->action_kind, row->action_detail}, 0);
+    SetCharacterCombatAction(party_slot, row->remembered.basic(), 0);
 }
 
 /* Tell every monster within short range about something. A monster has to be
@@ -1007,9 +994,9 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
         return false;
     }
     if (CurrentGame().combat.state()->characters[party_slot].dead) {
-        return CurrentGame().party.rows[party_slot].pending_action == action;
+        return CurrentGame().party.rows[party_slot].executing.kind == action;
     }
-    if (CurrentGame().party.rows[party_slot].committed_action.kind != action) {
+    if (CurrentGame().party.rows[party_slot].committed.kind != action) {
         if (action != W8_ACTION_DEFEND) {
             return false;
         }
@@ -1035,15 +1022,13 @@ void SwitchCharacterTo(int party_slot, W8ActionKind action)
     }
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    row->pending_action = action;
-    row->attack_mode[0] = -1;
-    row->attack_mode[1] = -1;
+    row->executing.start(action, -1);
     if (action == W8_ACTION_PROTECT) {
-        row->target_out_of_combat = row->committed_action.target;
+        row->executing.target = row->committed.target;
     }
     CurrentGame().combat.state()->characters[party_slot].dead = true;
     RequestRedraw(1 << party_slot | W8_MAIN_REDRAW_COMBAT_PROGRESS);
-    if (action == W8_ACTION_DEFEND && row->committed_action.kind != action) {
+    if (action == W8_ACTION_DEFEND && row->committed.kind != action) {
         CurrentGame().combat.state()->characters[party_slot].defend_switched = true;
     }
 }
@@ -1160,10 +1145,8 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
     if (!CurrentGame().combat.active()) {
-        row->pending_action = action;
-        row->attack_mode[0] = detail;
-        row->attack_mode[1] = -1;
-        row->pending_action_detail = data ? *data : W8ActionDetailBlock{};
+        row->executing.start(action, detail);
+        row->executing.detail_block = data ? *data : W8ActionDetailBlock{};
         if (!defer_execution) {
             ExecuteCharacterAction(party_slot);
         }
@@ -1175,9 +1158,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
         case W8_ACTION_BERSERK:
         case W8_ACTION_DEFEND:
         case W8_ACTION_PROTECT:
-            row->action_kind = action;
-            row->action_detail = detail;
-            row->action_is_berserk = (action == W8_ACTION_BERSERK);
+            row->remembered.chooseBasic(action, detail);
             break;
         default:
             break;
@@ -1212,7 +1193,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
         W8Action choice{action, detail};
         if (data) choice.detail_block = *data;
         if (gpSCSV || ItemUseDraft())
-            choice.target = CurrentGame().party.rows[party_slot].committed_action.target;
+            choice.target = CurrentGame().party.rows[party_slot].committed.target;
         SetCharacterCombatAction(party_slot, choice, notify);
         return;
     }
@@ -1260,7 +1241,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
    then aim and validate that choice for a still-active character. */
 void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
 {
-    auto& committed = CurrentGame().party.rows[party_slot].committed_action;
+    auto& committed = CurrentGame().party.rows[party_slot].committed;
     const auto previous_action = committed.kind;
     const auto action_kind = next.kind;
     W8TargetSource source;
@@ -1273,7 +1254,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
         action_kind != W8_ACTION_DEFEND && action_kind != W8_ACTION_PROTECT &&
         action_kind != W8_ACTION_WALK && action_kind != W8_ACTION_RUN)
-        CurrentGame().party.rows[party_slot].queued_action = action_kind;
+        CurrentGame().party.rows[party_slot].remembered.repeat_action = action_kind;
     row->action_changed = true;
     W8Character* character = &CurrentGame().party.characters[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -1285,7 +1266,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT)) &&
                 RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, notify)) {
                 PointCameraAtCombatTarget(
-                    &source, &CurrentGame().party.rows[party_slot].committed_action.target);
+                    &source, &CurrentGame().party.rows[party_slot].committed.target);
             }
             if (notify != 0) {
                 RevalidateSelectedTarget(party_slot);
@@ -1305,10 +1286,27 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
         PostCharacterNotice(party_slot, Data().strings[0x225]);
     } else if (previous_action == W8_ACTION_EQUIP &&
                !(CurrentGame().combat.state()->actingSlot() == party_slot &&
-                 CurrentGame().party.rows[party_slot].pending_action == W8_ACTION_EQUIP)) {
+                 CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_EQUIP)) {
         PostCharacterNotice(party_slot, Data().strings[0x226]);
     }
     RecalculateArmorClass(CurrentGame(), *character);
+}
+
+void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
+{
+    if (!game.combat.active()) return;
+    const W8ActionKind action = game.party.rows[party_slot].committed.kind;
+    if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
+        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
+            AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
+        } else if (!TargetIsInPlay(party_slot, 2,
+                                   SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
+            RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
+        }
+    }
+    game.combat.state()->characters[party_slot].alternate_hand ^= 1;
+    if (party_slot == static_cast<unsigned int>(game.status.selected_character))
+        game.events.push(CombatPanelChanged{});
 }
 
 /* Ask the slot's currently selected action which context its outputs hold:
@@ -1319,11 +1317,10 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
     W8Action action;
     switch (context) {
     case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
-        action = {row.pending_action, row.attack_mode[0], row.target_out_of_combat,
-                  row.pending_action_detail};
+        action = row.executing.action();
         break;
     case W8_TARGETING_CONTEXT_IN_COMBAT:
-        action = row.committed_action;
+        action = row.committed;
         break;
     case W8_TARGETING_CONTEXT_SHARED:
         if (gpSCSV) {
@@ -1333,13 +1330,13 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
         }
         break;
     case W8_TARGETING_CONTEXT_SPELL:
-        action = row.spell;
+        action = row.remembered.spell;
         break;
     case W8_TARGETING_CONTEXT_ITEM:
-        action = {W8_ACTION_USE_ITEM, -1, row.item_target, row.item_detail};
+        action = {W8_ACTION_USE_ITEM, -1, row.remembered.item_target, row.remembered.item_detail};
         break;
     case W8_TARGETING_CONTEXT_BREATH:
-        action = {W8_ACTION_BREATHE, -1, row.breath_target};
+        action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
         break;
     case W8_TARGETING_CONTEXT_DIALOGUE:
         action = {g_level_block->selection_kind};
@@ -1604,12 +1601,12 @@ void AssignCombatPhases(void)
         if (!party_row->fOccupied || character->hp_current == 0 ||
             character->highest_condition > W8_CONDITION_WEBBED ||
             CurrentGame().combat.state()->party_surprised) {
-            party_row->pending_action = W8_ACTION_NONE;
+            party_row->executing.kind = W8_ACTION_NONE;
             row->phase = 0;
             row->dead = true;
         } else {
             int value = Random(4) + character->initiative;
-            W8ActionKind action = party_row->committed_action.kind;
+            W8ActionKind action = party_row->committed.kind;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
                 int hand = ChooseCharacterAttackHand(party_slot);
                 if (hand != -1) {
@@ -1761,7 +1758,7 @@ void AdvanceCombatRound(void)
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         if (CurrentGame().party.rows[party_slot].fOccupied) {
             W8Character* character = &CurrentGame().party.characters[party_slot];
-            if (CurrentGame().party.rows[party_slot].pending_action == W8_ACTION_DEFEND ||
+            if (CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_DEFEND ||
                 character->highest_condition == W8_CONDITION_ASLEEP ||
                 character->highest_condition == W8_CONDITION_UNCONSCIOUS) {
                 int sides = static_cast<unsigned int>(character->uiStaminaMax) / 0x14 - 1;
@@ -2007,37 +2004,37 @@ void ExecuteCharacterAction(int party_slot)
     if (CurrentGame().combat.active()) {
         saved_dead = CurrentGame().combat.state()->characters[party_slot].dead;
         if (!saved_dead) {
-            slot->pending_action = slot->committed_action.kind;
-            slot->attack_mode[0] = slot->committed_action.detail;
-            slot->attack_mode[1] = -1;
-            slot->pending_action_detail = slot->committed_action.detail_block;
-            slot->target_out_of_combat = slot->committed_action.target;
+            slot->executing.kind = slot->committed.kind;
+            slot->executing.attack_mode[0] = slot->committed.detail;
+            slot->executing.attack_mode[1] = -1;
+            slot->executing.detail_block = slot->committed.detail_block;
+            slot->executing.target = slot->committed.target;
             CurrentGame().combat.state()->characters[party_slot].action_changed = false;
-            if ((slot->pending_action == W8_ACTION_ATTACK ||
-                 slot->pending_action == W8_ACTION_BERSERK) &&
+            if ((slot->executing.kind == W8_ACTION_ATTACK ||
+                 slot->executing.kind == W8_ACTION_BERSERK) &&
                 CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false,
                                      false)) {
                 PrepareCharacterAttacks(party_slot);
             }
-        } else if ((slot->pending_action == W8_ACTION_ATTACK ||
-                    slot->pending_action == W8_ACTION_BERSERK) &&
+        } else if ((slot->executing.kind == W8_ACTION_ATTACK ||
+                    slot->executing.kind == W8_ACTION_BERSERK) &&
                    CurrentGame().combat.state()->characters[party_slot].alternate_hand) {
             W8CombatCharacterRow* row = &CurrentGame().combat.state()->characters[party_slot];
             row->hand_attack_values[0] = 0;
             row->hand_attack_values[1] = 0;
             row->uiSwingsRemaining = 0;
-            slot->pending_action = W8_ACTION_NONE;
+            slot->executing.kind = W8_ACTION_NONE;
         }
     }
-    action = slot->pending_action;
-    detail = slot->attack_mode[0];
+    action = slot->executing.kind;
+    detail = slot->executing.attack_mode[0];
     if (CurrentGame().combat.active()) {
         if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
             CurrentGame().combat.state()->characters[party_slot].dead = true;
             RequestRedraw((1 << party_slot) | W8_MAIN_REDRAW_COMBAT_PROGRESS);
         }
         if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, false)) {
-            slot->pending_action = W8_ACTION_NONE;
+            slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
         SetTargetSourceToCharacter(party_slot, &source);
@@ -2055,11 +2052,11 @@ void ExecuteCharacterAction(int party_slot)
             case 5:
             case 6:
             case 10:
-                slot->pending_action = W8_ACTION_NONE;
+                slot->executing.kind = W8_ACTION_NONE;
                 action = W8_ACTION_NONE;
                 break;
             case 7:
-                slot->pending_action = W8_ACTION_NONE;
+                slot->executing.kind = W8_ACTION_NONE;
                 action = W8_ACTION_NONE;
                 RemoveCharacterCondition(party_slot, W8_CONDITION_WEBBED, true);
                 break;
@@ -2078,17 +2075,17 @@ void ExecuteCharacterAction(int party_slot)
 
                 if (interrupt == 8 && GetBestHandRangeCategory(character) < W8_RANGE_LONG) {
                     action = W8_ACTION_BERSERK;
-                    slot->pending_action = W8_ACTION_BERSERK;
+                    slot->executing.kind = W8_ACTION_BERSERK;
                 } else {
                     action = W8_ACTION_ATTACK;
-                    slot->pending_action = W8_ACTION_ATTACK;
+                    slot->executing.kind = W8_ACTION_ATTACK;
                 }
                 target = PickReachableSlotByDisposition(party_slot, relationship);
                 if (target == -1) {
                     DebugMessage(1,
                                  fmt::format("ERROR: {} is attacking friends with nobody in range",
                                              character->name));
-                    slot->pending_action = W8_ACTION_NONE;
+                    slot->executing.kind = W8_ACTION_NONE;
                     action = W8_ACTION_NONE;
                 } else {
                     if (!saved_dead) {
@@ -2099,19 +2096,19 @@ void ExecuteCharacterAction(int party_slot)
             }
         }
         if (CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, false)) {
-            FaceCharacterTowardCombatTarget(party_slot, &slot->target_out_of_combat);
+            FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
     if (CharacterActionTargetsEnemies(CurrentGame().party, character, action, detail,
-                                      &slot->pending_action_detail) &&
+                                      &slot->executing.detail_block) &&
         (!CurrentGame().combat.active() ||
          (interrupt == -1 && !CurrentGame().combat.state()->characters[party_slot].berserk))) {
         SetTargetSourceToCharacter(party_slot, &enemy_source);
-        MakeTargetGroupHostile(&enemy_source, &slot->target_out_of_combat);
+        MakeTargetGroupHostile(&enemy_source, &slot->executing.target);
     }
     switch (action) {
     case W8_ACTION_CAST_SPELL: {
-        unsigned int power = slot->pending_action_detail.spell.power_level;
+        unsigned int power = slot->executing.detail_block.spell.power_level;
         int step_cost;
         int step;
         fatigue_cost = 0;
@@ -2166,7 +2163,7 @@ void ExecuteCharacterAction(int party_slot)
         break;
     case W8_ACTION_USE_ITEM: {
         const auto use =
-            UseItem(CurrentGame(), party_slot, slot->pending_action_detail.item_use.item);
+            UseItem(CurrentGame(), party_slot, slot->executing.detail_block.item_use.item);
         fatigue_cost = use.fatigue_cost.value_or(-1);
         if (use.effect == 0) {
             result = 0;
@@ -2186,12 +2183,12 @@ void ExecuteCharacterAction(int party_slot)
         action = W8_ACTION_NONE;
         if (interrupt == -1 && !saved_dead) {
             action = W8_ACTION_DEFEND;
-            slot->pending_action = W8_ACTION_DEFEND;
+            slot->executing.kind = W8_ACTION_DEFEND;
             if (g_settings.verbose_combat_messages != 0) {
                 PostCharacterNotice(party_slot, Data().strings[0x234]);
             }
         } else {
-            slot->pending_action = W8_ACTION_NONE;
+            slot->executing.kind = W8_ACTION_NONE;
         }
     }
     if (CurrentGame().combat.state() != nullptr) {
@@ -2199,9 +2196,9 @@ void ExecuteCharacterAction(int party_slot)
             CurrentGame().combat.state()->passive_round = 0;
         }
         if (CharacterActionTargetsEnemies(CurrentGame().party, character, action, detail,
-                                          &slot->pending_action_detail) &&
-            slot->target_out_of_combat.iType >= W8_TARGET_KIND_MONSTER &&
-            slot->target_out_of_combat.iType <= W8_TARGET_KIND_PLACE) {
+                                          &slot->executing.detail_block) &&
+            slot->executing.target.iType >= W8_TARGET_KIND_MONSTER &&
+            slot->executing.target.iType <= W8_TARGET_KIND_PLACE) {
             CurrentGame().combat.state()->combat_update_count = 0;
         }
     }
@@ -2225,7 +2222,7 @@ void ExecuteCharacterAction(int party_slot)
 void ComputeCharacterActionPhase(int party_slot)
 {
     W8CombatCharacterRow* row = &CurrentGame().combat.state()->characters[party_slot];
-    W8ActionKind action = CurrentGame().party.rows[party_slot].pending_action;
+    W8ActionKind action = CurrentGame().party.rows[party_slot].executing.kind;
     if ((action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) &&
         CanAnyHandReachTarget(party_slot) &&
         TargetIsInPlay(party_slot, 2,
@@ -2652,11 +2649,11 @@ ActionStep ExecuteCharacterSpecialAttack(int party_slot)
     CurrentGame().combat.state()->breath_visual->auto_release = true;
     SetTargetSourceToCharacter(party_slot, &source);
     PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
-                               &CurrentGame().party.rows[party_slot].target_out_of_combat,
+                               &CurrentGame().party.rows[party_slot].executing.target,
                                monster_targets, char_targets, W8AreaSightRule::RequireLineOfSight);
     ProvokeListedMonsterGroups(&source, monster_targets);
     ResolveMonsterGroupAttack(0x1e, &source,
-                              &CurrentGame().party.rows[party_slot].target_out_of_combat,
+                              &CurrentGame().party.rows[party_slot].executing.target,
                               char_targets, monster_targets);
     FatigueCharacter(
         party_slot,
@@ -2685,7 +2682,7 @@ bool CreateCharacterBreathEffect(int party_slot)
     double pitch;
 
     SetTargetSourceToCharacter(party_slot, &source);
-    target = &CurrentGame().party.rows[party_slot].target_out_of_combat;
+    target = &CurrentGame().party.rows[party_slot].executing.target;
     PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
                                char_targets, W8AreaSightRule::RequireLineOfSight);
     if (monster_targets.empty()) {
@@ -2839,7 +2836,7 @@ int GetConditionInterrupt(W8TargetSource* source)
         party_slot = source->iChar;
         character = &CurrentGame().party.characters[party_slot];
         condition_turns = character->uiCondition;
-        moving = CurrentGame().party.rows[party_slot].pending_action == W8_ACTION_RUN;
+        moving = CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_RUN;
         if (CanAnyHandReachTarget(party_slot)) {
             can_attack = CanPartySlotAttackAnyTarget(party_slot, 1, false);
             second_hand_attack = CanPartySlotAttackAnyTarget(party_slot, 1, true);
@@ -3030,7 +3027,7 @@ static void StepResolvingAction(const CombatActor& actor)
         return;
     }
     const int slot = party->slot;
-    W8ActionKind pending_action = CurrentGame().party.rows[slot].pending_action;
+    W8ActionKind pending_action = CurrentGame().party.rows[slot].executing.kind;
     ActionStep result;
     if (pending_action >= W8_ACTION_ATTACK && pending_action < W8_ACTION_BREATHE) {
         result = ResolveCharacterAttack(slot);
@@ -3055,19 +3052,19 @@ static void FinishAction(const CombatActor& actor)
     const int slot = party->slot;
     if (!CurrentGame().combat.state()->characters[slot].action_changed) {
         W8PartySlotRow* row = &CurrentGame().party.rows[slot];
-        switch (row->committed_action.kind) {
+        switch (row->committed.kind) {
         case W8_ACTION_ATTACK:
         case W8_ACTION_BERSERK:
         case W8_ACTION_DEFEND:
         case W8_ACTION_PROTECT:
             break;
         default:
-            ResetCombatSlot(&row->committed_action.target);
+            ResetCombatSlot(&row->committed.target);
             RequestPartySlotRedraw(slot);
             if (slot == CurrentGame().status.selected_character) {
                 RequestRedrawParty();
             }
-            SetCharacterCombatAction(slot, {row->action_kind, row->action_detail}, 0);
+            SetCharacterCombatAction(slot, row->remembered.basic(), 0);
         }
     }
     ComputeCharacterActionPhase(slot);
@@ -3173,7 +3170,7 @@ void ScheduleCombatActor(void)
                     CurrentGame().combat.state()->schedule(PartyActor{slot});
                     break;
                 }
-                row->pending_action = W8_ACTION_NONE;
+                row->executing.kind = W8_ACTION_NONE;
                 combat_row->phase = 0;
                 if (!combat_row->dead) {
                     combat_row->dead = true;
@@ -3236,10 +3233,10 @@ void ScheduleCombatActor(void)
                 W8TargetingContext context;
                 W8ActionKind action;
                 if (!CurrentGame().combat.state()->characters[*slot].dead) {
-                    action = CurrentGame().party.rows[*slot].committed_action.kind;
+                    action = CurrentGame().party.rows[*slot].committed.kind;
                     context = W8_TARGETING_CONTEXT_IN_COMBAT;
                 } else {
-                    action = CurrentGame().party.rows[*slot].pending_action;
+                    action = CurrentGame().party.rows[*slot].executing.kind;
                     context = W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
                 }
                 if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
@@ -3306,7 +3303,7 @@ void ScheduleCombatActor(void)
                             CurrentGame().party.characters[slot].hp_current != 0 &&
                             CurrentGame().party.characters[slot].highest_condition <
                                 W8_CONDITION_TURNCOAT &&
-                            CurrentGame().party.rows[slot].pending_action == W8_ACTION_EQUIP) {
+                            CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                             ++CurrentGame().combat.state()->equip_pending;
                             if (CurrentGame().combat.state()->equip_phase ==
                                 W8CombatEquipPhase::action_selection) {

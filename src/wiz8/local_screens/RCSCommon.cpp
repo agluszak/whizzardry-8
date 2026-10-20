@@ -152,7 +152,7 @@ bool CanSelectRcsPartySlot(int ui_slot)
         if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
             return false;
         }
-        if (CurrentGame().party.rows[ui_slot].pending_action != W8_ACTION_EQUIP) {
+        if (CurrentGame().party.rows[ui_slot].executing.kind != W8_ACTION_EQUIP) {
             return false;
         }
     }

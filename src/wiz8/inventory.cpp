@@ -281,7 +281,7 @@ static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> repl
         if (location.storage == W8ItemStorage::Equipment && IsHandSlot(location.slot))
             changed_hands.set(location.character);
         for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            const auto& action = party.rows[slot].committed_action;
+            const auto& action = party.rows[slot].committed;
             if (game.status.game_started && party.rows[slot].fOccupied &&
                 action.kind == W8_ACTION_USE_ITEM && action.detail_block.item_use.item == location)
                 DropCharacterFromRound(slot);
@@ -1613,8 +1613,8 @@ void BindCharacterItems(Game& game, int party_slot, bool announce)
             return;
         }
         if (game.combat.state()->resolvingTurnOf(PartyActor{party_slot}) &&
-            (game.party.rows[party_slot].pending_action == W8_ACTION_ATTACK ||
-             game.party.rows[party_slot].pending_action == W8_ACTION_BERSERK)) {
+            (game.party.rows[party_slot].executing.kind == W8_ACTION_ATTACK ||
+             game.party.rows[party_slot].executing.kind == W8_ACTION_BERSERK)) {
             game.events.push(TextNotice{
                 W8_FONT_PALETTE_WHITE,
                 fmt::sprintf(Data().strings[0x1f7], game.party.characters[party_slot].name)});
@@ -1938,7 +1938,7 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
             (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL &&
              record->equip_class < W8_ITEM_EQUIP_CLASS_KEY)) {
             if (!game.combat.active()) {
-                W8CombatSlot* aimed = &game.party.rows[party_slot].target_out_of_combat;
+                W8CombatSlot* aimed = &game.party.rows[party_slot].executing.target;
                 if (aimed->iType == W8_TARGET_KIND_CHARACTER) {
                     SetTargetSourceToCharacter(aimed->iChar, &target);
                 } else if (aimed->iType == W8_TARGET_KIND_MONSTER) {

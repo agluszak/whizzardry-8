@@ -577,7 +577,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             character->Hand[0].in_play && TryCharacterAction(slot, W8_ACTION_PROTECT, false) &&
             row->interception_count < character->Hand[0].attacks) {
             W8CombatSlot* guarded =
-                !row->dead ? &party_row->committed_action.target : &party_row->target_out_of_combat;
+                !row->dead ? &party_row->committed.target : &party_row->executing.target;
             if ((*target == *guarded) && CharacterHasAttackOn(slot, target)) {
                 SetTargetSourceToCharacter(slot, &guardian);
                 candidates.push_back(guardian);
@@ -722,7 +722,7 @@ bool CanCharacterAttackItsTarget(int party_slot)
         return false;
     }
     return CharacterHasAttackOn(party_slot,
-                                &CurrentGame().party.rows[party_slot].target_out_of_combat);
+                                &CurrentGame().party.rows[party_slot].executing.target);
 }
 
 /* What an attack mode is worth to hit with, which depends on whether the
@@ -2289,7 +2289,7 @@ static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode atta
         score -= penalty;
     }
     if (ignore_target_defenses == 0) {
-        target = &CurrentGame().party.rows[party_slot].target_out_of_combat;
+        target = &CurrentGame().party.rows[party_slot].executing.target;
         score -= GetTargetArmorClass(target, attack_mode) * 5;
         target_sum = SumTargetCombatAttributes(*target);
         attacker_sum = SumCharacterCombatAttributes(*character);
@@ -2994,8 +2994,8 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             if (i == party_slot) {
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
             } else {
-                if ((row->target_out_of_combat.iType == W8_TARGET_KIND_CHARACTER &&
-                     row->target_out_of_combat.iChar == i) ||
+                if ((row->executing.target.iType == W8_TARGET_KIND_CHARACTER &&
+                     row->executing.target.iChar == i) ||
                     !CharacterActionReachesSlot(
                         party_slot, action, i,
                         SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
@@ -3008,9 +3008,9 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
     for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* monster_info = monster_owner.get();
         if (monster_info->fActive && monster_info->hp_current != 0 && monster_info->pCombat &&
-            (CurrentGame().party.rows[party_slot].target_out_of_combat.iType !=
+            (CurrentGame().party.rows[party_slot].executing.target.iType !=
                  W8_TARGET_KIND_MONSTER ||
-             CurrentGame().party.rows[party_slot].target_out_of_combat.iMonsterID !=
+             CurrentGame().party.rows[party_slot].executing.target.iMonsterID !=
                  monster_info->location_id) &&
             AssessMonsterAim(party_slot, action, monster_info,
                              SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
@@ -3324,11 +3324,11 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
     accuracy = GetTargetAttackAttributes(
         party_slot, row->current_hand,
         static_cast<W8AttackMode>(
-            CurrentGame().party.rows[party_slot].attack_mode[row->current_hand]),
+            CurrentGame().party.rows[party_slot].executing.attack_mode[row->current_hand]),
         0);
     CombatLog(fmt::format("TO HIT (MISSILE ACCURACY): Chance {:d}", accuracy));
     FireMissileSourceToTarget(missile_type, &source,
-                              &CurrentGame().party.rows[party_slot].target_out_of_combat,
+                              &CurrentGame().party.rows[party_slot].executing.target,
                               &attack_block, false, range_category, accuracy);
 }
 
@@ -3480,7 +3480,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     } else {
         mode = attack_mode;
     }
-    party_row->attack_mode[hand] = mode;
+    party_row->executing.attack_mode[hand] = mode;
     if (row->hand_attack_values[hand] == 0) {
         DebugMessage(
             1, fmt::format(
@@ -3568,8 +3568,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             }
         }
     }
-    if (party_row->target_out_of_combat.iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = FindMonster(party_row->target_out_of_combat.iMonsterID);
+    if (party_row->executing.target.iType == W8_TARGET_KIND_MONSTER) {
+        monster_info = FindMonster(party_row->executing.target.iMonsterID);
         CurrentGame().combat.state()->attack_message += GetMonsterName(monster_info, 0, 0);
         PointCameraAtMonster(monster_info, false, true);
         if (range <= W8_RANGE_SHORT && !IsMonsterFacingParty(monster_info)) {
@@ -3598,21 +3598,21 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             }
         }
     } else {
-        if (party_row->target_out_of_combat.iType != W8_TARGET_KIND_CHARACTER) {
+        if (party_row->executing.target.iType != W8_TARGET_KIND_CHARACTER) {
             Fail("CHAR_CURRENT_TARGET(uiChar).iType == TARGET_TYPE_CHAR");
         }
-        if (party_row->target_out_of_combat.iChar == -1) {
+        if (party_row->executing.target.iChar == -1) {
             Fail("CHAR_CURRENT_TARGET(uiChar).iChar != BAD_INDEX");
         }
         CurrentGame().combat.state()->attack_message +=
-            CurrentGame().party.characters[party_row->target_out_of_combat.iChar].name;
+            CurrentGame().party.characters[party_row->executing.target.iChar].name;
         if (range <= W8_RANGE_SHORT &&
-            !PositionFacesAsDecided(party_row->target_out_of_combat.iChar, party_slot)) {
-            if (CharacterNoticesAttacker(party_row->target_out_of_combat.iChar)) {
-                FacePositionAsDecided(party_row->target_out_of_combat.iChar, party_slot);
+            !PositionFacesAsDecided(party_row->executing.target.iChar, party_slot)) {
+            if (CharacterNoticesAttacker(party_row->executing.target.iChar)) {
+                FacePositionAsDecided(party_row->executing.target.iChar, party_slot);
             } else {
                 CurrentGame().combat.state()->unaware = PositionFacesOppositeToDecided(
-                    party_slot, party_row->target_out_of_combat.iChar);
+                    party_slot, party_row->executing.target.iChar);
             }
         }
     }
@@ -3704,16 +3704,16 @@ ActionStep ResolveCharacterAttack(int party_slot)
     } else if (!TargetIsInPlay(
                    party_slot, hand,
                    SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
-        ReportInvalidAttackTarget(party_row->target_out_of_combat, source);
+        ReportInvalidAttackTarget(party_row->executing.target, source);
         return ActionStep::finishing;
     } else {
-        attack_mode = static_cast<W8AttackMode>(party_row->attack_mode[hand]);
+        attack_mode = static_cast<W8AttackMode>(party_row->executing.attack_mode[hand]);
         if (!row->attack_sound_played) {
             MakePCAttackSound(row, &character->Hand[hand], attack_mode, true, -1);
             row->attack_sound_played = true;
             return ActionStep::resolving;
         }
-        target = party_row->target_out_of_combat;
+        target = party_row->executing.target;
         range = GetCharAttackRange(character, hand);
         if (target.iType == W8_TARGET_KIND_CHARACTER) {
             MarkDefenderSkillUse(target.iChar);
@@ -3753,7 +3753,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 CurrentGame().combat.state()->natural_attack = 0;
 
             } else {
-                CurrentGame().combat.state()->TargetHit = party_row->target_out_of_combat;
+                CurrentGame().combat.state()->TargetHit = party_row->executing.target;
 
                 guaranteed_penetration = guaranteed_hit;
             }
@@ -4088,7 +4088,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
         row->hand_records[hand].combat_skill = character->Hand[hand].combat_skill;
         row->hand_records[hand].dual_wielding = character->dual_wielding;
     }
-    FatigueCharacter(party_slot, CharacterActionFatigueCost(party_slot, party_row->pending_action),
+    FatigueCharacter(party_slot, CharacterActionFatigueCost(party_slot, party_row->executing.kind),
                      true, 0);
     if (ConsumeAttackItems(CurrentGame(), party_slot, hand, row->current_equip_slot,
                            row->paired_equip_slot))
@@ -4105,7 +4105,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             Fail("uiHand < HAND_COUNT");
         }
         if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
-            (target == party_row->target_out_of_combat) &&
+            (target == party_row->executing.target) &&
             TargetIsInPlay(party_slot, hand,
                            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
             if (!verbose && (fumbled || source.target_diverted)) {
@@ -4113,7 +4113,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 PostCharacterNotice(
                     party_slot,
                     fmt::sprintf(Data().strings[0x269],
-                                 CombatTargetName(&source, &party_row->target_out_of_combat)));
+                                 CombatTargetName(&source, &party_row->executing.target)));
             }
             ResetCombatSlot(&CurrentGame().combat.state()->TargetHit);
             row->attack_sound_played = false;
@@ -4131,7 +4131,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             PostCharacterNotice(
                 party_slot,
                 fmt::sprintf(Data().strings[0x269],
-                             CombatTargetName(&source, &party_row->target_out_of_combat)));
+                             CombatTargetName(&source, &party_row->executing.target)));
             if (CurrentGame().combat.state()->attack_report.deferred) {
                 ReportCharacterAttackResult(party_slot,
                                             &CurrentGame().combat.state()->attack_report);

@@ -419,7 +419,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
             if (CurrentGame().combat.active() && !IsEquippableItemClass(item) &&
                 (CurrentGame().combat.state()->equip_phase ==
                      W8CombatEquipPhase::action_selection ||
-                 CurrentGame().party.rows[screen.ReviewedPartySlot()].pending_action !=
+                 CurrentGame().party.rows[screen.ReviewedPartySlot()].executing.kind !=
                      W8_ACTION_EQUIP)) {
                 return;
             }
@@ -1784,13 +1784,13 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         target.item = location;
         StartBreathCycle(party_slot, false);
         W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-        if (row->pending_action == W8_ACTION_USE_ITEM &&
+        if (row->executing.kind == W8_ACTION_USE_ITEM &&
             Data().items
-                    [CurrentGame().party.itemAt(row->pending_action_detail.item_use.item)->iItemNo]
+                    [CurrentGame().party.itemAt(row->executing.detail_block.item_use.item)->iItemNo]
                         .spell_id == W8_SPELL_IDENTIFY_ITEM) {
             reidentify = true;
             result = CommitPartySlotItemUse(
-                party_slot, CurrentGame().party.itemAt(row->pending_action_detail.item_use.item),
+                party_slot, CurrentGame().party.itemAt(row->executing.detail_block.item_use.item),
                 &target);
         } else {
             result = CommitPartySlotSpell(party_slot, W8_SPELL_IDENTIFY_ITEM, 8, &target);
@@ -2108,7 +2108,7 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                 if (!CurrentGame().combat.active() ||
                     (CurrentGame().combat.state()->equip_phase !=
                          W8CombatEquipPhase::action_selection &&
-                     CurrentGame().party.rows[screen.ReviewedPartySlot()].pending_action ==
+                     CurrentGame().party.rows[screen.ReviewedPartySlot()].executing.kind ==
                          W8_ACTION_EQUIP)) {
                     control->SetEnabled(true);
                     continue;

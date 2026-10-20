@@ -469,22 +469,22 @@ void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8Co
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    row->spell.kind = W8_ACTION_CAST_SPELL;
-    row->spell.detail = spell_id;
-    row->spell.detail_block.spell.power_level = power_level;
-    row->spell.detail_block.spell.unused = 0;
-    row->spell.target = *target;
+    row->remembered.spell.kind = W8_ACTION_CAST_SPELL;
+    row->remembered.spell.detail = spell_id;
+    row->remembered.spell.detail_block.spell.power_level = power_level;
+    row->remembered.spell.detail_block.spell.unused = 0;
+    row->remembered.spell.target = *target;
 }
 
 void SetCharacterSpell(const W8Character* character, const W8Action& spell)
 {
     const int party_slot = CharacterPointerToPartySlot(character);
     auto& row = CurrentGame().party.rows[party_slot];
-    row.spell = spell;
+    row.remembered.spell = spell;
     if (CurrentGame().combat.active()) {
         SetCharacterCombatAction(party_slot, spell, 1);
     } else {
-        row.target_out_of_combat = spell.target;
+        row.executing.target = spell.target;
         ChooseAction(party_slot, spell.kind, spell.detail, &spell.detail_block, false, 1);
     }
     StartBreathCycle(party_slot, true);
@@ -500,7 +500,7 @@ void StartCharacterBreathAttack(int party_slot)
         Fail("CanCharReBreathe(uiChar)");
     }
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
-    AimAtTarget(party_slot, &row->breath_target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, &row->remembered.breath_target, GetEditedActionContext(party_slot));
     if (IsSpellTargetStillValid(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH))) {
         StartBreathCycle(party_slot, false);
@@ -851,7 +851,7 @@ unsigned char g_profession_spellbooks[15] = {
 void StartCharacterSpellCast(int party_slot, int power_level)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    auto choice = row->spell;
+    auto choice = row->remembered.spell;
     if (power_level != 0) choice.detail_block.spell.power_level = power_level;
     if (CurrentGame().combat.active()) {
         SetCharacterCombatAction(party_slot, choice, 1);
@@ -861,7 +861,7 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     }
     AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
 
-    if (IsSpellTargetStillValid(party_slot, row->spell.detail,
+    if (IsSpellTargetStillValid(party_slot, row->remembered.spell.detail,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
         StartBreathCycle(party_slot, false);
         return;
@@ -875,16 +875,16 @@ void StartCharacterSpellCast(int party_slot, int power_level)
 void StartCharacterItemUse(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    W8CombatSlot saved_target = row->item_target;
+    W8CombatSlot saved_target = row->remembered.item_target;
 
     if (!CurrentGame().combat.active()) {
-        AimAtTarget(party_slot, &row->item_target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, &row->remembered.item_target, GetEditedActionContext(party_slot));
     }
-    ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->item_detail, false, 1);
+    ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->remembered.item_detail, false, 1);
     AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
 
     if (IsSpellTargetStillValid(
-            party_slot, GetItemSpell(CurrentGame().party.itemAt(row->item_detail.item_use.item)),
+            party_slot, GetItemSpell(CurrentGame().party.itemAt(row->remembered.item_detail.item_use.item)),
             SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
         StartBreathCycle(party_slot, false);
         return;
@@ -1105,8 +1105,8 @@ enum { W8_SPELL_POWER_AS_AFFORDABLE = 8, W8_SPELL_POWER_MAX = 7 };
 bool CanPartySlotCastRecordedSpell(int party_slot)
 {
     const W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    int spell_id = row->spell.detail;
-    int power_level = row->spell.detail_block.spell.power_level;
+    int spell_id = row->remembered.spell.detail;
+    int power_level = row->remembered.spell.detail_block.spell.power_level;
 
     if (spell_id == W8_SPELL_NONE) {
         return false;
@@ -1118,7 +1118,7 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
     if (CurrentGame().party.characters[party_slot].spell_learned[spell_id] != 1) {
         return false;
     }
-    if (row->spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
+    if (row->remembered.spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
         Data().spells[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
         CurrentGame().combat.active()) {
         return false;
@@ -1149,8 +1149,8 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
 int GetAffordableSpellPowerLevel(int party_slot)
 {
     const W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    int spell_id = row->spell.detail;
-    int power_level = row->spell.detail_block.spell.power_level;
+    int spell_id = row->remembered.spell.detail;
+    int power_level = row->remembered.spell.detail_block.spell.power_level;
     int cost;
 
     if (spell_id == W8_SPELL_NONE) {
@@ -1163,7 +1163,7 @@ int GetAffordableSpellPowerLevel(int party_slot)
     if (CurrentGame().party.characters[party_slot].spell_learned[spell_id] != 1) {
         return 0;
     }
-    if (row->spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
+    if (row->remembered.spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
         Data().spells[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
         CurrentGame().combat.active()) {
         return 0;
@@ -1205,12 +1205,12 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     int spell_id;
     bool normalize;
 
-    const auto location = row->item_detail.item_use.item;
+    const auto location = row->remembered.item_detail.item_use.item;
     if (location.storage == W8ItemStorage::None || location.storage == W8ItemStorage::Hand ||
         (location.storage == W8ItemStorage::Pool && CurrentGame().combat.active()))
         return false;
     item = CurrentGame().party.itemAt(location);
-    if (item == 0 || item->iItemNo == -1 || item->iItemNo != row->item_id) {
+    if (item == 0 || item->iItemNo == -1 || item->iItemNo != row->remembered.item_id) {
         return false;
     }
     if (!CanUseItemForAction(party_slot, item)) {
@@ -1223,7 +1223,7 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     spell_id = GetItemSpell(item);
     normalize = ItemClassNormalizesTarget(&Data().items[item->iItemNo]);
     if (GetSpellTargetType(spell_id, normalize) == W8_TARGET_TYPE_CASTER &&
-        row->item_target.iChar != party_slot) {
+        row->remembered.item_target.iChar != party_slot) {
         return false;
     }
     if (!SpellUsableNow(spell_id, false)) {
@@ -2013,7 +2013,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
     PopulateSpellTargetMarkers(spell_id, power, &source,
-                               &CurrentGame().party.rows[party_slot].target_out_of_combat, monsters,
+                               &CurrentGame().party.rows[party_slot].executing.target, monsters,
                                party, W8AreaSightRule::RequireLineOfSight);
 
     bool valid = true;
@@ -2468,7 +2468,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     } else {
         power_cast_bonus = (character->skills[W8_SKILL_POWER_CAST].level >> 2) + 1;
     }
-    aim = &CurrentGame().party.rows[party_slot].target_out_of_combat;
+    aim = &CurrentGame().party.rows[party_slot].executing.target;
     if (power_level == 8) {
         power_level = ChooseSpellPowerLevelForTarget(character, spell_id, *aim, power_cast_bonus);
         if (power_level == 0) {

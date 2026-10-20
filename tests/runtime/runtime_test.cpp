@@ -1145,7 +1145,7 @@ void InventoryChestScenario()
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
     CAPTURE(ItemUseDraft(), gXStatus.iTargetingMode, (CurrentGame().party.held.item.iItemNo != -1),
-            potion.stack_count, CurrentGame().party.rows[slot].pending_action);
+            potion.stack_count, CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
@@ -1227,8 +1227,8 @@ void CampSpellsScenario()
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
     REQUIRE(CampScreenState()->items.action() == W8_CAMP_ITEM_ACTION_NONE);
-    REQUIRE(CurrentGame().party.rows[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
-    REQUIRE(CurrentGame().party.rows[slot].spell.target.iChar == slot);
+    REQUIRE(CurrentGame().party.rows[slot].remembered.spell.target.iType == W8_TARGET_KIND_CHARACTER);
+    REQUIRE(CurrentGame().party.rows[slot].remembered.spell.target.iChar == slot);
     caster.uiCondition[W8_CONDITION_HEXED] = 0;
 }
 
@@ -1338,8 +1338,8 @@ void CheckGameplayUi(GameHarness& game)
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
-        REQUIRE(CurrentGame().party.rows[slot].spell.detail == W8_SPELL_LIGHT);
-        REQUIRE(CurrentGame().party.rows[slot].spell.detail_block.spell.power_level == 2);
+        REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail == W8_SPELL_LIGHT);
+        REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail_block.spell.power_level == 2);
     }
     REQUIRE(gXStatus.world_paused);
     REQUIRE(WorldAdvancementBlocked());
