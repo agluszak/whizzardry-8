@@ -18,6 +18,9 @@ namespace render {
 class RenderContext;
 class MeshPose;
 
+// Existing-game callers opt into resolving their owner from a VSG hit.
+MeshInstance* gameOwner(const Pick& pick);
+
 inline constexpr vsg::Mask render_mask = 1;
 inline constexpr vsg::Mask pick_mask = 2;
 
