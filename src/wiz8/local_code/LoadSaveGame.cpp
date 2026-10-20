@@ -38,6 +38,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/entities/cursor_nodes.h"
@@ -52,13 +53,13 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/Magic.h"
@@ -73,16 +74,13 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/AutomapScreen.h"
-#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
@@ -96,12 +94,12 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
@@ -279,15 +277,6 @@ bool ReadCharacterNameMatches(W8Chunk& chunk, std::string_view path)
     return memchr(name, '\0', sizeof(name)) && CompareTextIgnoreAsciiCase(name, path) == 0;
 }
 
-template<class F> void ForEachShownMessage(F&& visit)
-{
-    for (int box = 0; box < 4; ++box) {
-        for (unsigned int line = 0; line < CurrentGame().status.text_box_lines_shown[box]; ++line) {
-            visit(CurrentGame().message_log[box][line]);
-        }
-    }
-}
-
 /* The STAT record mirrors the id counters and status block of the game's status. */
 wiz8::save::LevelStatusHeader CaptureStatusHeader(const GameStatus& status)
 {
@@ -315,21 +304,71 @@ void ApplyStatusHeader(const wiz8::save::LevelStatusHeader& header, GameStatus& 
     status.retail.status_header_suffix = header.status_suffix;
 }
 
-/* The HYPN record: the monster-control effect's fields in file order. The
-   pointer-list vectors and the result state are rebuilt, not saved. */
-template<class Entry, class Field> void ForEachMonsterControlField(Entry& effect, Field&& field)
+/* Each text box's used lines, with the time left on the countdowns of the lines still
+   shown. */
+wiz8::save::MessageBoxes CaptureMessageBoxes(const Game& game)
 {
-    field(effect.kind);
-    field(effect.turns_remaining);
-    field(effect.Source);
-    field(effect.target);
-    field(effect.OrigSource);
-    field(effect.OrigTarget);
-    field(effect.recast);
-    field(effect.sustained);
-    field(effect.missiles_pending);
-    field(effect.targets_resolved);
-    field(effect.definition);
+    wiz8::save::MessageBoxes boxes;
+    for (std::size_t box = 0; box < boxes.size(); ++box) {
+        const auto used =
+            std::min<std::size_t>(game.status.text_box_lines_used[box], W8_TEXT_BOX_LINES);
+        for (std::size_t index = 0; index < used; ++index) {
+            auto& line = boxes[box].emplace_back(game.message_log[box][index]);
+            if (index < game.status.text_box_lines_shown[box])
+                line.saved_remaining_ms = static_cast<std::uint32_t>(TimeUntilDeadline(line.clock));
+        }
+    }
+    return boxes;
+}
+
+/* Install a save's message lines; the load re-arms the countdowns of those still shown. */
+void InstallMessageBoxes(wiz8::save::MessageBoxes boxes, Game& game)
+{
+    for (std::size_t box = 0; box < boxes.size(); ++box) {
+        auto& lines = boxes[box];
+        game.status.text_box_lines_used[box] = static_cast<unsigned int>(lines.size());
+        std::ranges::move(lines, game.message_log[box].begin());
+    }
+}
+
+/* The story's location variables with the level script's state folded in, which leaving
+   the level would record. */
+std::vector<W8LocationVariable> CaptureLocationVariables(const Game& game, const World* world)
+{
+    auto variables = game.story.location_variables;
+    if (!world || !world->script) return variables;
+    const int level = GetLoadedLevelID();
+    for (const auto& [name, value] : world->script->captureState()) {
+        const auto found = std::ranges::find_if(variables, [&](const auto& variable) {
+            return variable.level == level && CompareTextIgnoreAsciiCase(variable.name, name) == 0;
+        });
+        if (found == variables.end())
+            variables.push_back({name, value, level});
+        else
+            found->value = value;
+    }
+    return variables;
+}
+
+wiz8::save::DialogueTranscript CaptureDialogueTranscript(const W8NpcInteractionState& state)
+{
+    wiz8::save::DialogueTranscript transcript;
+    for (const auto& keyword : state.dialogue_transcript) transcript.keywords.push_back(*keyword);
+    transcript.view = {state.dialogue_category_filter, state.transcript_sorted};
+    return transcript;
+}
+
+void InstallDialogueTranscript(wiz8::save::DialogueTranscript transcript,
+                               W8NpcInteractionState& state)
+{
+    state.dialogue_transcript.clear();
+    for (auto& keyword : transcript.keywords)
+        state.dialogue_transcript.push_back(
+            std::make_unique<W8DialogueTranscriptRecord>(std::move(keyword)));
+    if (transcript.view) {
+        state.dialogue_category_filter = transcript.view->category_filter;
+        state.transcript_sorted = transcript.view->sorted;
+    }
 }
 
 /* Monster save records follow the W8MonsterInfo image with versioned
@@ -978,11 +1017,9 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         CopyCurrentGameChunks(current_game, chunks);
         current_game.Close();
     }
-    const World* world = GetWorld();
-    const auto script_state =
-        world && world->script ? world->script->captureState() : W8SavedLocationState{};
+    auto& game = CurrentGame();
     {
-        auto snapshot = CaptureStateForSave(CurrentGame(), chunks.WriteStream());
+        auto snapshot = CaptureStateForSave(game, chunks.WriteStream());
         // Normalize transient UI state in the save image, without changing the game.
         if (snapshot.status.text_line_cursor == 2) snapshot.status.text_line_cursor = 0;
         snapshot.status.resume_level = GetLoadedLevelID();
@@ -1000,22 +1037,21 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     }
     chunks.WriteChunk(W8_CHUNK_SCREENSHOT, [&] { chunks.WriteValue(*screenshot); });
 
-    auto& file = chunks.WriteStream();
-    chunks.WriteChunk(W8_CHUNK_MESSAGE_STORAGE,
-                      [&] { RequireSection(SaveMessageStorage(file), "message storage"); });
-    if (HasLocationVariables() || !script_state.empty())
-        chunks.WriteChunk(W8_CHUNK_LOCATION_VARIABLES,
-                          [&] { SaveLocationVariables(file, script_state); });
-    chunks.WriteChunk(W8_CHUNK_NPC_TRANSCRIPT,
-                      [&] { RequireSection(SaveNpcDialogueTranscript(file), "NPC transcript"); });
-    chunks.WriteChunk(W8_CHUNK_NPC_STATES,
-                      [&] { RequireSection(SaveNpcStates(file), "NPC states"); });
-    chunks.WriteChunk(W8_CHUNK_FACT_STATE, [&] { SaveFactState(CurrentGame().story, file); });
-    chunks.WriteChunk(W8_CHUNK_FACTION_STATE, [&] { SaveFactionState(file); });
-    chunks.WriteChunk(W8_CHUNK_JOURNAL, [&] { SaveFactJournal(file); });
-    if (FindMonsterControlSpellEffect())
-        chunks.WriteChunk(W8_CHUNK_MONSTER_CONTROL,
-                          [&] { SaveMonsterControlSpellEffect(&chunks); });
+    const auto& story = game.story;
+    WriteChunkPayload(chunks, W8_CHUNK_MESSAGE_STORAGE,
+                      wiz8::save::encode(CaptureMessageBoxes(game)));
+    if (const auto variables = CaptureLocationVariables(game, GetWorld()); !variables.empty())
+        WriteChunkPayload(chunks, W8_CHUNK_LOCATION_VARIABLES, wiz8::save::encode(variables));
+    WriteChunkPayload(chunks, W8_CHUNK_NPC_TRANSCRIPT,
+                      wiz8::save::encode(CaptureDialogueTranscript(*g_npc_interaction_state)));
+    WriteChunkPayload(chunks, W8_CHUNK_NPC_STATES, wiz8::save::encode(story.npcs));
+    WriteChunkPayload(chunks, W8_CHUNK_FACT_STATE, wiz8::save::encode(story.facts));
+    WriteChunkPayload(
+        chunks, W8_CHUNK_FACTION_STATE,
+        wiz8::save::encode(wiz8::save::Factions{story.faction_relations, story.factions}));
+    WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
+    if (const auto* control = FindMonsterControlSpellEffect())
+        WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
     RequireSection(SaveStatusHeader(&chunks), "level status");
 }
 
@@ -1545,19 +1581,6 @@ void ProcessMainGameAutoSave(void)
     ShowMainGameNotice(saved ? W8_STRING_AUTOSAVE_SUCCEEDED : W8_STRING_AUTOSAVE_FAILED);
 }
 
-/* Write the live monster-control effect as the HYPN record. */
-void SaveMonsterControlSpellEffect(W8Chunk* chunks)
-{
-    W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
-    if (!lure) Fail("pLure");
-    ForEachMonsterControlField(*lure, [&]<class Field>(const Field& field) {
-        if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
-            wiz8::retail::write(*chunks, field);
-        else
-            chunks->WriteValue(field);
-    });
-}
-
 /* The quick-save slot to write next: the first missing one, otherwise the
    one written longest ago. */
 std::optional<std::string> SelectQuickSaveSlotForWrite()
@@ -1650,39 +1673,52 @@ try {
             break;
         }
         case W8_CHUNK_MESSAGE_STORAGE:
-            RequireSection(LoadMessageStorage(chunks, game.status.retail.save_version),
-                           "message storage");
+            InstallMessageBoxes(wiz8::save::decode_message_boxes(ReadChunkPayload(chunks),
+                                                                 game.status.retail.save_version),
+                                game);
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
-            RequireSection(LoadLocationVariables(chunks), "location variables");
+            std::ranges::move(wiz8::save::decode_location_variables(ReadChunkPayload(chunks)),
+                              std::back_inserter(game.story.location_variables));
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
-            RequireSection(LoadNpcDialogueTranscript(chunks), "NPC transcript");
+            InstallDialogueTranscript(
+                wiz8::save::decode_dialogue_transcript(ReadChunkPayload(chunks)),
+                *g_npc_interaction_state);
             break;
         case W8_CHUNK_NPC_STATES:
-            LoadNpcStates(chunks);
+            InstallNpcStates(
+                wiz8::save::decode_npc_states(ReadChunkPayload(chunks), Data().npcs.size()));
             break;
         case W8_CHUNK_FACT_STATE:
-            LoadFactState(chunks);
+            InstallFacts(wiz8::save::decode_facts(ReadChunkPayload(chunks)));
             break;
-        case W8_CHUNK_FACTION_STATE:
-            LoadFactionState(chunks);
+        case W8_CHUNK_FACTION_STATE: {
+            auto factions = wiz8::save::decode_factions(ReadChunkPayload(chunks));
+            game.story.faction_relations = factions.relations;
+            game.story.factions = factions.states;
+            game.story.factions[W8_FACTION_PARTY].disposition_score = 100;
             break;
+        }
         case W8_CHUNK_JOURNAL:
-            LoadJournalEntries(chunks);
+            game.story.journal = wiz8::save::decode_journal(ReadChunkPayload(chunks));
             break;
         case W8_CHUNK_MONSTER_CONTROL:
-            LoadMonsterControlSpellEffect(&chunks);
+            game.spell_effects.push_back(std::make_unique<W8SpellEffectEntry>(
+                wiz8::save::decode_monster_control(ReadChunkPayload(chunks))));
             break;
         }
     });
     chunks.Close();
-    ForEachShownMessage([](auto& message) {
-        message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
-    });
-    CurrentGame().gameplay_timer.Restart();
+    for (std::size_t box = 0; box < game.message_log.size(); ++box) {
+        for (std::size_t line = 0; line < game.status.text_box_lines_shown[box]; ++line) {
+            auto& message = game.message_log[box][line];
+            message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
+        }
+    }
+    game.gameplay_timer.Restart();
     ResetMainGameScreenState();
-    if (CurrentGame().party.held.item.iItemNo == -1) {
+    if (game.party.held.item.iItemNo == -1) {
         ClearHeldItemDisplay();
     } else {
         SetItemCursor(0);
@@ -1691,17 +1727,4 @@ try {
     return true;
 } catch (const std::exception&) {
     return false;
-}
-
-/* Read the HYPN record into a new spell effect. */
-void LoadMonsterControlSpellEffect(W8Chunk* chunks)
-{
-    auto effect = std::make_unique<W8SpellEffectEntry>();
-    ForEachMonsterControlField(*effect, [&]<class Field>(Field& field) {
-        if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
-            wiz8::retail::read_exact(*chunks, field);
-        else
-            chunks->ReadValue(field);
-    });
-    CurrentGame().spell_effects.push_back(std::move(effect));
 }

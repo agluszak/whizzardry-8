@@ -4,16 +4,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <functional>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
-#include <vector>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_mouse.h>
@@ -21,7 +18,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <wiz8/filesystem.h>
 
 #include "glm/ext/vector_float3.hpp"
 #include "message_box.h"
@@ -35,7 +31,6 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
@@ -3304,82 +3299,6 @@ static bool IsDialoguePlaceKeyword(std::string_view name)
 void ClearNpcDialogueTranscript(void)
 {
     g_npc_interaction_state->dialogue_transcript.clear();
-}
-
-unsigned char LoadNpcDialogueTranscript(W8Chunk& file)
-try {
-    unsigned char version;
-    int record_count;
-    file.ReadBytes(&version, sizeof(version));
-    file.ReadBytes(&record_count, sizeof(record_count));
-    if (version < 1 || version > 2 || record_count < 0 ||
-        record_count > (file.RemainingBytes() - (version > 1 ? 2 : 0)) / 7) {
-        return 0;
-    }
-    using RecordOwner = std::unique_ptr<W8DialogueTranscriptRecord>;
-    std::vector<RecordOwner> pending;
-    pending.reserve(record_count);
-    for (int index = 0; index < record_count; ++index) {
-        int text_length;
-        file.ReadBytes(&text_length, sizeof(text_length));
-        if (text_length < 0 || text_length >= 100) return 0;
-        auto record = std::make_unique<W8DialogueTranscriptRecord>();
-        std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
-        file.ReadBytes(bytes.data(), bytes.size());
-        record->text = wiz8::text::from_utf16le(bytes);
-        if (bytes[bytes.size() - 1] != std::byte{} || bytes[bytes.size() - 2] != std::byte{} ||
-            wiz8::text::to_utf16(record->text).size() != std::size_t(text_length))
-            return false;
-        file.ReadBytes(&record->category, sizeof(record->category));
-        pending.push_back(std::move(record));
-    }
-    W8DialogueCategory category_filter = g_npc_interaction_state->dialogue_category_filter;
-    unsigned char sorted = g_npc_interaction_state->transcript_sorted;
-    if (version > 1) {
-        file.ReadBytes(&category_filter, sizeof(category_filter));
-        file.ReadBytes(&sorted, sizeof(sorted));
-        if (category_filter < W8_DIALOGUE_CATEGORY_ALL ||
-            category_filter > W8_DIALOGUE_CATEGORY_MISC || sorted > 1)
-            return 0;
-    }
-    auto& transcript = g_npc_interaction_state->dialogue_transcript;
-    transcript.reserve(record_count);
-    ClearNpcDialogueTranscript();
-    for (auto& record : pending) {
-        transcript.push_back(std::move(record));
-    }
-    g_npc_interaction_state->dialogue_category_filter = category_filter;
-    g_npc_interaction_state->transcript_sorted = sorted != 0;
-    return 1;
-} catch (const std::exception&) {
-    return false;
-}
-
-unsigned char SaveNpcDialogueTranscript(wiz8::File& file)
-try {
-    const unsigned char version = 2;
-    const auto record_count =
-        wiz8::checked_integer<std::int32_t>(g_npc_interaction_state->dialogue_transcript.size());
-    file.write(&version, sizeof(version));
-    file.write(&record_count, sizeof(record_count));
-    for (int index = 0; index < record_count; ++index) {
-        W8DialogueTranscriptRecord* record =
-            g_npc_interaction_state->dialogue_transcript[index].get();
-        const auto text_length =
-            wiz8::checked_integer<std::int32_t>(wiz8::text::to_utf16(record->text).size());
-        if (text_length >= 100) return false;
-        std::vector<std::byte> bytes((std::size_t(text_length) + 1) * 2);
-        wiz8::text::to_utf16le(record->text, bytes);
-        file.write(&text_length, sizeof(text_length));
-        file.write(bytes.data(), bytes.size());
-        file.write(&record->category, sizeof(record->category));
-    }
-    file.write(&g_npc_interaction_state->dialogue_category_filter, 1);
-    const unsigned char sorted = g_npc_interaction_state->transcript_sorted;
-    file.write(&sorted, sizeof(sorted));
-    return 1;
-} catch (const std::exception&) {
-    return false;
 }
 
 /* Restate the five transcript category buttons so only the active

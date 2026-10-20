@@ -3,14 +3,10 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
-#include <exception>
 #include <memory>
-#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
-#include <vector>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
@@ -22,11 +18,9 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
@@ -67,44 +61,6 @@ UiResult HandleTextBody(const UiPointerEvent& event);
 UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
 }
 
-/* The TEXT chunk's 0x24-byte form is separate from the live message record:
-   its first word is a UTF-16 unit count. The obsolete list-pointer word
-   remains reserved on disk and is always written as zero. */
-struct W8MessageStorageDiskRecord {
-    std::uint32_t character_count;
-    unsigned char font_palette;
-    unsigned char highlight_color;
-    unsigned char highlight_start;
-    unsigned char highlight_stop;
-    std::uint32_t clock; // Retail stores 32 bits; live deadlines use the native 64-bit clock.
-    std::uint32_t saved_remaining_ms;
-    int link;
-    int length;
-    std::uint32_t serialized_entries_18_bits;
-    unsigned char trailing_bytes[8];
-};
-
-static_assert(sizeof(W8MessageStorageDiskRecord) == 0x24,
-              "W8MessageStorageDiskRecord_must_be_0x24");
-static_assert(offsetof(W8MessageStorageDiskRecord, character_count) == 0x00,
-              "W8MessageStorageDiskRecord_count_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, font_palette) == 0x04,
-              "W8MessageStorageDiskRecord_byte_fields_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, highlight_stop) == 0x07,
-              "W8MessageStorageDiskRecord_last_byte_field_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, clock) == 0x08,
-              "W8MessageStorageDiskRecord_scalar_fields_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, saved_remaining_ms) == 0x0c,
-              "W8MessageStorageDiskRecord_saved_remaining_ms_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, link) == 0x10,
-              "W8MessageStorageDiskRecord_link_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, length) == 0x14,
-              "W8MessageStorageDiskRecord_length_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, serialized_entries_18_bits) == 0x18,
-              "W8MessageStorageDiskRecord_entries_bits_offset");
-static_assert(offsetof(W8MessageStorageDiskRecord, trailing_bytes) == 0x1c,
-              "W8MessageStorageDiskRecord_trailing_offset");
-static_assert(sizeof(std::uint32_t) == 4, "W8MessageStorageDiskRecord_requires_32_bit_words");
 // GLOBAL: WIZ8 0x0069b7b8
 static W8TextBoxMode g_text_box_mode;
 // GLOBAL: WIZ8 0x0069b7bc
@@ -374,125 +330,6 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         g_modal_owner->RefreshModal();
     }
-}
-
-/* Write the four message runs into the open TEXT chunk: a format dword, then
-   per region the used-line count followed by each 0x24-byte record and its
-   wide string. The record's first word is the string count including its
-   terminator; its +0x18 pointer word is unused. */
-bool SaveMessageStorage(wiz8::File& file)
-{
-    W8MessageStorageDiskRecord disk_record;
-    W8MessageStorageRecord* live_record;
-    int format = 1;
-    unsigned int region;
-    unsigned int index;
-
-    file.write(&format, 4);
-    for (region = 0; region < 4; ++region) {
-        file.write(&CurrentGame().status.text_box_lines_used[region], 4);
-        for (index = 0; index < CurrentGame().status.text_box_lines_used[region]; ++index) {
-            live_record = &CurrentGame().message_log[region][index];
-            disk_record.character_count =
-                !live_record->text.empty()
-                    ? static_cast<std::uint32_t>(wiz8::text::to_utf16(live_record->text).size() + 1)
-                    : 0;
-            disk_record.font_palette = live_record->font_palette;
-            disk_record.highlight_color = live_record->highlight_color;
-            disk_record.highlight_start = static_cast<unsigned char>(std::min<std::size_t>(
-                255,
-                wiz8::text::to_utf16(
-                    std::string_view(live_record->text).substr(0, live_record->highlight_start))
-                    .size()));
-            disk_record.highlight_stop = static_cast<unsigned char>(std::min<std::size_t>(
-                255, wiz8::text::to_utf16(
-                         std::string_view(live_record->text).substr(0, live_record->highlight_stop))
-                         .size()));
-            disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
-            disk_record.saved_remaining_ms =
-                index < CurrentGame().status.text_box_lines_shown[region]
-                    ? static_cast<std::uint32_t>(TimeUntilDeadline(live_record->clock))
-                    : live_record->saved_remaining_ms;
-            disk_record.link = live_record->link;
-            disk_record.length =
-                live_record->length < 0
-                    ? -1
-                    : static_cast<int>(
-                          wiz8::text::to_utf16(
-                              std::string_view(live_record->text).substr(0, live_record->length))
-                              .size());
-            // Runtime word ranges are rebuilt after loading; disk pointer bits are unused.
-            disk_record.serialized_entries_18_bits = 0;
-            std::ranges::copy(live_record->unknown_1c, disk_record.trailing_bytes);
-            file.write(&disk_record, sizeof(disk_record));
-            if (disk_record.character_count) {
-                std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) *
-                                             2);
-                wiz8::text::to_utf16le(live_record->text, bytes);
-                file.write(bytes.data(), bytes.size());
-            }
-        }
-    }
-    return true;
-}
-
-/* Read the four message runs back from the open TEXT chunk: a format dword,
-   then per region the used-line count followed by each 0x24-byte record and
-   its wide string. The first word sizes the new live string allocation; the
-   serialized +0x18 pointer bits are discarded. Saves whose status record predates
-   version 1.1 never wrote a fourth region, so its count is forced to zero without
-   consuming a count slot. */
-unsigned char LoadMessageStorage(W8Chunk& file, float status_version)
-try {
-    W8MessageStorageDiskRecord disk_record;
-    W8MessageStorageRecord* live_record;
-    int format;
-    unsigned int region;
-    unsigned int index;
-
-    file.ReadBytes(&format, 4);
-    for (region = 0; region < 4; ++region) {
-        if (status_version < 1.1f && region == 3) {
-            CurrentGame().status.text_box_lines_used[3] = 0;
-        } else {
-            file.ReadBytes(&CurrentGame().status.text_box_lines_used[region], 4);
-        }
-        if (CurrentGame().status.text_box_lines_used[region] > 0x15e) return 0;
-        for (index = 0; index < CurrentGame().status.text_box_lines_used[region]; ++index) {
-            file.ReadBytes(&disk_record, sizeof(disk_record));
-            live_record = &CurrentGame().message_log[region][index];
-            *live_record = {};
-            live_record->font_palette = disk_record.font_palette;
-            live_record->highlight_color = disk_record.highlight_color;
-            live_record->highlight_start = disk_record.highlight_start;
-            live_record->highlight_stop = disk_record.highlight_stop;
-            live_record->clock = disk_record.clock;
-            live_record->saved_remaining_ms = disk_record.saved_remaining_ms;
-            live_record->link = disk_record.link;
-            live_record->length = disk_record.length;
-            std::ranges::copy(disk_record.trailing_bytes, live_record->unknown_1c);
-            if (disk_record.character_count > 100000) return 0;
-            std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
-            file.ReadBytes(bytes.data(), bytes.size());
-            auto decoded = wiz8::text::from_utf16le(bytes);
-            auto byte_offset = [&](std::size_t units) {
-                std::size_t offset = 0, count = 0;
-                while (offset < decoded.size() && count < units) {
-                    auto cp = wiz8::text::next(decoded, offset);
-                    count += cp > 0xffff ? 2 : 1;
-                }
-                return offset;
-            };
-            live_record->highlight_start = byte_offset(disk_record.highlight_start);
-            live_record->highlight_stop = byte_offset(disk_record.highlight_stop);
-            if (disk_record.length >= 0)
-                live_record->length = wiz8::checked_integer<int>(byte_offset(disk_record.length));
-            live_record->text = std::move(decoded);
-        }
-    }
-    return 1;
-} catch (const std::exception&) {
-    return false;
 }
 
 /* Clear one box's hover or selection highlight and request a repaint. */

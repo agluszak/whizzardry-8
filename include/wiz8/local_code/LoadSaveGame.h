@@ -82,8 +82,6 @@ bool LoadCharacterFromCurrentGame(std::string_view path, W8Character* character)
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);
 bool SaveMonsterStatus(W8Chunk* chunks);
-void SaveMonsterControlSpellEffect(W8Chunk* chunks);
-void LoadMonsterControlSpellEffect(W8Chunk* chunks);
 
 void LeaveGameSession(void);
 

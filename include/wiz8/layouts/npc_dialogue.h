@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 /* W8NpcInteractionState::dialogue_layout - which NPC dialogue layout is up. The
    layout-1 caption is "MAGIC" (Charm/Mindread/Use Item services) and the
    layout-5 caption "TRADE". Layout 6 owns no panels and is never opened. */
@@ -21,4 +23,10 @@ enum W8DialogueCategory : signed char {
     W8_DIALOGUE_CATEGORY_PEOPLE = 1,
     W8_DIALOGUE_CATEGORY_PLACES = 2,
     W8_DIALOGUE_CATEGORY_MISC = 3
+};
+
+/* One saved transcript keyword. */
+struct W8DialogueTranscriptRecord {
+    std::string text;
+    W8DialogueCategory category = W8_DIALOGUE_CATEGORY_MISC;
 };

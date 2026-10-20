@@ -1,5 +1,4 @@
 #pragma once
-struct W8Chunk;
 #include <memory>
 #include <optional>
 #include <string>
@@ -27,10 +26,6 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_layer.h"
-
-namespace wiz8 {
-class File;
-}
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
@@ -117,12 +112,6 @@ enum W8NpcTradeMode : unsigned char {
     W8_NPC_TRADE_SELL = 3,
     W8_NPC_TRADE_BUY = 4,
     W8_NPC_TRADE_SHOPLIFT = 5
-};
-
-/* One saved transcript keyword. */
-struct W8DialogueTranscriptRecord {
-    std::string text;
-    W8DialogueCategory category;
 };
 
 enum W8NpcDialogueControlSlot {
@@ -331,8 +320,6 @@ void UpdateNpcTradeSelection(int index, int, int);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
-unsigned char LoadNpcDialogueTranscript(W8Chunk& file);
-unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);
 void RefreshNpcTradePrice(void);
