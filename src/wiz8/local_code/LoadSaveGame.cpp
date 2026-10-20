@@ -31,7 +31,6 @@
 #include "item_spawning.h"
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
-#include "retail_records.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"

@@ -19,7 +19,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
 #include "wiz8/audio/SoundEvent.h"
-#include "wiz8/combat/combat.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"

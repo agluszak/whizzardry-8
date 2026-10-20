@@ -19,7 +19,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
-#include "retail_records.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/entities/animation.h"
