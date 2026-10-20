@@ -1,6 +1,5 @@
 #include "wiz8/render/compositor.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

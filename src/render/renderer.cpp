@@ -34,11 +34,15 @@
 #include <vsg/core/Array2D.h>
 #include <vsg/core/Data.h>
 #include <vsg/core/Exception.h>
+#include <vsg/core/Mask.h>
 #include <vsg/core/Value.h>
 #include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec2.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
 #include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
