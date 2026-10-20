@@ -9,6 +9,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
+#include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/targeting.h"
@@ -123,6 +124,10 @@ struct W8MonsterManagerEntry {
 };
 
 const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
+/* The range category of one of a monster's attacks: the database's, or the correction
+   its current attack cycle made to it. */
+W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
+                                   unsigned int attack);
 /* Combat started: for two minutes a new fight at the same difficulty skips
    the combat-start character reaction. */
 void RecordCombatStart(void);
@@ -179,6 +184,10 @@ struct W8MonsterCombatState {
        selected this monster. It is asserted below MAX_MONSTER_ATTACKS before
        indexing the database record. */
     unsigned int attack_index;
+    /* The range the current attack's cycle corrected a mismatched database range to: a
+       ranged cycle on a touch or short attack reaches extreme range, and a close cycle on
+       a long or extreme attack reaches touch. */
+    std::optional<W8RangeCategory> corrected_range;
     /* Berserk latch: interrupt case 8 raises it so the monster attacks
        indiscriminately (friends included); Combat Range counts allies as
        hostile while set. */

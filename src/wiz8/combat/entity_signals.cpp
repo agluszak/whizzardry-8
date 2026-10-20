@@ -188,7 +188,7 @@ prepare_attack:
         missile_type = 0;
     }
 
-    range_category = static_cast<W8RangeCategory>(attack->range_category);
+    range_category = MonsterAttackRange(*monster_info, *record, attack_index);
     attack_block = {};
     attack_block.magnitude = attack->damage_dice;
     std::ranges::copy(attack->missile_values, attack_block.condition_chances);

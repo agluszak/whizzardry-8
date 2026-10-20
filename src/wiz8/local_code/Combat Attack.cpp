@@ -1354,8 +1354,8 @@ unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
 /* Launch the animation cycle for the attack the monster just committed to.
    Action details zero through eight pick cycles nine through seventeen; a
    monster that lacks the cycle falls back to six or seven. A ranged cycle on
-   an attack whose record only reaches short range is a data error, corrected
-   to long and reported; the reverse is corrected to short the same way. */
+   a touch or short attack is a data error: the attack in progress reaches
+   extreme range instead, and is reported; the reverse reaches touch. */
 void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_detail)
 {
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -1413,16 +1413,16 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
             break;
         }
     }
+    const auto database_range = record->attacks[attack].range_category;
+    auto& corrected_range = monster_info->pCombat->corrected_range;
+    corrected_range.reset();
     if (cycle == W8_MONSTER_CYCLE_ATTACK_SHOOT || cycle == W8_MONSTER_CYCLE_ATTACK_THROW ||
         cycle == W8_MONSTER_CYCLE_ATTACK_RANGED) {
-        if (record->attacks[attack].range_category <= W8_RANGE_SHORT) {
-            record->attacks[attack].range_category = W8_RANGE_EXTREME;
-            DebugMessage(
-                0, fmt::format("DATA ERROR: {} has mismatched range/attack modes for attack {:d}",
-                               record->name0, attack));
-        }
-    } else if (record->attacks[attack].range_category >= W8_RANGE_LONG) {
-        record->attacks[attack].range_category = W8_RANGE_TOUCH;
+        if (database_range <= W8_RANGE_SHORT) corrected_range = W8_RANGE_EXTREME;
+    } else if (database_range >= W8_RANGE_LONG) {
+        corrected_range = W8_RANGE_TOUCH;
+    }
+    if (corrected_range) {
         DebugMessage(0,
                      fmt::format("DATA ERROR: {} has mismatched range/attack modes for attack {:d}",
                                  record->name0, attack));

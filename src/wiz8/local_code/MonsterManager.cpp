@@ -456,6 +456,15 @@ const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
     return monster_species < monsters.size() ? &monsters[monster_species] : nullptr;
 }
 
+W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
+                                   unsigned int attack)
+{
+    if (const auto* combat = monster_info.pCombat.get();
+        combat && combat->attack_index == attack && combat->corrected_range)
+        return *combat->corrected_range;
+    return static_cast<W8RangeCategory>(record.attacks[attack].range_category);
+}
+
 const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
 {
     if (monster_info == 0) {

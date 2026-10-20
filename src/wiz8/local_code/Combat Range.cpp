@@ -634,7 +634,7 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
     if (record->attacks[attack].fHasAttack == 0) {
         Fail("pMonsterDB->Attack[uiAttack].fHasAttack");
     }
-    return static_cast<W8RangeCategory>(record->attacks[attack].range_category);
+    return MonsterAttackRange(*monster_info, *record, attack);
 }
 
 /* How far a range category actually is. The four categories step 2, 4, 25, 50
