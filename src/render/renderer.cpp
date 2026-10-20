@@ -458,9 +458,8 @@ void Renderer::endFrame(bool present, bool capture)
 try {
     if (!impl->open) return;
     auto viewer = present ? impl->viewer : impl->offscreen_viewer;
-    // New scene views can join after startup. Compile contexts must include
-    // those views; their pipelines and resources themselves remain cached.
-    viewer->compileManager = {};
+    // Viewer::compile discovers current views and newly attached resources.
+    // Retain its manager so VSG can reuse device memory and descriptor pools.
     const auto compiled = viewer->compile();
     if (compiled.result != VK_SUCCESS)
         throw std::runtime_error("VSG scene compilation failed: " + compiled.message);

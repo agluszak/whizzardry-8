@@ -121,10 +121,10 @@ public:
     double far_start;                     /* 0x168 */
     double far_end;                       /* 0x170 */
 
-    float scaled_near_start; /* 0x178 */
-    float scaled_far_end;    /* 0x17c */
-    float near_attenuation;  /* 0x180 */
-    float far_attenuation;   /* 0x184 */
+    float scaled_near_start = 0; /* 0x178 */
+    float scaled_far_end = 0;    /* 0x17c */
+    float near_attenuation = 0;  /* 0x180 */
+    float far_attenuation = 0;   /* 0x184 */
 
     glm::vec3 opengl_attenuation;    /* 0x188 */
     std::uint32_t enable_flags;           /* 0x194 */
@@ -136,12 +136,12 @@ public:
     float spot_exponent;                  /* 0x1cc */
     float intensity;                      /* 0x1d0 */
     float safe_range;                     /* 0x1d4 */
-    glm::vec4 scaled_ambient;     /* 0x1d8: ambient * intensity */
-    glm::vec4 scaled_diffuse;     /* 0x1e8: diffuse * intensity */
-    glm::vec4 scaled_specular;    /* 0x1f8: specular * intensity */
-    glm::vec3 spot_direction_eye; /* 0x208 */
-    float spot_cutoff;                    /* 0x214: cos(spot_angle) */
-    float attenuation_range;              /* 0x218: scaled far end */
+    glm::vec4 scaled_ambient{0};     /* 0x1d8: ambient * intensity */
+    glm::vec4 scaled_diffuse{0};     /* 0x1e8: diffuse * intensity */
+    glm::vec4 scaled_specular{0};    /* 0x1f8: specular * intensity */
+    glm::vec3 spot_direction_eye{0}; /* 0x208 */
+    float spot_cutoff = 0;                    /* 0x214: cos(spot_angle) */
+    float attenuation_range = 0;              /* 0x218: scaled far end */
     enum {
         DERIVED_ACTIVE = 0x01u,
         DERIVED_SPOT = 0x02u,

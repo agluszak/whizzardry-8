@@ -38,6 +38,7 @@
 #include <vsg/nodes/Transform.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/DescriptorSet.h>
+#include <vsg/state/PipelineLayout.h>
 #include <vsg/state/StateCommand.h>
 #include <vsg/state/ViewDependentState.h>
 #include <vsg/state/ViewportState.h>
@@ -87,45 +88,57 @@ public:
 class WorldViewState : public vsg::Inherit<vsg::ViewDependentState, WorldViewState> {
 public:
     WorldViewState(vsg::View* view, RenderContext& context, const ScenePass& source,
-                   std::size_t maximum_indices, std::span<const glm::vec4> clip_planes)
-        : Inherit(view), context(context), pass(source),
-          eye_clip_planes(clip_planes.begin(), clip_planes.end())
+                   std::size_t sorted_indices, std::size_t opaque_indices,
+                   std::span<const glm::vec4> clip_planes)
+        : Inherit(view), context(context), context_layout(context.layout)
     {
+        refresh(source, sorted_indices, opaque_indices, clip_planes);
+    }
+
+    bool usesContext(const RenderContext& candidate) const
+    {
+        return context_layout == candidate.layout;
+    }
+
+    void refresh(const ScenePass& source, std::size_t sorted_capacity, std::size_t opaque_capacity,
+                 std::span<const glm::vec4> clip_planes)
+    {
+        pass = source;
+        eye_clip_planes.assign(clip_planes.begin(), clip_planes.end());
         source_lights.assign(source.lights.begin(), source.lights.end());
         fog_pointers.assign(source.fogs.begin(), source.fogs.end());
         std::erase_if(fog_pointers, [](const auto* fog) { return !fog->visible; });
         pass.lights = source_lights;
         pass.fogs = fog_pointers;
-        auto capacity = packView(pass, eye_clip_planes);
-        block = makeArray(capacity, vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD);
-        game_set = context.descriptor(0, block)->descriptorSet;
-        indices = vsg::uintArray::create(
-            static_cast<std::uint32_t>(std::max<std::size_t>(maximum_indices, 1)));
-        indices->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
-        bind_indices = vsg::BindIndexBuffer::create(indices);
-        opaque_indices = vsg::uintArray::create(indices->size());
-        opaque_indices->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
-        bind_opaque = vsg::BindIndexBuffer::create(opaque_indices);
+        const auto values = packView(pass, eye_clip_planes);
+        if (!block || block->size() < values.size()) {
+            block = vsg::vec4Array::create(capacity(values.size()));
+            block->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
+            game_set = context.descriptor(0, block)->descriptorSet;
+        }
+        store(*block, values);
+        growIndices(indices, bind_indices, sorted_capacity);
+        growIndices(opaque_indices, bind_opaque, opaque_capacity);
     }
 
     void clear() override
     {
         vsg::ViewDependentState::clear();
-        copied_lights.clear();
+        copied_light_count = 0;
         light_pointers.clear();
         sorted.clear();
         opaque_cursor = 0;
     }
     void traverse(vsg::Visitor& visitor) override
     {
-        vsg::ViewDependentState::traverse(visitor);
+        if (descriptorSet) vsg::ViewDependentState::traverse(visitor);
         game_set->accept(visitor);
         bind_indices->accept(visitor);
         bind_opaque->accept(visitor);
     }
     void traverse(vsg::ConstVisitor& visitor) const override
     {
-        vsg::ViewDependentState::traverse(visitor);
+        if (descriptorSet) vsg::ViewDependentState::traverse(visitor);
         game_set->accept(visitor);
         bind_indices->accept(visitor);
         bind_opaque->accept(visitor);
@@ -157,7 +170,8 @@ public:
     void addLight(const Light& source, const vsg::dmat4& model_view)
     {
         if (!source.visible || source.intensity == 0) return;
-        auto& copy = copied_lights.emplace_back();
+        if (copied_light_count == copied_lights.size()) copied_lights.emplace_back();
+        auto& copy = copied_lights[copied_light_count++];
         copy = source;
         prepareLightAt(copy, toGlm(model_view), pass.frame.brightness);
         if (copy.derived_flags & Light::DERIVED_ACTIVE) light_pointers.push_back(&copy);
@@ -259,16 +273,35 @@ public:
     }
 
 private:
+    static std::uint32_t capacity(std::size_t required)
+    {
+        // Keep compiled buffers until their contents outgrow them. Rounding up
+        // also avoids repeated allocations as effects and lights become active.
+        const auto result = std::bit_ceil(std::max<std::size_t>(required, 1));
+        if (result > std::numeric_limits<std::uint32_t>::max())
+            throw std::length_error("Scene view exceeds supported buffer size");
+        return static_cast<std::uint32_t>(result);
+    }
+    static void growIndices(vsg::ref_ptr<vsg::uintArray>& array,
+                            vsg::ref_ptr<vsg::BindIndexBuffer>& binding, std::size_t required)
+    {
+        if (array && array->size() >= required) return;
+        array = vsg::uintArray::create(capacity(required));
+        array->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
+        binding = vsg::BindIndexBuffer::create(array);
+    }
     struct Sorted {
         const DrawNode* node;
         vsg::dmat4 model_view;
     };
     RenderContext& context;
+    vsg::ref_ptr<vsg::PipelineLayout> context_layout;
     ScenePass pass;
     std::vector<glm::vec4> eye_clip_planes;
     std::vector<Light*> source_lights;
     std::vector<FogParams*> fog_pointers;
     std::deque<Light> copied_lights;
+    std::size_t copied_light_count = 0;
     std::vector<Light*> light_pointers;
     std::vector<Sorted> sorted;
     vsg::ref_ptr<vsg::vec4Array> block;
@@ -322,7 +355,8 @@ struct SetSortOrder : vsg::Visitor {
 };
 
 struct CountIndices : vsg::ConstVisitor {
-    std::size_t count = 0;
+    std::size_t sorted = 0;
+    std::size_t opaque = 0;
     std::vector<Light*> lights;
     void apply(const vsg::Node& node) override
     {
@@ -333,9 +367,12 @@ struct CountIndices : vsg::ConstVisitor {
     void apply(const vsg::Object& object) override { object.traverse(*this); }
     void apply(const vsg::StateGroup& group) override
     {
-        if (const auto* draw = dynamic_cast<const DrawNode*>(&group);
-            draw && (draw->sorted || draw->authored_normals))
-            count += draw->draw->indexCount;
+        if (const auto* draw = dynamic_cast<const DrawNode*>(&group)) {
+            if (draw->sorted)
+                sorted += draw->draw->indexCount;
+            else if (draw->authored_normals)
+                opaque += draw->draw->indexCount;
+        }
         group.traverse(*this);
     }
 };
@@ -440,6 +477,8 @@ struct WorldScene::CachedView {
     VkViewport viewport;
     std::uint64_t last_frame = ~std::uint64_t{0};
     vsg::ref_ptr<vsg::View> view;
+    vsg::ref_ptr<render::Projection> projection;
+    vsg::ref_ptr<render::ViewMatrix> view_matrix;
 };
 
 WorldScene::WorldScene()
@@ -518,6 +557,7 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
                 auto instance_pass = pass;
                 if (visual->static_geometry) instance_pass.exclusion_mask = exclusion;
                 visual->prepare(context, instance_pass, frame_number, visual->static_geometry);
+                if (!visual->instance || !visual->instance->visible) return;
                 render::SetSortOrder order(visual->sort_order);
                 visual->traverse(order);
                 if (visual->instance && visual->instance->visible && visual->instance->getModel())
@@ -571,6 +611,9 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
         entry->source = source;
         entry->viewport = dimensions;
         entry->view = vsg::View::create();
+        entry->projection = render::Projection::create(vsg::dmat4{});
+        entry->view_matrix = render::ViewMatrix::create(vsg::dmat4{});
+        entry->view->camera = vsg::Camera::create(entry->projection, entry->view_matrix, viewport);
         entry->view->addChild(root);
         auto translucent = vsg::StateGroup::create();
         translucent->add(vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -587,9 +630,9 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
     clip[1][1] = -1;
     clip[2][2] = -.5;
     clip[3][2] = .5;
-    view->camera = vsg::Camera::create(
-        render::Projection::create(render::toVsg(clip * glm::dmat4(transform.projection))),
-        render::ViewMatrix::create(render::toVsg(glm::dmat4(transform.model_view))), viewport);
+    (*found)->projection->matrix = render::toVsg(clip * glm::dmat4(transform.projection));
+    (*found)->view_matrix->matrix = render::toVsg(glm::dmat4(transform.model_view));
+    view->camera->viewportState = viewport;
     view->mask = render::render_mask;
     ScenePass pass{.frame = frame,
                    .ambient_light = glm::vec4(ambient_light, 0),
@@ -606,8 +649,12 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
             clip_planes_eye.push_back(
                 eyeSpaceClipPlane(transform.model_view * plane->transform.matrix<glm::mat4>(),
                                   plane->getClipPlane()));
-    view->viewDependentState =
-        render::WorldViewState::create(view.get(), context, pass, counts.count, clip_planes_eye);
+    auto* state = dynamic_cast<render::WorldViewState*>(view->viewDependentState.get());
+    if (state && state->usesContext(context))
+        state->refresh(pass, counts.sorted, counts.opaque, clip_planes_eye);
+    else
+        view->viewDependentState = render::WorldViewState::create(
+            view.get(), context, pass, counts.sorted, counts.opaque, clip_planes_eye);
     return view;
 }
 void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const

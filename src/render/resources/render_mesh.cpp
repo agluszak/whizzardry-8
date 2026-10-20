@@ -332,9 +332,14 @@ void MeshPose::refreshColors(const Mesh& mesh)
         const auto& colors = mesh.dig[pass.pass];
         if (colors.empty()) continue;
         auto& destination = *pass.attributes[1];
-        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex)
-            destination.at(vertex) = toVsg(glm::vec4(colors[pass.source_vertices[vertex]], 0));
-        destination.dirty();
+        bool changed = false;
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto value = toVsg(glm::vec4(colors[pass.source_vertices[vertex]], 0));
+            if (destination.at(vertex) == value) continue;
+            destination.at(vertex) = value;
+            changed = true;
+        }
+        if (changed) destination.dirty();
     }
 }
 

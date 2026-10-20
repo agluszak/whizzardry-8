@@ -28,6 +28,10 @@
 #include <vsg/nodes/Switch.h>
 #include <vsg/nodes/Transform.h>
 #include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/PipelineLayout.h>
 
 #include "../effects/effect_geometry.h"
 #include "glm/ext/matrix_double4x4.hpp"
@@ -320,8 +324,36 @@ std::optional<glm::vec3> MeshInstance::sampledPosition(const Mesh& mesh, std::si
 namespace render {
 
 struct InstanceNode::Part {
+    struct Batch {
+        vsg::ref_ptr<DrawNode> leaf;
+        vsg::ref_ptr<vsg::BindDescriptorSet> images;
+        vsg::ref_ptr<vsg::ImageInfo> texture;
+        vsg::ref_ptr<vsg::ImageInfo> detail;
+        std::uint32_t shader = ~0u;
+        vsg::ref_ptr<vsg::Switch> shell_switch;
+        vsg::ref_ptr<DrawNode> shell;
+        std::uint32_t shell_shader = ~0u;
+        Winding shell_winding = Winding::Standard;
+    };
+    struct Pass {
+        vsg::ref_ptr<vsg::Group> body;
+        vsg::ref_ptr<vsg::vec4Array> data;
+        vsg::ref_ptr<vsg::BindDescriptorSet> bind;
+        vsg::ref_ptr<vsg::vec4Array> shell_data;
+        vsg::ref_ptr<vsg::BindDescriptorSet> shell_bind;
+        vsg::ref_ptr<vsg::vec3Array> expanded;
+        std::vector<Batch> batches;
+    };
     Mesh* mesh;
     MeshPose pose;
+    std::shared_ptr<MeshAsset> graph_asset;
+    vsg::ref_ptr<vsg::PipelineLayout> layout;
+    vsg::ref_ptr<vsg::Group> graph;
+    vsg::ref_ptr<vsg::vec4Array> instance_data;
+    vsg::ref_ptr<vsg::BindDescriptorSet> instance_bind;
+    std::vector<Pass> passes;
+    vsg::ref_ptr<vsg::Switch> shadow_switch;
+    vsg::ref_ptr<vsg::vec4Array> shadow_data;
     Part(Mesh& mesh) : mesh(&mesh), pose(mesh) {}
 };
 
@@ -384,8 +416,9 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
 
 namespace {
 
-vsg::ref_ptr<vsg::Node> extrusionShadow(RenderContext& context, const MeshInstance& instance,
-                                        Mesh& mesh, const ScenePass& pass)
+std::pair<vsg::ref_ptr<vsg::Node>, vsg::ref_ptr<vsg::vec4Array>>
+extrusionShadow(RenderContext& context, const MeshInstance& instance, Mesh& mesh,
+                const ScenePass& pass)
 {
     const auto bounds = mesh.getTriMesh();
     const float height = bounds.bounds_maximum.y - bounds.bounds_minimum.y;
@@ -416,7 +449,7 @@ vsg::ref_ptr<vsg::Node> extrusionShadow(RenderContext& context, const MeshInstan
                         vsg::scale(static_cast<double>(std::max(height / 1500.f, .5f)));
     auto transform = vsg::MatrixTransform::create(matrix);
     transform->addChild(node);
-    return transform;
+    return {transform, geometry.instance};
 }
 
 } // namespace
@@ -426,11 +459,12 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
 {
     if (prepared_frame == frame_number) return;
     prepared_frame = frame_number;
-    geometry->children.clear();
     ensureParts();
     if (!instance || !instance->getModel()) {
+        geometry->children.clear();
         return;
     }
+    if (!instance->visible) return;
     const bool highlighted = glm::any(glm::notEqual(instance->highlight_colour, glm::vec4(0)));
     if (highlighted) {
         if (!instance->highlight_material) {
@@ -445,9 +479,16 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     const bool highlight_body = highlighted && instance->highlight_pass_mode == 1;
     const int skin =
         instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
-    if (instance->render_flags & MeshInstance::RENDER_SHADOW)
-        geometry->addChild(render_mask | pick_mask,
-                           extrusionShadow(context, *instance, *instance->getModel(), pass));
+    const auto setPipeline = [&](DrawNode& node, std::uint32_t shader, FaceCull cull,
+                                 Winding winding = Winding::Standard) {
+        std::erase_if(node.stateCommands, [](const auto& command) {
+            return command->template cast<vsg::BindGraphicsPipeline>() != nullptr;
+        });
+        node.setPipeline(
+            context.pipeline(shader, cull, winding),
+            context.pipeline(shader, cull,
+                             winding == Winding::Standard ? Winding::Reversed : Winding::Standard));
+    };
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
@@ -456,12 +497,37 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                           !static_geometry);
         auto& pose = part->pose;
         const auto& asset = *pose.asset;
+        auto instance_block = packInstance(*instance, mesh, pass);
+        if (highlight_body) instance_block.overrides = glm::vec4(0);
+        if (part->graph_asset != pose.asset || part->layout != context.layout) {
+            part->graph_asset = pose.asset;
+            part->layout = context.layout;
+            part->graph = vsg::Group::create();
+            part->instance_data = makeInstanceArray(instance_block);
+            part->instance_bind = context.descriptor(1, part->instance_data);
+            part->passes.clear();
+            part->passes.resize(asset.passes.size());
+            part->shadow_switch = {};
+            part->shadow_data = {};
+        } else {
+            store(*part->instance_data, instance_block);
+        }
+        const bool shadow = part.get() == parts.front().get() &&
+                            (instance->render_flags & MeshInstance::RENDER_SHADOW);
+        if (shadow && !part->shadow_switch) {
+            auto [node, data] = extrusionShadow(context, *instance, mesh, pass);
+            part->shadow_switch = vsg::Switch::create();
+            part->shadow_switch->addChild(render_mask | pick_mask, node);
+            part->shadow_data = data;
+        }
+        if (part->shadow_switch) {
+            part->shadow_switch->children.front().mask = shadow ? render_mask | pick_mask : 0;
+            if (shadow) store(*part->shadow_data, packInstance(*instance, mesh, pass));
+        }
         for (std::size_t pass_index = 0; pass_index < asset.passes.size(); ++pass_index) {
             const auto& source = asset.passes[pass_index];
             auto& sampled = pose.passes[pass_index];
-            auto instance_block = packInstance(*instance, mesh, pass);
-            if (highlight_body) instance_block.overrides = glm::vec4(0);
-            const auto instance_data = makeInstanceArray(instance_block);
+            auto& cached = part->passes[pass_index];
             auto materials = source.materials;
             const bool front_material =
                 source.side == 0 ||
@@ -469,11 +535,59 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                  (mesh.render_control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)));
             if (highlight_body && source.pass == 0 && front_material)
                 std::ranges::fill(materials, instance->highlight_material);
-            const auto pass_data = makeArray(
-                packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time));
-            auto body = vsg::Group::create();
+            const auto pass_values =
+                packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time);
+            if (!cached.body) {
+                cached.body = vsg::Group::create();
+                cached.data = makeArray(pass_values);
+                cached.bind = context.descriptor(2, cached.data);
+                cached.batches.resize(source.batches.size());
+                const auto bound = vsg::dsphere(asset.bounds_center.x, asset.bounds_center.y,
+                                                asset.bounds_center.z, asset.bounds_radius);
+                part->graph->addChild(vsg::CullNode::create(bound, cached.body));
+            } else {
+                store(*cached.data, pass_values);
+            }
+            const bool shell_part =
+                part.get() == parts.front().get() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
+            const bool shell_texture =
+                !mesh.poly_textures[0][0].empty() ||
+                (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
+            const bool show_shell =
+                highlighted && source.pass == 0 && source.side == 0 && shell_part && shell_texture;
+            if (show_shell) {
+                if (!cached.expanded) {
+                    cached.expanded = vsg::vec3Array::create(sampled.positions->size());
+                    cached.expanded->properties.dataVariance = vsg::DYNAMIC_DATA;
+                    std::vector<std::shared_ptr<Material>> shell_materials(
+                        source.materials.size(), instance->highlight_material);
+                    cached.shell_data = makeArray(packPass(
+                        shell_materials,
+                        source.draw_flags & ~static_cast<std::uint32_t>(HasVertexMaterials),
+                        !pose.normals.empty(), pass.frame.time));
+                    cached.shell_bind = context.descriptor(2, cached.shell_data);
+                } else {
+                    std::vector<std::shared_ptr<Material>> shell_materials(
+                        source.materials.size(), instance->highlight_material);
+                    store(*cached.shell_data,
+                          packPass(shell_materials,
+                                   source.draw_flags &
+                                       ~static_cast<std::uint32_t>(HasVertexMaterials),
+                                   !pose.normals.empty(), pass.frame.time));
+                }
+                const auto scale_y = instance->transform.getScale().y;
+                const float amount =
+                    scale_y != 0 ? static_cast<float>((asset.bounds_radius * scale_y * .001 + 1) *
+                                                      15.625 / scale_y)
+                                 : 0;
+                for (std::size_t vertex = 0; vertex < cached.expanded->size(); ++vertex)
+                    cached.expanded->at(vertex) =
+                        sampled.positions->at(vertex) + sampled.normals->at(vertex) * amount;
+                cached.expanded->dirty();
+            }
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
                 const auto& batch = source.batches[batch_index];
+                auto& state = cached.batches[batch_index];
                 const auto shader = !highlight_body && instance->diffuse_scale_enabled &&
                                             source.pass == 0 && batch.inherits_shader
                                         ? fadingShader(batch.shader.value)
@@ -482,77 +596,88 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     source.cull ? (source.side ? FaceCull::Front : FaceCull::Back) : FaceCull::None;
                 const auto sorted =
                     asset.sorted || (!highlight_body && instance->diffuse_scale_enabled);
-                auto leaf =
-                    DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
-                                     asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
-                leaf->authored_normals = sampled.authored_normals;
-                leaf->cull = cull;
-                leaf->pickable = !(instance->render_flags & MeshInstance::RENDER_NO_PICK) &&
-                                 !(static_geometry && asset.sorted);
-                leaf->setPipeline(context.pipeline(shader, cull),
-                                  context.pipeline(shader, cull, Winding::Reversed));
-                leaf->add(context.descriptor(1, instance_data));
-                leaf->add(context.descriptor(2, pass_data));
+                if (!state.leaf) {
+                    state.leaf =
+                        DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
+                                         asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
+                    state.leaf->authored_normals = sampled.authored_normals;
+                    state.leaf->cull = cull;
+                    state.leaf->add(part->instance_bind);
+                    state.leaf->add(cached.bind);
+                    cached.body->addChild(state.leaf);
+                }
+                auto& leaf = *state.leaf;
+                leaf.sorted = sorted;
+                leaf.pickable = !(instance->render_flags & MeshInstance::RENDER_NO_PICK) &&
+                                !(static_geometry && asset.sorted);
                 auto texture = pose.texture(mesh, pass_index, batch_index, skin);
                 auto texture2 = pose.texture(mesh, pass_index, batch_index, skin, 1);
-                leaf->add(context.batchSet(
-                    shader, context.texture(texture.get(), pass.frame.texture_reduction),
-                    context.texture(texture2.get(), pass.frame.texture_reduction)));
-                body->addChild(leaf);
-
-                const bool shell_part =
-                    part.get() == parts.front().get() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
-                const bool shell_texture =
-                    !mesh.poly_textures[0][0].empty() ||
-                    (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
-                if (highlighted && source.pass == 0 && source.side == 0 && shell_part &&
-                    shell_texture) {
-                    auto expanded = vsg::vec3Array::create(sampled.positions->size());
-                    const auto scale_y = instance->transform.getScale().y;
-                    const float amount =
-                        scale_y != 0
-                            ? static_cast<float>((asset.bounds_radius * scale_y * .001 + 1) *
-                                                 15.625 / scale_y)
-                            : 0;
-                    for (std::size_t vertex = 0; vertex < expanded->size(); ++vertex)
-                        expanded->at(vertex) =
-                            sampled.positions->at(vertex) + sampled.normals->at(vertex) * amount;
+                auto image = context.texture(texture.get(), pass.frame.texture_reduction);
+                auto detail = context.texture(texture2.get(), pass.frame.texture_reduction);
+                const bool shader_changed = state.shader != shader;
+                if (shader_changed) setPipeline(leaf, shader, cull);
+                if (shader_changed || !state.images || state.texture != image ||
+                    state.detail != detail) {
+                    if (state.images) leaf.remove(state.images);
+                    state.images = context.batchSet(shader, image, detail);
+                    leaf.add(state.images);
+                    state.texture = image;
+                    state.detail = detail;
+                }
+                state.shader = shader;
+                if (show_shell && !state.shell) {
                     auto draw = vsg::VertexIndexDraw::create(*sampled.draws[batch_index]);
-                    vsg::DataList arrays;
-                    arrays.emplace_back(expanded);
+                    vsg::DataList arrays{cached.expanded};
                     for (std::size_t binding = 1; binding < draw->arrays.size(); ++binding)
                         arrays.push_back(draw->arrays[binding]->data);
                     draw->assignArrays(arrays);
-                    auto shell = DrawNode::create(draw, expanded, true, asset.sort_bias,
-                                                  asset.offset_pass_keys ? source.pass : 0);
-                    shell->authored_normals = sampled.authored_normals;
-                    shell->pickable = leaf->pickable;
-                    const auto shell_shader = (shader & 0xffff5cb7u) | 0x40a0u;
-                    const auto winding =
-                        instance->highlight_pass_mode == 0 ? Winding::Reversed : Winding::Standard;
-                    shell->cull = cull;
-                    shell->winding = winding;
-                    shell->setPipeline(context.pipeline(shell_shader, cull, winding),
-                                       context.pipeline(shell_shader, cull,
-                                                        winding == Winding::Standard
-                                                            ? Winding::Reversed
-                                                            : Winding::Standard));
-                    shell->add(context.descriptor(1, instance_data));
-                    std::vector<std::shared_ptr<Material>> shell_materials(
-                        source.materials.size(), instance->highlight_material);
-                    shell->add(context.descriptor(
-                        2, makeArray(packPass(shell_materials,
-                                              source.draw_flags &
-                                                  ~static_cast<std::uint32_t>(HasVertexMaterials),
-                                              !pose.normals.empty(), pass.frame.time))));
-                    shell->add(context.batchSet(shell_shader, context.texture(nullptr)));
-                    body->addChild(shell);
+                    state.shell = DrawNode::create(draw, cached.expanded, true, asset.sort_bias,
+                                                   asset.offset_pass_keys ? source.pass : 0);
+                    state.shell->authored_normals = sampled.authored_normals;
+                    state.shell->cull = cull;
+                    state.shell->add(part->instance_bind);
+                    state.shell->add(cached.shell_bind);
+                    state.shell_switch = vsg::Switch::create();
+                    state.shell_switch->addChild(render_mask | pick_mask, state.shell);
+                    cached.body->addChild(state.shell_switch);
                 }
+                if (!state.shell) continue;
+                state.shell_switch->children.front().mask =
+                    show_shell ? render_mask | pick_mask : 0;
+                if (!show_shell) continue;
+                auto& shell = *state.shell;
+                shell.pickable = leaf.pickable;
+                shell.draw->indices = leaf.draw->indices;
+                shell.draw->firstIndex = leaf.draw->firstIndex;
+                shell.draw->indexCount = leaf.draw->indexCount;
+                const auto shell_shader = (shader & 0xffff5cb7u) | 0x40a0u;
+                const auto winding =
+                    instance->highlight_pass_mode == 0 ? Winding::Reversed : Winding::Standard;
+                if (state.shell_shader != shell_shader || state.shell_winding != winding) {
+                    setPipeline(shell, shell_shader, cull, winding);
+                    if (state.shell_shader != ~0u)
+                        std::erase_if(shell.stateCommands, [](const auto& command) {
+                            const auto* bind = command->template cast<vsg::BindDescriptorSet>();
+                            return bind && bind->firstSet == 3;
+                        });
+                    shell.add(context.batchSet(shell_shader, context.texture(nullptr)));
+                    state.shell_shader = shell_shader;
+                    state.shell_winding = winding;
+                }
+                shell.winding = winding;
             }
-            const auto bound = vsg::dsphere(asset.bounds_center.x, asset.bounds_center.y,
-                                            asset.bounds_center.z, asset.bounds_radius);
-            geometry->addChild(render_mask | pick_mask, vsg::CullNode::create(bound, body));
         }
+    }
+    const auto shadow = parts.empty() ? vsg::ref_ptr<vsg::Switch>{} : parts.front()->shadow_switch;
+    const std::size_t first_part = shadow ? 1 : 0;
+    bool changed = geometry->children.size() != parts.size() + first_part;
+    if (!changed && shadow) changed = geometry->children.front().node != shadow;
+    for (std::size_t i = 0; !changed && i < parts.size(); ++i)
+        changed = geometry->children[i + first_part].node != parts[i]->graph;
+    if (changed) {
+        geometry->children.clear();
+        if (shadow) geometry->addChild(render_mask | pick_mask, shadow);
+        for (const auto& part : parts) geometry->addChild(render_mask | pick_mask, part->graph);
     }
 }
 

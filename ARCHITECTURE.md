@@ -88,9 +88,10 @@ Unlayered code may use the layers.
   ordinary VSG position and normal arrays. Positions interpolate; normals use
   the current integer frame. The frame stamp prevents additional views from
   sampling the pose again. Picking, attachments and translucent ordering use
-  the same pose. Each camera has its own view state: scene brightness,
-  environment offset, depth cue, light and fog data. Materials resolve animated
-  textures while updating, rather than freezing their initial frame.
+  the same pose. Scene brightness, environment offset and time are shared frame
+  inputs. Each camera has its own depth cue and derived light, fog and clipping
+  data. Materials resolve animated textures while updating, rather than freezing
+  their initial frame.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs
   run in shaders. The descriptor layout is scoped to Wizardry geometry.
   Animated retail faces retain their authored integer-frame polygon normals

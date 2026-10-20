@@ -16,9 +16,11 @@
 #include <glm/matrix.hpp>
 #include <vsg/core/Array.h>
 #include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/nodes/CullNode.h>
 #include <vsg/nodes/Group.h>
 #include <vsg/nodes/Node.h>
+#include <vsg/state/ImageInfo.h>
 
 #include "effect_geometry.h"
 #include "glm/ext/matrix_double4x4.hpp"
@@ -57,12 +59,17 @@ constexpr float kParticleFlutterVelocityFloor = -1000.0f;
 constexpr float kParticleRandomUnitScale = 3.0517578125e-05f;
 
 struct ParticleRenderData {
+    struct Draw {
+        vsg::ref_ptr<render::DrawNode> node;
+        vsg::ref_ptr<vsg::ImageInfo> image;
+        std::uint32_t shader = ~std::uint32_t{0};
+    };
     render::RenderContext* context;
     vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     vsg::ref_ptr<vsg::Group> particles = vsg::Group::create();
     vsg::ref_ptr<vsg::CullNode> cull;
     render::EffectGeometry geometry;
-    std::vector<vsg::ref_ptr<render::DrawNode>> draws;
+    std::vector<Draw> draws;
     std::uint64_t frame_number = ~std::uint64_t{0};
 
     ParticleRenderData(render::RenderContext& context, const ParticleSystem& source)
@@ -84,7 +91,7 @@ struct ParticleRenderData {
             auto draw = geometry.draw(indices, source.requires_sorted_renderer != 0);
             draw->draw->indexCount = 0;
             particles->addChild(draw);
-            draws.push_back(std::move(draw));
+            draws.push_back({std::move(draw), {}, ~std::uint32_t{0}});
         }
     }
 };
@@ -610,8 +617,11 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
                 kCameraAnglePeriod;
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     const bool enabled = visible && traversal_enabled && !finished;
+    bool positions_changed = false;
+    bool metadata_changed = false;
     for (unsigned index = 0; index < particle_count; ++index) {
-        auto& draw = *data.draws[index];
+        auto& state = data.draws[index];
+        auto& draw = *state.node;
         draw.draw->indexCount = enabled && particle_active[index] ? 6 : 0;
         draw.sorted = requires_sorted_renderer != 0;
         if (!draw.draw->indexCount) continue;
@@ -628,18 +638,32 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
             const auto vertex = index * 4 + corner;
             // All four centers have the billboard's actual eye-space depth,
             // which is also the key used by global triangle sorting.
-            data.geometry.positions->at(vertex) = vsg::vec3(center.x, center.y, center.z);
-            data.geometry.attributes[4]->at(vertex) =
-                vsg::vec4(0, 1, alphas[index], float(particle_size) * size_scale);
+            auto& position = data.geometry.positions->at(vertex);
+            const vsg::vec3 next_position(center.x, center.y, center.z);
+            if (position != next_position) {
+                position = next_position;
+                positions_changed = true;
+            }
+            auto& metadata = data.geometry.attributes[4]->at(vertex);
+            const vsg::vec4 next_metadata(0, 1, alphas[index], float(particle_size) * size_scale);
+            if (metadata != next_metadata) {
+                metadata = next_metadata;
+                metadata_changed = true;
+            }
         }
         auto* image = texture_frames.empty() ? texture.get() : texture_frames[index].get();
         if (image) image = image->currentFrame();
-        draw.stateCommands = {
-            context.pipeline(render_flags.value, FaceCull::None), data.geometry.instance_bind,
-            data.geometry.pass_bind,
-            context.batchSet(render_flags.value, context.texture(image, frame.texture_reduction))};
+        auto current_image = context.texture(image, frame.texture_reduction);
+        if (state.image != current_image || state.shader != render_flags.value) {
+            state.image = current_image;
+            state.shader = render_flags.value;
+            draw.stateCommands = {context.pipeline(render_flags.value, FaceCull::None),
+                                  data.geometry.instance_bind, data.geometry.pass_bind,
+                                  context.batchSet(render_flags.value, current_image)};
+        }
     }
-    data.geometry.dirty();
+    if (positions_changed) data.geometry.positions->dirty();
+    if (metadata_changed) data.geometry.attributes[4]->dirty();
 }
 
 void ParticleSystem::SetTexture(std::shared_ptr<Texture> texture)

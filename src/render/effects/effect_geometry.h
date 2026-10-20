@@ -69,13 +69,6 @@ struct EffectGeometry {
         node->pickable = false;
         return node;
     }
-
-    void dirty()
-    {
-        positions->dirty();
-        normals->dirty();
-        for (auto& attribute : attributes) attribute->dirty();
-    }
 };
 
 } // namespace render

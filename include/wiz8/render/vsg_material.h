@@ -86,6 +86,8 @@ InstanceBlock packInstance(const MeshInstance& instance, const Mesh& mesh, const
 
 vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values,
                                        vsg::DataVariance variance = vsg::DYNAMIC_DATA);
+// Retain compiled descriptors and update their arrays in place. Only changed
+// serialized values are marked for transfer; trailing capacity is cleared.
 void store(vsg::vec4Array& destination, std::span<const glm::vec4> values);
 vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block);
 void store(vsg::vec4Array& destination, const InstanceBlock& block);

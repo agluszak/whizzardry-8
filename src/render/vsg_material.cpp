@@ -343,14 +343,23 @@ void store(vsg::vec4Array& destination, std::span<const glm::vec4> values)
 {
     if (values.size() > destination.size())
         throw std::length_error("Render state exceeds compiled buffer");
-    for (std::size_t index = 0; index < values.size(); ++index) {
-        const auto& value = values[index];
-        destination.at(index) = vsg::vec4(value.x, value.y, value.z, value.w);
+    bool changed = false;
+    for (std::size_t index = 0; index < destination.size(); ++index) {
+        // View light collection may use fewer records than its compiled capacity.
+        const auto value = index < values.size() ? values[index] : glm::vec4(0);
+        auto& current = destination.at(index);
+        for (int component = 0; component < 4; ++component) {
+            // Group masks are serialized through float bits, including NaN bit
+            // patterns. Compare those bits so unchanged masks stay unchanged.
+            if (std::bit_cast<std::uint32_t>(current[component]) ==
+                std::bit_cast<std::uint32_t>(value[component]))
+                continue;
+            current = vsg::vec4(value.x, value.y, value.z, value.w);
+            changed = true;
+            break;
+        }
     }
-    // View light collection may use fewer records than the preallocated count.
-    for (std::size_t index = values.size(); index < destination.size(); ++index)
-        destination.at(index) = vsg::vec4(0, 0, 0, 0);
-    destination.dirty();
+    if (changed) destination.dirty();
 }
 
 vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block)
