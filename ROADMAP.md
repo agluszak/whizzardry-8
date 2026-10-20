@@ -229,9 +229,6 @@ each.
 
 Substantial but contained work.
 
-- **Explicit renderer inputs.** Matrix-mode/load operations and mutable current
-  draw state remain in `GpuRenderer`. Replace the implicit protocol with per-draw
-  inputs and migrate callers, including `compositor.cpp`.
 - **Spatial query value APIs.** `traceSurfaces`/`traceGeometry` return typed
   hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers still use
   mutable output records and surface-zero sentinels. Convert them end to end to

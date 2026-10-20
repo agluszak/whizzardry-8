@@ -182,6 +182,10 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled);
 unsigned char ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
+// Advances the render clock by the time since the previous rendered frame.
+void UpdateRenderElapsedTime(void);
+// Seconds on the render clock that scene passes animate textures with.
+double RenderClockSeconds();
 // Draws one scene pass; `picks` are tested against its pickable triangles.
 void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
                  std::span<Pick> picks = {});

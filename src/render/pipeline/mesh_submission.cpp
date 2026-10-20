@@ -231,7 +231,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                 pipe_input.records = std::span{records}.first(slot_count);
                 pipe_input.lights = scene.lights;
                 pipe_input.fogs = scene.fogs;
-                pipe_input.frame_time = this->frame_time;
+                pipe_input.frame_time = scene.frame.time;
                 pipe_input.environment_minimum = scene.depth_cue.minimum;
                 pipe_input.environment_maximum = scene.depth_cue.maximum;
                 pipe_input.environment_scale = scene.depth_cue.near_scale;
@@ -276,6 +276,8 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                 // Sorted batches draw when the scene pass flushes them, after any
                 // caller's depth bias has ended.
                 render_input.polygon_offset = state.sorted ? 0 : state.polygon_offset;
+                render_input.fog_color = scene.fog_color;
+                render_input.texture_reduction = scene.frame.texture_reduction;
                 render_input.picks = scene.picks;
                 render_input.pick_owner = scene.pick_owner;
                 renderer->render(render_input);

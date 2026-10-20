@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include "glm/common.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -63,7 +64,7 @@ void WorldScene::drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& vi
             if (mesh_part->vertex_lighting_ready) {
                 state.scene.ambient_light = glm::vec4(0);
                 mesh_part->SetAmbientColor(glm::vec3(pass.ambient_light),
-                                           renderer.environment_offset, renderer.scene_brightness);
+                                           pass.frame.environment_offset, pass.frame.brightness);
             }
             auto mesh = mesh_part->getTriMesh();
             if (!mesh.active_polygons)
@@ -74,7 +75,8 @@ void WorldScene::drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& vi
     }
 }
 
-void WorldScene::render(GpuRenderer& renderer, Camera3D* view, std::span<Pick> picks)
+void WorldScene::render(GpuRenderer& renderer, Camera3D* view, const SceneFrame& frame,
+                        std::span<Pick> picks)
 {
     auto frame_lights = lights;
     std::erase_if(frame_lights,
@@ -86,13 +88,13 @@ void WorldScene::render(GpuRenderer& renderer, Camera3D* view, std::span<Pick> p
     const auto frame_particles = particles;
     // Without a camera the scene draws in the identity view with no depth cue.
     auto scene_view = view ? view->drawTransform() : DrawTransform{};
-    // The batches read the fog colour when they draw, before this pass returns.
-    renderer.setFogColor(glm::vec4(fog_color, 0));
-    for (auto* light : frame_lights) light->beginPass(renderer, scene_view);
+    for (auto* light : frame_lights) light->beginPass(scene_view, frame.brightness);
     std::erase_if(frame_lights, [](const auto* light) {
         return !(light->derived_flags & Light::DERIVED_ACTIVE);
     });
-    const ScenePass pass{.ambient_light = glm::vec4(ambient_light, 0),
+    const ScenePass pass{.frame = frame,
+                         .ambient_light = glm::vec4(ambient_light, 0),
+                         .fog_color = glm::clamp(glm::vec4(fog_color, 0), 0.0f, 1.0f),
                          .lights = frame_lights,
                          .fogs = frame_fogs,
                          .depth_cue = view ? view->depthCue() : DepthCue{},

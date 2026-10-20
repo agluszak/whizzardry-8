@@ -13,7 +13,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/vertex_channels.h"
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
@@ -96,9 +95,8 @@ Light& Light::operator=(const Light& other)
     return *this;
 }
 
-void Light::beginPass(GpuRenderer& target, const DrawTransform& view)
+void Light::beginPass(const DrawTransform& view, float brightness)
 {
-    auto* renderer = &target;
     {
         const auto light_transform = view.withModel(transform.matrix<glm::mat4>());
         const auto& model_view = light_transform.model_view;
@@ -114,8 +112,7 @@ void Light::beginPass(GpuRenderer& target, const DrawTransform& view)
         for (const auto& channel : channels) {
             if (channel.color != glm::vec3(0)) {
                 channel_mask |= 1UL << channel.channel;
-                channel.scaled =
-                    glm::vec4(channel.color * intensity * renderer->scene_brightness, 0);
+                channel.scaled = glm::vec4(channel.color * intensity * brightness, 0);
             }
         }
         if (channel_mask == 0) {

@@ -3,14 +3,16 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "glm/ext/vector_float4.hpp"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/texture.h"
 
 static void checkConsumers()
 {
-    // Interning must distinguish both texture addresses and the shader word,
-    // preserve index zero, and keep existing indices across growth and clear.
+    // Interning must distinguish both texture addresses, the shader word and
+    // the pass's draw inputs, preserve index zero, and keep existing indices
+    // across growth and clear.
     GpuRenderer::Renderer::TextureSetCache cache;
     Texture textures[2];
     GpuRenderer::Renderer::TextureSetKey key{nullptr, nullptr, {}};
@@ -39,6 +41,13 @@ static void checkConsumers()
     REQUIRE(cache.sets.size() == 515);
     REQUIRE(cache.sets[512].texture0 == &textures[0]);
     REQUIRE(cache.sets[514].texture1 == &textures[0]);
+    // Runs from passes with different fog or texture reduction never merge.
+    key.fog_color = glm::vec4(0.5f);
+    REQUIRE(cache.intern(key) == 515);
+    key.texture_reduction = 1;
+    REQUIRE(cache.intern(key) == 516);
+    REQUIRE(
+        (cache.sets[515].fog_color == glm::vec4(0.5f) && cache.sets[516].texture_reduction == 1));
     cache.clear();
     REQUIRE((cache.sets.empty() && cache.intern(key) == 0 && cache.intern(key) == 0));
     std::puts("ok: renderer texture-set interning");

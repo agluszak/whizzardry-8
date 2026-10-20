@@ -111,8 +111,8 @@ TEST_CASE("game graphics")
             fprintf(stderr, "begin frame %d: %d window %p open %d\n", frame, int(error),
                     static_cast<void*>(ghWindow), g_gerd->isWindowOpen());
         REQUIRE(error == GpuRenderer::ERROR_NONE);
-        g_gerd->setClearColor(0, 0, 0, 1);
-        g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+        g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                      {.color = {0, 0, 0, 1}});
         g_ui_canvas->draw(g_gerd.get());
         g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
         g_gerd->endFrame();

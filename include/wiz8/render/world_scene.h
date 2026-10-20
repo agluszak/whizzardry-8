@@ -51,8 +51,10 @@ public:
     void detach(GroundShadow&);
     void detach(FogParams&);
     MeshInstance* addStaticMesh(std::unique_ptr<MeshInstance> mesh);
-    // Draws the scene and tests `picks` against its pickable triangles.
-    void render(GpuRenderer& renderer, Camera3D* view, std::span<Pick> picks = {});
+    // Draws the scene with the frame's inputs and tests `picks` against its
+    // pickable triangles.
+    void render(GpuRenderer& renderer, Camera3D* view, const SceneFrame& frame,
+                std::span<Pick> picks = {});
     std::size_t renderableCount() const;
 
     glm::vec3 getAmbientLight() const { return ambient_light; }

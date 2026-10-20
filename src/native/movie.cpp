@@ -325,8 +325,8 @@ void W8NativeVideo::present(SDL_Surface* target)
     state->presentation_overlay->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
     if (g_gerd->beginFrame() != GpuRenderer::ERROR_NONE)
         throw std::runtime_error("Cannot begin movie presentation");
-    g_gerd->setClearColor(0, 0, 0, 1);
-    g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+    g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                  {.color = {0, 0, 0, 1}});
     state->presentation_overlay->draw(g_gerd.get());
     g_gerd->endFrame();
 }

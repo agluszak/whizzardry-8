@@ -299,8 +299,8 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& tran
     instance_pass.ambient_light =
         model->vertex_lighting_ready
             ? glm::vec4(0)
-            : glm::vec4((ambient_color * light_scale + renderer.environment_offset) *
-                            renderer.scene_brightness,
+            : glm::vec4((ambient_color * light_scale + pass.frame.environment_offset) *
+                            pass.frame.brightness,
                         1);
 
     if (highlight_colour.x != 0.0f || highlight_colour.y != 0.0f || highlight_colour.z != 0.0f ||
@@ -340,8 +340,7 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& tran
         linked.RenderTriMeshWithEquations(renderer, submitted, normals, state);
     };
     drawLinked([&](Mesh* model, bool first_pass) {
-        model->SetAmbientColor(ambient_color, renderer.environment_offset,
-                               renderer.scene_brightness);
+        model->SetAmbientColor(ambient_color, pass.frame.environment_offset, pass.frame.brightness);
         mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
             RenderShadow(renderer, mesh, transform, instance_pass);

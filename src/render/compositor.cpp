@@ -126,13 +126,12 @@ void GpuRenderer::drawOverlayQuad(const OverlayQuad& quad)
     else
         shader.value &= ~DrawShader::MASK_TEXTURING;
     shader.value = (shader.value & ~DrawShader::MASK_GRADIENT) | DrawShader::MASK_GRADIENT_MODULATE;
-    // Quads are laid out on the 640x480 design canvas, top-left origin.
+    // Quads are laid out on the 640x480 design canvas, top-left origin, and never fogged.
     draw({.primitive = vertexStream::PRIMITIVE_TRIANGLE_STRIP,
           .vertices = vertices,
           .clip_transform = glm::ortho(0.0f, 640.0f, 480.0f, 0.0f, -1.0f, 1.0f),
           .shader = shader,
-          .textures = {quad.texture.get(), nullptr},
-          .fog_color = getFogColor()});
+          .textures = {quad.texture.get(), nullptr}});
 }
 
 UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)
