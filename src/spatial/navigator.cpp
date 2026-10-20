@@ -424,10 +424,19 @@ Navigator::Navigator(const Navigator& other, World* owner)
     if (owner_world) owner_world->navigators.push_back(this);
 }
 
+/* Navigators in the same world target and follow each other by address, so a departing
+   navigator drops every link to itself: a mover whose target or leader is gone stops
+   following it instead of reading freed memory. */
 Navigator::~Navigator()
 {
     if (owner_world) wiz8::erase_first(owner_world->navigators, this);
     auto* world = owner_world ? owner_world : GetWorld();
+    if (world) {
+        for (Navigator* other : world->navigators) {
+            if (other->target_navigator == this) other->target_navigator = nullptr;
+            if (other->linked_navigator == this) other->linked_navigator = nullptr;
+        }
+    }
     if (movement.location_id != 0 && world && world->compiledIndex())
         world->compiledIndex()->UnregisterLocationObject(movement.location_id,
                                                          W8_OCTREE_KIND_NAVIGATOR);

@@ -87,7 +87,7 @@ void InitializeWorldCursor(void)
         cursor.detached = false;
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
-        cursor.dragged_info = 0;
+        cursor.dragged_location_id = 0;
         auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1, 1);
         cursor.monster = monster.get();
         GetWorld()->monsters.push_back(std::move(monster));
@@ -209,11 +209,10 @@ void ApplyWorldCursorInput(void)
             if (g_cursor_pick_latch) {
                 g_cursor_pick_latch = false;
             }
-            if (cursor.dragged_info != 0) {
-                cursor.dragged_info = 0;
-            }
-        } else if (!g_cursor_pick_latch && cursor.dragged_info == 0) {
-            cursor.dragged_info = FindNearestMonsterInfo(&cursor.position, 2500.0);
+            cursor.dragged_location_id = 0;
+        } else if (!g_cursor_pick_latch && cursor.dragged_location_id == 0) {
+            if (auto* nearest = FindNearestMonsterInfo(&cursor.position, 2500.0))
+                cursor.dragged_location_id = nearest->location_id;
         }
     }
     if (!cursor.detached) {
@@ -273,13 +272,15 @@ void ApplyWorldCursorInput(void)
             node_location = glm::dvec3(cursor.position);
             cursor.light->transform.setLocation(node_location);
         }
-        if (cursor.dragged_info && !cursor.dragged_info->p3D) cursor.dragged_info = nullptr;
-        if (cursor.dragged_info != 0) {
-            cursor.dragged_info->p3D->nav.SetPositionInternal(&cursor.position);
-            GetWorldSpatialIndex()->UpdateMonsterLocation(cursor.dragged_info->location_id,
-                                                          cursor.position);
+        // The dragged monster may have been removed or unloaded since the drag began.
+        const auto* dragged = FindMonster(cursor.dragged_location_id, false);
+        if (dragged == nullptr || dragged->p3D == nullptr) {
+            cursor.dragged_location_id = 0;
+        } else {
+            dragged->p3D->nav.SetPositionInternal(&cursor.position);
+            GetWorldSpatialIndex()->UpdateMonsterLocation(dragged->location_id, cursor.position);
             if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-                cursor.dragged_info->p3D->ForwardReferencePosition(1);
+                dragged->p3D->ForwardReferencePosition(1);
             }
         }
         cursor.last_published = cursor.position;

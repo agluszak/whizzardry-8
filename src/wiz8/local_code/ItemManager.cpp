@@ -29,6 +29,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -727,10 +728,11 @@ unsigned char InteractWithWorldItem(int runtime_id)
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return 1;
     }
-    if (item->p3D->trigger != 0) {
-        result = RunItemTrigger(item->p3D);
-        if (result == 0) {
-            return result;
+    if (Trigger* trigger = item->trigger) {
+        trigger->Run(-1);
+        if (trigger->action_state == W8TriggerActionState::inactive ||
+            trigger->action_state == W8TriggerActionState::fallback_action) {
+            return 0;
         }
     }
     if ((item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {

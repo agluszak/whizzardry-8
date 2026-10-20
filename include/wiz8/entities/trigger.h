@@ -16,7 +16,6 @@ struct W8Chunk;
 #include "wiz8/render/camera_shake.h"
 
 class Light;
-struct WorldItemEntity;
 class Prop;
 class Trigger;
 struct World;
@@ -234,7 +233,6 @@ public:
     W8TriggerRepresentationKind m_bRepType;
     unsigned char unknown_10d[3];
     Prop* m_pProp;
-    WorldItemEntity* rep_item;
     glm::vec3 position;
     World* m_pWorld;
     char action_data[0x80];
@@ -318,3 +316,6 @@ bool InsideDestinationTrigger(const World& world, float x, float y, float z);
 // Stop callbacks before retiring the primary world; trigger owners survive until teardown.
 
 Trigger* FindTriggerInWorld(World& world, std::string_view name);
+/* Trigger action 0x0b: mark the first placed group of a monster species active and
+   restart its first member's animation and pathing when that member is loaded. */
+void WakeMonsterGroup(int monster_id);

@@ -12,7 +12,6 @@
 
 struct World;
 struct WorldItemEntity;
-class Trigger;
 class MeshInstance;
 class MeshInstance;
 
@@ -45,7 +44,6 @@ struct WorldItemEntity {
     float bounds_radius = 0.0f;
     float pulse_level = 0.0f;
     unsigned int flags = 0;
-    Trigger* trigger = nullptr;
     uint64_t countdown = 0;
 
     void RefreshBounds();
@@ -71,6 +69,5 @@ struct WorldItemEntity {
     bool IsRadarBlipLit();
 };
 
-bool RunItemTrigger(WorldItemEntity* item);
 std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

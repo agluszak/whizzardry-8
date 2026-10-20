@@ -453,6 +453,20 @@ TEST_CASE("Monster light copies need no source scene attachment", "[lights][owne
     REQUIRE(copy.scene == nullptr);
 }
 
+TEST_CASE("A destroyed navigator leaves no mover targeting or following it",
+          "[resources][navigation]")
+{
+    World world;
+    Navigator follower(&world);
+    {
+        Navigator leader(&world);
+        follower.target_navigator = &leader;
+        follower.linked_navigator = &leader;
+    }
+    REQUIRE(follower.target_navigator == nullptr);
+    REQUIRE(follower.linked_navigator == nullptr);
+}
+
 TEST_CASE_METHOD(SpellVisualFixture,
                  "Unpublished navigation cannot change the active world's movement or indexes",
                  "[resources][levels][navigation]")
