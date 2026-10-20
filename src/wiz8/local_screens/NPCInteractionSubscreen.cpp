@@ -66,12 +66,10 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -94,6 +92,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spell_ids.h"
@@ -2029,7 +2028,7 @@ void OpenNpcDialogueTranscriptLayout(void)
         if (g_status.party.rows[index].fOccupied) {
             DisableMainGamePortraitSlot(index);
 
-            g_main_game_state->edge_targets[index]->setEnabled(false);
+            MainGame()->edge_targets[index]->setEnabled(false);
         }
     }
     if (g_npc_interaction_state->dialogue_npc->record->merchant != 0) {
@@ -2066,7 +2065,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
         if (g_status.party.rows[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
 
-            g_main_game_state->edge_targets[index]->setEnabled(true);
+            MainGame()->edge_targets[index]->setEnabled(true);
         }
     }
 }
@@ -3889,7 +3888,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     } else if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-        g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
+        CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
     }
 }
 

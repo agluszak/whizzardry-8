@@ -58,6 +58,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world_cursor.h"
@@ -205,9 +206,9 @@ static void CreateSpellCastingViewControls(void)
 
     if (gXStatus.fCampMode) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-            if (g_main_game_state) {
+            if (MainGame()) {
                 DisableMainGamePortraitSlot(index);
-                g_main_game_state->edge_targets[index]->setEnabled(false);
+                MainGame()->edge_targets[index]->setEnabled(false);
             }
         }
     }

@@ -191,14 +191,14 @@ target_sources(wiz8_engine PRIVATE
     local_code/GroupAttacks.cpp
     local_code/CharGeneration.cpp
     local_screens/AutomapScreen.cpp
-    local_screens/screen12.cpp
+    local_screens/ExitScreen.cpp
     local_screens/MGSPortraitCombat.cpp
     local_screens/MGSButtons.cpp
     local_screens/MGSSpellCasting.cpp
     local_screens/PartySelectionScreen.cpp
     local_code/Text_Input.cpp
     local_code/Traps.cpp
-    local_code/Gameloop.cpp
+    screen_router.cpp
     game_init.cpp
     dialog_code/MonsterInfoDialog.cpp
     dialog_code/AssayDialog.cpp

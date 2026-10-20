@@ -8,7 +8,6 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/render/frame.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -36,8 +35,38 @@ Font g_small_font;
 Font g_options_title_font;
 Font ghTinyMonoFont;
 Font g_smfnt_font;
+Font g_level_load_font;
+Font g_journal_font;
 
 std::array<Palette16, 15> g_font_state_palettes;
+
+namespace {
+constexpr std::array all_fonts = {
+    &g_calligraphy_shadow_font,
+    &g_calligraphy_font,
+    &g_engraved_font,
+    &g_monster_damage_font,
+    &g_options_detail_font,
+    &g_wiz_text_mono_font,
+    &g_wiz_text_font,
+    &g_embossed_font,
+    &g_font12point1,
+    &g_wiz_dialog_font,
+    &g_profession_font,
+    &g_wiz_text_font_secondary,
+    &g_wiz_text_bold_font,
+    &g_font10arial,
+    &g_small_font_secondary,
+    &g_button_font,
+    &g_large_font,
+    &g_small_font,
+    &g_options_title_font,
+    &ghTinyMonoFont,
+    &g_smfnt_font,
+    &g_level_load_font,
+    &g_journal_font,
+};
+}
 
 unsigned char InitializeMenuFonts(void)
 {
@@ -64,7 +93,9 @@ unsigned char InitializeMenuFonts(void)
         std::tuple{&g_font10arial, "Data\\Fonts\\Font10Arial.sti", std::uint32_t{0}},
         std::tuple{&g_wiz_dialog_font, "Data\\Fonts\\dialog_font.sti", FONT_GLOW_GREEN},
         std::tuple{&g_monster_damage_font, "Data\\Fonts\\monsterdamage_font.sti", std::uint32_t{0}},
-        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN}};
+        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_level_load_font, "Data\\Level Load\\levelload_font.sti", std::uint32_t{0}},
+        std::tuple{&g_journal_font, "Data\\Journal\\journal_font.sti", std::uint32_t{0}}};
     std::array<Font, fonts.size()> loaded;
     for (size_t index = 0; index < fonts.size(); ++index) {
         const auto& [role, filename, shade] = fonts[index];
@@ -89,27 +120,11 @@ unsigned char InitializeMenuFonts(void)
 
 void ReleaseMenuFonts()
 {
-    g_level_load_font.clear();
-    ghTinyMonoFont.clear();
-    g_calligraphy_shadow_font.clear();
-    g_calligraphy_font.clear();
-    g_engraved_font.clear();
-    g_monster_damage_font.clear();
-    g_options_detail_font.clear();
-    g_wiz_text_mono_font.clear();
-    g_wiz_text_font.clear();
-    g_embossed_font.clear();
-    g_font12point1.clear();
-    g_wiz_dialog_font.clear();
-    g_profession_font.clear();
-    g_wiz_text_font_secondary.clear();
-    g_wiz_text_bold_font.clear();
-    g_font10arial.clear();
-    g_small_font_secondary.clear();
-    g_button_font.clear();
-    g_large_font.clear();
-    g_small_font.clear();
-    g_options_title_font.clear();
-    g_smfnt_font.clear();
+    for (Font* font : all_fonts) font->clear();
     g_font_state_palettes = {};
+}
+
+void ResetMenuFontPalettes()
+{
+    for (Font* font : all_fonts) font->resetPalette();
 }

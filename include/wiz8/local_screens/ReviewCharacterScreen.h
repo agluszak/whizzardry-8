@@ -24,6 +24,7 @@
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
@@ -37,7 +38,6 @@ enum W8CampItemFilterButton {
     W8_CAMP_ITEM_FILTER_BUTTON_UNIDENTIFIED = 5
 };
 
-struct W8ScreenStateRuntime;
 struct W8Character;
 struct W8CombatSlot;
 
@@ -383,7 +383,9 @@ private:
 };
 
 struct W8CampScreenState {
-    bool Enter(const W8ScreenStateRuntime& request);
+    /* Build the pages for `reviewed_character` (null when no character is
+       selected); `request.parameter_4` names an identifying character. */
+    bool Enter(const ScreenRequest& request, W8Character* reviewed_character);
     void Frame();
     void ShowNotice(std::string_view text, std::function<void(bool)> callback, bool confirmation,
                     bool cancel);
@@ -450,7 +452,26 @@ private:
     void CreateCampButtonPanel();
 };
 
-extern std::unique_ptr<W8CampScreenState> g_camp_screen;
+/* The camp: the reviewed character's items, stats, skills and spells pages
+   over the party strip. Its pages are rebuilt on every entry; a resumed camp
+   reviews the character it showed when it was suspended. */
+class CampScreen final : public Screen {
+public:
+    static constexpr W8ScreenId id = W8_SCREEN_CAMP;
+
+    bool enter(const ScreenRequest& request) override;
+    bool resume(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+
+    std::unique_ptr<W8CampScreenState> state;
+
+private:
+    bool open(const ScreenRequest& request, W8Character* reviewed);
+    W8Character* reviewed_ = nullptr;
+};
+/* The open camp's state, or null. */
+W8CampScreenState* CampScreenState();
 
 /* One g_localized_strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
@@ -484,10 +505,6 @@ extern int g_race_portrait_images[0x30];
 bool IsCampActionAllowed(int party_slot);
 int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target);
 int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target);
-
-bool CampScreenEnter(void);
-void CampScreenFrame(void);
-bool CampScreenLeave(int leaving);
 
 bool IsEquippableItemClass(W8ItemInstance* item);
 

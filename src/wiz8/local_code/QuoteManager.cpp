@@ -51,9 +51,7 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
@@ -74,6 +72,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
@@ -913,7 +912,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             return;
         }
         if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-            g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
+            CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
         }
         record->portrait_event_active = active;
         return;
@@ -973,14 +972,14 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             quote->height =
                 static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
             if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-                if (static_cast<int>(party_slot) == g_camp_screen->ReviewedPartySlot()) {
+                if (static_cast<int>(party_slot) == CampScreenState()->ReviewedPartySlot()) {
                     quote->x = 10;
                     quote->y = 8;
                 } else {
                     quote->x = static_cast<unsigned short>(((party_slot & 1) * 0x30) + 0x36);
                     quote->y = static_cast<unsigned short>((party_slot >> 1) * 0x27 + 5);
                 }
-                g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_ALL;
+                CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
             } else {
                 unsigned short base_x = g_portrait_quote_x[party_slot];
                 quote->x = base_x;

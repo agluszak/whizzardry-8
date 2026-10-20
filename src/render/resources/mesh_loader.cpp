@@ -28,8 +28,6 @@
 #include "glm/fwd.hpp"
 #include "wiz8/checked_integer.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -38,6 +36,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_resources.h"
+#include "wiz8/screen.h"
 #include "wiz8/world/update.h"
 
 class Material;

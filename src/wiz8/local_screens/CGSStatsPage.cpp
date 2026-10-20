@@ -14,7 +14,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
@@ -23,6 +22,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 

@@ -19,10 +19,11 @@
 #include "wiz8/mgs_commands.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
-class W8OptionsScreen;
+class W8OptionsScreenState;
 class W8OptionsPanel;
 struct W8OptionsSaveRow;
 class W8MessageDialogBase;
@@ -235,10 +236,10 @@ struct W8OptionsKeyButton {
 };
 
 class W8OptionsKeyboardPanel : public W8OptionsPanel {
-    W8OptionsScreen& screen;
+    W8OptionsScreenState& screen;
 
 public:
-    W8OptionsKeyboardPanel(W8OptionsScreen& screen, int panel);
+    W8OptionsKeyboardPanel(W8OptionsScreenState& screen, int panel);
     void Populate() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
@@ -260,10 +261,10 @@ public:
 };
 
 class W8OptionsSaveLoadPanel : public W8OptionsPanel {
-    W8OptionsScreen& screen;
+    W8OptionsScreenState& screen;
 
 public:
-    W8OptionsSaveLoadPanel(W8OptionsScreen& screen, int panel);
+    W8OptionsSaveLoadPanel(W8OptionsScreenState& screen, int panel);
     void Populate() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
@@ -301,12 +302,12 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-class W8OptionsScreen final {
+class W8OptionsScreenState final {
     UiLayer m_menu_input;
 
 public:
-    W8OptionsScreen();
-    ~W8OptionsScreen();
+    W8OptionsScreenState();
+    ~W8OptionsScreenState();
     void SelectPanel(int selected);
     void ActivateMenu(int item);
     void UpdateNavigation();
@@ -334,10 +335,24 @@ public:
     W8OptionsKeyboardPanel* m_key_capture;
 };
 
-extern std::unique_ptr<W8OptionsScreen> g_options_screen;
+/* Settings, key bindings and the save and load lists. The panels are rebuilt
+   from the live settings on every entry and applied when the screen leaves. */
+class OptionsScreen final : public Screen {
+public:
+    static constexpr W8ScreenId id = W8_SCREEN_OPTIONS;
+
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+
+    std::unique_ptr<W8OptionsScreenState> state;
+
+private:
+    /* The first frame of a visit presents without the automatic flip. */
+    bool first_frame_ = false;
+};
+/* The open options screen's state, or null. */
+W8OptionsScreenState* OptionsScreenState();
+
 extern std::string g_options_last_save_name;
 std::string_view GetLastSaveName(void);
-
-bool OptionsScreenEnter(void);
-void OptionsScreenFrame(void);
-bool OptionsScreenLeave(int leaving);

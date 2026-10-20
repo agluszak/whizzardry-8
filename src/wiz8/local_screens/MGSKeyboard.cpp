@@ -19,7 +19,6 @@
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
-#include "layouts/screen_state.h"
 #include "layouts/targeting.h"
 #include "mgs_commands.h"
 #include "wiz8/button_interaction.h"
@@ -41,7 +40,6 @@
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Magic.h"
@@ -67,6 +65,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -74,6 +73,9 @@
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/xstatus.h"
+
+/* The party slot whose keyboard menu is open. */
+int g_selected_party_slot = -1;
 
 struct W8ItemInstance;
 
@@ -470,7 +472,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (const auto slot_name = FindStartupQuickSave()) {
             g_options_last_save_name = (*slot_name);
             ClearHeldItemDisplay();
-            W8ScreenStateRuntime request;
+            ScreenRequest request;
             request.mode = W8_PLEASE_WAIT_LOAD_GAME;
             request.name = *slot_name;
             request.parameter = GetSaveGameLevel(request.name);
@@ -687,8 +689,8 @@ void OpenKeyboardMenuForSlot(int slot)
     gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
 
-    g_main_game_state->edge_targets[slot]->setEnabled(false);
-    g_main_game_state->combat_targets[slot]->setEnabled(false);
+    MainGame()->edge_targets[slot]->setEnabled(false);
+    MainGame()->combat_targets[slot]->setEnabled(false);
     EnableKeyboardMenuInput();
     RequestRedraw(1 << slot);
 }
@@ -702,9 +704,9 @@ void CloseKeyboardMenu(void)
     g_level_block->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (g_combat.active()) {
-        g_main_game_state->combat.setEnabled(true);
+        MainGame()->combat.setEnabled(true);
     } else {
-        g_main_game_state->combat.setEnabled(false);
+        MainGame()->combat.setEnabled(false);
     }
     if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
         ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,

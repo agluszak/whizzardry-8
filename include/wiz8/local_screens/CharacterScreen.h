@@ -11,18 +11,18 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/compiler.h"
 #include "wiz8/layouts/character.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
 class W8DialogBase;
-class W8CharacterScreen;
+class W8CharacterScreenState;
 class W8CharacterPageEntry;
 
 enum class W8CharacterPortraitAction : int {
@@ -92,7 +92,7 @@ public:
     virtual void Refresh();
     virtual void Prepare();
     std::vector<std::unique_ptr<W8CharacterPageEntry>> m_entries;
-    W8CharacterScreen* m_screen;
+    W8CharacterScreenState* m_screen;
     W8Character* m_character;
     W8CharacterCreationState* m_creation_state;
     W8CharacterScreenMode m_mode;
@@ -309,10 +309,10 @@ extern unsigned short g_personality_message_ids[10];
 void ResetCharacterScreenSkill(W8Skill skill_id);
 void RefundCharacterScreenSkill(W8Skill skill_id);
 
-class W8CharacterScreen final {
+class W8CharacterScreenState final {
 public:
-    W8CharacterScreen(W8CharacterScreenMode mode, W8Character* character);
-    ~W8CharacterScreen();
+    W8CharacterScreenState(W8CharacterScreenMode mode, W8Character* character);
+    ~W8CharacterScreenState();
     void BuildControls();
     void UpdateDialog();
     void AdvancePage(bool forward);
@@ -364,7 +364,20 @@ public:
     unsigned char pad_1b25[3];
 };
 
-extern std::unique_ptr<W8CharacterScreen> g_character_screen;
+/* Creation, editing and level-up of one character, page by page. The working
+   copy and pages are rebuilt on every entry. */
+class CharacterScreen final : public Screen {
+public:
+    static constexpr W8ScreenId id = W8_SCREEN_CHARACTER;
+
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+
+    std::unique_ptr<W8CharacterScreenState> state;
+};
+/* The open character screen's state, or null. */
+W8CharacterScreenState* CharacterScreenState();
 
 /* Per-profession message indexes. */
 extern unsigned short g_profession_name_message_ids[32];
@@ -373,8 +386,4 @@ extern unsigned short g_race_name_message_ids[W8_RACE_COUNT];
    level bands. */
 extern unsigned short g_profession_level_name_message_ids[15][9];
 
-/* Refresh the character-screen response when a party slot changes. */
-bool CharacterScreenEnter(void);
-void CharacterScreenFrame(void);
-bool CharacterScreenLeave(int leaving);
 extern char g_dash[];

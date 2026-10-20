@@ -37,12 +37,10 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -53,12 +51,12 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -80,8 +78,6 @@ struct W8PartySelectionCharacterCollection {
     std::vector<std::string> names;
     int first_visible;
 };
-
-static std::unique_ptr<W8PartySelectionCharacterCollection> g_party_selection_character_collection;
 
 W8PartySelectionCharacterCollection::~W8PartySelectionCharacterCollection()
 {
@@ -207,8 +203,17 @@ void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
     for (std::size_t i = 0; i < dated.size(); ++i) characters[i] = dated[i].second;
 }
 
-class W8PartySelectionController {
+class PartySelectionScreen final : public Screen {
 public:
+    static constexpr W8ScreenId id = W8_SCREEN_PARTY_SELECTION;
+
+    bool enter(const ScreenRequest& request) override;
+    bool resume(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+
+    /* The characters on offer: saved ones, or an imported party. */
+    W8PartySelectionCharacterCollection roster;
     void Setup();
     void SetMode(W8PartySelectionMode mode);
     void SetSelection(int selection, bool party_slot, bool refresh_other);
@@ -260,8 +265,6 @@ public:
     W8PartyConfirmationAction m_confirmation_action;
 };
 
-static std::unique_ptr<W8PartySelectionController> g_party_selection_controller;
-
 static SDL_Point PartySlotPosition(int row)
 {
     return {(row & 1) * 0x20b + 0x0e, (row / 2) * 0x82 + 0x3a};
@@ -281,19 +284,19 @@ void RefreshPartySelectionPortrait(unsigned int party_slot)
 
 bool PartySelectionInReviewMode()
 {
-    return g_party_selection_controller->m_mode == W8_PARTY_SELECT_IMPORT;
+    const auto* screen = FindScreen<PartySelectionScreen>();
+    return screen && screen->m_mode == W8_PARTY_SELECT_IMPORT;
 }
 
-void W8PartySelectionController::RefreshRows()
+void PartySelectionScreen::RefreshRows()
 {
     for (int row = 0; row < 6; ++row)
         rows[row]->setEnabled(m_mode == W8_PARTY_SELECT_CHARACTERS &&
-                              g_party_selection_character_collection->GetCharacter(
-                                  g_party_selection_character_collection->first_visible + row));
+                              roster.GetCharacter(roster.first_visible + row));
     rows_dirty = true;
 }
 
-void W8PartySelectionController::RefreshSlots()
+void PartySelectionScreen::RefreshSlots()
 {
     for (int slot = 0; slot < 6; ++slot) {
         const bool occupied = g_status.party.rows[slot + 2].fOccupied;
@@ -304,10 +307,10 @@ void W8PartySelectionController::RefreshSlots()
     slots_dirty = true;
 }
 
-void W8PartySelectionController::SetSelectedRow(int selection)
+void PartySelectionScreen::SetSelectedRow(int selection)
 {
     m_selected_row = selection;
-    auto& collection = *g_party_selection_character_collection;
+    auto& collection = roster;
     const int visible = selection - collection.first_visible;
     if (visible < 0 || visible > 5 ||
         static_cast<int>(collection.characters.size()) < collection.first_visible + 6) {
@@ -318,13 +321,13 @@ void W8PartySelectionController::SetSelectedRow(int selection)
     RefreshRows();
 }
 
-void W8PartySelectionController::DrawCharacters(SDL_Surface& target)
+void PartySelectionScreen::DrawCharacters(SDL_Surface& target)
 {
     if (m_mode != W8_PARTY_SELECT_CHARACTERS || !rows_dirty) return;
     rows_dirty = false;
     for (int row = 0; row < 6; ++row) {
-        const int index = g_party_selection_character_collection->first_visible + row;
-        const auto* character = g_party_selection_character_collection->GetCharacter(index);
+        const int index = roster.first_visible + row;
+        const auto* character = roster.GetCharacter(index);
         if (!character) continue;
         int left = 0x148, top = 0x31 + row * 0x2a;
         CatalogArtwork::Load(0xfb, 0).drawAndInvalidate(
@@ -348,7 +351,7 @@ void W8PartySelectionController::DrawCharacters(SDL_Surface& target)
     }
 }
 
-void W8PartySelectionController::DrawSlots(SDL_Surface& target)
+void PartySelectionScreen::DrawSlots(SDL_Surface& target)
 {
     if (!slots_dirty) return;
     slots_dirty = false;
@@ -379,7 +382,7 @@ void W8PartySelectionController::DrawSlots(SDL_Surface& target)
     }
 }
 
-void W8PartySelectionController::DrawImportList(SDL_Surface& target)
+void PartySelectionScreen::DrawImportList(SDL_Surface& target)
 {
     if (m_mode != W8_PARTY_SELECT_IMPORT || !list_dirty) return;
     list_dirty = false;
@@ -387,7 +390,7 @@ void W8PartySelectionController::DrawImportList(SDL_Surface& target)
     InvalidateRegion(clip.x, clip.y, clip.x + clip.w, clip.y + clip.h);
     CatalogArtwork::Load(0x1b6, 0).drawRect(target, SDL_Rect{0, 0, clip.w, clip.h}, clip.x, clip.y);
     ScopedClipRect clipping(target, clip);
-    const auto& names = g_party_selection_character_collection->names;
+    const auto& names = roster.names;
     const int end = std::min(import_first + 17, static_cast<int>(names.size()));
     for (int row = import_first; row < end; ++row) {
         auto colour = g_wiz_text_font_secondary.glyphs->colors;
@@ -402,7 +405,7 @@ void W8PartySelectionController::DrawImportList(SDL_Surface& target)
     g_wiz_text_font_secondary.resetPalette();
 }
 
-void W8PartySelectionController::DrawSummary(SDL_Surface& target)
+void PartySelectionScreen::DrawSummary(SDL_Surface& target)
 {
     if (m_mode > W8_PARTY_SELECT_IMPORT || !summary_dirty) {
         return;
@@ -493,7 +496,7 @@ void W8PartySelectionController::DrawSummary(SDL_Surface& target)
              fmt::format("{:d}", character->carrying_capacity / 10));
 }
 
-void W8PartySelectionController::DrawOptions(SDL_Surface& target)
+void PartySelectionScreen::DrawOptions(SDL_Surface& target)
 {
     if (m_mode <= W8_PARTY_SELECT_IMPORT) return;
     if (options_dirty) {
@@ -512,7 +515,7 @@ void W8PartySelectionController::DrawOptions(SDL_Surface& target)
     ironman_toggle->Refresh();
 }
 
-bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
+bool PartySelectionScreen::HandleNameInput(const InputEvent& input)
 {
     if (!name_input || !IsTypingEvent(input)) return false;
     if (input.key != SDLK_ESCAPE && input.key != SDLK_RETURN) {
@@ -527,7 +530,7 @@ bool W8PartySelectionController::HandleNameInput(const InputEvent& input)
     return true;
 }
 
-void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
+void PartySelectionScreen::SetOptionPanelMode(W8PartyCreationPage page)
 {
     creation_page = page;
     option_text.clear();
@@ -615,11 +618,11 @@ void W8PartySelectionController::SetOptionPanelMode(W8PartyCreationPage page)
     }
 }
 
-void W8PartySelectionController::Setup()
+void PartySelectionScreen::Setup()
 {
     m_range.on_change = [this](auto* range) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
-            g_party_selection_character_collection->first_visible = range->m_value;
+            roster.first_visible = range->m_value;
             RefreshRows();
         } else {
             import_first = range->m_value;
@@ -647,7 +650,7 @@ void W8PartySelectionController::Setup()
                          (event.action == UiPointerAction::Down &&
                           event.button == UiPointerButton::Left && event.clicks == 2)) {
                     AfterUiDispatch([this, row, event] {
-                        SetSelectedRow(g_party_selection_character_collection->first_visible + row);
+                        SetSelectedRow(roster.first_visible + row);
                         SetSelection(m_selected_row, false, true);
                         if (event.button == UiPointerButton::Right)
                             OnPrimary(m_review_button);
@@ -712,8 +715,7 @@ void W8PartySelectionController::Setup()
                  event.inside && (event.captured_buttons & SDL_BUTTON_LMASK)) {
             const int selection = event.local.y / 14 + import_first;
             if (selection != import_selection &&
-                selection <
-                    static_cast<int>(g_party_selection_character_collection->names.size())) {
+                selection < static_cast<int>(roster.names.size())) {
                 import_selection = selection;
                 AfterUiDispatch([this, selection] { LoadImportedPartyFile(selection); });
             }
@@ -794,7 +796,7 @@ void W8PartySelectionController::Setup()
     SetSelection(0, false, true);
 }
 
-void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
+void PartySelectionScreen::SetMode(W8PartySelectionMode mode)
 {
     m_mode = mode;
     input.setEnabled(true);
@@ -807,15 +809,14 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     import_list->setEnabled(importing);
     RefreshRows();
     RefreshSlots();
-    if (importing && g_party_selection_character_collection->names.empty()) {
+    if (importing && roster.names.empty()) {
         for (const auto& entry : wiz8::list_directory(wiz8::user_path("saves\\import"))) {
             const auto status = wiz8::file_status(wiz8::user_path("saves\\import\\" + entry));
-            if (status && status->info.type == SDL_PATHTYPE_FILE)
-                g_party_selection_character_collection->names.push_back(entry);
+            if (status && status->info.type == SDL_PATHTYPE_FILE) roster.names.push_back(entry);
         }
     }
     if (characters || importing) {
-        const auto& collection = *g_party_selection_character_collection;
+        const auto& collection = roster;
         const int maximum = std::max(0, static_cast<int>(characters ? collection.characters.size()
                                                                     : collection.names.size()) -
                                             (characters ? 6 : 17));
@@ -840,11 +841,11 @@ void W8PartySelectionController::SetMode(W8PartySelectionMode mode)
     title.SetText(g_localized_strings[message], g_wiz_text_bold_font);
 }
 
-void W8PartySelectionController::SetSelection(int selection, bool party_slot, bool refresh_other)
+void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool refresh_other)
 {
     if (!party_slot) {
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
-            m_character = g_party_selection_character_collection->GetCharacter(selection);
+            m_character = roster.GetCharacter(selection);
             int selected_slot = -1;
             if (m_character && m_character->fInParty) {
                 for (int slot = 0; slot < 6; ++slot) {
@@ -870,12 +871,8 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             int character_index = -1;
             if (selection >= 0 && g_status.party.rows[selection + 2].fOccupied) {
-                for (int index = 0;
-                     index <
-                     static_cast<int>(g_party_selection_character_collection->characters.size());
-                     ++index) {
-                    if (g_party_selection_character_collection->GetCharacter(index) ==
-                        m_character) {
+                for (int index = 0; index < static_cast<int>(roster.characters.size()); ++index) {
+                    if (roster.GetCharacter(index) == m_character) {
                         character_index = index;
                         break;
                     }
@@ -905,7 +902,7 @@ void W8PartySelectionController::SetSelection(int selection, bool party_slot, bo
     }
 }
 
-void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
+void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
 {
     if (control == m_back_button) {
         if (name_input) {
@@ -1000,7 +997,7 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
         return;
     }
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
+    W8PartySelectionCharacterCollection* collection = &roster;
     for (int index = 0; index < static_cast<int>(collection->characters.size()); ++index) {
         W8Character* previous = collection->GetCharacter(index);
         if (!previous->fInParty) {
@@ -1013,7 +1010,7 @@ void W8PartySelectionController::OnPrimary(W8ButtonWidget* control)
     LoadImportedPartyFile(import_selection);
 }
 
-void W8PartySelectionController::OnDecision(bool accepted)
+void PartySelectionScreen::OnDecision(bool accepted)
 {
     if (!accepted) {
         std::string slot_name;
@@ -1046,12 +1043,12 @@ void W8PartySelectionController::OnDecision(bool accepted)
     }
 }
 
-void W8PartySelectionController::OnToggle(bool enabled)
+void PartySelectionScreen::OnToggle(bool enabled)
 {
     m_confirm_button->SetEnabled(enabled);
 }
 
-void W8PartySelectionController::InvalidatePartySelectionComposition()
+void PartySelectionScreen::InvalidatePartySelectionComposition()
 {
     m_redraw_backdrop = summary_dirty = rows_dirty = slots_dirty = list_dirty = options_dirty =
         true;
@@ -1061,7 +1058,7 @@ void W8PartySelectionController::InvalidatePartySelectionComposition()
     title.SetGeometryDirty();
 }
 
-void W8PartySelectionController::DrawPartySelectionComposition()
+void PartySelectionScreen::DrawPartySelectionComposition()
 {
     auto& target = GetFrameBufferSurface();
     if (m_redraw_backdrop) {
@@ -1083,8 +1080,8 @@ void W8PartySelectionController::DrawPartySelectionComposition()
     if (name_input) name_input->RenderAll(target);
 }
 
-void W8PartySelectionController::OpenNotification(std::string_view message, bool allow_cancel,
-                                                  W8PartyConfirmationAction action)
+void PartySelectionScreen::OpenNotification(std::string_view message, bool allow_cancel,
+                                            W8PartyConfirmationAction action)
 {
     m_confirmation_action = action;
     m_dialog = std::make_unique<W8MessageDialogBase>();
@@ -1096,8 +1093,7 @@ void W8PartySelectionController::OpenNotification(std::string_view message, bool
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirmationAction,
-                                                                 bool accepted)
+void PartySelectionScreen::ApplyPartySelectionConfirmation(W8PartyConfirmationAction, bool accepted)
 {
     if (!accepted) {
         if (m_confirmation_action == W8_PARTY_CONFIRM_IMPORT) {
@@ -1106,7 +1102,7 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
         return;
     }
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
+    W8PartySelectionCharacterCollection* collection = &roster;
     switch (m_confirmation_action) {
     case W8_PARTY_CONFIRM_DELETE_CHARACTER: {
         int selected = m_selected_row;
@@ -1165,10 +1161,10 @@ void W8PartySelectionController::ApplyPartySelectionConfirmation(W8PartyConfirma
     }
 }
 
-void W8PartySelectionController::LoadImportedPartyFile(int selection)
+void PartySelectionScreen::LoadImportedPartyFile(int selection)
 {
     ResetForNewGame();
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
+    W8PartySelectionCharacterCollection* collection = &roster;
     if (selection >= 0 && selection < static_cast<int>(collection->names.size())) {
         std::string path;
         path = fmt::format("{}\\{}", "saves\\import", collection->names[selection]);
@@ -1186,14 +1182,14 @@ void W8PartySelectionController::LoadImportedPartyFile(int selection)
     SetSelection(0, true, true);
 }
 
-void W8PartySelectionController::TogglePartyMemberSelection()
+void PartySelectionScreen::TogglePartyMemberSelection()
 {
     int selected = m_selected_row;
     if (m_mode != W8_PARTY_SELECT_CHARACTERS || selected == -1) {
         return;
     }
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
+    W8PartySelectionCharacterCollection* collection = &roster;
     W8Character* character = collection->GetCharacter(selected);
     if (!character) return;
     if (!character->fInParty) {
@@ -1238,55 +1234,52 @@ void W8PartySelectionController::TogglePartyMemberSelection()
     m_confirm_button->m_dirty = true;
 }
 
-bool PartySelectionScreenEnter(void)
+namespace {
+void PreparePartySelectionCanvas()
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
+}
+} // namespace
 
-    W8PartySelectionCharacterCollection* collection = g_party_selection_character_collection.get();
-    if (!collection) {
-        ResetForNewGame();
-        g_party_selection_character_collection =
-            std::make_unique<W8PartySelectionCharacterCollection>();
-        collection = g_party_selection_character_collection.get();
-
-        collection->ReloadCharacters();
-
-        g_party_selection_controller = std::make_unique<W8PartySelectionController>();
-        g_party_selection_controller->Setup();
-    } else {
-        if (PreviousScreen() == W8_SCREEN_CHARACTER &&
-            g_party_selection_controller->m_mode != W8_PARTY_SELECT_IMPORT) {
-            collection->ReloadCharacters();
-            g_party_selection_controller->SetSelection(0, false, true);
-        }
-        g_party_selection_controller->SetMode(g_party_selection_controller->m_mode);
-    }
+bool PartySelectionScreen::enter(const ScreenRequest&)
+{
+    PreparePartySelectionCanvas();
+    ResetForNewGame();
+    roster.ReloadCharacters();
+    Setup();
     StartMusicResource("MainMenu.MPL", 1, 1);
-    return 1;
+    return true;
 }
 
-bool PartySelectionScreenLeave(int leaving)
+/* Back from the character screen: a created or edited character changes the
+   saved list, while an imported party is shown as it was. */
+bool PartySelectionScreen::resume(const ScreenRequest&)
 {
-    if (leaving) {
-        g_party_selection_character_collection.reset();
-        g_party_selection_controller.reset();
+    PreparePartySelectionCanvas();
+    if (PreviousScreen() == W8_SCREEN_CHARACTER && m_mode != W8_PARTY_SELECT_IMPORT) {
+        roster.ReloadCharacters();
+        SetSelection(0, false, true);
     }
-    return 1;
+    SetMode(m_mode);
+    StartMusicResource("MainMenu.MPL", 1, 1);
+    return true;
 }
 
-void PartySelectionScreenFrame(void)
+bool PartySelectionScreen::leave(ScreenDeparture)
 {
-    SDL_Point point;
+    return true;
+}
 
+void PartySelectionScreen::frame()
+{
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    point = CursorPosition();
-    W8PartySelectionController* controller = g_party_selection_controller.get();
+    PartySelectionScreen* controller = this;
     if (controller->m_dialog) {
         controller->m_dialog->ProcessInput();
         if (!controller->m_dialog->is_open) {
@@ -1333,9 +1326,7 @@ void PartySelectionScreenFrame(void)
                 case SDLK_DOWN:
                     if (controller->m_mode == W8_PARTY_SELECT_CHARACTERS &&
                         controller->m_selected_row <
-                            static_cast<int>(
-                                g_party_selection_character_collection->characters.size()) -
-                                1) {
+                            static_cast<int>(roster.characters.size()) - 1) {
                         controller->SetSelection(controller->m_selected_row + 1, false, true);
                     }
                     break;
@@ -1354,7 +1345,26 @@ void PartySelectionScreenFrame(void)
     RenderFrame();
 }
 
-void GameStartRouterFrame(void)
+namespace {
+class GameStartRouterScreen final : public Screen {
+public:
+    bool enter(const ScreenRequest&) override { return true; }
+    void frame() override;
+    bool leave(ScreenDeparture) override { return true; }
+};
+} // namespace
+
+std::unique_ptr<Screen> CreatePartySelectionScreen()
+{
+    return std::make_unique<PartySelectionScreen>();
+}
+
+std::unique_ptr<Screen> CreateGameStartRouterScreen()
+{
+    return std::make_unique<GameStartRouterScreen>();
+}
+
+void GameStartRouterScreen::frame()
 {
     W8IntroVideo code;
 
@@ -1374,13 +1384,7 @@ void GameStartRouterFrame(void)
             break;
         }
     }
-    SetIntroVideoIndex(code);
-    RequestScreen({.id = W8_SCREEN_INTRO});
-}
-
-bool GameStartRouterLeave(int leaving)
-{
-    return 1;
+    RequestScreen({.id = W8_SCREEN_INTRO, .mode = code});
 }
 
 unsigned char g_portrait_frame_flags[0x50] = {

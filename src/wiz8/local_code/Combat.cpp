@@ -49,7 +49,6 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -59,7 +58,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/GroupAttacks.h"
@@ -98,6 +96,7 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
@@ -217,7 +216,7 @@ bool W8CombatLifecycle::Start(int surprise)
     gXStatus.fPartyMovementUi = false;
     gXStatus.fPartyMovementMode = false;
     DisablePortraitControls();
-    g_main_game_state->combat.setEnabled(true);
+    MainGame()->combat.setEnabled(true);
     g_level_block->pick_changed = false;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
                   W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
@@ -1111,7 +1110,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
        but its controls were already released when it was suspended. */
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && PortraitControlsExist()) {
         EnablePortraitAdvanceRegions();
-        g_main_game_state->combat.setEnabled(false);
+        MainGame()->combat.setEnabled(false);
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
         !g_level_block->review_transition_active) {

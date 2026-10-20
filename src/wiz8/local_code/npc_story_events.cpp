@@ -8,9 +8,7 @@
 
 #include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/screen_state.h"
 #include "layouts/targeting.h"
-#include "local_code/Gameloop.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
@@ -43,7 +41,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -52,6 +49,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
@@ -138,8 +136,7 @@ static void NpcScriptTurnToBook(void)
 
 static void NpcScriptEndgameScreen(void)
 {
-    SetIntroVideoIndex(W8_INTRO_VIDEO_DARK_ENDING);
-    RequestScreen({.id = W8_SCREEN_INTRO});
+    RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_DARK_ENDING});
 }
 
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
@@ -156,7 +153,7 @@ void BeginNpcScriptedScene(void)
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (g_status.party.rows[party_slot].fOccupied) {
             EnableMainGamePortraitSlot(party_slot);
-            g_main_game_state->edge_targets[party_slot]->setEnabled(true);
+            MainGame()->edge_targets[party_slot]->setEnabled(true);
         }
     }
 }
@@ -185,7 +182,7 @@ void EndScriptedPortraitPick(int party_slot)
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.party.rows[slot].fOccupied) {
             DisableMainGamePortraitSlot(slot);
-            g_main_game_state->edge_targets[slot]->setEnabled(false);
+            MainGame()->edge_targets[slot]->setEnabled(false);
         }
     }
     g_npc_dialogue.ReleaseScene();
@@ -228,7 +225,7 @@ void EndScriptedPortraitPick(int party_slot)
     for (slot = 0; slot < 8; ++slot) {
         if (g_status.party.rows[slot].fOccupied) {
             EnableMainGamePortraitSlot(slot);
-            g_main_game_state->edge_targets[slot]->setEnabled(true);
+            MainGame()->edge_targets[slot]->setEnabled(true);
         }
     }
 }

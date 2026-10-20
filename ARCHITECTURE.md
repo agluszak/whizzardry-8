@@ -114,6 +114,22 @@ The UI has one input dispatcher, screen-owned hit targets, ordinary controls and
 explicit SDL painting. Screen controllers own layout and draw order; there is no
 widget tree.
 
+### Screens
+
+- `screen.h` declares `Screen` (enter, resume, frame, leave) and the router.
+  The router owns the current screen and a stack of suspended screens, each
+  kept with the request it resumes with. A request suspends the current screen
+  under the destination unless it asks to discard it; a return discards the
+  current screen and resumes the top of the stack; returning with nothing
+  suspended ends the program. `CreateScreen` builds a screen when it is first
+  requested and the router destroys it when it is discarded, so a suspended
+  main game keeps its level block and HUD while the camp, character and options
+  screens rebuild their per-visit state on every entry. Other modules reach a
+  screen through `FindScreen<T>()` or the named accessors (`MainGame()`,
+  `CampScreenState()`, …), never through a global slot. The intro film,
+  loading mode, options page and character-screen mode travel in the request's
+  mode variant.
+
 ### Input and ownership
 
 - `UiLayer` owns stable `HitTarget`s (a rectangle or circle, a priority, a pointer

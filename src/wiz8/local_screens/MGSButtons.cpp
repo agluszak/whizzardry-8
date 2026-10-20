@@ -31,12 +31,10 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -51,6 +49,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -62,7 +61,7 @@ unsigned short g_action_kind_message_ids[12] = {
 
 void DestroySubMenuPanel()
 {
-    if (g_main_game_state) g_main_game_state->submenu.reset();
+    if (MainGame()) MainGame()->submenu.reset();
 }
 
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
@@ -117,7 +116,7 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
 
 void RefreshSubMenuPanel(bool invalidate)
 {
-    auto& submenu = g_main_game_state->submenu;
+    auto& submenu = MainGame()->submenu;
     if (!submenu) return;
     submenu->dirty |= invalidate;
     auto& target = GetFrameBufferSurface();
@@ -243,15 +242,15 @@ static void CreateSubMenuScrollButtons()
 {
     int i;
 
-    g_main_game_state->hud_buttons.submenu_scroll[0].Configure(
+    MainGame()->hud_buttons.submenu_scroll[0].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1, 2, 2),
         {.on_click = [](auto*) { ScrollSubMenuCharacter(0); }, .tooltip = 0x4b});
-    g_main_game_state->hud_buttons.submenu_scroll[1].Configure(
+    MainGame()->hud_buttons.submenu_scroll[1].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5, 6, 6),
         {.on_click = [](auto*) { ScrollSubMenuCharacter(1); }, .tooltip = 0x4c});
     for (i = 0; i < 2; ++i) {
-        g_main_game_state->hud_buttons.submenu_scroll[i].SetPosition(
-            g_scroll_button_positions[i].x, g_scroll_button_positions[i].y);
+        MainGame()->hud_buttons.submenu_scroll[i].SetPosition(g_scroll_button_positions[i].x,
+                                                              g_scroll_button_positions[i].y);
     }
 }
 
@@ -273,16 +272,16 @@ static void CreateSubMenuPanelButtons()
 {
     int index;
 
-    g_main_game_state->hud_buttons.submenu_panel[0].Configure(
+    MainGame()->hud_buttons.submenu_panel[0].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22),
         {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
-    g_main_game_state->hud_buttons.submenu_panel[1].Configure(
+    MainGame()->hud_buttons.submenu_panel[1].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27),
         {.on_click = SubMenuPanelFormationButton,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x4e});
     for (index = 0; index < 2; ++index) {
-        g_main_game_state->hud_buttons.submenu_panel[index].SetPosition(
+        MainGame()->hud_buttons.submenu_panel[index].SetPosition(
             g_submenu_panel_button_positions[index].x, g_submenu_panel_button_positions[index].y);
     }
 }
@@ -296,11 +295,11 @@ static void MainGameOptionsDiskButton(W8ButtonWidget* button)
 
 static void CreateOptionsDiskButton()
 {
-    g_main_game_state->hud_buttons.options_disk.Configure(
+    MainGame()->hud_buttons.options_disk.Configure(
         ButtonGraphics::Load(g_options_disk_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
-    g_main_game_state->hud_buttons.options_disk.SetPosition(g_options_disk_position.x,
-                                                            g_options_disk_position.y);
+    MainGame()->hud_buttons.options_disk.SetPosition(g_options_disk_position.x,
+                                                     g_options_disk_position.y);
 }
 
 /* Redraw the options-disk chrome and button; disabled under dialogue / lock /
@@ -310,15 +309,15 @@ void RedrawOptionsDiskButton(void)
     bool enabled;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
-    g_main_game_state->hud_buttons.options_disk.m_dirty = true;
+    MainGame()->hud_buttons.options_disk.m_dirty = true;
     if (!gXStatus.fNpcDialogueMode && !IsLockInteractionActive() && !IsTrapInteractionActive() &&
         !gXStatus.fCampMode && !LockInteractionSuspended() && !TrapInteractionSuspended()) {
         enabled = true;
     } else {
         enabled = false;
     }
-    g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
-    g_main_game_state->hud_buttons.options_disk.Refresh();
+    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
+    MainGame()->hud_buttons.options_disk.Refresh();
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
@@ -330,7 +329,7 @@ void UpdateCombatStanceButtons(void)
     bool enabled;
 
     if (!g_combat.active()) {
-        for (auto& button : g_main_game_state->hud_buttons.combat_stance) {
+        for (auto& button : MainGame()->hud_buttons.combat_stance) {
             button.SetVisible(false);
         }
         return;
@@ -347,15 +346,15 @@ void UpdateCombatStanceButtons(void)
     }
 
     for (index = 0; index < 5; ++index) {
-        g_main_game_state->hud_buttons.combat_stance[index].SetVisible(index == stance);
+        MainGame()->hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
     if (!gpSCSV && !ItemUseDraft() && !gXStatus.fReviewCharacterMode) {
         enabled = true;
     } else {
         enabled = false;
     }
-    g_main_game_state->hud_buttons.combat_stance[stance].SetEnabled(enabled);
-    g_main_game_state->hud_buttons.combat_stance[stance].Refresh();
+    MainGame()->hud_buttons.combat_stance[stance].SetEnabled(enabled);
+    MainGame()->hud_buttons.combat_stance[stance].Refresh();
 }
 
 /* Dirties the five combat-stance buttons and refreshes which one is live. */
@@ -363,7 +362,7 @@ void RedrawCombatStanceButtons(void)
 {
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
     for (int index = 0; index < 5; ++index) {
-        g_main_game_state->hud_buttons.combat_stance[index].m_dirty = true;
+        MainGame()->hud_buttons.combat_stance[index].m_dirty = true;
     }
     UpdateCombatStanceButtons();
 }
@@ -398,33 +397,33 @@ static void CreateCombatStanceButtons()
 {
     int index;
 
-    g_main_game_state->hud_buttons.combat_stance[0].Configure(
+    MainGame()->hud_buttons.combat_stance[0].Configure(
         ButtonGraphics::Load(g_attack_confirm_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x4f});
-    g_main_game_state->hud_buttons.combat_stance[1].Configure(
+    MainGame()->hud_buttons.combat_stance[1].Configure(
         ButtonGraphics::Load(g_combat_stop_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x50});
-    g_main_game_state->hud_buttons.combat_stance[2].Configure(
+    MainGame()->hud_buttons.combat_stance[2].Configure(
         ButtonGraphics::Load(g_cont_start_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x4f});
-    g_main_game_state->hud_buttons.combat_stance[3].Configure(
+    MainGame()->hud_buttons.combat_stance[3].Configure(
         ButtonGraphics::Load(g_cont_toggle_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x51});
-    g_main_game_state->hud_buttons.combat_stance[4].Configure(
+    MainGame()->hud_buttons.combat_stance[4].Configure(
         ButtonGraphics::Load(g_cont_pending_path, 3, 0, 1, 2, 2),
         {.on_click = MainGameCombatConfirmButton,
          .on_right_click = MainGameCombatStanceSecondary,
          .tooltip = 0x50});
     for (index = 0; index < 5; ++index) {
-        g_main_game_state->hud_buttons.combat_stance[index].SetPosition(
+        MainGame()->hud_buttons.combat_stance[index].SetPosition(
             g_combat_stance_positions[index].x, g_combat_stance_positions[index].y);
     }
 }
@@ -451,31 +450,31 @@ static void CreateRoofButtons()
 {
     int index;
 
-    g_main_game_state->hud_buttons.roof[0].Configure(
+    MainGame()->hud_buttons.roof[0].Configure(
         ButtonGraphics::Load(g_roof_buttons_path, 9, 0, 6, 3, 6),
         {.on_click = MainGameRoofButton0,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x38});
-    g_main_game_state->hud_buttons.roof[1].Configure(
+    MainGame()->hud_buttons.roof[1].Configure(
         ButtonGraphics::Load(g_roof_buttons_path, 10, 1, 7, 4, 7),
         {.on_click = MainGameRoofButton1,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x39});
-    g_main_game_state->hud_buttons.roof[2].Configure(
+    MainGame()->hud_buttons.roof[2].Configure(
         ButtonGraphics::Load(g_roof_buttons_path, 0xb, 2, 8, 5, 8),
         {.on_click = MainGameRoofButton2,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x3a});
     if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-        g_main_game_state->hud_buttons.roof[0].SetPressed(true);
+        MainGame()->hud_buttons.roof[0].SetPressed(true);
     } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
-        g_main_game_state->hud_buttons.roof[1].SetPressed(true);
+        MainGame()->hud_buttons.roof[1].SetPressed(true);
     } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
-        g_main_game_state->hud_buttons.roof[2].SetPressed(true);
+        MainGame()->hud_buttons.roof[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
-        g_main_game_state->hud_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
-                                                               g_roof_button_positions[index].y);
+        MainGame()->hud_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
+                                                        g_roof_button_positions[index].y);
     }
 }
 
@@ -485,7 +484,7 @@ void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     for (int index = 0; index < 3; ++index) {
-        g_main_game_state->hud_buttons.roof[index].m_dirty = true;
+        MainGame()->hud_buttons.roof[index].m_dirty = true;
     }
     UpdateRoofButtons();
     RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
@@ -505,17 +504,17 @@ void UpdateRoofButtons(void)
     } else {
         visible = false;
     }
-    g_main_game_state->hud_buttons.roof[2].SetVisible(visible);
+    MainGame()->hud_buttons.roof[2].SetVisible(visible);
     if (!gXStatus.fNpcDialogueMode && !gXStatus.fCampMode) {
-        g_main_game_state->hud_buttons.roof[0].SetEnabled(true);
+        MainGame()->hud_buttons.roof[0].SetEnabled(true);
         enabled = true;
     } else {
-        g_main_game_state->hud_buttons.roof[0].SetEnabled(false);
+        MainGame()->hud_buttons.roof[0].SetEnabled(false);
         enabled = false;
     }
-    g_main_game_state->hud_buttons.roof[1].SetEnabled(enabled);
+    MainGame()->hud_buttons.roof[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
-    for (auto& button : g_main_game_state->hud_buttons.roof) {
+    for (auto& button : MainGame()->hud_buttons.roof) {
         button.Refresh();
     }
 }
@@ -525,34 +524,34 @@ void UpdateRoofButtons(void)
 void SyncRoofButtonPressedState(void)
 {
     if (GetEffectiveMainUiMode() == 0) {
-        if (g_main_game_state->hud_buttons.roof[0].IsPressed() == 0) {
-            g_main_game_state->hud_buttons.roof[0].SetPressed(true);
+        if (MainGame()->hud_buttons.roof[0].IsPressed() == 0) {
+            MainGame()->hud_buttons.roof[0].SetPressed(true);
         }
-        if (g_main_game_state->hud_buttons.roof[1].IsPressed()) {
-            g_main_game_state->hud_buttons.roof[1].SetPressed(false);
+        if (MainGame()->hud_buttons.roof[1].IsPressed()) {
+            MainGame()->hud_buttons.roof[1].SetPressed(false);
         }
-        if (g_main_game_state->hud_buttons.roof[2].IsPressed()) {
-            g_main_game_state->hud_buttons.roof[2].SetPressed(false);
+        if (MainGame()->hud_buttons.roof[2].IsPressed()) {
+            MainGame()->hud_buttons.roof[2].SetPressed(false);
         }
     } else if (GetEffectiveMainUiMode() == 1) {
-        if (g_main_game_state->hud_buttons.roof[1].IsPressed() == 0) {
-            g_main_game_state->hud_buttons.roof[1].SetPressed(true);
+        if (MainGame()->hud_buttons.roof[1].IsPressed() == 0) {
+            MainGame()->hud_buttons.roof[1].SetPressed(true);
         }
-        if (g_main_game_state->hud_buttons.roof[0].IsPressed()) {
-            g_main_game_state->hud_buttons.roof[0].SetPressed(false);
+        if (MainGame()->hud_buttons.roof[0].IsPressed()) {
+            MainGame()->hud_buttons.roof[0].SetPressed(false);
         }
-        if (g_main_game_state->hud_buttons.roof[2].IsPressed()) {
-            g_main_game_state->hud_buttons.roof[2].SetPressed(false);
+        if (MainGame()->hud_buttons.roof[2].IsPressed()) {
+            MainGame()->hud_buttons.roof[2].SetPressed(false);
         }
     } else if (GetEffectiveMainUiMode() == 2) {
-        if (g_main_game_state->hud_buttons.roof[2].IsPressed() == 0) {
-            g_main_game_state->hud_buttons.roof[2].SetPressed(true);
+        if (MainGame()->hud_buttons.roof[2].IsPressed() == 0) {
+            MainGame()->hud_buttons.roof[2].SetPressed(true);
         }
-        if (g_main_game_state->hud_buttons.roof[0].IsPressed()) {
-            g_main_game_state->hud_buttons.roof[0].SetPressed(false);
+        if (MainGame()->hud_buttons.roof[0].IsPressed()) {
+            MainGame()->hud_buttons.roof[0].SetPressed(false);
         }
-        if (g_main_game_state->hud_buttons.roof[1].IsPressed()) {
-            g_main_game_state->hud_buttons.roof[1].SetPressed(false);
+        if (MainGame()->hud_buttons.roof[1].IsPressed()) {
+            MainGame()->hud_buttons.roof[1].SetPressed(false);
         }
     }
 }
@@ -641,12 +640,12 @@ void RedrawLayoutArrowButtons(void)
     W8ButtonWidget* draw_button;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0x166);
-    for (auto& button : g_main_game_state->hud_buttons.layout_arrows) {
+    for (auto& button : MainGame()->hud_buttons.layout_arrows) {
         button.m_dirty = true;
     }
     if (gXStatus.fNpcDialogueMode || gpSCSV || ItemUseDraft() || IsLockInteractionActive() ||
         IsTrapInteractionActive()) {
-        for (auto& button : g_main_game_state->hud_buttons.layout_arrows) {
+        for (auto& button : MainGame()->hud_buttons.layout_arrows) {
             button.SetVisible(false);
         }
         return;
@@ -654,70 +653,70 @@ void RedrawLayoutArrowButtons(void)
 
     enabled = GetEffectiveMainUiMode() != 0;
     if (enabled) {
-        g_main_game_state->hud_buttons.layout_arrows[0].SetEnabled(true);
+        MainGame()->hud_buttons.layout_arrows[0].SetEnabled(true);
     } else {
-        g_main_game_state->hud_buttons.layout_arrows[0].SetEnabled(false);
+        MainGame()->hud_buttons.layout_arrows[0].SetEnabled(false);
     }
-    g_main_game_state->hud_buttons.layout_arrows[2].SetEnabled(enabled);
+    MainGame()->hud_buttons.layout_arrows[2].SetEnabled(enabled);
 
     if (g_level_block->radar_map_visible == 0) {
-        g_main_game_state->hud_buttons.layout_arrows[3].SetVisible(true);
-        g_main_game_state->hud_buttons.layout_arrows[0].SetVisible(false);
-        draw_button = &g_main_game_state->hud_buttons.layout_arrows[3];
+        MainGame()->hud_buttons.layout_arrows[3].SetVisible(true);
+        MainGame()->hud_buttons.layout_arrows[0].SetVisible(false);
+        draw_button = &MainGame()->hud_buttons.layout_arrows[3];
     } else {
-        g_main_game_state->hud_buttons.layout_arrows[0].SetVisible(true);
-        g_main_game_state->hud_buttons.layout_arrows[3].SetVisible(false);
-        draw_button = &g_main_game_state->hud_buttons.layout_arrows[0];
+        MainGame()->hud_buttons.layout_arrows[0].SetVisible(true);
+        MainGame()->hud_buttons.layout_arrows[3].SetVisible(false);
+        draw_button = &MainGame()->hud_buttons.layout_arrows[0];
     }
     draw_button->Refresh();
 
     if (g_level_block->action_panel_visible == 0) {
-        g_main_game_state->hud_buttons.layout_arrows[4].SetVisible(true);
-        g_main_game_state->hud_buttons.layout_arrows[1].SetVisible(false);
-        draw_button = &g_main_game_state->hud_buttons.layout_arrows[4];
+        MainGame()->hud_buttons.layout_arrows[4].SetVisible(true);
+        MainGame()->hud_buttons.layout_arrows[1].SetVisible(false);
+        draw_button = &MainGame()->hud_buttons.layout_arrows[4];
     } else {
-        g_main_game_state->hud_buttons.layout_arrows[1].SetVisible(true);
-        g_main_game_state->hud_buttons.layout_arrows[4].SetVisible(false);
-        draw_button = &g_main_game_state->hud_buttons.layout_arrows[1];
+        MainGame()->hud_buttons.layout_arrows[1].SetVisible(true);
+        MainGame()->hud_buttons.layout_arrows[4].SetVisible(false);
+        draw_button = &MainGame()->hud_buttons.layout_arrows[1];
     }
     draw_button->Refresh();
 
     if (g_level_block->formation_board_visible) {
-        g_main_game_state->hud_buttons.layout_arrows[2].SetVisible(true);
-        g_main_game_state->hud_buttons.layout_arrows[5].SetVisible(false);
-        g_main_game_state->hud_buttons.layout_arrows[2].Refresh();
+        MainGame()->hud_buttons.layout_arrows[2].SetVisible(true);
+        MainGame()->hud_buttons.layout_arrows[5].SetVisible(false);
+        MainGame()->hud_buttons.layout_arrows[2].Refresh();
         return;
     }
-    g_main_game_state->hud_buttons.layout_arrows[5].SetVisible(true);
-    g_main_game_state->hud_buttons.layout_arrows[2].SetVisible(false);
-    g_main_game_state->hud_buttons.layout_arrows[5].Refresh();
+    MainGame()->hud_buttons.layout_arrows[5].SetVisible(true);
+    MainGame()->hud_buttons.layout_arrows[2].SetVisible(false);
+    MainGame()->hud_buttons.layout_arrows[5].Refresh();
 }
 
 static void CreateLayoutArrowButtons()
 {
     int index;
 
-    g_main_game_state->hud_buttons.layout_arrows[0].Configure(
+    MainGame()->hud_buttons.layout_arrows[0].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
-    g_main_game_state->hud_buttons.layout_arrows[1].Configure(
+    MainGame()->hud_buttons.layout_arrows[1].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
-    g_main_game_state->hud_buttons.layout_arrows[2].Configure(
+    MainGame()->hud_buttons.layout_arrows[2].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
-    g_main_game_state->hud_buttons.layout_arrows[3].Configure(
+    MainGame()->hud_buttons.layout_arrows[3].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
-    g_main_game_state->hud_buttons.layout_arrows[4].Configure(
+    MainGame()->hud_buttons.layout_arrows[4].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
-    g_main_game_state->hud_buttons.layout_arrows[5].Configure(
+    MainGame()->hud_buttons.layout_arrows[5].Configure(
         ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
     for (index = 0; index < 6; ++index) {
-        g_main_game_state->hud_buttons.layout_arrows[index].SetPosition(
-            g_layout_arrow_positions[index].x, g_layout_arrow_positions[index].y);
+        MainGame()->hud_buttons.layout_arrows[index].SetPosition(g_layout_arrow_positions[index].x,
+                                                                 g_layout_arrow_positions[index].y);
     }
 }
 
@@ -736,14 +735,14 @@ static void SetMenuButtonBanksEnabled(bool enabled)
 {
     int i;
     for (i = 0; i < 2; ++i) {
-        g_main_game_state->hud_buttons.submenu_scroll[i].SetEnabled(enabled);
+        MainGame()->hud_buttons.submenu_scroll[i].SetEnabled(enabled);
     }
-    g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
+    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
     for (i = 0; i < 3; ++i) {
-        g_main_game_state->hud_buttons.roof[i].SetEnabled(enabled);
+        MainGame()->hud_buttons.roof[i].SetEnabled(enabled);
     }
     for (i = 0; i < 6; ++i) {
-        g_main_game_state->hud_buttons.layout_arrows[i].SetEnabled(enabled);
+        MainGame()->hud_buttons.layout_arrows[i].SetEnabled(enabled);
     }
 }
 
@@ -883,24 +882,24 @@ void UpdateSubMenuPanelButtons(void)
     } else {
         enabled = AnyCharacterEngaged();
     }
-    g_main_game_state->hud_buttons.submenu_panel[0].SetEnabled(enabled);
+    MainGame()->hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
     if (!gXStatus.fSurprisePossible && !IsLockInteractionActive() && !IsTrapInteractionActive() &&
         !gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() &&
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
-        g_main_game_state->hud_buttons.submenu_panel[1].SetEnabled(true);
+        MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
-            if (g_main_game_state->hud_buttons.submenu_panel[1].IsPressed()) {
-                g_main_game_state->hud_buttons.submenu_panel[1].SetPressed(false);
+            if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {
+                MainGame()->hud_buttons.submenu_panel[1].SetPressed(false);
             }
-        } else if (g_main_game_state->hud_buttons.submenu_panel[1].IsPressed() == 0) {
-            g_main_game_state->hud_buttons.submenu_panel[1].SetPressed(true);
+        } else if (MainGame()->hud_buttons.submenu_panel[1].IsPressed() == 0) {
+            MainGame()->hud_buttons.submenu_panel[1].SetPressed(true);
         }
     } else {
-        g_main_game_state->hud_buttons.submenu_panel[1].SetEnabled(false);
+        MainGame()->hud_buttons.submenu_panel[1].SetEnabled(false);
     }
 
-    for (auto& button : g_main_game_state->hud_buttons.submenu_panel) {
+    for (auto& button : MainGame()->hud_buttons.submenu_panel) {
         button.Refresh();
     }
 }
@@ -910,10 +909,10 @@ static void UpdateSubMenuScrollButtons()
 
     const bool enabled = g_level_block->combat_end_notification == -1 &&
                          !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode;
-    for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
+    for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);
     }
-    for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
+    for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
         button.Refresh();
     }
 }
@@ -929,17 +928,17 @@ void RedrawSubMenuButtons(void)
     frame = !g_combat.active() ? 8 : 9;
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
-    for (auto& button : g_main_game_state->hud_buttons.submenu) {
+    for (auto& button : MainGame()->hud_buttons.submenu) {
         button.m_dirty = true;
     }
     for (index = 0; index < 9; ++index) {
-        auto& button = g_main_game_state->hud_buttons.submenu[index];
+        auto& button = MainGame()->hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
         button.Refresh();
     }
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
-    for (auto& button : g_main_game_state->hud_buttons.submenu_panel) {
+    for (auto& button : MainGame()->hud_buttons.submenu_panel) {
         button.m_dirty = true;
     }
     UpdateSubMenuPanelButtons();
@@ -950,7 +949,7 @@ void RedrawSubMenuButtons(void)
         DrawSubMenuCharacterAction();
     }
 
-    for (auto& button : g_main_game_state->hud_buttons.submenu_scroll) {
+    for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
         button.m_dirty = true;
     }
     UpdateSubMenuScrollButtons();
@@ -1018,7 +1017,7 @@ done:
 
 void SetSubMenuButtonTooltips(int enabled)
 {
-    auto& hud = g_main_game_state->hud_buttons;
+    auto& hud = MainGame()->hud_buttons;
     for (auto& button : hud.submenu) {
         button.SetTooltipEnabled(enabled);
     }
@@ -1040,7 +1039,7 @@ void UpdateMainGameButtons(void)
     bool enabled;
 
     for (index = 0; index < 9; ++index) {
-        auto& button = g_main_game_state->hud_buttons.submenu[index];
+        auto& button = MainGame()->hud_buttons.submenu[index];
         UpdateSubMenuButton(index);
         button.Refresh();
     }
@@ -1049,8 +1048,8 @@ void UpdateMainGameButtons(void)
     enabled = !gXStatus.fNpcDialogueMode && !IsLockInteractionActive() &&
               !IsTrapInteractionActive() && !gXStatus.fCampMode && !LockInteractionSuspended() &&
               !TrapInteractionSuspended();
-    g_main_game_state->hud_buttons.options_disk.SetEnabled(enabled);
-    g_main_game_state->hud_buttons.options_disk.Refresh();
+    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
+    MainGame()->hud_buttons.options_disk.Refresh();
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
 }
@@ -1060,7 +1059,7 @@ void UpdateMainGameButtons(void)
    the background right-click path. */
 void UpdateSubMenuAutoClose(void)
 {
-    auto& submenu = g_main_game_state->submenu;
+    auto& submenu = MainGame()->submenu;
     if (!submenu) {
         return;
     }
@@ -1076,13 +1075,13 @@ void UpdateSubMenuAutoClose(void)
 
 void EnableSubMenuRegions(void)
 {
-    auto& submenu = g_main_game_state->submenu;
+    auto& submenu = MainGame()->submenu;
     if (submenu) submenu->input.setEnabled(true);
 }
 
 bool BuildSubMenuPanel(short notification)
 {
-    auto& submenu = g_main_game_state->submenu;
+    auto& submenu = MainGame()->submenu;
     submenu.reset();
     int left;
     W8SubMenuPage menu;

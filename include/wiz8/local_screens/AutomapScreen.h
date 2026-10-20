@@ -18,6 +18,7 @@ enum class W8AutomapTool : unsigned char { Select = 0, AddNote = 2, EraseNote = 
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
 
 namespace wiz8 {
@@ -67,9 +68,7 @@ void RenderAutomapMarkers(void);
 void CreateAutomapButtons(void);
 
 unsigned char ReadAutomapNodes(wiz8::File* hFile, W8AutomapCells& cells);
-bool AutomapScreenEnter(void);
-void AutomapScreenFrame(void);
-bool AutomapScreenLeave(int leaving);
-void AutomapScreenFinalize(void);
+/* The level map drawn from the world's lit cells, with notes and markers. */
+std::unique_ptr<Screen> CreateAutomapScreen();
 /* Packs a world position into an automap cell key. */
 unsigned int AutomapNodeKey(const glm::vec3* position);
