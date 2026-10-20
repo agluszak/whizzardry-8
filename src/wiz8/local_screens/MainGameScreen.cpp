@@ -2387,8 +2387,24 @@ void MainGameScreen::frame()
     }
     ApplyPendingMouselook();
     ApplyPendingTooltip();
+    if (g_modal_owner) {
+        // A modal takes the pointer back from mouselook and from any targeting cursor.
+        CancelMouselook();
+        UpdateHeldItemCursor();
+    }
+    // A screen fade, and the party-death or ending screen it leads to, takes the frame.
+    if (g_level_block->screen_fade_running) {
+        if (UpdateScreenFade()) return;
+    } else if (g_level_block->review_transition_active) {
+        PumpReviewTransition();
+        return;
+    }
+    // Nobody left who can act, or the party fell out of the world: the game is lost.
+    if (!AnyCharacterActive() || CurrentGame().party_moving) BeginPartyDeath();
+    if (dismissed_npc_slot != -1) UpdateNpcPartyMember(std::exchange(dismissed_npc_slot, -1));
     if (std::exchange(resume_conversation, false)) SyncDialogueNpcStateAndMarkPending();
     if (SkillIncreasesShownNow(CurrentGame())) FlushDeferredSkillNotices(CurrentGame());
+    SyncPartyPortraitVitalsBars();
     if (g_modal_owner && ProcessModalOwner()) RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     SyncWorldAdvancement();
     DrainNpcDialogueDeferralInput();
