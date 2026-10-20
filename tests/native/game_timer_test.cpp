@@ -21,8 +21,6 @@
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 
-using namespace std::chrono_literals;
-
 namespace {
 struct TimerFixture {
     ScopedGame game;
@@ -90,14 +88,15 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     ResetGameTimeAccumulator();
     auto& accumulator = GameTimeAccumulator();
     accumulator.SetTimeScale(0.5f);
-    REQUIRE(accumulator.Update(25ms) == Catch::Approx(0.5f));
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.5f));
     PauseSharedGameTimers();
-    REQUIRE(accumulator.Update(1s) == 0);
+    REQUIRE(accumulator.Update(std::chrono::seconds{1}) == 0);
     ResumeSharedGameTimers();
-    REQUIRE(accumulator.Update(25ms) == Catch::Approx(0.5f));
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.5f));
     accumulator.ResetTimeScale();
-    REQUIRE(accumulator.Update(25ms) == Catch::Approx(0.25f));
-    REQUIRE(accumulator.Update(1s) == Catch::Approx(2.0f)); // One step moves at most 200ms.
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.25f));
+    REQUIRE(accumulator.Update(std::chrono::seconds{1}) ==
+            Catch::Approx(2.0f)); // One step moves at most 200ms.
     REQUIRE(accumulator.GetElapsed() == Catch::Approx(3.25f));
 }
 
