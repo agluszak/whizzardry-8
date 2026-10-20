@@ -1186,9 +1186,8 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
     }
 }
 
-/* Copies the tooltip source rectangle into a size-rounded 16-bit surface,
-   repeating its border one pixel outward, and reports the texture mapping
-   scales for the resulting polygon brush. */
+/* Paint the tooltip into one ARGB1555 surface, retaining its opaque black
+   panel and transparent pixels outside it. */
 void VideoToolTip(std::string_view text)
 {
     if (!g_tooltip_nodes.empty()) {
@@ -1205,13 +1204,9 @@ void VideoToolTip(std::string_view text)
     g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     SDL_FillSurfaceRect(surface.get(), nullptr, 0);
-    void* data = surface->pixels;
     SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
     SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
-    SDLSurfaceOwner text_surface{
-        SDL_CreateSurfaceFrom(surface->w, surface->h, SDL_PIXELFORMAT_RGB565, data, surface->pitch),
-        SDL_DestroySurface};
-    if (text_surface) buffer->RenderText(*text_surface, 2, 1, true);
+    buffer->RenderText(*surface, 2, 1, true);
     std::uint32_t border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
@@ -1228,10 +1223,7 @@ void VideoToolTip(std::string_view text)
     rect.top = 0;
     rect.right = 0xfe;
     rect.bottom = 0xfe;
-    if (!text_surface) {
-        return;
-    }
-    auto quad = makeOverlayFromSurface(*text_surface, &rect, false, true);
+    auto quad = makeOverlayFromSurface(*surface, &rect, false, true);
     if (quad) {
         g_compositor.attach(*quad, OverlayLayer::Cursor);
         g_tooltip_nodes.push_back(std::move(quad));

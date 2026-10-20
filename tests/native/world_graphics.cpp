@@ -181,14 +181,19 @@ TEST_CASE("world graphics")
         DrawSubMenuCharacterAction();
         REQUIRE(caption() == first);
         VideoRemoveToolTip();
+        RenderFrame();
+        const auto without_tooltip = ReadFrame();
         VideoToolTip("Swap Weapons");
         VideoPositionToolTip(300, 200);
         RenderFrame();
         const auto tooltip = ReadFrame();
-        // Inspect the composed tooltip, including its opaque black lettering
+        // Inspect the composed tooltip, including its opaque black background
         // and transparent area outside the panel, rather than a copied widget.
         REQUIRE_FALSE(g_compositor.layerGroup(OverlayLayer::Cursor).children.empty());
-        REQUIRE((tooltip[201 * SCREEN_WIDTH + 301] & 0xffffff) != 0);
+        REQUIRE((tooltip[200 * SCREEN_WIDTH + 300] & 0xffffff) != 0);
+        REQUIRE((tooltip[201 * SCREEN_WIDTH + 301] & 0xffffff) == 0);
+        const auto outside = 202 * SCREEN_WIDTH + 300 + g_help_box_width + 2;
+        REQUIRE(tooltip[outside] == without_tooltip[outside]);
         const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
         const std::string ui_output =
             std::string(output ? output : "/tmp/wiz8-native-world.ppm") + ".ui.ppm";
