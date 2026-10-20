@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "asset_paths.h"
 #include "layouts/game_status.h"
@@ -27,7 +28,6 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/PartyImport.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -279,7 +279,6 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
 {
     unsigned int imported_values[7] = {0};
-    int mapped;
     int i;
     int total = 0;
     int average;
@@ -291,59 +290,9 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     unsigned int pick;
     int removed;
 
-    for (i = 0; i < 8; ++i) {
-        if (i != 6 && i != 7) {
-            switch (i) {
-            case 0:
-                mapped = 0;
-                break;
-            case 1:
-                mapped = 1;
-                break;
-            case 2:
-                mapped = 2;
-                break;
-            case 3:
-                mapped = 3;
-                break;
-            case 4:
-                mapped = 4;
-                break;
-            case 5:
-                mapped = 5;
-                break;
-            case 6:
-                break;
-            default:
-                Fail("FALSE", "ConvertAttribute: ERROR - Invalid attribute");
-            }
-            imported_values[mapped] = imported->attributes[i];
-            switch (i) {
-            case 0:
-                mapped = 0;
-                break;
-            case 1:
-                mapped = 1;
-                break;
-            case 2:
-                mapped = 2;
-                break;
-            case 3:
-                mapped = 3;
-                break;
-            case 4:
-                mapped = 4;
-                break;
-            case 5:
-                mapped = 5;
-                break;
-            case 6:
-                break;
-            default:
-                Fail("FALSE", "ConvertAttribute: ERROR - Invalid attribute");
-            }
-            total += imported_values[mapped];
-        }
+    for (i = 0; i < 6; ++i) {
+        imported_values[i] = imported->attributes[i];
+        total += imported_values[i];
     }
     average = total / 6;
     for (i = 0; i < 3; ++i) {
@@ -777,13 +726,11 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             }
             break;
         default:
-            Fail("FALSE", "ConvertSkill: ERROR - Invalid NEW skill");
-            break;
+            std::unreachable();
         }
         break;
     default:
-        Fail("FALSE", "ConvertSkill: ERROR - Invalid skill");
-        break;
+        std::unreachable();
     }
     if (!routed) {
         base_value = imported->skills[mapped];

@@ -1,5 +1,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 
+#include <cassert>
 #include <vector>
 
 #include <fmt/format.h>
@@ -41,7 +42,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -136,12 +136,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
     W8Character* character = &CurrentGame().party.characters[party_slot];
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
     if (character->uiCondition[condition] != 0 || !CurrentGame().status.world_suspended) {
-        if (!row->fOccupied) {
-            Fail("fCHAR_OCCUPIED(uiChar)");
-        }
-        if (character->uiCondition[condition] == 0) {
-            Fail("gStatus.Char[uiChar].uiCondition[uiCondition] > 0");
-        }
+        assert(row->fOccupied);
+        assert(character->uiCondition[condition] != 0);
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
                 GetLevelBand(GetLoadedLevelID()) != '\t' &&
@@ -314,9 +310,7 @@ W8ConditionImmunity g_condition_immunities[3] = {
    portrait page if it is up. */
 void RecomputeCharacterHighestCondition(int party_slot)
 {
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(CurrentGame().party.rows[party_slot].fOccupied);
     W8Character* character = &CurrentGame().party.characters[party_slot];
     W8Condition previous = character->highest_condition;
     for (int index = 0x13; index >= 0; --index) {
@@ -402,14 +396,8 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
    roll covering the fractional part when the quotient floors to zero. */
 void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-
-    if (!row->fOccupied) {
-        Fail("fCHAR_OCCUPIED(uiSlot)");
-    }
-    if (CurrentGame().party.characters[party_slot].uiCondition[condition] == 0) {
-        Fail("gStatus.Char[uiSlot].uiCondition[uiCondition] > 0");
-    }
+    assert(CurrentGame().party.rows[party_slot].fOccupied);
+    assert(CurrentGame().party.characters[party_slot].uiCondition[condition] != 0);
     if (CurrentGame().party.characters[party_slot].uiCondition[condition] <= minutes) {
         RemoveCharacterCondition(party_slot, condition, true);
         return;
@@ -459,9 +447,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     int old_duration;
     bool handled;
 
-    if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
-        Fail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
-    }
+    assert(poison_strength == 0 || condition == W8_CONDITION_POISONED);
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
         return;
     }
@@ -569,9 +555,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
 
     monster_info = FindMonster(location_id);
     if (monster_info->hp_current != 0) {
-        if (monster_info->uiCondition[condition] == 0) {
-            Fail("pMonsterInfo->uiCondition[uiCondition] > 0");
-        }
+        assert(monster_info->uiCondition[condition] != 0);
         if (condition == W8_CONDITION_TURNCOAT &&
             monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
             monster_group = FindMonsterGroup(monster_info->monster_group_id);
@@ -620,9 +604,7 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
     if (monster_info->hp_current == 0) {
         return;
     }
-    if (monster_info->uiCondition[condition] == 0) {
-        Fail("pMonsterInfo->uiCondition[uiCondition] > 0");
-    }
+    assert(monster_info->uiCondition[condition] != 0);
     if (monster_info->uiCondition[condition] <= minutes) {
         ClearMonsterCondition(location_id, condition);
         return;
@@ -647,17 +629,12 @@ bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, 
                            char alternate_missing_notice, char announce)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
     W8Condition old_highest;
     unsigned int old_duration;
     bool handled;
 
-    if (!row->fOccupied) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
-    if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
-        Fail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
-    }
+    assert(CurrentGame().party.rows[party_slot].fOccupied);
+    assert(poison_strength == 0 || condition == W8_CONDITION_POISONED);
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
         return false;
     }
@@ -1002,15 +979,9 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
 {
     W8MonsterInfo* monster_info;
 
-    if (party_slot >= 8) {
-        Fail("uiChar < MAX_CHARS");
-    }
-    if (dependence_slot >= W8_DEPENDENCE_COUNT) {
-        Fail("uiDependence < DEPEND_COND_COUNT");
-    }
-    if (monster_id == -1) {
-        Fail("iMonsterID != -1");
-    }
+    assert(party_slot < 8);
+    assert(dependence_slot < W8_DEPENDENCE_COUNT);
+    assert(monster_id != -1);
 
     monster_info = FindMonster(monster_id);
     monster_info->condition_binding_mask =

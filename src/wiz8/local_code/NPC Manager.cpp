@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -83,7 +84,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
@@ -1328,9 +1328,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
         npc = GetNpcStateByKind(npc_id);
     }
 
-    if (npc == 0) {
-        Fail("npc");
-    }
+    assert(npc != 0);
     npc->location_id = location_id;
     npc->is_present = has_monster;
     npc->has_monster = true;
@@ -1864,9 +1862,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         }
         return W8_PICKPOCKET_FAILED;
     }
-    if (npc == 0) {
-        Fail("npc");
-    }
+    assert(npc != 0);
     short item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
         if (item_out != 0) {
@@ -1937,11 +1933,8 @@ void TriggerBelaVoice(Monster* monster)
     W8NpcState* npc = 0;
 
     npc = GetNpcStateByKind(0x89);
-    if (npc != 0) {
-        QueueNpcScriptNotice(npc, 0, -1, false, 0);
-        return;
-    }
-    Fail("npc", "Cannot find VOC_BELA_CC");
+    if (npc == 0) throw std::runtime_error("Bela NPC state is missing");
+    QueueNpcScriptNotice(npc, 0, -1, false, 0);
 }
 
 /* The NPC side of the global frame. Two timed world events first: one retires
@@ -2418,9 +2411,7 @@ void RebindNpcLevelTriggers(void)
    resolutions run. */
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
 {
-    if (npc == 0) {
-        Fail("npc");
-    }
+    assert(npc != 0);
     for (int index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
             if (out != 0) {
@@ -2591,9 +2582,7 @@ void ClearNpcItemId(W8NpcState* npc, int item_id)
 
     for (index = 0; index < 40; ++index) {
         if (npc->item_ids[index] == item_id) {
-            if (npc == 0) {
-                Fail("npc");
-            }
+            assert(npc != 0);
             slot = index;
             if (npc->item_ids[slot] != -1) {
                 npc->item_ids[slot] = -1;

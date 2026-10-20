@@ -1,6 +1,7 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -8,14 +9,12 @@
 #include <string_view>
 
 #include <SDL3/SDL_rect.h>
-#include <fmt/format.h>
 
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/game.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party_slot.h"
@@ -104,9 +103,7 @@ char* TitleCaseString(char* string)
 
 float NormalizeAngle(float angle)
 {
-    if (!std::isfinite(angle)) {
-        Fail("std::isfinite(flAngle)");
-    }
+    assert(std::isfinite(angle));
 
     angle += 6.2831852;
     while (angle < 0.0f) {
@@ -145,9 +142,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
     unsigned int slot;
     const W8Character* party_character;
 
-    if (!character->fInParty) {
-        Fail("pPC->fInParty", "PCPtrToPCSlot: ERROR - called for non-party character");
-    }
+    assert(character->fInParty);
 
     party_character = CurrentGame().party.characters;
     for (slot = 0; slot < 8; ++slot, ++party_character) {
@@ -156,8 +151,7 @@ unsigned int CharacterPointerToPartySlot(const W8Character* character)
         }
     }
 
-    Fail("FALSE", fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
-                              static_cast<const void*>(character)));
+    assert(false && "character is not in the party");
     return 0;
 }
 
@@ -358,7 +352,6 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
         }
         ++slot;
     }
-    Fail("FALSE",
-         fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
+    assert(false && "entry is not a monster manager slot");
     return 0;
 }

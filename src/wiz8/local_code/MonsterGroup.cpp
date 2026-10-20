@@ -2,11 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <memory>
-#include <source_location>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -38,7 +39,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -158,9 +158,7 @@ bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
     int location_id;
     W8MonsterInfo* monster_info;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(monster_group != 0);
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         location_id = monster_group->MemberLocationId(index);
         monster_info = FindMonster(location_id);
@@ -191,17 +189,13 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
     W8NpcState* npc_record;
     W8Disposition disposition = W8_DISPOSITION_NEUTRAL;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup != NULL");
-    }
+    assert(monster_group != 0);
     record = MonsterDBFromSpecies(monster_group->monster_id);
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
         npc_record = FindNpcBindingForMonster(FindMonster(monster_group->MemberLocationId(0)));
         if (npc_record == 0) {
-            Fail("FALSE",
-                 fmt::format("MonsterGroupCalcDefaultDisposition: Monster species {:d}({}) "
-                             "NPC data not found",
-                             monster_group->monster_id, record->name0));
+            throw std::runtime_error(
+                fmt::format("NPC monster {} has no NPC state", monster_group->monster_id));
         } else {
             switch (GetNpcDispositionBand(npc_record)) {
             case W8_NPC_BAND_FRIENDLY:
@@ -213,8 +207,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
                 disposition = W8_DISPOSITION_HOSTILE;
                 break;
             default:
-                Fail("FALSE");
-                break;
+                std::unreachable();
             }
         }
     } else {
@@ -234,9 +227,6 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
                 break;
             case W8_FACTION_FRIENDLY:
                 disposition = W8_DISPOSITION_FRIENDLY;
-                break;
-            default:
-                Fail("FALSE");
                 break;
             }
             break;
@@ -258,13 +248,9 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     unsigned int index;
     int cooldown;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup != NULL");
-    }
+    assert(monster_group != 0);
     record = MonsterDBFromSpecies(monster_group->monster_id);
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(monster_group != 0);
     index = 0;
     if (monster_group->MemberIds().empty()) {
         return;
@@ -308,12 +294,11 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     monster_group->hostility_set_at = CurrentGame().status.world_clock;
 }
 
-W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::source_location caller)
+W8MonsterGroup* FindMonsterGroup(int group_id, [[maybe_unused]] bool assert_on_failure)
 {
     if (!GetWorld()) return nullptr;
     auto* group = CurrentLevelPopulation().findGroup(group_id);
-    if (!group && assert_on_failure)
-        Fail("group", fmt::format("Group ID {:d} not found", group_id), caller);
+    assert(group || !assert_on_failure);
     return group;
 }
 
@@ -321,9 +306,7 @@ W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::sour
    the disposition calculation opens with, at the same source line. */
 const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
 {
-    if (monster_group == 0) {
-        Fail("pMonsterGroup != NULL");
-    }
+    assert(monster_group != 0);
     return MonsterDBFromSpecies(monster_group->monster_id);
 }
 
@@ -358,9 +341,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
     Monster* leader;
     unsigned int index;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(monster_group != 0);
     if (monster_group->leader_group_id == 0) {
         leader = GetMonsterByLocationID(monster_group->leader_location_id);
         if (leader) leader->nav.LinkGroupNavigator(nullptr, CurrentGame().combat.has_value());
@@ -504,9 +485,7 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
     const W8MonsterRecord* record;
     unsigned int name_form;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup != NULL");
-    }
+    assert(monster_group != 0);
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->MemberCount() != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
@@ -530,12 +509,8 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
     unsigned int index;
     W8MonsterInfo* lead;
 
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
-    if (!monster_group->fInCombat) {
-        Fail("pMonsterGroup->fInCombat");
-    }
+    assert(CurrentGame().combat.has_value());
+    assert(monster_group->fInCombat);
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         MonsterInfoLeaveCombat(FindMonster(monster_group->MemberLocationId(index)));
     }
@@ -885,12 +860,8 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
    MonsterInfo. */
 void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
 {
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
-    if (monster_group->MemberIds().empty()) {
-        Fail("(pMonsterGroup->plsMonsterIDList ? pMonsterGroup->plsMonsterIDList->size() : 0)");
-    }
+    assert(monster_group != 0);
+    assert(!monster_group->MemberIds().empty());
     W8MonsterInfo* old_info = FindMonster(monster_group->leader_location_id);
     Monster* old_monster = old_info->p3D;
     int leader_id = 0;
@@ -978,16 +949,12 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         if (monster_group->fInCombat) {
             return;
         }
-        if (monster_group == 0) {
-            Fail("pMonsterGroup != NULL");
-        }
+        assert(monster_group != 0);
         const W8MonsterRecord* record = MonsterDBFromSpecies(monster_group->monster_id);
         if (record->untargetable != 0) {
             return;
         }
-        if (monster_group == 0) {
-            Fail("pMonsterGroup");
-        }
+        assert(monster_group != 0);
         unsigned int index = 0;
         while (index < monster_group->MemberIds().size()) {
             int member_id = monster_group->MemberLocationId(index);
@@ -1000,9 +967,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         if (PartyNavigator()->position_dirty) {
             return;
         }
-        if (monster_group == 0) {
-            Fail("pMonsterGroup");
-        }
+        assert(monster_group != 0);
         index = 0;
         while (index < monster_group->MemberIds().size()) {
             int member_id = monster_group->MemberLocationId(index);
@@ -1012,9 +977,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             }
             ++index;
         }
-        if (monster_group == 0) {
-            Fail("pMonsterGroup");
-        }
+        assert(monster_group != 0);
         index = 0;
         if (monster_group->MemberIds().empty()) {
             return;
@@ -1178,9 +1141,7 @@ bool GiveBirthToMonster(W8MonsterGroup* monster_group)
     unsigned int index;
     int location_id;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(monster_group != 0);
     auto& encounters = CurrentLevelPopulation().encounter_groups;
     const auto found = std::ranges::find_if(
         encounters, [monster_group](const auto& owner) { return owner.get() == monster_group; });

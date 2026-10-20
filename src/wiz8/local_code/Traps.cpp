@@ -1,6 +1,7 @@
 #include "wiz8/local_code/Traps.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <cstdint>
 #include <cstring>
@@ -30,7 +31,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -256,9 +256,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     W8CombatSlot target;
     W8TargetSource source;
 
-    if (num_targets < 1) {
-        Fail("iNumTargets > 0");
-    }
+    assert(num_targets >= 1);
     ResetTargetSource(&source);
     source.iType = W8_TARGET_SOURCE_INDIRECT;
     source.point = point;

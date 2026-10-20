@@ -1,5 +1,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -42,7 +43,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
@@ -140,16 +140,10 @@ void CalcXPGoal(W8Character* character)
     int weight;
     unsigned int value;
 
-    if (character == 0) {
-        Fail("pPC != NULL");
-    }
-    if (character->uiExpLevel == 0) {
-        Fail("pPC->uiExpLevel > 0");
-    }
-    if (character->iProfession < W8_PROFESSION_FIGHTER ||
-        character->iProfession >= W8_PROFESSION_COUNT) {
-        Fail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
-    }
+    assert(character != 0);
+    assert(character->uiExpLevel != 0);
+    assert(character->iProfession >= W8_PROFESSION_FIGHTER &&
+           character->iProfession < W8_PROFESSION_COUNT);
     switch (character->iProfession) {
     case W8_PROFESSION_FIGHTER:
     case W8_PROFESSION_ROGUE:
@@ -175,8 +169,7 @@ void CalcXPGoal(W8Character* character)
         weight = 0x640;
         break;
     default:
-        Fail("FALSE", "CalcXPGoal: ERROR - Invalid profession");
-        return;
+        std::unreachable();
     }
 
     if (character->uiExpLevel == 1) {
@@ -327,9 +320,7 @@ void CalcCharacterLevelBand(W8Character* character)
 /* Look up the value that sex, race and profession together select. */
 void CalcCharacterTableValue(W8Character* character)
 {
-    if (character->iRace > W8_RACE_MOOK) {
-        Fail("pPC->iRace < PC_RACE_COUNT");
-    }
+    assert(character->iRace <= W8_RACE_MOOK);
     character->portrait_index =
         g_character_table[(character->gender * 0x10 + character->iRace) * W8_PROFESSION_COUNT +
                           character->iProfession];
@@ -575,9 +566,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
         unsigned int cost = ComputeStartingEquipmentCost(character);
-        if (CurrentGame().party.gold < cost) {
-            Fail("uiValue <= gStatus.uiPartyGold");
-        }
+        assert(CurrentGame().party.gold >= cost);
         CurrentGame().party.gold -= cost;
         AddCharacterStartingEquipment(character);
     }

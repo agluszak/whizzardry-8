@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <source_location>
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"
@@ -417,8 +416,7 @@ void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
 
-W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
-                           std::source_location caller = std::source_location::current());
+W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true);
 const W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);

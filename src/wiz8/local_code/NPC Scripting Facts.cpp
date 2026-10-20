@@ -1,3 +1,4 @@
+#include <cassert>
 #include <string>
 #include <vector>
 
@@ -47,7 +48,6 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/character.h"
@@ -140,9 +140,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             return;
         }
         npc = GetNpcStateByKind(0x48);
-        if (npc == 0) {
-            Fail("npc");
-        }
+        assert(npc != 0);
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
     case W8_FACT_PEACE_SAVANT_BLOWUP_DONE:
@@ -224,9 +222,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             return;
         }
         npc = GetNpcStateByKind(0x29);
-        if (npc == 0) {
-            Fail("npc");
-        }
+        assert(npc != 0);
         MarkNpcOfKind(0x29);
         return;
     case W8_FACT_UMISSION_TRAIN_COVERT_OPEN:
@@ -644,9 +640,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             return;
         }
         npc = GetNpcStateByKind(0x29);
-        if (npc == 0) {
-            Fail("npc");
-        }
+        assert(npc != 0);
         MarkNpcOfKind(0x29);
         return;
     case W8_FACT_LOCATION_GIGAS_TOGGLE_LIFT3:

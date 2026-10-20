@@ -1,5 +1,6 @@
 #include "wiz8/local_code/spell_database.h"
 
+#include <cassert>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -17,7 +18,6 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -98,7 +98,7 @@ const char* g_monster_spell_icon_names[40] = {
 
 void AddMonsterSpellIcon(World& world, Monster* monster, W8MonsterSpellIconId icon)
 {
-    if (!monster || icon < 0 || icon >= SPELL_NUM_ICONS) Fail("monster spell icon");
+    assert(monster && icon >= 0 && icon < SPELL_NUM_ICONS);
     auto& icons = monster->spell_icons;
     icons.reserve(icons.size() + 1);
     const auto path =
@@ -108,7 +108,7 @@ void AddMonsterSpellIcon(World& world, Monster* monster, W8MonsterSpellIconId ic
 
 void SetMonsterSpellIcon(Monster* monster, W8MonsterSpellIconId icon, bool add)
 {
-    if (!monster || icon < 0 || icon >= SPELL_NUM_ICONS) Fail("monster spell icon");
+    assert(monster && icon >= 0 && icon < SPELL_NUM_ICONS);
     auto& icons = monster->spell_icons;
     if (add) {
         AddMonsterSpellIcon(*GetWorld(), monster, icon);
@@ -126,7 +126,7 @@ void SetMonsterSpellIcon(Monster* monster, W8MonsterSpellIconId icon, bool add)
 
 void ClearMonsterSpellIcons(Monster* monster)
 {
-    if (!monster) Fail("monster representation");
+    assert(monster);
     for (const auto& entry : monster->spell_icons) {
         entry.item->DetachMesh();
     }

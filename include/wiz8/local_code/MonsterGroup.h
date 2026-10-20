@@ -2,7 +2,6 @@
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
 #include <cstddef>
-#include <source_location>
 #include <span>
 #include <string>
 #include <vector>
@@ -105,8 +104,7 @@ struct W8MonsterGroup {
     bool encounter_ended;
 };
 
-W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true,
-                                 std::source_location caller = std::source_location::current());
+W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true);
 bool GetMonsterGroupEngagementState(int group_id);
 bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
                                bool follow_leader);

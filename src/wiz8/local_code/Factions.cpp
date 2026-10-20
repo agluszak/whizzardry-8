@@ -1,6 +1,7 @@
 #include "wiz8/local_code/Factions.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -16,7 +17,6 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/story.h"
 
 /* Local Code\Factions.cpp. The unit is named by the two assertions this body
@@ -117,12 +117,8 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
 {
     signed char disposition_score;
 
-    if (faction < 0) {
-        Fail("bFaction >= 0");
-    }
-    if (faction >= W8_FACTION_COUNT) {
-        Fail("bFaction < FACTION_COUNT");
-    }
+    assert(faction >= 0);
+    assert(faction < W8_FACTION_COUNT);
 
     disposition_score = CurrentGame().story.factions[faction].disposition_score;
     if (disposition_score < 34) {
@@ -220,12 +216,8 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
     case W8_FACTION_HIGARDI_BANK:
     case W8_FACTION_HIGARDI_HLL:
     case W8_FACTION_HIGARDI_COMMON:
-        if (faction < 0) {
-            Fail("bFaction >= 0");
-        }
-        if (faction >= W8_FACTION_COUNT) {
-            Fail("bFaction < FACTION_COUNT");
-        }
+        assert(faction >= 0);
+        assert(faction < W8_FACTION_COUNT);
         if (CurrentGame().story.factions[faction].disposition_score >= 34) {
             SetFactionDispositionBand(faction, W8_FACTION_HOSTILE);
             return;

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <functional>
 
 #include "wiz8/character_skills.h"
@@ -20,7 +21,6 @@
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -453,9 +453,7 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
 {
     int value = creation_state->attribute_values[attribute];
     if (value + modifier < 0) {
-        if (modifier >= 0) {
-            Fail("iModifier < 0");
-        }
+        assert(modifier < 0);
         modifier = -value;
     }
     if (modifier > creation_state->attribute_points_remaining) {
@@ -1022,9 +1020,7 @@ void InitializeLevelUpAttributePool(W8Character* character,
 {
     int spent = creation_state->skill_points_spent[skill];
     if (spent + modifier < 0) {
-        if (modifier >= 0) {
-            Fail("iModifier < 0");
-        }
+        assert(modifier < 0);
         modifier = -spent;
     }
     if (creation_state->skill_points_remaining < modifier) {
