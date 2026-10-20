@@ -15,6 +15,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_conditions.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/rule_context.h"
 
