@@ -71,11 +71,27 @@ struct DepthCue {
     float far_scale = 0;
 };
 
-// The scene-pass inputs of one submission: lighting, depth cue, light
-// exclusion and picking. A scene pass builds one and each drawable adjusts
-// its own copy; the renderer keeps none of it.
+// Inputs every scene pass of a frame shares. The frame chooses them, not the
+// scene, and passes them to each scene it renders.
+struct SceneFrame {
+    // Environment light added to ambient light before brightness scales it.
+    glm::vec3 environment_offset{0};
+    // Scales ambient and light colours.
+    float brightness = 1;
+    // Power-of-two size reduction for textures the pass makes resident.
+    std::int32_t texture_reduction = 0;
+    // Seconds on the render clock; scrolls texture coordinates.
+    double time = 0;
+};
+
+// The scene-pass inputs of one submission: frame inputs, lighting, fog colour,
+// depth cue, light exclusion and picking. A scene pass builds one and each
+// drawable adjusts its own copy; the renderer keeps none of it.
 struct ScenePass {
+    SceneFrame frame;
     glm::vec4 ambient_light{0};
+    // The colour fogged fragments blend towards, in [0, 1].
+    glm::vec4 fog_color{0};
     std::span<Light* const> lights;
     std::span<FogParams* const> fogs;
     DepthCue depth_cue;

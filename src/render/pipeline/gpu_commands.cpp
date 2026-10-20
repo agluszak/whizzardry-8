@@ -129,16 +129,15 @@ void GpuRenderer::gpuFlipFrame()
     gpuFlush(true);
 }
 
-void GpuRenderer::gpuClearBuffers(std::uint32_t buffers)
+void GpuRenderer::gpuClearBuffers(std::uint32_t buffers, const ClearValues& values)
 {
     if (buffers == 0 || gpu_scissor.w <= 0 || gpu_scissor.h <= 0) return;
     GpuDrawCommand command = {};
     command.kind = GpuDrawCommand::CLEAR;
     command.clear_buffers = buffers;
-    command.clear_color = {gpu_clear_values.color.x, gpu_clear_values.color.y,
-                           gpu_clear_values.color.z, gpu_clear_values.color.w};
-    command.clear_depth = (float)gpu_clear_values.depth;
-    command.clear_stencil = (uint8_t)gpu_clear_values.stencil;
+    command.clear_color = {values.color.x, values.color.y, values.color.z, values.color.w};
+    command.clear_depth = (float)values.depth;
+    command.clear_stencil = (uint8_t)values.stencil;
     command.scissor = gpu_scissor;
     command.viewport = gpu_viewport;
     if (gpu_scissor.x != 0 || gpu_scissor.y != 0 || gpu_scissor.w != static_cast<int>(gpu_width) ||
@@ -156,11 +155,11 @@ void GpuRenderer::gpuClearBuffers(std::uint32_t buffers)
             command.pipeline_key.value |= GpuPipelineKey::STENCIL_REPLACE;
         command.first_index = static_cast<uint32_t>(gpu_indices.size());
         command.index_count = 3;
-        const float z = gpu_clear_values.depth * 2 - 1;
+        const float z = values.depth * 2 - 1;
         for (const auto position :
              {glm::vec4(-1, -1, z, 1), glm::vec4(3, -1, z, 1), glm::vec4(-1, 3, z, 1)}) {
             gpu_indices.push_back(static_cast<uint32_t>(gpu_vertices.size()));
-            gpu_vertices.push_back({.position = position, .diffuse = gpu_clear_values.color});
+            gpu_vertices.push_back({.position = position, .diffuse = values.color});
         }
         command.vertex_uniforms.projection = glm::mat4(1);
         command.viewport = {0, 0, static_cast<float>(gpu_width), static_cast<float>(gpu_height),
@@ -218,11 +217,6 @@ void GpuRenderer::gpuSetViewPort(const GpuViewPort& value)
         gpu_viewport.min_depth = 0.0f;
         gpu_viewport.max_depth = 1.0f;
     }
-}
-
-void GpuRenderer::gpuSetClearValues(const GpuClearValues& values)
-{
-    gpu_clear_values = values;
 }
 
 void GpuRenderer::gpuDeleteTexture(NativeTexture& texture)

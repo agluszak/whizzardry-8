@@ -51,11 +51,11 @@ public:
     static constexpr std::uint32_t texture_max_aspect = 4096;
     static constexpr std::uint32_t max_texture_stages = 2;
     static constexpr std::uint32_t renderer_batch_limit = 256;
-    // CPU accumulation remains in GERD; the backend clears color, depth and stencil.
-    struct GpuClearValues {
-        glm::vec4 color;
-        float depth;
-        std::uint32_t stencil;
+    // The values one clear writes into the selected buffers.
+    struct ClearValues {
+        glm::vec4 color{0};
+        float depth = 1;
+        std::uint32_t stencil = 0;
     };
     /* Scissor rectangle {left, top, right, bottom}. */
     struct GpuScissor {
@@ -95,6 +95,8 @@ public:
         std::array<Texture*, 2> textures{};
         glm::vec4 fog_color{0};
         std::int32_t polygon_offset = 0;
+        // Power-of-two size reduction for textures this draw makes resident.
+        std::int32_t texture_reduction = 0;
     };
     // A draw stage resolved to a device texture and its sampler settings.
     struct GpuStage {
@@ -201,7 +203,7 @@ public:
 
     void gpuFlipFrame();
 
-    void gpuClearBuffers(std::uint32_t buffers);
+    void gpuClearBuffers(std::uint32_t buffers, const ClearValues& values);
 
     SDL_Surface* gpuLockBuffer();
 
@@ -212,8 +214,6 @@ public:
     void gpuSetScissor(const GpuScissor& value);
 
     void gpuSetViewPort(const GpuViewPort& value);
-
-    void gpuSetClearValues(const GpuClearValues& values);
 
     /* Expands every primitive to a list: SDL GPU has no fans, and lists let
        consecutive draws share one vertex stream. The call's textures arrive
@@ -278,7 +278,6 @@ private:
     uint32_t gpu_width{};
     uint32_t gpu_height{};
 
-    GpuClearValues gpu_clear_values{};
     SDL_Rect gpu_scissor{};
     SDL_GPUViewport gpu_viewport{};
 
@@ -299,8 +298,6 @@ private:
 
 public:
     void drawOverlayQuad(const OverlayQuad& quad);
-    glm::vec3 environment_offset{0};
-    float scene_brightness = 1.0f;
 
 public:
     class Renderer {
@@ -315,8 +312,10 @@ public:
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
-            // Depth bias recorded with the triangles' texture sets.
+            // Draw inputs recorded with the triangles' texture sets.
             std::int32_t polygon_offset = 0;
+            glm::vec4 fog_color{0};
+            std::int32_t texture_reduction = 0;
             // Picks tested against the surviving triangles; a hit records pick_owner.
             std::span<Pick> picks;
             MeshInstance* pick_owner = nullptr;
@@ -333,7 +332,7 @@ public:
             std::uint32_t texture_stages;
         };
 
-        /* The draw state of one triangle run. The interned record additionally carries a blend
+        /* The draw inputs of one triangle run. The interned record additionally carries a blend
            class derived from the shader's DSTBLEND field (ZERO -> 0, SRC_ALPHA pair -> 1,
            ONE -> 2, SRC_COLOR pair -> 3). */
         struct TextureSetKey {
@@ -341,11 +340,15 @@ public:
             Texture* texture1;
             DrawShader shader;
             std::int32_t polygon_offset = 0;
+            glm::vec4 fog_color{0};
+            std::int32_t texture_reduction = 0;
 
             bool operator==(const TextureSetKey& other) const
             {
                 return texture0 == other.texture0 && texture1 == other.texture1 &&
-                       shader.value == other.shader.value && polygon_offset == other.polygon_offset;
+                       shader.value == other.shader.value &&
+                       polygon_offset == other.polygon_offset && fog_color == other.fog_color &&
+                       texture_reduction == other.texture_reduction;
             }
             bool operator!=(const TextureSetKey& other) const { return !(*this == other); }
         };
@@ -355,7 +358,8 @@ public:
                 return std::hash<Texture*>{}(key.texture0) ^
                        (std::hash<Texture*>{}(key.texture1) << 1) ^
                        (std::hash<std::uint32_t>{}(key.shader.value) << 2) ^
-                       (std::hash<std::int32_t>{}(key.polygon_offset) << 3);
+                       (std::hash<std::int32_t>{}(key.polygon_offset) << 3) ^
+                       (std::hash<std::int32_t>{}(key.texture_reduction) << 4);
             }
         };
         struct TextureSet {
@@ -364,6 +368,8 @@ public:
             DrawShader shader;
             std::uint32_t blend;
             std::int32_t polygon_offset;
+            glm::vec4 fog_color;
+            std::int32_t texture_reduction;
         };
         /* GpuTexture-set interning cache; the map's value is the index into sets. */
         struct TextureSetCache {
@@ -418,12 +424,11 @@ public:
 
         Renderer(const Parameters& parameters);
         ShadedVertexArrays allocVertexArray(std::uint32_t count);
-        /* intern the pass's {texture0,texture1,shader} key into
-           texture_set, folding per-vertex texture/shader table transitions
-           into the output ids. */
+        /* intern the pass's {texture0,texture1,shader} key, with the input's
+           draw inputs, into texture_set, folding per-vertex texture/shader
+           table transitions into the output ids. */
         void assignTextureSets(std::uint32_t* texture_set, const std::uint32_t* indices,
-                               std::uint32_t count, const MeshPass* pass,
-                               std::int32_t polygon_offset);
+                               std::uint32_t count, const MeshPass* pass, const TriInput& input);
         /* expands/dedups the input triangles into the index and
            vertex batches, per record. */
         void expandTriangles(const TriInput& input, int sorted);
@@ -526,7 +531,8 @@ public:
     void flush();
     void flushRenderers();
     void flushImmediateRenderers();
-    void clear(std::uint32_t buffers);
+    // Clears the selected buffers inside the scissor; the color is clamped to [0, 1].
+    void clear(std::uint32_t buffers, const ClearValues& values);
     std::int32_t getHeight() const;
     std::int32_t getWidth() const;
     void resetStatistics();
@@ -561,10 +567,6 @@ public:
     };
     Statistics getStatistics();
     std::uint32_t getResidentTextureMemUsed() const;
-    void setClearColor(const glm::vec4& color);
-    void setClearColor(float red, float green, float blue, float alpha);
-    void setClearDepth(double depth);
-    void setFogColor(const glm::vec4& color);
     void setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
     /* Dirty-rectangle pair handed to flipFrame in {x,y,width,height} form;
        GERD converts each to GpuScissor left/top/right/bottom. */
@@ -573,13 +575,11 @@ public:
     };
     void flipFrame();
     void flipFrame(const Rectangle* first, const Rectangle* second, std::uint32_t count);
-    void setTextureReduction(std::int32_t reduction);
     void setViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
     // Rendering and resource updates run on the main thread.
     Renderer& batchRenderer(bool sorted);
     SDL_Surface* lockBuffer();
     void unlockBuffer(bool modified = false);
-    glm::vec4 getFogColor() const;
     // RECOMP: ?getMaxTextureStages@GpuRenderer@@QBEJXZ
     std::int32_t getMaxTextureStages() const { return max_texture_stages; }
     void setTextureDefaultMagFilter(Texture::e_filter filter);
@@ -598,7 +598,6 @@ public:
 
     /* Releases every GERD on the global list. */
     e_error getError();
-    void setClearStencil(std::uint32_t stencil);
 
     // RECOMP: ?isEnabled@GpuRenderer@@QBEHW4e_enable@1@@Z
     int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
@@ -648,13 +647,13 @@ private:
     void checkAllStateChanges();
     void recalcScissor();
     // The resident device copy of a resolved texture and the sampler its parameters select.
-    GpuStage residentStage(Texture* texture);
-    GpuTexture* createNewTexture(Texture* texture);
+    GpuStage residentStage(Texture* texture, std::int32_t reduction);
+    GpuTexture* createNewTexture(Texture* texture, std::int32_t reduction);
     GpuTexParms samplerParameters(const Texture::Parameters& parameters) const;
-    void evaluateTextureDimensions(TextureCacheData& device, const Texture::Dimensions& dimensions);
+    void evaluateTextureDimensions(TextureCacheData& device, const Texture::Dimensions& dimensions,
+                                   std::int32_t reduction);
     void initTexCache();
     void closeTexCache();
-    void initClearColors();
     void initView();
     e_error openWindowInternal(const OpenInfo& info);
     enum class RendererDrain { immediate, sorted, reset, statistics };
@@ -685,15 +684,6 @@ private:
 
     struct Display {
         std::uint32_t swap_interval;
-    };
-
-    struct ClearState {
-        struct {
-            glm::vec4 color;
-            double depth;
-            std::uint32_t stencil;
-        } clear_values;
-        unsigned char unknown_2c_[4];
     };
 
     struct TextureState {
@@ -733,18 +723,14 @@ private:
     unsigned char unknown_19f4_[4];
     Statistics statistics;
 
-    ClearState clear_state;
     TextureState texture_state;
-    glm::vec4 fog_color;
     /* GPU texture records keyed by the source resource's identity. */
     Texture fallback_texture;
     std::unordered_map<Texture*, GpuTexture> textures;
     GpuTexture* texture_default;
-    std::int32_t texture_reduction;
     unsigned char unknown_2045_[3];
 
 public:
-    double frame_time = 0;
     /* performPickTest's w-normalized {x,y,z,sign(w)} scratch per vertex;
        cleared by closeWindow. */
     std::vector<glm::vec4> pick_vertices;

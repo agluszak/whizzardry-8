@@ -105,6 +105,8 @@ std::uint32_t GpuRenderer::Renderer::TextureSetCache::intern(const TextureSetKey
     set.texture1 = key.texture1;
     set.shader = key.shader;
     set.polygon_offset = key.polygon_offset;
+    set.fog_color = key.fog_color;
+    set.texture_reduction = key.texture_reduction;
     switch ((key.shader.value >> DrawShader::DSTBLEND_SHIFT) & 7) {
     case DrawShader::DSTBLEND_ONE:
         set.blend = 2;
@@ -213,14 +215,16 @@ ShadedVertexArrays GpuRenderer::Renderer::allocVertexArray(std::uint32_t count)
 
 void GpuRenderer::Renderer::assignTextureSets(std::uint32_t* texture_set,
                                               const std::uint32_t* indices, std::uint32_t count,
-                                              const MeshPass* pass, std::int32_t polygon_offset)
+                                              const MeshPass* pass, const TriInput& input)
 {
     enum { TABLE_TEXTURE0 = 1u, TABLE_TEXTURE1 = 2u, TABLE_SHADER = 4u };
     TextureSetKey key;
     key.texture0 = pass->textures[0];
     key.texture1 = pass->textures[1];
     key.shader = pass->shader;
-    key.polygon_offset = polygon_offset;
+    key.polygon_offset = input.polygon_offset;
+    key.fog_color = input.fog_color;
+    key.texture_reduction = input.texture_reduction;
     unsigned char mask = pass->texture_tables[0] != 0 ? TABLE_TEXTURE0 : 0;
     if (pass->texture_tables[1] != 0) {
         mask |= TABLE_TEXTURE1;
@@ -405,7 +409,7 @@ void GpuRenderer::Renderer::expandTriangles(const TriInput& input, int sorted)
     std::uint32_t texture_set_offset = 0;
     for (record = 0; record < input.record_count; record++) {
         assignTextureSets(write.texture_set + texture_set_offset, input.indices.data(),
-                          input.triangleCount(), passes + record, input.polygon_offset);
+                          input.triangleCount(), passes + record, input);
         texture_set_offset += input.triangleCount();
     }
 }
@@ -471,8 +475,9 @@ void GpuRenderer::Renderer::drawTriangleRuns(std::span<const std::uint32_t> orde
                  .indices = {reinterpret_cast<const std::uint32_t*>(submitted), run.count * 3},
                  .shader = set.shader,
                  .textures = {set.texture0, set.texture1},
-                 .fog_color = gerd->getFogColor(),
-                 .polygon_offset = set.polygon_offset});
+                 .fog_color = set.fog_color,
+                 .polygon_offset = set.polygon_offset,
+                 .texture_reduction = set.texture_reduction});
         });
 }
 

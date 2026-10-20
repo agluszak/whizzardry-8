@@ -37,8 +37,7 @@
 GpuRenderer* GpuRenderer::active = nullptr;
 
 GpuRenderer::GpuRenderer()
-    : dirty(0), state_flags(0), state{}, statistics{}, clear_state{}, texture_state{},
-      texture_default(nullptr), texture_reduction(0)
+    : dirty(0), state_flags(0), state{}, statistics{}, texture_state{}, texture_default(nullptr)
 {
     auto missing = CreateCpuStorage(8, 8, SDL_PIXELFORMAT_BGRA32);
     SDL_Rect square{0, 0, 4, 4};
@@ -54,8 +53,6 @@ GpuRenderer::GpuRenderer()
     dirty = 0xffffffff;
     setError(ERROR_NONE);
     display.swap_interval = 1;
-    fog_color = glm::vec4(0);
-    initClearColors();
     initView();
 }
 
@@ -64,11 +61,6 @@ GpuRenderer::~GpuRenderer()
     deleteRenderers();
     deleteContext();
     gpuDeleteContext();
-}
-
-void GpuRenderer::setTextureReduction(std::int32_t reduction)
-{
-    texture_reduction = std::clamp(reduction, std::int32_t{0}, std::int32_t{7});
 }
 
 GpuRenderer::Statistics GpuRenderer::getStatistics()
@@ -116,32 +108,13 @@ void GpuRenderer::setSwapInterval(std::uint32_t interval)
     }
 }
 
-void GpuRenderer::setClearColor(const glm::vec4& color)
-{
-    {
-        const auto color_value = color;
-        (clear_state.clear_values.color) =
-            glm::mix(glm::clamp(color_value, float(0), float(1)), glm::vec4(0),
-                     glm::lessThanEqual(color_value, glm::vec4(0)));
-    }
-}
-
-void GpuRenderer::setClearColor(float red, float green, float blue, float alpha)
-{
-    setClearColor(glm::vec4(red, green, blue, alpha));
-}
-
-void GpuRenderer::setClearDepth(double depth)
-{
-    clear_state.clear_values.depth = std::clamp(depth, 0.0, 1.0);
-}
-
 void GpuRenderer::draw(const DrawCall& call)
 {
     // Draws issued while the window closes are never presented.
     if ((state_flags & STATE_CLOSING_WINDOW) != 0) return;
     checkViewStateChanges();
-    const std::array stages{residentStage(call.textures[0]), residentStage(call.textures[1])};
+    const std::array stages{residentStage(call.textures[0], call.texture_reduction),
+                            residentStage(call.textures[1], call.texture_reduction)};
     gpuDraw(call, stages);
     statistics.draw_calls++;
 }
@@ -417,7 +390,7 @@ void GpuRenderer::performPickTest(const PickInput& input)
     }
 }
 
-void GpuRenderer::clear(std::uint32_t buffers)
+void GpuRenderer::clear(std::uint32_t buffers, const ClearValues& values)
 {
     if (isWindowOpen() == 0) {
         setError(ERROR_WINDOW_NOT_OPEN);
@@ -425,9 +398,10 @@ void GpuRenderer::clear(std::uint32_t buffers)
     }
     if (buffers != 0) {
         checkViewStateChanges();
-        const auto& values = clear_state.clear_values;
-        gpuSetClearValues({values.color, static_cast<float>(values.depth), values.stencil});
-        gpuClearBuffers(buffers);
+        // Non-positive components, NaN included, clear to zero.
+        const auto color = glm::mix(glm::clamp(values.color, 0.0f, 1.0f), glm::vec4(0),
+                                    glm::lessThanEqual(values.color, glm::vec4(0)));
+        gpuClearBuffers(buffers, {color, std::clamp(values.depth, 0.0f, 1.0f), values.stencil});
     }
 }
 
@@ -502,23 +476,6 @@ void GpuRenderer::checkAllStateChanges()
     }
 }
 
-/* Each component clamps through (0,1): strictly positive keeps the value, 1.0 or above saturates,
-   anything else becomes 0. Immediate batches queued under the previous colour draw with it before
-   the colour changes. */
-void GpuRenderer::setFogColor(const glm::vec4& color)
-{
-    const auto clamped = glm::clamp(color, 0.0f, 1.0f);
-    if (clamped != fog_color) {
-        flushImmediateRenderers();
-        fog_color = clamped;
-    }
-}
-
-glm::vec4 GpuRenderer::getFogColor() const
-{
-    return fog_color;
-}
-
 GpuRenderer::GpuTexParms GpuRenderer::samplerParameters(const Texture::Parameters& requested) const
 {
     const auto mag =
@@ -539,18 +496,19 @@ GpuRenderer::GpuTexParms GpuRenderer::samplerParameters(const Texture::Parameter
             mip == Texture::MIPMAP_NONE ? 0.0f : 16.0f};
 }
 
-GpuRenderer::GpuStage GpuRenderer::residentStage(Texture* texture)
+GpuRenderer::GpuStage GpuRenderer::residentStage(Texture* texture, std::int32_t reduction)
 {
     texture = texture ? texture->resolve() : nullptr;
     if (!texture) texture = &fallback_texture;
     const auto entry = textures.find(texture);
-    const auto* resident = entry == textures.end() ? createNewTexture(texture) : &entry->second;
+    const auto* resident =
+        entry == textures.end() ? createNewTexture(texture, reduction) : &entry->second;
     return {resident->device.gpu.handle, samplerParameters(texture->getParameters())};
 }
 
 void GpuRenderer::prepareTexture(Texture* texture)
 {
-    if ((state_flags & STATE_CLOSING_WINDOW) == 0) residentStage(texture);
+    if ((state_flags & STATE_CLOSING_WINDOW) == 0) residentStage(texture, 0);
 }
 
 namespace {
@@ -698,7 +656,8 @@ GpuRenderer::e_error GpuRenderer::openWindowInternal(const OpenInfo& info)
             state.view_bottom = getHeight();
             if ((enable_flags & (1UL << ENABLE_CLEAR_ON_OPEN)) != 0) {
                 clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH |
-                      GpuRenderer::GPU_BUFFER_STENCIL);
+                          GpuRenderer::GPU_BUFFER_STENCIL,
+                      {});
                 flipFrame();
                 flush();
             }
@@ -717,11 +676,12 @@ void GpuRenderer::closeTexCache()
 void GpuRenderer::initTexCache()
 {
     closeTexCache();
-    texture_default = createNewTexture(&fallback_texture);
+    texture_default = createNewTexture(&fallback_texture, 0);
 }
 
 void GpuRenderer::evaluateTextureDimensions(TextureCacheData& device,
-                                            const Texture::Dimensions& dimensions)
+                                            const Texture::Dimensions& dimensions,
+                                            std::int32_t reduction)
 {
     if (dimensions.native_size) {
         device.width = dimensions.width;
@@ -730,9 +690,9 @@ void GpuRenderer::evaluateTextureDimensions(TextureCacheData& device,
         return;
     }
     std::uint32_t min_dim = GpuRenderer::texture_min_dim;
-    const auto reduction = texture_reduction;
-    std::uint32_t width = nextTextureDimension(dimensions.width) >> (reduction & 0x1f);
-    std::uint32_t height = nextTextureDimension(dimensions.height) >> (reduction & 0x1f);
+    const auto shift = std::clamp(reduction, std::int32_t{0}, std::int32_t{7});
+    std::uint32_t width = nextTextureDimension(dimensions.width) >> shift;
+    std::uint32_t height = nextTextureDimension(dimensions.height) >> shift;
     std::uint32_t device_width = min_dim;
     if (min_dim <= width && width <= GpuRenderer::texture_max_dim) {
         device_width = width;
@@ -771,14 +731,14 @@ void GpuRenderer::evaluateTextureDimensions(TextureCacheData& device,
     }
 }
 
-GpuRenderer::GpuTexture* GpuRenderer::createNewTexture(Texture* texture)
+GpuRenderer::GpuTexture* GpuRenderer::createNewTexture(Texture* texture, std::int32_t reduction)
 {
     auto [entry, inserted] = textures.try_emplace(texture, *this);
     auto* result = &entry->second;
     if (!inserted) return result;
     try {
         const auto dimensions = texture->getDimensions();
-        evaluateTextureDimensions(result->device, dimensions);
+        evaluateTextureDimensions(result->device, dimensions, reduction);
         SDL_Surface* source = texture->getSurfacePtr();
         result->device.gpu = gpuCreateTexture(result->device.width, result->device.height,
                                               result->device.last_level + 1);
@@ -805,23 +765,11 @@ GpuRenderer::GpuTexture* GpuRenderer::createNewTexture(Texture* texture)
     }
 }
 
-void GpuRenderer::setClearStencil(std::uint32_t stencil)
-{
-    clear_state.clear_values.stencil = stencil;
-}
-
 GpuRenderer::e_error GpuRenderer::getError()
 {
     e_error error = last_error;
     setError(ERROR_NONE);
     return error;
-}
-
-void GpuRenderer::initClearColors()
-{
-    setClearColor(glm::vec4(0));
-    setClearDepth(1.0);
-    setClearStencil(0);
 }
 
 void GpuRenderer::initView()

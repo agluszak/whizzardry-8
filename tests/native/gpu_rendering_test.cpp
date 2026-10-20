@@ -34,8 +34,8 @@ struct Fixture {
         device = std::make_unique<GpuRenderer>();
         REQUIRE(device->gpuCreateContext(nullptr));
         REQUIRE(device->gpuOpenWindow(64, 64));
-        device->gpuSetClearValues({{0, 0, 0, 1}, 1, 0});
-        device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+        device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                                {.color = {0, 0, 0, 1}});
     }
     ~Fixture()
     {
@@ -91,8 +91,8 @@ TEST_CASE("World viewport clears preserve surrounding UI and unselected buffers"
     fixture.triangle(0, {1, 0, 0, 1});
     fixture.device->gpuSetScissor({16, 16, 48, 48});
     fixture.device->gpuSetViewPort({0, 0, 1, 1, 0.2f, 0.3f});
-    fixture.device->gpuSetClearValues({{0, 1, 0, 1}, 1, 0});
-    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR);
+    const GpuRenderer::ClearValues green{.color = {0, 1, 0, 1}};
+    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR, green);
     // State can change again before the queued clear is submitted.
     fixture.device->gpuSetScissor({0, 0, 64, 64});
     fixture.device->gpuSetViewPort({0, 0, 64, 64, 0, 1});
@@ -102,14 +102,15 @@ TEST_CASE("World viewport clears preserve surrounding UI and unselected buffers"
     fixture.triangle(0.5f, {0, 0, 1, 1});
     REQUIRE(fixture.pixel() == 0x00ff00); // Color-only clear retained depth.
     fixture.device->gpuSetScissor({16, 16, 48, 48});
-    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_DEPTH);
+    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_DEPTH, green);
     fixture.device->gpuSetScissor({0, 0, 64, 64});
     REQUIRE(fixture.pixel() == 0x00ff00); // Depth-only clear retained color.
     fixture.triangle(0.5f, {0, 0, 1, 1});
     REQUIRE(fixture.pixel() == 0x0000ff);
     REQUIRE(fixture.pixel(8, 32) == 0xff0000);
     fixture.device->gpuSetScissor({32, 32, 32, 48});
-    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                                    green);
     fixture.triangle(-0.5f, {1, 1, 1, 1});
     REQUIRE(fixture.pixel() == 0x0000ff); // An empty scissor affects no pixels.
 }

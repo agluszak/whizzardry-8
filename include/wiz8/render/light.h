@@ -1,6 +1,5 @@
 #pragma once
 class WorldScene;
-class GpuRenderer;
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -93,7 +92,7 @@ public:
     Light(const Light& other);
 
     // Derives the light's eye-space values for one scene view.
-    void beginPass(GpuRenderer& renderer, const DrawTransform& view);
+    void beginPass(const DrawTransform& view, float brightness);
     Light& operator=(const Light& other);
 
 public:

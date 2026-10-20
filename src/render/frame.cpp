@@ -439,7 +439,14 @@ unsigned char ClearPrimarySurface(void)
     return 1;
 }
 
-void UpdateRenderElapsedTime(void);
+/* The inputs every scene pass of the current frame shares. */
+static SceneFrame CurrentSceneFrame()
+{
+    return {.environment_offset = CurrentEnvironmentOffset(),
+            .brightness = g_monster_light_scale,
+            .texture_reduction = g_resident_texture_policy,
+            .time = RenderClockSeconds()};
+}
 
 /* Render one scene into either the full output or a logical 640x480 viewport.
    Scene fog follows the current world's static scene for ordinary overlays;
@@ -448,9 +455,6 @@ void UpdateRenderElapsedTime(void);
 void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
                  std::span<Pick> picks)
 {
-    g_gerd->environment_offset = CurrentEnvironmentOffset();
-    g_gerd->scene_brightness = g_monster_light_scale;
-
     std::uint32_t width = g_gerd->getWidth();
     std::uint32_t height = g_gerd->getHeight();
 
@@ -467,7 +471,7 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
         // NOLINTNEXTLINE(misc-include-cleaner)
         scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
-    scene->render(*g_gerd, camera, picks);
+    scene->render(*g_gerd, camera, CurrentSceneFrame(), picks);
     if (viewport != 0) {
         g_gerd->setViewPort(0, 0, width, height);
         g_gerd->setScissor(0, 0, width, height);
@@ -509,7 +513,7 @@ void RenderFrame(void)
         }
     }
 
-    g_gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
+    const GpuRenderer::ClearValues clear_values{.color = glm::vec4(clear_color, 1.0f)};
     SyncSystemCursor();
     UpdateUiHelp();
     FlushUiUpload();
@@ -531,20 +535,19 @@ void RenderFrame(void)
             std::uint32_t width = g_gerd->getWidth();
             const auto rect = ToSurfaceRect(g_viewport, width, height);
             g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-            g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+            g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                          clear_values);
             g_gerd->setScissor(0, 0, width, height);
         }
     }
 
     g_compositor.draw(*g_gerd, OverlayLayer::PreWorld);
-    g_gerd->setTextureReduction(g_resident_texture_policy);
 
     if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
                     false);
     }
     if (GetWorld() != 0 && g_world_render_enabled) {
-        g_gerd->setTextureReduction(g_resident_texture_policy);
         if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
             g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
@@ -566,7 +569,6 @@ void RenderFrame(void)
         }
     }
 
-    g_gerd->setTextureReduction(0);
     if (g_overlay_scenes_enabled) {
         if (!g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
         g_compositor.draw(*g_gerd, OverlayLayer::UnderUi);
@@ -609,7 +611,6 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool rend
     GpuRenderer* gerd = g_gerd.get();
     glm::vec3 clear_color{1.0f};
     gerd->beginFrame();
-    gerd->setTextureReduction(g_resident_texture_policy);
     gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
     const DesignRect bounds = rect != nullptr ? *rect : g_viewport;
     const auto viewport = ToSurfaceRect(bounds, gerd->getWidth(), gerd->getHeight());
@@ -619,15 +620,15 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool rend
     } else {
         GetWorldLightValue(GetWorld(), &clear_color);
     }
-    gerd->setClearColor(clear_color.x, clear_color.y, clear_color.z, 1.0f);
-    gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+    gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                {.color = glm::vec4(clear_color, 1.0f)});
+    const auto frame = CurrentSceneFrame();
     if (render_secondary && g_render_mesh_sky && GetSecondaryWorld() != 0) {
-        GetSecondaryWorld()->scene->render(*gerd, GetSecondaryWorld()->camera);
+        GetSecondaryWorld()->scene->render(*gerd, GetSecondaryWorld()->camera, frame);
     }
-    GetWorld()->scene->render(*gerd, GetWorld()->camera);
+    GetWorld()->scene->render(*gerd, GetWorld()->camera, frame);
     gerd->endFrame();
     gerd->flushRenderers();
-    gerd->setTextureReduction(0);
     if (rect != 0) {
         gerd->setViewPort(0, 0, gerd->getWidth(), gerd->getHeight());
     }
@@ -647,14 +648,9 @@ void InvalidateRendererTextureCache(void)
     }
 }
 
-/* The renderer and both static scenes take the light direction as their fog
-   colour. The renderer is flushed before the new colour lands. */
+/* Both static scenes take the light direction as their fog colour. */
 void PublishLightDirection(const glm::vec3* direction)
 {
-    if (g_gerd != 0) {
-        g_gerd->flush();
-        g_gerd->setFogColor(glm::vec4(*direction, 0));
-    }
     if (GetWorld() != 0) {
         GetWorld()->scene->setFogColor(*direction);
     }

@@ -74,21 +74,25 @@ Unlayered code may use the layers.
   may use other SDL formats; palette, TGA and STI decoding is explicit.
 - **Renderer inputs.** `GpuRenderer` keeps no current matrix or draw state. A
   `GpuRenderer::DrawCall` carries its vertex streams, indices, clip transform,
-  shader, textures, fog colour and depth bias; the device never culls. Mesh
-  submissions take a `MeshState`: a `DrawTransform` (model-view, projection and
-  borrowed eye-space user clip planes), software cull mode, winding,
-  reverse-normal and sorted flags, depth bias and a `ScenePass`: ambient light,
-  the pass's lights and fogs, the camera's `DepthCue`, the light exclusion mask,
-  and the borrowed `Pick` span with the instance a hit records.
-  `WorldScene::render` builds the camera's transform and scene pass once;
-  static meshes, `MeshInstance`, `GroundShadow` and particles adjust their own
-  copies (instance ambient and exclusion, pick owner, no picks) instead of
-  setting and restoring renderer state. Callers that pick pass their `Pick`
-  values to the scene and read the results back from them. The batches record
-  each run's textures, shader and depth bias; sorted batches draw at the scene
-  flush without depth bias, as retail did. Each scene pass sets the fog colour
-  its batches draw with, and the viewport and scissor belong to the render
-  target.
+  shader, textures, fog colour, depth bias and the size reduction for textures
+  it makes resident; the device never culls. A clear takes its colour, depth
+  and stencil values. Mesh submissions take a `MeshState`: a `DrawTransform`
+  (model-view, projection and borrowed eye-space user clip planes), software
+  cull mode, winding, reverse-normal and sorted flags, depth bias and a
+  `ScenePass`: the frame's `SceneFrame` (environment light offset, brightness,
+  texture reduction and render-clock time), ambient light, fog colour, the
+  pass's lights and fogs, the camera's `DepthCue`, the light exclusion mask,
+  and the borrowed `Pick` span with the instance a hit records. The frame
+  builds one `SceneFrame` and passes it to each `WorldScene::render`, which
+  builds the camera's transform and scene pass once; static meshes,
+  `MeshInstance`, `GroundShadow` and particles adjust their own copies
+  (instance ambient and exclusion, pick owner, no picks) instead of setting and
+  restoring renderer state. Callers that pick pass their `Pick` values to the
+  scene and read the results back from them. The batches record each run's
+  textures, shader, depth bias, fog colour and texture reduction; sorted
+  batches draw at the scene flush without depth bias, as retail did. The
+  viewport and scissor belong to the render target, and texture filter
+  defaults are renderer configuration.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
 - **Shaders.** SDL GPU selects Vulkan, Metal or Direct3D 12 using embedded SPIR-V,

@@ -27,7 +27,6 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
         GpuRenderer renderer;
         REQUIRE(renderer.createContext(window.get()) == GpuRenderer::ERROR_NONE);
         REQUIRE(renderer.openWindow(640, 480) == GpuRenderer::ERROR_NONE);
-        renderer.setTextureReduction(1);
         renderer.setTextureDefaultMagFilter(Texture::FILTER_BEST);
         renderer.setTextureDefaultMinFilter(Texture::FILTER_BEST);
         auto storage = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
@@ -40,8 +39,8 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
         UiCanvasTexture surface{pixels};
         surface.setAlphaTestEnabled(true);
         const auto draw = [&] {
-            renderer.setClearColor(0, 0, 1, 1);
-            renderer.clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
+            renderer.clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
+                           {.color = {0, 0, 1, 1}});
             renderer.resetStatistics();
             surface.draw(&renderer);
             REQUIRE(renderer.getStatistics().draw_calls == 1);
