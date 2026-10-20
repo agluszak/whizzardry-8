@@ -77,7 +77,7 @@ static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
     return 0;
 }
 
-static char NpcStockChanceForTier(W8NpcStockChanceTier tier)
+static signed char NpcStockChanceForTier(W8NpcStockChanceTier tier)
 {
     switch (tier) {
     case W8NpcStockChanceTier::never:
@@ -225,9 +225,9 @@ bool PopulateNpcStock(W8NpcState* npc)
     unsigned int rule_index;
     unsigned int remaining;
     int item_id;
-    char persistent;
-    char added;
-    char chance;
+    signed char persistent;
+    signed char added;
+    signed char chance;
     W8NpcStockChanceTier tier;
 
     rule_count = npc->record->item_stock_rules.size();
@@ -281,7 +281,7 @@ void SortNpcItems(W8NpcState* npc)
    Equipment, equip_class four, always takes a new entry instead of merging. The
    quantity then lands in whichever of the two counts the item's quantity kind
    uses, and the other count is raised to one while it is still clear. */
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity)
+int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity)
 {
     W8NpcItemEntry* entry;
     int item_id;
@@ -334,7 +334,7 @@ int RestockNpcItems(W8NpcState* npc)
     unsigned char held;
     unsigned char amount;
     W8NpcStockChanceTier tier;
-    char chance;
+    signed char chance;
 
     rule_count = npc->record->item_stock_rules.size();
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
@@ -377,21 +377,22 @@ int RestockNpcItems(W8NpcState* npc)
 /* Rate an item's identify difficulty against the band the party's average level
    supports. Three means the difficulty sits inside the band, zero that it is
    past the upper bound, and one or two grade how far below the lower bound it
-   falls. Every comparison here is signed, so the difficulty byte is read into a
-   char, and the tier is returned byte-sized. The NPC argument is unused by the
-   original. */
+   falls. Every comparison here is signed, so the difficulty byte is read into a signed
+   char, and the tier is returned byte-sized. From an average party level of 39
+   the scaled level wraps negative, as retail's did, and the band drops to one
+   through four. The NPC argument is unused by the original. */
 W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 {
-    char difficulty;
-    char level;
-    char base;
-    char raw_upper;
-    char lower;
-    char upper;
+    signed char difficulty;
+    signed char level;
+    signed char base;
+    signed char raw_upper;
+    signed char lower;
+    signed char upper;
 
-    difficulty = static_cast<char>(Data().items[item_id].identify_difficulty);
-    level = static_cast<char>(GetAveragePartyLevel());
-    base = static_cast<char>(level * 100 / 30) / 5;
+    difficulty = static_cast<signed char>(Data().items[item_id].identify_difficulty);
+    level = static_cast<signed char>(GetAveragePartyLevel());
+    base = static_cast<signed char>(level * 100 / 30) / 5;
     raw_upper = base + 4;
     if (base <= 16) {
         lower = base < 1 ? 1 : base;
@@ -740,7 +741,7 @@ void DecayNpcInventory(W8NpcState* npc)
     W8NpcItemEntry* entry;
     std::size_t rule_count;
     const W8NpcItemStockRule* rule;
-    char quantity;
+    signed char quantity;
     unsigned int rule_index;
     unsigned int item_index;
     unsigned char remaining;

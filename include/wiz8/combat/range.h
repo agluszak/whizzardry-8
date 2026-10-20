@@ -21,7 +21,7 @@ unsigned char TraceModeRejectsNoHit(int mode);
 /* How many formation rows between `party_slot` and the monster block a short
    reach: zero when they share a row, otherwise occupants ahead of the monster
    and (when the gap is exactly two rows) the front rank. */
-char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info);
+signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info);
 /* Shorten the action range by intervening formation rows in combat. */
 void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range);
 /* Whether `party_slot` may aim at `monster_info`: live threat, the

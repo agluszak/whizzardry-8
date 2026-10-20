@@ -22,7 +22,7 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game);
 void LeaveLevel();
 
 void UnloadSkyWorld(void);
-char GetLevelBand(int saved_level);
+signed char GetLevelBand(int saved_level);
 
 extern bool g_camera_path_active;
 extern float g_default_world_height;

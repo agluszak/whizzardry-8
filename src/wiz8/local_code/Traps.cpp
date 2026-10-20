@@ -151,7 +151,7 @@ bool IsRecordModeActive(void)
 /* Record-mode key handler: collects a printable line into
    g_record_mode_line. Returns 1 on ENTER (the caller then runs the
    apply callback), -1 on ESC, 0 otherwise. */
-char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
+signed char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void))
 {
     char character;
     std::string text;

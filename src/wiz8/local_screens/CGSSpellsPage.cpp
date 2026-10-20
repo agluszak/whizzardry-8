@@ -308,7 +308,7 @@ void W8CharacterSpellsPage::UpdateSpellLists()
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_animation_frames[realm] = g_spell_realm_animations[realm].initial_frame;
         int first = entry;
-        for (char pass = 0; pass < 2; ++pass) {
+        for (signed char pass = 0; pass < 2; ++pass) {
             for (unsigned int spell = 0; spell < 0x72; ++spell) {
                 if (Data().spells[spell].realm == realm) {
                     switch (m_character->spell_learned[spell]) {

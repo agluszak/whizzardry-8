@@ -199,13 +199,6 @@ find_package(FFMPEG CONFIG REQUIRED)
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
 target_compile_definitions(wiz8_native_settings INTERFACE GLM_ENABLE_EXPERIMENTAL)
-# Game code still stores small signed quantities in plain char, as retail's
-# compiler treated it; pin that choice on targets whose ABI makes char unsigned.
-if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    target_compile_options(wiz8_native_settings INTERFACE /clang:-fsigned-char)
-else()
-    target_compile_options(wiz8_native_settings INTERFACE -fsigned-char)
-endif()
 if(WIZ8_WARNINGS_AS_ERRORS)
     if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         target_compile_options(wiz8_native_settings INTERFACE /WX)

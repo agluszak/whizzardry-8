@@ -179,7 +179,7 @@ bool Game::beginCombat(int surprise)
     events.push(CombatBegan{});
     CheckMonsterGroupsEnterCombat();
     events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x224], 1});
-    RollCombatSurprise(static_cast<char>(surprise));
+    RollCombatSurprise(static_cast<signed char>(surprise));
 
     nearest_distance = 999999.0f;
     nearest_info = 0;
@@ -1720,7 +1720,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
    threatening monster's opposed check plus level/search bonuses, and the
    hostile side when none of them can see the party while surprise is
    possible. Mutual surprise cancels. */
-void RollCombatSurprise(char party_cannot_be_surprised)
+void RollCombatSurprise(signed char party_cannot_be_surprised)
 {
     bool search_surprise = false;
     bool level_surprise = false;

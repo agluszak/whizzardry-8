@@ -8,7 +8,7 @@ struct W8PartySlotRow;
 struct W8PartyFormationState;
 
 unsigned int TurnPartyTo(unsigned int degrees);
-void TurnPartyToImmediate(unsigned int degrees, char snap);
+void TurnPartyToImmediate(unsigned int degrees, signed char snap);
 /* Sync party facing/heading from the camera yaw and refresh the compass. */
 void SyncPartyFacingFromCamera(void);
 

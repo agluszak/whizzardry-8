@@ -925,8 +925,8 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     std::string location_name;
     unsigned char target_start;
     unsigned char target_stop;
-    char source_color;
-    char target_color;
+    signed char source_color;
+    signed char target_color;
     unsigned int hit_location;
     W8AttackMode attack_mode;
     int chance;
@@ -2090,7 +2090,7 @@ static void AppendAttackWeaponName(std::string_view name, int mode)
 }
 
 void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                           char target_changed)
+                           signed char target_changed)
 {
     W8MonsterCombatState* combat = monster_info->pCombat.get();
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
@@ -2242,7 +2242,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
    int/DEX/SPEED/SENSES differential count too; a blinded attacker caps at ten
    unless a trait lets it fight blind. Finally the difficulty scaler runs. */
 static int GetTargetAttackAttributes(int party_slot, int hand, W8AttackMode attack_mode,
-                                     char ignore_target_defenses)
+                                     signed char ignore_target_defenses)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
     W8HandAttack* attack = &character->Hand[hand];
@@ -2495,7 +2495,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
    halves for natural verbs, a repick surprise penalty, an optional armor and
    attribute comparison against the target, the blind cap, and difficulty. */
 int GetMonsterAttackScore(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
-                          W8AttackMode attack_mode, char ignore_target_defenses)
+                          W8AttackMode attack_mode, signed char ignore_target_defenses)
 {
     W8MonsterCombatState* combat = monster_info->pCombat.get();
     int score = monster_info->modifiers.hit_bonus * 5 + attack->attack_score;
@@ -3050,7 +3050,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, const W8MonsterRecord* 
    notice palette when the two sides differ. */
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
 {
-    char source_color = GetSourceNoticeColor(source);
+    signed char source_color = GetSourceNoticeColor(source);
     std::string& message = CurrentGame().combat->attack_message;
     unsigned char color;
     unsigned char highlight_start;
@@ -3973,7 +3973,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                     }
                                 }
                                 if (skill_level != 0) {
-                                    char bonus = static_cast<char>(skill_level / 0x19);
+                                    signed char bonus =
+                                        static_cast<signed char>(skill_level / 0x19);
                                     if (skill_level % 0x19 != 0 &&
                                         CurrentGame().rng.below(0x19) < skill_level % 0x19) {
                                         ++bonus;
@@ -3982,7 +3983,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                 }
                                 if (CharacterHasTrait(character, W8_TRAIT_KNOCKOUT)) {
                                     effect.condition_chances[W8_ATTACK_EFFECT_KNOCK_OUT] +=
-                                        static_cast<char>(ScaleValueByProfessionLevel(
+                                        static_cast<signed char>(ScaleValueByProfessionLevel(
                                             character, W8_TRAIT_KNOCKOUT, 5.0));
                                 }
                             }

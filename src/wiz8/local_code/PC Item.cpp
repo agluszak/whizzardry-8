@@ -680,7 +680,7 @@ W8RangeCategory GetItemSpellRange(const W8ItemInstance* item)
    off practises the skill. */
 bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
 {
-    char strength;
+    signed char strength;
     int margin;
 
     if (item == 0) {
@@ -690,8 +690,8 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
         return false;
     }
 
-    strength = static_cast<char>(character->skills[W8_SKILL_ARTIFACTS].level / 6);
-    if (static_cast<char>(Data().items[item->iItemNo].identify_difficulty) > strength) {
+    strength = static_cast<signed char>(character->skills[W8_SKILL_ARTIFACTS].level / 6);
+    if (static_cast<signed char>(Data().items[item->iItemNo].identify_difficulty) > strength) {
         return false;
     }
 
@@ -701,7 +701,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     item->identified = true;
     item->spell_hint = true;
     item->unknown_08 = 1;
-    if (static_cast<char>(Data().items[item->iItemNo].identify_difficulty + 3) <= strength) {
+    if (static_cast<signed char>(Data().items[item->iItemNo].identify_difficulty + 3) <= strength) {
         item->bound = true;
     }
 

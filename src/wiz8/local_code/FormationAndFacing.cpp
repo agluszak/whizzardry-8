@@ -272,7 +272,7 @@ unsigned int TurnPartyTo(unsigned int degrees)
 
 /* The same turn, with the option of snapping the camera round rather than
    swinging it. */
-void TurnPartyToImmediate(unsigned int degrees, char snap)
+void TurnPartyToImmediate(unsigned int degrees, signed char snap)
 {
     if (degrees == CurrentGame().status.party_heading) {
         return;

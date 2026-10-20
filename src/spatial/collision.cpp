@@ -715,7 +715,7 @@ LevelSpatialIndex::traceGeometry(const PlaneSegment& segment, SurfaceTraceFilter
 /* Selects a switch interface's state: the matching state group's conditional
    polygons clear surface flag 0x10 while every other state's polygons set
    it. Asserts the interface id and the state slice bounds. */
-char LevelSpatialIndex::SetInterfaceState(int iID, int state)
+signed char LevelSpatialIndex::SetInterfaceState(int iID, int state)
 {
     int iStates;
     int poly_count;

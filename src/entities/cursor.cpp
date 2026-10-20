@@ -440,7 +440,7 @@ void UpdateWorldCursor(void)
     }
 }
 
-char MarchWorldCursorTarget(glm::vec3* target)
+signed char MarchWorldCursorTarget(glm::vec3* target)
 {
     glm::vec3 trace_from;
     glm::vec3 origin;

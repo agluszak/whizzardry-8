@@ -14,7 +14,7 @@ extern int g_table2[];
 bool IsRecordModeActive(void);
 /* Record-mode console line input and its per-key prompt/apply callbacks. */
 void WriteRecordModeEntry(void);
-char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void));
+signed char HandleRecordModeKey(const InputEvent* input, void (*prompt)(void));
 void ApplyRecordModeLine(void);
 void PromptRecordModeEntry(void);
 unsigned char GetTable650434Entry(int trap, int device);

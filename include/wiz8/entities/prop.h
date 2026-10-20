@@ -113,8 +113,8 @@ public:
        keeps the previous one. */
     void UpdateAnimationFrameLength();
     void ApplyAnimationPaths();
-    void AdvanceAnimationValue(int frames, char total);
-    char NextAnimationValue() const;
+    void AdvanceAnimationValue(int frames, signed char total);
+    signed char NextAnimationValue() const;
     void ApplyAnimationFrame(NavigationMesh* pathing);
     struct SavedAnimationState {
         unsigned char subcycle, first_frame, last_frame;
@@ -139,7 +139,7 @@ public:
     bool CanBeUsedFrom(int path_x, int path_z, bool notify);
     void SetActivationState(bool active);
     /* Queues the signed byte as a short; -1 becomes the 0xffff sentinel. */
-    void SetPendingAnimationSubcycle(char value);
+    void SetPendingAnimationSubcycle(signed char value);
     void SetAnimationSpeed(float speed);
     bool IsAnimationPingPong();
     void ReverseAnimationDirection();

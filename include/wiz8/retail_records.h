@@ -275,7 +275,7 @@ struct NpcDatabaseRecord {
     /* 0x070/0x074: the level this NPC restores its binding at and the
        FindEntityByName key the restore moves its monster to - the default
        pair copied into the runtime state's pending restore. */
-    char restore_level;
+    signed char restore_level;
     unsigned char unknown_071[3];
     char restore_entity_name[0x29];
     /* 0x09d: set when the record carries no appended item-stock

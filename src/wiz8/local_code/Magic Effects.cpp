@@ -510,15 +510,16 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
    announced as absorbed if the slot swallows all of it. A single turn is
    raised to two. Monsters always count as hit; a character's answer comes from
    SetCharacterCondition. */
-char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8SpellRealm realm,
-                              unsigned int power_level, int argument, unsigned int magnitude,
-                              int source_character, int duration, bool announce)
+signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id,
+                                     W8SpellRealm realm, unsigned int power_level, int argument,
+                                     unsigned int magnitude, int source_character, int duration,
+                                     bool announce)
 {
     W8TargetSource source;
     W8MonsterInfo* monster_info;
     unsigned int absorbed;
     int remaining;
-    char result = 0;
+    signed char result = 0;
 
     ResetTargetSource(&source);
     ReduceMagnitudeByResistance(&magnitude, target, realm, power_level);
@@ -1222,7 +1223,7 @@ void FatigueTargets(W8SpellEffectEntry* effect)
 
 enum class RestoredResource { health, stamina };
 
-static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource resource)
+static signed char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource resource)
 {
     const bool stamina = resource == RestoredResource::stamina;
     const bool verbose = g_settings.verbose_combat_messages != 0;
@@ -1316,13 +1317,13 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
 }
 
 /* Put stamina back into the listed targets, capped at what each one is missing. */
-char RestoreTargetsStamina(W8SpellEffectEntry* effect)
+signed char RestoreTargetsStamina(W8SpellEffectEntry* effect)
 {
     return RestoreTargetResource(effect, RestoredResource::stamina);
 }
 
 /* Heal the listed targets, capped at what each one is missing. */
-char HealTargets(W8SpellEffectEntry* effect)
+signed char HealTargets(W8SpellEffectEntry* effect)
 {
     return RestoreTargetResource(effect, RestoredResource::health);
 }
@@ -1493,7 +1494,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
    leaves the character barely alive and may queue the revive event. A
    condition the roll fails simply ticks down by the squared power and counts
    toward the resisted report. */
-char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition, bool force)
+signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition, bool force)
 {
     W8NpcState* npc_state;
     W8MonsterInfo* monster_info;
@@ -2303,10 +2304,10 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
    cure pass first, then the binding reveal. Only a character target produces
    bindings to report; a result of one or two appends the matching line and,
    on the partial answer, clears the applied flag. */
-char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
+signed char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
 {
     bool verbose;
-    char applied; // bool-byte-ok: forwards the unnormalized byte-valued cure result
+    signed char applied; // bool-byte-ok: forwards the unnormalized byte-valued cure result
     int result;
 
     verbose = g_settings.verbose_combat_messages != 0;
@@ -2383,13 +2384,14 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     AdjustIntegerByPercent(&magnitude, effect->definition.percent);
     ReduceMagnitudeByResistance(&magnitude, target, W8_SPELL_REALM_MENTAL,
                                 effect->definition.power_level);
-    if (static_cast<char>(magnitude) <= static_cast<char>(monster_info->charm_strength)) {
+    if (static_cast<signed char>(magnitude) <=
+        static_cast<signed char>(monster_info->charm_strength)) {
         return;
     }
     if (monster_info->charm_strength == 0) {
         SetMonsterSpellIcon(monster_info->p3D, SPELL_ICON_CHARMED, true);
     }
-    monster_info->charm_strength = static_cast<char>(magnitude);
+    monster_info->charm_strength = static_cast<signed char>(magnitude);
     if (g_settings.verbose_combat_messages != 0) {
         PostMonsterNotice(monster_info, Data().strings[0x1ac]);
     } else {
@@ -2634,7 +2636,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                     Fail("pMonsterInfo");
                 }
                 dice = Data().spells[W8_SPELL_RING_OF_FIRE].effect_dice;
-                dice.count = static_cast<char>(slot.amount) * dice.count;
+                dice.count = static_cast<signed char>(slot.amount) * dice.count;
                 amount = RollDice(&dice);
                 target.iType = W8_TARGET_KIND_MONSTER;
                 target.iMonsterID = monster_info->location_id;
@@ -2735,7 +2737,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
             case W8_SPELL_DRAINING_CLOUD:
             case W8_SPELL_FIRESTORM:
                 dice = Data().spells[spell_id].effect_dice;
-                dice.count = static_cast<char>(power) * dice.count;
+                dice.count = static_cast<signed char>(power) * dice.count;
                 rolls_damage = true;
                 sleep_type = false;
                 break;

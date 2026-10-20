@@ -298,10 +298,6 @@ each.
 
 Substantial but contained work.
 
-- **Remove `-fsigned-char`.** About 160 locals, parameters and casts plus some
-  record fields (`restore_level`, NPC dispositions, theft scores, level bands,
-  lock pins) keep small signed numbers in plain `char`. Give them `signed char` or
-  `std::int8_t` (text stays `char`), then drop the flag from `wiz8_native_settings`.
 - **Named strings.** About 770 `g_localized_strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.

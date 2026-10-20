@@ -162,7 +162,7 @@ unsigned char Prop::GetActivationState() const
     return this->active;
 }
 
-void Prop::SetPendingAnimationSubcycle(char value)
+void Prop::SetPendingAnimationSubcycle(signed char value)
 {
     this->pending_subcycle = value;
 }
@@ -526,7 +526,7 @@ void Prop::UpdatePropAnimation(std::chrono::milliseconds elapsed)
     if (frames != 0) {
         Animation* animation;
 
-        AdvanceAnimationValue(frames, static_cast<char>(total));
+        AdvanceAnimationValue(frames, static_cast<signed char>(total));
         animation = this->currentAnimation();
         if (animation->path.has_value()) {
             if ((flags & W8_PROP_ACCUMULATE_PATH_FRAMES) != 0) {
@@ -586,7 +586,7 @@ void Prop::ApplyAnimationPaths()
    wrap or, when frame_method is two, bounce off the ends and flip direction; a
    step larger than the counter range folds through whole trips.  The new
    value is clamped and pushed to every bound path. */
-void Prop::AdvanceAnimationValue(int frames, char total)
+void Prop::AdvanceAnimationValue(int frames, signed char total)
 {
     Prop* rep = this;
     unsigned int frame = rep->subcycle;
@@ -710,7 +710,7 @@ void Prop::AdvanceAnimationValue(int frames, char total)
    clamp at the ends, looping kinds wrap to the opposite end, and behaviour
    two steps back instead.  Retail returns the literal one rather than
    first_frame + 1 when a bouncing run sits at the start. */
-char Prop::NextAnimationValue() const
+signed char Prop::NextAnimationValue() const
 {
     const Prop* rep = this;
     W8AnimationDirection direction = rep->frame_direction;

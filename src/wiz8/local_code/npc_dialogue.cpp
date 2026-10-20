@@ -44,7 +44,7 @@ int W8NpcDialogue::SelectResponse(const ScriptContext& context, W8NpcQuoteEntry*
 {
     int index;
     unsigned char expected;
-    char response_count;
+    signed char response_count;
 
     index = 0;
     if (entry->operand2 == 4 && entry->operand1 != 2) {
@@ -119,7 +119,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
     Monster* monster;
     W8NpcState* target;
     signed char faction;
-    char response_count;
+    signed char response_count;
     int response;
     int entry_index;
     bool finished;
@@ -152,7 +152,8 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                         finished = true;
                         break;
                     }
-                    response_count = static_cast<char>(entry->operand2 - entry->operand0 + 1);
+                    response_count =
+                        static_cast<signed char>(entry->operand2 - entry->operand0 + 1);
                     response = context.game.rng.below(response_count) + entry->operand0;
                     finished = true;
                     break;

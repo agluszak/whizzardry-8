@@ -50,7 +50,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
    of these declarations is provisional until the fragment is attributed. */
 
 int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity);
+int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity);
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
 W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);

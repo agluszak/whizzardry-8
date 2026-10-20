@@ -416,7 +416,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 {
     Monster* monster;
     bool changed;
-    char mode;
+    signed char mode;
 
     monster = monster_info->p3D;
     mode = W8_RT_AI_IDLE;
@@ -586,7 +586,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             }
         }
     }
-    if (mode != static_cast<char>(monster_info->ai_mode)) {
+    if (mode != static_cast<signed char>(monster_info->ai_mode)) {
         changed = true;
     }
     *decision = static_cast<unsigned char>(mode);
