@@ -54,7 +54,7 @@ Saves, settings and logs go into the system's per-user application directory, se
 
 This is a modernization project, not an exercise in preserving the original engine's structure. We aim to remove obsolete code and unnecessary abstractions while keeping Wizardry 8's gameplay, content and file compatibility.
 
-For the current technical direction, see [AGENTS.md](AGENTS.md), [remaining native work](NATIVE_WORK.md) and [UI modernization](UI_MODERNIZATION.md).
+For the current technical direction, see [AGENTS.md](AGENTS.md), [the architecture](ARCHITECTURE.md) and [the roadmap](ROADMAP.md).
 
 After building, run the tests with:
 
@@ -84,8 +84,7 @@ is audited; this does not disable UBSan's signed-overflow instrumentation.
 
 The normal tidy allowlist includes assignment-in-condition, string-view C API
 misuse, allocation ownership, dangling string buffers and last-use moves.
-Configure an analysis build with `WIZ8_PRECOMPILE_HEADERS=OFF` and
-`WIZ8_SURRENDER_UNITY_BUILD=OFF`, then run:
+Configure an analysis build with `WIZ8_PRECOMPILE_HEADERS=OFF`, then run:
 
 ```sh
 CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
