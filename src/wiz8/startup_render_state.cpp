@@ -22,13 +22,11 @@ void UpdateRenderElapsedTime(void)
     if (g_gerd) g_gerd->frame_time += elapsed * .001;
 }
 
-bool g_environment_time_enabled = true;
 float g_view_distance = 12.0f;
 
 unsigned char InitializeEnvironmentColours(void)
 {
     ResetEnvironment();
-    g_environment_time_enabled = false;
     g_view_distance = 12.0f;
     return 1;
 }

@@ -125,9 +125,12 @@ the licensed runtime scenarios after every step.
    - Game time follows the activity, not the screen: camp commands set `Activity::place`
      instead of the screen router, and `Place::Menu` goes because a covered screen does
      not step.
+   - With one step, the world's hold can be read once per step instead of being reported
+     from every call site of `SyncWorldAdvancement` (ARCHITECTURE.md, "Advancement").
 5. **Presentation owned by screens.**
    - `g_level_block`, the cursor, the targeting mode, `edited_formation` and `item_drag`
-     become screen members. `gXStatus` is deleted.
+     become screen members. `gXStatus` is deleted. `Game::aging_held` mirrors a pending
+     `item_drag`; the screen that owns the drag sets it.
    - Camp, character and options state folds into their screens, and the HUD panels
      receive explicit inputs.
    - Redraw bitmasks give way to invalidation by events.

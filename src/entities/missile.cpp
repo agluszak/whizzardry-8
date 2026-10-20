@@ -65,7 +65,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kCharacterProjectileHeight = 81.25f;
 constexpr float kCharacterProjectileHeightStep = 32.5f;
@@ -113,7 +112,7 @@ unsigned char UpdateMissileAI(MissileFlight* record)
         delta = 0xfa;
     }
     record->last_half_tick = count;
-    if (gXStatus.world_update_blocked) {
+    if (CurrentGame().advancement.held) {
         return 1;
     }
     advance = AdvanceMissileAI(record, &out, delta);

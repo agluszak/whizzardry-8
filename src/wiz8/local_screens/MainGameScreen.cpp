@@ -2102,11 +2102,12 @@ void ResetMainGameScreenState(void)
         }
         gXStatus.fReviewCharacterMode = false;
         CurrentGame().surprise_possible = false;
-        gXStatus.world_update_blocked = false;
-        gXStatus.world_paused = false;
+        CurrentGame().advancement.held = false;
+        CurrentGame().advancement.paused = false;
         CurrentGame().gameplay_timer.Restart();
         ResetAssayTab();
         gXStatus.item_drag.reset();
+        CurrentGame().aging_held = false;
         ResetTargetingState();
     }
 }
@@ -2260,6 +2261,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
             SelectCurrentUseItemLine();
         } else {
             gXStatus.item_drag.reset();
+            CurrentGame().aging_held = false;
         }
     }
     if (!CurrentGame().combat.active()) {
@@ -2517,7 +2519,7 @@ void MainGameScreen::frame()
             UpdateMonsterSight();
             g_level_block->character_update_timer = w8_get_ticks() + (500);
         }
-        if (!gXStatus.world_update_blocked) {
+        if (!CurrentGame().advancement.held) {
             UpdateMonsterGroups(true);
             if (!CurrentGame().combat.active() && AnyCharacterActive() &&
                 CurrentLevelPopulation().monster_roster.hostileCombatCount() &&
@@ -2570,7 +2572,8 @@ void MainGameScreen::frame()
             SelectPartyCharacter(next);
         }
     }
-    if (!IsScreenTransitionPending() && (!gXStatus.world_paused || CurrentGame().combat.active())) {
+    if (!IsScreenTransitionPending() &&
+        (!CurrentGame().advancement.paused || CurrentGame().combat.active())) {
         UpdateWorlds();
     }
     DrawMainGameScreen();
@@ -2725,7 +2728,7 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation)
         }
     }
     if ((g_level_block->redraw_flags & W8_MAIN_REDRAW_PORTRAIT_PANEL) != 0) {
-        if (!gXStatus.world_update_blocked) {
+        if (!CurrentGame().advancement.held) {
             if (gXStatus.fPartyMovementUi) {
                 InvalidatePartyMovementPanel();
             }
@@ -2954,7 +2957,7 @@ void DrawMainGameScreen(void)
             RedrawCombatPortraits();
         }
         UpdateConditionButtons();
-        if (gXStatus.fPartyMovementUi && !gXStatus.world_update_blocked) {
+        if (gXStatus.fPartyMovementUi && !CurrentGame().advancement.held) {
             DrawPartyMovementPanel();
         }
         DrawNpcQuoteBubble();
@@ -4317,7 +4320,7 @@ void SyncMainGameModeInput(void)
     state.formation.setEnabled(panels && !view_open && g_level_block->formation_board_visible);
     state.radar.setEnabled(panels && !view_open && g_level_block->radar_map_visible != 0);
 
-    if (gXStatus.fPartyMovementUi && !gXStatus.world_update_blocked) {
+    if (gXStatus.fPartyMovementUi && !CurrentGame().advancement.held) {
         UpdatePartyMovementPanel();
     } else {
         DisablePartyMovementRegions();
@@ -5117,17 +5120,17 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         AimAtGroundTarget(CurrentGame().status.selected_character);
     } else if (g_level_block->highlighted_item == -1) {
         if ((CurrentGame().party.held.item.iItemNo != -1) && GetSelectedPropIndex() == -1) {
-            if (!gXStatus.world_update_blocked) {
+            if (!CurrentGame().advancement.held) {
                 DropItemInHand(CurrentGame(), 1);
             }
         } else if (g_level_block->selected_item != -1) {
-            if (!gXStatus.world_update_blocked &&
+            if (!CurrentGame().advancement.held &&
                 InteractWithWorldItem(g_level_block->selected_item) != 0) {
                 g_level_block->selected_item = -1;
                 VideoRemoveToolTip();
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
-        } else if (!gXStatus.world_update_blocked) {
+        } else if (!CurrentGame().advancement.held) {
             ActivateSelectedProp();
         }
     } else {
@@ -5270,7 +5273,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
     if (g_level_block->highlighted_item == -1) {
         if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE) {
             if (g_level_block->selected_item != -1) {
-                if (!gXStatus.world_update_blocked) {
+                if (!CurrentGame().advancement.held) {
                     SetTargetCursor(5);
                     return;
                 }
@@ -5280,7 +5283,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             int prop_index = GetSelectedPropIndex();
             if (prop_index > -1) {
                 Prop* prop = GetWorldProp(GetWorld(), prop_index);
-                if (!gXStatus.world_update_blocked) {
+                if (!CurrentGame().advancement.held) {
                     if (prop != 0) {
                         if (prop->TriggerRequiresItem() &&
                             (CurrentGame().party.held.item.iItemNo != -1)) {
@@ -5948,9 +5951,6 @@ void TryMGSActionKey(W8MGSAction command)
     }
 }
 
-/* The panel flags and the modal-dialog frame hooks. The gXStatus.world_update_blocked state
-   is declared in MainGameScreen.h so the renderer consumes the same object. */
-
 /* Load each main-game cursor catalog entry into an Texture and record the
    ETRLE frame size onto the slot. Called once when the level block is first
    allocated. */
@@ -5980,7 +5980,8 @@ void LoadMainGameCursorResources(void)
    apply to the frame tick; otherwise it applies immediately. */
 unsigned char HandleMouselookInput(const InputEvent* input)
 {
-    if (!g_camera_path_active && (!gXStatus.world_paused || CurrentGame().combat.active())) {
+    if (!g_camera_path_active &&
+        (!CurrentGame().advancement.paused || CurrentGame().combat.active())) {
         const InputEventType us_event = input->type;
         switch (us_event) {
         case InputEventType::LeftButtonDown:
@@ -6018,48 +6019,25 @@ static bool InteractionBlocksWorldAdvancement()
             (g_level_block->transition_active || g_level_block->review_transition_active));
 }
 
-bool WorldAdvancementBlocked()
-{
-    return gXStatus.world_paused || InteractionBlocksWorldAdvancement();
-}
-
-// Apply only policy edges. UI animation and the scheduled sight/item passes
-// retain their existing clocks and frame-loop gates.
+// Report what the interface holds; the game applies the edges and the screen shows them.
 void SyncWorldAdvancement()
 {
-    static World* applied_world = nullptr;
-    static bool applied_environment_blocked = false;
-    static bool applied_user_pause = false;
     const bool interaction_blocked = InteractionBlocksWorldAdvancement();
-    const bool blocked = gXStatus.world_paused || interaction_blocked;
-    const bool environment_blocked = blocked || CurrentGame().combat.active();
-    auto* world = GetWorld();
-    const bool changed = blocked != gXStatus.world_update_blocked;
-    const bool environment_changed =
-        world != applied_world || environment_blocked != applied_environment_blocked;
-    gXStatus.world_update_blocked = blocked;
-    applied_world = world;
-    applied_environment_blocked = environment_blocked;
-    SetWorldResumeInput(gXStatus.world_paused && !interaction_blocked);
-    if (applied_user_pause != gXStatus.world_paused) {
-        applied_user_pause = gXStatus.world_paused;
-        MoveTimer(applied_user_pause ? W8_MOVE_TIMER_SUSPEND : W8_MOVE_TIMER_RESUME);
+    if (!GameInProgress()) {
+        SetWorldResumeInput(false);
+        return;
     }
-    if (!world) return;
-    if (blocked && changed && gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
-    if (environment_changed) {
-        SetEnvironmentTimeEnabled(!environment_blocked);
-        if (environment_blocked) {
-            StopAllNavigators();
-            ResetLevelDataVectors();
-        } else {
-            ResumeAllNavigators();
-            if (!LockInteraction() && !TrapInteraction()) ClearLevelMovementStopped();
-        }
-    }
-    if (!changed && !environment_changed) return;
+    auto& game = CurrentGame();
+    SetWorldResumeInput(game.advancement.paused && !interaction_blocked);
+    ApplyWorldAdvancement(
+        game, {.world = interaction_blocked, .party = LockInteraction() || TrapInteraction()});
+}
+
+void PresentWorldAdvancement(bool held, bool hold_changed)
+{
+    if (held && hold_changed && gXStatus.fPartyMovementUi) DisablePartyMovementRegions();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_level_block) {
-        if (!blocked && !g_level_block->review_transition_active) {
+        if (!held && !g_level_block->review_transition_active) {
             if (gXStatus.fPartyMovementUi) UpdatePartyMovementPanel();
             EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
         }
@@ -6069,8 +6047,9 @@ void SyncWorldAdvancement()
 
 void ToggleMainGamePause()
 {
-    if (gXStatus.world_paused || !WorldAdvancementBlocked()) {
-        gXStatus.world_paused = !gXStatus.world_paused;
+    auto& advancement = CurrentGame().advancement;
+    if (advancement.paused || !InteractionBlocksWorldAdvancement()) {
+        advancement.paused = !advancement.paused;
         SyncWorldAdvancement();
     }
 }
@@ -6626,10 +6605,10 @@ resume_world:
     if (CurrentGame().surprise_possible) {
         AcknowledgeSurprise();
     }
-    if (!gXStatus.world_paused) {
+    if (!CurrentGame().advancement.paused) {
         return 1;
     }
-    gXStatus.world_paused = false;
+    CurrentGame().advancement.paused = false;
     SyncWorldAdvancement();
     return 1;
 }

@@ -202,6 +202,7 @@ void CloseUseItemSelectView(void)
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         SyncWorldAdvancement();
         gXStatus.item_drag.reset();
+        CurrentGame().aging_held = false;
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
             return;
@@ -228,6 +229,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     use_item->owner = party_slot;
     if (gXStatus.item_drag && gXStatus.item_drag->pending) {
         gXStatus.item_drag->pending = false;
+        CurrentGame().aging_held = false;
         const auto dragged = gXStatus.item_drag->item;
         if (CurrentGame().party.held.item.iItemNo == -1) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;

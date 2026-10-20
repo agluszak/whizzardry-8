@@ -389,8 +389,11 @@ void OpenAssayDialog(const W8ItemInstance& item, int character_slot);
 void OnQuitGameDialogClosed(bool accepted);
 void OnLeaveGameConfirmClosed(bool accepted);
 
-bool WorldAdvancementBlocked();
+/* Report what holds the world to the game; called whenever the blocking interface state
+   changes, and once a frame. */
 void SyncWorldAdvancement();
+// Show that the world was held or released, or that its time stopped or resumed.
+void PresentWorldAdvancement(bool held, bool hold_changed);
 void ResetMainGameScreenState(void);
 
 void RefreshTrackedPortraitOverlay(void);

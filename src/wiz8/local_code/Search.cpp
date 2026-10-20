@@ -1,6 +1,5 @@
 #include "wiz8/local_code/Search.h"
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -48,7 +47,6 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr int kSearchFoundItemEvent = 0x17;
 constexpr int kSearchFoundItemEventAlt = 0x18;
@@ -67,8 +65,6 @@ struct W8Searchable {
     W8WorldItem* world_item = nullptr;
     Trigger* trigger = nullptr;
 };
-
-static uint64_t g_search_pulse_clock;
 
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
@@ -156,9 +152,9 @@ void W8Searchable::GetPosition(glm::vec3* position)
    the found event and turn the camera toward the find. */
 void RunSearchPulse(void)
 {
-    if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
-        g_search_pulse_clock = w8_get_ticks() + (500);
-        if (g_environment_time_enabled != 0 && !gXStatus.world_update_blocked &&
+    if (TimeUntilDeadline(CurrentGame().search_pulse_deadline) == 0) {
+        CurrentGame().search_pulse_deadline = w8_get_ticks() + (500);
+        if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
             !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
             !LockInteractionSuspended() && !IsTrapInteractionActive() &&
             !TrapInteractionSuspended()) {
@@ -321,7 +317,7 @@ void ToggleSearchMode(void)
     if (!CurrentGame().combat.active()) {
         CurrentGame().status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
-        g_search_pulse_clock = w8_get_ticks() + (0x1f4);
+        CurrentGame().search_pulse_deadline = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();
     } else {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);

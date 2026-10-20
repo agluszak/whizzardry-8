@@ -127,7 +127,8 @@ Unlayered code may use the layers.
     states and level-script variables;
   - the text boxes' message log;
   - combat and the spell effects still in progress;
-  - the activity;
+  - the activity and the world's advancement;
+  - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
   - the gameplay timer;
   - the monster-manager entries;
@@ -162,6 +163,18 @@ Unlayered code may use the layers.
 
   Combat is not part of it (`Game::combat`). Rules that only decide what to redraw or
   notify still check the screen.
+- **Advancement.** `Game::advancement` says whether the world moves on. `paused` is the
+  player's pause; `held` is the pause or the interface's hold, as last applied, and
+  missiles, encounters, combat turns and the search sweep wait while it is set;
+  `time_passes` runs the environment clock, which also stops for a fight. The main game
+  screen reports what holds the world (`SyncWorldAdvancement`, called wherever that
+  interface state changes and once a frame); `ApplyWorldAdvancement` acts only on edges
+  (the move timer, environment time, the navigators, the party's motion) and pushes
+  `WorldAdvancementChanged`, which the screen presents. Camping lifts the pause the same
+  way. The game clock (`UpdateGameClock`: turns, aging, recharges, fatigue) runs only in
+  the world, fed by the environment clock and by the rounds of a fight there; aging also
+  waits while `aging_held`, which the screens set while the camp's Use hands an item to
+  the use-item picker.
 - **Transitional access.** Code that does not yet receive the game reaches it through
   `CurrentGame()`, which throws when no game is in progress. Menus check
   `GameInProgress()`.

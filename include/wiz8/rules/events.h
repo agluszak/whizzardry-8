@@ -83,10 +83,17 @@ struct SkillImproved {
     bool quiet = false;
 };
 
+/* The world was held or released, or its time stopped or resumed. `held` is the new
+   state; `hold_changed` tells a hold or a release apart from a change of time alone. */
+struct WorldAdvancementChanged {
+    bool held = false;
+    bool hold_changed = false;
+};
+
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, PartySlotChanged,
                  PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
-                 HeldItemChanged, SkillAvailabilityChanged, SkillImproved>;
+                 HeldItemChanged, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

@@ -1509,14 +1509,11 @@ void DeleteCurrentSaveFiles(void)
     wiz8::remove_file(wiz8::user_path(kCurrentGamePath));
 }
 
-/* The timed autosave has announced itself and saves on its next tick. */
-static bool g_save_notice_shown;
-
 /* Save now if autosaving is enabled (or the game is Iron Man) and the moment
    allows it. A declined autosave counts as success. */
 bool AutoSaveIfAllowed(bool forced)
 {
-    g_save_notice_shown = false;
+    CurrentGame().save_notice_shown = false;
     const bool wanted = (g_settings.auto_save != 0 && !forced) || CurrentGame().status.iron_man;
     if (!wanted || !CanAutoSaveNow()) return true;
     return SaveGame(AutoSaveSlotName(), nullptr);
@@ -1537,7 +1534,7 @@ unsigned char SaveSlotFileExists(std::string_view slot_name)
 void ReportSaveFailed(bool quiet)
 {
     if (quiet && !CurrentGame().status.iron_man) return;
-    g_save_notice_shown = true;
+    CurrentGame().save_notice_shown = true;
     ShowMainGameNotice(W8_STRING_AUTOSAVE_STARTING);
 }
 
@@ -1547,14 +1544,14 @@ void ReportSaveFailed(bool quiet)
 void ProcessMainGameAutoSave(void)
 {
     if ((g_settings.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
-    if (!g_save_notice_shown) {
+    if (!CurrentGame().save_notice_shown) {
         if (CurrentGame().gameplay_timer.GetProgress() <= 1.0f) return;
-        g_save_notice_shown = true;
+        CurrentGame().save_notice_shown = true;
         ShowMainGameNotice(W8_STRING_AUTOSAVE_STARTING);
         CurrentGame().gameplay_timer.Restart();
         return;
     }
-    g_save_notice_shown = false;
+    CurrentGame().save_notice_shown = false;
     const bool saved = SaveGame(AutoSaveSlotName(), nullptr);
     ShowMainGameNotice(saved ? W8_STRING_AUTOSAVE_SUCCEEDED : W8_STRING_AUTOSAVE_FAILED);
 }

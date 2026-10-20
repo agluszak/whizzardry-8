@@ -45,6 +45,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -71,7 +72,6 @@
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 void SaveJpegScreenshot(void);
 static void FlushUiUpload();
@@ -176,7 +176,7 @@ bool InitializeVideoManager(void)
     }
     InitializeRendererSceneObjects();
     if (!g_video_active) {
-        if (gXStatus.world_update_blocked) {
+        if (GameInProgress() && CurrentGame().advancement.held) {
             SyncWorldAdvancement();
         }
         if (ghWindow && g_gerd) {
@@ -417,7 +417,7 @@ bool RestoreVideoManager(void)
     if (g_video_active) {
         return 1;
     }
-    if (gXStatus.world_update_blocked) {
+    if (GameInProgress() && CurrentGame().advancement.held) {
         SyncWorldAdvancement();
     }
     if (ghWindow && g_gerd) {

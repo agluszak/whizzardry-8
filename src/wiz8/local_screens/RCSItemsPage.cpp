@@ -228,6 +228,7 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
             gXStatus.item_drag = W8ItemDrag{location, screen.ReviewedPartySlot()};
+            CurrentGame().aging_held = true;
         } else {
             if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                 MarkCampCharacterPending(item);

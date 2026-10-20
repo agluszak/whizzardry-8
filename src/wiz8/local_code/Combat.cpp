@@ -1141,7 +1141,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
             RecalculateArmorClass(CurrentGame(), CurrentGame().party.characters[slot]);
         }
     }
-    if (gXStatus.world_update_blocked) {
+    if (CurrentGame().advancement.held) {
         SyncWorldAdvancement();
     }
     ClearLevelMovementState();
@@ -2982,7 +2982,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
 
 void UpdateCombat(void)
 {
-    if (gXStatus.world_update_blocked) {
+    if (CurrentGame().advancement.held) {
         return;
     }
     if (CurrentGame().surprise_possible) {
