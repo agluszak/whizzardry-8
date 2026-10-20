@@ -13,12 +13,15 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <vsg/core/Array2D.h>
+#include <vsg/core/Data.h>
+#include <vsg/state/ImageInfo.h>
 #include <vsg/state/Sampler.h>
+#include <vulkan/vulkan_core.h>
 
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/surface_storage.h"
 
 OverlayQuad::OverlayQuad(const OverlayQuad& other)
 {
