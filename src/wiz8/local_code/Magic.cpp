@@ -1,9 +1,9 @@
 #include "wiz8/local_code/Magic.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -2746,7 +2746,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 monster_markers = *monster_targets;
             }
         }
-        ClearAttackBlock(&block);
+        block = {};
         if (TargetSourceIsCharacter(source, 1)) {
             if (!source->name_known) {
                 caster_figure =
@@ -2828,8 +2828,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 }
                 owner.missiles_pending = true;
             } else {
-                memcpy(block.condition_chances, Data().missiles[missile_index].condition_chances,
-                       0x10);
+                std::ranges::copy(Data().missiles[missile_index].condition_chances,
+                                  block.condition_chances);
                 block.magnitude_base = Data().missiles[missile_index].magnitude_base;
                 for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
                     ResetCombatSlot(&point_target);

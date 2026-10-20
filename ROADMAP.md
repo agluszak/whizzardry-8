@@ -263,8 +263,6 @@ Substantial but contained work.
   `Combat Attack.cpp`, …). Move the remaining code into named modules, as
   `inventory`, `party`, `party_stats` and `live_party` already are. `PC Item.cpp`
   should split into item rules, identification/binding and display.
-- **Value initialization instead of `memset`/`memcpy`.** About 100 calls remain on
-  runtime objects; use value initialization and assignment.
 ## Easiest follow-ups
 
 Small, local and low-risk.

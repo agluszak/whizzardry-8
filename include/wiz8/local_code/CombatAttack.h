@@ -46,7 +46,6 @@ extern unsigned short g_special_category_name_ids[42];
 /* The missile attack paths hand FireMissileSourceToTarget the W8SpellEffectDefinition
    the fired missile stores: the weapon or monster attack's dice magnitude and
    per-condition chances ride the same record a spell effect definition does. */
-void ClearAttackBlock(W8SpellEffectDefinition* block);
 Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
                                    W8SpellEffectDefinition* attack, bool use_default_accuracy,
                                    W8RangeCategory range_category, int accuracy);

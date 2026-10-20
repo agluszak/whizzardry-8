@@ -1,7 +1,6 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 
 #include <cmath>
-#include <cstring>
 #include <vector>
 
 #include <fmt/printf.h>
@@ -200,8 +199,7 @@ void SaveCombatFormation(void)
     if (!CurrentGame().combat.active()) {
         Fail("CurrentGame().combat.active()");
     }
-    memcpy(&CurrentGame().combat.state()->saved_formation, &CurrentGame().party.formation,
-           sizeof(W8PartyFormationState));
+    CurrentGame().combat.state()->saved_formation = CurrentGame().party.formation;
 }
 
 /* Put the formation combat started with back, if anything moved. Comparing the
@@ -212,10 +210,8 @@ void RestoreCombatFormation(void)
         Fail("CurrentGame().combat.active()");
     }
 
-    if (memcmp(&CurrentGame().combat.state()->saved_formation, &CurrentGame().party.formation,
-               sizeof(W8PartyFormationState)) != 0) {
-        memcpy(&CurrentGame().party.formation, &CurrentGame().combat.state()->saved_formation,
-               sizeof(W8PartyFormationState));
+    if (CurrentGame().combat.state()->saved_formation != CurrentGame().party.formation) {
+        CurrentGame().party.formation = CurrentGame().combat.state()->saved_formation;
         RefreshFormationBoard();
         RefreshRadarMap();
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x24b], 0);

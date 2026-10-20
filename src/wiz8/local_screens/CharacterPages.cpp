@@ -1,4 +1,3 @@
-#include <cstring>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -26,15 +25,6 @@
 #include "wiz8/ui_layer.h"
 
 struct W8CharacterCreationState;
-
-namespace {
-template<class T> T ReadStatValue(const void* address)
-{
-    T value;
-    std::memcpy(&value, address, sizeof(value));
-    return value;
-}
-}
 
 W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact)
     : m_input(input), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
@@ -147,10 +137,8 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
         if (m_draw_background) {
             CatalogArtwork::Load(0x108, 0).drawAndInvalidate(target, 2, m_x, m_y);
         }
-        m_first_text.SetText(fmt::format("{:d}", ReadStatValue<unsigned int>(m_first)),
-                             g_wiz_text_font_secondary);
-        m_second_text.SetText(fmt::format("{:d}", ReadStatValue<int>(m_second)),
-                              g_wiz_text_font_secondary);
+        m_first_text.SetText(fmt::format("{:d}", *m_first), g_wiz_text_font_secondary);
+        m_second_text.SetText(fmt::format("{:d}", *m_second), g_wiz_text_font_secondary);
         m_first_text.FillBounds(target, 0x8000);
         m_second_text.FillBounds(target, 0x8000);
         m_label.RenderToTarget(0, true, target);
@@ -181,12 +169,12 @@ void W8CharacterPageEntry::MarkDirty()
 void W8CharacterPageEntry::UpdateButtons()
 {
     if (m_enabled) {
-        bool enabled = ReadStatValue<int>(m_second) > 0;
+        bool enabled = *m_second > 0;
         if (m_decrement->IsEnabled() != enabled) {
             m_decrement->SetEnabled(enabled);
             m_decrement->m_dirty = true;
         }
-        enabled = m_increment_allowed && ReadStatValue<int>(m_second) < ReadStatValue<int>(m_third);
+        enabled = m_increment_allowed && *m_second < *m_third;
         if (m_increment->IsEnabled() != enabled) {
             m_increment->SetEnabled(enabled);
             m_increment->m_dirty = true;

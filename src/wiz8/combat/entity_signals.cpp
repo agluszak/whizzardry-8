@@ -1,7 +1,7 @@
 #include "wiz8/combat/entity_signals.h"
 
-#include <cstring>
 
+#include <algorithm>
 #include <fmt/format.h>
 
 #include "wiz8/data/attack_modes.h"
@@ -172,7 +172,7 @@ void CombatSignals::missileReleased(Monster& monster)
 
     missile_type = 0;
     range_category = W8_RANGE_EXTREME;
-    ClearAttackBlock(&attack_block);
+    attack_block = {};
     accuracy = 50;
     goto fire_missile;
 
@@ -189,9 +189,9 @@ prepare_attack:
     }
 
     range_category = static_cast<W8RangeCategory>(attack->range_category);
-    ClearAttackBlock(&attack_block);
+    attack_block = {};
     attack_block.magnitude = attack->damage_dice;
-    std::memcpy(attack_block.condition_chances, attack->missile_values, 0x10);
+    std::ranges::copy(attack->missile_values, attack_block.condition_chances);
     monster_value = record->effective_level;
     attack_block.power_level = monster_value + (monster_value < 15 ? monster_value : 15);
     attack_block.magnitude_base = attack->missile_magnitude;

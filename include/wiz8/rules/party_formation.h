@@ -17,6 +17,8 @@ struct W8PartyFormationPosition {
     signed char bQuadrantSlot;
     signed char facing;
     unsigned char unknown_04[8];
+
+    bool operator==(const W8PartyFormationPosition&) const = default;
 };
 
 struct W8PartyFormationState {
@@ -30,6 +32,8 @@ struct W8PartyFormationState {
     unsigned char ubQuadrantOccupants[5]; /* 0x0f */
     W8PartyFormationPosition positions[8];
     unsigned char unknown_74[0x10];
+
+    bool operator==(const W8PartyFormationState&) const = default;
 };
 
 static_assert(sizeof(W8PartyFormationPosition) == 0x0c, "W8PartyFormationPosition_must_be_0x0c");

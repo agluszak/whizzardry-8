@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -142,7 +143,7 @@ try {
         }
     }
 
-    memcpy(g_imported_characters, characters, sizeof(characters));
+    std::ranges::copy(characters, g_imported_characters);
     g_import_character_count = character_count;
     g_wiz7_ending = ending;
     for (int index = 0; index < 0x60; ++index) {
@@ -442,7 +443,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     /* The worthiest imported items: band 0 keeps the two most valuable finds
        (value above 3000), band 1 the next three (above 1000). */
     W8Wiz7Item candidates[2][20];
-    W8Wiz7Item empty_item;
+    const W8Wiz7Item empty_item{};
     int maximum[2];
     int counts[2];
     const W8Wiz7Item* source;
@@ -458,7 +459,6 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     W8EquipSlot equip_slot;
     W8Profession profession;
 
-    memset(&empty_item, 0, sizeof(empty_item));
     counts[0] = 0;
     counts[1] = 0;
     EmptyAllCarriedItems(CurrentGame(), character);

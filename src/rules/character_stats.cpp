@@ -1,7 +1,6 @@
 #include "wiz8/rules/character_stats.h"
 
 #include <algorithm>
-#include <cstring>
 #include <functional>
 #include <stdexcept>
 
@@ -263,7 +262,7 @@ void CalcAttacks(const GameData& data, W8Character* character, bool damaged_andr
             if (hand == 0) {
                 attack->damage_dice.base += 2;
             }
-            memset(attack->condition_chances, 0, sizeof(attack->condition_chances));
+            std::ranges::fill(attack->condition_chances, 0);
             if (character->attributes[W8_ATTRIBUTE_STRENGTH].effective > 49) {
                 attack->condition_chances[W8_ATTACK_EFFECT_KNOCK_OUT] =
                     (character->attributes[W8_ATTRIBUTE_STRENGTH].effective - 50) / 5;

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -91,7 +90,7 @@ bool W8MonsterInfoDialog::PopulateText()
     int slot;
     bool has_unknown;
     bool any_shown;
-    unsigned char max_values[0x10];
+    unsigned char max_values[0x10]{};
     int range_category;
     std::string entry_text;
     std::string prefix;
@@ -325,7 +324,6 @@ bool W8MonsterInfoDialog::PopulateText()
     }
 
     if (9 < knowledge) {
-        memset(max_values, 0, sizeof(max_values));
         has_unknown = false;
         any_shown = false;
         for (index = 0; index < 3; ++index) {

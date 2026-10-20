@@ -667,14 +667,7 @@ Trigger::Trigger(World* world)
     surface_id = -1;
     sound_volume = -1;
     required_item_id = -1;
-    lock_state.device_id = -1;
-    lock_state.key_id = -1;
-    lock_state.last_interaction_clock = -1;
-    lock_state.lock_type = LockType::none;
-    lock_state.difficulty = 0;
-    lock_state.device_state.completed = 0;
-    lock_state.lock_countdown = 0;
-    memset(lock_state.device_state.pins, 0, sizeof(lock_state.device_state.pins));
+    lock_state = {.device_id = -1, .key_id = -1, .last_interaction_clock = -1};
 
     flags |= W8_TRIGGER_ON;
     name[0] = 0;

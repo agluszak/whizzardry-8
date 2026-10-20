@@ -4,7 +4,6 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <cstring>
 #include <iterator>
 #include <optional>
 #include <span>
@@ -94,10 +93,7 @@ void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source)
     if (source == 0) {
         Fail("pSource != NULL");
     }
-    memset(source, 0, sizeof(W8TargetSource));
-    source->iMonsterID = BAD_INDEX;
-    source->iType = W8_TARGET_SOURCE_CHARACTER;
-    source->iChar = party_slot;
+    *source = {.iType = W8_TARGET_SOURCE_CHARACTER, .iChar = party_slot};
 }
 
 /* The same for a monster, and the mirror image of it: the character id is the
@@ -110,11 +106,7 @@ void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource*
     if (source == 0) {
         Fail("pSource != NULL");
     }
-    memset(source, 0, sizeof(W8TargetSource));
-    source->iMonsterID = BAD_INDEX;
-    source->iChar = BAD_INDEX;
-    source->iType = W8_TARGET_SOURCE_MONSTER;
-    source->iMonsterID = monster_info->location_id;
+    *source = {.iType = W8_TARGET_SOURCE_MONSTER, .iMonsterID = monster_info->location_id};
 }
 
 bool TargetSourceIsCharacter(const W8TargetSource* source, int allow_indirect)
@@ -267,24 +259,19 @@ void SetFactionFlag(signed char faction, bool flag)
     CurrentGame().story.factions[faction].encountered = flag;
 }
 
-/* Build an empty target block: everything zeroed, then the two ids set to
-   BAD_INDEX. The kind is written twice, once by the clear and once on its
-   own. */
+/* Build an empty target block: no kind, both ids BAD_INDEX, everything else
+   zero. */
 void ResetTargetSource(W8TargetSource* source)
 {
-    memset(source, 0, sizeof(W8TargetSource));
-    source->iType = W8_TARGET_SOURCE_NONE;
-    source->iChar = BAD_INDEX;
-    source->iMonsterID = BAD_INDEX;
+    *source = {};
 }
 
 void ResetCombatSlot(W8CombatSlot* slot)
 {
-    memset(slot, 0, sizeof(W8CombatSlot));
-    slot->iType = W8_TARGET_KIND_NONE;
-    slot->iMonsterID = BAD_INDEX;
-    slot->iChar = BAD_INDEX;
-    slot->iGroupID = BAD_INDEX;
+    *slot = {.iType = W8_TARGET_KIND_NONE,
+             .iChar = BAD_INDEX,
+             .iMonsterID = BAD_INDEX,
+             .iGroupID = BAD_INDEX};
 }
 
 /* Clear whatever a monster was aiming at, and report that it now has no
@@ -361,7 +348,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
         if (!sighting) {
             needed = GetTargetNeededForAction(CurrentGame().party, edited_action);
             if (needed == W8_TARGET_NEED_GROUP) {
-                memset(&target, 0, sizeof(target));
+                target = {};
                 target.iMonsterID = BAD_INDEX;
                 target.iChar = BAD_INDEX;
                 target.iType = W8_TARGET_KIND_GROUP;
@@ -371,7 +358,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
                 return;
             }
         }
-        memset(&target, 0, sizeof(target));
+        target = {};
         target.iChar = BAD_INDEX;
         target.iGroupID = BAD_INDEX;
         target.iType = W8_TARGET_KIND_MONSTER;
@@ -955,7 +942,7 @@ void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id)
 {
     W8CombatSlot* target = &monster_info->Target;
 
-    memset(target, 0, sizeof(*target));
+    *target = {};
     target->iType = W8_TARGET_KIND_NONE;
     target->iMonsterID = BAD_INDEX;
     target->iChar = BAD_INDEX;
@@ -1249,7 +1236,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
                 }
             }
             if (selected != -1) {
-                memset(&new_target, 0, sizeof(new_target));
+                new_target = {};
                 new_target.iChar = -1;
                 new_target.iGroupID = -1;
                 new_target.iType = W8_TARGET_KIND_MONSTER;
@@ -1274,7 +1261,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
         }
     }
     if (!result) {
-        memset(&new_target, 0, sizeof(new_target));
+        new_target = {};
         new_target.iMonsterID = -1;
         new_target.iChar = -1;
         new_target.iGroupID = -1;
@@ -1409,7 +1396,7 @@ bool SlotHasAnyValidTarget(int party_slot)
             if (other_slot == static_cast<unsigned int>(party_slot)) {
                 continue;
             }
-            memset(&target, 0, sizeof(target));
+            target = {};
             target.iMonsterID = BAD_INDEX;
             target.iGroupID = BAD_INDEX;
             target.iType = W8_TARGET_KIND_CHARACTER;
@@ -1419,7 +1406,7 @@ bool SlotHasAnyValidTarget(int party_slot)
             }
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-            memset(&target, 0, sizeof(target));
+            target = {};
             target.iChar = BAD_INDEX;
             target.iGroupID = BAD_INDEX;
             target.iType = W8_TARGET_KIND_MONSTER;
@@ -1602,7 +1589,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
 
     if (!sighting) {
         if (GetTargetNeededForAction(CurrentGame().party, selected) == W8_TARGET_NEED_GROUP) {
-            memset(&target, 0, sizeof(target));
+            target = {};
             target.iChar = BAD_INDEX;
             target.iMonsterID = BAD_INDEX;
             target.iType = W8_TARGET_KIND_GROUP;
@@ -1686,7 +1673,7 @@ void CycleToNextTarget(int party_slot)
         if (pick == BAD_INDEX) {
             return;
         }
-        memset(&target, 0, sizeof(target));
+        target = {};
         target.iMonsterID = BAD_INDEX;
         target.iChar = BAD_INDEX;
         target.iType = W8_TARGET_KIND_GROUP;
@@ -1698,7 +1685,7 @@ void CycleToNextTarget(int party_slot)
         if (pick == BAD_INDEX) {
             return;
         }
-        memset(&target, 0, sizeof(target));
+        target = {};
         target.iChar = BAD_INDEX;
         target.iGroupID = BAD_INDEX;
         target.iType = W8_TARGET_KIND_MONSTER;
@@ -1734,7 +1721,7 @@ void RefreshAllPartyTargets(void)
                 } else if (target->iType != W8_TARGET_KIND_NONE) {
                     W8CombatSlot action;
 
-                    memset(&action, 0, sizeof(action));
+                    action = {};
                     action.iChar = BAD_INDEX;
                     action.iMonsterID = BAD_INDEX;
                     action.iGroupID = BAD_INDEX;
@@ -1754,7 +1741,7 @@ void RefreshAllPartyTargets(void)
                     const int selected = fallback->location_id;
                     W8CombatSlot action;
 
-                    memset(&action, 0, sizeof(action));
+                    action = {};
                     action.iType = W8_TARGET_KIND_MONSTER;
                     action.iChar = BAD_INDEX;
                     action.iMonsterID = selected;

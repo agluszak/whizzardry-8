@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstring>
 #include <functional>
 
 #include "layouts/game_status.h"
@@ -138,7 +137,7 @@ void InitializeCharacterCreation(W8Character* character, W8CharacterCreationStat
     character->portrait_index = -1;
     character->unknown_007d = -1;
     character->personality = -1;
-    memset(creation_state, 0, sizeof(*creation_state));
+    *creation_state = {};
     EmptyAllCarriedItems(CurrentGame(), character);
 
     InitializeCharacterPointPools(character, creation_state);
@@ -155,7 +154,7 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
     g_gender_locked = false;
     ++character->uiExpLevel;
     ++character->profession_levels[character->iProfession];
-    memset(creation_state, 0, sizeof(*creation_state));
+    *creation_state = {};
 
     InitializeCharacterPointPools(character, creation_state);
 
@@ -753,9 +752,11 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 for (index = 0; index < 0x72; ++index) {
                     saved[index] = character->spell_learned[index];
                 }
-                /* Retail clears 0x72 bytes, not 0x72 entries: only the first
-                   28 flags and half of the 29th are zeroed for the trial. */
-                memset(character->spell_learned, 0, 0x72);
+                /* Retail clears 0x72 bytes, not 0x72 entries: the first 28
+                   flags and the low half of the 29th. The trial only tests
+                   flags for 1 or 2, which a half-cleared flag never equals,
+                   so clearing the first 29 flags is the same trial. */
+                std::fill_n(character->spell_learned, 29, 0);
                 static const int trial_spells[6] = {0xc, 6, 7, 5, 3, 0xb};
                 for (index = 0; index < 6; ++index) {
                     if (CanCharacterLearnSpell(character, trial_spells[index])) {

@@ -7,7 +7,6 @@
 #include <vector>
 
 #include <stddef.h>
-#include <string.h>
 
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
@@ -81,25 +80,8 @@ struct W8SpellEffectResult {
 struct W8SpellEffectEntry {
     void AddVisual(SpellVisual* visual);
 
-    /* OrigSource and OrigTarget are left for the caller to fill. */
-    W8SpellEffectEntry()
-    {
-        kind = W8_SPELL_NONE;
-        turns_remaining = 0;
-        memset(&Source, 0, sizeof(Source));
-        memset(&target, 0, sizeof(target));
-        memset(&definition, 0, sizeof(definition));
-        recast = false;
-        sustained = false;
-        missiles_pending = false;
-        targets_resolved = false;
-        reported = false;
-        applied = false;
-        result = {};
-    }
-
-    W8SpellId kind;
-    int turns_remaining;
+    W8SpellId kind = W8_SPELL_NONE;
+    int turns_remaining = 0;
     /* The cast's original source. */
     W8TargetSource OrigSource;
     /* The cast's original target slot, copied beside OrigSource before any
@@ -107,11 +89,11 @@ struct W8SpellEffectEntry {
     W8CombatSlot OrigTarget;
     /* Magic Effects.cpp asserts this as pQueue->Source: the working source the
        hostility walk and effect bodies hand to CollectHostileMonsters / damage. */
-    W8TargetSource Source;
-    W8CombatSlot target;
+    W8TargetSource Source{};
+    W8CombatSlot target{};
     /* CastSpellFromSource copies the complete definition into the queue slot;
        effect handlers interpret its existing fields for their own kind. */
-    W8SpellEffectDefinition definition;
+    W8SpellEffectDefinition definition{};
     /* Two integer lists this body walks: the monster location ids
        CollectHostileMonsters gathers at 0x0e0, and a second index list at
        0x0f0 used both as party-slot indices and as monster-manager entry
@@ -124,22 +106,22 @@ struct W8SpellEffectEntry {
     std::vector<Missile*> missiles;
     /* When the effect ends without having applied, the tick re-casts
        the spell from the stored source. CastSpellFromSource's `c` argument. */
-    bool recast;
+    bool recast = false;
     /* Sustained effect - ticks once per turn while turns_remaining
        counts down (set for the monster-control spell 0x26). */
-    bool sustained;
+    bool sustained = false;
     /* Missiles carrying the effect are still in flight; the tick
        releases them and spawns the impact visual before resolving. */
-    bool missiles_pending;
+    bool missiles_pending = false;
     /* The non-missile path has already run ProcessSpellEffectTargets;
        skips re-resolution and gates the post-resolution bookkeeping. */
-    bool targets_resolved;
+    bool targets_resolved = false;
     /* Set once this effect's result has been reported. */
-    bool reported;
+    bool reported = false;
     /* Set by a handler that actually landed its effect; the result
        report picks its message from this flag. */
-    bool applied;
-    W8SpellEffectResult result;
+    bool applied = false;
+    W8SpellEffectResult result{};
 };
 
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void);

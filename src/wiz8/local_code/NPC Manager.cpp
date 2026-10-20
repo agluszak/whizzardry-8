@@ -2,7 +2,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <exception>
 
 #include "wiz8/data/fact_ids.h"
@@ -480,7 +479,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     npc->script_file.reset();
     RemoveCharacterFromParty(party_slot);
     *character = W8Character{};
-    memset(row, 0, sizeof(*row));
+    *row = {};
     CurrentGame().monster_manager_entries[party_slot] = {};
     row->npc_index = -1;
     auto& dismissed_character = npc->character.value();
@@ -517,7 +516,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     RequestRedraw(W8_MAIN_REDRAW_ALL);
     ReturnDismissedNpcItems(npc, dismissed_character);
     npc->dismissed_flag = true;
-    memset(&npc->dismissed_timer, 0, sizeof(npc->dismissed_timer));
+    npc->dismissed_timer = 0;
     npc->event_pending = 1;
     return 1;
 }
@@ -1420,7 +1419,7 @@ static void InitializeNpcItemTable(W8NpcState* npc)
 {
     unsigned int index;
 
-    memset(npc->item_ids, 0xff, sizeof(npc->item_ids));
+    std::ranges::fill(npc->item_ids, -1);
     if (npc->record->item_table_id >= static_cast<int>(Data().item_tables.size())) {
         return;
     }
