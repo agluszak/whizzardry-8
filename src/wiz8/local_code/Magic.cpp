@@ -1079,17 +1079,18 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
 
     LearnSpell(character, spell_id, true);
     usage_points = Data().spells[spell_id].spell_level;
-    PracticeCharacterSkill(character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
+    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
     PracticeCharacterSkill(
-        character,
+        CurrentGame(), character,
         static_cast<W8Skill>(static_cast<int>(W8_SKILL_FIRE_MAGIC) + Data().spells[spell_id].realm),
         usage_points, false);
     for (skill_id = W8_SKILL_SPELLBOOK_WIZARDRY; skill_id < W8_SKILL_FIRE_MAGIC; ++skill_id) {
         if (Data().spells[spell_id].wizardry_spell != 0) {
-            PracticeCharacterSkill(character, static_cast<W8Skill>(skill_id), usage_points, false);
+            PracticeCharacterSkill(CurrentGame(), character, static_cast<W8Skill>(skill_id),
+                                   usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame().party.locateItem(item));
+    (void)TakeInventoryItem(CurrentGame(), CurrentGame().party.locateItem(item));
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -2589,10 +2590,11 @@ finish_difficulty_adjustment:
             if (index < 2) {
                 Fail("uiUsagePoints >= 2");
             }
-            PracticeCharacterSkill(character, best_skill, (index + 2) >> 2, false);
-            PracticeCharacterSkill(character, realm_skill, index, false);
+            PracticeCharacterSkill(CurrentGame(), character, best_skill, (index + 2) >> 2, false);
+            PracticeCharacterSkill(CurrentGame(), character, realm_skill, index, false);
             if (character->skills[W8_SKILL_POWER_CAST].active) {
-                PracticeCharacterSkill(character, W8_SKILL_POWER_CAST, (index + 2) >> 2, false);
+                PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_POWER_CAST,
+                                       (index + 2) >> 2, false);
             }
         }
     }

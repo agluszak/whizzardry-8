@@ -1,4 +1,3 @@
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterAI.h"
 
 #include <cmath>
@@ -30,6 +29,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -1186,8 +1186,8 @@ targets_chosen:
     if (scan_chars) {
         for (index = char_lo; index < char_hi; ++index) {
             if (resisted[index] != 0 && Random(2) == 0) {
-                PracticeCharacterSkill(&CurrentGame().party.characters[index], W8_SKILL_STEALTH, 1,
-                                       false);
+                PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[index],
+                                       W8_SKILL_STEALTH, 1, false);
             }
         }
     }

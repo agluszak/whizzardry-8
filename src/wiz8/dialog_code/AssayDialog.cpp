@@ -20,6 +20,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/item_payloads.h"
 #include "wiz8/data/item_records.h"

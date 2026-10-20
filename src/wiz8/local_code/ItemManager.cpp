@@ -1,4 +1,3 @@
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
 
 #include <cmath>
@@ -21,11 +20,11 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/data/item_records.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/entities/monster.h"
@@ -39,6 +38,7 @@
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -738,7 +738,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        ReceiveItemInHand(item->item);
+        ReceiveItemInHand(CurrentGame(), item->item);
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
@@ -1064,7 +1064,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             gold = npc->gold;
         }
         if (gold != 0) {
-            AddPartyGold(gold, true);
+            AddPartyGold(CurrentGame(), gold, true);
         }
         if (items.size() == 1) {
             auto* dropped = AddWorldItem(std::move(items[0]));

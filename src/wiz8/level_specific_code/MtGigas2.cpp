@@ -105,7 +105,7 @@ bool MtGigas2Train(Trigger* pTrigger)
     item_id = 0;
     if ((CurrentGame().party.held.item.iItemNo != -1)) {
         item = &CurrentGame().party.held.item;
-        item_id = GetItemInHand();
+        item_id = GetItemInHand(CurrentGame().party);
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
     g_trigger_feedback = true;

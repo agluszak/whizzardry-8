@@ -890,7 +890,7 @@ void W8LockInteraction::ResolvePick()
     if (Random(5) == 0 && m_trigger->lock_state.ConsumeCountdown()) {
         character = &CurrentGame().party.characters[m_selected_slot];
         level = character->skills[W8_SKILL_LOCKS_TRAPS].level;
-        PracticeCharacterSkill(character, W8_SKILL_LOCKS_TRAPS, 1, false);
+        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_LOCKS_TRAPS, 1, false);
         if (level != static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level)) {
             m_info_panel->RefreshInfo();
         }
@@ -1589,7 +1589,7 @@ void W8TrapInteraction::Update()
     case W8_TRAP_DISARM_COLUMN_SUCCESS:
         m_disarm_state = W8_TRAP_DISARM_IDLE;
         m_sound_handle = nullptr;
-        PracticeCharacterSkill(&CurrentGame().party.characters[m_selected_character],
+        PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[m_selected_character],
                                W8_SKILL_LOCKS_TRAPS, 1, false);
         RefreshActionPanel();
         for (column = 0; column < 8; ++column) {
@@ -1676,7 +1676,7 @@ void W8TrapInteraction::ApplyInspectSuccess()
     int roll;
 
     m_sound_handle = nullptr;
-    PracticeCharacterSkill(&CurrentGame().party.characters[m_selected_character],
+    PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[m_selected_character],
                            W8_SKILL_LOCKS_TRAPS, 1, false);
     RefreshActionPanel();
     chance = GetTrapInteractionChance();
@@ -4463,7 +4463,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         } else {
                             force_to_party = true;
                         }
-                        GiveHeldItemToCharacterOrParty(slot, force_to_party);
+                        GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
                         if (ItemUseDraft()) {
                             RefreshUseItemSelection();
                         }
@@ -4569,7 +4569,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
                 return UiResult::Handled;
             }
-            GiveHeldItemToCharacterOrParty(slot, true);
+            GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true);
             if (ItemUseDraft()) {
                 RefreshUseItemSelection();
                 return UiResult::Handled;
@@ -4710,7 +4710,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
             return UiResult::Handled;
         }
         if ((event.modifiers & SHIFT_DOWN) == 0) {
-            BindCharacterItems(slot, true);
+            BindCharacterItems(CurrentGame(), slot, true);
             return UiResult::Handled;
         }
         BindEveryPartyItem();
@@ -5111,7 +5111,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (g_level_block->highlighted_item == -1) {
         if ((CurrentGame().party.held.item.iItemNo != -1) && GetSelectedPropIndex() == -1) {
             if (!gXStatus.world_update_blocked) {
-                DropItemInHand(1);
+                DropItemInHand(CurrentGame(), 1);
             }
         } else if (g_level_block->selected_item != -1) {
             if (!gXStatus.world_update_blocked &&

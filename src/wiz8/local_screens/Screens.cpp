@@ -4,11 +4,13 @@
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <variant>
 
 #include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
@@ -22,6 +24,7 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -261,15 +264,6 @@ void ClearHeldItemDisplay(void)
     }
 }
 
-/* Inline text colors selected by party order for skill and level-up notices. */
-
-static unsigned char g_party_order_text_colors[8] = {7, 4, 6, 2, 5, 8, 9, 3};
-
-unsigned char GetPartyOrderTextColor(signed char party_order)
-{
-    return g_party_order_text_colors[party_order];
-}
-
 /* Draw the held item as the cursor, then blit the supplied catalog video
    object over it. A negative held item id leaves the cursor unchanged. */
 void SetItemCursor(int overlay_video_object)
@@ -299,6 +293,77 @@ void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, b
     default:
         break;
     }
+}
+
+namespace {
+// Each game event shown the way the active screen shows it.
+struct GameEventPresentation {
+    void operator()(const TextNotice& notice) const
+    {
+        ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
+                   notice.force_dialog);
+    }
+    void operator()(const CharacterNotice& notice) const
+    {
+        PostCharacterNotice(static_cast<int>(notice.party_slot), notice.text, notice.context);
+    }
+    void operator()(const NoticeDialog& dialog) const
+    {
+        ShowNoticeLine(dialog.text, dialog.on_closed, dialog.confirmation, dialog.cancel);
+    }
+    void operator()(const TextBoxModeChange& change) const
+    {
+        SetTextBoxMode(change.mode, change.value);
+    }
+    void operator()(const PartySlotChanged& change) const
+    {
+        if (CurrentScreenState().id != W8_SCREEN_CHARACTER)
+            RequestPartySlotRedraw(static_cast<int>(change.party_slot));
+    }
+    void operator()(const PartyLoadChanged&) const
+    {
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !gXStatus.fNpcDialogueMode) {
+            RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+        } else if (auto* camp = CampScreenState();
+                   camp && CurrentScreenState().id == W8_SCREEN_CAMP) {
+            camp->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO | W8_CAMP_REDRAW_PORTRAIT;
+        }
+    }
+    void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
+    void operator()(const CharacterActionChanged&) const
+    {
+        RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+    }
+    void operator()(const EquipmentSettled&) const
+    {
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !g_level_block) return;
+        if (g_level_block->combat_end_notification != -1) ReopenSubMenuPanel();
+        RefreshFlaggedMainGameState();
+    }
+    void operator()(const HeldItemChanged&) const { UpdateHeldItemCursor(); }
+    void operator()(const SkillAvailabilityChanged& change) const
+    {
+        if (CurrentScreenState().id != W8_SCREEN_CHARACTER) return;
+        if (change.available)
+            ResetCharacterScreenSkill(change.skill);
+        else
+            RefundCharacterScreenSkill(change.skill);
+    }
+    // Shown at once only over the idle exploring main game; otherwise it waits.
+    void operator()(const SkillImproved& improved) const
+    {
+        auto& game = CurrentGame();
+        const bool now = !game.combat.active() && !IsModalOpen() && !game.item_pick_pending &&
+                         CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle() &&
+                         !improved.quiet;
+        AnnounceSkillIncrease(game, improved.party_slot, improved.skill, now);
+    }
+};
+} // namespace
+
+void PresentGameEvent(const Event& event)
+{
+    std::visit(GameEventPresentation{}, event);
 }
 
 /* Default the live main-game level block after ResetMainGameScreenState: clear

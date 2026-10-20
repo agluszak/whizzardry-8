@@ -271,7 +271,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
             slot_item = &CurrentGame().party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-                RemoveInventoryQuantity({W8ItemStorage::Backpack, slot, index}, 1);
+                RemoveInventoryQuantity(CurrentGame(), {W8ItemStorage::Backpack, slot, index}, 1);
                 text =
                     fmt::sprintf(Data().strings[0x7ec], CurrentGame().party.characters[slot].name);
                 ShowConsumedItemQuote(text);
@@ -283,7 +283,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         slot_item = &CurrentGame().party.item_pool[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-            RemoveInventoryQuantity({W8ItemStorage::Pool, 0, slot}, 1);
+            RemoveInventoryQuantity(CurrentGame(), {W8ItemStorage::Pool, 0, slot}, 1);
             text = Data().strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;
@@ -297,7 +297,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         if (item->stack_count == 0) {
             g_npc_interaction_state->held_item_pending = false;
             if (!gXStatus.fNpcDialogueMode) {
-                (void)TakeInventoryItem({W8ItemStorage::Hand});
+                (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
             }
         }
     }
@@ -471,7 +471,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
             CurrentGame().party.held.item = item;
             SetItemCursor(0);
         } else {
-            AddItemToPartyOrDrop(&item, false);
+            AddItemToPartyOrDrop(CurrentGame(), &item, false);
             DisplayNpcQuote(notice_text, true);
         }
         ClearNpcItemId(session_.npc, entry->operand0);
@@ -485,7 +485,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
     case W8_NPC_ENTRY_GIVE_GOLD:
         notice_text =
             fmt::sprintf(Data().strings[0x7e9], session_.npc->record->source_name, entry->operand0);
-        AddPartyGold(entry->operand0, false);
+        AddPartyGold(CurrentGame(), entry->operand0, false);
         DisplayNpcQuote(notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
@@ -594,7 +594,7 @@ void W8NpcDialogue::RunNextAction()
         {
             if (const auto* skills = std::get_if<W8SkillNoticePayload>(&message.notice)) {
                 if (g_settings.skill_increase_messages == 0) {
-                    PostSkillIncreaseNotices(skills);
+                    PostSkillIncreaseNotices(CurrentGame(), skills);
                     return;
                 }
             } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {

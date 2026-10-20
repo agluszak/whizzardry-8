@@ -8,6 +8,7 @@
 #include "local_code/Factions.h"
 #include "local_code/HealthStaminaMana.h"
 #include "monster_actions.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -602,7 +603,7 @@ int CharacterPrayAction(int party_slot)
                 CurrentGame().combat.state()->experience_bonus += 10;
             } else {
                 AppendToLastTextLine(Data().strings[0x177], -1);
-                AddPartyGold(100, true);
+                AddPartyGold(CurrentGame(), 100, true);
             }
             prayed = true;
             break;

@@ -1057,7 +1057,7 @@ void InventoryChestScenario()
     remainder = original_item;
     std::copy(pool.begin(), pool.end(), std::begin(CurrentGame().party.item_pool));
     CurrentGame().party.item_count = pool_count;
-    RedistributePartyEncumbrance();
+    RedistributePartyEncumbrance(CurrentGame());
     for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
     click_button(1); // Take selected items into the party pool.
@@ -2044,7 +2044,7 @@ void CombatScenario()
     REQUIRE(CurrentGame().combat.state()->attack_report.reports.empty());
     auto& member = CurrentGame().party.characters[PremadeSlot()];
     member.party_weight_share = 123456;
-    RedistributePartyEncumbrance();
+    RedistributePartyEncumbrance(CurrentGame());
     REQUIRE(CurrentGame().party.redistribution_pending);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return CurrentGame().combat.active() == 0; }, 10);
@@ -2087,7 +2087,7 @@ void CombatScenario()
     // to an earlier duplicate calculation. Teardown still ends combat from camp.
     member.uiHPMax = 100000;
     member.hp_current = 1;
-    RecalculateCharacterDerivedStats(member);
+    RecalculateCharacterDerivedStats(CurrentGame(), member);
     REQUIRE(member.hp_current == 0);
     REQUIRE(member.uiCondition[W8_CONDITION_DEAD] != 0);
     REQUIRE(member.highest_condition >= W8_CONDITION_DEAD);

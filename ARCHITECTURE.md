@@ -29,9 +29,9 @@ are enforced:
   Unlayered code reads the installed data through `Data()`; tests arrange it through
   `MutableData()`.
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
-  party storage (`W8Party`, formation), item rules and character derivation (modifier
-  blocks, effective attributes and skills, statistics and the party's shared load).
-  Functions that read the databases take `const GameData&`.
+  party storage (`W8Party`, formation), item rules, character derivation (modifier
+  blocks, effective attributes and skills, statistics and the party's shared load) and
+  the event log (`events.h`). Functions that read the databases take `const GameData&`.
 
 A layer file includes only its own layer, the layers below it, the standard library,
 glm, fmt and three stateless foundation headers (`math.h`, `world/camera_pose.h`,
@@ -122,7 +122,8 @@ Unlayered code may use the layers.
   - the speech queue;
   - the gameplay timer;
   - the monster-manager entries;
-  - the gameplay flags.
+  - the gameplay flags;
+  - the event log, `events`.
 - **Its lifetime.** A game begins when the player chooses a new game, before party
   selection, or when a save is loaded; either replaces any game in progress. It ends when
   the main menu is entered and at shutdown. Ending or replacing a game first leaves its level
@@ -132,6 +133,18 @@ Unlayered code may use the layers.
 - **Transitional access.** Code that does not yet receive the game reaches it through
   `CurrentGame()`, which throws when no game is in progress. Menus check
   `GameInProgress()`.
+- **Events.** `Events` is the game's ordered log of what happened: notices
+  (`TextNotice`, a member's `CharacterNotice`, a `NoticeDialog`), text-box mode changes,
+  display changes (`PartySlotChanged`, `PartyLoadChanged`, `CombatPanelChanged`,
+  `CharacterActionChanged`, `EquipmentSettled`, `HeldItemChanged`) and skill changes
+  (`SkillAvailabilityChanged`, `SkillImproved`). Rules push them; they never call
+  screens. An installed observer receives each event as it is pushed, so presentation
+  keeps its place among the screen calls that unmigrated code still makes; a game
+  without one keeps them pending, which is how tests inspect them.
+  `SetGameEventObserver` (called once by `InitializeGame`) gives every game begun by
+  `BeginGame` the UI's presenter, `PresentGameEvent` in `Screens.cpp`, which maps each
+  event to the active screen's notice, redraw, cursor or character-screen call and
+  decides there whether a skill increase is shown at once.
 - **Voices.** A voice that finishes after its game has ended is dropped.
 - **Saves.** The GSTA section decodes to `W8SavedGameStatus`, the status record plus the
   party it stores; a save writes a copy of the game's status and party.
@@ -151,10 +164,11 @@ Unlayered code may use the layers.
   (unusable equipment comes off in slot order and is stored like a received item,
   statistics and shared load are recalculated, an exhausted member dies), combat
   choices follow a weapon-hand change, a committed item use loses a replaced item,
-  and the cursor shows the hand. A change of quantity is not a replacement.
-  `W8Party` owns storage primitives with no gameplay; `party_stats.h` derives
-  values from explicit rules; `live_party.h` supplies the active session's rules
-  and applies what follows. `PC Item.cpp` keeps per-item rules. Swings read the
+  and a changed hand is reported. A change of quantity is not a replacement.
+  Commands take the `Game` they act on and report notices and display changes as
+  its events; queries take `const W8Party&`. `W8Party` owns storage primitives with
+  no gameplay; `party_stats.h` derives values from explicit rules; `live_party.h`
+  supplies the game's own rules and applies what follows. `PC Item.cpp` keeps per-item rules. Swings read the
   damage bonus left by the previous calculation, as retail does.
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,

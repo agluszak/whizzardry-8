@@ -139,7 +139,7 @@ void InitializeCharacterCreation(W8Character* character, W8CharacterCreationStat
     character->unknown_007d = -1;
     character->personality = -1;
     memset(creation_state, 0, sizeof(*creation_state));
-    EmptyAllCarriedItems(character);
+    EmptyAllCarriedItems(CurrentGame(), character);
 
     InitializeCharacterPointPools(character, creation_state);
 }
@@ -163,10 +163,10 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
         PayDownAttributeDebt(character, creation_state);
     }
     CalcCharacterLevelBand(character);
-    RecalculateHitPoints(*character);
+    RecalculateHitPoints(CurrentGame(), *character);
     RecalculateCharacterStamina(character);
     RecalculateRealmSpellPoints(Data(), character);
-    RecalculateArmorClass(*character);
+    RecalculateArmorClass(CurrentGame(), *character);
     FinalizeSpellPointPool(character, creation_state);
 }
 
@@ -485,18 +485,18 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     }
     creation_state->attributes_complete = true;
 complete:
-    RecalculateHitPoints(*character);
+    RecalculateHitPoints(CurrentGame(), *character);
     RecalculateCharacterStamina(character);
     RecalculateCarryingCapacity(character);
     PresentInventoryWeightChange(*character, RecalculateInventoryWeight(Data(), *character));
     RecalculateRealmSpellPoints(Data(), character);
-    RecalculateArmorClass(*character);
+    RecalculateArmorClass(CurrentGame(), *character);
     RecalculateCharacterResistances(character);
     if (character->uiExpLevel == 1) {
         RebuildSkillAllocations(character, creation_state);
     }
     CountRemainingSpellPoints(character, creation_state);
-    RefreshCharacterSkillAvailability(character);
+    RefreshCharacterSkillAvailability(CurrentGame().events, character);
     RecomputeSkillLimits(character, creation_state);
 }
 
@@ -868,7 +868,7 @@ int ComputeStartingEquipmentCost(W8Character* character)
             total += GetItemStackValue(&character->backpack[count]);
         }
     }
-    EmptyAllCarriedItems(character);
+    EmptyAllCarriedItems(CurrentGame(), character);
     return total;
 }
 
@@ -998,11 +998,11 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
             } else {
                 ApplyProfessionMinimumAttributes(character, creation_state);
             }
-            RefreshCharacterSkillAvailability(character);
+            RefreshCharacterSkillAvailability(CurrentGame().events, character);
             FinalizeSpellPointPool(character, creation_state);
             RecountLearnedSpellsByRealm(Data(), character);
             CountRemainingSpellPoints(character, creation_state);
-            RefreshCharacterSkillAvailability(character);
+            RefreshCharacterSkillAvailability(CurrentGame().events, character);
             RecomputeSkillLimits(character, creation_state);
         }
         if (character->uiExpLevel == 1) {
@@ -1010,12 +1010,12 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
                 character->attributes[index].effective = character->attributes[index].base;
             }
         }
-        RecalculateHitPoints(*character);
+        RecalculateHitPoints(CurrentGame(), *character);
         RecalculateCharacterStamina(character);
         RecalculateCarryingCapacity(character);
         PresentInventoryWeightChange(*character, RecalculateInventoryWeight(Data(), *character));
         RecalculateRealmSpellPoints(Data(), character);
-        RecalculateArmorClass(*character);
+        RecalculateArmorClass(CurrentGame(), *character);
     }
     RecalculateCharacterResistances(character);
     if (character->uiExpLevel == 1) {
@@ -1065,7 +1065,7 @@ void InitializeLevelUpAttributePool(W8Character* character,
     creation_state->skills_complete = true;
 complete:
     CountRemainingSpellPoints(character, creation_state);
-    RefreshCharacterSkillAvailability(character);
+    RefreshCharacterSkillAvailability(CurrentGame().events, character);
     RecomputeSkillLimits(character, creation_state);
     RecalculateCharacterResistances(character);
 }
@@ -1083,7 +1083,7 @@ void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* 
     unsigned int realm;
     unsigned int spell;
 
-    RecalculateCharacterDerivedStats(*character);
+    RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (give_starting_equipment) {
         AddCharacterStartingEquipment(character);
     }
@@ -1172,7 +1172,7 @@ void AddCharacterStartingEquipment(W8Character* character)
     unsigned int slot;
     unsigned int set;
 
-    EmptyAllCarriedItems(character);
+    EmptyAllCarriedItems(CurrentGame(), character);
 
     set = character->iRace == W8_RACE_FAERIE ? 15 : character->iProfession;
     for (slot = 0; slot < 6; ++slot) {
@@ -1180,7 +1180,7 @@ void AddCharacterStartingEquipment(W8Character* character)
             continue;
         }
         item = MakeItem(g_starting_equipment[set][slot], true, true, true);
-        AddItemToCharacter(character, &item, true, false, false);
+        AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
     }
 
     switch (character->iProfession) {
@@ -1206,9 +1206,9 @@ void AddCharacterStartingEquipment(W8Character* character)
         item = MakeItem(0x144, true, true, true);
         break;
     default:
-        RecalculateCharacterDerivedStats(*(character));
+        RecalculateCharacterDerivedStats(CurrentGame(), *(character));
         return;
     }
-    AddItemToCharacter(character, &item, true, false, false);
-    RecalculateCharacterDerivedStats(*(character));
+    AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
+    RecalculateCharacterDerivedStats(CurrentGame(), *(character));
 }

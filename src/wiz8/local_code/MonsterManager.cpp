@@ -1487,7 +1487,7 @@ void DetectMonsterGroups(void)
                 }
                 unsigned int margin = score - roll;
                 if (character->skills[W8_SKILL_MYTHOLOGY].active) {
-                    PracticeCharacterSkill(character, W8_SKILL_MYTHOLOGY, 10, false);
+                    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_MYTHOLOGY, 10, false);
                 }
                 if (margin > best_margin) {
                     best_slot = slot;

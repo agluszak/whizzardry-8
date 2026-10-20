@@ -56,21 +56,21 @@ void EnsureTrynnie2KilledVar(void)
    already holds an item. */
 bool Trynnie2GoodaVineA(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(0x16d, true, true, false);
+    return PlaceItemOnCursor(CurrentGame(), 0x16d, true, true, false);
 }
 
 /* "GoodaVine_B": place the second vine item on the cursor, refusing while the
    cursor already holds an item. */
 bool Trynnie2GoodaVineB(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(0x16e, true, true, false);
+    return PlaceItemOnCursor(CurrentGame(), 0x16e, true, true, false);
 }
 
 /* "Give_Zulu": place item 0x1b3 on the cursor, refusing while the cursor
    already holds an item. */
 bool Trynnie2GiveZulu(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(0x1b3, true, true, false);
+    return PlaceItemOnCursor(CurrentGame(), 0x1b3, true, true, false);
 }
 
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
@@ -105,7 +105,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
     }
-    item_id = GetItemInHand();
+    item_id = GetItemInHand(CurrentGame().party);
     if (item_id != 0x1b4 && item_id != 0x1c2) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
@@ -123,7 +123,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }
-    (void)TakeInventoryItem({W8ItemStorage::Hand});
+    (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
     BeginScriptedWorldAction();
     return true;
 }
@@ -162,7 +162,7 @@ bool Trynnie2UseItem(W8ItemInstance* item)
         }
     }
     destination.iItemNo = -1;
-    destination = TakeInventoryItem(CurrentGame().party.locateItem(item));
+    destination = TakeInventoryItem(CurrentGame(), CurrentGame().party.locateItem(item));
     return true;
 }
 

@@ -652,13 +652,14 @@ void TakeUseItemIntoHand(void)
             Fail("giUseItemChar != BAD_INDEX");
         }
         const auto old_count = CurrentGame().party.item_count;
-        GiveItemToCharacterOrParty(use_item->owner, &CurrentGame().party.held.item, true);
+        GiveItemToCharacterOrParty(CurrentGame(), use_item->owner, &CurrentGame().party.held.item,
+                                   true);
         // A new pool entry goes to the front and moves the selection down one row.
         if (use_item->pool == ItemPool::Party && old_count != CurrentGame().party.item_count &&
             selected.storage == W8ItemStorage::Pool &&
             selected.slot < CurrentGame().party.item_count)
             ++selected.slot;
     }
-    ExchangeInventoryItems(selected, {W8ItemStorage::Hand},
+    ExchangeInventoryItems(CurrentGame(), selected, {W8ItemStorage::Hand},
                            static_cast<unsigned>(CurrentGame().status.selected_character));
 }

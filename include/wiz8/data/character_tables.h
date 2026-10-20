@@ -52,3 +52,12 @@ struct W8PortraitDescriptor {
 };
 
 extern const W8PortraitDescriptor g_portrait_descriptors[80];
+
+/* Message ids naming what character sheets, notices and dialogs print about a
+   character: attributes by attribute id, skills by skill id. */
+extern const unsigned short g_character_description_first_ids[22];
+extern const unsigned short g_character_skill_name_ids[84];
+/* One row per gender; the third entry is the possessive item notices print. */
+extern const unsigned short g_gender_name_message_rows[4][4];
+// The inline text colour of a member's notices, by marching-order position.
+unsigned char GetPartyOrderTextColor(signed char party_order);
