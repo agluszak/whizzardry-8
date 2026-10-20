@@ -264,7 +264,6 @@ static void ConfigureLightDefaults(Light& light, std::string_view name)
     light.setName(std::string(name));
     light.attenuation_model = Light::ATTENUATION_3DSTUDIO_MAX;
     light.enable_flags |= (1UL << Light::ENABLE_RANGE_FAR);
-    light.enable_flags |= (1UL << Light::ENABLE_BOUNDING_SPHERE);
 }
 
 std::unique_ptr<Light> CreateLight(WorldScene* scene, std::string_view name)
@@ -301,7 +300,6 @@ Light* CreateRangedWorldLight(World* world, std::string_view name)
     light->near_end = 0.0;
     light->far_start = 0.0;
     light->far_end = 1500.0;
-    light->safe_range = 5000.0f;
     light->setLinearAttenuation(1500.0f, 0.0019569471f);
     return AddWorldLight(world, std::move(light));
 }
@@ -323,7 +321,6 @@ void ConfigureWorldLight(Light* light, float range)
     light->near_start = 0.0;
     light->near_end = 0.0;
     light->far_start = 0.0;
-    light->safe_range = 5000.0f;
     light->setLinearAttenuation(range, 0.0019569471f);
 }
 

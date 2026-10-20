@@ -349,12 +349,10 @@ Light::Light(WorldScene* scene, bool cycle_color, float range, const glm::vec3* 
     setName("MonFixedLight");
     attenuation_model = Light::ATTENUATION_3DSTUDIO_MAX;
     enable_flags |= (1UL << Light::ENABLE_RANGE_FAR);
-    enable_flags |= (1UL << Light::ENABLE_BOUNDING_SPHERE);
     far_end = range;
     near_start = 0.0;
     near_end = 0.0;
     far_start = 0.0;
-    safe_range = 5000.0f;
     setLinearAttenuation(range, 0.0019569471f);
     specular = glm::vec3(0);
     diffuse = (*first_color);

@@ -433,36 +433,12 @@ static void baked_lighting()
 
 static void renderer_bounds()
 {
-    const DrawTransform view;
-    REQUIRE(view.sphereVisible({0, 0, 0}, 0.1f));
-    for (int axis = 0; axis < 3; ++axis)
-        for (float sign : {-1.0f, 1.0f}) {
-            glm::vec3 position(0);
-            position[axis] = sign * 2;
-            REQUIRE_FALSE(view.sphereVisible(position, 0.1f));
-        }
     Mesh empty;
     const auto empty_bounds = empty.getBounds();
     REQUIRE(empty_bounds.box.minimum == glm::vec3(0));
     REQUIRE(empty_bounds.box.maximum == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.radius == 0);
-
-    const std::array user_planes{eyeSpaceClipPlane(glm::mat4(1), {1, 0, 0, 0})};
-    const DrawTransform clipped{.user_clip_planes = user_planes};
-    REQUIRE_FALSE(clipped.sphereVisible({-0.5f, 0, 0}, 0.1f));
-    REQUIRE(clipped.sphereVisible({0.5f, 0, 0}, 0.1f));
-    const DrawTransform ortho{.projection = glm::ortho(-2.0f, 4.0f, -3.0f, 5.0f, 1.0f, 10.0f)};
-    REQUIRE(ortho.sphereVisible({3, 0, -4}, 0.1f));
-    REQUIRE_FALSE(ortho.sphereVisible({5, 0, -4}, 0.1f));
-    REQUIRE_FALSE(ortho.sphereVisible({0, 6, -4}, 0.1f));
-    REQUIRE_FALSE(ortho.sphereVisible({0, -4, -4}, 0.1f));
-    const DrawTransform perspective{.projection =
-                                        glm::perspective(glm::half_pi<float>(), 1.0f, 1.0f, 10.0f)};
-    REQUIRE(perspective.sphereVisible({0, 0, -4}, 0.1f));
-    REQUIRE_FALSE(perspective.sphereVisible({0, 0, -0.5f}, 0.1f));
-    REQUIRE_FALSE(perspective.sphereVisible({0, 0, -12}, 0.1f));
-    REQUIRE_FALSE(perspective.sphereVisible({8, 0, -4}, 0.1f));
 }
 
 TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]")
@@ -1330,15 +1306,7 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
 {
     const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
     // GERD normalizes in object space before the inverse-transpose transform.
-    const std::array scaled_plane{eyeSpaceClipPlane(scale, {2, 0, 0, -2})};
-    REQUIRE(DrawTransform{.user_clip_planes = scaled_plane}.clipPlanes().planes[6] ==
-            glm::vec4(0.5f, 0, 0, -1));
-    // Six bits belong to the view frustum; planes beyond the 26 user slots are ignored.
-    const std::vector<glm::vec4> planes(40, glm::vec4(1, 0, 0, 0));
-    REQUIRE(DrawTransform{.user_clip_planes = planes}.clipPlanes().mask == 0xffffffffu);
-    REQUIRE(DrawTransform{.user_clip_planes = std::span(planes).first(25)}.clipPlanes().mask ==
-            0x7fffffffu);
-    REQUIRE(DrawTransform{}.clipPlanes().mask == 0x3fu);
+    REQUIRE(eyeSpaceClipPlane(scale, {2, 0, 0, -2}) == glm::vec4(0.5f, 0, 0, -1));
 }
 
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")

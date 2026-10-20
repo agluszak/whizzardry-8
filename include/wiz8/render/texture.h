@@ -40,8 +40,6 @@ public:
     struct Dimensions {
         std::uint32_t width;
         std::uint32_t height;
-        SDL_PixelFormat format;
-        bool generate_mipmaps = true;
         // UI canvases must bypass power-of-two rounding and world texture reduction.
         bool native_size = false;
     };

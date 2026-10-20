@@ -74,12 +74,6 @@ Camera3D::Camera3D()
     setFOV(3.141592653589793 * (1.0f / 180.0f) * 90.0f, 1.3333333333333333);
 }
 
-Camera3D::Rect Camera3D::getNormalizedViewPlane() const
-{
-    return {view_plane.left / view_plane_distance, view_plane.bottom / view_plane_distance,
-            view_plane.right / view_plane_distance, view_plane.top / view_plane_distance};
-}
-
 Camera3D::ViewPlane Camera3D::getViewPlane() const
 {
     return {view_plane, view_plane_distance};
@@ -211,20 +205,4 @@ bool Camera3D::projectsAny(std::span<const glm::vec3> points)
     return std::any_of(points.begin(), points.end(), [&](const glm::vec3& point) {
         return project(glm::dvec3(point)).result == PROJECTION_RESULT_ACCEPTED;
     });
-}
-
-std::optional<glm::vec3> Camera3D::unproject(const glm::dvec3& input)
-{
-    const glm::dvec2 uv(input.x, input.y);
-    if (input.z < std::min(near_clip, far_clip) || input.z > std::max(near_clip, far_clip) ||
-        !glm::all(glm::greaterThanEqual(uv, glm::dvec2(0))) ||
-        !glm::all(glm::lessThanEqual(uv, glm::dvec2(1))))
-        return std::nullopt;
-
-    const glm::dvec2 start(view_plane.left, view_plane.top);
-    const glm::dvec2 end(view_plane.right, view_plane.bottom);
-    const glm::dvec3 point(glm::mix(start, end, uv) * (input.z / view_plane_distance), input.z);
-    glm::dmat3 rotation;
-    rotation = this->transform.orientation<glm::dmat3>();
-    return glm::vec3(rotation * point + this->transform.getLocation());
 }

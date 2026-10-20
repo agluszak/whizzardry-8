@@ -4,7 +4,6 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -101,11 +100,11 @@ bool bindViewState(vsg::StateGroup& group, RenderContext& context)
 class WorldViewState : public vsg::Inherit<vsg::ViewDependentState, WorldViewState> {
 public:
     WorldViewState(vsg::View* view, RenderContext& context, const ScenePass& source,
-                   std::size_t sorted_indices, std::size_t opaque_indices,
+                   std::size_t light_count, std::size_t sorted_indices, std::size_t opaque_indices,
                    std::span<const glm::vec4> clip_planes)
         : Inherit(view), context(context), context_layout(context.layout)
     {
-        refresh(source, sorted_indices, opaque_indices, clip_planes);
+        refresh(source, light_count, sorted_indices, opaque_indices, clip_planes);
     }
 
     bool usesContext(const RenderContext& candidate) const
@@ -113,17 +112,16 @@ public:
         return context_layout == candidate.layout;
     }
 
-    void refresh(const ScenePass& source, std::size_t sorted_capacity, std::size_t opaque_capacity,
-                 std::span<const glm::vec4> clip_planes)
+    void refresh(const ScenePass& source, std::size_t light_count, std::size_t sorted_capacity,
+                 std::size_t opaque_capacity, std::span<const glm::vec4> clip_planes)
     {
         pass = source;
         eye_clip_planes.assign(clip_planes.begin(), clip_planes.end());
-        source_lights.assign(source.lights.begin(), source.lights.end());
+        prepared_lights.resize(light_count);
         fog_pointers.assign(source.fogs.begin(), source.fogs.end());
         std::erase_if(fog_pointers, [](const auto* fog) { return !fog->visible; });
-        pass.lights = source_lights;
         pass.fogs = fog_pointers;
-        const auto values = packView(pass, eye_clip_planes);
+        const auto values = packView(pass, eye_clip_planes, prepared_lights);
         if (!block || block->size() < values.size()) {
             block = vsg::vec4Array::create(capacity(values.size()));
             block->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
@@ -137,8 +135,7 @@ public:
     void clear() override
     {
         vsg::ViewDependentState::clear();
-        copied_light_count = 0;
-        light_pointers.clear();
+        prepared_lights.clear();
         sorted.clear();
         opaque_cursor = 0;
     }
@@ -159,9 +156,7 @@ public:
     void traverse(vsg::RecordTraversal& visitor) const override
     {
         vsg::ViewDependentState::traverse(visitor);
-        auto current = pass;
-        current.lights = light_pointers;
-        store(*block, packView(current, eye_clip_planes));
+        store(*block, packView(pass, eye_clip_planes, prepared_lights));
     }
     void compile(vsg::Context& compile_context) override
     {
@@ -183,11 +178,8 @@ public:
     void addLight(const Light& source, const vsg::dmat4& model_view)
     {
         if (!source.visible || source.intensity == 0) return;
-        if (copied_light_count == copied_lights.size()) copied_lights.emplace_back();
-        auto& copy = copied_lights[copied_light_count++];
-        copy = source;
-        prepareLightAt(copy, toGlm(model_view), pass.frame.brightness);
-        if (copy.derived_flags & Light::DERIVED_ACTIVE) light_pointers.push_back(&copy);
+        auto prepared = prepareLightAt(source, toGlm(model_view), pass.frame.brightness);
+        if (static_cast<unsigned>(prepared[0].w) & 1u) prepared_lights.push_back(prepared);
     }
     void addSorted(const DrawNode& node, const vsg::dmat4& model_view)
     {
@@ -312,11 +304,8 @@ private:
     vsg::ref_ptr<vsg::PipelineLayout> context_layout;
     ScenePass pass;
     std::vector<glm::vec4> eye_clip_planes;
-    std::vector<Light*> source_lights;
     std::vector<FogParams*> fog_pointers;
-    std::deque<Light> copied_lights;
-    std::size_t copied_light_count = 0;
-    std::vector<Light*> light_pointers;
+    std::vector<PreparedLight> prepared_lights;
     std::vector<Sorted> sorted;
     vsg::ref_ptr<vsg::vec4Array> block;
     vsg::ref_ptr<vsg::DescriptorSet> game_set;
@@ -573,7 +562,6 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
     const ScenePass pass{.frame = frame,
                          .ambient_light = glm::vec4(ambient_light, 0),
                          .fog_color = glm::vec4(fog_color, 0),
-                         .lights = lights,
                          .fogs = fogs};
     submitted_polygons = 0;
     // Equal-depth translucent triangles keep the game's submission precedence:
@@ -688,12 +676,10 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
     ScenePass pass{.frame = frame,
                    .ambient_light = glm::vec4(ambient_light, 0),
                    .fog_color = glm::vec4(glm::clamp(fog_color, 0.0f, 1.0f), 0),
-                   .lights = lights,
                    .fogs = fogs,
                    .depth_cue = source ? source->depthCue() : DepthCue{}};
     render::CountIndices counts;
     root->accept(counts);
-    pass.lights = counts.lights;
     std::vector<glm::vec4> clip_planes_eye;
     for (const auto& plane : clip_planes)
         if (plane->visible)
@@ -702,10 +688,11 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
                                   plane->getClipPlane()));
     auto* state = dynamic_cast<render::WorldViewState*>(view->viewDependentState.get());
     if (state && state->usesContext(context))
-        state->refresh(pass, counts.sorted, counts.opaque, clip_planes_eye);
+        state->refresh(pass, counts.lights.size(), counts.sorted, counts.opaque, clip_planes_eye);
     else
-        view->viewDependentState = render::WorldViewState::create(
-            view.get(), context, pass, counts.sorted, counts.opaque, clip_planes_eye);
+        view->viewDependentState =
+            render::WorldViewState::create(view.get(), context, pass, counts.lights.size(),
+                                           counts.sorted, counts.opaque, clip_planes_eye);
     return view;
 }
 void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const

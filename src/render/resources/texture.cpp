@@ -48,7 +48,6 @@ Texture::Texture(std::shared_ptr<SDL_Surface> pixels) : surface(std::move(pixels
 {
     texture_dimensions_.width = 0x40;
     texture_dimensions_.height = 0x40;
-    texture_dimensions_.format = SDL_PIXELFORMAT_ARGB4444;
     texture_flags_ = 0;
     texture_flags_ |= 1 << FLAG_DIRTY_DEFAULTS;
 }
@@ -84,7 +83,6 @@ void Texture::setupDefaultValuesFromSurface(SDL_Surface* surface)
     if (surface != 0) {
         texture_dimensions_.width = surface->w;
         texture_dimensions_.height = surface->h;
-        texture_dimensions_.format = surface->format;
     } else {
         texture_dimensions_.width = 1;
         texture_dimensions_.height = 1;
@@ -151,7 +149,6 @@ Texture::Dimensions Texture::getDimensions()
     if ((texture_flags_ & (1 << FLAG_DIRTY_DEFAULTS)) != 0) {
         setupDefaultValues();
     }
-    texture_dimensions_.generate_mipmaps = parameters.mipmap != MIPMAP_NONE;
     return texture_dimensions_;
 }
 
