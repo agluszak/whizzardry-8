@@ -10,8 +10,8 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
-#include "wiz8/npc_speech.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/rule_context.h"

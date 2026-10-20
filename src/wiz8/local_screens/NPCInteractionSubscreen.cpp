@@ -3322,7 +3322,6 @@ static bool IsDialoguePlaceKeyword(std::string_view name)
     return false;
 }
 
-
 /* Restate the five transcript category buttons so only the active
    dialogue_category_filter's button shows its secondary state. */
 void SyncDialogueCategoryButtons(void)
@@ -3457,8 +3456,9 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (CurrentGame().npc_interaction.held_item_pending &&
                     CurrentGame().npc_interaction.pending_item.iItemNo == item->iItemNo) {
                     CurrentGame().npc_interaction.held_item_pending = false;
-                    AddItemToParty(CurrentGame(), OwnedItem(CurrentGame().npc_interaction.pending_item),
-                                   true, false);
+                    AddItemToParty(CurrentGame(),
+                                   OwnedItem(CurrentGame().npc_interaction.pending_item), true,
+                                   false);
                     (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
                     return 0;
                 }

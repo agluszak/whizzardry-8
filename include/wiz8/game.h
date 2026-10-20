@@ -28,8 +28,8 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/save_codec.h"
 #include "wiz8/rules/rule_context.h"
+#include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
 struct World;
