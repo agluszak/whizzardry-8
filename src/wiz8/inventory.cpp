@@ -81,7 +81,7 @@ static std::optional<W8ItemLocation> StoreWithCharacter(Game& game, W8Character*
 static std::optional<W8ItemLocation> StoreInPool(Game& game, W8ItemInstance* item, bool announce,
                                                  bool skip_stacking);
 static bool ConsumeItemUse(W8Party& party, W8ItemInstance* item, bool remove_exhausted);
-static void DropUnstoredCharacterItem(Game& game, W8ItemInstance* item);
+static bool DropUnstoredCharacterItem(Game& game, W8ItemInstance* item);
 
 // ---- Storage helpers
 
@@ -307,39 +307,48 @@ static void FinishCharacterInventoryEdit(Game& game, W8Character& character,
 }
 
 /* Equipment a member can no longer use is announced and stored like a received item:
-   on the member, then in the pool, and otherwise at the party's feet. Taking one item
-   off can remove a bonus another one needs, so each removal is evaluated again.
-   Returns whether a weapon hand changed. */
+   on the member, then in the pool, and otherwise at the party's feet or in an empty hand.
+   Retail destroyed an item none of those took; here it stays equipped, unannounced, and
+   a later settlement takes it off once there is room. Taking one item off can remove a
+   bonus another one needs, so each removal is evaluated again. Returns whether a weapon
+   hand changed. */
 bool UnequipUnusableItems(Game& game, unsigned int party_slot)
 {
     auto& party = game.party;
     W8Character* character = &party.characters[party_slot];
     bool hands_changed = false;
+    std::bitset<W8_EQUIP_SLOT_COUNT> kept;
     for (;;) {
         EvaluateCharacterInputs(Data(), *character,
                                 character->fInParty ? &party.modifiers : nullptr);
         auto* item = std::ranges::find_if(character->EquippedItem, [&](const auto& candidate) {
-            return candidate.iItemNo != -1 && !CanCharacterUseItem(character, candidate.iItemNo);
+            const auto slot = static_cast<unsigned int>(&candidate - character->EquippedItem);
+            return !kept[slot] && candidate.iItemNo != -1 &&
+                   !CanCharacterUseItem(character, candidate.iItemNo);
         });
         if (item == std::end(character->EquippedItem)) return hands_changed;
         const auto equip_slot = static_cast<unsigned int>(item - character->EquippedItem);
-        hands_changed |= IsHandSlot(equip_slot);
+        std::string notice;
         if (game.status.game_started) {
             unsigned short message_id = 0;
             const auto& pronoun = Data().strings[g_gender_name_message_rows[character->gender][2]];
-            game.events.push(CharacterNotice{
-                party_slot,
-                FindUnmetItemRequirement(character, &Data().items[item->iItemNo], &message_id)
-                    ? fmt::sprintf(Data().strings[0x1ef], pronoun,
-                                   FormatItemDisplayName(item, true), pronoun,
-                                   Data().strings[message_id])
-                    : fmt::sprintf(Data().strings[0x1f0], pronoun,
-                                   FormatItemDisplayName(item, true))});
+            notice = FindUnmetItemRequirement(character, &Data().items[item->iItemNo], &message_id)
+                         ? fmt::sprintf(Data().strings[0x1ef], pronoun,
+                                        FormatItemDisplayName(item, true), pronoun,
+                                        Data().strings[message_id])
+                         : fmt::sprintf(Data().strings[0x1f0], pronoun,
+                                        FormatItemDisplayName(item, true));
         }
         auto removed = party.take({W8ItemStorage::Equipment, party_slot, equip_slot});
         if (!StoreWithCharacter(game, character, &removed, false, false, false) &&
-            !StoreInPool(game, &removed, false, false))
-            DropUnstoredCharacterItem(game, &removed);
+            !StoreInPool(game, &removed, false, false) &&
+            !DropUnstoredCharacterItem(game, &removed)) {
+            *item = removed;
+            kept.set(equip_slot);
+            continue;
+        }
+        hands_changed |= IsHandSlot(equip_slot);
+        if (!notice.empty()) game.events.push(CharacterNotice{party_slot, std::move(notice)});
     }
 }
 
@@ -661,16 +670,21 @@ bool AddItemToParty(Game& game, W8ItemInstance* item, bool announce, bool skip_s
     return stored.has_value();
 }
 
-static void DropUnstoredCharacterItem(Game& game, W8ItemInstance* item)
+/* What no store takes is dropped at the party's feet unless it may not be discarded, and
+   otherwise goes into an empty hand. When neither is possible the item stays at its
+   source, which the caller must keep, and this returns false. */
+static bool DropUnstoredCharacterItem(Game& game, W8ItemInstance* item)
 {
     if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
             AddWorldItem(
                 CreateWorldItem(item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            return;
+            return true;
         }
     }
-    if (game.party.held.item.iItemNo == -1) MoveItem(game.party, &game.party.held.item, item);
+    if (game.party.held.item.iItemNo != -1) return false;
+    MoveItem(game.party, &game.party.held.item, item);
+    return true;
 }
 
 /* Put an item in the party pool, and when the pool will not take it, drop it at the

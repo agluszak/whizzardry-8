@@ -1285,3 +1285,30 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
     REQUIRE(party.held.item.iItemNo == 1);
 }
+
+TEST_CASE("Unusable equipment that nothing can take stays equipped until there is room",
+          "[party][inventory]")
+{
+    const ScopedActiveParty active;
+    GameData data{.items = UnrestrictedItems(3)};
+    data.items[0].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
+    const ScopedGameData installed(std::move(data));
+    auto& character = PrepareMember(0);
+    auto& party = CurrentGame().party;
+    for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 1};
+    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 1};
+    party.item_count = 500;
+    party.held.item = W8ItemInstance{.iItemNo = 2};
+    character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 0;
+
+    // No level is loaded, so there is nowhere to drop it either.
+    SettleActiveParty(CurrentGame());
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == 0);
+    REQUIRE(party.held.item.iItemNo == 2);
+    REQUIRE(party.item_count == 500);
+
+    character.backpack[7] = {};
+    SettleActiveParty(CurrentGame());
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
+    REQUIRE(character.backpack[7].iItemNo == 0);
+}

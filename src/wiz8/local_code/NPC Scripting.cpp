@@ -467,12 +467,14 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(entry->operand0, true, true, false);
         notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(&item));
-        if (!context.activity.conversation) {
+        if (!context.activity.conversation && context.party.held.item.iItemNo == -1) {
             context.party.held.item = item;
             SetItemCursor(0);
         } else {
             AddItemToPartyOrDrop(context.game, &item, false);
-            DisplayNpcQuote(notice_text, true);
+            // With nowhere to put the gift, the NPC keeps it to give again later.
+            if (item.iItemNo != -1) break;
+            if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
         }
         ClearNpcItemId(session_.npc, entry->operand0);
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {

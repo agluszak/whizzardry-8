@@ -68,7 +68,8 @@ bool AddItemToCharacter(Game& game, W8Character* character, W8ItemInstance* item
                         bool equip_if_possible, bool announce, bool skip_stacking);
 // Merge into a pool stack, else add a new entry at the front of the pool.
 bool AddItemToParty(Game& game, W8ItemInstance* item, bool announce, bool skip_stacking);
-// The pool, else the party's feet, else an empty hand.
+/* The pool, else the party's feet, else an empty hand. An item none of them takes stays
+   at its source; true only when the pool took it. */
 bool AddItemToPartyOrDrop(Game& game, W8ItemInstance* item, bool announce);
 // The character and the pool, in the order the flag asks for.
 bool StoreItemWithCharacterOrParty(Game& game, W8Character* character, W8ItemInstance* item,
@@ -162,6 +163,7 @@ W8ItemUseResult UseItem(Game& game, unsigned actor, W8ItemLocation item);
 
 // ---- Equipment rule
 
-/* Equipment a member can no longer use is announced and stored like a received item.
-   Returns whether a weapon hand changed. Part of settling the party. */
+/* Equipment a member can no longer use is announced and stored like a received item; one
+   that nothing can take stays equipped. Returns whether a weapon hand changed. Part of
+   settling the party. */
 bool UnequipUnusableItems(Game& game, unsigned int party_slot);
