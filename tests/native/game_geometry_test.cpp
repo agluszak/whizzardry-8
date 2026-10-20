@@ -70,6 +70,7 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
