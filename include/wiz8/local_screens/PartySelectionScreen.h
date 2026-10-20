@@ -1,5 +1,9 @@
 #pragma once
 
+#include <memory>
+
+#include "wiz8/screen.h"
+
 enum W8PartySelectionMode {
     W8_PARTY_SELECT_CHARACTERS = 0,
     W8_PARTY_SELECT_IMPORT = 1,
@@ -31,9 +35,7 @@ extern unsigned char g_portrait_frame_flags[0x50];
 void RefreshPartySelectionPortrait(unsigned int party_slot);
 /* Nonzero while the selector is reviewing an existing character. */
 bool PartySelectionInReviewMode(void);
-bool PartySelectionScreenEnter(void);
-void PartySelectionScreenFrame(void);
-bool PartySelectionScreenLeave(int leaving);
-void GameStartRouterFrame(void);
-// bool-byte-ok: W8ScreenStateHandlers leave slot
-bool GameStartRouterLeave(int leaving);
+/* Assembles the starting party from saved characters or an imported party. */
+std::unique_ptr<Screen> CreatePartySelectionScreen();
+/* Starts a new game: leaves for the race intro film chosen by the party. */
+std::unique_ptr<Screen> CreateGameStartRouterScreen();

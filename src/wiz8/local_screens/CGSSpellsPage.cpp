@@ -17,7 +17,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/Strings.h"
@@ -25,6 +24,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
 
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},

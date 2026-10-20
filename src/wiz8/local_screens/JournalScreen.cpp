@@ -38,9 +38,9 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
@@ -49,9 +49,12 @@
 namespace {
 enum JournalAction { Previous, Next, Mode, Close };
 
-class JournalScreen {
+class JournalScreen final : public Screen {
 public:
     JournalScreen();
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
     void Refresh();
     void Draw(SDL_Surface& target);
 
@@ -76,9 +79,8 @@ int g_journal_faction_name_indices[11] = {
 };
 char g_journal_alternate_page[] = "1 / 1";
 int g_journal_page_count = -1;
-Font g_journal_font;
+/* The highlight palette, frame 0x1b9 of the catalog, taken while the screen is open. */
 Palette16 g_journal_font_palette;
-static std::unique_ptr<JournalScreen> g_journal_panel;
 std::vector<W8JournalEntry> g_journal_entries;
 std::vector<W8JournalEntry> g_fact_journal_entries;
 
@@ -382,33 +384,14 @@ void JournalScreen::Activate(JournalAction action)
     }
 }
 
-/* Lifecycle record 11's initializer and finalizer. The initializer loads the
-   journal font, saves the palette the font arrived with, and takes a second
-   palette from frame 0 of video object 0x1B9; the finalizer puts the original
-   palette back and releases the one it took. The two together are the second
-   proof that a record's fifth slot is its finalizer rather than a second
-   initializer - record 10's allocate/free pair is the first. */
-bool JournalScreenInitialize(void)
-{
-    if (!g_journal_font.load("Data\\Journal\\journal_font.sti")) return 0;
-    g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
-    return 1;
-}
-
-void JournalScreenFinalize(void)
-{
-    g_journal_font.clear();
-    g_journal_font_palette = {};
-}
-
-bool JournalScreenEnter(void)
+bool JournalScreen::enter(const ScreenRequest&)
 {
     int maximum_visibility;
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
-    g_journal_panel = std::make_unique<JournalScreen>();
+    g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 
     switch (g_settings.difficulty) {
     case W8_DIFFICULTY_NOVICE:
@@ -434,22 +417,20 @@ bool JournalScreenEnter(void)
             g_journal_entries.push_back(entry);
         }
     }
-    g_journal_panel->Refresh();
-    return 1;
+    Refresh();
+    return true;
 }
 
-bool JournalScreenLeave(int)
+bool JournalScreen::leave(ScreenDeparture)
 {
-    if (!g_journal_panel) return 1; // Already released when it was suspended.
-    g_journal_panel.reset();
     g_journal_entries.clear();
     if (gXStatus.fCampMode) {
         SyncDialogueNpcState();
     }
-    return 1;
+    return true;
 }
 
-void JournalScreenFrame(void)
+void JournalScreen::frame()
 {
 
     PumpUiInput({.unhandled = [&](const InputEvent& input) {
@@ -458,15 +439,20 @@ void JournalScreenFrame(void)
                 AfterUiDispatch([] { ReturnToPreviousScreen(); });
             } else if (input.key == SDLK_LEFT && g_journal_page > 0) {
                 --g_journal_page;
-                g_journal_panel->Refresh();
+                Refresh();
             } else if (input.key == SDLK_RIGHT &&
                        g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
                 ++g_journal_page;
-                g_journal_panel->Refresh();
+                Refresh();
             }
         }
         return InputRoute::Handled;
     }});
-    g_journal_panel->Draw(GetFrameBufferSurface());
+    Draw(GetFrameBufferSurface());
     RenderFrame();
+}
+
+std::unique_ptr<Screen> CreateJournalScreen()
+{
+    return std::make_unique<JournalScreen>();
 }

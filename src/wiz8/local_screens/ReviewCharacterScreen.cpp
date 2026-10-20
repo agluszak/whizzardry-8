@@ -53,14 +53,12 @@
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/learned_spells.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -81,7 +79,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
-#include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/local_screens/Screens.h"
@@ -95,6 +92,7 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spell_ids.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -106,8 +104,6 @@ struct W8NpcState;
 /* Local Screens\ReviewCharacterScreen.cpp, named by entry's
    fFoundEquipChar assertion. This is state 6, reached both from the party
    selector and from the running game. */
-
-std::unique_ptr<W8CampScreenState> g_camp_screen;
 
 W8CampScreenState::~W8CampScreenState()
 {
@@ -618,18 +614,34 @@ void W8CampScreenState::CreateCampInput()
     }
 }
 
-bool CampScreenEnter()
+W8CampScreenState* CampScreenState()
 {
-    if (!g_camp_screen) g_camp_screen = std::make_unique<W8CampScreenState>();
-    return g_camp_screen->Enter(CurrentScreenState());
+    auto* screen = FindScreen<CampScreen>();
+    return screen ? screen->state.get() : nullptr;
 }
 
-bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
+bool CampScreen::enter(const ScreenRequest& request)
+{
+    return open(request, request.character);
+}
+
+bool CampScreen::resume(const ScreenRequest& request)
+{
+    return open(request, reviewed_);
+}
+
+bool CampScreen::open(const ScreenRequest& request, W8Character* reviewed)
+{
+    state = std::make_unique<W8CampScreenState>();
+    return state->Enter(request, reviewed);
+}
+
+bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewed_character)
 {
     std::string text;
 
     ClearPrimarySurface();
-    reviewed = request.character;
+    reviewed = reviewed_character;
     if (request.parameter_4) {
         wiz8::sound::play(s_general_magic_sound);
         SetTargetingMode(W8_TARGET_NEED_ITEM);
@@ -691,9 +703,9 @@ bool W8CampScreenState::Enter(const W8ScreenStateRuntime& request)
     return 1;
 }
 
-void CampScreenFrame()
+void CampScreen::frame()
 {
-    g_camp_screen->Frame();
+    state->Frame();
 }
 
 void W8CampScreenState::Frame()
@@ -744,19 +756,20 @@ void W8CampScreenState::Frame()
     DrawCampScreen();
 }
 
-bool CampScreenLeave(int)
+bool CampScreen::leave(ScreenDeparture)
 {
-    if (!g_camp_screen) return 1; // Already released when it was suspended.
-    g_camp_screen->DeactivateCampPage();
+    if (!state) return true; // Already released when it was suspended.
+    reviewed_ = state->reviewed;
+    state->DeactivateCampPage();
     g_smfnt_font.resetPalette();
     g_calligraphy_font.resetPalette();
     g_calligraphy_shadow_font.resetPalette();
     g_wiz_text_font.resetPalette();
-    g_camp_screen.reset();
+    state.reset();
     if (gXStatus.fCampMode) {
         gXStatus.dialogue_sync_pending = true;
     }
-    return 1;
+    return true;
 }
 
 /* Leave camp. When an item is held out for the pending character, it goes to
@@ -968,7 +981,7 @@ void W8CampScreenState::DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
                         bool confirmation, bool cancel)
 {
-    g_camp_screen->ShowNotice(text, std::move(callback), confirmation, cancel);
+    CampScreenState()->ShowNotice(text, std::move(callback), confirmation, cancel);
 }
 
 void W8CampScreenState::ShowNotice(std::string_view text, std::function<void(bool)> callback,

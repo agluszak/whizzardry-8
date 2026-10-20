@@ -11,19 +11,28 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
 
-struct MainGameScreenState {
-    MainGameScreenState();
-    ~MainGameScreenState();
+/* The world view with its HUD, portraits, text box and overlays. The level
+   block, cursor resources and HUD are created on first entry and survive the
+   camp, options, automap, journal and character screens opened over it. */
+struct MainGameScreen final : Screen {
+    static constexpr W8ScreenId id = W8_SCREEN_MAIN_GAME;
+
+    MainGameScreen();
+    ~MainGameScreen() override;
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+
     std::unique_ptr<W8LockInteraction> lock_interaction;
     std::unique_ptr<W8TrapInteraction> trap_interaction;
     bool lock_active = false;
@@ -39,7 +48,11 @@ struct MainGameScreenState {
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 };
-extern std::unique_ptr<MainGameScreenState> g_main_game_state;
+/* The main game screen, current or suspended, or null. */
+inline MainGameScreen* MainGame()
+{
+    return FindScreen<MainGameScreen>();
+}
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 
@@ -57,7 +70,6 @@ extern DesignRect g_viewport_modes[];
 extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/npc_dialogue.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/RangeControl.h"
@@ -545,9 +557,6 @@ void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
 unsigned char OpenUseItemSelectView(int slot);
 
-bool MainGameScreenEnter(void);
-void MainGameScreenFrame(void);
-bool MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);
 

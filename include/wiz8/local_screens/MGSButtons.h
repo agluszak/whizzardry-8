@@ -20,7 +20,7 @@
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/ui_layer.h"
 
-// Owned by MainGameScreenState while the screen is active. The layer precedes
+// Owned by MainGameScreen while the screen is active. The layer precedes
 // the buttons so input registrations are removed before the layer is destroyed.
 // Modal submenu controls retain their independently activated layer.
 struct MainGameHudButtons {

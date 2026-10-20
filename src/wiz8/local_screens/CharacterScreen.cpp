@@ -38,23 +38,21 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
@@ -108,9 +106,13 @@ unsigned short g_profession_level_name_message_ids[15][9] = {
 };
 static int g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
 
-std::unique_ptr<W8CharacterScreen> g_character_screen;
+W8CharacterScreenState* CharacterScreenState()
+{
+    auto* screen = FindScreen<CharacterScreen>();
+    return screen ? screen->state.get() : nullptr;
+}
 
-W8CharacterScreen::W8CharacterScreen(W8CharacterScreenMode mode, W8Character* character)
+W8CharacterScreenState::W8CharacterScreenState(W8CharacterScreenMode mode, W8Character* character)
     : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0),
       m_force_transition(0), m_dialog(0), m_capture_dialog_result(0)
 {
@@ -129,12 +131,12 @@ W8CharacterScreen::W8CharacterScreen(W8CharacterScreenMode mode, W8Character* ch
     m_page_enabled[3] = m_mode != W8_CHARACTER_LEVEL_UP;
 }
 
-W8CharacterScreen::~W8CharacterScreen()
+W8CharacterScreenState::~W8CharacterScreenState()
 {
     if (m_page_index >= 0 && m_pages[m_page_index]) m_pages[m_page_index]->Deactivate();
 }
 
-void W8CharacterScreen::BuildControls()
+void W8CharacterScreenState::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
@@ -188,7 +190,7 @@ void W8CharacterScreen::BuildControls()
     SelectPage(index < 4 ? index : -1);
 }
 
-void W8CharacterScreen::UpdateDialog()
+void W8CharacterScreenState::UpdateDialog()
 {
     if (m_dialog != 0) {
         if (!m_dialog->ProcessInput()) {
@@ -206,7 +208,7 @@ void W8CharacterScreen::UpdateDialog()
     }
 }
 
-void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
+void W8CharacterScreenState::UpdateNavigation(W8CharacterPage* page)
 {
     bool next_enabled;
     bool exit_enabled;
@@ -224,7 +226,7 @@ void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
     }
 }
 
-void W8CharacterScreen::ShowSpellInfo(int value)
+void W8CharacterScreenState::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
     m_dialog = new W8SpellInfoDialog(value);
@@ -232,7 +234,7 @@ void W8CharacterScreen::ShowSpellInfo(int value)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
+void W8CharacterScreenState::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
     m_dialog = new W8ProfessionInfoDialog(profession);
@@ -240,7 +242,7 @@ void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::ShowRaceInfo(W8Race race)
+void W8CharacterScreenState::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
     m_dialog = new W8RaceInfoDialog(race);
@@ -248,7 +250,7 @@ void W8CharacterScreen::ShowRaceInfo(W8Race race)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
+void W8CharacterScreenState::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8AttributeInfoDialog(attribute);
@@ -256,7 +258,7 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
+void W8CharacterScreenState::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
@@ -264,7 +266,7 @@ void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::ShowSkillInfo(W8Skill value)
+void W8CharacterScreenState::ShowSkillInfo(W8Skill value)
 {
     m_dialog_response = 0;
     if (value == g_profession_bonus_skills[m_character.iProfession]) {
@@ -276,7 +278,7 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
+void W8CharacterScreenState::DrawNavigation(SDL_Surface& target)
 {
     const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(),
                              m_reset.get()};
@@ -287,7 +289,7 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
     m_navigation_dirty = false;
 }
 
-void W8CharacterScreen::ShowDescription(int first, int second)
+void W8CharacterScreenState::ShowDescription(int first, int second)
 {
     ShowMessage(fmt::sprintf(g_localized_strings[0x1d6],
                              g_localized_strings[g_character_description_first_ids[first]],
@@ -296,14 +298,14 @@ void W8CharacterScreen::ShowDescription(int first, int second)
                 0, 0);
 }
 
-void W8CharacterScreen::ShowCharacterSummary()
+void W8CharacterScreenState::ShowCharacterSummary()
 {
     m_dialog_response = 1;
     m_dialog = CreateCharacterSummaryDialog(&m_character);
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::AdvancePage(bool forward)
+void W8CharacterScreenState::AdvancePage(bool forward)
 {
     if (!forward || (m_page_index != 3 && m_next->IsEnabled())) {
         int index = m_page_index;
@@ -360,7 +362,7 @@ void W8CharacterScreen::AdvancePage(bool forward)
     }
 }
 
-void W8CharacterScreen::SelectPage(int index)
+void W8CharacterScreenState::SelectPage(int index)
 {
     if (m_page_index >= 0) {
         m_pages[m_page_index]->SetActive(false);
@@ -407,7 +409,7 @@ void W8CharacterScreen::SelectPage(int index)
     UpdateNavigation(page);
 }
 
-void W8CharacterScreen::SyncCharacterForPage(int index)
+void W8CharacterScreenState::SyncCharacterForPage(int index)
 {
     if (m_page_index > index) return;
     if (index == 0) {
@@ -423,7 +425,7 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
     }
 }
 
-void W8CharacterScreen::DrawHeader()
+void W8CharacterScreenState::DrawHeader()
 {
     W8TextBuffer text;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc3, 0);
@@ -476,7 +478,7 @@ void W8CharacterScreen::DrawHeader()
     m_header_dirty = false;
 }
 
-bool W8CharacterScreen::CommitCharacter()
+bool W8CharacterScreenState::CommitCharacter()
 {
     if (!ValidateName()) return false;
 
@@ -516,7 +518,7 @@ bool W8CharacterScreen::CommitCharacter()
    refresh page 2, the skills list. */
 void ResetCharacterScreenSkill(W8Skill skill_id)
 {
-    W8CharacterScreen* screen = g_character_screen.get();
+    W8CharacterScreenState* screen = CharacterScreenState();
     ResetSkillContribution(&screen->m_character, &screen->m_creation_state, skill_id);
     if (screen->m_pages[2] != 0) {
         screen->m_pages[2]->Refresh();
@@ -525,14 +527,14 @@ void ResetCharacterScreenSkill(W8Skill skill_id)
 
 void RefundCharacterScreenSkill(W8Skill skill_id)
 {
-    W8CharacterScreen* screen = g_character_screen.get();
+    W8CharacterScreenState* screen = CharacterScreenState();
     RefundSkillAllocation(&screen->m_character, &screen->m_creation_state, skill_id);
     if (screen->m_pages[2] != 0) {
         screen->m_pages[2]->Refresh();
     }
 }
 
-void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
+void W8CharacterScreenState::ShowMessage(std::string_view text, int confirmation, int response)
 {
     m_dialog_response = response;
     m_dialog = new W8MessageDialogBase;
@@ -548,7 +550,7 @@ void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int
     }
 }
 
-void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
+void W8CharacterScreenState::HandleDialogResult(int response, unsigned char accepted)
 {
     if (accepted) {
         switch (response) {
@@ -595,7 +597,7 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
     }
 }
 
-bool W8CharacterScreen::ValidateName()
+bool W8CharacterScreenState::ValidateName()
 {
     if (m_original != 0 && strcmp(m_original->name.c_str(), m_character.name.c_str()) == 0) {
         return true;
@@ -621,42 +623,42 @@ bool W8CharacterScreen::ValidateName()
     return true;
 }
 
-bool W8CharacterScreen::HasDialog()
+bool W8CharacterScreenState::HasDialog()
 {
     return m_dialog != 0;
 }
 
-W8Character* W8CharacterScreen::GetOriginalCharacter()
+W8Character* W8CharacterScreenState::GetOriginalCharacter()
 {
     return m_original;
 }
 
-bool CharacterScreenEnter(void)
+bool CharacterScreen::enter(const ScreenRequest& request)
 {
-    const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(CurrentScreenState().mode);
+    const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(request.mode);
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen = std::make_unique<W8CharacterScreen>(mode, CurrentScreenState().character);
-    g_character_screen->BuildControls();
+    state = std::make_unique<W8CharacterScreenState>(mode, request.character);
+    state->BuildControls();
     if (!g_status.game_started && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
-    return 1;
+    return true;
 }
 
-bool CharacterScreenLeave(int leaving)
+bool CharacterScreen::leave(ScreenDeparture)
 {
-    if (leaving) g_character_screen.reset();
-    return 1;
+    state.reset();
+    return true;
 }
 
-void CharacterScreenFrame(void)
+void CharacterScreen::frame()
 {
-    g_character_screen->UpdateDialog();
-    W8CharacterScreen* screen = g_character_screen.get();
+    W8CharacterScreenState* screen = state.get();
+    screen->UpdateDialog();
     if (!screen->m_dialog)
         PumpUiInput({
             .before =

@@ -37,12 +37,10 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -56,6 +54,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/screen.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -68,10 +67,13 @@
 
 /* Suppress hover sounds on the registered options-row children. */
 
-static bool g_options_first_frame;
 // GLOBAL: WIZ8 0x0069c138
 // GLOBAL: WIZ8 0x0069c254
-std::unique_ptr<W8OptionsScreen> g_options_screen;
+W8OptionsScreenState* OptionsScreenState()
+{
+    auto* screen = FindScreen<OptionsScreen>();
+    return screen ? screen->state.get() : nullptr;
+}
 std::string g_options_last_save_name;
 
 static void AddOptionsLabel(W8OptionsPanel& panel, int label);
@@ -248,11 +250,11 @@ W8OptionsPanelSet::W8OptionsPanelSet()
 
 W8OptionsPanelSet::~W8OptionsPanelSet() = default;
 
-W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(W8OptionsScreen& screen, int panel)
+W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(W8OptionsScreenState& screen, int panel)
     : W8OptionsPanel(), screen(screen), m_panel(panel), m_captured_button(0)
 {
 }
-W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(W8OptionsScreen& screen, int panel)
+W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(W8OptionsScreenState& screen, int panel)
     : W8OptionsPanel(), screen(screen), m_panel(panel)
 {
     m_background = CatalogArtwork::Load(0xf7);
@@ -327,7 +329,7 @@ void W8OptionsSaveLoadPanel::SetActive(bool active)
 }
 
 /* Commit or cancel the active save-name edit before changing options pages. */
-static void FinishOptionsTextEdit(W8OptionsScreen* screen, unsigned char cancelled)
+static void FinishOptionsTextEdit(W8OptionsScreenState* screen, unsigned char cancelled)
 {
     W8OptionsTextEditor* editor = screen->m_text_editor.get();
     if (!editor) return;
@@ -659,8 +661,8 @@ void W8OptionsSaveLoadPanel::Redraw(SDL_Surface& target, bool full_redraw)
     for (auto& row : m_rows) row->Redraw(target, repaint);
 }
 
-void W8OptionsScreen::BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row,
-                                        std::string_view text)
+void W8OptionsScreenState::BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row,
+                                             std::string_view text)
 {
     auto editor = std::make_unique<W8OptionsTextEditor>(m_menu_input);
     editor->m_fields.Add(0x16b, row * 0x49 + 0x46, 0xfa, 0xc, 0x7f, text, 0x3b, 0xf, true);
@@ -880,7 +882,7 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
     }
 }
 
-static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(W8OptionsScreen& screen, int panel,
+static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(W8OptionsScreenState& screen, int panel,
                                                           unsigned char* compact,
                                                           unsigned char* hide_navigation)
 {
@@ -1161,7 +1163,8 @@ void W8OptionsUnavailablePanel::Populate()
     m_text_buffers[0]->SetLineHeight(22);
 }
 
-W8OptionsScreen::W8OptionsScreen() : m_redraw_pending(1), m_selected_panel(-1), m_key_capture(0)
+W8OptionsScreenState::W8OptionsScreenState()
+    : m_redraw_pending(1), m_selected_panel(-1), m_key_capture(0)
 {
     values.TransferSettings();
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
@@ -1171,7 +1174,7 @@ W8OptionsScreen::W8OptionsScreen() : m_redraw_pending(1), m_selected_panel(-1), 
     EnumerateSaveSlots(m_save_slots);
 }
 
-void W8OptionsScreen::CreateControls()
+void W8OptionsScreenState::CreateControls()
 {
     const auto artwork = CatalogArtwork::Load(0xef, 0);
     for (int item = 0; item < 8; ++item) {
@@ -1247,12 +1250,12 @@ void W8OptionsScreen::CreateControls()
                                        g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle, 4);
 }
 
-W8OptionsScreen::~W8OptionsScreen()
+W8OptionsScreenState::~W8OptionsScreenState()
 {
     SelectPanel(-1);
 }
 
-void W8OptionsScreen::SelectPanel(int selected)
+void W8OptionsScreenState::SelectPanel(int selected)
 {
     if (selected == m_selected_panel) {
         return;
@@ -1295,8 +1298,8 @@ void W8OptionsScreen::SelectPanel(int selected)
     }
 }
 
-void W8OptionsScreen::ShowNotification(bool allow_cancel, int message,
-                                       std::function<void(bool)> closed)
+void W8OptionsScreenState::ShowNotification(bool allow_cancel, int message,
+                                            std::function<void(bool)> closed)
 {
     auto dialog = std::unique_ptr<W8MessageDialogBase>(CreateMessageDialog());
     dialog->SetClientExtent(250, 200);
@@ -1306,7 +1309,7 @@ void W8OptionsScreen::ShowNotification(bool allow_cancel, int message,
     m_notification_closed = std::move(closed);
 }
 
-void W8OptionsScreen::ActivateMenu(int item)
+void W8OptionsScreenState::ActivateMenu(int item)
 {
     if (!m_menu_buttons[item]->IsEnabled()) return;
     if (item < 6)
@@ -1319,7 +1322,7 @@ void W8OptionsScreen::ActivateMenu(int item)
     }
 }
 
-unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
+unsigned char W8OptionsScreenState::ProcessInput(const InputEvent* input)
 {
     W8OptionsTextEditor* editor = m_text_editor.get();
     if (editor != 0) {
@@ -1344,7 +1347,7 @@ unsigned char W8OptionsScreen::ProcessInput(const InputEvent* input)
     return 0;
 }
 
-void W8OptionsScreen::Redraw()
+void W8OptionsScreenState::Redraw()
 {
     if (m_redraw_pending) {
         ClearPrimarySurface();
@@ -1694,7 +1697,7 @@ void W8OptionsPanelSet::Scroll(int delta)
     }
 }
 
-void W8OptionsScreen::UpdateNavigation()
+void W8OptionsScreenState::UpdateNavigation()
 {
     const auto& panels = *m_panel[m_selected_panel];
     const int current = panels.m_page_count ? panels.m_panels[0]->m_current : panels.m_current;
@@ -1719,7 +1722,7 @@ void W8OptionsScreen::UpdateNavigation()
 /* The dialog callback's teardown decision is part of the Options screen's
    state transition: only an accepted close outside combat saves an active
    party, then the common audio-state update runs for every accepted close. */
-void W8OptionsScreen::OnDialogClosed(bool accepted, int)
+void W8OptionsScreenState::OnDialogClosed(bool accepted, int)
 {
     if (accepted) {
         if (g_status.game_started && !g_combat.active() && AnyCharacterActive()) {
@@ -1732,29 +1735,28 @@ void W8OptionsScreen::OnDialogClosed(bool accepted, int)
 /* State 10 first transfers its option values back to the shared settings
    block, then releases every controller-owned control before returning the
    display and region systems to their common screen boundary. */
-bool OptionsScreenLeave(int)
+bool OptionsScreen::leave(ScreenDeparture)
 {
-    if (!g_options_screen) return 1; // Already released when it was suspended.
-    g_options_screen->values.applying = 1;
-    g_options_screen->values.TransferSettings();
-    g_options_screen.reset();
-    return 1;
+    if (!state) return true; // Already released when it was suspended.
+    state->values.applying = 1;
+    state->values.TransferSettings();
+    state.reset();
+    return true;
 }
 
-/* State 10 creates the controller after resetting the shared 2D screen
-   systems.  The selected panel is determined by the transition mode, with the
-   in-game branch preserving the combat and save-state overrides. */
-bool OptionsScreenEnter()
+/* The selected panel is determined by the transition mode, with the in-game
+   branch preserving the combat and save-state overrides. */
+bool OptionsScreen::enter(const ScreenRequest& request)
 {
     int selected;
-    const W8OptionsMode mode = std::get<W8OptionsMode>(CurrentScreenState().mode);
+    const W8OptionsMode mode = std::get<W8OptionsMode>(request.mode);
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
-    g_options_screen = std::make_unique<W8OptionsScreen>();
-    g_options_screen->CreateControls();
+    state = std::make_unique<W8OptionsScreenState>();
+    state->CreateControls();
 
     if (mode == W8_OPTIONS_LOAD) {
         selected = 4;
@@ -1777,15 +1779,15 @@ bool OptionsScreenEnter()
     } else {
         selected = 0;
     }
-    g_options_screen->SelectPanel(selected);
-    g_options_first_frame = true;
-    return 1;
+    state->SelectPanel(selected);
+    first_frame_ = true;
+    return true;
 }
 
-/* The state-10 frame owns modal retirement, input refusal order and redraw
-   sequencing.  Options-specific input gets first refusal, followed by shared
-   region dispatch; only an unhandled Escape requests the screen transition. */
-void OptionsScreenFrame()
+/* The frame owns modal retirement, input refusal order and redraw sequencing.
+   Options-specific input gets first refusal, followed by shared region
+   dispatch; only an unhandled Escape requests the screen transition. */
+void OptionsScreen::frame()
 {
     if (g_dev_mode) {
         RequestExitScreen();
@@ -1793,7 +1795,7 @@ void OptionsScreenFrame()
     RepositionAmbientSounds();
     UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();
-    W8OptionsScreen* screen = g_options_screen.get();
+    W8OptionsScreenState* screen = state.get();
 
     auto& active_modal = screen->m_active_modal;
     if (active_modal) {
@@ -1827,11 +1829,11 @@ void OptionsScreenFrame()
                 },
         });
     screen->Redraw();
-    if (g_options_first_frame) {
+    if (first_frame_) {
         SetRendererAutoFlipEnabled(false);
         RenderFrame();
         SetRendererAutoFlipEnabled(true);
-        g_options_first_frame = false;
+        first_frame_ = false;
     }
     RenderFrame();
 }

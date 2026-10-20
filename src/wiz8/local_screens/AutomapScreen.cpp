@@ -60,7 +60,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
@@ -74,6 +73,7 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/surface_storage.h"
@@ -87,13 +87,10 @@
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
-/* Lifecycle record 8; the automap screen. Its original screen-class name is
-   unknown, so the existing compilation boundary is retained. */
-
 static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
-/* Lifecycle record 8's own state, all of it released by the finalizer below and
-   nothing here naming what any of it holds. The note list is created by this record's initializer at 0x0057E5D0. */
+/* The automap's module state. The marker sprites exist while the screen is
+   open; the rest persists with the level. */
 
 /* One bit per automap cell: raised when the party camera enters the cell. */
 
@@ -514,7 +511,16 @@ void AutomapExitButton(void)
     }
 }
 
-bool AutomapScreenEnter(void)
+namespace {
+class AutomapScreen final : public Screen {
+public:
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+};
+} // namespace
+
+bool AutomapScreen::enter(const ScreenRequest&)
 {
     Script script;
     g_automap_saved_light_direction = EnvironmentLightDirection();
@@ -659,7 +665,7 @@ bool AutomapScreenEnter(void)
     } else {
         RestoreAutomapCameraPosition();
     }
-    return 1;
+    return true;
 }
 
 W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::string_view text)
@@ -677,7 +683,7 @@ W8AutomapNote* CreateAutomapNote(const glm::vec2* position, int layer, std::stri
     return 0;
 }
 
-void AutomapScreenFrame(void)
+void AutomapScreen::frame()
 {
     PumpUiInput({
         .before =
@@ -805,9 +811,9 @@ void RestoreAutomapWorldSettings(void)
     SetWorldModelPickingEnabled(true);
 }
 
-bool AutomapScreenLeave(int)
+bool AutomapScreen::leave(ScreenDeparture)
 {
-    if (!g_automap_state) return 1; // Already released when it was suspended.
+    if (!g_automap_state) return true; // Already released when it was suspended.
     SetNativeTextInputEnabled(false);
     RestoreAutomapWorldSettings();
     g_automap_state.reset();
@@ -825,19 +831,17 @@ bool AutomapScreenLeave(int)
         }
     }
     g_automap_created_layers.clear();
-    return 1;
-}
-
-/* Lifecycle record 8's finalizer, the fifth slot of its record and the third
-   allocate/release pair that establishes what that slot is for. Every guard is
-   the original's own, and each pointer is cleared after its release. */
-void AutomapScreenFinalize(void)
-{
     g_automap_party_marker.reset();
     g_automap_friendly_marker.reset();
     g_automap_neutral_marker.reset();
     g_automap_hostile_marker.reset();
     g_automap_text_marker.reset();
+    return true;
+}
+
+std::unique_ptr<Screen> CreateAutomapScreen()
+{
+    return std::make_unique<AutomapScreen>();
 }
 
 /* Select which automap buttons are enabled for the update mode, then dirty

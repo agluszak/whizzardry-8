@@ -20,8 +20,6 @@
 #include "asset_paths.h"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/application.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -36,6 +34,7 @@
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vertex_shading.h"
 #include "wiz8/resource_cache.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/update.h"
 

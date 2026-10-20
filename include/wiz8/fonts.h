@@ -1,9 +1,14 @@
 #pragma once
 
-unsigned char InitializeMenuFonts(void);
-void ReleaseMenuFonts();
+#include <array>
 
 #include "wiz8/canvas/Font.h"
+
+/* Load every game font below; false when one is missing. */
+unsigned char InitializeMenuFonts(void);
+void ReleaseMenuFonts();
+/* Drop any notice palette a screen left selected on a font. */
+void ResetMenuFontPalettes();
 
 /* Game-specific bitmap font roles and owned notice palettes. */
 extern Font ghTinyMonoFont;
@@ -27,6 +32,9 @@ extern Font g_large_font;
 extern Font g_small_font;
 extern Font g_options_title_font;
 extern Font g_smfnt_font;
+/* Level-load captions and the party-death/ending overlay text. */
+extern Font g_level_load_font;
+extern Font g_journal_font;
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
 enum W8FontPaletteIndex {
     W8_FONT_PALETTE_RED = 0,

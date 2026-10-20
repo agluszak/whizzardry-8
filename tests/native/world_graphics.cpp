@@ -29,9 +29,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -48,6 +46,7 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
@@ -120,7 +119,7 @@ TEST_CASE("world graphics")
     for (int frame = 0; frame < 5; ++frame) {
         GameLoop();
         fprintf(stderr, "world: frame %d screen %d pending %d\n", frame,
-                int(CurrentScreenState().id), int(RequestedScreen()));
+                int(CurrentScreenState().id), int(PendingScreen()));
     }
     REQUIRE(CurrentScreenState().id == W8_SCREEN_MAIN_GAME);
     auto world = GetWorld();

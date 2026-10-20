@@ -16,17 +16,60 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_screens/AutomapScreen.h"
+#include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/CreditsScreen.h"
+#include "wiz8/local_screens/IntroScreen.h"
+#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/MainMenuScreen.h"
+#include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
+#include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/screen.h"
 #include "wiz8/xstatus.h"
+
+std::unique_ptr<Screen> CreateScreen(W8ScreenId id)
+{
+    switch (id) {
+    case W8_SCREEN_INTRO:
+        return CreateIntroScreen();
+    case W8_SCREEN_MAIN_MENU:
+        return std::make_unique<MainMenuScreen>();
+    case W8_SCREEN_GAME_START_ROUTER:
+        return CreateGameStartRouterScreen();
+    case W8_SCREEN_CHARACTER:
+        return std::make_unique<CharacterScreen>();
+    case W8_SCREEN_PLEASE_WAIT:
+        return CreatePleaseWaitScreen();
+    case W8_SCREEN_PARTY_SELECTION:
+        return CreatePartySelectionScreen();
+    case W8_SCREEN_CAMP:
+        return std::make_unique<CampScreen>();
+    case W8_SCREEN_MAIN_GAME:
+        return std::make_unique<MainGameScreen>();
+    case W8_SCREEN_AUTOMAP:
+        return CreateAutomapScreen();
+    case W8_SCREEN_CREDITS:
+        return CreateCreditsScreen();
+    case W8_SCREEN_OPTIONS:
+        return std::make_unique<OptionsScreen>();
+    case W8_SCREEN_JOURNAL:
+        return CreateJournalScreen();
+    case W8_SCREEN_EXIT:
+        return CreateExitScreen();
+    case W8_SCREEN_NONE:
+    case W8_SCREEN_COUNT:
+        break;
+    }
+    Fail("unknown screen");
+}
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
 bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
@@ -55,8 +98,8 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
    travels as an int: the body only ever reads its low byte for the shift. */
 void RequestPartySlotRedraw(int bit)
 {
-    if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-        g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+    if (auto* camp = CampScreenState()) {
+        camp->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
     } else if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RequestRedraw(1 << (bit & 31));
     }
@@ -79,19 +122,19 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     case W8_SCREEN_PARTY_SELECTION:
         RefreshPartySelectionPortrait(party_slot);
         break;
-    case W8_SCREEN_CAMP:
-        if (g_camp_screen->ReviewedPartySlot() == static_cast<int>(party_slot) &&
-            g_camp_screen->header_mode == W8_CAMP_HEADER_SUMMARY) {
-            if (g_camp_screen->portrait_hovered != 0) {
-                g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-                return;
+    case W8_SCREEN_CAMP: {
+        auto* camp = CampScreenState();
+        if (camp->ReviewedPartySlot() == static_cast<int>(party_slot) &&
+            camp->header_mode == W8_CAMP_HEADER_SUMMARY) {
+            camp->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+            if (!camp->portrait_hovered) {
+                camp->RedrawRcsLevelUpPanel();
+                camp->RedrawRcsDismissPanel();
             }
-            g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-            g_camp_screen->RedrawRcsLevelUpPanel();
-            g_camp_screen->RedrawRcsDismissPanel();
             return;
         }
         break;
+    }
     case W8_SCREEN_MAIN_GAME:
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
@@ -302,7 +345,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->tick = w8_get_ticks();
     g_level_block->group_list_rows = 0;
     g_level_block->group_list_width = 0;
-    g_main_game_state->monster_list->setEnabled(false);
+    MainGame()->monster_list->setEnabled(false);
     g_level_block->action_group = -1;
     g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;

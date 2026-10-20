@@ -28,6 +28,5 @@ private:
     void shutdown() noexcept;
     bool sdl_initialized_ = false;
     bool game_started_ = false;
-    size_t initialized_screens_ = 0;
 };
 }

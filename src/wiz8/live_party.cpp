@@ -15,12 +15,10 @@
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/layouts/party_slot.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
@@ -29,6 +27,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/party.h"
 #include "wiz8/party_stats.h"
+#include "wiz8/screen.h"
 #include "wiz8/xstatus.h"
 
 CharacterStatRules CaptureLiveCharacterStatRules(const W8Character& character)
@@ -84,8 +83,8 @@ void PresentPartyLoadChange(bool redistributed)
     if (!redistributed) return;
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !gXStatus.fNpcDialogueMode) {
         RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
-    } else if (CurrentScreenState().id == W8_SCREEN_CAMP && g_camp_screen) {
-        g_camp_screen->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO | W8_CAMP_REDRAW_PORTRAIT;
+    } else if (CurrentScreenState().id == W8_SCREEN_CAMP && CampScreenState()) {
+        CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO | W8_CAMP_REDRAW_PORTRAIT;
     }
 }
 

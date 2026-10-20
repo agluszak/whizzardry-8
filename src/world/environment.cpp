@@ -22,8 +22,6 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera.h"
@@ -35,6 +33,7 @@
 #include "wiz8/render/vertex_channels.h"
 #include "wiz8/render/vertex_shading.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/screen.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 

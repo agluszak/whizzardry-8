@@ -20,9 +20,9 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game_init.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 
 namespace {
 
@@ -82,7 +82,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error("Sound initialization failed");
         InitializeRandom();
         game_started_ = true;
-        if (!InitializeGame(initialized_screens_, options.load_at_startup, options.string_data))
+        if (!InitializeGame(options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");
         gfGameInitialized = gfApplicationActive = gfProgramIsRunning = true;
     } catch (...) {
@@ -123,7 +123,7 @@ void wiz8::Application::shutdown() noexcept
     wiz8::sound::shutdown();
     if (game_started_) {
         try {
-            ShutdownGame(initialized_screens_, complete);
+            ShutdownGame(complete);
         } catch (const std::exception& failure) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }

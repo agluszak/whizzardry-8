@@ -30,7 +30,6 @@
 #include "application.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
-#include "layouts/screen_state.h"
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
@@ -63,7 +62,6 @@
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -72,13 +70,13 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/party.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/screen.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -88,19 +86,22 @@
 namespace {
 std::vector<int> screen_leaves;
 int screen_entries, screen_frames;
-bool enter()
+struct StubScreen final : Screen {
+    bool enter(const ScreenRequest&) override
+    {
+        ++screen_entries;
+        return true;
+    }
+    void frame() override { ++screen_frames; }
+    bool leave(ScreenDeparture departure) override
+    {
+        screen_leaves.push_back(departure == ScreenDeparture::Discard);
+        return true;
+    }
+};
+std::unique_ptr<Screen> stub_factory(W8ScreenId)
 {
-    ++screen_entries;
-    return 1;
-}
-bool leave(int discard)
-{
-    screen_leaves.push_back(discard);
-    return 1;
-}
-void frame()
-{
-    ++screen_frames;
+    return std::make_unique<StubScreen>();
 }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
@@ -116,12 +117,8 @@ void initialize_test_framebuffer()
 void screen_stack()
 {
     gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
-    const auto saved_intro = g_screen_handlers[W8_SCREEN_INTRO];
-    const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
-    for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
-        g_screen_handlers[id] = {nullptr, enter, frame, leave, nullptr};
-    ResetScreenRouting();
-    REQUIRE(GetPendingScreenState() == W8_SCREEN_NONE);
+    ResetScreenRouting(stub_factory);
+    REQUIRE(PendingScreen() == W8_SCREEN_NONE);
     W8Character payload{};
     for (int index = 0; index < 40; ++index) {
         const auto id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
@@ -129,14 +126,14 @@ void screen_stack()
                        .parameter = index,
                        .character = &payload,
                        .name = "screen " + std::to_string(index)});
-        REQUIRE(GetPendingScreenState() == id);
+        REQUIRE(PendingScreen() == id);
         GameLoop();
         REQUIRE(CurrentScreenState().parameter == index);
         REQUIRE(SuspendedScreenCount() == static_cast<size_t>(index));
     }
     REQUIRE((screen_entries == 40 && screen_frames == 40));
     REQUIRE((screen_leaves.size() == 39 && screen_leaves.back() == 0));
-    REQUIRE(GetPendingScreenState() == W8_SCREEN_INTRO);
+    REQUIRE(PendingScreen() == W8_SCREEN_INTRO);
     for (int index = 38; index >= 0; --index) {
         ReturnToPreviousScreen();
         GameLoop();
@@ -160,8 +157,6 @@ void screen_stack()
     REQUIRE((!gfProgramIsRunning && CurrentScreenState().id == W8_SCREEN_NONE));
     ResetScreenRouting();
     gXStatus.character_event_queue = nullptr;
-    g_screen_handlers[W8_SCREEN_INTRO] = saved_intro;
-    g_screen_handlers[W8_SCREEN_OPTIONS] = saved_options;
 }
 
 void camp_effects()
@@ -176,13 +171,11 @@ void camp_effects()
         w8_native::Roots roots;
         ~Restore()
         {
-            g_camp_screen.reset();
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
     } restore{previous_roots};
     {
-        g_camp_screen = std::make_unique<W8CampScreenState>();
         W8CampScreenState independent{};
         auto* state = &independent;
         REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
@@ -228,7 +221,7 @@ void camp_effects()
         REQUIRE(state->ReviewedPartySlot() == -1);
         state->reviewed = &g_status.party.characters[3];
         REQUIRE(state->ReviewedPartySlot() == 3);
-        W8ScreenStateRuntime suspended{.id = W8_SCREEN_CAMP, .character = state->reviewed};
+        ScreenRequest suspended{.id = W8_SCREEN_CAMP, .character = state->reviewed};
         state->reviewed = &character;
         REQUIRE(suspended.character == &g_status.party.characters[3]);
         state->stats.effect_items_only = false;
@@ -244,8 +237,6 @@ void camp_effects()
         REQUIRE((state->stats.effect_list.empty() && state->stats.effect_visible_lines == 0));
         REQUIRE((state->stats.effect_beneficial_count == 0 && !range.m_enabled));
         state->reviewed = {};
-        REQUIRE(g_camp_screen->stats.effect_list.empty());
-        REQUIRE(g_camp_screen->stats.stats_range == nullptr);
     }
 }
 
@@ -2146,7 +2137,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     const auto targets = LiveUiTargetCount();
 
     {
-        MainGameScreenState screen;
+        MainGameScreen screen;
         auto& hud = screen.hud_buttons;
         int clicks = 0;
         REQUIRE(hud.options_disk.Configure(ButtonAppearance{}, {100, 100, 20, 20},
@@ -2186,7 +2177,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     REQUIRE(LiveUiTargetCount() == targets);
     REQUIRE(LiveUiLayerCount() == layers);
     {
-        MainGameScreenState reentered;
+        MainGameScreen reentered;
         REQUIRE_FALSE(reentered.hud_buttons.options_disk.IsConfigured());
     }
     REQUIRE(LiveUiTargetCount() == targets);

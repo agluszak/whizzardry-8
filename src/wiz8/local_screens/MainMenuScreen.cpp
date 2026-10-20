@@ -21,29 +21,21 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/version.h"
 #include "wiz8/xstatus.h"
 
-/* The screen's own state. */
-bool g_main_menu_has_save_games;
-bool g_main_menu_redraw;
-static short g_main_menu_selected_item;
 std::string g_pending_main_menu_message;
-// The modal dialog belongs to this screen, not a global registry.
-static std::unique_ptr<W8MessageDialogBase> main_menu_dialog;
 
 namespace {
 // Retail right/bottom edges are inclusive; SDL extents include that last pixel.
@@ -56,52 +48,59 @@ constexpr std::array<SDL_Rect, 6> main_menu_item_bounds = {{
     {279, 423, 86, 45},
 }};
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
-}
+constexpr short main_menu_item_count = static_cast<short>(main_menu_item_bounds.size());
 
-// The original six item rectangles are now screen-owned data, not global
-// region registrations. The load-game item uses the disabled sprite when
-// the party has no saves.
-unsigned char DrawMainMenuItem(short item, short state)
+/* The main menu's developer-mode key hook. Retail never consumes the key: its
+   linker folded this body into IgnoreSpellCastingInput, which compiles to the
+   same bytes. */
+bool HandleDeveloperModeKey(const InputEvent*)
 {
-    if (item < 0 || static_cast<std::size_t>(item) >= main_menu_item_bounds.size()) return 0;
-    if (item == 2 && !g_main_menu_has_save_games) state = 3;
+    return false;
+}
+} // namespace
+
+MainMenuScreen::MainMenuScreen() = default;
+MainMenuScreen::~MainMenuScreen() = default;
+
+// The load-game item uses the disabled sprite when the party has no saves.
+void MainMenuScreen::drawItem(short item, short state)
+{
+    if (item < 0 || item >= main_menu_item_count) return;
+    if (item == 2 && !has_save_games) state = 3;
 
     const auto& bounds = main_menu_item_bounds[item];
     if (state >= 0 && static_cast<std::size_t>(state) < main_menu_sprite_objects.size())
         CatalogArtwork::Load(main_menu_sprite_objects[state], 0)
             .draw(GetFrameBufferSurface(), item, 0x98, bounds.y);
     InvalidateRegion(0x98, bounds.y, 0x1f2, bounds.y + bounds.h - 1);
-    return 1;
 }
 
-static void DrawMainMenuItems()
+void MainMenuScreen::drawItems()
 {
-    for (short item = 0; item < 6; ++item) DrawMainMenuItem(item, 0);
-    DrawMainMenuItem(g_main_menu_selected_item, 1);
+    for (short item = 0; item < main_menu_item_count; ++item) drawItem(item, 0);
+    drawItem(selected_item_, 1);
 }
 
-static void SelectMainMenuItem(short item)
+void MainMenuScreen::selectItem(short item)
 {
-    DrawMainMenuItem(g_main_menu_selected_item, 0);
-    g_main_menu_selected_item = item;
-    DrawMainMenuItem(item, 1);
+    drawItem(selected_item_, 0);
+    selected_item_ = item;
+    drawItem(item, 1);
 }
 
-// The screen owns its input registrations; artwork stays in this file.
-namespace {
-void ActivateMainMenuItem(short item)
+void MainMenuScreen::activateItem(short item)
 {
     switch (item) {
     case 0:
         g_settings.intro_seen = false;
-        SetIntroVideoIndex(W8_INTRO_VIDEO_WIZARDRY);
-        RequestScreen({.id = W8_SCREEN_INTRO}, ScreenDeparture::Discard);
+        RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_WIZARDRY},
+                      ScreenDeparture::Discard);
         break;
     case 1:
         RequestScreen({.id = W8_SCREEN_PARTY_SELECTION});
         break;
     case 2:
-        if (g_main_menu_has_save_games) {
+        if (has_save_games) {
             RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_LOAD});
         }
         break;
@@ -117,30 +116,29 @@ void ActivateMainMenuItem(short item)
     }
 }
 
-UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
+UiResult MainMenuScreen::handleItem(short item, const UiPointerEvent& event)
 {
-    const bool available = item != 2 || g_main_menu_has_save_games;
+    const bool available = item != 2 || has_save_games;
     switch (event.action) {
     case UiPointerAction::Enter:
-        if (available) SelectMainMenuItem(item);
+        if (available) selectItem(item);
         break;
     case UiPointerAction::Leave:
-        DrawMainMenuItem(g_main_menu_selected_item, 0);
-        g_main_menu_selected_item = -1;
+        drawItem(selected_item_, 0);
+        selected_item_ = -1;
         break;
     case UiPointerAction::Down:
-        if (available && event.button == UiPointerButton::Left)
-            DrawMainMenuItem(g_main_menu_selected_item, 2);
+        if (available && event.button == UiPointerButton::Left) drawItem(selected_item_, 2);
         break;
     case UiPointerAction::Up:
         if (!available || event.button != UiPointerButton::Left ||
             !(event.captured_buttons & SDL_BUTTON_LMASK))
             break;
-        DrawMainMenuItem(g_main_menu_selected_item, event.inside ? 1 : 0);
+        drawItem(selected_item_, event.inside ? 1 : 0);
         if (event.inside) {
-            AfterUiDispatch([item] { ActivateMainMenuItem(item); });
-        } else if (g_main_menu_selected_item == item) {
-            g_main_menu_selected_item = -1;
+            AfterUiDispatch([this, item] { activateItem(item); });
+        } else if (selected_item_ == item) {
+            selected_item_ = -1;
         }
         break;
     default:
@@ -149,50 +147,33 @@ UiResult HandleMainMenuItem(short item, const UiPointerEvent& event)
     return UiResult::Handled;
 }
 
-std::unique_ptr<UiLayer> main_menu_input;
-
-void CreateMainMenuInput()
+bool MainMenuScreen::enter(const ScreenRequest&)
 {
-    main_menu_input = std::make_unique<UiLayer>();
-    for (short item = 0; item < static_cast<short>(main_menu_item_bounds.size()); ++item) {
-        main_menu_input->add(main_menu_item_bounds[item], [item](const UiPointerEvent& event) {
-            return HandleMainMenuItem(item, event);
-        });
-    }
-}
-} // namespace
-
-bool MainMenuScreenEnter(void)
-{
-    std::string text;
-    std::string wide;
-    unsigned short colour;
-    W8MessageDialogBase* dialog;
-    std::string_view pending;
-    short measured;
-
     ResetVideoFrameState();
     g_status.game_started = false;
-    g_main_menu_has_save_games = SaveGameExists();
-    g_main_menu_redraw = true;
+    has_save_games = SaveGameExists();
+    redraw_ = true;
     ClearPrimarySurface();
-    colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
+    const unsigned short colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
     const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
     SetViewport({0, 0, 0x281, 0x1e1});
-    g_main_menu_selected_item = 0;
+    selected_item_ = 0;
     CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
 
-    DrawMainMenuItems();
+    drawItems();
 
-    text = FormatVersionBanner(false, false, false);
-    wide = text;
+    const std::string banner = FormatVersionBanner(false, false, false);
     g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_WHITE]);
-    measured = g_wiz_text_font_secondary.textWidth(wide);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, wide);
+    const short measured = g_wiz_text_font_secondary.textWidth(banner);
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x27b - measured, 5}, banner);
     g_wiz_text_font_secondary.resetPalette();
-    main_menu_input.reset();
-    CreateMainMenuInput();
+
+    input_ = std::make_unique<UiLayer>();
+    for (short item = 0; item < main_menu_item_count; ++item) {
+        input_->add(main_menu_item_bounds[item],
+                    [this, item](const UiPointerEvent& event) { return handleItem(item, event); });
+    }
 
     if (gXStatus.uiMonstersInDatabase > 1000) {
         Fail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE");
@@ -202,119 +183,95 @@ bool MainMenuScreenEnter(void)
     }
     UpdateHeldItemCursor();
 
-    pending = g_pending_main_menu_message;
-    if (!pending.empty()) {
-        main_menu_dialog.reset(CreateMessageDialog());
-        dialog = main_menu_dialog.get();
-        dialog->SetClientExtent(0xfa, 200);
-        dialog->SetMessage(pending, 1, 0x32, true, false, true, true, 0, 0x15e);
+    if (!g_pending_main_menu_message.empty()) {
+        dialog_.reset(CreateMessageDialog());
+        dialog_->SetClientExtent(0xfa, 200);
+        dialog_->SetMessage(g_pending_main_menu_message, 1, 0x32, true, false, true, true, 0,
+                            0x15e);
         g_pending_main_menu_message.clear();
-        return 1;
     }
-
-    return 1;
+    return true;
 }
 
-/* The main menu's developer-mode key hook. Retail never consumes the key: its
-   linker folded this body into IgnoreSpellCastingInput, which compiles to the
-   same bytes. */
-static bool HandleDeveloperModeKey(const InputEvent* input)
+/* A modal dialog is serviced first. Without one, queued pointer and keyboard
+   input is dispatched, including the direct New Game, Load, Options and exit
+   shortcuts, before the shared 2D redraw and renderer transaction. */
+void MainMenuScreen::frame()
 {
-    return false;
-}
-
-/* The canonical state-1 frame services a modal dialog first.  Without one it
-   dispatches queued region and keyboard input, including the direct New Game,
-   Load, Options and exit shortcuts, then completes the shared 2D redraw and
-   renderer transaction. */
-void MainMenuScreenFrame()
-{
-
     if (g_dev_mode) {
         RequestExitScreen();
     }
-    if (main_menu_dialog != nullptr) {
-        main_menu_dialog->RefreshModal();
-        if (!main_menu_dialog->ProcessInput()) {
-            RetireModal(std::move(main_menu_dialog), false);
-            g_main_menu_redraw = true;
+    if (dialog_) {
+        dialog_->RefreshModal();
+        if (!dialog_->ProcessInput()) {
+            RetireModal(std::move(dialog_), false);
+            redraw_ = true;
             CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
-            DrawMainMenuItems();
+            drawItems();
         }
     } else {
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
-            if (input.type == InputEventType::KeyDown) {
-                if (HandleDeveloperModeKey(&input)) {
-                    if (g_dev_mode) {
-                        g_wiz_text_font_secondary.resetPalette();
-                        DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                                              {5, 5}, "Developer mode enabled.");
-                    }
-                } else {
-                    switch (input.key) {
-                    case SDLK_RETURN:
-                        DrawMainMenuItem(g_main_menu_selected_item, 2);
-                        ActivateMainMenuItem(static_cast<short>(g_main_menu_selected_item));
-                        break;
-                    case SDLK_ESCAPE:
-                    case SDLK_E:
-                    case SDLK_X:
-                        RequestExitScreen();
-                        break;
-                    case SDLK_PAGEUP:
-                        SelectMainMenuItem(0);
-                        break;
-                    case SDLK_PAGEDOWN:
-                        SelectMainMenuItem(5);
-                        break;
-                    case SDLK_UP:
-                        DrawMainMenuItem(g_main_menu_selected_item, 0);
-                        if (g_main_menu_selected_item > 0) {
-                            --g_main_menu_selected_item;
-                        } else {
-                            g_main_menu_selected_item = 5;
-                        }
-                        DrawMainMenuItem(g_main_menu_selected_item, 1);
-                        break;
-                    case SDLK_DOWN:
-                        DrawMainMenuItem(g_main_menu_selected_item, 0);
-                        if (g_main_menu_selected_item < 5) {
-                            ++g_main_menu_selected_item;
-                        } else {
-                            g_main_menu_selected_item = 0;
-                        }
-                        DrawMainMenuItem(g_main_menu_selected_item, 1);
-                        break;
-                    case SDLK_L:
-                        ActivateMainMenuItem(2);
-                        break;
-                    case SDLK_O:
-                        ActivateMainMenuItem(4);
-                        break;
-                    case SDLK_S:
-                        ActivateMainMenuItem(1);
-                        break;
-                    }
+            if (input.type != InputEventType::KeyDown) return InputRoute::Handled;
+            if (HandleDeveloperModeKey(&input)) {
+                if (g_dev_mode) {
+                    g_wiz_text_font_secondary.resetPalette();
+                    DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                                          {5, 5}, "Developer mode enabled.");
                 }
+                return InputRoute::Handled;
+            }
+            switch (input.key) {
+            case SDLK_RETURN:
+                drawItem(selected_item_, 2);
+                activateItem(selected_item_);
+                break;
+            case SDLK_ESCAPE:
+            case SDLK_E:
+            case SDLK_X:
+                RequestExitScreen();
+                break;
+            case SDLK_PAGEUP:
+                selectItem(0);
+                break;
+            case SDLK_PAGEDOWN:
+                selectItem(main_menu_item_count - 1);
+                break;
+            case SDLK_UP:
+                drawItem(selected_item_, 0);
+                selected_item_ = selected_item_ > 0 ? selected_item_ - 1 : main_menu_item_count - 1;
+                drawItem(selected_item_, 1);
+                break;
+            case SDLK_DOWN:
+                drawItem(selected_item_, 0);
+                selected_item_ = selected_item_ < main_menu_item_count - 1 ? selected_item_ + 1 : 0;
+                drawItem(selected_item_, 1);
+                break;
+            case SDLK_L:
+                activateItem(2);
+                break;
+            case SDLK_O:
+                activateItem(4);
+                break;
+            case SDLK_S:
+                activateItem(1);
+                break;
             }
             return InputRoute::Handled;
         }});
     }
 
-    if (g_main_menu_redraw || main_menu_dialog != nullptr) {
-        if (main_menu_dialog != nullptr) {
-            main_menu_dialog->RefreshModal();
-        }
+    if (redraw_ || dialog_) {
+        if (dialog_) dialog_->RefreshModal();
         ResetTransientRenderScenes();
-        g_main_menu_redraw = false;
+        redraw_ = false;
     }
     RenderFrame();
 }
 
-bool MainMenuScreenLeave(int)
+bool MainMenuScreen::leave(ScreenDeparture)
 {
-    RetireModal(std::move(main_menu_dialog), false);
-    main_menu_input.reset();
+    RetireModal(std::move(dialog_), false);
+    input_.reset();
     ReleaseCatalogArtwork();
-    return 1;
+    return true;
 }

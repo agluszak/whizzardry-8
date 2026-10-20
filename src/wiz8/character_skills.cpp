@@ -20,10 +20,8 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -38,6 +36,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/screen.h"
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 

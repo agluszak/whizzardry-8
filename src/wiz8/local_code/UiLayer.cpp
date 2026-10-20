@@ -24,7 +24,7 @@
 
 #ifdef WIZ8_RUNTIME_TESTS
 #include "runtime_instrumentation.h"
-#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/screen.h"
 #endif
 
 UiRoutingState g_ui;

@@ -23,37 +23,41 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Strings.h"
-#include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
-/* The screen's descriptor. The entry handler mallocs it, clears it and fills the
-   tail from the screen-state record it was entered with; the frame handler reads
-   the tail and writes the caption; the leave releases it. */
-struct W8LevelLoadDescriptor {
-    std::string caption; /* 0x000, written by strcpy and sprintf */
-    W8PleaseWaitMode mode; /* 0x0f0, the screen state's own mode */
-    int parameter;
-    int parameter_2;
-    std::string name; /* 0x0fd, bounded only by the next field */
+namespace {
+class PleaseWaitScreen final : public Screen {
+public:
+    bool enter(const ScreenRequest& request) override;
+    bool resume(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+    /* Advance the caption animation during a synchronous load. */
+    void animate();
+
+private:
+    void draw();
+
+    std::string caption;
+    W8PleaseWaitMode mode = W8_PLEASE_WAIT_NEW_GAME;
+    int parameter = 0;
+    int parameter_2 = 0;
+    std::string name;
     std::string previous_save_name;
     std::optional<W8SaveScreenshot> save_screenshot;
-    std::uint64_t entered_tick;
-    int caption_y;
+    std::uint64_t entered_tick = 0;
+    int caption_y = 0;
 };
-
-Font g_level_load_font;
-std::unique_ptr<W8LevelLoadDescriptor> g_load_descriptor;
+} // namespace
 
 /* Engine Code\Levels.cpp owns this with C++ linkage. */
 
@@ -69,100 +73,87 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 };
 /* The path the five assertions carry. */
 
-bool PleaseWaitScreenInitialize(void)
+/* New-game mode clears the fact state and deletes the running save; load and
+   save modes carry a name; level-change mode carries two parameters. */
+bool PleaseWaitScreen::enter(const ScreenRequest& request)
 {
-    return g_level_load_font.load("Data\\Level Load\\levelload_font.sti");
+    mode = std::get<W8PleaseWaitMode>(request.mode);
+    switch (mode) {
+    case W8_PLEASE_WAIT_NEW_GAME:
+        InitializeFactState();
+        parameter = SelectNewGameStartLevel();
+        ReleaseMessageStorage();
+        wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
+        break;
+    case W8_PLEASE_WAIT_LOAD_GAME:
+        parameter = request.parameter;
+        name = request.name;
+        break;
+    case W8_PLEASE_WAIT_SAVE_GAME:
+        parameter = GetLoadedLevelID();
+        name = request.name;
+        previous_save_name = request.previous_save_name;
+        save_screenshot = request.save_screenshot;
+        break;
+    case W8_PLEASE_WAIT_CHANGE_LEVEL:
+        parameter = request.parameter;
+        parameter_2 = request.parameter_2;
+        break;
+    }
+    return resume(request);
 }
 
-/* The entry handler. It builds the descriptor once and fills it from the
-   screen-state record it was entered with. New-game mode clears the fact state
-   and deletes the running save; load and save modes carry a name; level-change
-   mode carries two parameters.
-
-   The handler accesses the shared descriptor through g_load_descriptor. */
-bool PleaseWaitScreenEnter(void)
+bool PleaseWaitScreen::resume(const ScreenRequest&)
 {
-    if (!g_load_descriptor) {
-        g_load_descriptor = std::make_unique<W8LevelLoadDescriptor>();
-        g_load_descriptor->mode = std::get<W8PleaseWaitMode>(CurrentScreenState().mode);
-        switch (g_load_descriptor->mode) {
-        case W8_PLEASE_WAIT_NEW_GAME:
-            InitializeFactState();
-            g_load_descriptor->parameter = SelectNewGameStartLevel();
-            ReleaseMessageStorage();
-            wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
-            break;
-        case W8_PLEASE_WAIT_LOAD_GAME:
-            g_load_descriptor->parameter = CurrentScreenState().parameter;
-            g_load_descriptor->name = CurrentScreenState().name;
-            break;
-        case W8_PLEASE_WAIT_SAVE_GAME:
-            g_load_descriptor->parameter = GetLoadedLevelID();
-            g_load_descriptor->name = CurrentScreenState().name;
-            g_load_descriptor->previous_save_name = CurrentScreenState().previous_save_name;
-            g_load_descriptor->save_screenshot = CurrentScreenState().save_screenshot;
-            break;
-        case W8_PLEASE_WAIT_CHANGE_LEVEL:
-            g_load_descriptor->parameter = CurrentScreenState().parameter;
-            g_load_descriptor->parameter_2 = CurrentScreenState().parameter_2;
-            break;
-        }
-    }
     SetPrimarySurfaceTextureHint2Enabled(false);
     DisableCursorScene();
-    g_load_descriptor->caption_y = 0;
-    g_load_descriptor->entered_tick = w8_get_ticks();
-    return 1;
+    caption_y = 0;
+    entered_tick = w8_get_ticks();
+    return true;
 }
 
-/* Draw the loading screen's backdrop, progress frame and caption. Retail
-   expands this helper at both frame-handler call sites. */
-static void DrawPleaseWaitScreen()
+/* Draw the loading screen's backdrop, progress frame and caption. */
+void PleaseWaitScreen::draw()
 {
-    int backdrop = static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT
-                       ? g_level_backdrops[g_load_descriptor->parameter]
-                       : 0xe4;
+    int backdrop =
+        static_cast<unsigned int>(parameter) < W8_LEVEL_COUNT ? g_level_backdrops[parameter] : 0xe4;
     CatalogArtwork::Load(backdrop, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     CatalogArtwork::Load(0x1de, 0).draw(GetFrameBufferSurface(), 0, 0, 0x1be);
-    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7}, g_load_descriptor->caption);
-    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), g_load_descriptor->caption_y, 0,
-                                        0x185);
+    DrawText(GetFrameBufferSurface(), g_level_load_font, {0x6a, 0x1c7}, caption);
+    CatalogArtwork::Load(0x1dd, 0).draw(GetFrameBufferSurface(), caption_y, 0, 0x185);
     ResetTransientRenderScenes();
 }
 
-void PleaseWaitScreenFrame(void)
+void PleaseWaitScreen::frame()
 {
-    switch (g_load_descriptor->mode) {
+    switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        g_load_descriptor->caption = g_localized_strings[0x6ef];
+        caption = g_localized_strings[0x6ef];
         break;
     case W8_PLEASE_WAIT_LOAD_GAME: {
         const auto& strings = g_localized_strings;
-        g_load_descriptor->caption =
-            g_load_descriptor->name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
+        caption = name.starts_with("Quick") ? strings[0x6f1] : strings[0x6f0];
     } break;
     case W8_PLEASE_WAIT_SAVE_GAME:
-        g_load_descriptor->caption = g_localized_strings[0x6f2].c_str();
+        caption = g_localized_strings[0x6f2].c_str();
         break;
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
-        if (static_cast<unsigned int>(g_load_descriptor->parameter) < W8_LEVEL_COUNT) {
-            g_load_descriptor->caption = fmt::format(
-                "{} {}...", g_localized_strings[0x6f3],
-                g_localized_strings[g_level_name_indices[g_load_descriptor->parameter]]);
-        } else if (g_load_descriptor->parameter == 0x38) {
-            g_load_descriptor->caption = "Entering default level...";
+        if (static_cast<unsigned int>(parameter) < W8_LEVEL_COUNT) {
+            caption = fmt::format("{} {}...", g_localized_strings[0x6f3],
+                                  g_localized_strings[g_level_name_indices[parameter]]);
+        } else if (parameter == 0x38) {
+            caption = "Entering default level...";
         } else {
-            g_load_descriptor->caption =
-                fmt::format("Entering test level {:c}...", g_load_descriptor->parameter + 2);
+            caption = fmt::format("Entering test level {:c}...", parameter + 2);
         }
     }
 
-    DrawPleaseWaitScreen();
+    draw();
     RenderFrame();
     RenderFrame();
     DisableCursorScene();
 
-    switch (g_load_descriptor->mode) {
+    switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
         ResetLiveSessionForLoad();
         int level;
@@ -175,7 +166,7 @@ void PleaseWaitScreenFrame(void)
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
-        if (!LoadGame(g_load_descriptor->name)) {
+        if (!LoadGame(name)) {
             Fail("fVerify");
         }
         if (!LoadLevel(g_status.resume_level, -1, true)) {
@@ -184,31 +175,29 @@ void PleaseWaitScreenFrame(void)
 
         break;
     case W8_PLEASE_WAIT_SAVE_GAME: {
-        const auto& screenshot = g_load_descriptor->save_screenshot;
-        const bool saved = SaveGame(g_load_descriptor->name, screenshot ? &*screenshot : nullptr);
+        const auto& screenshot = save_screenshot;
+        const bool saved = SaveGame(name, screenshot ? &*screenshot : nullptr);
         // Do not destroy the previous save until the new one has been committed.
-        if (saved && !g_load_descriptor->previous_save_name.empty() &&
-            g_load_descriptor->previous_save_name != g_load_descriptor->name) {
-            const std::string previous_path = fmt::format(
-                "saves\\{}.{}", g_load_descriptor->previous_save_name, g_save_extension);
+        if (saved && !previous_save_name.empty() && previous_save_name != name) {
+            const std::string previous_path =
+                fmt::format("saves\\{}.{}", previous_save_name, g_save_extension);
             try {
                 wiz8::remove_file(wiz8::user_path(previous_path));
             } catch (const std::exception& error) {
                 SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
-                            "Saved %s but could not remove previous save %s: %s",
-                            g_load_descriptor->name.c_str(), previous_path.c_str(), error.what());
+                            "Saved %s but could not remove previous save %s: %s", name.c_str(),
+                            previous_path.c_str(), error.what());
             }
         }
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    saved ? g_localized_strings[0x6f4] : g_localized_strings[0x6f6]);
         // Keep the saving notice up for at least half a second, without spinning.
-        if (const auto shown = w8_get_ticks() - g_load_descriptor->entered_tick; shown < 500)
+        if (const auto shown = w8_get_ticks() - entered_tick; shown < 500)
             std::this_thread::sleep_for(std::chrono::milliseconds(500 - shown));
         break;
     }
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
-        if (!ReloadLevelPreservingCamera(g_load_descriptor->parameter,
-                                         g_load_descriptor->parameter_2)) {
+        if (!ReloadLevelPreservingCamera(parameter, parameter_2)) {
             Fail("fVerify");
         }
         AutoSaveIfAllowed(true);
@@ -218,43 +207,43 @@ void PleaseWaitScreenFrame(void)
         Fail("GetWorld()");
     }
     ReturnToPreviousScreen();
-    if (g_load_descriptor->mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {
-        SetIntroVideoIndex(W8_INTRO_VIDEO_VIRGIN);
-        RequestScreen({.id = W8_SCREEN_INTRO});
+    if (mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {
+        RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_VIRGIN});
         return;
     }
-    if (GetPendingScreenState() != 7) {
+    if (PendingScreen() != W8_SCREEN_MAIN_GAME) {
         RequestScreen({.id = W8_SCREEN_MAIN_GAME});
     }
 }
 
-/* The leave. The leaving pass releases the descriptor the entry handler
-   allocated; the ordinary pass only tears the frame down. Both passes run the
-   teardown, which is why the release sits under the flag rather than the whole
-   body. */
-bool PleaseWaitScreenLeave(int leaving)
+bool PleaseWaitScreen::leave(ScreenDeparture)
 {
-    if (leaving) {
-        g_load_descriptor.reset();
-    }
     EnableCursorScene();
-    return 1;
+    return true;
 }
 
-/* Synchronous texture loading does not run GameLoop, so service audio here
-   and keep the animated please-wait glyph moving. */
-void UpdatePleaseWaitLoadFrame(void)
+void PleaseWaitScreen::animate()
 {
-    std::uint64_t tick;
-
-    wiz8::sound::service();
-    ServiceMusicPlaylist();
-    tick = w8_get_ticks();
-    if (tick - g_load_descriptor->entered_tick > 499) {
-        g_load_descriptor->caption_y = (g_load_descriptor->caption_y + 1) % 0x18;
-        g_load_descriptor->entered_tick = tick;
-        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(),
-                                                         g_load_descriptor->caption_y, 0, 0x185);
+    const std::uint64_t tick = w8_get_ticks();
+    if (tick - entered_tick > 499) {
+        caption_y = (caption_y + 1) % 0x18;
+        entered_tick = tick;
+        CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), caption_y, 0,
+                                                         0x185);
         RenderFrame();
     }
+}
+
+void UpdatePleaseWaitLoadFrame(void)
+{
+    wiz8::sound::service();
+    ServiceMusicPlaylist();
+    if (CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT) {
+        static_cast<PleaseWaitScreen*>(CurrentScreen())->animate();
+    }
+}
+
+std::unique_ptr<Screen> CreatePleaseWaitScreen()
+{
+    return std::make_unique<PleaseWaitScreen>();
 }

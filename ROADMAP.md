@@ -81,11 +81,14 @@ the licensed runtime scenarios) green after each slice.
   - codecs own every byte, including unknown fields;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
-- **Screens as objects with lifetimes.** Routing dispatches through a
-  function-pointer table (`g_screen_handlers` enter/frame/leave/finalize), and
-  screen state lives in globals (`g_camp_screen`, `g_main_game_state`, `use_item`,
-  …) that other modules reach into. The router should own `Screen` objects, and
-  suspension and return should be values. In the camp:
+- **Screen state behind its screen.** The router owns `Screen` objects, but
+  the camp, character and options screens still wrap a per-visit state object
+  (`W8CampScreenState`, `W8CharacterScreenState`, `W8OptionsScreenState`) that
+  other modules reach through `CampScreenState()`-style accessors, the main
+  game's companion files reach `MainGame()` for HUD state, and the automap and
+  use-item picker keep module statics. Make each state class re-enterable and
+  fold it into its screen, and give the main game's companions explicit inputs.
+  In the camp:
   - pages reach back through `screen.` for redraw bits, the reviewed character
     and dialogs;
   - the item-action buttons belong to the items page;
@@ -154,9 +157,6 @@ Small, local and low-risk.
 - `CreateItemIntoHandOrPool` always replaces the hand; rename it to say so.
 - `MergeItems` and a few other inventory commands still show camp notices
   themselves; return the refusal to the screen.
-- Merge the overlapping screen-routing queries (`RequestedScreen`,
-  `GetPendingScreenState`, `IsScreenTransitionPending`); `Screens.h` also
-  redeclares the latter two next to `Gameloop.h`.
 - `ActivateGameStatus` is a one-line wrapper around assignment; inline it.
 - Add regression tests with a light combat fixture: a weapon-set swap toggles
   `alternate_hand` once, and spending one charge keeps a committed item use.
