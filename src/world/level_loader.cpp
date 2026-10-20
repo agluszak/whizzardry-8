@@ -1730,7 +1730,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use
 
     auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
     if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder)))
-        throw std::runtime_error(fmt::format("cannot read level {}", level_path));
+        throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }
 
