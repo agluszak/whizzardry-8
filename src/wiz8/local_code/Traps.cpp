@@ -21,6 +21,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/Strings.h"
@@ -283,7 +284,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
         }
         while (static_cast<int>(targets.size()) > num_targets) {
             index = Random(static_cast<int>(targets.size()));
-            if (targets[index] != g_status.selected_character) {
+            if (targets[index] != CurrentGame().status.selected_character) {
                 targets.erase(targets.begin() + index);
             }
         }

@@ -31,6 +31,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/game_status.h"
@@ -671,7 +672,7 @@ bool W8AssayDialog::PopulateRequirements()
             Fail("iUnknownButtonIndex != MAXDWORD");
             break;
         }
-        switch (g_status.rpc_races[us_index]) {
+        switch (CurrentGame().status.rpc_races[us_index]) {
         case 0xd:
             frame = 0x16;
             tooltip_index = 0x291;
@@ -861,7 +862,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
         case 15:
             button_index = -1;
             for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
-                if (race == g_status.rpc_races[us_index]) {
+                if (race == CurrentGame().status.rpc_races[us_index]) {
                     if (us_index >= NUM_RPC_RACES) {
                         Fail("usIndex < NUM_RPC_RACES");
                     }

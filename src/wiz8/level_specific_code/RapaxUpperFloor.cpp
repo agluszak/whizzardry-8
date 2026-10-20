@@ -7,6 +7,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -46,7 +47,7 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
     int item_id;
     int var_id;
 
-    if ((g_status.party.held.item.iItemNo != -1)) {
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
         item_id = GetItemInHand();
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             SetFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1, false);

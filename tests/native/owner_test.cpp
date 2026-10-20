@@ -33,6 +33,7 @@
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
+#include "scoped_game.h"
 #include "scoped_records.h"
 #include "temporary_directory.h"
 #include "wiz8/assertions.h"
@@ -56,6 +57,7 @@
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -116,7 +118,7 @@ void initialize_test_framebuffer()
 
 void screen_stack()
 {
-    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
+    const ScopedGame game;
     ResetScreenRouting(stub_factory);
     REQUIRE(PendingScreen() == W8_SCREEN_NONE);
     W8Character payload{};
@@ -156,11 +158,11 @@ void screen_stack()
     GameLoop();
     REQUIRE((!gfProgramIsRunning && CurrentScreenState().id == W8_SCREEN_NONE));
     ResetScreenRouting();
-    gXStatus.character_event_queue = nullptr;
 }
 
 void camp_effects()
 {
+    const ScopedGame game;
     ScopedTemporaryDirectory directory{"wiz8-camp-effects"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
@@ -219,11 +221,11 @@ void camp_effects()
         character.fInParty = true; // A saved flag does not establish membership.
         state->reviewed = &character;
         REQUIRE(state->ReviewedPartySlot() == -1);
-        state->reviewed = &g_status.party.characters[3];
+        state->reviewed = &CurrentGame().party.characters[3];
         REQUIRE(state->ReviewedPartySlot() == 3);
         ScreenRequest suspended{.id = W8_SCREEN_CAMP, .character = state->reviewed};
         state->reviewed = &character;
-        REQUIRE(suspended.character == &g_status.party.characters[3]);
+        REQUIRE(suspended.character == &CurrentGame().party.characters[3]);
         state->stats.effect_items_only = false;
         state->stats.RebuildCampEffectList();
         REQUIRE(state->stats.effect_list.size() == 28);
@@ -1658,6 +1660,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
+    const ScopedGame game;
     initialize_test_framebuffer();
     UiStateSnapshot saved_state;
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
@@ -1900,22 +1903,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
         W8Character character{};
-        struct RestoreParty {
-            W8Party party = std::exchange(g_status.party, W8Party{});
-            std::unique_ptr<W8CharacterEventQueue> queue =
-                std::move(gXStatus.character_event_queue);
-            ~RestoreParty()
-            {
-                g_status.party = std::move(party);
-                gXStatus.character_event_queue = std::move(queue);
-            }
-        } restore_party;
         character.fInParty = true; // Quote access must still use the previewed character directly.
-        gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
-        auto& queue = *gXStatus.character_event_queue;
+        auto& queue = CurrentGame().speech;
         queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
-        g_status.party = {};
+        CurrentGame().party = {};
         {
             W8CharacterSummaryDialog summary(&character);
             REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.

@@ -21,6 +21,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -290,7 +291,8 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     }
     cooldown = IntegerPower(record->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE], 2) * 0x3c;
     if (monster_group->hostility_set_at != 0 &&
-        static_cast<unsigned int>(g_status.world_clock - monster_group->hostility_set_at) <=
+        static_cast<unsigned int>(CurrentGame().status.world_clock -
+                                  monster_group->hostility_set_at) <=
             static_cast<unsigned int>(cooldown)) {
         if (record->faction_id == W8_FACTION_UNALIGNED) {
             return;
@@ -303,7 +305,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     }
     SetMonsterGroupHostility(monster_group, MonsterGroupCalcDefaultDisposition(monster_group),
                              false);
-    monster_group->hostility_set_at = g_status.world_clock;
+    monster_group->hostility_set_at = CurrentGame().status.world_clock;
 }
 
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::source_location caller)
@@ -361,7 +363,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
     }
     if (monster_group->leader_group_id == 0) {
         leader = GetMonsterByLocationID(monster_group->leader_location_id);
-        if (leader) leader->nav.LinkGroupNavigator(nullptr, g_combat.engineActive());
+        if (leader) leader->nav.LinkGroupNavigator(nullptr, CurrentGame().combat.engineActive());
     } else {
         W8MonsterGroup* leader_group = FindMonsterGroup(monster_group->leader_group_id);
         leader = GetMonsterByLocationID(leader_group->leader_location_id);
@@ -371,7 +373,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
         Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index));
 
         if (member && member != leader) {
-            member->nav.LinkGroupNavigator(&leader->nav, g_combat.engineActive());
+            member->nav.LinkGroupNavigator(&leader->nav, CurrentGame().combat.engineActive());
         }
     }
 }
@@ -508,9 +510,9 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->MemberCount() != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        g_status.monster_name_buffer =
-            fmt::format("Al-{}", g_status.party.characters[g_status.sedexus_party_slot].name);
-        return g_status.monster_name_buffer;
+        CurrentGame().status.monster_name_buffer = fmt::format(
+            "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
+        return CurrentGame().status.monster_name_buffer;
     }
     if (monster_group->alternate_name) {
         return (name_form ? record->name1 : record->name0);
@@ -528,8 +530,8 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
     unsigned int index;
     W8MonsterInfo* lead;
 
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
     if (!monster_group->fInCombat) {
         Fail("pMonsterGroup->fInCombat");
@@ -746,8 +748,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group = owner.get();
 
     do {
-        group->group_id = g_status.next_group_id;
-        ++g_status.next_group_id;
+        group->group_id = CurrentGame().status.next_group_id;
+        ++CurrentGame().status.next_group_id;
     } while (group->group_id == 0);
 
     group->leader_group_id = 0;
@@ -771,7 +773,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group->group_state[3] = 0xff;
     group->group_state[4] = 0xff;
     group->group_state[5] = 0xff;
-    group->spawn_time = g_status.world_clock;
+    group->spawn_time = CurrentGame().status.world_clock;
 
     list = &CurrentLevelPopulation().monster_groups;
     if (record->unborn != 0) {
@@ -793,7 +795,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
         }
     }
 
-    group->leader_location_id = g_status.next_monster_location_id - 1;
+    group->leader_location_id = CurrentGame().status.next_monster_location_id - 1;
     group->highlighted_member = -1;
 
     index = 0;
@@ -967,8 +969,9 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
 void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
 {
     while (true) {
-        if (g_status.world_suspended && monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !g_combat.active()) {
+        if (CurrentGame().status.world_suspended &&
+            monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
+            !CurrentGame().combat.active()) {
             return;
         }
 
@@ -1036,8 +1039,8 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 ++index;
             }
             monster_group->fInCombat = true;
-            if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE && g_combat.active() &&
-                g_combat.state()->round_count != 0) {
+            if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
+                CurrentGame().combat.active() && CurrentGame().combat.state()->round_count != 0) {
                 unsigned int live_groups = 0;
                 unsigned int group_list_index = 0;
                 while (group_list_index < CurrentLevelPopulation().monster_groups.size()) {

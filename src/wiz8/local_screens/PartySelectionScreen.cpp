@@ -35,6 +35,7 @@
 #include "wiz8/difficulty.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -101,10 +102,10 @@ void W8PartySelectionCharacterCollection::ClearCharacters()
 void W8PartySelectionCharacterCollection::ReloadCharacters()
 {
     ClearCharacters();
-    W8PartySlotRow* rows = g_status.party.rows;
+    W8PartySlotRow* rows = CurrentGame().party.rows;
     for (int slot = 2; slot < 8; ++slot) {
         if (rows[slot].fOccupied) {
-            characters.push_back(&g_status.party.characters[slot]);
+            characters.push_back(&CurrentGame().party.characters[slot]);
         }
     }
     LoadExternalCharacters();
@@ -138,9 +139,10 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 {
     W8Character* character = GetCharacter(index);
     if (character && character->fInParty) {
-        W8PartySlotRow* rows = g_status.party.rows;
+        W8PartySlotRow* rows = CurrentGame().party.rows;
         for (int slot = 0; slot < 6; ++slot) {
-            if (rows[slot + 2].fOccupied && &g_status.party.characters[slot + 2] == character) {
+            if (rows[slot + 2].fOccupied &&
+                &CurrentGame().party.characters[slot + 2] == character) {
                 return slot;
             }
         }
@@ -172,9 +174,9 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
         } else {
             int slot;
             for (slot = 2; slot < 8; ++slot) {
-                if (g_status.party.rows[slot].fOccupied &&
-                    strcmp(g_status.party.characters[slot].name.c_str(), character->name.c_str()) ==
-                        0) {
+                if (CurrentGame().party.rows[slot].fOccupied &&
+                    strcmp(CurrentGame().party.characters[slot].name.c_str(),
+                           character->name.c_str()) == 0) {
                     break;
                 }
             }
@@ -275,7 +277,7 @@ static SDL_Point PartySlotPosition(int row)
 void RefreshPartySelectionPortrait(unsigned int party_slot)
 {
     const int row = party_slot >= 2 && party_slot < 8 ? party_slot - 2 : 0;
-    const int portrait = g_status.party.characters[row + 2].portrait_index;
+    const int portrait = CurrentGame().party.characters[row + 2].portrait_index;
     const auto position = PartySlotPosition(row);
     SpriteDraw draw{};
     draw.mirror = g_portrait_descriptors[portrait].mirror_side ==
@@ -301,7 +303,7 @@ void PartySelectionScreen::RefreshRows()
 void PartySelectionScreen::RefreshSlots()
 {
     for (int slot = 0; slot < 6; ++slot) {
-        const bool occupied = g_status.party.rows[slot + 2].fOccupied;
+        const bool occupied = CurrentGame().party.rows[slot + 2].fOccupied;
         slots[slot]->setEnabled(m_mode <= W8_PARTY_SELECT_IMPORT && occupied);
         advance[slot]->SetVisible(m_mode == W8_PARTY_SELECT_IMPORT && occupied &&
                                   IsCharacterReadyToAdvance(slot + 2));
@@ -362,10 +364,10 @@ void PartySelectionScreen::DrawSlots(SDL_Surface& target)
         const auto size = CatalogArtwork::Load(0x101, 0).size(0);
         const SDL_Rect area{left, top, size.x, size.y};
         const W8Character* character = nullptr;
-        if (!g_status.party.rows[row + 2].fOccupied)
+        if (!CurrentGame().party.rows[row + 2].fOccupied)
             SDL_FillSurfaceRect(&target, &area, 0x8000);
         else {
-            character = &g_status.party.characters[row + 2];
+            character = &CurrentGame().party.characters[row + 2];
             const int portrait = character->portrait_index;
             SpriteDraw draw{};
             draw.mirror = g_portrait_descriptors[portrait].mirror_side ==
@@ -696,7 +698,7 @@ void PartySelectionScreen::Setup()
                      AfterUiDispatch([row] {
                          RequestScreen({.id = W8_SCREEN_CHARACTER,
                                         .mode = W8_CHARACTER_EDIT,
-                                        .character = &g_status.party.characters[row + 2]});
+                                        .character = &CurrentGame().party.characters[row + 2]});
                      });
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
@@ -851,8 +853,8 @@ void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool ref
             int selected_slot = -1;
             if (m_character && m_character->fInParty) {
                 for (int slot = 0; slot < 6; ++slot) {
-                    if (g_status.party.rows[slot + 2].fOccupied &&
-                        &g_status.party.characters[slot + 2] == m_character) {
+                    if (CurrentGame().party.rows[slot + 2].fOccupied &&
+                        &CurrentGame().party.characters[slot + 2] == m_character) {
                         selected_slot = slot;
                         break;
                     }
@@ -865,14 +867,14 @@ void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool ref
             }
         }
     } else {
-        m_character = &g_status.party.characters[selection + 2];
+        m_character = &CurrentGame().party.characters[selection + 2];
         if (!m_character->fInParty) {
             m_character = 0;
             selection = -1;
         }
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             int character_index = -1;
-            if (selection >= 0 && g_status.party.rows[selection + 2].fOccupied) {
+            if (selection >= 0 && CurrentGame().party.rows[selection + 2].fOccupied) {
                 for (int index = 0; index < static_cast<int>(roster.characters.size()); ++index) {
                     if (roster.GetCharacter(index) == m_character) {
                         character_index = index;
@@ -1198,7 +1200,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
         int slot = AddCharacterToParty(*character, -1);
         if (slot != -1) {
             delete character;
-            collection->characters[selected] = &g_status.party.characters[slot];
+            collection->characters[selected] = &CurrentGame().party.characters[slot];
         }
         if (selected < static_cast<int>(collection->characters.size()) - 1) {
             ++selected;
@@ -1217,7 +1219,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
                     break;
                 }
             }
-            if (g_status.party.rows[next_slot + 2].fOccupied) {
+            if (CurrentGame().party.rows[next_slot + 2].fOccupied) {
                 found = true;
                 break;
             }
@@ -1371,7 +1373,7 @@ void GameStartRouterScreen::frame()
     W8IntroVideo code;
 
     ReturnToPreviousScreen();
-    if (!g_status.skip_loose_character_check) {
+    if (!CurrentGame().status.skip_loose_character_check) {
         code = W8_INTRO_VIDEO_VIRGIN;
     } else {
         switch (g_wiz7_ending) {

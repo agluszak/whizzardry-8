@@ -12,6 +12,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -874,7 +875,7 @@ int ComputeStartingEquipmentCost(W8Character* character)
 bool CanAffordStartingEquipment(W8Character* character)
 {
     return static_cast<unsigned int>(ComputeStartingEquipmentCost(character)) <=
-           g_status.party.gold;
+           CurrentGame().party.gold;
 }
 
 /* Recompute the level-up pools after a profession change, refunding every

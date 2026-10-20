@@ -13,6 +13,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -75,7 +76,8 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
     char side;
     int first = party_slot;
 
-    if (!g_combat.active() || !g_combat.state()->characters[party_slot].berserk) {
+    if (!CurrentGame().combat.active() ||
+        !CurrentGame().combat.state()->characters[party_slot].berserk) {
         side = hand;
     } else {
         side = 1;
@@ -100,7 +102,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
         }
     }
     {
-        W8Character* character = &g_status.party.characters[first];
+        W8Character* character = &CurrentGame().party.characters[first];
         for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (slot != first && CanPartySlotParticipate(slot) &&
                 CharacterVsCharacterDisposition(first, slot) == side) {
@@ -167,7 +169,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         camera = cameraLocation();
         camera_top = cameraLocation();
         point = target->point;
-        unsigned int spell_id = GetActionSpellLikeId(g_status.party, selected);
+        unsigned int spell_id = GetActionSpellLikeId(CurrentGame().party, selected);
         if (spell_id == W8_SPELL_NONE) {
             Fail("uiSpell != SPELL_NONE");
         }
@@ -232,7 +234,7 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
         if (range == W8_RANGE_NONE) return {W8TargetFailure::Unavailable};
         spell_sight = selected.kind == W8_ACTION_TURN_UNDEAD ||
                       (selected.kind > W8_ACTION_PROTECT && selected.kind < W8_ACTION_EQUIP);
-        if (g_combat.active() && range >= 0 && range < 2) {
+        if (CurrentGame().combat.active() && range >= 0 && range < 2) {
             int rows = CountRowsBetween(party_slot, monster_info);
             while (rows-- > 0 && range != W8_RANGE_NONE)
                 range = range == W8_RANGE_TOUCH ? W8_RANGE_NONE
@@ -288,7 +290,7 @@ W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action
 W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
                                    std::optional<W8RangeCategory> attack_range)
 {
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
 
     switch (selected.kind) {
     case W8_ACTION_ATTACK:
@@ -300,7 +302,7 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
         }
         break;
     case W8_ACTION_USE_ITEM:
-        return GetItemSpellRange(g_status.party.itemAt(selected.detail_block.item_use.item));
+        return GetItemSpellRange(CurrentGame().party.itemAt(selected.detail_block.item_use.item));
     case W8_ACTION_PROTECT:
         return W8_RANGE_TOUCH;
     case W8_ACTION_BREATHE:
@@ -398,9 +400,9 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     }
 
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8Character* character = &g_status.party.characters[party_slot];
+        W8Character* character = &CurrentGame().party.characters[party_slot];
 
-        if (!g_status.party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.rows[party_slot].fOccupied) {
             continue;
         }
         if (character->hp_current == 0) {
@@ -700,7 +702,7 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
 {
     char crossable;
 
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         return;
     }
     if (*range_category < W8_RANGE_TOUCH || *range_category >= W8_RANGE_LONG) {
@@ -728,8 +730,8 @@ bool AnyoneStandsAhead(unsigned char position)
     signed char slot;
 
     for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = g_status.party.formation.bOccupantChar[position][index];
-        if (slot != -1 && g_status.party.characters[slot].bonus.out_of_formation == 0) {
+        slot = CurrentGame().party.formation.bOccupantChar[position][index];
+        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++found;
         }
     }
@@ -743,7 +745,7 @@ bool AnyoneStandsAhead(unsigned char position)
 char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 {
     unsigned char monster_quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
-    signed char party_quadrant = g_status.party.formation.positions[party_slot].bQuadrant;
+    signed char party_quadrant = CurrentGame().party.formation.positions[party_slot].bQuadrant;
     char rows = 0;
     unsigned int index;
     signed char slot;
@@ -755,8 +757,8 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
     }
 
     for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = g_status.party.formation.bOccupantChar[monster_quadrant][index];
-        if (slot != -1 && g_status.party.characters[slot].bonus.out_of_formation == 0) {
+        slot = CurrentGame().party.formation.bOccupantChar[monster_quadrant][index];
+        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++rows;
         }
     }
@@ -784,8 +786,8 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 
     found_front = 0;
     for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = g_status.party.formation.bOccupantChar[4][index];
-        if (slot != -1 && g_status.party.characters[slot].bonus.out_of_formation == 0) {
+        slot = CurrentGame().party.formation.bOccupantChar[4][index];
+        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++found_front;
         }
     }
@@ -799,8 +801,8 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
    two rows apart can be screened, and the fifth row is never in the way. */
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
 {
-    unsigned char from_row = g_status.party.formation.positions[from_position].bQuadrant;
-    unsigned char to_row = g_status.party.formation.positions[to_position].bQuadrant;
+    unsigned char from_row = CurrentGame().party.formation.positions[from_position].bQuadrant;
+    unsigned char to_row = CurrentGame().party.formation.positions[to_position].bQuadrant;
     int rows_apart;
     int found;
     unsigned int index;
@@ -822,8 +824,8 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
 
     found = 0;
     for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = g_status.party.formation.bOccupantChar[4][index];
-        if (slot != -1 && g_status.party.characters[slot].bonus.out_of_formation == 0) {
+        slot = CurrentGame().party.formation.bOccupantChar[4][index];
+        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++found;
         }
     }

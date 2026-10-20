@@ -12,6 +12,7 @@
 #include "sight_state.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -128,13 +129,13 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         unsigned int stamina_max;
 
         iChar = pSource->iChar;
-        level = g_status.party.characters[iChar].uiExpLevel;
+        level = CurrentGame().party.characters[iChar].uiExpLevel;
         bound = 0xf;
         if (level < 0x10) {
             bound = level;
         }
-        stamina = g_status.party.characters[iChar].stamina;
-        stamina_max = g_status.party.characters[iChar].uiStaminaMax;
+        stamina = CurrentGame().party.characters[iChar].stamina;
+        stamina_max = CurrentGame().party.characters[iChar].uiStaminaMax;
         uiMinRoll = (stamina * (level + bound)) / stamina_max;
         if (uiMinRoll == 0) {
             uiMinRoll = 1;

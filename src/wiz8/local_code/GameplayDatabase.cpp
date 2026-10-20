@@ -43,9 +43,6 @@ unsigned int MonsterDatabaseCount()
     return monster_database_count;
 }
 
-/* 0x0054B300 resets one of eight slots. */
-/* The gStatus object owned by GameplayDatabase.cpp. */
-W8GlobalStatus g_status;
 /* Packed gXStatus named by the database and manager assertions. Record
    arrays remain separate roots at their own addresses. */
 W8XStatus gXStatus;

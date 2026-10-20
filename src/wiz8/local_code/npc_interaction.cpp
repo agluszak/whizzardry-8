@@ -1,6 +1,7 @@
 
 #include "wiz8/npc_interaction.h"
 
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/NPCScripting.h"
@@ -28,10 +29,10 @@ bool IsPartySlotEligible(int slot)
     if (slot >= 8) {
         return false;
     }
-    if (!g_status.party.rows[slot].fOccupied) {
+    if (!CurrentGame().party.rows[slot].fOccupied) {
         return false;
     }
-    character = &g_status.party.characters[slot];
+    character = &CurrentGame().party.characters[slot];
     if (character->hp_current == 0) {
         return false;
     }

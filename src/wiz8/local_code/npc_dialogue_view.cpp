@@ -16,6 +16,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
@@ -220,7 +221,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             BeginPortraitVoice(speaker->group_index, g_speech.voice_handle, voice_path,
                                g_speech.hold_ms);
             if (voiced) {
-                g_status.party.rows[speaker->group_index].pending_event_type = current_quote;
+                CurrentGame().party.rows[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
                 g_npc_interaction_state->last_notice_npc_kind = speaker->partner_index;
             }
@@ -276,7 +277,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
    no-op, so the tick path can poll without re-finishing. */
 void TryFinishNpcVoicePlayback(bool force)
 {
-    if (g_status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
+    if (CurrentGame().status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
         if (!force && w8_get_ticks() - g_speech.voice_started_at <= 500) {
             return;
         }

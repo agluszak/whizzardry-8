@@ -34,6 +34,7 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -170,11 +171,11 @@ static void ReleaseMessageRow(int row)
 void ResetEditorStatusLine(short line)
 {
     if (line == -1) {
-        line = g_status.text_line_cursor;
+        line = CurrentGame().status.text_line_cursor;
     }
     ReleaseMessageRow(line);
-    g_status.text_box_lines_used[line] = 0;
-    g_status.text_box_lines_shown[line] = 0;
+    CurrentGame().status.text_box_lines_used[line] = 0;
+    CurrentGame().status.text_box_lines_shown[line] = 0;
     if (!IsNpcDialogueTextInputActive()) {
         g_level_block->text_lines[line] = 0;
     }
@@ -198,7 +199,7 @@ static short ResolveNoticeTextBox(short text_box)
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
 
-        return g_combat.active();
+        return CurrentGame().combat.active();
     }
     return text_box;
 }
@@ -213,36 +214,40 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         CurrentScreenState().id != W8_SCREEN_CHARACTER) {
         return;
     }
-    if (g_status.text_box_lines_used[text_box] == 350) {
+    if (CurrentGame().status.text_box_lines_used[text_box] == 350) {
         W8MessageStorageRecord* first = &g_message_storage[text_box][0];
         for (int i = 0; i < 349; ++i) {
             first[i] = std::move(first[i + 1]);
         }
         first[349] = {};
-        --g_status.text_box_lines_used[text_box];
-        if (g_status.text_box_lines_shown[text_box] != 0) {
-            --g_status.text_box_lines_shown[text_box];
-            if (g_status.text_box_lines_shown[text_box] < g_level_block->text_lines[text_box]) {
-                g_level_block->text_lines[text_box] = g_status.text_box_lines_shown[text_box];
+        --CurrentGame().status.text_box_lines_used[text_box];
+        if (CurrentGame().status.text_box_lines_shown[text_box] != 0) {
+            --CurrentGame().status.text_box_lines_shown[text_box];
+            if (CurrentGame().status.text_box_lines_shown[text_box] <
+                g_level_block->text_lines[text_box]) {
+                g_level_block->text_lines[text_box] =
+                    CurrentGame().status.text_box_lines_shown[text_box];
             }
         }
     }
-    unsigned int index = g_status.text_box_lines_used[text_box];
+    unsigned int index = CurrentGame().status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &g_message_storage[text_box][index];
     record->text.assign(text);
     record->RebuildEntries();
-    ++g_status.text_box_lines_used[text_box];
+    ++CurrentGame().status.text_box_lines_used[text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
     record->link = wrapped_line;
     record->length = -1;
     ++g_notice_line_count;
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_status.text_line_cursor == text_box) {
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
+        CurrentGame().status.text_line_cursor == text_box) {
         AdvanceNoticeLine(text_box);
     } else if (text_box == 3) {
-        g_status.text_box_lines_shown[3] = g_status.text_box_lines_used[3];
-        g_level_block->text_lines[3] = g_status.text_box_lines_used[3];
-        W8MessageStorageRecord* last = &g_message_storage[3][g_status.text_box_lines_shown[3] - 1];
+        CurrentGame().status.text_box_lines_shown[3] = CurrentGame().status.text_box_lines_used[3];
+        g_level_block->text_lines[3] = CurrentGame().status.text_box_lines_used[3];
+        W8MessageStorageRecord* last =
+            &g_message_storage[3][CurrentGame().status.text_box_lines_shown[3] - 1];
         auto delay = g_settings.text_display_delay_ms *
                      (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
@@ -345,9 +350,9 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             wrap_width = g_level_block->text_box_right - g_level_block->text_box_left - 10;
         }
         text_box = ResolveNoticeTextBox(text_box);
-        if (g_status.quote_audit) {
+        if (CurrentGame().status.quote_audit) {
             g_notice_line_count = 0;
-            g_status.long_quote = 0;
+            CurrentGame().status.long_quote = 0;
         }
         g_level_block->text_lines[8 + text_box] = 0;
         if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) < wrap_width) {
@@ -379,8 +384,8 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                         line_index == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
             }
         }
-        if (g_status.quote_audit && g_notice_line_count > 7) {
-            g_status.long_quote = 1;
+        if (CurrentGame().status.quote_audit && g_notice_line_count > 7) {
+            CurrentGame().status.long_quote = 1;
         }
         g_text_box_mode = W8_TEXT_BOX_MODE_NOTICE;
     } else if (force_dialog) {
@@ -412,8 +417,8 @@ unsigned char SaveMessageStorage(wiz8::File& file)
 
     file.write(&format, 4);
     for (region = 0; region < 4; ++region) {
-        file.write(&g_status.text_box_lines_used[region], 4);
-        for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
+        file.write(&CurrentGame().status.text_box_lines_used[region], 4);
+        for (index = 0; index < CurrentGame().status.text_box_lines_used[region]; ++index) {
             live_record = &g_message_storage[region][index];
             disk_record.character_count =
                 !live_record->text.empty()
@@ -432,7 +437,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
                          .size()));
             disk_record.clock = static_cast<std::uint32_t>(live_record->clock);
             disk_record.saved_remaining_ms =
-                index < g_status.text_box_lines_shown[region]
+                index < CurrentGame().status.text_box_lines_shown[region]
                     ? static_cast<std::uint32_t>(TimeUntilDeadline(live_record->clock))
                     : live_record->saved_remaining_ms;
             disk_record.link = live_record->link;
@@ -476,13 +481,13 @@ try {
     ReleaseMessageStorage();
     file.ReadBytes(&format, 4);
     for (region = 0; region < 4; ++region) {
-        if (g_status.save_version < g_prepath_link_height && region == 3) {
-            g_status.text_box_lines_used[3] = 0;
+        if (CurrentGame().status.save_version < g_prepath_link_height && region == 3) {
+            CurrentGame().status.text_box_lines_used[3] = 0;
         } else {
-            file.ReadBytes(&g_status.text_box_lines_used[region], 4);
+            file.ReadBytes(&CurrentGame().status.text_box_lines_used[region], 4);
         }
-        if (g_status.text_box_lines_used[region] > 0x15e) return 0;
-        for (index = 0; index < g_status.text_box_lines_used[region]; ++index) {
+        if (CurrentGame().status.text_box_lines_used[region] > 0x15e) return 0;
+        for (index = 0; index < CurrentGame().status.text_box_lines_used[region]; ++index) {
             file.ReadBytes(&disk_record, sizeof(disk_record));
             live_record = &g_message_storage[region][index];
             live_record->font_palette = disk_record.font_palette;
@@ -541,15 +546,16 @@ void RedrawTextBox(void)
 /* Whether the line the cursor is on has anything on it. */
 bool CurrentTextLineHasContent(void)
 {
-    return g_level_block->text_lines[g_status.text_line_cursor] != 0;
+    return g_level_block->text_lines[CurrentGame().status.text_line_cursor] != 0;
 }
 
 /* Scroll so the line the cursor is on is the last of eight showing, or to the
    top when it would fit anyway. */
 void ScrollTextBoxToCursor(void)
 {
-    if (g_status.text_box_lines_shown[g_status.text_line_cursor] > 7) {
-        ScrollTextBoxTo(g_status.text_box_lines_shown[g_status.text_line_cursor] - 7);
+    if (CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] > 7) {
+        ScrollTextBoxTo(
+            CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - 7);
         return;
     }
     ScrollTextBoxTo(0);
@@ -561,7 +567,8 @@ void ScrollTextBoxToCursor(void)
 void AppendTextBoxLine(std::string_view text, short text_box)
 {
     text_box = ResolveNoticeTextBox(text_box);
-    auto& line = g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
+    auto& line =
+        g_message_storage[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
     line.length = wiz8::checked_integer<int>(line.text.size());
     line.text.append(text);
 }
@@ -578,7 +585,8 @@ void ScrollDialogueTextBoxToLine(void)
     } else {
         offset = !gpSCSV && !ItemUseDraft() && !gXStatus.fCampMode ? 1 : 7;
     }
-    ScrollTextBoxTo(g_status.text_box_lines_shown[g_status.text_line_cursor] - offset);
+    ScrollTextBoxTo(
+        CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - offset);
 }
 
 /* Recolour the character span [start, stop) of the most recent line of one
@@ -598,10 +606,10 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
-    if (!(g_status.text_box_lines_used[text_box] > 0)) {
+    if (!(CurrentGame().status.text_box_lines_used[text_box] > 0)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
-    line = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 1];
+    line = &g_message_storage[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
     if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
         return;
     }
@@ -611,10 +619,10 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         line->highlight_color = color;
         return;
     }
-    if (!(g_status.text_box_lines_used[text_box] >= 2)) {
+    if (!(CurrentGame().status.text_box_lines_used[text_box] >= 2)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2");
     }
-    previous = &g_message_storage[text_box][g_status.text_box_lines_used[text_box] - 2];
+    previous = &g_message_storage[text_box][CurrentGame().status.text_box_lines_used[text_box] - 2];
     if (start >= g_level_block->text_lines[8 + text_box]) {
         line->highlight_start = start - g_level_block->text_lines[8 + text_box];
     } else {
@@ -647,7 +655,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
-    w8_unaligned_uint* lines_used = &g_status.text_box_lines_used[text_box];
+    w8_unaligned_uint* lines_used = &CurrentGame().status.text_box_lines_used[text_box];
     if (!(*lines_used > 0)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
@@ -660,11 +668,11 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     std::size_t start = line->highlight_start;
     line->text.clear();
     line->entries.clear();
-    if (g_status.text_box_lines_shown[text_box] == *lines_used) {
-        if (!(g_status.text_box_lines_shown[text_box] > 0)) {
+    if (CurrentGame().status.text_box_lines_shown[text_box] == *lines_used) {
+        if (!(CurrentGame().status.text_box_lines_shown[text_box] > 0)) {
             Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0");
         }
-        --g_status.text_box_lines_shown[text_box];
+        --CurrentGame().status.text_box_lines_shown[text_box];
     }
     --*lines_used;
     ShowNotice(channel, merged, text_box);
@@ -706,53 +714,55 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
 {
     const std::string_view separator =
         (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
-    ShowNotice(W8_FONT_PALETTE_WHITE,
-               fmt::format("{}{}{}", g_status.party.characters[party_slot].name, separator, text),
-               context);
-    auto stop = g_status.party.characters[party_slot].name.size();
+    ShowNotice(
+        W8_FONT_PALETTE_WHITE,
+        fmt::format("{}{}{}", CurrentGame().party.characters[party_slot].name, separator, text),
+        context);
+    auto stop = CurrentGame().party.characters[party_slot].name.size();
     if (text.starts_with("'")) {
         ++stop;
         if (text.starts_with("'s")) {
             ++stop;
         }
     }
-    HighlightTextBoxRange(g_status.party.rows[party_slot].party_order_index, 0, stop, context);
+    HighlightTextBoxRange(CurrentGame().party.rows[party_slot].party_order_index, 0, stop, context);
 }
 
 bool CurrentDialogueLineHasContent(void)
 {
-    short text_box = g_status.text_line_cursor;
+    short text_box = CurrentGame().status.text_line_cursor;
 
     return g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-           g_status.text_box_lines_shown[text_box];
+           CurrentGame().status.text_box_lines_shown[text_box];
 }
 
 void AdvanceNoticeLine(short text_box)
 {
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
-        text_box = g_status.text_line_cursor;
+        text_box = CurrentGame().status.text_line_cursor;
     }
-    if (g_status.text_box_lines_shown[text_box] >= 350) {
+    if (CurrentGame().status.text_box_lines_shown[text_box] >= 350) {
         Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES");
     }
     W8MessageStorageRecord* record =
-        &g_message_storage[text_box][g_status.text_box_lines_shown[text_box]];
+        &g_message_storage[text_box][CurrentGame().status.text_box_lines_shown[text_box]];
     auto delay = g_settings.text_display_delay_ms *
                  (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;
     }
     record->clock = w8_get_ticks() + (delay);
-    unsigned int shown = ++g_status.text_box_lines_shown[text_box];
+    unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
     if (g_level_block->text_scroll_drag_idle) {
         if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->text_box_collapsed) {
             ScrollTextBoxTo(shown);
             g_npc_interaction_state->text_box_collapsed = false;
         } else if (!gpSCSV && !gXStatus.fNpcDialogueMode && !ItemUseDraft() &&
                    !gXStatus.fCampMode) {
-            if (g_combat.active() && g_combat.state()->notice_scroll_pending) {
+            if (CurrentGame().combat.active() &&
+                CurrentGame().combat.state()->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
-                g_combat.state()->notice_scroll_pending = false;
+                CurrentGame().combat.state()->notice_scroll_pending = false;
             } else if (shown == 350) {
                 unsigned int scroll = g_level_block->text_lines[text_box];
                 if (scroll >= 344) {
@@ -764,8 +774,9 @@ void AdvanceNoticeLine(short text_box)
                 ScrollTextBoxTo(shown - 7);
             }
         } else if (!IsNpcDialogueTextInputActive()) {
-            ScrollTextBoxTo(g_status.text_box_lines_shown[g_status.text_line_cursor] -
-                            GetTextBoxVisibleLineCount());
+            ScrollTextBoxTo(
+                CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] -
+                GetTextBoxVisibleLineCount());
         }
     }
     RedrawTextBox();
@@ -773,8 +784,8 @@ void AdvanceNoticeLine(short text_box)
 
 void ScrollTextBoxTo(int line)
 {
-    short text_box = g_status.text_line_cursor;
-    unsigned int count = g_status.text_box_lines_shown[text_box];
+    short text_box = CurrentGame().status.text_line_cursor;
+    unsigned int count = CurrentGame().status.text_box_lines_shown[text_box];
     unsigned int visible = GetTextBoxVisibleLineCount();
     if (count <= visible) {
         return;
@@ -802,7 +813,7 @@ void ScrollTextBoxTo(int line)
 
 void ScrollTextBoxUp(int lines)
 {
-    short text_box = g_status.text_line_cursor;
+    short text_box = CurrentGame().status.text_line_cursor;
     unsigned int previous = g_level_block->text_lines[text_box];
     if (previous == 0) {
         return;
@@ -819,7 +830,8 @@ void ScrollTextBoxUp(int lines)
     if (current == previous) {
         return;
     }
-    if (current + GetTextBoxVisibleLineCount() < g_status.text_box_lines_shown[text_box]) {
+    if (current + GetTextBoxVisibleLineCount() <
+        CurrentGame().status.text_box_lines_shown[text_box]) {
         g_level_block->dialogue_content_region = kDownArrowEnabled;
     }
     if (current == 0) {
@@ -830,8 +842,8 @@ void ScrollTextBoxUp(int lines)
 
 void ScrollTextBoxDown(int lines)
 {
-    short text_box = g_status.text_line_cursor;
-    unsigned int count = g_status.text_box_lines_shown[text_box];
+    short text_box = CurrentGame().status.text_line_cursor;
+    unsigned int count = CurrentGame().status.text_box_lines_shown[text_box];
     unsigned int visible = GetTextBoxVisibleLineCount();
     unsigned int previous = g_level_block->text_lines[text_box];
     if (previous + visible >= count) {
@@ -867,9 +879,9 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
     }
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down)
         return UiResult::Handled;
-    const short box = g_status.text_line_cursor;
+    const short box = CurrentGame().status.text_line_cursor;
     const int visible = GetTextBoxVisibleLineCount();
-    const int count = static_cast<int>(g_status.text_box_lines_shown[box]);
+    const int count = static_cast<int>(CurrentGame().status.text_box_lines_shown[box]);
     if (count <= visible) return UiResult::Handled;
     const auto position = std::clamp(event.local.y + 1, 0, 46);
     const int previous = static_cast<int>(g_level_block->text_lines[box]);
@@ -887,10 +899,10 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
 
 UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
 {
-    const short box = g_status.text_line_cursor;
+    const short box = CurrentGame().status.text_line_cursor;
     const bool enabled = up ? g_level_block->text_lines[box] != 0
                             : g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() <
-                                  g_status.text_box_lines_shown[box];
+                                  CurrentGame().status.text_box_lines_shown[box];
     if ((enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
     if (enabled &&
@@ -943,14 +955,15 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
     if (event.action != UiPointerAction::Up || !event.inside ||
         event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK))
         return UiResult::Handled;
-    g_status.text_line_cursor = static_cast<short>(channel);
+    CurrentGame().status.text_line_cursor = static_cast<short>(channel);
     const auto scroll = g_level_block->text_lines[channel];
     g_level_block->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
     g_level_block->dialogue_content_region =
-        scroll + GetTextBoxVisibleLineCount() < g_status.text_box_lines_shown[channel]
+        scroll + GetTextBoxVisibleLineCount() < CurrentGame().status.text_box_lines_shown[channel]
             ? kDownArrowEnabled
             : kDownArrowDisabled;
-    if (channel == 3) ScrollTextBoxTo(std::max(0, int(g_status.text_box_lines_shown[channel]) - 7));
+    if (channel == 3)
+        ScrollTextBoxTo(std::max(0, int(CurrentGame().status.text_box_lines_shown[channel]) - 7));
     RedrawTextBox();
     return UiResult::Handled;
 }
@@ -1040,8 +1053,8 @@ void RedrawTextBoxBody(bool skip_invalidate)
                          g_level_block->text_box_right, g_level_block->text_box_bottom);
     }
 
-    text_box = g_status.text_line_cursor;
-    shown = g_status.text_box_lines_shown[text_box];
+    text_box = CurrentGame().status.text_line_cursor;
+    shown = CurrentGame().status.text_box_lines_shown[text_box];
     if (shown == 0) {
         return;
     }
@@ -1060,7 +1073,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
 
     if (g_level_block->action_panel_visible == 0) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
-                          g_status.text_box_lines_shown[text_box];
+                          CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
             TimeUntilDeadline(g_message_storage[text_box][scroll + rows - 1].clock) == 0) {
             return;
@@ -1119,7 +1132,7 @@ void RedrawTextBoxScrollChrome(void)
     ScopedClipRect clipped(framebuffer, clip);
 
     if (g_level_block->action_panel_visible != 0) {
-        text_box = g_status.text_line_cursor;
+        text_box = CurrentGame().status.text_line_cursor;
         scroll = g_level_block->text_lines[text_box];
         if (scroll == 0) {
             g_level_block->text_content_region = kUpArrowDisabled;
@@ -1146,7 +1159,7 @@ void RedrawTextBoxScrollChrome(void)
             break;
         }
 
-        line_count = g_status.text_box_lines_shown[text_box];
+        line_count = CurrentGame().status.text_box_lines_shown[text_box];
         visible = GetTextBoxVisibleLineCount();
         if (scroll + static_cast<unsigned int>(visible) < line_count) {
             if (g_level_block->dialogue_content_region == kDownArrowDisabled) {
@@ -1202,13 +1215,14 @@ void RedrawTextBoxComplete(void)
    message rather than the oldest. */
 int FindStoppedTextLine(void)
 {
-    int index = g_status.text_box_lines_shown[g_status.text_line_cursor];
+    int index = CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor];
 
     if (index == 0) {
         return -1;
     }
     while (--index >= 0) {
-        if (TimeUntilDeadline(g_message_storage[g_status.text_line_cursor][index].clock) == 0) {
+        if (TimeUntilDeadline(
+                g_message_storage[CurrentGame().status.text_line_cursor][index].clock) == 0) {
             return index;
         }
     }
@@ -1278,7 +1292,7 @@ void SetKnockKnockTarget(int target, int /*flag*/, int /*backfire*/)
 
 void SelectTextBox(short text_box)
 {
-    g_status.text_line_cursor = text_box;
+    CurrentGame().status.text_line_cursor = text_box;
     RedrawTextBox();
     if (g_level_block->text_lines[text_box] != 0) {
         g_level_block->text_content_region = kUpArrowEnabled;
@@ -1287,14 +1301,14 @@ void SelectTextBox(short text_box)
     }
 
     const bool can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                            g_status.text_box_lines_shown[text_box];
+                            CurrentGame().status.text_box_lines_shown[text_box];
     g_level_block->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
 }
 
 static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
 {
     if (line < 0x15e) {
-        unsigned int first = g_level_block->text_lines[g_status.text_line_cursor];
+        unsigned int first = g_level_block->text_lines[CurrentGame().status.text_line_cursor];
         if (first <= static_cast<unsigned int>(line) &&
             static_cast<unsigned int>(line) < first + 7) {
             W8MessageStorageRecord* record = &g_message_storage[box][line];
@@ -1379,7 +1393,7 @@ void ClearNoticeWordHover(int text_box, bool redraw)
 static int GetNoticeLineLeft(int text_box, int line)
 {
     int x_base;
-    if (g_status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
+    if (CurrentGame().status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
         x_base = g_level_block->text_box_left;
     } else {
         x_base =
@@ -1399,7 +1413,7 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
     ClearNoticeWordHover(text_box, false);
     if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
         line = g_level_block->text_lines[text_box] + (y - g_level_block->text_box_top) / 0xb;
-        if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
+        if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
             for (auto& entry : g_message_storage[text_box][line].entries) {
@@ -1422,7 +1436,7 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 
     if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
         line = g_level_block->text_lines[text_box] + (y - g_level_block->text_box_top) / 0xb;
-        if (line < static_cast<int>(g_status.text_box_lines_shown[text_box])) {
+        if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
             for (auto& entry : g_message_storage[text_box][line].entries) {
@@ -1474,17 +1488,17 @@ void RefreshTextBoxMode(unsigned short mode)
              (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) &&
             !gXStatus.fCampMode) {
 
-            mode = g_combat.active();
+            mode = CurrentGame().combat.active();
 
         } else {
             mode = IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
     }
     int text_box = static_cast<short>(mode);
-    if (g_status.text_box_lines_used[text_box] == 0) {
+    if (CurrentGame().status.text_box_lines_used[text_box] == 0) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
-    last_line = g_status.text_box_lines_used[text_box] - 1;
+    last_line = CurrentGame().status.text_box_lines_used[text_box] - 1;
     group_lines = g_message_storage[text_box][last_line].link;
     if (last_line < group_lines) {
         Fail("uiLastLineIndex >= uiGroupLine");
@@ -1512,7 +1526,7 @@ void RefreshTextBoxMode(unsigned short mode)
 void HighlightNoticeRow(int line)
 {
     ClearHoveredTextLine(2);
-    if (line < static_cast<int>(g_status.text_box_lines_shown[2])) {
+    if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[2])) {
         SetHoveredTextLine(g_level_block->text_lines[2] + line, 2);
     }
     RedrawTextBox();

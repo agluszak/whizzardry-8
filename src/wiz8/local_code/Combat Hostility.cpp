@@ -14,6 +14,7 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -55,8 +56,9 @@ enum { W8_NEUTRAL_SPECIES_224 = 0x224 };
 
 void RefreshCombatEngagement(void)
 {
-    if (g_combat.active() && CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
-        g_combat.state()->enemies_engaged = true;
+    if (CurrentGame().combat.active() &&
+        CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
+        CurrentGame().combat.state()->enemies_engaged = true;
     }
     RequestRefreshPartyState();
 }
@@ -107,7 +109,7 @@ W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monste
 {
     W8Disposition disposition;
 
-    if (g_status.party.characters[character_slot].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
+    if (CurrentGame().party.characters[character_slot].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
         return monster_info->ubDisposition;
     }
     disposition = monster_info->ubDisposition;
@@ -126,7 +128,7 @@ W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monste
 
 W8Disposition CharacterVsCharacterDisposition(int first, int second)
 {
-    W8Character* characters = g_status.party.characters;
+    W8Character* characters = CurrentGame().party.characters;
     unsigned int first_turns = characters[first].uiCondition[W8_CONDITION_TURNCOAT];
     if (first_turns == 0 && characters[second].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
         return W8_DISPOSITION_FRIENDLY;
@@ -140,7 +142,7 @@ W8Disposition CharacterVsCharacterDisposition(int first, int second)
 W8Disposition GetOppositeDisposition(W8TargetSource* source)
 {
     if (TargetSourceIsCharacter(source, 0)) {
-        if (g_status.party.characters[source->iChar].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
+        if (CurrentGame().party.characters[source->iChar].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
             return W8_DISPOSITION_HOSTILE;
         }
     } else if (TargetSourceIsMonster(source, 0)) {
@@ -330,8 +332,8 @@ bool MonsterCanAimSpell(int spell_id)
 
 bool CombatAllowsLiveGroups(void)
 {
-    return g_combat.active() && !g_combat.state()->enemies_engaged &&
-           g_combat.state()->round_count <= 1;
+    return CurrentGame().combat.active() && !CurrentGame().combat.state()->enemies_engaged &&
+           CurrentGame().combat.state()->round_count <= 1;
 }
 
 static unsigned short g_group_hostility_notice_ids[3] = {511, 512, 513};
@@ -365,7 +367,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
                                   g_localized_strings[0x1d7 + (group->MemberCount() != 1)],
                                   g_localized_strings[g_group_hostility_notice_ids[hostility]]));
     }
-    group->hostility_set_at = g_status.world_clock;
+    group->hostility_set_at = CurrentGame().status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
         SetTargetToGroup(group->group_id, true);
     }
@@ -405,9 +407,9 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     }
     if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
-        if (g_combat.active() &&
-            g_combat.state()->action_status != W8CombatActionStatus::scheduled &&
-            g_combat.state()->pActionMonsterInfo == monster) {
+        if (CurrentGame().combat.active() &&
+            CurrentGame().combat.state()->action_status != W8CombatActionStatus::scheduled &&
+            CurrentGame().combat.state()->pActionMonsterInfo == monster) {
             EndMonsterAttack(monster);
             monster->action_kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
@@ -422,8 +424,9 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
 
 bool CanPartySlotTurnUndead(int party_slot)
 {
-    if (!CharacterHasTrait(&g_status.party.characters[party_slot], W8_TRAIT_TURN_UNDEAD) ||
-        g_combat.state() == 0 || g_combat.state()->characters[party_slot].turn_undead_used) {
+    if (!CharacterHasTrait(&CurrentGame().party.characters[party_slot], W8_TRAIT_TURN_UNDEAD) ||
+        CurrentGame().combat.state() == 0 ||
+        CurrentGame().combat.state()->characters[party_slot].turn_undead_used) {
         return false;
     }
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
@@ -448,7 +451,7 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
                 party_slot, fmt::sprintf(g_localized_strings[0x1b7], g_localized_strings[0x512]));
             return 0;
         }
-        g_combat.state()->characters[party_slot].turn_undead_used = true;
+        CurrentGame().combat.state()->characters[party_slot].turn_undead_used = true;
     }
 
     W8TargetSource source;
@@ -456,12 +459,13 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     source.aim_resolved = true;
     int power;
     if (!check) {
-        power = g_status.party.characters[party_slot].profession_levels[W8_PROFESSION_BISHOP] + 10 +
-                g_status.party.characters[party_slot].profession_levels[W8_PROFESSION_PRIEST];
+        power = CurrentGame().party.characters[party_slot].profession_levels[W8_PROFESSION_BISHOP] +
+                10 +
+                CurrentGame().party.characters[party_slot].profession_levels[W8_PROFESSION_PRIEST];
         source.auto_cast = true;
     } else {
-        power = g_status.party.characters[party_slot].profession_levels[W8_PROFESSION_BISHOP] +
-                g_status.party.characters[party_slot].profession_levels[W8_PROFESSION_PRIEST];
+        power = CurrentGame().party.characters[party_slot].profession_levels[W8_PROFESSION_BISHOP] +
+                CurrentGame().party.characters[party_slot].profession_levels[W8_PROFESSION_PRIEST];
         PostCharacterNotice(party_slot, g_localized_strings[0x182]);
     }
 
@@ -492,8 +496,9 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
 
 bool CanPartySlotPray(int party_slot)
 {
-    if (!CharacterHasTrait(&g_status.party.characters[party_slot], W8_TRAIT_PRAY) ||
-        g_combat.state() == 0 || g_combat.state()->characters[party_slot].pray_used) {
+    if (!CharacterHasTrait(&CurrentGame().party.characters[party_slot], W8_TRAIT_PRAY) ||
+        CurrentGame().combat.state() == 0 ||
+        CurrentGame().combat.state()->characters[party_slot].pray_used) {
         return false;
     }
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
@@ -523,7 +528,7 @@ static char g_pray_dash[] = " -- ";
    retries downward through the table until an action lands. */
 int CharacterPrayAction(int party_slot)
 {
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     std::vector<int> monster_targets;
     bool found = false;
     bool prayed = false;
@@ -568,9 +573,9 @@ int CharacterPrayAction(int party_slot)
         SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
     roll = Random(g_pray_roll_sums[PRAY_ROLL_TIERS]);
-    if (g_combat.state()->round_count < 4) {
-        roll += (g_combat.state()->round_count * 3 - 12) * 5;
-    } else if (g_combat.state()->round_count > 8) {
+    if (CurrentGame().combat.state()->round_count < 4) {
+        roll += (CurrentGame().combat.state()->round_count * 3 - 12) * 5;
+    } else if (CurrentGame().combat.state()->round_count > 8) {
         roll += Random(10);
     }
     if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
@@ -594,7 +599,7 @@ int CharacterPrayAction(int party_slot)
         case 0:
             if (Random(2) == 0) {
                 AppendToLastTextLine(g_localized_strings[0x178], -1);
-                g_combat.state()->experience_bonus += 10;
+                CurrentGame().combat.state()->experience_bonus += 10;
             } else {
                 AppendToLastTextLine(g_localized_strings[0x177], -1);
                 AddPartyGold(100, true);
@@ -603,8 +608,8 @@ int CharacterPrayAction(int party_slot)
             break;
         case 1:
             for (index = 0; index < 8; ++index) {
-                W8Character* member = &g_status.party.characters[index];
-                if (g_status.party.rows[index].fOccupied && member->hp_current != 0 &&
+                W8Character* member = &CurrentGame().party.characters[index];
+                if (CurrentGame().party.rows[index].fOccupied && member->hp_current != 0 &&
                     member->stamina < member->uiStaminaMax) {
                     AppendToLastTextLine(g_localized_strings[0x179], -1);
                     CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,
@@ -618,7 +623,7 @@ int CharacterPrayAction(int party_slot)
             found = false;
             in_range = 0;
             for (index = 0; index < 8; ++index) {
-                W8Character* member = &g_status.party.characters[index];
+                W8Character* member = &CurrentGame().party.characters[index];
                 if (CanPartySlotParticipate(index) &&
                     member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0) {
                     ++in_range;
@@ -628,7 +633,7 @@ int CharacterPrayAction(int party_slot)
             if (found) {
                 pick = Random(in_range) + 1;
                 for (index = 0; index < 8; ++index) {
-                    W8Character* member = &g_status.party.characters[index];
+                    W8Character* member = &CurrentGame().party.characters[index];
                     if (CanPartySlotParticipate(index) &&
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
@@ -651,7 +656,7 @@ int CharacterPrayAction(int party_slot)
             found = false;
             in_range = 0;
             for (index = 0; index < 8; ++index) {
-                W8Character* member = &g_status.party.characters[index];
+                W8Character* member = &CurrentGame().party.characters[index];
                 if (CanPartySlotParticipate(index) &&
                     (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                      member->uiCondition[W8_CONDITION_TURNCOAT] != 0)) {
@@ -662,7 +667,7 @@ int CharacterPrayAction(int party_slot)
             if (found) {
                 pick = Random(in_range) + 1;
                 for (index = 0; index < 8; ++index) {
-                    W8Character* member = &g_status.party.characters[index];
+                    W8Character* member = &CurrentGame().party.characters[index];
                     if (CanPartySlotParticipate(index) &&
                         (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                          member->uiCondition[W8_CONDITION_TURNCOAT] != 0) &&
@@ -699,11 +704,11 @@ int CharacterPrayAction(int party_slot)
             }
             best = -1;
             for (index = 0; index < 8; ++index) {
-                W8Character* member = &g_status.party.characters[index];
+                W8Character* member = &CurrentGame().party.characters[index];
                 if (CanPartySlotParticipate(index) &&
                     member->hp_current < static_cast<unsigned int>(member->uiHPMax) &&
                     (best == -1 ||
-                     member->hp_current < g_status.party.characters[best].hp_current)) {
+                     member->hp_current < CurrentGame().party.characters[best].hp_current)) {
                     best = index;
                 }
             }
@@ -720,8 +725,8 @@ int CharacterPrayAction(int party_slot)
         case 5:
             found = false;
             for (index = 0; index < 6; ++index) {
-                if (g_combat.state()->effect_slots0[index].active &&
-                    g_combat.state()->effect_slots0[index].effect_id == 2) {
+                if (CurrentGame().combat.state()->effect_slots0[index].active &&
+                    CurrentGame().combat.state()->effect_slots0[index].effect_id == 2) {
                     found = true;
                     break;
                 }
@@ -780,10 +785,10 @@ int CharacterPrayAction(int party_slot)
             for (index = 0; index < 0x12; ++index) {
                 RemoveConditionFromParty(static_cast<W8Condition>(index));
             }
-            if (g_combat.state() != 0) {
+            if (CurrentGame().combat.state() != 0) {
                 for (index = 0; index < 9; ++index) {
-                    if (g_combat.state()->effect_slots[index].active) {
-                        ResetPartyEffectBlock(&g_combat.state()->effect_slots[index]);
+                    if (CurrentGame().combat.state()->effect_slots[index].active) {
+                        ResetPartyEffectBlock(&CurrentGame().combat.state()->effect_slots[index]);
                     }
                 }
             }
@@ -865,7 +870,7 @@ int CharacterPrayAction(int party_slot)
             break;
         }
     }
-    g_combat.state()->characters[party_slot].pray_used = true;
+    CurrentGame().combat.state()->characters[party_slot].pray_used = true;
     return cost;
 }
 

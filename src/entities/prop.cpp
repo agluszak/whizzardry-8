@@ -34,6 +34,7 @@
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/legacy_prop_save_ids.h"
@@ -279,7 +280,7 @@ bool ResolvePickedProp()
             if (trigger != 0 && (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
                 ((trigger->flags & W8_TRIGGER_ONCE) == 0 ||
                  (trigger->flags & W8_TRIGGER_FIRED) == 0) &&
-                ((!g_combat.engineActive()) ||
+                ((!CurrentGame().combat.engineActive()) ||
                  (trigger->doorData() != nullptr && !trigger->doorData()->open)) &&
                 representation->active != 0) {
                 if (const auto bounds = prop->GetFrameBounds()) {
@@ -596,7 +597,7 @@ void Prop::AdvanceAnimationValue(int frames, char total)
                 if (trigger != 0) {
                     trigger->RunLinkedTriggers();
                 }
-                gXStatus.sight_refresh_pending = true;
+                CurrentGame().sight_refresh_pending = true;
             }
         } else if (rep->frame_direction == W8_ANIMATION_REVERSE) {
             if (static_cast<int>(frame) - frames > start) {
@@ -608,7 +609,7 @@ void Prop::AdvanceAnimationValue(int frames, char total)
                 if (trigger != 0) {
                     trigger->RunLinkedTriggers();
                 }
-                gXStatus.sight_refresh_pending = true;
+                CurrentGame().sight_refresh_pending = true;
             }
         }
     } else {

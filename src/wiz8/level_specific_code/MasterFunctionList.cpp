@@ -22,6 +22,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -285,10 +286,11 @@ static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNo
     folder = GetLevelFolderName(GetLoadedLevelID());
     type = node->parameters[2];
     enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && !g_status.search_mode && g_status.party.modifiers.detect_secrets == 0) {
+    if (enabled != 0 && !CurrentGame().status.search_mode &&
+        CurrentGame().party.modifiers.detect_secrets == 0) {
         for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            if (g_status.party.rows[slot].fOccupied &&
-                CharacterHasTrait(g_status.party.characters + slot, W8_TRAIT_SEARCH)) {
+            if (CurrentGame().party.rows[slot].fOccupied &&
+                CharacterHasTrait(CurrentGame().party.characters + slot, W8_TRAIT_SEARCH)) {
                 goto command_check;
             }
         }
@@ -380,8 +382,8 @@ static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCurso
 {
     W8Character* character;
 
-    if (command == 1 && g_status.rpc_active) {
-        character = g_status.party.characters + g_status.sedexus_party_slot;
+    if (command == 1 && CurrentGame().status.rpc_active) {
+        character = CurrentGame().party.characters + CurrentGame().status.sedexus_party_slot;
         if (character->gender == W8_GENDER_MALE) {
             QueueCharacterEvent(character, g_character_event_kind1, 0, kCharacterEventFullVolume);
         }
@@ -508,7 +510,7 @@ static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* n
             *shown = std::byte{1};
             slot = PickRandomPartySpeaker(event_type, 0xff);
             if (slot != -1) {
-                QueueCharacterEvent(g_status.party.characters + slot, event_type, 0,
+                QueueCharacterEvent(CurrentGame().party.characters + slot, event_type, 0,
                                     kCharacterEventFullVolume);
             }
         }

@@ -34,6 +34,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
@@ -542,7 +543,7 @@ void W8OptionsSaveLoadPanel::LoadSelectedSave()
     W8SaveSlot& slot = *screen.m_save_slots[selected_slot];
     if (slot.version_major + slot.version_minor * 0.1f + slot.version_patch * 0.01f <= 1.24f) {
         g_options_last_save_name = slot.name;
-        if (g_status.game_started) {
+        if (GameStarted()) {
             ClearHeldItemDisplay();
         }
         RequestScreen({.id = W8_SCREEN_PLEASE_WAIT,
@@ -906,19 +907,19 @@ static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(W8OptionsScreenState& 
     case 10:
         return std::make_unique<W8OptionsKeyboardPanel>(screen, panel);
     case 11:
-        if (g_status.game_started && g_status.iron_man) {
+        if (GameStarted() && CurrentGame().status.iron_man) {
             *hide_navigation = 1;
             return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
         }
         *compact = 1;
         return std::make_unique<W8OptionsSaveLoadPanel>(screen, 11);
     case 12:
-        if (g_status.game_started) {
-            if (g_status.iron_man) {
+        if (GameStarted()) {
+            if (CurrentGame().status.iron_man) {
                 *hide_navigation = 1;
                 return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
             }
-            if (g_combat.active()) {
+            if (CurrentGame().combat.active()) {
                 *hide_navigation = 1;
                 return std::make_unique<W8OptionsUnavailablePanel>(0x82b);
             }
@@ -962,7 +963,7 @@ void W8OptionsMousePanel::Populate()
     AddCheckbox(0x809, &values.autotarget_spells);
     AddCheckbox(0x804, &values.auto_advance_character);
     AddCheckbox(0x808, &values.autoswap_weapons);
-    if (!g_status.game_started || !g_status.iron_man) {
+    if (!GameStarted() || !CurrentGame().status.iron_man) {
         AddCheckbox(0x80d, &values.auto_save);
     }
 }
@@ -1168,7 +1169,7 @@ W8OptionsScreenState::W8OptionsScreenState()
 {
     values.TransferSettings();
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
-    if (g_status.game_started) {
+    if (GameStarted()) {
         FillCurrentSaveSlot(*current);
     }
     EnumerateSaveSlots(m_save_slots);
@@ -1200,7 +1201,7 @@ void W8OptionsScreenState::CreateControls()
         button->SetPosition(row.bounds.left, row.bounds.top);
         button->Resize(size.x, size.y);
 
-        if (item == 5) button->SetEnabled(g_status.game_started);
+        if (item == 5) button->SetEnabled(GameStarted());
         if (item == 4) button->SetEnabled(m_save_slots.size() > 1);
         for (const auto& bounds : row.child_bounds) {
             if (bounds.left == -1) continue;
@@ -1436,13 +1437,9 @@ void W8OptionsValues::TransferSettings()
     }
     TransferByte(&auto_save, &g_settings.auto_save);
     if (!applying) {
-        difficulty = g_status.difficulty;
-    } else {
-        g_status.difficulty = difficulty;
-    }
-    if (!applying) {
         difficulty = g_settings.difficulty;
     } else {
+        if (GameInProgress()) CurrentGame().status.difficulty = difficulty;
         g_settings.difficulty = difficulty;
     }
     TransferRenderOption(&render_options[0], W8_RENDER_OPTION_MIP_MAPPING);
@@ -1725,7 +1722,7 @@ void W8OptionsScreenState::UpdateNavigation()
 void W8OptionsScreenState::OnDialogClosed(bool accepted, int)
 {
     if (accepted) {
-        if (g_status.game_started && !g_combat.active() && AnyCharacterActive()) {
+        if (GameStarted() && !CurrentGame().combat.active() && AnyCharacterActive()) {
             AutoSaveIfAllowed(true);
         }
         RequestExitScreen();
@@ -1768,10 +1765,10 @@ bool OptionsScreen::enter(const ScreenRequest& request)
         } else {
             selected = g_last_options_panel;
             if (g_last_options_panel == 5) {
-                if (g_combat.active()) {
+                if (CurrentGame().combat.active()) {
                     selected = 4;
                 }
-                if (g_status.iron_man) {
+                if (CurrentGame().status.iron_man) {
                     selected = 0;
                 }
             }

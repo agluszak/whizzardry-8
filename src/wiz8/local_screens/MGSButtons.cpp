@@ -22,6 +22,7 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -132,7 +133,7 @@ void RefreshSubMenuPanel(bool invalidate)
 
 static void ChooseSubMenuAction(W8ActionKind action)
 {
-    ChooseAction(g_status.selected_character, action, -1, 0, false, 1);
+    ChooseAction(CurrentGame().status.selected_character, action, -1, 0, false, 1);
     DrawSubMenuCharacterAction();
     DestroySubMenuControls();
 }
@@ -180,25 +181,25 @@ void SubMenuSelectEquip(void)
 void SubMenuOpenUseItemView(void)
 {
     DestroySubMenuControls();
-    OpenUseItemSelectView(g_status.selected_character);
+    OpenUseItemSelectView(CurrentGame().status.selected_character);
 }
 
 void SubMenuUseRecordedItem(void)
 {
     DestroySubMenuControls();
-    StartCharacterItemUse(g_status.selected_character);
+    StartCharacterItemUse(CurrentGame().status.selected_character);
 }
 
 void SubMenuOpenSpellView(void)
 {
     DestroySubMenuControls();
-    OpenSpellCastingView(g_status.selected_character);
+    OpenSpellCastingView(CurrentGame().status.selected_character);
 }
 
 void SubMenuCastRecordedSpell(void)
 {
     DestroySubMenuControls();
-    StartCharacterSpellCast(g_status.selected_character, 0);
+    StartCharacterSpellCast(CurrentGame().status.selected_character, 0);
 }
 
 void SubMenuSelectRun(void)
@@ -329,7 +330,7 @@ void UpdateCombatStanceButtons(void)
     unsigned char index;
     bool enabled;
 
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         for (auto& button : MainGame()->hud_buttons.combat_stance) {
             button.SetVisible(false);
         }
@@ -337,11 +338,11 @@ void UpdateCombatStanceButtons(void)
     }
 
     if (g_settings.continuous_combat == 0) {
-        stance = g_combat.state()->execution_active != 0 ? 3U : 0U;
-    } else if ((TimeUntilDeadline(g_combat.state()->combat_ui_timer) == 0 &&
+        stance = CurrentGame().combat.state()->execution_active != 0 ? 3U : 0U;
+    } else if ((TimeUntilDeadline(CurrentGame().combat.state()->combat_ui_timer) == 0 &&
                 CombatMayAdvanceContinuously()) ||
-               g_combat.state()->party_surprised) {
-        stance = g_combat.state()->round_active ? 1U : 4U;
+               CurrentGame().combat.state()->party_surprised) {
+        stance = CurrentGame().combat.state()->round_active ? 1U : 4U;
     } else {
         stance = 2;
     }
@@ -370,10 +371,10 @@ void RedrawCombatStanceButtons(void)
 
 static void MainGameCombatConfirmButton(W8ButtonWidget* button)
 {
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         return;
     }
-    if (g_combat.state()->execution_active != 0) {
+    if (CurrentGame().combat.state()->execution_active != 0) {
         TogglePartyCombatStance();
         return;
     }
@@ -381,15 +382,15 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
     if (g_settings.continuous_combat == 0) {
         return;
     }
-    if (TimeUntilDeadline(g_combat.state()->combat_ui_timer) == 0) {
+    if (TimeUntilDeadline(CurrentGame().combat.state()->combat_ui_timer) == 0) {
         return;
     }
-    g_combat.state()->combat_ui_timer = w8_get_ticks() + (0);
+    CurrentGame().combat.state()->combat_ui_timer = w8_get_ticks() + (0);
 }
 
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 {
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         TogglePartyCombatStance();
     }
 }
@@ -773,19 +774,19 @@ void DrawSubMenuCharacterAction(void)
     std::int16_t separator;
     std::int16_t trailing;
 
-    slot = static_cast<unsigned short>(g_status.selected_character);
+    slot = static_cast<unsigned short>(CurrentGame().status.selected_character);
     if (slot > 7) {
         return;
     }
-    row = &g_status.party.rows[slot];
+    row = &CurrentGame().party.rows[slot];
     g_smfnt_font.setPalette(g_font_state_palettes[row->party_order_index]);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
-    character = &g_status.party.characters[slot];
+    character = &CurrentGame().party.characters[slot];
     text = fmt::format("{} - {}", character->name,
                        g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                           {(0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1c6}, text);
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
         }
@@ -802,7 +803,8 @@ void DrawSubMenuCharacterAction(void)
             text = fmt::format(
                 "{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
                 g_spell_records
-                    [g_item_records[g_status.party
+                    [g_item_records[CurrentGame()
+                                        .party
                                         .itemAt(row->committed_action.detail_block.item_use.item)
                                         ->iItemNo]
                          .spell_id]
@@ -846,9 +848,9 @@ void DrawSubMenuCharacterAction(void)
             break;
         case W8_ACTION_PROTECT:
             if (row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
-                text =
-                    fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
-                                g_status.party.characters[row->committed_action.target.iChar].name);
+                text = fmt::format(
+                    "{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
+                    CurrentGame().party.characters[row->committed_action.target.iChar].name);
             } else if (row->committed_action.target.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(row->committed_action.target.iMonsterID);
                 name = GetMonsterName(monster_info, 0, 0);
@@ -876,17 +878,18 @@ void UpdateSubMenuPanelButtons(void)
 {
     bool enabled;
 
-    if (!g_combat.active() || !g_combat.state()->round_active || gXStatus.fSurprisePossible ||
-        IsLockInteractionActive() || IsTrapInteractionActive() || gXStatus.fNpcDialogueMode ||
-        gpSCSV || ItemUseDraft() || g_level_block->combat_end_notification != -1) {
+    if (!CurrentGame().combat.active() || !CurrentGame().combat.state()->round_active ||
+        CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
+        gXStatus.fNpcDialogueMode || gpSCSV || ItemUseDraft() ||
+        g_level_block->combat_end_notification != -1) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
     }
     MainGame()->hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
-    if (!gXStatus.fSurprisePossible && !IsLockInteractionActive() && !IsTrapInteractionActive() &&
-        !gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() &&
+    if (!CurrentGame().surprise_possible && !IsLockInteractionActive() &&
+        !IsTrapInteractionActive() && !gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() &&
         g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
@@ -926,7 +929,7 @@ void RedrawSubMenuButtons(void)
     int frame;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 4, 0x1e, 0x1c2);
-    frame = !g_combat.active() ? 8 : 9;
+    frame = !CurrentGame().combat.active() ? 8 : 9;
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
     for (auto& button : MainGame()->hud_buttons.submenu) {
@@ -946,7 +949,7 @@ void RedrawSubMenuButtons(void)
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 5, 0x124, 0x1c2);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
-    if (g_status.party.rows[g_status.selected_character].fOccupied) {
+    if (CurrentGame().party.rows[CurrentGame().status.selected_character].fOccupied) {
         DrawSubMenuCharacterAction();
     }
 
@@ -966,10 +969,11 @@ void ScrollSubMenuCharacter(char direction)
     short selected;
     short slot;
 
-    if (g_status.selected_character < 0 || g_status.selected_character >= 8) {
+    if (CurrentGame().status.selected_character < 0 ||
+        CurrentGame().status.selected_character >= 8) {
         throw std::logic_error("ScrollSubMenuCharacter: selected character is not a party slot");
     }
-    current = static_cast<short>(g_status.selected_character);
+    current = static_cast<short>(CurrentGame().status.selected_character);
     selected = current;
     switch (direction) {
     case 1:
@@ -1012,7 +1016,7 @@ void ScrollSubMenuCharacter(char direction)
 done:
     SelectPartyCharacter(selected);
     RequestRedraw(1 << current);
-    RequestRedraw(1 << g_status.selected_character);
+    RequestRedraw(1 << CurrentGame().status.selected_character);
     RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
 }
 
@@ -1118,7 +1122,8 @@ bool BuildSubMenuPanel(short notification)
     }
     std::vector<std::pair<int, W8SubMenuEntryState>> entries;
     for (int index = 0; index < count; ++index) {
-        const auto state = GetSubMenuEntryState(menu, index, g_status.selected_character);
+        const auto state =
+            GetSubMenuEntryState(menu, index, CurrentGame().status.selected_character);
         if (state != W8_SUBMENU_ENTRY_UNAVAILABLE) {
             entries.emplace_back(index, state);
         }
@@ -1155,12 +1160,16 @@ bool BuildSubMenuPanel(short notification)
         int icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
             message +=
-                g_spell_records[g_status.party.rows[g_status.selected_character].spell.detail]
-                    .realm *
+                g_spell_records
+                    [CurrentGame().party.rows[CurrentGame().status.selected_character].spell.detail]
+                        .realm *
                 7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
             const int base = GetAttackMenuWeaponOffset(
-                g_status.party.characters[g_status.selected_character].Hand[0].weapon_skill);
+                CurrentGame()
+                    .party.characters[CurrentGame().status.selected_character]
+                    .Hand[0]
+                    .weapon_skill);
             message += base * 7;
         }
         switch (state) {
@@ -1203,11 +1212,11 @@ bool BuildSubMenuPanel(short notification)
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->SetTooltip([] {
-                const int slot = g_status.selected_character;
+                const int slot = CurrentGame().status.selected_character;
                 if (!CanPartySlotUseRecordedItem(slot))
                     return std::string(g_localized_strings[0x5d]);
-                const auto& row = g_status.party.rows[slot];
-                const auto* item = g_status.party.itemAt(row.item_detail.item_use.item);
+                const auto& row = CurrentGame().party.rows[slot];
+                const auto* item = CurrentGame().party.itemAt(row.item_detail.item_use.item);
                 return fmt::format("{}: {}", g_localized_strings[0x5d],
                                    FormatItemDisplayName(item, false));
             });
@@ -1237,7 +1246,8 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
     unsigned char matches;
 
     matches = 0;
-    if (g_level_block->selection_kind == g_status.party.rows[party_slot].committed_action.kind &&
+    if (g_level_block->selection_kind ==
+            CurrentGame().party.rows[party_slot].committed_action.kind &&
         !g_level_block->selection_settled) {
         matches = 1;
     }
@@ -1253,7 +1263,7 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
     W8SubMenuEntryState state;
     W8Character* character;
 
-    character = &g_status.party.characters[party_slot];
+    character = &CurrentGame().party.characters[party_slot];
     state = W8_SUBMENU_ENTRY_UNAVAILABLE;
     MapSubMenuSelection(menu, item);
     switch (menu) {
@@ -1291,7 +1301,7 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
-            if (g_combat.active()) {
+            if (CurrentGame().combat.active()) {
                 state = CheckSubMenuActionUsable(party_slot);
             }
         } else if (item == 1) {

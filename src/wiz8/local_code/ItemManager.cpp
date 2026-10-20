@@ -31,6 +31,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
@@ -501,7 +502,7 @@ void ActivateItem(W8WorldItem* item)
     item->p3D->AttachMesh(GetWorld());
     GetWorld()->plsItems.push_back(std::move(entity));
     item->fActive = true;
-    ++gXStatus.item_manager_pending;
+    ++CurrentGame().item_manager_pending;
 
     sun = FindWorldLight("SUN");
     if (sun != 0) {
@@ -548,7 +549,7 @@ void DeactivateWorldItem(W8WorldItem* item)
                   [item](const auto& owner) { return owner.get() == item->p3D; });
     item->p3D = 0;
     item->fActive = false;
-    --gXStatus.item_manager_pending;
+    --CurrentGame().item_manager_pending;
 }
 
 /* The runtime id of the nearest active world item the cursor is hovering over
@@ -669,7 +670,7 @@ std::optional<glm::vec3> FindItemDropPosition()
 void DropHeldItem(int)
 {
     if (const auto position = FindItemDropPosition()) {
-        AddWorldItem(CreateWorldItem(&g_status.party.held.item, &*position,
+        AddWorldItem(CreateWorldItem(&CurrentGame().party.held.item, &*position,
                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     } else
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
@@ -930,7 +931,7 @@ std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::ve
 {
     auto result = std::make_unique<W8WorldItem>();
     *(&result->item) = W8ItemInstance{.iItemNo = -1};
-    result->runtime_id = g_status.next_world_item_id++;
+    result->runtime_id = CurrentGame().status.next_world_item_id++;
     result->position = *position;
     result->sector_id = -1;
     SettleWorldItem(result.get());

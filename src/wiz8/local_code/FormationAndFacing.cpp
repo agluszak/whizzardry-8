@@ -10,6 +10,7 @@
 #include "layouts/main_game_screen.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
@@ -56,11 +57,11 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
 
     InitializePartyFormation(&working);
     for (slot = 0; slot < 8; ++slot) {
-        const W8Character* character = &g_status.party.characters[slot];
+        const W8Character* character = &CurrentGame().party.characters[slot];
         signed char row;
         bool row_changed;
 
-        if (!g_status.party.rows[slot].fOccupied || character->hp_current <= 0 ||
+        if (!CurrentGame().party.rows[slot].fOccupied || character->hp_current <= 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
@@ -79,11 +80,11 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
         }
     }
     for (slot = 0; slot < 8; ++slot) {
-        const W8Character* character = &g_status.party.characters[slot];
+        const W8Character* character = &CurrentGame().party.characters[slot];
         W8PartyFormationPosition* live_position = &live->positions[slot];
         W8PartyFormationPosition* edited_position = &edited->positions[slot];
 
-        if (!g_status.party.rows[slot].fOccupied ||
+        if (!CurrentGame().party.rows[slot].fOccupied ||
             (character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT)) {
             continue;
         }
@@ -160,7 +161,7 @@ int GetQuadrantForPosition(glm::vec3 position)
     party = cameraLocation();
     /* The heading comes back in radians; the party facing is kept in degrees. */
     bearing = static_cast<int>(NormalizeAngle(GetHeadingAngle(&party, &position)) * 57.295776f);
-    bearing -= g_status.party_facing;
+    bearing -= CurrentGame().status.party_facing;
     if (bearing < 0) {
         bearing += W8_DEGREES_PER_TURN;
     }
@@ -189,7 +190,7 @@ const float g_facing_tolerance0 = 0.05f;
    be alive and in better shape than the party sweeps demand. */
 bool CanHoldFormationPlace(int party_slot)
 {
-    const W8Character* character = &g_status.party.characters[party_slot];
+    const W8Character* character = &CurrentGame().party.characters[party_slot];
 
     return character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT;
 }
@@ -197,10 +198,10 @@ bool CanHoldFormationPlace(int party_slot)
 /* Remember the formation combat started with. */
 void SaveCombatFormation(void)
 {
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
-    memcpy(&g_combat.state()->saved_formation, &g_status.party.formation,
+    memcpy(&CurrentGame().combat.state()->saved_formation, &CurrentGame().party.formation,
            sizeof(W8PartyFormationState));
 }
 
@@ -208,13 +209,13 @@ void SaveCombatFormation(void)
    whole block is what makes it one object rather than a set of tables. */
 void RestoreCombatFormation(void)
 {
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
 
-    if (memcmp(&g_combat.state()->saved_formation, &g_status.party.formation,
+    if (memcmp(&CurrentGame().combat.state()->saved_formation, &CurrentGame().party.formation,
                sizeof(W8PartyFormationState)) != 0) {
-        memcpy(&g_status.party.formation, &g_combat.state()->saved_formation,
+        memcpy(&CurrentGame().party.formation, &CurrentGame().combat.state()->saved_formation,
                sizeof(W8PartyFormationState));
         RefreshFormationBoard();
         RefreshRadarMap();
@@ -235,17 +236,17 @@ void SyncPartyFacingFromCamera(void)
 
     yaw = static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN;
     movement_stopped = IsLevelMovementStopped();
-    if ((!g_combat.active() || !g_combat_preserve_party_facing) && !movement_stopped) {
-        g_status.party_facing = static_cast<int>(yaw);
-        if (yaw != g_status.party_heading) {
-            g_status.party_heading = yaw;
+    if ((!CurrentGame().combat.active() || !g_combat_preserve_party_facing) && !movement_stopped) {
+        CurrentGame().status.party_facing = static_cast<int>(yaw);
+        if (yaw != CurrentGame().status.party_heading) {
+            CurrentGame().status.party_heading = yaw;
             UpdateFormationCompass();
             if (static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN != yaw) {
                 SetCameraYawDegrees(static_cast<float>(yaw));
             }
         }
-    } else if (yaw != g_status.party_heading) {
-        g_status.party_heading = yaw;
+    } else if (yaw != CurrentGame().status.party_heading) {
+        CurrentGame().status.party_heading = yaw;
         UpdateFormationCompass();
         if (static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN != yaw) {
             SetCameraYawDegrees(static_cast<float>(yaw));
@@ -259,10 +260,10 @@ unsigned int TurnPartyTo(unsigned int degrees)
 {
     unsigned int previous;
 
-    g_status.party_facing = degrees;
-    previous = g_status.party_heading;
-    if (degrees != g_status.party_heading) {
-        g_status.party_heading = degrees;
+    CurrentGame().status.party_facing = degrees;
+    previous = CurrentGame().status.party_heading;
+    if (degrees != CurrentGame().status.party_heading) {
+        CurrentGame().status.party_heading = degrees;
         UpdateFormationCompass();
         unsigned int camera_yaw = static_cast<unsigned int>(GetCameraYawDegrees());
         previous = camera_yaw / W8_DEGREES_PER_TURN;
@@ -277,10 +278,10 @@ unsigned int TurnPartyTo(unsigned int degrees)
    swinging it. */
 void TurnPartyToImmediate(unsigned int degrees, char snap)
 {
-    if (degrees == g_status.party_heading) {
+    if (degrees == CurrentGame().status.party_heading) {
         return;
     }
-    g_status.party_heading = degrees;
+    CurrentGame().status.party_heading = degrees;
     UpdateFormationCompass();
     if (static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN == degrees) {
         return;
@@ -300,12 +301,13 @@ void FaceCameraToSelection(int party_slot)
     unsigned int heading;
 
     if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_SELECTED_CHARACTER ||
-        g_status.selected_character != party_slot) {
+        CurrentGame().status.selected_character != party_slot) {
         return;
     }
-    heading = g_status.party_facing +
-              static_cast<unsigned char>(g_status.party.formation.positions[party_slot].facing) *
-                  W8_DEGREES_PER_QUADRANT;
+    heading =
+        CurrentGame().status.party_facing +
+        static_cast<unsigned char>(CurrentGame().party.formation.positions[party_slot].facing) *
+            W8_DEGREES_PER_QUADRANT;
     TurnPartyToImmediate(heading, g_settings.camera_rotation_style);
 }
 
@@ -315,8 +317,9 @@ void FacePositionAsDecided(int position, int target_position)
 {
     signed char facing = DecideFacingForPosition(position, target_position);
 
-    if (facing != W8_FACING_ANY && g_status.party.formation.positions[position].facing != facing) {
-        g_status.party.formation.positions[position].facing = facing;
+    if (facing != W8_FACING_ANY &&
+        CurrentGame().party.formation.positions[position].facing != facing) {
+        CurrentGame().party.formation.positions[position].facing = facing;
         RefreshFormationBoard();
     }
 }
@@ -330,7 +333,7 @@ bool PositionFacesAsDecided(int position, int target_position)
     if (facing == W8_FACING_ANY) {
         return true;
     }
-    return facing == g_status.party.formation.positions[position].facing;
+    return facing == CurrentGame().party.formation.positions[position].facing;
 }
 
 /* Whether a position is facing exactly away from where the rules want it -
@@ -343,7 +346,7 @@ bool PositionFacesOppositeToDecided(int target_position, int position)
     if (facing == W8_FACING_ANY) {
         return false;
     }
-    difference = facing - g_status.party.formation.positions[position].facing;
+    difference = facing - CurrentGame().party.formation.positions[position].facing;
     if (difference < 0) {
         difference = -difference;
     }
@@ -368,8 +371,8 @@ bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
    unseated or both match. */
 signed char DecideFacingForPosition(int position, int target_position)
 {
-    signed char source = g_status.party.formation.positions[position].bQuadrant;
-    signed char target = g_status.party.formation.positions[target_position].bQuadrant;
+    signed char source = CurrentGame().party.formation.positions[position].bQuadrant;
+    signed char target = CurrentGame().party.formation.positions[target_position].bQuadrant;
 
     if (source == -1) {
         Fail("bSourceQuadrant != -1");
@@ -478,10 +481,10 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
 {
     const auto old_row = formation->positions[slot].bQuadrant;
     formation->setPosition(slot, new_row, new_column, detach, update_facing);
-    if (g_status.game_started && !gXStatus.fNpcDialogueMode) {
+    if (GameStarted() && !gXStatus.fNpcDialogueMode) {
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
             g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR &&
-            formation == &g_status.party.formation) {
+            formation == &CurrentGame().party.formation) {
             RefreshFormationBoard();
             RefreshRadarMap();
         }
@@ -512,7 +515,7 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
     signed char seat;
     int index;
 
-    if (g_status.party.characters[slot].highest_condition >= W8_CONDITION_DEAD) {
+    if (CurrentGame().party.characters[slot].highest_condition >= W8_CONDITION_DEAD) {
         if (position->bQuadrant == -1) {
             return;
         }
@@ -528,7 +531,7 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
         seat = MakeRoomInFormationRow(formation, row);
         if (seat != -1) {
             SetFormationPosition(formation, slot, position->bOldQuadrant, seat,
-                                 formation == &g_status.party.formation, true, true);
+                                 formation == &CurrentGame().party.formation, true, true);
             position->bOldQuadrant = -1;
             return;
         }
@@ -659,7 +662,7 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
         Fail("FALSE");
         return true;
     }
-    return side == g_status.party.formation.positions[party_slot].facing;
+    return side == CurrentGame().party.formation.positions[party_slot].facing;
 }
 
 /* Turn the character's formation facing toward the side the monster is on. */
@@ -685,8 +688,8 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
         Fail("FALSE");
         return;
     }
-    if (g_status.party.formation.positions[party_slot].facing != side) {
-        g_status.party.formation.positions[party_slot].facing = side;
+    if (CurrentGame().party.formation.positions[party_slot].facing != side) {
+        CurrentGame().party.formation.positions[party_slot].facing = side;
         RefreshFormationBoard();
     }
 }
@@ -716,7 +719,7 @@ int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
         Fail("FALSE");
         return 0;
     }
-    difference = side - g_status.party.formation.positions[party_slot].facing;
+    difference = side - CurrentGame().party.formation.positions[party_slot].facing;
     if (difference < 0) {
         difference = -difference;
     }
@@ -776,8 +779,8 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
             return;
         }
     }
-    if (g_status.party.formation.positions[party_slot].facing != facing) {
-        g_status.party.formation.positions[party_slot].facing = facing;
+    if (CurrentGame().party.formation.positions[party_slot].facing != facing) {
+        CurrentGame().party.formation.positions[party_slot].facing = facing;
         RefreshFormationBoard();
     }
 }

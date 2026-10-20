@@ -21,6 +21,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -169,7 +170,7 @@ void PleaseWaitScreen::frame()
         if (!LoadGame(name)) {
             Fail("fVerify");
         }
-        if (!LoadLevel(g_status.resume_level, -1, true)) {
+        if (!LoadLevel(CurrentGame().status.resume_level, -1, true)) {
             Fail("fVerify");
         }
 
@@ -207,7 +208,7 @@ void PleaseWaitScreen::frame()
         Fail("GetWorld()");
     }
     ReturnToPreviousScreen();
-    if (mode == W8_PLEASE_WAIT_LOAD_GAME && g_status.intro_shown) {
+    if (mode == W8_PLEASE_WAIT_LOAD_GAME && CurrentGame().status.intro_shown) {
         RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_VIRGIN});
         return;
     }

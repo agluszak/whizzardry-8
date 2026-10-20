@@ -22,6 +22,7 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_rules.h"
@@ -108,11 +109,11 @@ W8EquipSlot GetItemDefaultEquipSlot(int item_id)
     case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
         return W8_EQUIP_SLOT_PRIMARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
-        return g_status.game_started ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON
-                                     : W8_EQUIP_SLOT_PRIMARY_WEAPON;
+        return GameStarted() ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON
+                             : W8_EQUIP_SLOT_PRIMARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_AMMUNITION:
-        return g_status.game_started ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
-                                     : W8_EQUIP_SLOT_SECONDARY_WEAPON;
+        return GameStarted() ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
+                             : W8_EQUIP_SLOT_SECONDARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
         return W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
     case W8_ITEM_EQUIP_CLASS_MISC:
@@ -594,8 +595,8 @@ bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
         return true;
     }
     return CanHoldItemsTogether(
-        g_status.party.held.item.iItemNo,
-        g_status.party.characters[party_slot].EquippedItem[paired_slot].iItemNo);
+        CurrentGame().party.held.item.iItemNo,
+        CurrentGame().party.characters[party_slot].EquippedItem[paired_slot].iItemNo);
 }
 
 /* The sex mask value that admits either sex rather than the one bit a
@@ -686,7 +687,7 @@ bool AnyPartyMemberCanUseItem(int item_id)
 
     for (slot = 0; slot < 8; ++slot) {
         if (CanPartySlotParticipate(slot)) {
-            if (CanCharacterUseItem(&g_status.party.characters[slot], item_id)) {
+            if (CanCharacterUseItem(&CurrentGame().party.characters[slot], item_id)) {
                 return true;
             }
         }
@@ -1009,13 +1010,13 @@ bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int)
         return false;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.party.rows[party_slot].fOccupied &&
-            g_status.party.characters[party_slot].hp_current != 0 &&
-            g_status.party.characters[party_slot].highest_condition < W8_CONDITION_INSANE) {
+        if (CurrentGame().party.rows[party_slot].fOccupied &&
+            CurrentGame().party.characters[party_slot].hp_current != 0 &&
+            CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_INSANE) {
             if (!result) {
-                result = TryIdentifyItemFor(&g_status.party.characters[party_slot], item);
+                result = TryIdentifyItemFor(&CurrentGame().party.characters[party_slot], item);
             } else {
-                TryIdentifyItemFor(&g_status.party.characters[party_slot], item);
+                TryIdentifyItemFor(&CurrentGame().party.characters[party_slot], item);
             }
         }
     }
@@ -1079,7 +1080,7 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
    and all revealed answers two. */
 int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned int percent)
 {
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     unsigned int score = strength * 3;
     int revealed = 0;
     int still_hidden = 0;
@@ -1186,13 +1187,14 @@ void BindEveryPartyItem(void)
 {
     unsigned int party_slot;
 
-    if (g_combat.active() && !g_combat.state()->round_active && !gXStatus.fPartyMovementMode) {
+    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active &&
+        !CurrentGame().party_movement_mode) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    g_localized_strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (!g_status.party.rows[party_slot].item_action_pending) {
+        if (!CurrentGame().party.rows[party_slot].item_action_pending) {
             BindCharacterItems(party_slot, false);
         }
     }
@@ -1236,7 +1238,7 @@ void SetHandType(W8Character* character, W8EquipSlot slot)
 unsigned int GetEquipmentBindingDifficulty(int character_index)
 {
     unsigned char max_difficulty = 0;
-    W8ItemInstance* slot = g_status.party.characters[character_index].EquippedItem;
+    W8ItemInstance* slot = CurrentGame().party.characters[character_index].EquippedItem;
 
     for (int remaining = 12; remaining != 0; --remaining) {
         int item_id = slot->iItemNo;
@@ -1280,8 +1282,8 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
         if (GetFact(W8_FACT_QUEST_GET_CM)) {
             SetFact(W8_FACT_QUEST_GET_CM, 0, false);
         }
-        g_status.fact_b8_pending = true;
-        g_status.fact_b8_clock = g_status.world_clock;
+        CurrentGame().status.fact_b8_pending = true;
+        CurrentGame().status.fact_b8_clock = CurrentGame().status.world_clock;
         break;
     case 0x264:
         if (!GetFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
@@ -1318,7 +1320,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         if (party_slot == -1) {
             return;
         }
-        character = &g_status.party.characters[party_slot];
+        character = &CurrentGame().party.characters[party_slot];
     }
     if ((item->effect_used & 1) != 0) {
         return;
@@ -1350,7 +1352,8 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&g_status.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
+        QueueCharacterEvent(&CurrentGame().party.characters[npc_slot], 65, 0,
+                            kCharacterEventFullVolume);
         return;
     }
     default:
@@ -1386,12 +1389,12 @@ bool IsUsableItemClass(W8ItemInstance* item)
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        return !g_combat.active() && !gXStatus.fCampMode && !LockInteractionSuspended() &&
-               !TrapInteractionSuspended();
+        return !CurrentGame().combat.active() && !gXStatus.fCampMode &&
+               !LockInteractionSuspended() && !TrapInteractionSuspended();
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
         record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT) {
@@ -1409,11 +1412,11 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
                           std::function<void(bool)> callback)
 {
     const W8ItemDatabaseRecord* record = &g_item_records[item->iItemNo];
-    W8Character* character = &g_status.party.characters[character_index];
+    W8Character* character = &CurrentGame().party.characters[character_index];
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        if (g_combat.active() || gXStatus.fCampMode || LockInteractionSuspended() ||
+        if (CurrentGame().combat.active() || gXStatus.fCampMode || LockInteractionSuspended() ||
             TrapInteractionSuspended()) {
             ShowNoticeLine(g_localized_strings[0x7a6], callback, true, false);
             return true;
@@ -1470,8 +1473,8 @@ bool CharacterHasServiceItem(W8Character* character)
             return true;
         }
     }
-    for (index = 0; index < g_status.party.item_count; ++index) {
-        if (IsActivatableServiceItem(character, &g_status.party.item_pool[index])) {
+    for (index = 0; index < CurrentGame().party.item_count; ++index) {
+        if (IsActivatableServiceItem(character, &CurrentGame().party.item_pool[index])) {
             return true;
         }
     }
@@ -1526,11 +1529,11 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
    opens its second selection step instead of executing immediately. */
 void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
-    auto* item = g_status.party.itemAt(action.detail_block.item_use.item);
+    auto* item = CurrentGame().party.itemAt(action.detail_block.item_use.item);
     auto detail = action.detail_block;
     detail.item_use.kind = -1;
-    auto& row = g_status.party.rows[party_slot];
-    if (g_combat.active())
+    auto& row = CurrentGame().party.rows[party_slot];
+    if (CurrentGame().combat.active())
         row.committed_action.target = action.target;
     else
         row.target_out_of_combat = action.target;
@@ -1547,10 +1550,10 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
    an item use that is about to commit. */
 void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatSlot* target)
 {
-    W8PartySlotRow* row = &g_status.party.rows[party_slot];
+    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
     row->item_detail.item_use.kind = -1;
-    row->item_detail.item_use.item = g_status.party.locateItem(item);
+    row->item_detail.item_use.item = CurrentGame().party.locateItem(item);
     row->item_target = *target;
     row->item_id = item->iItemNo;
 }
@@ -1629,9 +1632,9 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     {
         int power_out = static_cast<int>(power);
-        effect = CastSpellFromSource(spell_id, &target,
-                                     &g_status.party.rows[party_slot].target_out_of_combat, power,
-                                     0, difficulty, false, &power_out, difficulty_kind, 0, 0);
+        effect = CastSpellFromSource(
+            spell_id, &target, &CurrentGame().party.rows[party_slot].target_out_of_combat, power, 0,
+            difficulty, false, &power_out, difficulty_kind, 0, 0);
         power = static_cast<unsigned int>(power_out);
     }
 
@@ -1653,7 +1656,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (skill != W8_SKILL_NONE) {
         if (SpellAffectedTarget(character, spell_id,
-                                &g_status.party.rows[party_slot].target_out_of_combat, power)) {
+                                &CurrentGame().party.rows[party_slot].target_out_of_combat,
+                                power)) {
             PracticeCharacterSkill(character, skill,
                                    g_spell_records[spell_id].spell_level + (power >> 1), false);
         }

@@ -44,6 +44,7 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
@@ -661,13 +662,13 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
     stats.CreateControls();
     character_info = std::make_unique<W8CampCharacterInfo>(*this);
     ActivateCampPage();
-    if (g_combat.active() &&
-        g_combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
-        if (g_combat.state()->equip_pending == 1) {
+    if (CurrentGame().combat.active() &&
+        CurrentGame().combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (CurrentGame().combat.state()->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
-                if (g_status.party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
-                    g_status.party.rows[slot].pending_action == W8_ACTION_EQUIP) {
-                    text = fmt::format("{} {}", g_status.party.characters[slot].name,
+                if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
+                    CurrentGame().party.rows[slot].pending_action == W8_ACTION_EQUIP) {
+                    text = fmt::format("{} {}", CurrentGame().party.characters[slot].name,
                                        g_localized_strings[0x919]);
                     goto show_equip_message;
                 }
@@ -675,20 +676,20 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
         } else {
             unsigned char count = 0;
             for (int slot = 0; slot < 8; ++slot) {
-                if (g_status.party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
-                    g_status.party.rows[slot].pending_action == W8_ACTION_EQUIP) {
+                if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
+                    CurrentGame().party.rows[slot].pending_action == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
-                        text = fmt::format("{}", g_status.party.characters[slot].name);
+                        text = fmt::format("{}", CurrentGame().party.characters[slot].name);
                     } else {
-                        if (count == g_combat.state()->equip_pending) {
+                        if (count == CurrentGame().combat.state()->equip_pending) {
                             text += " ";
                             text += fmt::sprintf(g_localized_strings[0x918],
-                                                 g_status.party.characters[slot].name);
+                                                 CurrentGame().party.characters[slot].name);
                             goto show_equip_message;
                         }
                         text += ", ";
-                        text += g_status.party.characters[slot].name;
+                        text += CurrentGame().party.characters[slot].name;
                     }
                 }
             }
@@ -700,7 +701,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
     redraw_flags |= W8_CAMP_REDRAW_ALL;
     ResetTransientRenderScenes();
     SetPrimarySurfaceTextureHint2Enabled(false);
-    if (!g_status.game_started) {
+    if (!GameStarted()) {
         StartMusicResource("MainMenu.MPL", 1, 1);
     }
     return 1;
@@ -726,7 +727,7 @@ void W8CampScreenState::Frame()
         }
     }
     if (gXStatus.level_up_notice && SuspendedScreen() != W8_SCREEN_CHARACTER &&
-        !g_combat.active() && !IsScreenTransitionPending()) {
+        !CurrentGame().combat.active() && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
     if (!dialog)
@@ -739,7 +740,7 @@ void W8CampScreenState::Frame()
                         items.SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                     }
                 } else if (input.key == SDLK_P) {
-                    if (g_status.game_started) {
+                    if (GameStarted()) {
                         SortPartyItemPool();
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
@@ -753,7 +754,7 @@ void W8CampScreenState::Frame()
     if (page == W8_CAMP_PAGE_SPELLS) spells.Tick();
     if (page == W8_CAMP_PAGE_ITEMS) items.Tick();
     if (header_mode == W8_CAMP_HEADER_SUMMARY) {
-        gXStatus.character_event_queue->ProcessDeferredCharacterEvents();
+        CurrentGame().speech.ProcessDeferredCharacterEvents();
         UpdateCharacterEventState();
     }
     DrawCampScreen();
@@ -786,7 +787,8 @@ void W8CampScreenState::DismissSelectedPartyCharacter()
 void W8CampScreenState::DrawCampScreen(void)
 {
     items.BeginRedraw();
-    if (redraw_flags != 0 || items.RedrawPending() || (g_status.party.held.item.iItemNo != -1)) {
+    if (redraw_flags != 0 || items.RedrawPending() ||
+        (CurrentGame().party.held.item.iItemNo != -1)) {
         if (redraw_flags == W8_CAMP_REDRAW_ALL) {
             items.InvalidateAll();
             if (dialog != 0) {
@@ -825,17 +827,17 @@ void W8CampScreenState::DrawCampScreen(void)
         spells.DrawControls();
     }
     items.RefreshCampItemActions(false);
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         if (ReviewedPartySlot() != -1) {
-            if (g_status.game_started ||
+            if (GameStarted() ||
                 (PreviousScreen() == W8_SCREEN_PARTY_SELECTION && PartySelectionInReviewMode())) {
                 UpdateRcsLevelUpPanel();
             }
-            if (g_combat.active()) {
+            if (CurrentGame().combat.active()) {
                 goto done;
             }
         }
-        if (g_status.game_started) {
+        if (GameStarted()) {
             UpdateRcsDismissPanel();
         }
     }
@@ -849,7 +851,8 @@ done:
 
 void W8CampScreenState::SyncReviewCharInputRegion(void)
 {
-    if (ReviewedPartySlot() != -1 && g_status.party.rows[ReviewedPartySlot()].npc_index != -1) {
+    if (ReviewedPartySlot() != -1 &&
+        CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
@@ -881,7 +884,7 @@ void W8CampScreenState::ActivateCampPage(void)
         for (index = 0; index < 8; ++index) {
             main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
-    } else if (g_status.party.rows[ReviewedPartySlot()].npc_index == -1) {
+    } else if (CurrentGame().party.rows[ReviewedPartySlot()].npc_index == -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
@@ -891,7 +894,7 @@ void W8CampScreenState::ActivateCampPage(void)
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
         items.Activate();
-        if (g_status.game_started) return;
+        if (GameStarted()) return;
         break;
     case W8_CAMP_PAGE_STATS:
         stats.Activate();
@@ -917,7 +920,7 @@ void W8CampScreenState::DeactivateCampPage(void)
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
         items.Deactivate();
-        if (g_status.game_started) return;
+        if (GameStarted()) return;
         break;
     case W8_CAMP_PAGE_STATS:
         stats.Deactivate();
@@ -1003,22 +1006,22 @@ bool IsCampActionAllowed(int party_slot)
     W8PartySlotRow* row;
     W8Character* character;
 
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         return true;
     }
-    character = &g_status.party.characters[party_slot];
+    character = &CurrentGame().party.characters[party_slot];
     if (character->uiCondition[W8_CONDITION_DEAD] != 0 ||
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] != 0 ||
         character->uiCondition[W8_CONDITION_PARALYZED] != 0 ||
         character->uiCondition[W8_CONDITION_ASLEEP] != 0) {
-        if (g_combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (CurrentGame().combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
             return true;
         }
         message = g_localized_strings[0x90a];
     } else {
-        row = &g_status.party.rows[party_slot];
-        if (g_combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
-            if (g_combat.state()->characters[party_slot].dead) {
+        row = &CurrentGame().party.rows[party_slot];
+        if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
+            if (CurrentGame().combat.state()->characters[party_slot].dead) {
                 if (row->pending_action == W8_ACTION_EQUIP) {
                     message = g_localized_strings[0x903];
                 } else if (row->committed_action.kind == W8_ACTION_EQUIP) {
@@ -1066,7 +1069,7 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
     W8PartySlotRow* row;
 
     StartBreathCycle(party_slot, false);
-    row = &g_status.party.rows[party_slot];
+    row = &CurrentGame().party.rows[party_slot];
     row->pending_action = W8_ACTION_CAST_SPELL;
     row->attack_mode[0] = spell_id;
     row->attack_mode[1] = -1;
@@ -1080,7 +1083,8 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         return result;
     }
-    if (spell_id == W8_SPELL_IDENTIFY_ITEM && g_status.party.itemAt(target->item)->identified) {
+    if (spell_id == W8_SPELL_IDENTIFY_ITEM &&
+        CurrentGame().party.itemAt(target->item)->identified) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Learned.wav");
         return 1;
     }
@@ -1101,23 +1105,23 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     W8ItemInstance* used;
 
     StartBreathCycle(party_slot, false);
-    row = &g_status.party.rows[party_slot];
+    row = &CurrentGame().party.rows[party_slot];
     row->pending_action = W8_ACTION_USE_ITEM;
     row->attack_mode[0] = -1;
     row->attack_mode[1] = -1;
     row->pending_action_detail.item_use.kind = -1;
-    row->pending_action_detail.item_use.item = g_status.party.locateItem(item);
+    row->pending_action_detail.item_use.item = CurrentGame().party.locateItem(item);
     row->target_out_of_combat = *target;
     const auto spell = g_item_records[item->iItemNo].spell_id;
     StagePartySlotItemUse(party_slot, item, target);
-    const auto use = UseItem(party_slot, g_status.party.locateItem(item));
+    const auto use = UseItem(party_slot, CurrentGame().party.locateItem(item));
     result = use.effect;
     FatigueCharacter(
         party_slot,
         use.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)), true,
         0);
     if (result == 1) {
-        used = g_status.party.itemAt(target->item);
+        used = CurrentGame().party.itemAt(target->item);
         if (spell == W8_SPELL_IDENTIFY_ITEM && used && used->iItemNo != -1 && used->identified) {
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Learned.wav");
         } else {
@@ -1135,7 +1139,7 @@ void BeginEndgameSequence(void)
     int fade_code = 0x5dc;
     bool endgame_variant = false;
 
-    g_status.endgame_started = true;
+    CurrentGame().status.endgame_started = true;
     UpdateHeldItemCursor();
     if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         fade_to_black = 1;
@@ -1238,10 +1242,10 @@ void BeginPartyDeath(void)
     if (g_level_block->review_transition_active) {
         return;
     }
-    if (g_status.iron_man && !gXStatus.party_moving) {
+    if (CurrentGame().status.iron_man && !CurrentGame().party_moving) {
         DeleteCurrentSaveFiles();
     }
-    if (gXStatus.fSurprisePossible) {
+    if (CurrentGame().surprise_possible) {
         RestoreSurpriseView();
     }
     UpdateHeldItemCursor();
@@ -1303,7 +1307,7 @@ void DrawPartyDeathScreen(void)
     std::string text;
 
     CatalogArtwork::Load(0x1df, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
-    if (gXStatus.party_moving) {
+    if (CurrentGame().party_moving) {
         text = g_localized_strings[0x777];
     } else {
         text = g_localized_strings[0x778];

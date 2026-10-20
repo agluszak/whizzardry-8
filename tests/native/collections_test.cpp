@@ -20,6 +20,7 @@
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_combat.h"
+#include "scoped_game.h"
 #include "scoped_records.h"
 #include "sight_state.h"
 #include "temporary_directory.h"
@@ -31,6 +32,7 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
@@ -187,6 +189,7 @@ TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
 
 static bool gameplayCollectionLifetime()
 {
+    const ScopedGame game;
     auto group = std::make_unique<W8MonsterGroup>();
     auto* group_ptr = group.get();
     auto& roster = CurrentLevelPopulation().monster_roster;
@@ -415,6 +418,7 @@ static bool visibilityRecordLifetime()
 
 TEST_CASE_METHOD(LevelWorldFixture, "collections_test")
 {
+    const ScopedGame game;
     REQUIRE(gameplayCollectionLifetime());
     REQUIRE(masterFunctionMutation());
     REQUIRE(groupMemberLookup());
@@ -464,6 +468,7 @@ TEST_CASE_METHOD(LevelWorldFixture, "Engagement propagates to the original leade
 
 TEST_CASE("Proposed weapons use the same hand rules without changing equipment", "[equipment]")
 {
+    const ScopedGame game;
     const ScopedRecords items(g_item_records, 3);
     auto& records = g_item_records;
     records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
@@ -495,11 +500,8 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
 
 TEST_CASE("Weapon-set replacement derives both hands from the completed arrangement", "[equipment]")
 {
-    auto& characters = g_status.party.characters;
-    struct RestoreBuffers {
-        W8Party previous = std::exchange(g_status.party, W8Party{});
-        ~RestoreBuffers() { g_status.party = std::move(previous); }
-    } restore;
+    const ScopedGame game;
+    auto& characters = CurrentGame().party.characters;
     const ScopedRecords items(g_item_records, 3);
     for (auto& record : g_item_records) {
         record.profession_mask = 0xffff;
@@ -514,7 +516,7 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
     g_item_records[0].unidentified_name_index = 0x83;
     g_item_records[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     g_item_records[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
-    g_status.party.rows[0].fOccupied = true;
+    CurrentGame().party.rows[0].fOccupied = true;
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
@@ -533,19 +535,15 @@ TEST_CASE_METHOD(LevelWorldFixture,
                  "A failed alternate-weapon search leaves equipment and binding state untouched",
                  "[equipment]")
 {
-    auto& characters = g_status.party.characters;
-    auto& rows = g_status.party.rows;
+    const ScopedGame game;
+    auto& characters = CurrentGame().party.characters;
+    auto& rows = CurrentGame().party.rows;
     const ScopedRecords items(g_item_records, 2);
     auto& records = g_item_records;
     struct RestoreState {
-        W8Party party = std::exchange(g_status.party, W8Party{});
         unsigned char autoswap = g_settings.autoswap_weapons;
         ScopedCombat combat;
-        ~RestoreState()
-        {
-            g_status.party = std::move(party);
-            g_settings.autoswap_weapons = autoswap;
-        }
+        ~RestoreState() { g_settings.autoswap_weapons = autoswap; }
     } restore;
     g_settings.autoswap_weapons = true;
     REQUIRE(CurrentLevelPopulation().monster_roster.live().empty());
@@ -572,12 +570,9 @@ TEST_CASE_METHOD(LevelWorldFixture,
 
 TEST_CASE("Target eligibility uses the supplied action and target without a screen", "[targeting]")
 {
-    auto& rows = g_status.party.rows;
-    auto& characters = g_status.party.characters;
-    struct RestoreBuffers {
-        W8Party previous = std::exchange(g_status.party, W8Party{});
-        ~RestoreBuffers() { g_status.party = std::move(previous); }
-    } restore;
+    const ScopedGame game;
+    auto& rows = CurrentGame().party.rows;
+    auto& characters = CurrentGame().party.characters;
     auto& row = rows[0];
     auto& character = characters[0];
     row.fOccupied = true;
@@ -597,16 +592,12 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
 
 TEST_CASE("Spell drafts cancel without changing committed or remembered choices", "[targeting]")
 {
-    auto& rows = g_status.party.rows;
-    auto& characters = g_status.party.characters;
+    const ScopedGame game;
+    auto& rows = CurrentGame().party.rows;
+    auto& characters = CurrentGame().party.characters;
     struct RestoreState {
-        W8Party party = std::exchange(g_status.party, W8Party{});
         std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
-        ~RestoreState()
-        {
-            gpSCSV = std::move(view);
-            g_status.party = std::move(party);
-        }
+        ~RestoreState() { gpSCSV = std::move(view); }
     } restore;
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
@@ -636,12 +627,9 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
 
 TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[trade]")
 {
-    auto& rows = g_status.party.rows;
-    auto& characters = g_status.party.characters;
-    struct RestoreBuffers {
-        W8Party previous = std::exchange(g_status.party, W8Party{});
-        ~RestoreBuffers() { g_status.party = std::move(previous); }
-    } restore;
+    const ScopedGame game;
+    auto& rows = CurrentGame().party.rows;
+    auto& characters = CurrentGame().party.characters;
     rows[0].fOccupied = true;
     auto& item = characters[0].backpack[3];
     item = {.iItemNo = 17, .stack_count = 4};
@@ -682,22 +670,18 @@ TEST_CASE("A picker constrains layout without restoring an obsolete preference",
 
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")
 {
-    struct Restore {
-        W8GlobalStatus previous = g_status;
-        ~Restore() { g_status = std::move(previous); }
-    } restore;
-    g_status.party = {};
+    const ScopedGame game;
     const ScopedRecords items(g_item_records, 2);
     g_item_records[0].flags = W8_ITEM_FLAG_NO_DISCARD;
     g_item_records[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
     g_item_records[0].maximum_quantity = 10;
     g_item_records[0].initial_quantity = {0, 1, 6};
     g_item_records[0].value = 10;
-    g_status.party.gold = 100;
-    g_status.party.item_count = 500;
-    for (auto& item : g_status.party.item_pool) item = {.iItemNo = 1};
+    CurrentGame().party.gold = 100;
+    CurrentGame().party.item_count = 500;
+    for (auto& item : CurrentGame().party.item_pool) item = {.iItemNo = 1};
 
-    g_status.party.held.item = {.iItemNo = 1};
+    CurrentGame().party.held.item = {.iItemNo = 1};
     W8NpcDatabaseRecord record{};
     record.sell_price_factor = 1.0f;
     W8NpcState npc{};
@@ -708,10 +692,10 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     REQUIRE(Random15() == 41); // Drawing a price must not roll an item quantity.
     const auto result = CompleteNpcItemPurchase(&npc, 0, 1, false);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
-    REQUIRE(g_status.party.gold == 100);
-    REQUIRE(g_status.party.item_count == 500);
-    REQUIRE(g_status.party.item_pool[0].iItemNo == 1);
-    REQUIRE(g_status.party.held.item.iItemNo == 1);
+    REQUIRE(CurrentGame().party.gold == 100);
+    REQUIRE(CurrentGame().party.item_count == 500);
+    REQUIRE(CurrentGame().party.item_pool[0].iItemNo == 1);
+    REQUIRE(CurrentGame().party.held.item.iItemNo == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
 }
@@ -719,6 +703,7 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
 TEST_CASE("Encounter retirement spends one budget unit per formation, without registration",
           "[groups]")
 {
+    const ScopedGame game;
     struct Restore {
         std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
         ScopedCombat combat{true};
@@ -806,6 +791,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
 TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detaching its source",
                  "[groups]")
 {
+    const ScopedGame game;
     W8MonsterGroup destination{}, source{};
     destination.group_id = 1;
     std::ranges::fill(destination.allied_group_ids, 99);
@@ -818,6 +804,7 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
 
 TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
 {
+    const ScopedGame game;
     struct Restore {
         std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
         ScopedCombat combat{true};
@@ -971,14 +958,11 @@ TEST_CASE("Inventory weight reports overload without scheduling a voice event",
 TEST_CASE("Party load follows supplied rules independently of the live combat and party",
           "[party][encumbrance][combat]")
 {
-    struct Restore {
-        W8GlobalStatus status = std::exchange(g_status, W8GlobalStatus{});
-        ScopedCombat combat{true};
-        ~Restore() { g_status = std::move(status); }
-    } restore;
+    const ScopedGame game;
+    const ScopedCombat combat{true};
     const ScopedRecords items(g_item_records, 1);
     g_item_records[0].weight = 18;
-    g_status.party.characters[0].party_weight_share = 123;
+    CurrentGame().party.characters[0].party_weight_share = 123;
     W8Party party;
     party.rows[0].fOccupied = true;
     auto& character = party.characters[0];
@@ -1002,12 +986,13 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     REQUIRE_FALSE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
-    REQUIRE(g_combat.active());
-    REQUIRE(g_status.party.characters[0].party_weight_share == 123);
+    REQUIRE(CurrentGame().combat.active());
+    REQUIRE(CurrentGame().party.characters[0].party_weight_share == 123);
 }
 
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")
 {
+    const ScopedGame game;
     W8Party party;
     party.formation.setPosition(0, 0, 0, false, true);
     party.formation.setPosition(1, 0, 1, false, true);
@@ -1024,28 +1009,26 @@ TEST_CASE("Formation reconciliation repairs only its owning party", "[party][for
 TEST_CASE("A detached hit-point calculation reports death without applying live conditions",
           "[party][stats][ownership]")
 {
+    const ScopedGame game;
     W8Character character{};
     character.iProfession = W8_PROFESSION_FIGHTER;
     character.original_profession = W8_PROFESSION_FIGHTER;
     character.uiHPMax = 1000;
     character.hp_current = 1;
     character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
-    const auto live_hp = g_status.party.characters[0].hp_current;
-    const auto live_condition = g_status.party.characters[0].highest_condition;
+    const auto live_hp = CurrentGame().party.characters[0].hp_current;
+    const auto live_condition = CurrentGame().party.characters[0].highest_condition;
     REQUIRE(RecalculateCharacterHitPoints(&character));
     REQUIRE(character.hp_current == 0);
-    REQUIRE(g_status.party.characters[0].hp_current == live_hp);
-    REQUIRE(g_status.party.characters[0].highest_condition == live_condition);
+    REQUIRE(CurrentGame().party.characters[0].hp_current == live_hp);
+    REQUIRE(CurrentGame().party.characters[0].highest_condition == live_condition);
     REQUIRE_FALSE(RecalculateCharacterHitPoints(&character));
 }
 
 TEST_CASE("Standalone character updates ignore saved membership flags", "[party][stats][ownership]")
 {
-    struct Restore {
-        W8Party previous = std::exchange(g_status.party, W8Party{});
-        ~Restore() { g_status.party = std::move(previous); }
-    } restore;
-    g_status.party.characters[0].party_weight_share = 99;
+    const ScopedGame game;
+    CurrentGame().party.characters[0].party_weight_share = 99;
     W8Character foreign{};
     foreign.iProfession = W8_PROFESSION_FIGHTER;
     foreign.iRace = W8_RACE_HUMAN;
@@ -1055,7 +1038,7 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     for (auto& item : foreign.EquippedItem) item.iItemNo = -1;
     for (auto& item : foreign.backpack) item.iItemNo = -1;
     foreign.party_weight_share = 12;
-    g_status.party.modifiers.damage_bonus = 41;
+    CurrentGame().party.modifiers.damage_bonus = 41;
     foreign.equipment_bonus.damage_bonus = 2;
     RebuildCharacterModifierBlock(&foreign, nullptr);
     REQUIRE(foreign.bonus.damage_bonus == 2);
@@ -1066,10 +1049,10 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     const auto result = UpdateStandaloneCharacterStats(foreign, {});
     REQUIRE(result.valid);
     REQUIRE(foreign.party_weight_share == 0);
-    REQUIRE(g_status.party.characters[0].party_weight_share == 99);
+    REQUIRE(CurrentGame().party.characters[0].party_weight_share == 99);
     // Character creation uses a party storage slot before that row is occupied.
-    g_status.party.characters[0] = foreign;
-    auto& draft = g_status.party.characters[0];
+    CurrentGame().party.characters[0] = foreign;
+    auto& draft = CurrentGame().party.characters[0];
     draft.carrying_capacity = 0;
     draft.party_weight_share = 99;
     RecalculateCharacterDerivedStats(draft);
@@ -1105,19 +1088,15 @@ TEST_CASE("Weapon swings see the damage bonus left by the previous calculation",
 namespace {
 // The active party as an inventory command sees it outside a running game.
 struct ScopedActiveParty {
-    W8GlobalStatus status = std::exchange(g_status, W8GlobalStatus{});
+    ScopedGame game;
     int cursor = std::exchange(gXStatus.iCurrentCursor, W8_CURSOR_NONE);
-    ~ScopedActiveParty()
-    {
-        g_status = std::move(status);
-        gXStatus.iCurrentCursor = cursor;
-    }
+    ~ScopedActiveParty() { gXStatus.iCurrentCursor = cursor; }
 };
 
 W8Character& PrepareMember(unsigned int slot)
 {
-    g_status.party.rows[slot].fOccupied = true;
-    auto& character = g_status.party.characters[slot];
+    CurrentGame().party.rows[slot].fOccupied = true;
+    auto& character = CurrentGame().party.characters[slot];
     character.iProfession = W8_PROFESSION_FIGHTER;
     character.original_profession = W8_PROFESSION_FIGHTER;
     character.iRace = W8_RACE_HUMAN;
@@ -1138,7 +1117,7 @@ TEST_CASE("A split stack travels through the hand and merges back", "[party][inv
     record.maximum_quantity = 100;
     record.weight = 10;
     auto& actor = PrepareMember(0);
-    auto& party = g_status.party;
+    auto& party = CurrentGame().party;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
 
     REQUIRE(SplitItemStack({W8ItemStorage::Backpack, 0, 0}, 3, 0));
@@ -1165,7 +1144,7 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
     const ScopedRecords items(g_item_records, 1);
     g_item_records[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
     g_item_records[0].maximum_quantity = 100;
-    auto& party = g_status.party;
+    auto& party = CurrentGame().party;
     party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
     for (auto& item : party.characters[0].backpack)
         item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
@@ -1210,7 +1189,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
     REQUIRE(character.attributes[W8_ATTRIBUTE_STRENGTH].effective == 50);
 
     // With no storage left, an item that may not be discarded falls into the hand.
-    auto& party = g_status.party;
+    auto& party = CurrentGame().party;
     g_item_records[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};

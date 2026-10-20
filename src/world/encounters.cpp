@@ -29,6 +29,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
@@ -151,7 +152,8 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableR
     float party_level;
 
     std::vector<const W8EncounterEntry*> candidates;
-    night = !(g_status.game_time_ms > 18000000 && g_status.game_time_ms <= 79200000);
+    night = !(CurrentGame().status.game_time_ms > 18000000 &&
+              CurrentGame().status.game_time_ms <= 79200000);
 
     rarity_roll = Random(100);
     if (rarity_roll <= 3) {
@@ -375,7 +377,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (GetWorld()->encounters.save_flag != 0 || gXStatus.world_update_blocked ||
-        g_combat.active() || gXStatus.fNpcDialogueMode || !generation_enabled) {
+        CurrentGame().combat.active() || gXStatus.fNpcDialogueMode || !generation_enabled) {
         return false;
     }
 
@@ -383,7 +385,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     glm::vec3 delta = spawn_position - camera;
     distance = glm::length(delta);
 
-    if (!force && !g_status.world_suspended) {
+    if (!force && !CurrentGame().status.world_suspended) {
         if (distance > 200000.0f || distance < 35000.0f) {
             return false;
         }
@@ -448,7 +450,8 @@ void UpdateRandomEncounterBudget(bool reset_budget)
     int elapsed;
 
     if (!reset_budget) {
-        elapsed = g_status.world_clock - g_status.level_progress[GetLoadedLevelID()].sight_clock;
+        elapsed = CurrentGame().status.world_clock -
+                  CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock;
         GetWorld()->encounters.random_budget +=
             elapsed / g_level_records[GetLoadedLevelID()].encounter_budget_period;
     } else {
@@ -522,13 +525,15 @@ void CullExpiredEncounters(void)
     std::vector<int> expired;
     for (auto* group : CurrentLevelPopulation().activeEncounterLeaders()) {
 
-        if (span < (static_cast<unsigned int>(g_status.world_clock - group->spawn_time))) {
+        if (span <
+            (static_cast<unsigned int>(CurrentGame().status.world_clock - group->spawn_time))) {
             Monster* monster = GetMonsterByLocationID(group->leader_location_id);
 
             position = monster ? monster->nav.GetPosition() : group->centre;
             glm::vec3 delta = position - party;
 
-            if (g_encounter_culling_distance < glm::length(delta) || g_status.world_suspended) {
+            if (g_encounter_culling_distance < glm::length(delta) ||
+                CurrentGame().status.world_suspended) {
                 expired.push_back(group->group_id);
             }
         }
@@ -653,7 +658,7 @@ void RunMonsterGenerators(void)
    Retirement and final leader removal own this event, exactly once. */
 void SpendRandomEncounterBudget()
 {
-    if (!g_combat.active()) return;
+    if (!CurrentGame().combat.active()) return;
     --GetWorld()->encounters.random_budget;
     ClampEncounterBudget(*GetWorld());
 }

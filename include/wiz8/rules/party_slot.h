@@ -31,7 +31,7 @@ struct W8PartySlotRow {
     /* Historical offset 0x0d1: context-five breath target. */
     W8CombatSlot breath_target;
     /* Historical offset 0x0f1: the slot's place in the marching order, the index of its entry
-       in g_status.party.order_slots. */
+       in W8Party::order_slots. */
     int party_order_index;
     /* Historical offset 0x0f5: a camp-screen item action is pending on the slot; blocks
        weapon autoswap until resolved. */

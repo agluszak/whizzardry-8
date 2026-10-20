@@ -23,6 +23,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
@@ -340,7 +341,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 
     RavenQuestState quest_state;
 
-    if (!(g_status.party.held.item.iItemNo != -1)) {
+    if (!(CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
     if (GetItemInHand() != 0x2ea) {
@@ -555,7 +556,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
 {
     ParticleSystem* particle;
 
-    if ((g_status.party.held.item.iItemNo != -1)) {
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
     ReplaceHeldItem(MakeItem(0x291, false, false, false));
@@ -579,7 +580,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
 bool MartensBluff2BlueFlowers(Trigger* pTrigger)
 {
     if (!g_running_trigger_from_script) {
-        if ((g_status.party.held.item.iItemNo != -1)) {
+        if ((CurrentGame().party.held.item.iItemNo != -1)) {
             return false;
         }
         ReplaceHeldItem(MakeItem(0x2eb, false, false, false));
@@ -649,10 +650,10 @@ void MartensBluff2IdolGasVictim(void)
 
     lowest = 10;
     for (slot = 0; slot < 8; slot++) {
-        if (!g_status.party.rows[slot].fOccupied || slot < 2) {
+        if (!CurrentGame().party.rows[slot].fOccupied || slot < 2) {
             severities[slot] = 10;
         } else {
-            switch (g_status.party.characters[slot].iProfession) {
+            switch (CurrentGame().party.characters[slot].iProfession) {
             case W8_PROFESSION_FIGHTER:
                 severities[slot] = 2;
                 break;
@@ -683,8 +684,8 @@ void MartensBluff2IdolGasVictim(void)
         }
         if (count == 0) {
             slot = 0;
-            while (!g_status.party.rows[slot].fOccupied ||
-                   g_status.party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
+            while (!CurrentGame().party.rows[slot].fOccupied ||
+                   CurrentGame().party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
                 slot++;
                 if (slot > 7) {
                     return;
@@ -701,7 +702,7 @@ void MartensBluff2IdolGasVictim(void)
                 }
             }
         }
-        g_status.party_slot = slot;
+        CurrentGame().status.party_slot = slot;
         SetCharacterCondition(slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE, 0, 0, 1);
         SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 1, false);
     }

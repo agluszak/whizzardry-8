@@ -3,6 +3,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -31,24 +32,24 @@
 void RebuildPartyEffectBlock(void)
 {
     W8GameplayModifierBlock modifiers{};
-    ApplyPartyEffectSlots(g_status.effect_slots, &modifiers);
-    if (g_combat.active()) {
+    ApplyPartyEffectSlots(CurrentGame().status.effect_slots, &modifiers);
+    if (CurrentGame().combat.active()) {
         unsigned char value = modifiers.armor_matchup;
 
-        for (auto& effect_slot : g_combat.state()->effect_slots) {
+        for (auto& effect_slot : CurrentGame().combat.state()->effect_slots) {
             W8EffectSlot* slot = &effect_slot;
             if (slot->active && slot->effect_id == 0x31) {
                 value -= slot->amount;
                 modifiers.armor_matchup = value;
             }
         }
-        ApplyCombatEffectSlots(g_combat.state()->effect_slots0, &modifiers);
+        ApplyCombatEffectSlots(CurrentGame().combat.state()->effect_slots0, &modifiers);
     }
     int active = 0;
     unsigned int slot_byte = 0;
     while (slot_byte <= 0x82f) {
-        W8Character* character = &g_status.party.characters[active];
-        if (g_status.party.rows[active].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &CurrentGame().party.characters[active];
+        if (CurrentGame().party.rows[active].fOccupied && character->hp_current != 0 &&
             character->highest_condition == W8_CONDITION_NONE &&
             CharacterHasTrait(character, W8_TRAIT_CAMP_RECOVERY_BONUS)) {
             break;
@@ -277,7 +278,7 @@ void RebuildCharacterModifierBlock(W8Character* character,
    funnels through it. */
 void RebuildConditionsAndDerivedStats(int party_slot)
 {
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
 
     memset(&character->condition_modifiers, 0, sizeof(W8GameplayModifierBlock));
     ApplyConditionModifiers(character, character->uiCondition, character->condition_argument,
@@ -285,7 +286,7 @@ void RebuildConditionsAndDerivedStats(int party_slot)
     ApplyEnchantmentModifiers(character->enchantments, &character->condition_modifiers);
     ApplyBoundNpcPenalty(character, &character->condition_modifiers);
     RebuildCharacterModifierBlock(character,
-                                  character->fInParty ? &g_status.party.modifiers : nullptr);
+                                  character->fInParty ? &CurrentGame().party.modifiers : nullptr);
     RecalculateCharacterDerivedStats(*character);
 }
 

@@ -4,6 +4,7 @@
 #include "layouts/main_game_screen.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -119,10 +120,10 @@ void UpdateSubMenuButton(int index)
     case 5:
     case 6:
     case 8:
-        MainGame()->hud_buttons.submenu[index].SetVisible(g_combat.active());
+        MainGame()->hud_buttons.submenu[index].SetVisible(CurrentGame().combat.active());
         break;
     case 7:
-        MainGame()->hud_buttons.submenu[index].SetVisible(!g_combat.active());
+        MainGame()->hud_buttons.submenu[index].SetVisible(!CurrentGame().combat.active());
         break;
     }
     if (gXStatus.fNpcDialogueMode &&
@@ -143,11 +144,11 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gXStatus.fSurprisePossible || gXStatus.fCampMode) {
+    if (CurrentGame().surprise_possible || gXStatus.fCampMode) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (g_combat.active() && !g_combat.state()->round_active) {
+    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -157,21 +158,21 @@ void UpdateSubMenuButton(int index)
     }
     switch (index) {
     case 0:
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             MainGame()->hud_buttons.submenu[0].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[0].SetEnabled(true);
         }
         break;
     case 1:
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             MainGame()->hud_buttons.submenu[1].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[1].SetEnabled(true);
         }
         break;
     case 2:
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             MainGame()->hud_buttons.submenu[2].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[2].SetEnabled(true);
@@ -181,7 +182,7 @@ void UpdateSubMenuButton(int index)
            IsPressed and two SetPressed calls for this case alone
            (0x00594E92/0x00594EA7 under search_mode, 0x00594EAE/0x00594EC3
            under its negation). */
-        if (g_status.search_mode) {
+        if (CurrentGame().status.search_mode) {
             if (MainGame()->hud_buttons.submenu[2].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[2].SetPressed(true);
             }
@@ -192,7 +193,7 @@ void UpdateSubMenuButton(int index)
         }
         break;
     case 3:
-        if (!IsPartySlotEligible(g_status.selected_character)) {
+        if (!IsPartySlotEligible(CurrentGame().status.selected_character)) {
             MainGame()->hud_buttons.submenu[3].SetEnabled(false);
             break;
         }
@@ -211,8 +212,9 @@ void UpdateSubMenuButton(int index)
         break;
     case 4:
         MainGame()->hud_buttons.submenu[4].SetEnabled(
-            IsPartySlotEligible(g_status.selected_character) &&
-            CharacterHasCastableSpell(&g_status.party.characters[g_status.selected_character]));
+            IsPartySlotEligible(CurrentGame().status.selected_character) &&
+            CharacterHasCastableSpell(
+                &CurrentGame().party.characters[CurrentGame().status.selected_character]));
         /* As case 2, with the spell picker open: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
            the retail's `? :` collapses into one at 0x00594F8C. */
@@ -228,20 +230,20 @@ void UpdateSubMenuButton(int index)
         break;
     case 5:
     case 6:
-        MainGame()->hud_buttons.submenu[index].SetEnabled(g_combat.active());
-        if (!IsPartySlotEligible(g_status.selected_character)) {
+        MainGame()->hud_buttons.submenu[index].SetEnabled(CurrentGame().combat.active());
+        if (!IsPartySlotEligible(CurrentGame().status.selected_character)) {
             MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         }
         break;
     case 7:
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             MainGame()->hud_buttons.submenu[7].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[7].SetEnabled(true);
         }
         break;
     case 8:
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             MainGame()->hud_buttons.submenu[8].SetEnabled(true);
         } else {
             MainGame()->hud_buttons.submenu[8].SetEnabled(false);
@@ -270,7 +272,7 @@ static void SubMenuButtonSurprise(W8ButtonWidget* button)
 static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 {
     ToggleSearchMode();
-    button->SetPressed(g_status.search_mode ? 1 : 0);
+    button->SetPressed(CurrentGame().status.search_mode ? 1 : 0);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     DrawSubMenuCharacterAction();
 }
@@ -281,21 +283,22 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
         CloseUseItemSelectView();
         return;
     }
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         OpenSubMenuPanel(3);
         ReleaseUiCapture();
         return;
     }
-    OpenUseItemSelectView(g_status.selected_character);
+    OpenUseItemSelectView(CurrentGame().status.selected_character);
 }
 
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
-    if (CharacterHasCastableSpell(&g_status.party.characters[g_status.selected_character])) {
+    if (CharacterHasCastableSpell(
+            &CurrentGame().party.characters[CurrentGame().status.selected_character])) {
         if (gpSCSV) {
             CloseSpellCastingView();
         } else {
-            OpenSpellCastingView(g_status.selected_character);
+            OpenSpellCastingView(CurrentGame().status.selected_character);
         }
     }
 }

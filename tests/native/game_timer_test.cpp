@@ -6,8 +6,10 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "save_payload.h"
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -20,6 +22,7 @@ W8RuntimeTestHooks g_runtime_test_hooks;
 
 namespace {
 struct TimerFixture {
+    ScopedGame game;
     TimerFixture()
     {
         g_runtime_test_hooks = {};
@@ -30,8 +33,8 @@ struct TimerFixture {
         g_shared_timer_paused = false;
         g_shared_timer_flag0 = false;
         g_level_motion_resume_pending = false;
-        g_status.game_time_days = 0;
-        g_status.game_time_ms = 0;
+        CurrentGame().status.game_time_days = 0;
+        CurrentGame().status.game_time_ms = 0;
     }
     ~TimerFixture() { ResetGameTimeAccumulator(); }
     void advance(unsigned long long micros) { g_runtime_test_hooks.clock_us += micros; }
@@ -74,7 +77,7 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     game.SetMode(W8_TIMER_CLOCK_GAME);
     advance(250'000);
     REQUIRE(game.GetProgress() == 0);
-    g_status.game_time_ms = 250;
+    CurrentGame().status.game_time_ms = 250;
     REQUIRE(game.GetProgress() == Catch::Approx(0.125f));
 
     ResetGameTimeAccumulator();

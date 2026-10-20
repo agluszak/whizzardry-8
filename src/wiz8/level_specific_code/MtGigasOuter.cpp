@@ -8,6 +8,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
@@ -73,7 +74,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
     Prop* prop;
     int value;
 
-    if ((g_status.party.held.item.iItemNo != -1)) {
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
@@ -240,7 +241,7 @@ bool OnSentryTriggerActivated(Trigger* trigger)
    item in the 0x268-0x26e key range sits in the player's hand. */
 bool OnEwaxxDoor03Activated(Trigger* trigger)
 {
-    if ((g_status.party.held.item.iItemNo != -1)) {
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
         int item_id = GetItemInHand();
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;

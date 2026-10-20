@@ -10,6 +10,7 @@
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Strings.h"
@@ -160,7 +161,7 @@ void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
         break;
     }
     if (band != old_band) {
-        g_factions[faction].band_changed_clock = g_status.world_clock;
+        g_factions[faction].band_changed_clock = CurrentGame().status.world_clock;
         if (band < old_band) {
             notice = g_localized_strings[0x245];
             palette = 0;
@@ -268,7 +269,7 @@ void AdjustFactionDisposition(signed char faction, char delta)
     g_factions[faction].disposition_score = score;
     new_band = GetFactionDisposition(faction);
     if (new_band != old_band) {
-        g_factions[faction].band_changed_clock = g_status.world_clock;
+        g_factions[faction].band_changed_clock = CurrentGame().status.world_clock;
     }
     if (g_factions[faction].disposition_score < old_score) {
         notice = g_localized_strings[0x245];

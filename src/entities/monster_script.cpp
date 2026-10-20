@@ -26,6 +26,7 @@
 #include "wiz8/entities/script.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
@@ -140,7 +141,7 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
 
         glm::vec3 current_position = nav.GetPosition();
         monster_position = current_position;
-        if (!g_status.world_suspended &&
+        if (!CurrentGame().status.world_suspended &&
             glm::length((party_position - monster_position)) < *parameter * kWorldScale &&
             FindMonster(location_id)->player_visibility.line_of_sight != 0) {
             return true;

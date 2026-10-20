@@ -10,6 +10,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
@@ -420,7 +421,7 @@ void W8NpcDialogue::Answer(std::string_view text)
     } else {
         const W8NpcPriceCheck check = *price_check_;
         if (CompareTextIgnoreAsciiCase(text, g_localized_strings[0x7df]) == 0) {
-            if (static_cast<unsigned int>(check.price) > g_status.party.gold) {
+            if (static_cast<unsigned int>(check.price) > CurrentGame().party.gold) {
                 Speak(0x14, false);
             } else {
                 SpendPartyGold(check.price);

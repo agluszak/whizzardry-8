@@ -8,6 +8,7 @@
 #include "local_code/Targeting.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
@@ -51,7 +52,7 @@ void ArmPartyMoveGauge(bool running)
 
 void ResetRoundPartyMovement()
 {
-    const auto action = g_combat.state()->uiCurrentPartyAction;
+    const auto action = CurrentGame().combat.state()->uiCurrentPartyAction;
     if (action == W8_PARTY_ACTION_WALK || action == W8_PARTY_ACTION_RUN) {
         ArmPartyMoveGauge(action == W8_PARTY_ACTION_RUN);
     } else {
@@ -63,7 +64,7 @@ void ResetRoundPartyMovement()
 /* Note that the party has started moving. */
 void BeginPartyMovement(void)
 {
-    gXStatus.party_moving = true;
+    CurrentGame().party_moving = true;
     MoveTimer(W8_MOVE_TIMER_SUSPEND);
 }
 
@@ -71,7 +72,7 @@ void BeginPartyMovement(void)
    round. The assertion names the bound as PHASES_PER_ROUND. */
 void RoundPhaseToStep(unsigned int* phase, unsigned int base)
 {
-    if (g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
+    if (CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
         *phase = (*phase + 5) - (*phase + 5) % 10;
         if (base % 10 != 0) {
             base += 10 - base % 10;
@@ -95,7 +96,7 @@ void UpdateActivePartyMovement(void)
     if (HandlePartyMovement(&real_elapsed, &frame_elapsed) != 0) {
         party_move_distance += real_elapsed + frame_elapsed;
     } else if (g_settings.continuous_combat != 0 &&
-               TimeUntilDeadline(g_combat.state()->party_movement_clock) == 0) {
+               TimeUntilDeadline(CurrentGame().combat.state()->party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         step_count = std::clamp(step_count, 10u, 60u);
         party_move_distance += party_move_limit / step_count;
@@ -114,7 +115,7 @@ void UpdateActivePartyMovement(void)
         g_level_block->move_percent_shown = g_level_block->move_percent;
     }
     if (g_settings.continuous_combat != 0) {
-        g_combat.state()->party_movement_clock = w8_get_ticks() + (1000);
+        CurrentGame().combat.state()->party_movement_clock = w8_get_ticks() + (1000);
     }
 
 check_completion:
@@ -127,17 +128,17 @@ check_completion:
    the step the phase counter advances by. */
 int GetPhaseStep(void)
 {
-    return g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 10 : 1;
+    return CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 10 : 1;
 }
 
 /* Note what kind of move is pending. Only one value is singled out; everything
    else counts as the other kind. */
 void SetPendingMoveKind(W8ActionKind kind)
 {
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
-    g_combat.state()->uiNextPartyAction =
+    CurrentGame().combat.state()->uiNextPartyAction =
         kind == W8_ACTION_WALK ? W8_PARTY_ACTION_WALK : W8_PARTY_ACTION_RUN;
 }
 
@@ -146,10 +147,10 @@ void SetPendingMoveKind(W8ActionKind kind)
    -1 refreshes the whole party. */
 void ClearPendingPartyMovement()
 {
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
-    g_combat.state()->uiNextPartyAction = W8_PARTY_ACTION_NONE;
+    CurrentGame().combat.state()->uiNextPartyAction = W8_PARTY_ACTION_NONE;
     UpdatePartyMovementControl();
 }
 
@@ -158,9 +159,9 @@ void ClearPendingPartyMovement()
    and only with nothing pending. */
 void UpdatePartyMovementControl(void)
 {
-    if ((g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
-         g_combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
-        g_combat.state()->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
+    if ((CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
+         CurrentGame().combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
+        CurrentGame().combat.state()->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
         ReleasePartyMovement();
         return;
     }
@@ -176,13 +177,13 @@ bool CanPartyMove(void)
 {
     W8PartyActionStatus status;
 
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
-    status = g_combat.state()->uiCurrentPartyActionStatus;
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
+    status = CurrentGame().combat.state()->uiCurrentPartyActionStatus;
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
         status == W8_PARTY_ACTION_FINISHED) {
-        if (g_combat.state()->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
+        if (CurrentGame().combat.state()->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
             return true;
         }
         return false;
@@ -207,10 +208,10 @@ std::optional<unsigned int> GetPartyHasteSteps()
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         W8Character* character;
 
-        if (!g_status.party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.rows[party_slot].fOccupied) {
             continue;
         }
-        character = &g_status.party.characters[party_slot];
+        character = &CurrentGame().party.characters[party_slot];
         if (character->uiCondition[W8_CONDITION_MISSING] != 0) {
             continue;
         }
@@ -231,7 +232,7 @@ std::optional<unsigned int> GetPartyHasteSteps()
 float GetPartyMovementSpeed(void)
 {
     float speed = 1.0f;
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         speed = 1.5f;
     }
     if (const auto steps = GetPartyHasteSteps()) {
@@ -253,19 +254,19 @@ void CompletePartyMovementTurns(void)
     }
 
     unsigned int remaining = 100 - g_level_block->move_percent;
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         remaining = static_cast<unsigned int>(remaining * 1.5f);
     }
     remaining = remaining < 100 ? 100 - remaining : 0;
 
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* party_row = &g_status.party.rows[party_slot];
-        W8Character* character = &g_status.party.characters[party_slot];
+        W8PartySlotRow* party_row = &CurrentGame().party.rows[party_slot];
+        W8Character* character = &CurrentGame().party.characters[party_slot];
         if (!party_row->fOccupied || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
-        W8CombatCharacterRow* combat_row = &g_combat.state()->characters[party_slot];
+        W8CombatCharacterRow* combat_row = &CurrentGame().combat.state()->characters[party_slot];
         if (!combat_row->dead && Random(100) < remaining) {
             CatchUpCombatActor(combat_row);
             continue;
@@ -288,8 +289,8 @@ void InitializePartyMovementPhase(void)
     int minimum_initiative = 90;
 
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* row = &g_status.party.rows[party_slot];
-        W8Character* character = &g_status.party.characters[party_slot];
+        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+        W8Character* character = &CurrentGame().party.characters[party_slot];
         if (row->fOccupied && character->hp_current != 0) {
             int initiative = character->initiative + Random(4);
             if (initiative < minimum_initiative) {
@@ -298,13 +299,13 @@ void InitializePartyMovementPhase(void)
         }
     }
     minimum_initiative = std::clamp(minimum_initiative, -10, 89);
-    g_combat.state()->uiPartyActionPhase = 90 - minimum_initiative;
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
-        g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
-        RoundPhaseToStep(&g_combat.state()->uiPartyActionPhase, 10);
+    CurrentGame().combat.state()->uiPartyActionPhase = 90 - minimum_initiative;
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
+        CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
+        RoundPhaseToStep(&CurrentGame().combat.state()->uiPartyActionPhase, 10);
     }
-    if (g_combat.state()->uiPartyActionPhase == 0 ||
-        g_combat.state()->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
+    if (CurrentGame().combat.state()->uiPartyActionPhase == 0 ||
+        CurrentGame().combat.state()->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
         Fail("( gpCombat->uiPartyActionPhase > 0 ) && "
              "( gpCombat->uiPartyActionPhase <= PHASES_PER_ROUND )");
     }
@@ -314,20 +315,22 @@ void InitializePartyMovementPhase(void)
    party movement action. */
 void AlignCombatantsToPartyMovementPhase(void)
 {
-    RoundPhaseToStep(&g_combat.state()->uiPartyActionPhase, g_combat.state()->round_counter);
-    for (auto& character : g_combat.state()->characters) {
+    RoundPhaseToStep(&CurrentGame().combat.state()->uiPartyActionPhase,
+                     CurrentGame().combat.state()->round_counter);
+    for (auto& character : CurrentGame().combat.state()->characters) {
         W8CombatCharacterRow* row = &character;
-        if (row->phase >= g_combat.state()->round_counter && !row->dead) {
-            RoundPhaseToStep(&row->phase, g_combat.state()->round_counter);
+        if (row->phase >= CurrentGame().combat.state()->round_counter && !row->dead) {
+            RoundPhaseToStep(&row->phase, CurrentGame().combat.state()->round_counter);
         }
     }
     auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->pCombat &&
-            monster_info->pCombat->phase >= g_combat.state()->round_counter &&
+            monster_info->pCombat->phase >= CurrentGame().combat.state()->round_counter &&
             !monster_info->pCombat->active) {
-            RoundPhaseToStep(&monster_info->pCombat->phase, g_combat.state()->round_counter);
+            RoundPhaseToStep(&monster_info->pCombat->phase,
+                             CurrentGame().combat.state()->round_counter);
         }
         monster_count = CurrentLevelPopulation().monster_roster.live().size();
     }
@@ -340,20 +343,21 @@ void StartPartyMovementAction(W8PartyAction move_kind)
     if (move_kind == W8_PARTY_ACTION_NONE) {
         Fail("uiPartyAction != PARTY_ACTION_NONE");
     }
-    if (g_combat.state()->uiCurrentPartyAction == move_kind) {
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == move_kind) {
         return;
     }
 
-    g_combat.state()->uiCurrentPartyAction = move_kind;
-    g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_NOT_STARTED;
+    CurrentGame().combat.state()->uiCurrentPartyAction = move_kind;
+    CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_NOT_STARTED;
     ArmPartyMoveGauge(move_kind == W8_PARTY_ACTION_RUN);
     InitializePartyMovementPhase();
-    g_combat.state()->uiPartyActionPhase += g_combat.state()->round_counter;
-    if (g_combat.state()->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
-        g_combat.state()->uiPartyActionPhase = W8_PHASES_PER_ROUND;
+    CurrentGame().combat.state()->uiPartyActionPhase += CurrentGame().combat.state()->round_counter;
+    if (CurrentGame().combat.state()->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
+        CurrentGame().combat.state()->uiPartyActionPhase = W8_PHASES_PER_ROUND;
     }
     AlignCombatantsToPartyMovementPhase();
-    RoundPhaseToStep(&g_combat.state()->round_counter, g_combat.state()->round_counter);
+    RoundPhaseToStep(&CurrentGame().combat.state()->round_counter,
+                     CurrentGame().combat.state()->round_counter);
     RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
 }
 
@@ -362,9 +366,9 @@ void StartPartyMovementAction(W8PartyAction move_kind)
    otherwise, and everything that watched the party move is told. */
 void EndPartyMovementPhase(void)
 {
-    if (g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_WALK &&
-        g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) {
-        g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
+    if (CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_WALK &&
+        CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) {
+        CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
         return;
     }
     if (!IsLevelMovementStopped()) {
@@ -374,7 +378,7 @@ void EndPartyMovementPhase(void)
     DisableFreeTurnButton();
     InvalidatePartyMovementPanel();
     RefreshOutwardSightForAllMonsters();
-    g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
+    CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
 }
 
 /* Enter the free phase: everything that was waiting on the party is released,
@@ -382,8 +386,8 @@ void EndPartyMovementPhase(void)
 void BeginFreeTurnPhase(void)
 {
     ResetLevelDataVectors();
-    g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_FINISHED;
-    gXStatus.fPartyMovementMode = false;
+    CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_FINISHED;
+    CurrentGame().party_movement_mode = false;
     CheckMonsterGroupsEnterCombat();
     CompletePartyMovementTurns();
     NotifyNearbyMonsters(0);
@@ -395,17 +399,18 @@ void BeginFreeTurnPhase(void)
    action is cleared and every eligible party target highlight is rebuilt. */
 void CancelPartyMovement(void)
 {
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
-    if (g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
-        g_combat.state()->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) {
-        if (g_combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_NOT_STARTED) {
+    if (CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
+        CurrentGame().combat.state()->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) {
+        if (CurrentGame().combat.state()->uiCurrentPartyActionStatus ==
+            W8_PARTY_ACTION_NOT_STARTED) {
             InterruptActivePartyMovement();
         }
         return;
     }
-    if (g_combat.state()->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
+    if (CurrentGame().combat.state()->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
         return;
     }
     ClearPendingPartyMovement();
@@ -416,20 +421,20 @@ void CancelPartyMovement(void)
    beyond this round before handing movement control back to the UI. */
 void InterruptActivePartyMovement(void)
 {
-    if (!g_combat.active()) {
-        Fail("g_combat.active()");
+    if (!CurrentGame().combat.active()) {
+        Fail("CurrentGame().combat.active()");
     }
-    g_combat.state()->uiCurrentPartyAction = W8_PARTY_ACTION_NONE;
+    CurrentGame().combat.state()->uiCurrentPartyAction = W8_PARTY_ACTION_NONE;
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* party_row = &g_status.party.rows[party_slot];
+        W8PartySlotRow* party_row = &CurrentGame().party.rows[party_slot];
         if (!party_row->fOccupied) {
             continue;
         }
-        W8CombatCharacterRow* row = &g_combat.state()->characters[party_slot];
-        if (row->phase < g_combat.state()->round_counter && !row->dead) {
-            row->phase = g_combat.state()->round_counter;
+        W8CombatCharacterRow* row = &CurrentGame().combat.state()->characters[party_slot];
+        if (row->phase < CurrentGame().combat.state()->round_counter && !row->dead) {
+            row->phase = CurrentGame().combat.state()->round_counter;
         }
-        row->phase_clock_stamp = g_combat.state()->round_counter;
+        row->phase_clock_stamp = CurrentGame().combat.state()->round_counter;
         if (row->phase > W8_PHASES_PER_ROUND) {
             row->dead = true;
             row->phase = 0;
@@ -442,59 +447,60 @@ void InterruptActivePartyMovement(void)
 
 void FinishPartyMovementAction(void)
 {
-    if (g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_WALK &&
-        g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) {
-        g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
+    if (CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_WALK &&
+        CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) {
+        CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
         return;
     }
     if (IsLevelMovementStopped() &&
-        g_combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
+        CurrentGame().combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21d]);
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
     ClearLevelMovementStopped();
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         SetLevelFastMovement();
     }
     EnableFreeTurnButton();
     InvalidatePartyMovementPanel();
     if (g_settings.continuous_combat != 0) {
-        g_combat.state()->party_movement_clock = w8_get_ticks() + (1000);
+        CurrentGame().combat.state()->party_movement_clock = w8_get_ticks() + (1000);
     }
-    TurnPartyTo(g_status.party_heading);
-    g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
+    TurnPartyTo(CurrentGame().status.party_heading);
+    CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
 }
 
 void BeginPartyMovementPhase(void)
 {
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
-        g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
-        gXStatus.fPartyMovementMode = true;
+    if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
+        CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
+        CurrentGame().party_movement_mode = true;
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21b]);
         party_move_distance = 0.0f;
     }
     FinishPartyMovementAction();
-    g_combat.state()->passive_round = 0;
+    CurrentGame().combat.state()->passive_round = 0;
 }
 
 bool PartyMovementReachedPhaseLimit(void)
 {
-    if (g_combat.state()->uiCurrentPartyActionStatus != W8_PARTY_ACTION_IN_PROGRESS) {
+    if (CurrentGame().combat.state()->uiCurrentPartyActionStatus != W8_PARTY_ACTION_IN_PROGRESS) {
         Fail("gpCombat->uiCurrentPartyActionStatus == ACTION_STATUS_IN_PROGRESS");
     }
-    if (!gXStatus.fPartyMovementMode) {
-        Fail("gXStatus.fPartyMovementMode");
+    if (!CurrentGame().party_movement_mode) {
+        Fail("CurrentGame().party_movement_mode");
     }
     if (party_move_limit <= 0.0f) {
         Fail("party_move_limit > 0");
     }
     float moved_fraction = party_move_distance / party_move_limit;
-    int remaining_phases = 101 - g_combat.state()->uiPartyActionPhase;
+    int remaining_phases = 101 - CurrentGame().combat.state()->uiPartyActionPhase;
     if (remaining_phases == 0) {
         Fail("uiTotalMovementPhases > 0");
     }
     unsigned int elapsed_phases =
-        g_combat.state()->round_counter - g_combat.state()->uiPartyActionPhase +
-        (g_combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 9 : 0) + 2;
+        CurrentGame().combat.state()->round_counter -
+        CurrentGame().combat.state()->uiPartyActionPhase +
+        (CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 9 : 0) + 2;
     return static_cast<float>(elapsed_phases) / remaining_phases <= moved_fraction;
 }

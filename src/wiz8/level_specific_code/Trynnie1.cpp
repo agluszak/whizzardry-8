@@ -8,6 +8,7 @@
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
@@ -91,7 +92,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
         return true;
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-            if (g_status.party.rows[i].fOccupied) {
+            if (CurrentGame().party.rows[i].fOccupied) {
                 HealCharacter(i, 100, false);
             }
         }
@@ -99,7 +100,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
         return true;
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-            if (g_status.party.rows[i].fOccupied) {
+            if (CurrentGame().party.rows[i].fOccupied) {
                 RestoreCharacterStamina(i, 100, false);
             }
         }

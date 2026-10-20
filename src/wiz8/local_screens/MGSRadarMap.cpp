@@ -20,6 +20,7 @@
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -194,8 +195,8 @@ void RefreshRadarMap(void)
     if (!map_surface) return;
     if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
-            W8PartySlotRow* row = &g_status.party.rows[slot];
-            W8PartyFormationPosition* position = &g_status.party.formation.positions[slot];
+            W8PartySlotRow* row = &CurrentGame().party.rows[slot];
+            W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
 
             if (row->fOccupied && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
@@ -242,17 +243,18 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
     bool detect_all;
 
     ResetRadarBlips();
-    if (!g_radar_map_enabled || gXStatus.fSurprisePossible) {
+    if (!g_radar_map_enabled || CurrentGame().surprise_possible) {
         return;
     }
     if (g_radar_compass != 0) {
-        g_radar_compass->rotation = static_cast<float>(
-            (g_status.party_facing - static_cast<int>(g_status.party_heading) + 0x168) *
-            -0.017453292519943295);
+        g_radar_compass->rotation =
+            static_cast<float>((CurrentGame().status.party_facing -
+                                static_cast<int>(CurrentGame().status.party_heading) + 0x168) *
+                               -0.017453292519943295);
     }
     if (g_radar_frame != 0) {
         g_radar_frame->rotation =
-            static_cast<float>((g_status.party_facing) * -0.017453292519943295);
+            static_cast<float>((CurrentGame().status.party_facing) * -0.017453292519943295);
     }
     camera = cameraLocation();
     detect_all = PartyHasCondition(0x40);
@@ -288,10 +290,10 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
             bool hostile = false;
 
             const auto mark = presentation.monsters.find(info->location_id);
-            if (g_combat.active() && g_status.selected_character != -1 &&
+            if (CurrentGame().combat.active() && CurrentGame().status.selected_character != -1 &&
                 mark != presentation.monsters.end() &&
-                g_status.party.rows[g_status.selected_character].fOccupied != 0 &&
-                (static_cast<unsigned char>(1 << g_status.selected_character) &
+                CurrentGame().party.rows[CurrentGame().status.selected_character].fOccupied != 0 &&
+                (static_cast<unsigned char>(1 << CurrentGame().status.selected_character) &
                  mark->second.party_targets) != 0) {
                 hostile = true;
             }
@@ -390,8 +392,8 @@ static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
         ring = 1;
     }
 
-    const float angle =
-        static_cast<float>(360 - g_status.party_facing) * (std::numbers::pi_v<float> / 180.0f);
+    const float angle = static_cast<float>(360 - CurrentGame().status.party_facing) *
+                        (std::numbers::pi_v<float> / 180.0f);
     *delta = glm::rotateY((*delta), angle);
     delta->y = 0.0f;
 

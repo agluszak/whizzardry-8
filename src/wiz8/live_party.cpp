@@ -7,6 +7,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
@@ -34,13 +35,13 @@
 CharacterStatRules CaptureLiveCharacterStatRules(const W8Character& character)
 {
     CharacterStatRules rules;
-    const auto slot = g_status.party.slotOf(character);
+    const auto slot = CurrentGame().party.slotOf(character);
     if (!slot) return rules;
-    if (g_combat.active())
+    if (CurrentGame().combat.active())
         rules.defensive_action = TryCharacterAction(*slot, W8_ACTION_DEFEND, false) ||
                                  TryCharacterAction(*slot, W8_ACTION_PROTECT, false);
     if (character.fInParty && character.iRace == W8_RACE_ANDROID) {
-        const auto* npc = GetNpcState(g_status.party.rows[*slot].npc_index);
+        const auto* npc = GetNpcState(CurrentGame().party.rows[*slot].npc_index);
         rules.damaged_android =
             npc && npc->name_style == W8_NPC_RFS81_A && !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED);
     }
@@ -50,7 +51,7 @@ CharacterStatRules CaptureLiveCharacterStatRules(const W8Character& character)
 void RecalculateHitPoints(W8Character& character)
 {
     if (!RecalculateCharacterHitPoints(&character)) return;
-    if (const auto slot = g_status.party.slotOf(character))
+    if (const auto slot = CurrentGame().party.slotOf(character))
         SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
 }
 
@@ -62,13 +63,14 @@ void RecalculateArmorClass(W8Character& character)
 PartyStatRules CaptureLivePartyStatRules()
 {
     PartyStatRules rules;
-    if (!g_status.game_started)
+    if (!GameStarted())
         rules.load_timing = PartyLoadTiming::Disabled;
-    else if (g_combat.active())
+    else if (CurrentGame().combat.active())
         rules.load_timing = PartyLoadTiming::AfterCombat;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (g_status.party.rows[slot].fOccupied)
-            rules.characters[slot] = CaptureLiveCharacterStatRules(g_status.party.characters[slot]);
+        if (CurrentGame().party.rows[slot].fOccupied)
+            rules.characters[slot] =
+                CaptureLiveCharacterStatRules(CurrentGame().party.characters[slot]);
     return rules;
 }
 
@@ -91,8 +93,8 @@ void PresentPartyLoadChange(bool redistributed)
 
 void RedistributePartyEncumbrance()
 {
-    if (g_status.game_started)
-        PresentPartyLoadChange(RefreshPartyLoad(g_status.party, CaptureLivePartyStatRules()));
+    if (GameStarted())
+        PresentPartyLoadChange(RefreshPartyLoad(CurrentGame().party, CaptureLivePartyStatRules()));
 }
 
 /* Combat choices that depend on the weapons in hand follow a change of them: berserk
@@ -100,7 +102,7 @@ void RedistributePartyEncumbrance()
    values are rebuilt through the alternate-hand toggle. */
 static void ReconcileHandChange(unsigned int party_slot)
 {
-    W8PartySlotRow* row = &g_status.party.rows[party_slot];
+    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
     W8ActionKind action_kind = row->action_kind;
     if (action_kind == W8_ACTION_BERSERK) {
         if (!CanCharacterBerserk(party_slot)) {
@@ -117,7 +119,7 @@ static void ReconcileHandChange(unsigned int party_slot)
         }
     }
 
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         W8ActionKind action = row->committed_action.kind;
         if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
             if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
@@ -128,8 +130,8 @@ static void ReconcileHandChange(unsigned int party_slot)
                 RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
             }
         }
-        g_combat.state()->characters[party_slot].alternate_hand ^= 1;
-        if (party_slot == static_cast<unsigned int>(g_status.selected_character)) {
+        CurrentGame().combat.state()->characters[party_slot].alternate_hand ^= 1;
+        if (party_slot == static_cast<unsigned int>(CurrentGame().status.selected_character)) {
             RequestRefreshPartyState();
         }
     }
@@ -138,7 +140,7 @@ static void ReconcileHandChange(unsigned int party_slot)
 
 void SettleActiveParty(std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
 {
-    auto& party = g_status.party;
+    auto& party = CurrentGame().party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.rows[slot].fOccupied && IsCharacterDefined(party.characters[slot]) &&
             UnequipUnusableItems(slot))
@@ -147,8 +149,7 @@ void SettleActiveParty(std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.rows[slot].fOccupied) continue;
         auto& character = party.characters[slot];
-        if (changed_hands[slot] && character.fInParty && g_status.game_started)
-            ReconcileHandChange(slot);
+        if (changed_hands[slot] && character.fInParty && GameStarted()) ReconcileHandChange(slot);
         PresentInventoryWeightChange(character, stats.characters[slot].weight);
         if (character.fInParty && CurrentScreenState().id != W8_SCREEN_CHARACTER)
             RequestPartySlotRedraw(slot);
@@ -162,7 +163,7 @@ void SettleActiveParty(std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
 
 void ApplyPartyModifiers(W8GameplayModifierBlock modifiers)
 {
-    g_status.party.modifiers = modifiers;
+    CurrentGame().party.modifiers = modifiers;
     SettleActiveParty();
 }
 
@@ -172,8 +173,8 @@ void RecalculateCharacterDerivedStats(W8Character& character)
     if (character.uiExpLevel > 50) character.uiExpLevel = 50;
     for (auto& level : character.profession_levels)
         if (static_cast<unsigned int>(level) > 50) level = 50;
-    if (const auto member = g_status.party.slotOf(character);
-        member && g_status.party.rows[*member].fOccupied) {
+    if (const auto member = CurrentGame().party.slotOf(character);
+        member && CurrentGame().party.rows[*member].fOccupied) {
         SettleActiveParty();
         return;
     }

@@ -27,6 +27,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
@@ -68,14 +69,14 @@
 int W8CampScreenState::ReviewedPartySlot() const
 {
     if (reviewed)
-        if (const auto slot = g_status.party.slotOf(*reviewed)) return *slot;
+        if (const auto slot = CurrentGame().party.slotOf(*reviewed)) return *slot;
     return -1;
 }
 
 /* Select a party member and rebuild the active page for that character. */
 void W8CampScreenState::SelectCampCharacter(int slot)
 {
-    reviewed = &g_status.party.characters[slot];
+    reviewed = &CurrentGame().party.characters[slot];
     SyncReviewCharInputRegion();
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
@@ -100,10 +101,10 @@ void TryGiveHeldItemToCampPortrait(int slot)
 {
     W8Character* character;
 
-    if (!g_status.party.rows[slot].fOccupied) {
+    if (!CurrentGame().party.rows[slot].fOccupied) {
         return;
     }
-    character = &g_status.party.characters[slot];
+    character = &CurrentGame().party.characters[slot];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0) {
         ShowCampNoticeLine(g_localized_strings[0x907], 0, true, false);
         return;
@@ -123,16 +124,16 @@ void TryGiveHeldItemToCampPortrait(int slot)
     if (!IsCampActionAllowed(slot)) {
         return;
     }
-    AddItemToCharacter(character, &g_status.party.held.item, false, false, false);
+    AddItemToCharacter(character, &CurrentGame().party.held.item, false, false, false);
 }
 
 bool CanSelectRcsPartySlot(int ui_slot)
 {
-    if (!g_status.party.rows[ui_slot].fOccupied) {
+    if (!CurrentGame().party.rows[ui_slot].fOccupied) {
         Fail("gStatus.XChar[uiSlot].fOccupied");
     }
 
-    W8Character* character = &g_status.party.characters[ui_slot];
+    W8Character* character = &CurrentGame().party.characters[ui_slot];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0) {
         return false;
     }
@@ -145,11 +146,11 @@ bool CanSelectRcsPartySlot(int ui_slot)
     if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
         return false;
     }
-    if (g_combat.active()) {
-        if (g_combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
+    if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
             return false;
         }
-        if (g_status.party.rows[ui_slot].pending_action != W8_ACTION_EQUIP) {
+        if (CurrentGame().party.rows[ui_slot].pending_action != W8_ACTION_EQUIP) {
             return false;
         }
     }
@@ -196,12 +197,12 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 // FUNCTION: WIZ8 0x005b6630
 void W8CampScreenState::OpenLevelUpCharacterScreen()
 {
-    if (!g_status.party.rows[ReviewedPartySlot()].fOccupied) {
+    if (!CurrentGame().party.rows[ReviewedPartySlot()].fOccupied) {
         Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
     }
     RequestScreen({.id = W8_SCREEN_CHARACTER,
                    .mode = W8_CHARACTER_LEVEL_UP,
-                   .character = &g_status.party.characters[ReviewedPartySlot()]});
+                   .character = &CurrentGame().party.characters[ReviewedPartySlot()]});
 }
 
 UiResult W8CampScreenState::HandleCampDismissPortrait(const UiPointerEvent& event)
@@ -226,24 +227,24 @@ UiResult W8CampScreenState::HandleCampPortrait(const UiPointerEvent& event, int 
         redraw_flags |= 1u << target_slot;
         if ((items.action() == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
-            g_status.party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
+            CurrentGame().party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
             items.UpdateItemCursorForState(event.action == UiPointerAction::Enter, nullptr,
                                            target_slot);
     }
     if (event.action != UiPointerAction::Up || !event.inside) return UiResult::Handled;
     if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
-        (g_status.party.held.item.iItemNo != -1))
+        (CurrentGame().party.held.item.iItemNo != -1))
         AfterUiDispatch([target_slot] { TryGiveHeldItemToCampPortrait(target_slot); });
     if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
-        g_status.party.rows[target_slot].fOccupied) {
+        CurrentGame().party.rows[target_slot].fOccupied) {
         AfterUiDispatch([this, target_slot] {
             if (gXStatus.iTargetingMode == W8_TARGET_NEED_ALLY) {
                 if (page != W8_CAMP_PAGE_ITEMS ||
                     (items.action() != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
                      items.action() != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
                     if (!CanPartySlotParticipate(target_slot)) {
-                        QueueCharacterEvent(&g_status.party.characters[ReviewedPartySlot()], 0x35,
-                                            0, kCharacterEventFullVolume);
+                        QueueCharacterEvent(&CurrentGame().party.characters[ReviewedPartySlot()],
+                                            0x35, 0, kCharacterEventFullVolume);
                         return;
                     }
                     AimAtCharacter(ReviewedPartySlot(), target_slot,
@@ -251,7 +252,8 @@ UiResult W8CampScreenState::HandleCampPortrait(const UiPointerEvent& event, int 
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }
-                if (g_status.party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
+                if (CurrentGame().party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] ==
+                    0) {
                     if (items.action() != W8_CAMP_ITEM_ACTION_CAST_SPELL) {
                         items.TargetCharacterWithHeldItem(target_slot);
                         return;
@@ -262,8 +264,8 @@ UiResult W8CampScreenState::HandleCampPortrait(const UiPointerEvent& event, int 
             } else {
                 if (gXStatus.iTargetingMode == W8_TARGET_NEED_CHARACTER_INDIRECT) {
                     if (!IsDeadCharacterTargetable(target_slot)) {
-                        QueueCharacterEvent(&g_status.party.characters[ReviewedPartySlot()], 0x35,
-                                            0, kCharacterEventFullVolume);
+                        QueueCharacterEvent(&CurrentGame().party.characters[ReviewedPartySlot()],
+                                            0x35, 0, kCharacterEventFullVolume);
                         return;
                     }
                     AimAtCharacterIndirect(ReviewedPartySlot(), target_slot,
@@ -350,8 +352,8 @@ void W8CampScreenState::RedrawRcsDismissPanel()
 void W8CampScreenState::UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(ReviewedPartySlot());
-    if (!enabled || g_combat.active() ||
-        (!g_status.party.rows[ReviewedPartySlot()].portrait_advance && g_status.game_started) ||
+    if (!enabled || CurrentGame().combat.active() ||
+        (!CurrentGame().party.rows[ReviewedPartySlot()].portrait_advance && GameStarted()) ||
         gXStatus.fCampMode) {
         if (header_buttons.level_up->IsVisible()) {
             header_buttons.level_up->SetVisible(false);
@@ -366,14 +368,14 @@ void W8CampScreenState::UpdateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6950
 void W8CampScreenState::ShowDismissCharacterDialog()
 {
-    if (!g_status.party.rows[ReviewedPartySlot()].fOccupied) {
+    if (!CurrentGame().party.rows[ReviewedPartySlot()].fOccupied) {
         Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
     }
 
     W8MessageDialogBase* dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
 
-    W8Character* character = &g_status.party.characters[ReviewedPartySlot()];
+    W8Character* character = &CurrentGame().party.characters[ReviewedPartySlot()];
     std::string format;
     if (character->uiCondition[W8_CONDITION_MISSING] == 0) {
         if (character->uiCondition[W8_CONDITION_DEAD] == 0) {
@@ -393,7 +395,7 @@ void W8CampScreenState::ShowDismissCharacterDialog()
 // FUNCTION: WIZ8 0x005b6a60
 void W8CampScreenState::OnDismissCharacterDialogClosed(bool accepted)
 {
-    if (accepted && g_status.party.rows[ReviewedPartySlot()].npc_index != -1) {
+    if (accepted && CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
         if (auto* main_game = MainGame()) main_game->dismissed_npc_slot = ReviewedPartySlot();
         DismissSelectedPartyCharacter();
     }
@@ -405,7 +407,7 @@ void W8CampScreenState::OnDismissCharacterDialogClosed(bool accepted)
 // FUNCTION: WIZ8 0x005b68e0
 void W8CampScreenState::UpdateRcsDismissPanel(void)
 {
-    if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) && !g_combat.active() &&
+    if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) && !CurrentGame().combat.active() &&
         !gXStatus.fCampMode) {
         if (!header_buttons.dismiss->IsVisible()) {
             header_buttons.dismiss->SetVisible(true);
@@ -507,7 +509,7 @@ void W8CampScreenState::DrawCampHeader(void)
         if (portrait_hovered != 0) {
             CatalogArtwork::Load(0x116, 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         }
-        if (!g_combat.active()) {
+        if (!CurrentGame().combat.active()) {
             RedrawRcsLevelUpPanel();
             RedrawRcsDismissPanel();
         }
@@ -569,11 +571,11 @@ void W8CampScreenState::DrawCampHeader(void)
             band_x = (slot & 1) * 0x30;
             left = band_x + 6;
             top = band_y + 5;
-            if (ReviewedPartySlot() == -1 || !g_status.party.rows[slot].fOccupied) {
+            if (ReviewedPartySlot() == -1 || !CurrentGame().party.rows[slot].fOccupied) {
                 CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5,
                                                     band_y + 4);
             } else {
-                W8Character* member = &g_status.party.characters[slot];
+                W8Character* member = &CurrentGame().party.characters[slot];
                 if (member->hp_current == 0) {
                     image = g_dead_portrait_catalog_ids[member->iRace][0];
                     sub_image = 0;
@@ -698,10 +700,10 @@ void W8CampScreenState::DrawCampVitals(void)
     text.SetClipBounds(bounds);
     text.SetLayoutBounds(&bounds, true);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    if (!g_status.game_started) {
+    if (!GameStarted()) {
         text.SetFontStateIndex(8);
     } else {
-        text.SetFontStateIndex(g_status.party.rows[ReviewedPartySlot()].party_order_index);
+        text.SetFontStateIndex(CurrentGame().party.rows[ReviewedPartySlot()].party_order_index);
     }
     text.RenderString(
         g_localized_strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],

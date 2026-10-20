@@ -3,6 +3,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -40,7 +41,7 @@ bool RapaxMainFloorAltarBox(Trigger* pTrigger)
     glm::vec3 position;
     int var_id;
 
-    if (!g_status.rpc_active) {
+    if (!CurrentGame().status.rpc_active) {
         var_id = GetLocationVarIDByName("LezboDemonAppeared");
         if (var_id != -1) {
             var_id = GetLocationVarValueByName("LezboDemonAppeared");

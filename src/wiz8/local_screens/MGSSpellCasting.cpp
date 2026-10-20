@@ -31,6 +31,7 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/entities/cursor.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -146,7 +147,8 @@ static void CreateSpellCastingViewControls(void)
             const auto& name = g_localized_strings[g_spell_realm_help_string_ids[realm]];
             if (!gpSCSV->realm_buttons[realm]->IsEnabled()) return std::string(name);
             return fmt::format("{} ({}: {:d})", name, g_localized_strings[0x2d],
-                               g_status.party.characters[g_status.selected_character]
+                               CurrentGame()
+                                   .party.characters[CurrentGame().status.selected_character]
                                    .skills[W8_SKILL_FIRE_MAGIC + realm]
                                    .level);
         };
@@ -269,7 +271,7 @@ void CloseSpellCastingView(void)
         ResetEditorStatusLine(-1);
     }
     g_level_block->text_box_visible = true;
-    SelectTextBox(g_combat.active());
+    SelectTextBox(CurrentGame().combat.active());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     location_id = gpSCSV->location_id;
     interact_id = gpSCSV->interact_id;
@@ -315,7 +317,7 @@ static void ClearSpellCastingChoice()
     SelectSpellPowerLevel(-1);
     gpSCSV->dialog_confirmed = false;
     UpdateSpellPowerPips();
-    SelectSpellCastingPartySlot(g_status.selected_character);
+    SelectSpellCastingPartySlot(CurrentGame().status.selected_character);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
@@ -326,18 +328,18 @@ void SelectSpellCastingCharacter(int party_slot)
 {
     W8SpellRealm realm;
 
-    if (!CharacterHasCastableSpell(&g_status.party.characters[party_slot]) ||
+    if (!CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]) ||
         !IsPartySlotEligible(party_slot)) {
         ResetEditorStatusLine(-1);
         CloseSpellCastingView();
         return;
     }
-    gpSCSV->caster = &g_status.party.characters[party_slot];
+    gpSCSV->caster = &CurrentGame().party.characters[party_slot];
     BuildLearnedSpellState(&gpSCSV->learned, gpSCSV->caster);
     UpdateSpellRealmPointDisplays();
     ClearSpellCastingChoice();
     if (GetAffordableSpellPowerLevel(party_slot) != 0) {
-        int spell_id = g_status.party.rows[party_slot].spell.detail;
+        int spell_id = CurrentGame().party.rows[party_slot].spell.detail;
         SelectSpellCastingRealm(g_spell_records[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
             gpSCSV->uiSpellIndex = -1;
@@ -415,7 +417,7 @@ static void UpdateSpellPowerPips(void)
             gpSCSV->power_controls[7]->SetVisible(false);
             gpSCSV->power_controls[8]->SetVisible(false);
         } else if (gpSCSV->PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) {
-            gpSCSV->power_controls[7]->SetVisible(!g_combat.active());
+            gpSCSV->power_controls[7]->SetVisible(!CurrentGame().combat.active());
             RefreshAvailableSpellPowerPips();
             gpSCSV->power_controls[8]->SetVisible(false);
         } else if (gpSCSV->PowerClass() == W8_SPELL_POWER_MAXIMUM) {
@@ -583,11 +585,12 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
         EndNpcDialogueSession(false);
     }
     if (!gpSCSV) {
-        OpenSpellCastingView(g_status.selected_character);
+        OpenSpellCastingView(CurrentGame().status.selected_character);
     }
     gpSCSV->interact_id = interact_id;
     gpSCSV->location_id = location_id;
-    if (!CanCharacterCastSpell(&g_status.party.characters[g_status.selected_character], spell_id)) {
+    if (!CanCharacterCastSpell(
+            &CurrentGame().party.characters[CurrentGame().status.selected_character], spell_id)) {
         return;
     }
     realm = W8_SPELL_REALM_NONE;
@@ -872,9 +875,10 @@ void CommitSpellCastingSelection(void)
 
 UiResult HandleSpellTextBox(const UiPointerEvent& event)
 {
-    if (g_status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE)
+    if (CurrentGame().status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE)
         return UiResult::Handled;
-    int line = g_level_block->text_lines[g_status.text_line_cursor] + event.local.y / 11;
+    int line =
+        g_level_block->text_lines[CurrentGame().status.text_line_cursor] + event.local.y / 11;
     if (!event.inside || line < 0 || line >= static_cast<int>(gpSCSV->spells.size())) line = -1;
     if (line != gpSCSV->selected_spell_index) SelectSpellCastingRow(line);
     if (line != -1 && event.action == UiPointerAction::Up) {
@@ -926,8 +930,9 @@ static void SelectSpellCastingListRow(int index)
         gpSCSV->uiSpellIndex = -1;
         ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE);
         ShowSpellCastingError(spell_id);
-        QueueCharacterEvent(&g_status.party.characters[g_status.selected_character], 0x35, 0,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(
+            &CurrentGame().party.characters[CurrentGame().status.selected_character], 0x35, 0,
+            kCharacterEventFullVolume);
         return;
     }
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
@@ -936,8 +941,9 @@ static void SelectSpellCastingListRow(int index)
         Fail("iSpellPowerClass != BAD_INDEX");
     }
     cost = g_spell_records[spell_id].spell_point_cost;
-    levels = GetCharacterRealmSpellPoints(&g_status.party.characters[g_status.selected_character],
-                                          g_spell_records[spell_id].realm) /
+    levels = GetCharacterRealmSpellPoints(
+                 &CurrentGame().party.characters[CurrentGame().status.selected_character],
+                 g_spell_records[spell_id].realm) /
              cost;
     levels = std::clamp(levels, 0u, 7u);
     if (levels == 0) {
@@ -966,8 +972,9 @@ void TryCommitSpellCast(void)
                                           g_level_block == nullptr);
     }
     if (gpSCSV->draft.detail == 0x4b && !gpSCSV->dialog_confirmed) {
-        if (!IsModalOpen() &&
-            g_status.party.characters[g_status.selected_character].has_saved_location) {
+        if (!IsModalOpen() && CurrentGame()
+                                  .party.characters[CurrentGame().status.selected_character]
+                                  .has_saved_location) {
             ShowMainGameNoticeLine(g_localized_strings[0x7a4], SpellCastingDialogResult, true,
                                    true);
         }

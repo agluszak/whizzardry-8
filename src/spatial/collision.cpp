@@ -30,6 +30,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/ground_probe.h"
 #include "wiz8/inventory.h"
@@ -1390,8 +1391,8 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
                   level->frame_elapsed > g_camera_transition_epsilon;
         level->frame_elapsed = 0.0f;
         level->real_elapsed = 0.0f;
-        g_status.real_elapsed += *real_elapsed;
-        g_status.frame_elapsed += *frame_elapsed;
+        CurrentGame().status.real_elapsed += *real_elapsed;
+        CurrentGame().status.frame_elapsed += *frame_elapsed;
     }
     return elapsed;
 }

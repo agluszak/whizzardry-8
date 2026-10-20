@@ -23,6 +23,7 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/spell_visual.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -97,7 +98,7 @@ int g_special_attack_table[32][2] = {
 /* The spell that fills each being effect slot, walked by
    MonsterSpellTargetOK to tell whether a buff is already running; the
    monster side indexes effect_slots, the party side the matching rows
-   in g_status. */
+   in CurrentGame().status. */
 const int g_being_effect_slot_spells[12] = {
     W8_SPELL_ARMORPLATE, W8_SPELL_CHAMELEON,    W8_SPELL_DETECT_SECRETS, W8_SPELL_ENCHANTED_BLADE,
     W8_SPELL_LIGHT,      W8_SPELL_MAGIC_SCREEN, W8_SPELL_MISSILE_SHIELD, W8_SPELL_SHADOW_HOUND,
@@ -156,12 +157,12 @@ static bool g_special_attack_cycle_error_reported;
    when the flag says so, and detection runs while the combat state permits. */
 void UpdateMonsterSight(void)
 {
-    if (!g_combat.active() || gXStatus.sight_refresh_pending) {
-        if (gXStatus.sight_refresh_pending) {
-            gXStatus.sight_refresh_pending = false;
+    if (!CurrentGame().combat.active() || CurrentGame().sight_refresh_pending) {
+        if (CurrentGame().sight_refresh_pending) {
+            CurrentGame().sight_refresh_pending = false;
         }
         RefreshOutwardSightForAllMonsters();
-        if (g_combat.active() && g_combat.state()->round_count == 0) {
+        if (CurrentGame().combat.active() && CurrentGame().combat.state()->round_count == 0) {
             CheckMonsterGroupsEnterCombat();
         }
     }
@@ -222,14 +223,14 @@ void UpdateMonsterGroups(bool staggered)
             }
             far_clip = WorldGetFarClip(GetWorld());
             if (nearest_distance <= far_clip + far_clip) {
-                if (!g_combat.active() && MonsterGroupCanEngage(monster_group)) {
+                if (!CurrentGame().combat.active() && MonsterGroupCanEngage(monster_group)) {
                     MonsterGroupEnterCombat(monster_group);
                 }
             } else {
                 DetachMonsterGroup(monster_group);
             }
         }
-        if (g_out_of_combat_rtai_enabled && !g_combat.active()) {
+        if (g_out_of_combat_rtai_enabled && !CurrentGame().combat.active()) {
             if (monster_group == 0) {
                 Fail("pMonsterGroup");
             }
@@ -256,7 +257,7 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
     W8SightState result;
 
     result = W8_SIGHT_UNSEEN;
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return W8_SIGHT_UNSEEN;
     }
     monster_info = FindMonster(monster_group->leader_location_id);
@@ -1132,7 +1133,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
     }
     for (index = char_lo; index < char_hi; ++index) {
         if (Random(100) <
-            g_status.party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
+            CurrentGame().party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
             avoided[index] = 1;
         }
     }
@@ -1184,7 +1185,7 @@ targets_chosen:
     if (scan_chars) {
         for (index = char_lo; index < char_hi; ++index) {
             if (resisted[index] != 0 && Random(2) == 0) {
-                PracticeCharacterSkill(&g_status.party.characters[index], W8_SKILL_STEALTH, 1,
+                PracticeCharacterSkill(&CurrentGame().party.characters[index], W8_SKILL_STEALTH, 1,
                                        false);
             }
         }
@@ -1324,7 +1325,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         return true;
     }
     if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-        character = &g_status.party.characters[combat_slot->iChar];
+        character = &CurrentGame().party.characters[combat_slot->iChar];
         hp_max = character->uiHPMax;
         hp = character->hp_current;
         stat = character->stamina;
@@ -1421,13 +1422,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_BLESS:
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD:
-        if (!g_combat.active()) {
+        if (!CurrentGame().combat.active()) {
             return true;
         }
         for (index = 0; index < 9; ++index) {
             if (spell_id == g_combat_effect_slot_spells_and_cast_success[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_combat.state()->effect_slots0[index].duration;
+                    duration = CurrentGame().combat.state()->effect_slots0[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1492,7 +1493,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         for (index = 0; index < 12; ++index) {
             if (spell_id == g_being_effect_slot_spells[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_status.effect_slots[index].duration;
+                    duration = CurrentGame().status.effect_slots[index].duration;
                 } else {
                     duration = target->effect_slots[index].duration;
                 }
@@ -1587,13 +1588,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_DRAINING_CLOUD:
     case W8_SPELL_FIRESTORM:
     case W8_SPELL_DEATH_CLOUD:
-        if (!g_combat.active()) {
+        if (!CurrentGame().combat.active()) {
             return true;
         }
         for (index = 0; index < 9; ++index) {
             if (spell_id == g_combat_effect_slot_spells[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_combat.state()->effect_slots[index].duration;
+                    duration = CurrentGame().combat.state()->effect_slots[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1632,13 +1633,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         }
         break;
     case W8_SPELL_PURIFY_AIR:
-        if (!g_combat.active()) {
+        if (!CurrentGame().combat.active()) {
             return false;
         }
         for (index = 0; index < 9; ++index) {
             if (g_combat_effect_slot_spells[index] != 0x31) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_combat.state()->effect_slots[index].duration;
+                    duration = CurrentGame().combat.state()->effect_slots[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -2229,7 +2230,7 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
         }
         return false;
     }
-    if (g_combat.active() && monster_info->pCombat->special_cooldown != 0) {
+    if (CurrentGame().combat.active() && monster_info->pCombat->special_cooldown != 0) {
         return false;
     }
     if (static_cast<unsigned int>(monster_info->stamina) <
@@ -2500,7 +2501,7 @@ void UpdateMonsterGroupEngagement(void)
     int allied_index;
     int member_starting;
 
-    if (g_combat.state()->combat_update_count <= 2) {
+    if (CurrentGame().combat.state()->combat_update_count <= 2) {
         return;
     }
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
@@ -2613,7 +2614,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                                     monster_group->group_id));
         return false;
     }
-    if (!g_combat.active()) {
+    if (!CurrentGame().combat.active()) {
         return false;
     }
     if (monster_group->ubDisposition == W8_DISPOSITION_NEUTRAL) {

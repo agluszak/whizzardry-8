@@ -20,6 +20,7 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -150,7 +151,7 @@ UiResult MainMenuScreen::handleItem(short item, const UiPointerEvent& event)
 bool MainMenuScreen::enter(const ScreenRequest&)
 {
     ResetVideoFrameState();
-    g_status.game_started = false;
+    EndGame();
     has_save_games = SaveGameExists();
     redraw_ = true;
     ClearPrimarySurface();

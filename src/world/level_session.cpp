@@ -26,6 +26,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -373,7 +374,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
 {
     bool first_visit = false;
     StartLevelMusic(1, 1);
-    g_status.next_trigger_id = GetWorld()->next_trigger_id;
+    CurrentGame().status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
     if (GetWorld()->environment.fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
@@ -424,13 +425,13 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             SetWorldScenePosition(GetWorld(), &position);
         }
     } else {
-        RestoreWorldCameraState(&g_status.pending_move_location);
+        RestoreWorldCameraState(&CurrentGame().status.pending_move_location);
     }
 
-    if (level < W8_LEVEL_COUNT && !g_status.level_progress[level].visited) {
+    if (level < W8_LEVEL_COUNT && !CurrentGame().status.level_progress[level].visited) {
         ResetMonsterGroupTurnState();
         RebindMonsterGroupScripts();
-        g_status.level_progress[level].visited = true;
+        CurrentGame().status.level_progress[level].visited = true;
         first_visit = true;
     }
 
@@ -453,7 +454,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             RecordLevelEntryDialogueState();
             ForgetRecentCombat();
         }
-        if (g_status.greeting_pending &&
+        if (CurrentGame().status.greeting_pending &&
             (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
             DespawnAllActiveMonsterGroups();
         } else {
@@ -485,8 +486,8 @@ static void FinishLevelDeparture()
 {
     // Combat state is transient on restore. End it after saving the level;
     // sight age is session history recorded at the actual departure boundary.
-    if (g_combat.active()) {
-        g_combat.End(true);
+    if (CurrentGame().combat.active()) {
+        CurrentGame().combat.End(true);
     }
 
     // These values become durable session history at departure. Saving only
@@ -496,7 +497,8 @@ static void FinishLevelDeparture()
         SetTriggerVariableByName(name.c_str(), value);
     }
     if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-        g_status.level_progress[GetLoadedLevelID()].sight_clock = g_status.world_clock;
+        CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock =
+            CurrentGame().status.world_clock;
     }
 }
 
