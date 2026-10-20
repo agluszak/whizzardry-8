@@ -1,11 +1,10 @@
 #include <chrono>
 
+#include "wiz8/combat/party_movement.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -64,6 +63,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     search_sweep_due -= elapsed;
     sight_due -= elapsed;
     world_items_due -= elapsed;
+    if (combat) combat->passTime(elapsed);
     UpdateSurpriseMode();
     ProcessMainGameAutoSave();
     GameTimeAccumulator().Update(elapsed);
@@ -76,7 +76,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         AccumulateMovementFatigue(*this);
         if (Due(search_sweep_due, kSearchSweepInterval)) RunSearchPulse();
     } else if (!hold.combat && !activity.conversation) {
-        UpdateCombat();
+        combat->step(*this);
     }
     if (IsSightRangeOverridden() && HostilesEngage(*this)) beginCombat(0);
     if (Due(sight_due, kSightInterval)) UpdateMonsterSight();

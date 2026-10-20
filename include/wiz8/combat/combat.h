@@ -1,7 +1,7 @@
 #pragma once
 
 #include <algorithm>
-#include <cstdint>
+#include <chrono>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -18,6 +18,7 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/targeting.h"
 
+class Game;
 struct W8Character;
 
 struct W8MonsterInfo;
@@ -57,6 +58,17 @@ using CombatTurn = std::variant<TurnIdle, TurnScheduled, TurnResolving, TurnFini
 
 /* What one step of a resolving action reports. */
 enum class ActionStep : unsigned char { resolving, finishing };
+
+/* What the turn waits on before it may advance, checked in this order. */
+enum class CombatWait : unsigned char {
+    none,
+    camera,       // the party camera is still turning
+    monster,      // a monster's cycle, animation or turn toward its target is unfinished
+    hit_sound,    // the last hit sound is still playing
+    spell_effect, // a spell effect has run out and is being retired
+    missile,      // an engaged or spell missile is still in flight
+    npc_script,   // a conscious NPC party slot's combat script is still queued
+};
 
 /* OnCollision produces HIT or DEFLECTED; attack setup also seeds the result
    when collision is bypassed. The shared combat-state field remains one byte. */
@@ -191,12 +203,14 @@ struct Combat {
     /* Historical offset 0x6b8: the attack announcement the monster-attack message builder
        sprintf's into and ShowNotice displays; 0x78 wide chars. */
     std::string attack_message;
-    /* Historical offset 0x7a8: continuous-combat UI pacing; the confirm button resets it while
-       TimeUntilDeadline reports it still running. */
-    uint64_t combat_ui_timer;
-    /* Historical offset 0x7ac: the pacing clock the scheduler arms as a MonotonicMilliseconds deadline
-       before the scheduled actor's action may execute. */
-    uint64_t action_clock;
+    /* The step runs these countdowns down by its elapsed time (`passTime`); one at zero
+       is due. `continuous_start_delay` holds continuous combat back after the fight
+       starts; `action_delay` paces the scheduled actor, whose action starts when it is
+       due; `party_movement_delay` paces the synthetic progress of a continuous-combat
+       move while the world stands still. */
+    std::chrono::milliseconds continuous_start_delay{};
+    std::chrono::milliseconds action_delay{};
+    std::chrono::milliseconds party_movement_delay{};
     /* The hit sound the turn waits on; its completion releases it (an empty playback
        when none is held). */
     wiz8::sound::Playback hit_sound;
@@ -211,9 +225,6 @@ struct Combat {
     W8PartyAction uiCurrentPartyAction;
     unsigned int uiPartyActionPhase;
     W8PartyActionStatus uiCurrentPartyActionStatus;
-    /* Historical offset 0x91c: countdown used to pace synthetic movement progress when
-       continuous combat is enabled and the world did not advance this frame. */
-    uint64_t party_movement_clock;
     /* How much of the party's move is left, in percent. It falls as the party walks, and
        when the move ends it decides which members still act this round. */
     int party_move_percent = 0;
@@ -281,6 +292,17 @@ struct Combat {
     bool search_mode_saved;
     bool combat_ready;
 
+    /* Run the countdowns down by the time the step passed. */
+    void passTime(std::chrono::milliseconds elapsed)
+    {
+        const auto run_down = [elapsed](std::chrono::milliseconds& countdown) {
+            countdown = std::max(countdown - elapsed, std::chrono::milliseconds::zero());
+        };
+        run_down(continuous_start_delay);
+        run_down(action_delay);
+        run_down(party_movement_delay);
+    }
+
     const CombatTurn& turn() const { return turn_; }
     /* The actor holding the turn, null while it is idle. */
     const CombatActor* actor() const
@@ -339,6 +361,39 @@ struct Combat {
         }
     }
 
+    /* One step of the fight (the game's step calls it while the world runs and nothing
+       holds the turn): wait for what the turn waits on, start the round when continuous
+       combat or a surprise allows, and move the turn through its phases. The fight may
+       end inside it. */
+    void step(Game& game);
+    /* The first thing the turn waits on. */
+    CombatWait waitingOn(const Game& game) const;
+    /* Pick the next party slot or monster whose action phase arrived, start
+       party-movement phases, arm the action delay, and roll the round counter forward
+       until someone can act or the round ends. */
+    void scheduleNextActor(Game& game);
+
+    /* Run a monster's committed action: the monster-side counterpart of
+       ExecuteCharacterAction. */
+    void executeMonsterAction(Game& game, W8MonsterInfo& monster);
+    /* Step the acting monster's resolving action and move its turn to what it reports. */
+    void stepMonsterAction(Game& game, W8MonsterInfo& monster);
+    /* Start a party slot's breath: face the target and build the breath visual. */
+    bool startCharacterBreath(Game& game, int party_slot);
+    /* Release a party slot's breath once its visual has played: resolve it against the
+       target markers and every hostile monster. */
+    ActionStep releaseCharacterBreath(Game& game, int party_slot);
+    /* Pick the hand a party slot's attack lands with this round and derive its next
+       action phase from the stored attack values. */
+    void settleCharacterPhase(Game& game, int party_slot);
+
 private:
+    void beginScheduledAction(Game& game, const CombatActor& actor);
+    void stepResolvingAction(Game& game, const CombatActor& actor);
+    /* Settle a finished action: a party slot falls back to its remembered combat choice
+       and takes its next phase; a monster pays the fatigue and may queue another attack
+       this round. The turn becomes idle. */
+    void finishAction(Game& game, const CombatActor& actor);
+
     CombatTurn turn_ = TurnIdle{};
 };

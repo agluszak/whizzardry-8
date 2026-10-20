@@ -10,10 +10,10 @@
 #include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/combat/sounds.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/local_code/CombatSound.h"
 
 static void write_text(std::string_view path, std::string_view text)
 {

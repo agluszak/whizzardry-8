@@ -1,4 +1,7 @@
+#include "wiz8/combat/party_movement.h"
+
 #include <algorithm>
+#include <chrono>
 #include <optional>
 #include <vector>
 
@@ -7,13 +10,12 @@
 #include "local_code/Targeting.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -21,12 +23,11 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -38,6 +39,8 @@
 enum { W8_PHASES_PER_ROUND = 100 };
 
 constexpr float kMovementFatigueTickScale = 0.0004f;
+/* How long a continuous-combat move waits for the world before progressing on its own. */
+constexpr std::chrono::milliseconds kSyntheticMoveInterval{1000};
 
 namespace {
 /* The movement gauge: how far the party may move this action, and how far
@@ -149,7 +152,7 @@ void UpdateActivePartyMovement(void)
     if (const auto elapsed = AccumulateMovementFatigue(CurrentGame())) {
         party_move_distance += elapsed->real + elapsed->frame;
     } else if (g_settings.continuous_combat != 0 &&
-               TimeUntilDeadline(combat.party_movement_clock) == 0) {
+               combat.party_movement_delay == std::chrono::milliseconds::zero()) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         step_count = std::clamp(step_count, 10u, 60u);
         party_move_distance += party_move_limit / step_count;
@@ -166,7 +169,7 @@ void UpdateActivePartyMovement(void)
         combat.party_move_percent = std::clamp(percent, 0, 100);
         ShowPartyMovementGauge(false);
         if (g_settings.continuous_combat != 0) {
-            combat.party_movement_clock = MonotonicMilliseconds() + (1000);
+            combat.party_movement_delay = kSyntheticMoveInterval;
         }
     }
 
@@ -421,7 +424,7 @@ void EndPartyMovementPhase(void)
         return;
     }
     if (!IsLevelMovementStopped()) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x21c]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21c]});
     }
     ResetLevelDataVectors();
     DisableFreeTurnButton();
@@ -502,7 +505,7 @@ void FinishPartyMovementAction(void)
     }
     if (IsLevelMovementStopped() &&
         CurrentGame().combat->uiCurrentPartyActionStatus == W8_PARTY_ACTION_PHASE_ENDED) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x21d]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21d]});
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
     ClearLevelMovementStopped();
@@ -512,7 +515,7 @@ void FinishPartyMovementAction(void)
     EnableFreeTurnButton();
     InvalidatePartyMovementPanel();
     if (g_settings.continuous_combat != 0) {
-        CurrentGame().combat->party_movement_clock = MonotonicMilliseconds() + (1000);
+        CurrentGame().combat->party_movement_delay = kSyntheticMoveInterval;
     }
     TurnPartyTo(CurrentGame().status.party_heading);
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;
@@ -523,7 +526,7 @@ void BeginPartyMovementPhase(void)
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
         CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         CurrentGame().party_movement_mode = true;
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x21b]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21b]});
         party_move_distance = 0.0f;
     }
     FinishPartyMovementAction();

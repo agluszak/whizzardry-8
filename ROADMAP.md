@@ -123,9 +123,8 @@ the licensed runtime scenarios after every step.
 4. **One step.** `Game::advance(elapsed)` is the game's step (ARCHITECTURE.md,
    "Stepping"); its own countdowns, the frame delta and the environment clock take the
    elapsed time it is given. What it calls still reads the monotonic clock: the surprise
-   fade, autosave pacing, the combat turn's `action_clock` and waits, the monster
-   manager, props and monster generators (`W8GameTimer`/`W8IntervalGate` on the shared
-   clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
+   fade, autosave pacing, the monster manager, props and monster generators
+   (`W8GameTimer`/`W8IntervalGate` on the shared clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
    Move each onto the elapsed time the step passes down so that a test can step a game
    deterministically; then add a test that steps a small game with explicit times.
 5. **Presentation owned by screens.**
@@ -146,22 +145,40 @@ the licensed runtime scenarios after every step.
    - The held-item cursor is derived every frame from the hand and the interaction
      mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
 6. **Conditions, magic and combat in `rules`.**
-   - Conditions, spells and attack resolution return results and emit events.
    - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
-     and its turn is a value (ARCHITECTURE.md, "The game"). Entities report missile
-     hits, landings and release frames through the world's `SimulationSink`, monster
-     scripts and triggers issue game commands, and the hit sound releases its wait when
-     it finishes. What remains:
-     - `CombatWaitFor` still reads presentation every step: the camera's transition,
-       each combat monster's cycle, frame and facing (`AnyCombatMonsterBusy`), and the
-       missiles in flight (`BlocksEndingCombat`, which also releases the engaged
-       missile). For the step to read only values, the presentation has to report each
-       transition (a camera transition ending, a monster settling, a missile's impact
-       cycle starting or its flight ending), including those the monster manager
-       causes earlier in the same step, without a maintained count of busy actors.
-     - `UpdateCombat`, the scheduler and the action executors reach the game through
-       `CurrentGame()` and resolve actions inside `local_code`; they become operations
-       of `Combat` that take the game and the rules' context.
+     and its turn is a value stepped by `Combat::step`, with the scheduler and the
+     actions it runs as `Combat` members in `combat/` (ARCHITECTURE.md, "The game").
+     Its countdowns run on the step's elapsed time. Entities report missile hits,
+     landings and release frames through the world's `SimulationSink`, monster scripts
+     and triggers issue game commands, the hit sound releases its wait when it
+     finishes, and the fight, attack resolution, conditions and spells report their
+     notices as events (`TextNotice`, `CharacterNotice`, `TextBoxModeChange`).
+     What remains:
+     - Presentation calls left in those rules: redraw bitmasks (`RequestRedraw`,
+       `RequestPartySlotRedraw`, `RequestRedrawParty`, about 40 in `combat/`, conditions
+       and spells), sounds (`wiz8::sound::play`, `combat/sounds.cpp`), the camera
+       (`PointCameraAtMonster`, `PointCameraAtCombatTarget`), the text box's queries and
+       edits (`GetTextBoxMode`, `AppendToLastTextLine`, `HighlightTextBoxRange`,
+       `RefreshTextBoxMode`, `SelectTextBox`), the character screen the scheduler opens
+       for an equip round (`OpenCharacterScreenForPartySlot`) and the selection
+       auto-advance (`AutoAdvanceSelectedCharacter`). `Health Stamina Mana.cpp` still
+       posts its notices directly.
+     - Attack resolution (`StartCharacterAttack`, `ResolveCharacterAttack`,
+       `StartMonsterAttack`, `ContinueMonsterAttack`), conditions and spells are free
+       functions that reach the game through `CurrentGame()`; so do the fight's other
+       operations in `combat/fight.cpp` (rounds, surprise, the end check, action
+       choices). They should take the game, then a `RuleContext`, and return what
+       happened instead of reporting it.
+     - `Combat::waitingOn` still polls presentation each step: the camera's
+       transition, each combat monster's cycle, frame and facing, and the missiles in
+       flight (`BlocksEndingCombat`, which `Combat::step` also polls to release the
+       engaged missile). These cannot be signalled exactly yet: a monster is busy
+       until its attack cycle passes half its frames or its yaw comes within an
+       epsilon of its target, and a missile until its impact cycle starts, so each
+       would need an event from inside the entity's animation and navigation update,
+       including the transitions the monster manager causes earlier in the same step.
+       Do it with the entity rework that follows the scene-graph renderer migration,
+       without a maintained count of busy actors.
 7. **Story state.** `Game::story` and `Game::message_log` hold it, and NPC scripting and
    the level scripts act on a `ScriptContext` (ARCHITECTURE.md, "Scripts").
    - The fact API (`GetFact`/`SetFact`, about 210 calls) still reaches the game;
@@ -259,9 +276,9 @@ Substantial but contained work.
   data error (an error value or exception at the boundary that read the data), or
   dead. Remove the retail message text.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
-  retail translation-unit names, including fourteen files with spaces (`PC Item.cpp`,
-  `Combat Attack.cpp`, …). Move the remaining code into named modules, as
-  `inventory`, `party`, `party_stats` and `live_party` already are. `PC Item.cpp`
+  retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
+  `Magic Effects.cpp`, …). Move the remaining code into named modules, as
+  `inventory`, `party`, `party_stats`, `live_party` and `combat/` already are. `PC Item.cpp`
   should split into item rules, identification/binding and display.
 ## Easiest follow-ups
 

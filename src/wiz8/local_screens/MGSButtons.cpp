@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/MGSButtons.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -18,6 +19,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -26,7 +28,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
@@ -335,7 +336,7 @@ void UpdateCombatStanceButtons(void)
 
     if (g_settings.continuous_combat == 0) {
         stance = CurrentGame().combat->execution_active != 0 ? 3U : 0U;
-    } else if ((TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) == 0 &&
+    } else if ((CurrentGame().combat->continuous_start_delay == std::chrono::milliseconds::zero() &&
                 CombatMayAdvanceContinuously()) ||
                CurrentGame().combat->party_surprised) {
         stance = CurrentGame().combat->round_active ? 1U : 4U;
@@ -378,10 +379,7 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
     if (g_settings.continuous_combat == 0) {
         return;
     }
-    if (TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) == 0) {
-        return;
-    }
-    CurrentGame().combat->combat_ui_timer = MonotonicMilliseconds() + (0);
+    CurrentGame().combat->continuous_start_delay = std::chrono::milliseconds::zero();
 }
 
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
