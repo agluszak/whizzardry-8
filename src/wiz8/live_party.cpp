@@ -19,6 +19,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"

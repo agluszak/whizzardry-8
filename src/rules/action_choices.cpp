@@ -1,5 +1,7 @@
 #include "wiz8/rules/action_choices.h"
 
+#include "wiz8/rules/targeting.h"
+
 void ReconcileBerserkChoice(ActionChoices& remembered, W8Action& committed, bool can_berserk)
 {
     const auto follow = [&](W8ActionKind from, W8ActionKind to) {

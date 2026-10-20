@@ -6,6 +6,7 @@
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/targeting.h"
 
 namespace {
 W8Party PartyWithPool(std::initializer_list<int> item_ids)
