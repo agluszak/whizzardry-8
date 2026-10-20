@@ -437,7 +437,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         W8ItemInstance* item = &character.EquippedItem[slot];
         if (item->iItemNo != -1 && CanUnequipSlotItem(&character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(item, false)) {
+            if (AddItemToPartyOrDrop(CurrentGame(), item, false)) {
                 returned = true;
             } else {
                 dropped = true;
@@ -447,7 +447,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     for (slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(item, false)) {
+            if (AddItemToPartyOrDrop(CurrentGame(), item, false)) {
                 returned = true;
             } else {
                 dropped = true;
@@ -541,7 +541,7 @@ void UpdateNpcPartyMember(int party_slot)
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
-        StashDepartingCharacterItems(character);
+        StashDepartingCharacterItems(CurrentGame(), character);
         RemoveCharacterFromParty(party_slot);
         return;
     }
@@ -583,7 +583,8 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
             CurrentGame().party.characters[party_slot].skills[index].available = true;
         }
     }
-    RefreshCharacterSkillAvailability(&CurrentGame().party.characters[party_slot]);
+    RefreshCharacterSkillAvailability(CurrentGame().events,
+                                      &CurrentGame().party.characters[party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
@@ -1408,8 +1409,8 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     AccumulateEquipmentModifiers(Data(), &character, &character.equipment_bonus);
     RebuildCharacterModifierBlock(&character, nullptr);
     CalcCharacterLevelBand(&character);
-    RefreshCharacterSkillAvailability(&character);
-    RecalculateCharacterDerivedStats(character);
+    RefreshCharacterSkillAvailability(CurrentGame().events, &character);
+    RecalculateCharacterDerivedStats(CurrentGame(), character);
     for (index = 1; index < 0x73; ++index) {
         if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {
             LearnSpell(&character, index, false);
@@ -1678,8 +1679,8 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
         }
         delta = scale + level * quotient / 100;
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
-        PracticeCharacterSkill(&CurrentGame().party.characters[kind], W8_SKILL_COMMUNICATION, 8,
-                               false);
+        PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[kind],
+                               W8_SKILL_COMMUNICATION, 8, false);
         GetNpcDisposition(npc);
         return;
     }
@@ -1734,8 +1735,8 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
             delta = static_cast<int>(average_level * delta / monster_level);
         }
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
-        PracticeCharacterSkill(&CurrentGame().party.characters[value], W8_SKILL_COMMUNICATION, 5,
-                               false);
+        PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[value],
+                               W8_SKILL_COMMUNICATION, 5, false);
         GetNpcDisposition(npc);
         return;
     }
@@ -1745,7 +1746,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
         return;
     }
     case 2: {
-        SpendPartyGold(gold);
+        SpendPartyGold(CurrentGame().party, gold);
         DebitNpcTradePool(npc, gold);
         break;
     }
@@ -1860,7 +1861,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     }
     if (empty_pick) {
         if (npc->gold != 0) {
-            PracticeCharacterSkill(character, W8_SKILL_PICKPOCKET, 5, false);
+            PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
             unsigned int taken = Random(100) * 7;
             if (static_cast<unsigned int>(npc->gold) < taken) {
                 taken = npc->gold;
@@ -1886,7 +1887,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
             *item_out = MakeItem(item_id, true, true, false);
         }
         npc->item_ids[picked & 0xff] = -1;
-        PracticeCharacterSkill(character, W8_SKILL_PICKPOCKET, 5, false);
+        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
     }
     return W8_PICKPOCKET_ITEM_TAKEN;
 }
@@ -1903,7 +1904,7 @@ char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, i
     char roll = static_cast<char>(Random(100));
     if (roll < '`' && roll <= score * 2) {
         if (roll < score) {
-            PracticeCharacterSkill(character, W8_SKILL_PICKPOCKET, 5, false);
+            PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
             return W8_ITEM_THEFT_SUCCEEDED;
         }
         return W8_ITEM_THEFT_FAILED;

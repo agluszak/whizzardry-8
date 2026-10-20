@@ -423,7 +423,7 @@ void W8NpcDialogue::Answer(std::string_view text)
             if (static_cast<unsigned int>(check.price) > CurrentGame().party.gold) {
                 Speak(0x14, false);
             } else {
-                SpendPartyGold(check.price);
+                SpendPartyGold(CurrentGame().party, check.price);
                 if (check.tells_fact) {
                     TellNpcFact(check.npc, check.quote_index);
                 }

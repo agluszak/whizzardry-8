@@ -7,8 +7,10 @@
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
 #include <memory>
 #include <span>
+#include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
@@ -71,6 +73,7 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -526,11 +529,57 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
     SetHandType(Data(), &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     REQUIRE(character.Hand[1].uiHolds == 3);
-    CommitWeaponSetSwap(0, {true, false});
+    CommitWeaponSetSwap(CurrentGame(), 0, {true, false});
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.Hand[0].uiHolds == 1);
     REQUIRE(character.Hand[1].uiHolds == 1);
+}
+
+TEST_CASE("An inventory command's notice follows its consequences in the game's events",
+          "[equipment][events]")
+{
+    const ScopedGame scoped;
+    auto& game = scoped.game;
+    const ScopedRecords items(MutableData().items, 2);
+    const ScopedRecords strings(MutableData().strings, 0x200);
+    MutableData().strings[0x1ec] = "changes weapons.";
+    for (auto& record : MutableData().items) {
+        record.profession_mask = 0xffff;
+        record.race_mask = 0xffff;
+        record.gender_mask = 3;
+        record.attribute_requirements[0].stat_id = 0xff;
+        record.attribute_requirements[1].stat_id = 0xff;
+        record.skill_requirements[0].stat_id = 0xff;
+        record.skill_requirements[1].stat_id = 0xff;
+        record.equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    }
+    game.party.rows[0].fOccupied = true;
+    auto& character = game.party.characters[0];
+    character.fInParty = true;
+    for (auto& item : character.EquippedItem) item.iItemNo = -1;
+    character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
+    character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
+
+    REQUIRE(SwapWeaponSetSlots(game, 0, true));
+    const auto& pending = game.events.pending();
+    REQUIRE(pending.size() == 3);
+    REQUIRE(std::get<PartySlotChanged>(pending[0]).party_slot == 0);
+    REQUIRE(std::holds_alternative<EquipmentSettled>(pending[1]));
+    const auto& notice = std::get<CharacterNotice>(pending[2]);
+    REQUIRE(notice.party_slot == 0);
+    REQUIRE(notice.text == "changes weapons.");
+
+    // An observer receives what was pending, in order, and later events as they happen.
+    std::vector<std::size_t> observed;
+    game.events.observe([&](const Event& event) { observed.push_back(event.index()); });
+    REQUIRE(game.events.pending().empty());
+    REQUIRE(observed == std::vector<std::size_t>{Event{PartySlotChanged{}}.index(),
+                                                 Event{EquipmentSettled{}}.index(),
+                                                 Event{CharacterNotice{}}.index()});
+    game.events.push(HeldItemChanged{});
+    REQUIRE(observed.back() == Event{HeldItemChanged{}}.index());
+    REQUIRE(game.events.pending().empty());
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,
@@ -1057,7 +1106,7 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     auto& draft = CurrentGame().party.characters[0];
     draft.carrying_capacity = 0;
     draft.party_weight_share = 99;
-    RecalculateCharacterDerivedStats(draft);
+    RecalculateCharacterDerivedStats(CurrentGame(), draft);
     REQUIRE(draft.carrying_capacity > 0);
     REQUIRE(draft.party_weight_share == 0);
     REQUIRE(draft.bonus.damage_bonus == 0);
@@ -1122,16 +1171,16 @@ TEST_CASE("A split stack travels through the hand and merges back", "[party][inv
     auto& party = CurrentGame().party;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
 
-    REQUIRE(SplitItemStack({W8ItemStorage::Backpack, 0, 0}, 3, 0));
+    REQUIRE(SplitItemStack(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, 3, 0));
     REQUIRE(actor.backpack[0].stack_count == 7);
     REQUIRE(party.held.item.stack_count == 3);
     REQUIRE(party.held.origin == W8ItemLocation{W8ItemStorage::Backpack, 0, 0});
     REQUIRE(actor.inventory_weight == 70);
-    REQUIRE(SplitItemStack({W8ItemStorage::Backpack, 0, 0}, 1, 0));
+    REQUIRE(SplitItemStack(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, 1, 0));
     REQUIRE(party.held.item.stack_count == 4);
     REQUIRE(actor.inventory_weight == 60);
     const auto result =
-        MergeInventoryStacks({W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
+        MergeInventoryStacks(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
     REQUIRE(result.complete);
     REQUIRE(party.held.item.iItemNo == -1);
     REQUIRE(party.held.origin == W8ItemLocation{});
@@ -1152,12 +1201,12 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
         item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
     party.item_count = 500;
-    REQUIRE_FALSE(SplitItemStack({W8ItemStorage::Hand}, 4, 0));
+    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 4, 0));
     REQUIRE(party.held.item.stack_count == 10);
     REQUIRE(party.item_count == 500);
     REQUIRE(party.characters[0].backpack[0].stack_count == 100);
-    REQUIRE_FALSE(SplitItemStack({W8ItemStorage::Hand}, 11, 0));
-    REQUIRE_FALSE(SplitItemStack({W8ItemStorage::Hand}, 0, 0));
+    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 11, 0));
+    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 0, 0));
 }
 
 TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
@@ -1183,7 +1232,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
     character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
 
-    SettleActiveParty();
+    SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo == -1);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
     REQUIRE(character.backpack[0].iItemNo == 0);
@@ -1197,7 +1246,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
     party.item_count = 500;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
-    SettleActiveParty();
+    SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
     REQUIRE(party.held.item.iItemNo == 1);
 }

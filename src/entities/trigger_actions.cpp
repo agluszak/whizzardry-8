@@ -1181,7 +1181,7 @@ void Trigger::Run(int source)
             }
             W8DoorTriggerActionData* action_data = doorData();
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!PartyHasItem(action_data->item)) {
+                if (!PartyHasItem(CurrentGame().party, action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1246,7 +1246,7 @@ void Trigger::Run(int source)
             bool was_active;
 
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!PartyHasItem(action_data->item)) {
+                if (!PartyHasItem(CurrentGame().party, action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1453,7 +1453,7 @@ void Trigger::Run(int source)
                 }
 
                 if (gold != 0) {
-                    AddPartyGold(gold, true);
+                    AddPartyGold(CurrentGame(), gold, true);
                     gold = 0;
                 }
 
@@ -1464,7 +1464,7 @@ void Trigger::Run(int source)
                     }
                 } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
-                    ReceiveItemInHand(item->item);
+                    ReceiveItemInHand(CurrentGame(), item->item);
                     world_item_group->contents.clear();
                     if (m_pProp->subcycle != 0) {
                         goto toggle_item_prop;
@@ -2047,9 +2047,9 @@ bool Trigger::SelectAction()
 
     if (auto* action_data = doorData(); action_data == nullptr) {
         if (required_item_id >= 0) {
-            if (GetItemInHand() == required_item_id) {
+            if (GetItemInHand(CurrentGame().party) == required_item_id) {
                 if ((flags & W8_TRIGGER_CONSUME_ITEM) != 0) {
-                    RemovePartyItemByID(required_item_id, false);
+                    RemovePartyItemByID(CurrentGame(), required_item_id, false);
                     required_item_id = -1;
                 }
             } else {
@@ -2093,7 +2093,7 @@ bool Trigger::SelectAction()
         }
 
         if (action_data->locked && action_data->item != -1) {
-            if (GetItemInHand() != action_data->item) {
+            if (GetItemInHand(CurrentGame().party) != action_data->item) {
                 if (m_lData2 == 1 && activation_callback != 0) {
                     activation_callback(this);
                 }

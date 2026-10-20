@@ -293,19 +293,12 @@ extern int g_character_resistance_images[6];
 /* One message id per character trait, indexed by trait id. */
 extern unsigned short g_character_trait_name_ids[0x20];
 
-/* Attribute-entry and skill-name message id tables shared by the stats and
-   skills pages. */
-extern unsigned short g_character_description_first_ids[22];
-extern unsigned short g_character_skill_name_ids[84];
-/* One row per gender, the third entry the possessive the item
-   notices print. */
-extern unsigned short g_gender_name_message_rows[4][4];
 /* One message id per final-page personality slot; the array's terminating zero
    keeps its ten-entry extent. */
 extern unsigned short g_personality_message_ids[10];
 
-/* Skill-availability bookkeeping raised by RefreshCharacterSkillAvailability while the character
-   screen is open: adjust the named page-2 entry and refresh that page. */
+/* A skill became available or unavailable while the character screen is open:
+   adjust the named page-2 entry and refresh that page. */
 void ResetCharacterScreenSkill(W8Skill skill_id);
 void RefundCharacterScreenSkill(W8Skill skill_id);
 

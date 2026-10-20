@@ -459,7 +459,7 @@ static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsign
             stack.stack_count = quantity;
             amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
             if (!suppress_payment) {
-                AddPartyGold(amount, false);
+                AddPartyGold(CurrentGame(), amount, false);
             }
             if (item->stack_count == 0) {
                 item->stack_count = 1;
@@ -519,7 +519,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
     if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
     const bool wanted = NpcHasTopic(npc, item->iItemNo);
     if (!SellItemToNpc(npc, item, quantity, wanted)) return {W8TradeOutcome::Refused};
-    RemoveInventoryQuantity(CurrentGame().party.locateItem(item), quantity);
+    RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), quantity);
     wiz8::sound::play(g_sound_cash_transaction);
     return {W8TradeOutcome::Complete, wanted};
 }
@@ -681,7 +681,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     CurrentGame().party.item_count = static_cast<unsigned int>(pool.size());
     ConsumeNpcItemQuantity(npc, index, quantity);
     RemoveDepletedNpcStock(npc);
-    if (!no_payment) SpendPartyGold(price);
+    if (!no_payment) SpendPartyGold(CurrentGame().party, price);
     for (auto& drop : drops) AddWorldItem(std::move(drop));
     if (held) {
         CurrentGame().party.held.item = *held;
@@ -690,7 +690,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
         CurrentGame().party.held.origin = {};
         SetItemCursor(0);
     }
-    RedistributePartyEncumbrance();
+    RedistributePartyEncumbrance(CurrentGame());
     for (std::size_t slot : acquired) {
         auto* item = &CurrentGame().party.item_pool[slot];
         UpdateFactsAfterAcquiringItem(item);

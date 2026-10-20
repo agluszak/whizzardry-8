@@ -498,7 +498,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             character = &CurrentGame().party.characters[target->iChar];
             if (character->skills[W8_SKILL_IRON_WILL].active) {
-                PracticeCharacterSkill(character, W8_SKILL_IRON_WILL, 2, false);
+                PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_IRON_WILL, 2, false);
             }
         }
         return true;
@@ -2159,7 +2159,7 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(CurrentGame().party.locateItem(item), destroyed);
+        RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), destroyed);
     }
 }
 

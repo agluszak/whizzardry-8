@@ -344,11 +344,11 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     if (!(CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
-    if (GetItemInHand() != 0x2ea) {
+    if (GetItemInHand(CurrentGame().party) != 0x2ea) {
         return false;
     }
     g_trigger_feedback = true;
-    (void)TakeInventoryItem({W8ItemStorage::Hand});
+    (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     quest_state = RavenQuestState::perfume_used;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
@@ -559,7 +559,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     if ((CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
-    ReplaceHeldItem(MakeItem(0x291, false, false, false));
+    ReplaceHeldItem(CurrentGame(), MakeItem(0x291, false, false, false));
     SetItemCursor(0);
     ShowString(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
@@ -583,7 +583,7 @@ bool MartensBluff2BlueFlowers(Trigger* pTrigger)
         if ((CurrentGame().party.held.item.iItemNo != -1)) {
             return false;
         }
-        ReplaceHeldItem(MakeItem(0x2eb, false, false, false));
+        ReplaceHeldItem(CurrentGame(), MakeItem(0x2eb, false, false, false));
         SetItemCursor(0);
     }
     g_running_trigger_from_script = false;

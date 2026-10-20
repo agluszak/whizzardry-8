@@ -738,7 +738,7 @@ void W8CampScreenState::Frame()
                     }
                 } else if (input.key == SDLK_P) {
                     if (GameStarted()) {
-                        SortPartyItemPool();
+                        SortPartyItemPool(CurrentGame());
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
@@ -1111,7 +1111,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     row->target_out_of_combat = *target;
     const auto spell = Data().items[item->iItemNo].spell_id;
     StagePartySlotItemUse(party_slot, item, target);
-    const auto use = UseItem(party_slot, CurrentGame().party.locateItem(item));
+    const auto use = UseItem(CurrentGame(), party_slot, CurrentGame().party.locateItem(item));
     result = use.effect;
     FatigueCharacter(
         party_slot,

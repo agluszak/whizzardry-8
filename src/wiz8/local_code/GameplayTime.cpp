@@ -14,6 +14,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/native.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
@@ -637,7 +638,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     character->attributes[attribute].base =
                         character->attributes[attribute].base - 1;
                     ++character->attributes[attribute].change_counter;
-                    ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
+                    ApplyAttributeChange(CurrentGame(), character,
+                                         static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
                         party_slot,
                         fmt::sprintf(Data().strings[0x270],
@@ -714,7 +716,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         }
     }
 
-    if (const auto found = FindPartyItem(ItemWithId(0x243), W8ItemReach::Party);
+    if (const auto found =
+            FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
         found.storage != W8ItemStorage::None && found.storage != W8ItemStorage::Hand) {
         auto* holder = CurrentGame().party.holderOf(found);
         if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
@@ -871,7 +874,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (CharacterHasTrait(character, W8_TRAIT_MAKE_POTIONS)) {
         if (CurrentGame().surprise_possible) {
             if (character->potion_brew_cooldown == 0) {
-                BrewAlchemistPotion(character);
+                BrewAlchemistPotion(CurrentGame(), character);
             }
         } else if (character->potion_brew_cooldown != 0) {
             if (minutes >= character->potion_brew_cooldown) {

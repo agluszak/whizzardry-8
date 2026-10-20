@@ -263,12 +263,12 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
         character->skills[skill_id].points =
             ConvertSkill(static_cast<W8Skill>(skill_id), character, imported);
     }
-    RefreshCharacterSkillAvailability(character);
+    RefreshCharacterSkillAvailability(CurrentGame().events, character);
     ImportEquipment(character, imported);
     DeriveCharacterPersonality(character);
     EnsureUniquePartyVoice(character);
     CalcCharacterLevelBand(character);
-    RecalculateCharacterDerivedStats(*character);
+    RecalculateCharacterDerivedStats(CurrentGame(), *character);
     character->stamina = character->uiStaminaMax;
     character->hp_current = character->uiHPMax;
     for (skill_id = 0; skill_id < 6; ++skill_id) {
@@ -461,7 +461,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
     memset(&empty_item, 0, sizeof(empty_item));
     counts[0] = 0;
     counts[1] = 0;
-    EmptyAllCarriedItems(character);
+    EmptyAllCarriedItems(CurrentGame(), character);
     for (slot = 0; slot < 2; ++slot) {
         source = imported->items[slot];
         for (index = 0; index < 10; ++index) {
@@ -489,10 +489,10 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                     }
                     item = MakeItem(item_index, true, true, true);
                     if (Data().items[item_index].binds_on_equip == 0) {
-                        StoreItemWithCharacterOrParty(character, &item, false, false,
+                        StoreItemWithCharacterOrParty(CurrentGame(), character, &item, false, false,
                                                       static_cast<unsigned int>(slot == 0));
                     } else {
-                        AddItemToCharacter(character, &item, false, false, false);
+                        AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
                     }
                 }
             }
@@ -529,9 +529,10 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
                 item = MakeItem(item_index, true, true, true);
                 if (Data().items[item_index].binds_on_equip == 0) {
-                    StoreItemWithCharacterOrParty(character, &item, false, false, true);
+                    StoreItemWithCharacterOrParty(CurrentGame(), character, &item, false, false,
+                                                  true);
                 } else {
-                    AddItemToCharacter(character, &item, false, false, false);
+                    AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
                 }
                 --maximum[slot];
                 candidates[slot][best_index] = empty_item;
@@ -551,7 +552,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 if (!FindCharacterItem(*character,
                                        ItemOfKind(Data().items[item_id].unidentified_name_index),
                                        W8ItemReach::Carried)) {
-                    AddItemToCharacter(character, &item, true, false, false);
+                    AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
                 }
             } else {
                 if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
@@ -559,7 +560,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                     equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (character->EquippedItem[equip_slot].iItemNo == -1) {
-                    AddItemToCharacter(character, &item, true, false, false);
+                    AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
                 }
             }
         }
@@ -582,10 +583,10 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
         }
         if (give != -1) {
             item = MakeItem(give, true, true, true);
-            AddItemToCharacter(character, &item, true, false, false);
+            AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
         }
     }
-    RecalculateCharacterDerivedStats(*(character));
+    RecalculateCharacterDerivedStats(CurrentGame(), *(character));
 }
 
 /* Retail fell through the failed assert and read `imported->skills` by

@@ -152,7 +152,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
                 GetLevelBand(GetLoadedLevelID()) != '\n') {
                 return;
             }
-        } else if (const auto found = FindPartyItem(ItemWithId(0x243), W8ItemReach::Party);
+        } else if (const auto found =
+                       FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
                    condition == W8_CONDITION_INSANE && found.storage != W8ItemStorage::None &&
                    found.storage != W8ItemStorage::Hand) {
             W8Character* holder = CurrentGame().party.holderOf(found);
@@ -259,7 +260,7 @@ void SanitizeLoadedItems(void)
     unsigned int index;
     W8Character* character;
 
-    SettleActiveParty();
+    SettleActiveParty(CurrentGame());
     for (slot = 0; slot < 8; ++slot) {
         if (!CurrentGame().party.rows[slot].fOccupied) {
             continue;
@@ -333,7 +334,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
         UpdateFormationSlotState(&CurrentGame().combat.state()->saved_formation, party_slot);
     }
     if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {
-        RedistributePartyEncumbrance();
+        RedistributePartyEncumbrance(CurrentGame());
     }
     RequestPartySlotRedraw(party_slot);
     int pose = CurrentGame().monster_manager_entries[party_slot].portrait.target_pose;
@@ -665,7 +666,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     }
     if (condition == W8_CONDITION_DEAD && CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
-        CheatDeathRevive(party_slot);
+        CheatDeathRevive(CurrentGame(), party_slot);
         return 0;
     }
     switch (condition) {

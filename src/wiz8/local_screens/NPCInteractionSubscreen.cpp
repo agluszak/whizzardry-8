@@ -790,7 +790,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
         state->pending_item = *item;
         if ((CurrentGame().party.held.item.iItemNo != -1)) {
             state->held_item_pending = true;
-            (void)TakeInventoryItem({W8ItemStorage::Hand});
+            (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
         }
         if (npc->record->merchant != 0) {
             if (HandleNpcDialogueItem(&state->pending_item) == 0) {
@@ -3517,7 +3517,7 @@ static void OnNpcTradeDialogClosed(bool accepted)
 static void ConfirmNpcTradePurchase(void)
 {
     if (GetNpcDispositionBand(g_npc_interaction_state->dialogue_npc) == W8_NPC_BAND_FRIENDLY) {
-        SpendPartyGold(g_npc_interaction_state->trade_gold);
+        SpendPartyGold(CurrentGame().party, g_npc_interaction_state->trade_gold);
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].dirty = true;
         g_npc_dialogue.QueueQuote(0x10, false, false, false);
         RebuildNpcTradeItemList(false);
@@ -3587,8 +3587,9 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (g_npc_interaction_state->held_item_pending &&
                     g_npc_interaction_state->pending_item.iItemNo == item->iItemNo) {
                     g_npc_interaction_state->held_item_pending = false;
-                    AddItemToParty(&g_npc_interaction_state->pending_item, true, false);
-                    (void)TakeInventoryItem({W8ItemStorage::Hand});
+                    AddItemToParty(CurrentGame(), &g_npc_interaction_state->pending_item, true,
+                                   false);
+                    (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
                     return 0;
                 }
             }
@@ -3851,7 +3852,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
                                 experience->amount),
                    0);
     } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
-        PostSkillIncreaseNotices(skills);
+        PostSkillIncreaseNotices(CurrentGame(), skills);
     } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
         PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
@@ -4014,17 +4015,17 @@ static void ResolveNpcPickpocket(int party_slot)
         text = fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(&item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
-                AddItemToCharacter(character, &item, false, false, false);
+                AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
                 DisplayNpcQuote(text, true);
                 return;
             }
         }
-        AddItemToParty(&item, false, false);
+        AddItemToParty(CurrentGame(), &item, false, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
         text = fmt::sprintf(Data().strings[0x74e], character->name, gold);
-        AddPartyGold(gold, false);
+        AddPartyGold(CurrentGame(), gold, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_FAILED:
@@ -4187,7 +4188,8 @@ static void HandleNpcDialogueDeparture(unsigned char value)
                     character = &CurrentGame().party.characters[index];
                     if (CurrentGame().party.rows[index].fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
-                        PracticeCharacterSkill(character, W8_SKILL_COMMUNICATION, 0xf, false);
+                        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_COMMUNICATION,
+                                               0xf, false);
                     }
                 }
             }

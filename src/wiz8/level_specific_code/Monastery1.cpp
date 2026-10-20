@@ -3,6 +3,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Magic.h"
@@ -110,11 +111,11 @@ bool OnCoffinlidgActivated(Trigger* trigger)
    armed. */
 bool OnWheelStarActivated(Trigger* trigger)
 {
-    if (GetItemInHand() != 0x24c) {
+    if (GetItemInHand(CurrentGame().party) != 0x24c) {
         ShowLevelMessage(0x22);
         g_trigger_feedback = true;
         return false;
     }
-    RemovePartyItemByID(GetItemInHand(), false);
+    RemovePartyItemByID(CurrentGame(), GetItemInHand(CurrentGame().party), false);
     return true;
 }
