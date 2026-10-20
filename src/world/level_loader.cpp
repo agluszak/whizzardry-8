@@ -74,7 +74,6 @@
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/fog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"

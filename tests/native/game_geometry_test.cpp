@@ -58,7 +58,6 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/ground_shadow.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
@@ -74,7 +73,6 @@
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/triangle_projection.h"
-#include "wiz8/render/vertex_shading.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -1298,29 +1296,6 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
     REQUIRE(meshCulling::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) == glm::vec4(0, 0, 0, 4));
 }
 
-TEST_CASE("Empty software backface selections skip mesh submission", "[geometry]")
-{
-    GpuRenderer renderer;
-    Mesh model(1, 3);
-    auto& batch = renderer.batchRenderer(false);
-    std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
-    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
-    const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};
-    Mesh::TriMesh mesh;
-    mesh.vertex_count = positions.size();
-    mesh.polygon_count = triangles.size();
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    mesh.control_flags = (1u << Mesh::CONTROL_FRONT) | (1u << Mesh::CONTROL_BACK);
-    const auto before = batch.statistics.input_triangles;
-    model.RenderTriMeshWithEquations(renderer, mesh, normals, {});
-    REQUIRE(batch.statistics.input_triangles == before);
-    mesh.polygon_count = 2;
-    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals, {}),
-                      std::invalid_argument);
-    REQUIRE(batch.statistics.input_triangles == before);
-}
-
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
 {
     const glm::vec4 plane(1, 0, 0, 0);
@@ -1426,6 +1401,48 @@ TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
         for (unsigned corner = 0; corner < 4; ++corner)
             REQUIRE(particles.vertex_positions[particle * 4 + corner] ==
                     particles.particle_positions[particle] + offsets[corner]);
+}
+
+TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
+{
+    ParticleSystem particles(nullptr, 2);
+    particles.emission_gap = 0;
+    particles.emission_mode = W8_PARTICLE_EMISSION_SINGLE;
+    particles.emission_interval = 0;
+    particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 0;
+    particles.visible = false;
+    particles.AdvanceSimulation();
+    REQUIRE(particles.emission_count == 0);
+    particles.visible = true;
+    particles.SetTraversalEnabled(false);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.emission_count == 0);
+
+    particles.SetTraversalEnabled(true);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.emission_count == 1);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.active_particle_count == 2);
+    particles.DeactivateParticle(0);
+    particles.SetActive(false);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.active_triangles[0] == 2);
+    REQUIRE(particles.active_triangles[1] == 3);
+
+    const auto centers = particles.particle_positions;
+    particles.PrepareRenderer(glm::mat4(1));
+    particles.PrepareRenderer(glm::rotate(glm::mat4(1), 1.0f, glm::vec3(0, 1, 0)));
+    REQUIRE(particles.particle_positions == centers);
+    REQUIRE(particles.emission_count == 2);
+
+    particles.release_when_done = true;
+    particles.birth_ticks[1] = GameClockMilliseconds() - 1;
+    particles.lifetime_ms = 0;
+    particles.AdvanceSimulation();
+    REQUIRE(particles.active_particle_count == 0);
+    REQUIRE(particles.finished);
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")

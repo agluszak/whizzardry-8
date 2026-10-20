@@ -12,23 +12,19 @@
 
 #include "surface_pixels.h"
 #include "wiz8/render/compositor.h"
-#include "wiz8/render/gpu_renderer.h"
-#include "wiz8/render/texture.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/surface_storage.h"
 
-TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles")
+TEST_CASE("CPU canvas publication preserves alpha holes and unpublished painting")
 {
     SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
     REQUIRE(SDL_Init(SDL_INIT_VIDEO));
     {
         std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window{
-            SDL_CreateWindow("surface rendering", 640, 480, SDL_WINDOW_HIDDEN), SDL_DestroyWindow};
+            SDL_CreateWindow("surface rendering", 640, 480, SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN),
+            SDL_DestroyWindow};
         REQUIRE(window);
-        GpuRenderer renderer;
-        REQUIRE(renderer.createContext(window.get()) == GpuRenderer::ERROR_NONE);
-        REQUIRE(renderer.openWindow(640, 480) == GpuRenderer::ERROR_NONE);
-        renderer.setTextureDefaultMagFilter(Texture::FILTER_BEST);
-        renderer.setTextureDefaultMinFilter(Texture::FILTER_BEST);
+        Renderer renderer(window.get());
         auto storage = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
         for (int y = 0; y < 480; ++y) {
             auto* row = reinterpret_cast<std::uint16_t*>(
@@ -36,37 +32,34 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
             for (int x = 0; x < 640; ++x) row[x] = (x + y) % 3 == 0 ? 0 : (x % 2 ? 0xffff : 0x8000);
         }
         auto pixels = std::shared_ptr<SDL_Surface>(std::move(storage));
-        UiCanvasTexture surface{pixels};
-        surface.setAlphaTestEnabled(true);
+        UiCanvasTexture canvas(pixels);
+        canvas.setAlphaTestEnabled(true);
         const auto draw = [&] {
-            renderer.clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                           {.color = {0, 0, 1, 1}});
-            renderer.resetStatistics();
-            surface.draw(&renderer);
-            REQUIRE(renderer.getStatistics().draw_calls == 1);
+            renderer.beginFrame({0, 0, 1, 1});
+            canvas.draw(&renderer);
+            renderer.endFrame(false, true);
+            auto* frame = renderer.readback();
+            REQUIRE(frame);
+            return frame;
         };
-        const auto initial_memory = renderer.getResidentTextureMemUsed();
-        draw();
-        REQUIRE(renderer.getStatistics().textures_created == 1);
-        // 640x480 BGRA, without a power-of-two resize, texture reduction or mip chain.
-        REQUIRE(renderer.getResidentTextureMemUsed() - initial_memory == 640 * 480 * 4);
-        auto* frame = renderer.lockBuffer();
-        REQUIRE(frame);
+        auto* frame = draw();
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x) {
                 const auto expected = (x + y) % 3 == 0 ? 0x0000ffu : (x % 2 ? 0xffffffu : 0u);
                 REQUIRE((ReadARGB(*frame, x, y) & 0xffffff) == expected);
             }
-        renderer.unlockBuffer();
-        // Exercise an update crossing both former tile axes and clipping at the canvas edge.
+
+        // Refresh publishes these two regions. Ordinary Draw calls may also
+        // paint elsewhere; uploading a full live surface would publish them early.
         const SDL_Rect update{125, 125, 8, 8}, edge{635, 475, 15, 15};
         REQUIRE(SDL_FillSurfaceRect(pixels.get(), &update, 0x83e0));
         REQUIRE(SDL_FillSurfaceRect(pixels.get(), &edge, 0x83e0));
-        surface.updateRectangle(&renderer, 125, 125, 133, 133);
-        surface.updateRectangle(&renderer, 635, 475, 650, 490);
-        draw();
-        frame = renderer.lockBuffer();
-        REQUIRE(frame);
+        REQUIRE(SDL_FillSurfaceRect(pixels.get(), nullptr, 0xfc00));
+        REQUIRE(SDL_FillSurfaceRect(pixels.get(), &update, 0x83e0));
+        REQUIRE(SDL_FillSurfaceRect(pixels.get(), &edge, 0x83e0));
+        canvas.updateRectangle(&renderer, 125, 125, 133, 133);
+        canvas.updateRectangle(&renderer, 635, 475, 650, 490);
+        frame = draw();
         for (int y = 0; y < 480; ++y)
             for (int x = 0; x < 640; ++x) {
                 const bool updated =
@@ -77,14 +70,16 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
                                                          : 0u;
                 REQUIRE((ReadARGB(*frame, x, y) & 0xffffff) == expected);
             }
-        renderer.unlockBuffer();
-        // Movie presentation disables alpha testing: transparent source pixels become black.
-        surface.setAlphaTestEnabled(false);
-        draw();
-        frame = renderer.lockBuffer();
-        REQUIRE(frame);
+        // Movie canvases draw all pixels, including transparent source black.
+        canvas.setAlphaTestEnabled(false);
+        frame = draw();
         REQUIRE((ReadARGB(*frame, 0, 0) & 0xffffff) == 0);
-        renderer.unlockBuffer();
+        renderer.close();
+        REQUIRE_FALSE(renderer.isOpen());
+        renderer.reopen();
+        REQUIRE(renderer.isOpen());
+        frame = draw();
+        REQUIRE((ReadARGB(*frame, 125, 125) & 0xffffff) == 0x00ff00);
     }
     SDL_Quit();
 }

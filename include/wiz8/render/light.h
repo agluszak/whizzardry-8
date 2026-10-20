@@ -7,6 +7,8 @@ class WorldScene;
 #include <string>
 #include <variant>
 #include <vector>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Node.h>
 
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/render/draw_inputs.h"
@@ -197,7 +199,8 @@ public:
     bool visible = true;
     bool bake_into_mesh = false;
     Transform3D transform;
-    WorldScene* scene = nullptr; // Borrowed typed render membership.
+    WorldScene* scene = nullptr; // Borrowed world for animation and named queries.
+    vsg::ref_ptr<vsg::Node> render_node;
     void setScene(WorldScene* value);
     std::uint32_t group_mask = 0x80000000u;
     glm::vec3 eye_location{0};

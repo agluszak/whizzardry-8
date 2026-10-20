@@ -38,7 +38,9 @@ enum W8MeshModelFlag {
     W8_MESH_HAS_FRAME_STORAGE = 4
 };
 
-class GpuRenderer;
+namespace render {
+struct MeshAsset;
+}
 
 class Mesh {
 
@@ -63,7 +65,7 @@ public:
         DIRTY_VERTEX_NORMALS = 2,
         DIRTY_TRI_MESH = 3
     };
-    /* Bit indices into render_control. renderTriMesh tests bits 0/1 as
+    /* Bit indices into render_control. Rendering tests bits 0/1 as
        front/back sides. updateTriMesh skips auto box when bit 4 is set and
        auto sphere when bit 5 is set. */
     enum e_control {
@@ -127,7 +129,7 @@ public:
     void reindexPolygons(std::span<const std::uint32_t> indices);
     void reindexVertices(std::span<const std::uint32_t> indices);
     TriMesh getTriMesh();
-    void renderTriMesh(class GpuRenderer& renderer, const TriMesh& mesh, MeshState state);
+    std::shared_ptr<render::MeshAsset> renderAsset();
     MeshResources<Texture>* getPolygonTextureTable(std::int32_t pass, std::int32_t layer,
                                                    bool create);
     glm::ivec3* getPolyVertex();
@@ -147,6 +149,7 @@ public:
     // RECOMP: ?setDirty@Mesh@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
     {
+        render_asset_.reset();
         std::uint32_t mask = 1 << flag;
         if ((dirty_flags & mask) == 0) {
             dirty_flags |= mask | (1u << DIRTY_TRI_MESH);
@@ -238,12 +241,6 @@ public:
        to each mesh via Mesh::setBounds. */
     void calculateCompoundBounds();                 /* 0x00471e10 */
     void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
-    /* Shared Wizardry-extended tri-mesh submit. An empty `poly_normals` span skips
-       the software backface pass; other callers supply counted polygon normals used
-       to select the active polygons for this submission. */
-    void RenderTriMeshWithEquations(class GpuRenderer& renderer, const TriMesh& mesh,
-                                    std::span<const glm::vec3> poly_normals,
-                                    const MeshState& state); /* 0x00470380 */
     static std::vector<std::uint32_t> facingPolygons(const TriMesh& mesh,
                                                      std::span<const glm::vec3> normals,
                                                      const glm::vec3& eye, bool positive_winding,
@@ -338,6 +335,7 @@ public:
     bool automap_filter_active;
 
 private:
+    std::shared_ptr<render::MeshAsset> render_asset_;
     void updateBakedLighting();
     glm::vec3* frameTable(unsigned int frame, bool load, unsigned char kind);
 };

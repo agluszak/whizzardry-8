@@ -437,7 +437,6 @@ void DisableCombatRegions(void);
 
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
-extern bool g_node_cull_pending;
 enum W8MainGameMode {
     W8_MAIN_GAME_DEFAULT = 0,
     W8_MAIN_GAME_NPC_DIALOGUE = 3,

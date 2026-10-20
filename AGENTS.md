@@ -34,8 +34,9 @@ Do not reintroduce them.
   standard facilities to homegrown equivalents. Do not write custom sorting,
   search, ownership, or collection machinery when the standard library
   already expresses the operation.
-- **Use SDL directly.** SDL3 owns platform-facing windows, events, input,
-  surfaces, pixels, and GPU integration. Use SDL3_image and SDL3_mixer where
+- **Use platform and rendering libraries directly.** SDL3 owns windows, events,
+  input, surfaces, pixels and audio; VSG owns the render graph, graphics
+  resources, views and presentation. Use SDL3_image and SDL3_mixer where
   appropriate, and the existing FFmpeg integration for video. Avoid
   reconstructing SGP or Win32-shaped wrappers around these APIs. An adapter
   should exist only when it encodes real game-specific semantics.

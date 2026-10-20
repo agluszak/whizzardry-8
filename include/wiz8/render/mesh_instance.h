@@ -6,7 +6,9 @@
 #include <utility>
 #include <vector>
 
-#include <math.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/core/observer_ptr.h>
+#include <vsg/nodes/Group.h>
 
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -16,7 +18,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/transform.h"
 
-class GpuRenderer;
+namespace render { class InstanceNode; class VertexAttachment; }
 class WorldScene;
 class Texture;
 
@@ -30,7 +32,11 @@ public:
 
     // The instance shares ownership of its model; renderers borrow it.
     Mesh* getModel() const { return model_.get(); }
-    void setModel(std::shared_ptr<Mesh> model) { model_ = std::move(model); }
+    void setModel(std::shared_ptr<Mesh> model);
+
+    vsg::ref_ptr<render::InstanceNode> renderNode() const;
+    void attachTo(MeshInstance& parent, std::optional<short> mapped_key = {});
+    std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index) const;
 
     glm::vec3 getAlignAxis() const;
     std::uint32_t getExclusionMask() const;
@@ -47,7 +53,12 @@ private:
        ordinary world-space matrix; aligned instances rebuild the model-view
        matrix from the camera basis so the model stays screen-facing while
        inheriting the view's translation, scale and handedness. */
+    friend class render::InstanceNode;
+    friend class WorldScene;
     DrawTransform renderTransform(const DrawTransform& view) const;
+    vsg::ref_ptr<render::InstanceNode> node_;
+    vsg::observer_ptr<vsg::Group> render_parent_;
+    vsg::ref_ptr<render::VertexAttachment> attachment_;
 
     glm::vec3 align_axis;
     float align_angle;
@@ -58,17 +69,6 @@ private:
 
 public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
-
-    /* Queues opaque models ahead of their siblings and sorted-rendering
-       models after them. */
-    /* Mesh-chain submit reached from process(): frustum culling, ambient and
-       highlight state, the linked Mesh list, then the optional
-       highlight shell pass with reversed winding. */
-    void draw(GpuRenderer& renderer, const DrawTransform& view, const ScenePass& pass);
-    void RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform, const ScenePass& pass);
-    /* Shadow-volume extrusion helper for the first mesh in the chain. */
-    void RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh, const DrawTransform& transform,
-                      const ScenePass& pass);
 
     Texture* FindMouthTexture(); /* 0x00481080 */
     int AddDamageStage(std::string_view name);
@@ -102,7 +102,7 @@ public:
     bool isNamed() const { return !name.empty() && name != "anonymous"; }
     bool visible = true;
     Transform3D transform;
-    WorldScene* scene = nullptr; // Borrowed typed render membership.
+    WorldScene* scene = nullptr; // Borrowed world for activation and named queries.
     void setScene(WorldScene* value);
     bool draw_parts = true;
 };

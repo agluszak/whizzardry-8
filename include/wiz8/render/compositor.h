@@ -12,7 +12,7 @@
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/texture.h"
 
-class GpuRenderer;
+class Renderer;
 class Compositor;
 
 enum class OverlayLayer : std::uint8_t {
@@ -64,7 +64,7 @@ public:
     void attach(OverlayQuad& quad, OverlayLayer layer);
     void detach(OverlayQuad& quad);
     void clear();
-    void draw(GpuRenderer& renderer, OverlayLayer layer);
+    void draw(Renderer& renderer, OverlayLayer layer);
     const std::vector<OverlayQuad>& frameQuads() const { return frame_quads; }
 
 private:
@@ -73,16 +73,19 @@ private:
 };
 
 // One native-size streaming texture for an SDL UI/movie canvas. Dirty uploads
-// update that texture directly, without tiled meshes or scene membership.
+// publish into a separate snapshot, so Draw without Refresh stays private.
+// VSG uploads the published canvas and composes it with the scene.
 class UiCanvasTexture {
 public:
     explicit UiCanvasTexture(std::shared_ptr<SDL_Surface> surface);
-    void draw(GpuRenderer* renderer);
+    void draw(Renderer* renderer);
     void setScale(float offset) { pixel_offset = offset; }
     void setAlphaTestEnabled(bool enabled) { alpha_test = enabled; }
-    void updateRectangle(GpuRenderer* renderer, int left, int top, int right, int bottom);
+    void updateRectangle(Renderer* renderer, int left, int top, int right, int bottom);
 
 private:
+    std::shared_ptr<SDL_Surface> source;
+    std::shared_ptr<SDL_Surface> published;
     std::shared_ptr<Texture> texture;
     float pixel_offset = 0;
     bool alpha_test = false;

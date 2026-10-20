@@ -26,6 +26,7 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <fmt/format.h>
+#include <vsg/state/ViewportState.h>
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
@@ -53,12 +54,12 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -105,7 +106,8 @@ bool g_video_active;
 bool g_world_blacked_out;
 bool g_screenshot_pending;
 bool g_video_inspector_enabled;
-std::unique_ptr<GpuRenderer> g_gerd;
+std::unique_ptr<Renderer> g_renderer;
+static bool g_present_frames = true;
 static std::shared_ptr<SDL_Surface> primarySurface;
 SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
@@ -174,9 +176,9 @@ bool InitializeVideoManager(void)
     }
     InitializeRendererSceneObjects();
     if (!g_video_active) {
-        if (ghWindow && g_gerd) {
+        if (ghWindow && g_renderer) {
             g_video_active = true;
-            if (g_gerd->isWindowOpen() == 0) {
+            if (g_renderer->isOpen() == 0) {
                 if (!OpenRendererWindow()) {
                     goto done;
                 }
@@ -209,9 +211,9 @@ void ShutdownVideoManager(void)
         SDL_HideWindow(ghWindow);
         ghWindow = 0;
     }
-    if (g_gerd) {
+    if (g_renderer) {
         g_flush_pending = false;
-        g_gerd.reset();
+        g_renderer.reset();
     }
     DestroyGameWindow(native_window);
 }
@@ -276,7 +278,7 @@ try {
     char line[10] = "";
     char* newline;
 
-    if (g_gerd) {
+    if (g_renderer) {
         return 1;
     }
 
@@ -308,10 +310,10 @@ try {
         }
     }
 
-    g_gerd = std::make_unique<GpuRenderer>();
+    g_renderer = std::make_unique<Renderer>(ghWindow);
 
-    if (g_gerd->createContext(ghWindow) != GpuRenderer::ERROR_NONE || !OpenRendererWindow()) {
-        g_gerd.reset();
+    if (!OpenRendererWindow()) {
+        g_renderer.reset();
         return 0;
     }
     s_setup_disables_audio = SDL_strncasecmp(audio_setting, "none", 4) == 0;
@@ -326,7 +328,7 @@ unsigned char OpenRendererWindow(void)
 {
     if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
         return 0;
-    if (g_gerd->openWindow(g_screen_width, g_screen_height) != GpuRenderer::ERROR_NONE) return 0;
+    if (!g_renderer->reopen()) return 0;
     g_flush_pending = true;
     return 1;
 }
@@ -352,12 +354,12 @@ unsigned char FinishVideoPresentation(void)
    owns its configured 640x480 mode, so there is no resize operation to do. */
 bool VideoResizeWindow(void)
 {
-    if (g_fullscreen || !ghWindow || !g_gerd || !g_flush_pending) {
+    if (g_fullscreen || !ghWindow || !g_renderer || !g_flush_pending) {
         return 0;
     }
     g_flush_pending = false;
-    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(1));
-    if (g_gerd->openWindow() == GpuRenderer::ERROR_WINDOW_OPEN_FAILED) {
+    g_renderer->close();
+    if (!g_renderer->reopen()) {
         return 0;
     }
     ResetTransientRenderScenes();
@@ -368,9 +370,9 @@ bool VideoResizeWindow(void)
 void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
-    if (ghWindow && g_gerd && g_flush_pending) {
+    if (ghWindow && g_renderer && g_flush_pending) {
         g_flush_pending = false;
-        g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(1));
+        g_renderer->close();
         OpenRendererWindow();
     }
 }
@@ -396,9 +398,9 @@ void SuspendVideoManager(void)
 {
     if (g_video_active) {
         g_video_active = false;
-        if (g_gerd) {
+        if (g_renderer) {
             g_flush_pending = false;
-            g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
+            g_renderer->close();
         }
         SDL_MinimizeWindow(ghWindow);
         FreeMouseCursor();
@@ -410,11 +412,11 @@ bool RestoreVideoManager(void)
     if (g_video_active) {
         return 1;
     }
-    if (ghWindow && g_gerd) {
+    if (ghWindow && g_renderer) {
         g_video_active = true;
         SDL_ShowWindow(ghWindow);
         SDL_RestoreWindow(ghWindow);
-        if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {
+        if (g_renderer->isOpen() != 0 || OpenRendererWindow()) {
             SDL_RaiseWindow(ghWindow);
             ResetVideoDirtyState();
         }
@@ -444,27 +446,19 @@ static SceneFrame CurrentSceneFrame()
 void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
                  std::span<Pick> picks)
 {
-    std::uint32_t width = g_gerd->getWidth();
-    std::uint32_t height = g_gerd->getHeight();
-
-    if (scene == 0 || scene->renderableCount() == 0) {
-        return;
-    }
-    if (viewport != 0) {
-        const auto rect = ToSurfaceRect(*viewport, width, height);
-        g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
-        g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-    }
+    if (!scene) return;
     if (!preserve_fog) {
         const auto fog = GetWorld() ? GetWorld()->scene->getFogColor() : glm::vec3(0);
-        // NOLINTNEXTLINE(misc-include-cleaner)
         scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
-    scene->render(*g_gerd, camera, CurrentSceneFrame(), picks);
-    if (viewport != 0) {
-        g_gerd->setViewPort(0, 0, width, height);
-        g_gerd->setScissor(0, 0, width, height);
-    }
+    const auto area = viewport ? ToSurfaceRect(*viewport, g_renderer->width(), g_renderer->height())
+                               : SDL_Rect{0, 0, static_cast<int>(g_renderer->width()),
+                                          static_cast<int>(g_renderer->height())};
+    auto render_view = scene->createView(g_renderer->context(), camera, CurrentSceneFrame(),
+                                         vsg::ViewportState::create(area.x, area.y, area.w, area.h),
+                                         g_renderer->frameNumber());
+    if (!picks.empty()) scene->pick(*render_view->camera, picks);
+    g_renderer->addView(render_view);
 }
 
 /* The central renderer frame transaction. It owns the page flip, every scene
@@ -502,35 +496,13 @@ void RenderFrame(void)
         }
     }
 
-    const GpuRenderer::ClearValues clear_values{.color = glm::vec4(clear_color, 1.0f)};
     SyncSystemCursor();
     UpdateUiHelp();
     FlushUiUpload();
-    if (g_gerd != 0) {
-        g_gerd->resetStatistics();
-    }
-
-    g_gerd->beginFrame();
+    g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
     UpdateRenderElapsedTime();
 
-    if (!g_monster_shadow_updates_enabled) {
-        if (g_world_blacked_out) {
-            goto clear_viewport;
-        }
-    } else if (g_world_blacked_out || !g_render_mesh_sky || GetSecondaryWorld() == 0) {
-    clear_viewport:
-        {
-            std::uint32_t height = g_gerd->getHeight();
-            std::uint32_t width = g_gerd->getWidth();
-            const auto rect = ToSurfaceRect(g_viewport, width, height);
-            g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-            g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                          clear_values);
-            g_gerd->setScissor(0, 0, width, height);
-        }
-    }
-
-    g_compositor.draw(*g_gerd, OverlayLayer::PreWorld);
+    g_compositor.draw(*g_renderer, OverlayLayer::PreWorld);
 
     if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
@@ -559,15 +531,15 @@ void RenderFrame(void)
     }
 
     if (g_overlay_scenes_enabled) {
-        if (!g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
-        g_compositor.draw(*g_gerd, OverlayLayer::UnderUi);
-        g_ui_canvas->draw(g_gerd.get());
-        g_compositor.draw(*g_gerd, OverlayLayer::OverUi);
-        g_compositor.draw(*g_gerd, OverlayLayer::SquareAspect);
-        if (g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
-        if (g_cursor_scene_enabled) g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
+        if (!g_fullscreen_scene_last) g_compositor.draw(*g_renderer, OverlayLayer::Fullscreen);
+        g_compositor.draw(*g_renderer, OverlayLayer::UnderUi);
+        g_ui_canvas->draw(g_renderer.get());
+        g_compositor.draw(*g_renderer, OverlayLayer::OverUi);
+        g_compositor.draw(*g_renderer, OverlayLayer::SquareAspect);
+        if (g_fullscreen_scene_last) g_compositor.draw(*g_renderer, OverlayLayer::Fullscreen);
+        if (g_cursor_scene_enabled) g_compositor.draw(*g_renderer, OverlayLayer::Cursor);
     }
-    g_gerd->endFrame();
+    g_renderer->endFrame(g_present_frames, g_screenshot_pending);
 
     if (g_screenshot_pending) {
         SaveJpegScreenshot();
@@ -597,44 +569,22 @@ void RenderFrame(void)
 // FUNCTION: WIZ8 0x00426f80
 bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary)
 {
-    GpuRenderer* gerd = g_gerd.get();
     glm::vec3 clear_color{1.0f};
-    gerd->beginFrame();
-    gerd->setScissor(0, 0, gerd->getWidth(), gerd->getHeight());
-    const DesignRect bounds = rect != nullptr ? *rect : g_viewport;
-    const auto viewport = ToSurfaceRect(bounds, gerd->getWidth(), gerd->getHeight());
-    gerd->setViewPort(viewport.x, viewport.y, viewport.w, viewport.h);
-    if (GetWorld() && GetWorld()->environment.fog_enabled) {
+    if (GetWorld() && GetWorld()->environment.fog_enabled)
         clear_color = EnvironmentLightDirection();
-    } else {
+    else
         GetWorldLightValue(GetWorld(), &clear_color);
-    }
-    gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                {.color = glm::vec4(clear_color, 1.0f)});
-    const auto frame = CurrentSceneFrame();
-    if (render_secondary && g_render_mesh_sky && GetSecondaryWorld() != 0) {
-        GetSecondaryWorld()->scene->render(*gerd, GetSecondaryWorld()->camera, frame);
-    }
-    GetWorld()->scene->render(*gerd, GetWorld()->camera, frame);
-    gerd->endFrame();
-    gerd->flushRenderers();
-    if (rect != 0) {
-        gerd->setViewPort(0, 0, gerd->getWidth(), gerd->getHeight());
-    }
-    SDL_Surface* buffer = gerd->lockBuffer();
-    if (buffer != 0) {
+    g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
+    const DesignRect bounds = rect ? *rect : g_viewport;
+    if (render_secondary && g_render_mesh_sky && GetSecondaryWorld())
+        RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &bounds, true);
+    RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &bounds, true);
+    g_renderer->endFrame(false, true);
+    if (auto* buffer = g_renderer->readback()) {
         StretchCpuSurface(*buffer, *target, SDL_SCALEMODE_NEAREST);
-        gerd->unlockBuffer();
         return true;
     }
     return false;
-}
-
-void InvalidateRendererTextureCache(void)
-{
-    if (g_gerd != 0) {
-        g_gerd->invalidateTextureCache();
-    }
 }
 
 /* Both static scenes take the light direction as their fog colour. */
@@ -650,17 +600,12 @@ void PublishLightDirection(const glm::vec3* direction)
 
 void SetRendererAutoFlipEnabled(bool enabled)
 {
-    if (g_gerd != 0) {
-        if ((!enabled && g_gerd->isEnabled(GpuRenderer::ENABLE_AUTO_FLIP)) ||
-            (enabled && !g_gerd->isEnabled(GpuRenderer::ENABLE_AUTO_FLIP))) {
-            g_gerd->toggle(GpuRenderer::ENABLE_AUTO_FLIP);
-        }
-    }
+    g_present_frames = enabled;
 }
 
 bool RendererBufferIsLockable(void)
 {
-    return g_gerd && g_gerd->isWindowOpen();
+    return g_renderer && g_renderer->isOpen();
 }
 
 void SetWorldModelPickingEnabled(bool enabled)
@@ -755,8 +700,8 @@ void positionOverlay(OverlayQuad* quad, int x, int y, bool snap)
 {
     if (!quad) return;
     quad->position = {x, y};
-    if (snap && g_gerd) {
-        const auto output = glm::vec2(g_gerd->getWidth(), g_gerd->getHeight());
+    if (snap && g_renderer) {
+        const auto output = glm::vec2(g_renderer->width(), g_renderer->height());
         const auto scale = output / glm::vec2(640, 480);
         quad->position = glm::floor(quad->position * scale) / scale;
     }
@@ -1032,7 +977,7 @@ static void FlushUiUpload()
 {
     const auto upload = TakeUiUpload();
     if (SDL_RectEmpty(&upload)) return;
-    g_ui_canvas->updateRectangle(g_gerd.get(), upload.x, upload.y, upload.x + upload.w,
+    g_ui_canvas->updateRectangle(g_renderer.get(), upload.x, upload.y, upload.x + upload.w,
                                  upload.y + upload.h);
 }
 
@@ -1041,8 +986,6 @@ void SetScaledViewport(const DesignRect& bounds)
     if (bounds == g_viewport) {
         return;
     }
-    const auto rect = ToSurfaceRect(bounds, g_gerd->getWidth(), g_gerd->getHeight());
-    g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
     g_viewport = bounds;
 }
 
@@ -1056,9 +999,6 @@ void SetViewport(const DesignRect& bounds)
     float fractional_bottom;
     Camera3D::Rect plane;
 
-    if (g_gerd != 0 && g_flush_pending) {
-        g_gerd->flush();
-    }
     g_viewport = bounds;
     fractional_left = bounds.left * g_viewport_x_scale;
     fractional_top = bounds.top * g_viewport_y_scale;
@@ -1118,8 +1058,7 @@ void DrawVideoInspector(int left, unsigned int top)
         }
     }
     InvalidateRegion(left, top, left + 0x113, bottom);
-    if (g_gerd != 0) {
-        const auto statistics = g_gerd->getStatistics();
+    if (g_renderer != 0) {
         g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
         const int text_left = static_cast<int>(left);
         const int text_top = static_cast<int>(top);
@@ -1129,30 +1068,6 @@ void DrawVideoInspector(int left, unsigned int top)
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0xa},
                                   fmt::format("OC: {:d}", GetWorld()->scene->submitted_polygons));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x14},
-                                  fmt::format("PI: {:d}", statistics.input_triangles));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x1e},
-                                  fmt::format("PO: {:d}", statistics.device_triangles));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x28},
-                                  fmt::format("VI: {:d}", statistics.input_vertices));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x32},
-                                  fmt::format("VO: {:d}", statistics.device_vertices));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x3c},
-                                  fmt::format("DD: {:d}", statistics.device_calls));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x46},
-                                  fmt::format("TC: {:d}", statistics.texture_binds));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x50},
-                                  fmt::format("TT: {:.0f}", statistics.texture_transfer));
-            DrawTextAndInvalidate(
-                GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x5a},
-                fmt::format("RM: {:d}K", g_gerd->getResidentTextureMemUsed() >> 10));
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0x6e},
                                   fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
@@ -1216,10 +1131,9 @@ std::unique_ptr<MeshInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surfa
 void PresentMenuOverlayFrame(void)
 {
     FlushUiUpload();
-    g_gerd->beginFrame();
-    g_ui_canvas->draw(g_gerd.get());
-    g_gerd->flushRenderers();
-    g_gerd->endFrame();
+    g_renderer->beginFrame();
+    g_ui_canvas->draw(g_renderer.get());
+    g_renderer->endFrame(g_present_frames);
 }
 
 void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
@@ -1313,15 +1227,13 @@ int g_screenshot_page;
 
 void SaveJpegScreenshot(void)
 {
-    SDL_Surface* surface = g_gerd->lockBuffer();
+    SDL_Surface* surface = g_renderer->readback();
     if (surface != 0) {
         char filename[32];
 
         int screenshot_index = g_screenshot_index++;
         sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
         imageIO::save(filename, *surface);
-
-        g_gerd->unlockBuffer();
     }
     g_screenshot_page = (g_screenshot_page - 1) & 1;
 }
@@ -1407,16 +1319,12 @@ int g_resident_texture_policy;
 
 void SetResidentTexturePolicy(int policy)
 {
-    if (policy != g_resident_texture_policy) {
-        g_gerd->invalidateResidentTextures();
-        g_gerd->invalidateTextureCache();
-        g_resident_texture_policy = policy;
-    }
+    g_resident_texture_policy = policy;
 }
 
 void SetSwapInterval(bool enabled)
 {
-    g_gerd->setSwapInterval(enabled ? 1 : 0);
+    g_renderer->setVsync(enabled);
 }
 
 /* Build an Texture whose frames are consecutive VObject subimages starting
@@ -1491,43 +1399,6 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
         ++frame;
     }
     return animation;
-}
-
-/* The option-4-suppressed variant of the render probe: with the positional
-   option forced off, draw the node between the camera's bracketing
-   passes, restore the option and return the sampled statistic. */
-unsigned int MeasureMeshRenderWithoutPositionalOption(MeshInstance* mesh)
-{
-    if (g_gerd != 0 && g_gerd->isEnabled(GpuRenderer::ENABLE_AUTO_FLIP)) {
-        g_gerd->toggle(GpuRenderer::ENABLE_AUTO_FLIP);
-    }
-    unsigned int pixels_drawn = MeasureMeshRender(mesh);
-    if (g_gerd != 0 && !g_gerd->isEnabled(GpuRenderer::ENABLE_AUTO_FLIP)) {
-        g_gerd->toggle(GpuRenderer::ENABLE_AUTO_FLIP);
-    }
-    return pixels_drawn;
-}
-
-/* Draw the node outside any scene pass and return the renderer statistic the
-   probe samples. */
-unsigned int MeasureMeshRender(MeshInstance* mesh)
-{
-
-    g_gerd->flushRenderers();
-    g_gerd->resetStatistics();
-    g_gerd->beginFrame();
-    {
-        const auto& camera = *GetWorld()->camera;
-        // No scene lights, fogs or picks; the ambient is the renderer's historical default.
-        mesh->draw(
-            *g_gerd, camera.drawTransform(),
-            {.ambient_light = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), .depth_cue = camera.depthCue()});
-        g_gerd->flushRenderers();
-    }
-    g_gerd->endFrame();
-    g_gerd->flushRenderers();
-    const auto statistics = g_gerd->getStatistics();
-    return static_cast<unsigned int>(statistics.pixels_drawn);
 }
 
 std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, float width,

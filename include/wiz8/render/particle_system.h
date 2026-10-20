@@ -8,6 +8,9 @@ struct W8Chunk;
 #include <string>
 #include <vector>
 
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Node.h>
+
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -22,7 +25,8 @@ struct W8Chunk;
 #include "wiz8/render/transform.h"
 
 struct W8MonsterShakeCallback;
-class GpuRenderer;
+namespace render { class RenderContext; }
+struct ParticleRenderData;
 class WorldScene;
 namespace wiz8 {
 class File;
@@ -44,11 +48,11 @@ public:
     void SetRenderFlags(DrawShader flags);
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
-    void SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view, const ScenePass& pass);
-    /* The per-particle age/cull/move step and billboard-corner expansion used
-       by the submitted batch. Their retail names remain unavailable. */
-    void Update(); /* 0x00499FA0 */
-    void PrepareRenderer(const glm::mat4& view); /* 0x00498DD0 */
+    // Called once by the game update, independent of the number of views.
+    void AdvanceSimulation();
+    vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
+    void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
+                          std::uint64_t frame_number);
     unsigned char ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement);
 
     ParticleSystem& operator=(const ParticleSystem&) = delete;
@@ -67,17 +71,9 @@ public:
     std::vector<bool> particle_active;
     /* Flutter phase per particle; empty without flutter. */
     std::vector<float> flutter_angles;
-    /* Billboard geometry: four vertices and two triangles per particle. */
-    std::vector<glm::vec3> vertex_positions;
-    std::vector<glm::vec2> texcoords;
     std::vector<float> alphas;
-    std::vector<glm::ivec3> triangles;
-    /* Per-triangle animated texture copies; both triangles of a particle share
-       one. Empty unless the texture is animated. */
-    MeshResources<Texture> texture_frames;
-    /* Two triangle indices per still-active particle, rebuilt whenever
-       update_flags carries W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY. */
-    std::vector<std::uint32_t> active_triangles;
+    // Each particle has independent animated-texture playback.
+    std::vector<std::shared_ptr<Texture>> texture_frames;
     /* Both unsigned: 0x004994D0 gates the particle off with the unsigned
        `emission_limit != 0 && emission_limit <= emission_count` pair. */
     unsigned int emission_limit = 0;
@@ -124,7 +120,6 @@ public:
     /* Added to the camera position when camera_relative selects camera-relative
        placement. */
     glm::vec3 camera_offset{0.0f, 0.0f, 0.0f};
-    unsigned int update_flags = 0;
     /* Last accepted particle-integration tick. */
     unsigned int last_integration_tick = 0;
     /* Emission schedule tick. */
@@ -139,6 +134,8 @@ public:
 
 private:
     void AllocateParticles(unsigned int count);
+    void Update(); /* 0x00499FA0 */
+    std::unique_ptr<ParticleRenderData> render_data;
 
 public:
     std::string name = "anonymous";
@@ -152,6 +149,8 @@ public:
 };
 
 struct World;
+// Advance attached particles in their scene order, after entity placement.
+void AdvanceWorldParticles(World& world);
 // A still-emitting particle outlives its cycle in the world's retired list;
 // the sweep destroys it once it has finished, never during rendering.
 void RetireParticle(World& world, std::unique_ptr<ParticleSystem> particle);

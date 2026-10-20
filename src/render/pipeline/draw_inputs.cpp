@@ -14,7 +14,6 @@
 #include "glm/matrix.hpp"
 #include "wiz8/render/clip.h"
 #include "wiz8/render/plane_math.h"
-#include "wiz8/render/vertex_stream.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/bounding_sphere.h"
 
@@ -68,11 +67,11 @@ ClipPlanes DrawTransform::clipPlanes() const
     result.planes[4] = rows[3] + rows[2];
     result.planes[5] = rows[3] - rows[2];
     for (int i = 0; i < 6; ++i) result.planes[i] = planeMath::normalized(result.planes[i]);
-    result.mask = vertexStream::FRUSTUM_CLIP_MASK;
+    result.mask = 0x3fu;
     const auto count = std::min(user_clip_planes.size(), max_user_clip_planes);
     for (std::size_t i = 0; i < count; ++i) {
-        result.planes[vertexStream::FIRST_USER_CLIP_PLANE + i] = user_clip_planes[i];
-        result.mask |= 1u << (vertexStream::FIRST_USER_CLIP_PLANE + i);
+        result.planes[6 + i] = user_clip_planes[i];
+        result.mask |= 1u << (6 + i);
     }
     return result;
 }

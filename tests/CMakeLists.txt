@@ -20,10 +20,6 @@ add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE wiz8_engine)
 catch_discover_tests(native_game_geometry_test TEST_PREFIX "native_game_geometry/")
 
-add_executable(native_hash_consumers_test native/hash_consumers_test.cpp)
-target_link_libraries(native_hash_consumers_test PRIVATE wiz8_engine wiz8_native_settings)
-add_test(NAME native_hash_consumers COMMAND native_hash_consumers_test)
-
 add_executable(native_bit_array_io_test native/bit_array_io_test.cpp)
 target_link_libraries(native_bit_array_io_test PRIVATE wiz8_engine)
 add_test(NAME native_bit_array_io COMMAND native_bit_array_io_test)
@@ -68,11 +64,6 @@ catch_discover_tests(native_mesh_frames_test TEST_PREFIX "native_mesh_frames/")
 add_executable(native_image_io_test native/image_io_test.cpp)
 target_link_libraries(native_image_io_test PRIVATE wiz8_engine wiz8_native_settings)
 add_test(NAME native_image_io COMMAND native_image_io_test)
-
-add_executable(native_renderer_platform_test native/renderer_platform_test.cpp)
-target_link_libraries(native_renderer_platform_test PRIVATE wiz8_engine wiz8_native_settings)
-add_test(NAME native_renderer_platform COMMAND native_renderer_platform_test)
-set_tests_properties(native_renderer_platform PROPERTIES TIMEOUT 10)
 
 add_executable(native_runtime_lookup_test native/runtime_lookup_test.cpp)
 target_link_libraries(native_runtime_lookup_test PRIVATE wiz8_engine wiz8_native_settings)
@@ -184,19 +175,12 @@ catch_discover_tests(native_audio_test
     TEST_SPEC "~[.manual]"
     PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
-# Standalone SDL/Vulkan lifetime control for diagnosing host leak reports.
-# Failures here are independent of game and SurRender ownership.
-add_executable(native_gpu_lifecycle "${PROJECT_SOURCE_DIR}/tests/native/gpu_lifecycle.cpp")
-target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
-# This is an SDL/driver diagnostic, not a game regression test.
-# Keep its executable for manual leak investigations; don't run it in CTest.
-
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE wiz8_engine wiz8_native_settings SDL3::SDL3)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
     set_tests_properties(native_gpu_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
+        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30)
 endif()
 
 add_executable(native_surface_rendering_test native/surface_rendering_test.cpp)
@@ -204,7 +188,7 @@ target_link_libraries(native_surface_rendering_test PRIVATE wiz8_engine SDL3::SD
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
     set_tests_properties(native_surface_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
+        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30)
 endif()
 
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
@@ -247,7 +231,7 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
+        ENVIRONMENT "SDL_VIDEODRIVER=x11;SDL_AUDIO_DRIVER=dummy"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
         RESOURCE_LOCK game_gpu LABELS runtime)
 endforeach()

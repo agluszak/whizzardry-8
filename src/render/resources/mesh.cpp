@@ -29,11 +29,8 @@
 #include <limits>
 
 #include "wiz8/math.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/mesh_resources.h"
-#include "wiz8/render/mesh_submission.h"
-#include "wiz8/render/vertex_shading.h"
 
 // A validated permutation carries both directions for attribute-table reorder
 // and references that point into those tables. Validate before mutating a mesh.
@@ -635,30 +632,6 @@ void Mesh::reindexVertices(std::span<const std::uint32_t> indices)
     }
     permutation.remapCorners({getPolyVertex(), static_cast<std::size_t>(polygon_count)}, false);
     setDirtyAll();
-}
-
-void Mesh::renderTriMesh(GpuRenderer& renderer, const TriMesh& mesh, MeshState state)
-{
-    if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        state.sorted =
-            state.sorted || (mesh.control_flags & (1UL << CONTROL_SORTED_RENDERING)) != 0;
-        meshSubmission::drawSides(
-            renderer, mesh, state, [&](std::int32_t side, MeshState& side_state) {
-                std::int32_t material_side = side;
-                if (side == 1) {
-                    side_state.cull = FaceCull::Front;
-                    side_state.reverse_normals = true;
-                    if ((mesh.control_flags & (1UL << CONTROL_REUSE_FRONT_MATERIAL)) != 0)
-                        material_side = 0;
-                } else {
-                    side_state.cull = (mesh.control_flags & (1UL << CONTROL_NO_FRONT_CULL)) != 0
-                                          ? FaceCull::None
-                                          : FaceCull::Back;
-                    side_state.reverse_normals = false;
-                }
-                return material_side;
-            });
-    }
 }
 
 float Mesh::getSortBias() const

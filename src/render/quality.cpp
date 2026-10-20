@@ -6,7 +6,6 @@
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/texture.h"
 
 namespace {
@@ -50,13 +49,13 @@ void SetRenderOption(W8RenderOption option, int enabled)
         g_render_missile_lights = enabled != 0;
         break;
     case W8_RENDER_OPTION_TEXTURE_MAG_FILTER:
-        g_gerd->setTextureDefaultMagFilter(enabled ? Texture::FILTER_BEST : Texture::FILTER_NONE);
+        Texture::defaults.mag = enabled ? Texture::FILTER_BEST : Texture::FILTER_NONE;
         break;
     case W8_RENDER_OPTION_TEXTURE_MIN_FILTER:
-        g_gerd->setTextureDefaultMinFilter(enabled ? Texture::FILTER_BEST : Texture::FILTER_NONE);
+        Texture::defaults.min = enabled ? Texture::FILTER_BEST : Texture::FILTER_NONE;
         break;
     case W8_RENDER_OPTION_MIP_MAPPING:
-        g_gerd->setTextureDefaultMipmap(enabled ? Texture::MIPMAP_BEST : Texture::MIPMAP_NONE);
+        Texture::defaults.mipmap = enabled ? Texture::MIPMAP_BEST : Texture::MIPMAP_NONE;
         break;
     case W8_RENDER_OPTION_MESH_SKY:
         g_render_mesh_sky = enabled != 0;

@@ -2,18 +2,24 @@
 
 #include <algorithm>
 #include <exception>
+#include <cstring>
 #include <memory>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
+#include <vsg/core/Array2D.h>
 
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/image_io.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
+
+Texture::Parameters Texture::defaults{.mag = FILTER_GOOD,
+                                      .min = FILTER_GOOD,
+                                      .mipmap = MIPMAP_FASTEST};
 
 Texture::Texture(std::shared_ptr<SDL_Surface> pixels) : surface(std::move(pixels))
 {
@@ -126,7 +132,70 @@ void Texture::invalidate()
         texture_flags_ |= 1u << FLAG_DIRTY_DEFAULTS;
         texture_flags_ &= ~(1u << FLAG_GENERATESURFACE_FAILURE);
     }
-    if (auto* renderer = GpuRenderer::getActive()) renderer->invalidateTexture(this);
+    image_info = {};
+    image_reduction = -1;
+}
+
+vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction)
+{
+    auto* current = resolve();
+    if (!current) return {};
+    if (current != this) return current->imageInfo(reduction);
+    auto effective = parameters;
+    if (effective.mag == FILTER_DEFAULT) effective.mag = defaults.mag;
+    if (effective.min == FILTER_DEFAULT) effective.min = defaults.min;
+    if (effective.mipmap == MIPMAP_DEFAULT) effective.mipmap = defaults.mipmap;
+    const auto dimensions = getDimensions();
+    reduction = dimensions.native_size ? 0 : std::clamp(reduction, 0, 16);
+    if (image_info && reduction == image_reduction && effective == image_parameters)
+        return image_info;
+    if (!surface) return {};
+    const auto width = std::max(1u, dimensions.width >> reduction);
+    const auto height = std::max(1u, dimensions.height >> reduction);
+    auto rgba = CreateCpuStorage(static_cast<int>(width), static_cast<int>(height),
+                                  SDL_PIXELFORMAT_RGBA32);
+    StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_LINEAR);
+    auto pixels = vsg::ubvec4Array2D::create(width, height,
+        vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
+    for (std::uint32_t y = 0; y < height; ++y)
+        std::memcpy(pixels->data() + std::size_t(y) * width,
+                    static_cast<const std::uint8_t*>(rgba->pixels) + std::size_t(y) * rgba->pitch,
+                    std::size_t(width) * 4);
+    if (dimensions.native_size) pixels->properties.dataVariance = vsg::DYNAMIC_DATA;
+    auto sampler = vsg::Sampler::create();
+    const auto filter = [](e_filter value) {
+        return value == FILTER_NONE || value == FILTER_FASTEST ? VK_FILTER_NEAREST
+                                                               : VK_FILTER_LINEAR;
+    };
+    sampler->magFilter = filter(effective.mag);
+    sampler->minFilter = filter(effective.min);
+    sampler->mipmapMode = effective.mipmap == MIPMAP_BEST ? VK_SAMPLER_MIPMAP_MODE_LINEAR
+                                                          : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    sampler->maxLod = effective.mipmap == MIPMAP_NONE || dimensions.native_size ? 0.0f : 16.0f;
+    sampler->mipLodBias = effective.mipmap_bias;
+    sampler->addressModeU = effective.wrap_s == WRAP_CLAMP ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                                                           : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->addressModeV = effective.wrap_t == WRAP_CLAMP ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
+                                                           : VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    image_info = vsg::ImageInfo::create(sampler, pixels);
+    image_parameters = effective;
+    image_reduction = reduction;
+    return image_info;
+}
+
+void Texture::publish()
+{
+    if (!image_info || !surface) return;
+    auto pixels = image_info->imageView->image->data.cast<vsg::ubvec4Array2D>();
+    if (!pixels) return;
+    auto rgba = CreateCpuStorage(static_cast<int>(pixels->width()),
+                                  static_cast<int>(pixels->height()), SDL_PIXELFORMAT_RGBA32);
+    StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_NEAREST);
+    for (std::uint32_t y = 0; y < pixels->height(); ++y)
+        std::memcpy(pixels->data() + std::size_t(y) * pixels->width(),
+                    static_cast<const std::uint8_t*>(rgba->pixels) + std::size_t(y) * rgba->pitch,
+                    std::size_t(pixels->width()) * 4);
+    pixels->dirty();
 }
 
 void Texture::setSurfacePtr(std::shared_ptr<SDL_Surface> pixels)

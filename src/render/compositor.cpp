@@ -13,9 +13,10 @@
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/platform/timer.h"
-#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_stream.h"
+#include "wiz8/surface_storage.h"
+#include <cstring>
 
 OverlayQuad::OverlayQuad(const OverlayQuad& other)
 {
@@ -70,7 +71,7 @@ void Compositor::clear()
     widgets.clear();
     frame_quads.clear();
 }
-void Compositor::draw(GpuRenderer& renderer, OverlayLayer layer)
+void Compositor::draw(Renderer& renderer, OverlayLayer layer)
 {
     frame_quads.clear();
     for (const auto* quad : widgets)
@@ -88,55 +89,12 @@ void Compositor::draw(GpuRenderer& renderer, OverlayLayer layer)
     }
 }
 
-void GpuRenderer::drawOverlayQuad(const OverlayQuad& quad)
-{
-    const auto size = quad.scaledSize();
-    if (!quad.visible || size.x <= 0 || size.y <= 0) return;
-    const glm::vec2 center = quad.position + size * .5f;
-    const float cosine = std::cos(quad.rotation), sine = std::sin(quad.rotation);
-    std::array<glm::vec3, 4> positions;
-    const std::array<glm::vec2, 4> corners{
-        {{-0.5f, -0.5f}, {0.5f, -0.5f}, {-0.5f, 0.5f}, {0.5f, 0.5f}}};
-    for (std::size_t i = 0; i < corners.size(); ++i) {
-        const auto offset = corners[i] * size;
-        positions[i] = {center.x + cosine * offset.x - sine * offset.y,
-                        center.y + sine * offset.x + cosine * offset.y, 0};
-    }
-    const std::array<glm::vec2, 4> uv{
-        {quad.uv_min, {quad.uv_max.x, quad.uv_min.y}, {quad.uv_min.x, quad.uv_max.y}, quad.uv_max}};
-    const std::array<glm::vec4, 4> colors{quad.color, quad.color, quad.color, quad.color};
-    vertexStream::VertexArrayInfo vertices{};
-    const auto stream = [&](vertexStream::e_vertexArray slot, std::int32_t components,
-                            std::uint32_t stride, const void* values) {
-        vertices.components[slot] = components;
-        vertices.strides[slot] = stride;
-        vertices.arrays[slot] = values;
-    };
-    vertices.mask = (1u << vertexStream::VERTEX_ARRAY_DIFFUSE) |
-                    (quad.texture ? 1u << vertexStream::VERTEX_ARRAY_TEXCOORD0 : 0);
-    vertices.count = positions.size();
-    stream(vertexStream::VERTEX_ARRAY_POSITIONS, 3, sizeof(positions[0]), positions.data());
-    stream(vertexStream::VERTEX_ARRAY_DIFFUSE, 4, sizeof(colors[0]), colors.data());
-    stream(vertexStream::VERTEX_ARRAY_TEXCOORD0, 2, sizeof(uv[0]), uv.data());
-    auto shader = quad.shader;
-    shader.value = (shader.value & ~DrawShader::PASS_MASK) | DrawShader::PASS_ALWAYS;
-    shader.value &= ~(DrawShader::MASK_DEPTH_WRITE | DrawShader::MASK_FOG);
-    if (quad.texture)
-        shader.value |= DrawShader::MASK_TEXTURING;
-    else
-        shader.value &= ~DrawShader::MASK_TEXTURING;
-    shader.value = (shader.value & ~DrawShader::MASK_GRADIENT) | DrawShader::MASK_GRADIENT_MODULATE;
-    // Quads are laid out on the 640x480 design canvas, top-left origin, and never fogged.
-    draw({.primitive = vertexStream::PRIMITIVE_TRIANGLE_STRIP,
-          .vertices = vertices,
-          .clip_transform = glm::ortho(0.0f, 640.0f, 480.0f, 0.0f, -1.0f, 1.0f),
-          .shader = shader,
-          .textures = {quad.texture.get(), nullptr}});
-}
-
 UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)
-    : texture(std::make_shared<Texture>(std::move(surface)))
+    : source(std::move(surface)),
+      published(CreateCpuStorage(source->w, source->h, source->format)),
+      texture(std::make_shared<Texture>(published))
 {
+    std::memcpy(published->pixels, source->pixels, std::size_t(source->pitch) * source->h);
     auto dimensions = texture->getDimensions();
     dimensions.native_size = true;
     texture->setDimensions(dimensions);
@@ -144,7 +102,7 @@ UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)
     texture->setWrapS(Texture::WRAP_CLAMP);
     texture->setWrapT(Texture::WRAP_CLAMP);
 }
-void UiCanvasTexture::draw(GpuRenderer* renderer)
+void UiCanvasTexture::draw(Renderer* renderer)
 {
     OverlayQuad quad;
     quad.texture = texture;
@@ -155,8 +113,17 @@ void UiCanvasTexture::draw(GpuRenderer* renderer)
     quad.shader.value = 0x100a017 | (alpha_test ? DrawShader::MASK_ALPHATEST : 0);
     renderer->drawOverlayQuad(quad);
 }
-void UiCanvasTexture::updateRectangle(GpuRenderer* renderer, int left, int top, int right,
-                                      int bottom)
+void UiCanvasTexture::updateRectangle(Renderer*, int left, int top, int right, int bottom)
 {
-    renderer->setTextureSubImage(texture.get(), 0, left, top, right - left, bottom - top);
+    SDL_Rect rectangle{left, top, right - left, bottom - top};
+    const SDL_Rect bounds{0, 0, source->w, source->h};
+    if (!SDL_GetRectIntersection(&rectangle, &bounds, &rectangle)) return;
+    const auto bytes = SDL_BYTESPERPIXEL(source->format);
+    for (int row = rectangle.y; row < rectangle.y + rectangle.h; ++row)
+        std::memcpy(static_cast<std::uint8_t*>(published->pixels) + row * published->pitch +
+                        rectangle.x * bytes,
+                    static_cast<const std::uint8_t*>(source->pixels) + row * source->pitch +
+                        rectangle.x * bytes,
+                    std::size_t(rectangle.w) * bytes);
+    texture->publish();
 }

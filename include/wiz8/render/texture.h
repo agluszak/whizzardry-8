@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <SDL3/SDL_pixels.h>
+#include <vsg/state/ImageInfo.h>
 
 #include "wiz8/texture_animation.h"
 struct SDL_Surface;
@@ -63,7 +64,10 @@ public:
         e_wrap wrap_s = WRAP_REPEAT;
         e_wrap wrap_t = WRAP_REPEAT;
         float mipmap_bias = 0;
+        bool operator==(const Parameters&) const = default;
     };
+
+    static Parameters defaults;
 
     explicit Texture(TexturePlayback playback);
     Texture(std::filesystem::path path, bool preload);
@@ -84,6 +88,11 @@ public:
     void setWrapT(e_wrap wrap);
 
     void invalidate();
+    // The texture owns its graphics representation. Animated textures resolve
+    // their current image here rather than freezing a frame at asset load time.
+    vsg::ref_ptr<vsg::ImageInfo> imageInfo(int reduction = 0);
+    // Publish CPU canvas pixels explicitly; ordinary drawing does not upload.
+    void publish();
     void setSurfacePtr(std::shared_ptr<SDL_Surface> pixels);
     SDL_Surface* getSurfacePtr() const { return surface.get(); }
     std::shared_ptr<SDL_Surface> surface;
@@ -118,4 +127,9 @@ public:
     bool hasAlpha();
     void loadSurface();
     void releaseSurface();
+
+private:
+    vsg::ref_ptr<vsg::ImageInfo> image_info;
+    Parameters image_parameters;
+    int image_reduction = -1;
 };

@@ -9,7 +9,7 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
-/* Real SLF/STI -> immutable sprites and SDL surfaces -> UiCanvasTexture -> SDL GPU.
+/* Real SLF/STI -> immutable sprites and SDL surfaces -> UiCanvasTexture -> VSG.
    Also checks a movie-owned surface and restoration of the game primary. */
 
 #include <array>
@@ -38,10 +38,9 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_stream.h"
 #include "wiz8/surface_storage.h"
 
 class WorldScene;
@@ -83,7 +82,8 @@ TEST_CASE("game graphics")
     REQUIRE(CreateWizardryWindow());
     REQUIRE(InitializePrimarySurface());
     REQUIRE(InitializeVideoDevice());
-    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
+    g_renderer->setCaptureEnabled(true);
+    REQUIRE(g_renderer->isOpen());
     REQUIRE(InitializeRendererSceneObjects());
     auto targa = imageIO::load("data\\automap\\map_monsterfriendly_a.tga");
     REQUIRE((targa && targa->w > 0 && targa->h > 0));
@@ -106,18 +106,12 @@ TEST_CASE("game graphics")
     for (int frame = 0; frame < 3; ++frame) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) HandleInputEvent(event);
-        auto error = g_gerd->beginFrame();
-        if (error != GpuRenderer::ERROR_NONE)
-            fprintf(stderr, "begin frame %d: %d window %p open %d\n", frame, int(error),
-                    static_cast<void*>(ghWindow), g_gerd->isWindowOpen());
-        REQUIRE(error == GpuRenderer::ERROR_NONE);
-        g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                      {.color = {0, 0, 0, 1}});
-        g_ui_canvas->draw(g_gerd.get());
-        g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
-        g_gerd->endFrame();
+        g_renderer->beginFrame({0, 0, 0, 1});
+        g_ui_canvas->draw(g_renderer.get());
+        g_compositor.draw(*g_renderer, OverlayLayer::Cursor);
+        g_renderer->endFrame();
     }
-    auto buffer = g_gerd->lockBuffer();
+    auto buffer = g_renderer->readback();
     REQUIRE(buffer);
     for (int y = 0; y < 480; ++y)
         for (int x = 0; x < 640; ++x) {
@@ -145,7 +139,6 @@ TEST_CASE("game graphics")
             }
         output->close();
     }
-    g_gerd->unlockBuffer();
     printf("retail STI: %u colored pixels, %u match CPU RGB555 within 8 levels\n", colored,
            matched);
     REQUIRE((colored > 100 && matched == colored));
@@ -175,7 +168,7 @@ TEST_CASE("game graphics")
         REQUIRE(!movie.UpdateFrame());
         // The actual presentation surface reaches GPU output; the game primary stays intact.
         RenderFrame();
-        buffer = g_gerd->lockBuffer();
+        buffer = g_renderer->readback();
         REQUIRE(buffer);
         unsigned movie_matches = 0;
         for (int y = 0; y < 480; ++y)
@@ -193,7 +186,6 @@ TEST_CASE("game graphics")
                          abs(int(actual & 255) - b) <= 8));
                 ++movie_matches;
             }
-        g_gerd->unlockBuffer();
         printf("movie GPU: %u RGB555 pixels and black background match\n", movie_matches);
         REQUIRE((FinishVideoPresentation() && ghWindow == persistent_window));
     }
@@ -205,11 +197,10 @@ TEST_CASE("game graphics")
                        1280) == 0);
     PresentMenuOverlayFrame();
 
-    // Reopening must publish the renderer again and rebuild invalidated texture caches.
-    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
-    REQUIRE(GpuRenderer::getActive() == nullptr);
+    // Reopening presentation retains the canvas and the SDL platform window.
+    g_renderer->close();
     REQUIRE(OpenRendererWindow());
-    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
+    REQUIRE(g_renderer->isOpen());
     PresentMenuOverlayFrame();
 
     g_screenshot_index = 0;
@@ -219,42 +210,8 @@ TEST_CASE("game graphics")
     REQUIRE((screenshot && screenshot->w == 640 && screenshot->h == 480));
     puts("retail Targa import and game JPEG screenshot round-trip");
 
-    // Reusing a resource's address must not find its retired cache entry. Deferred
-    // GPU destruction must also leave the replacement alive when the old entry is drained.
-    {
-        auto red = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
-        auto green = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
-        REQUIRE(SDL_FillSurfaceRect(red.get(), nullptr, 0xffff0000));
-        REQUIRE(SDL_FillSurfaceRect(green.get(), nullptr, 0xff00ff00));
-        std::optional<Texture> texture{std::shared_ptr<SDL_Surface>(std::move(red))};
-        const std::array<float, 12> triangle{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
-        vertexStream::VertexArrayInfo vertices{.mask = 1 << vertexStream::VERTEX_ARRAY_POSITIONS,
-                                               .count = 3};
-        vertices.components[vertexStream::VERTEX_ARRAY_POSITIONS] = 4;
-        vertices.strides[vertexStream::VERTEX_ARRAY_POSITIONS] = 16;
-        vertices.arrays[vertexStream::VERTEX_ARRAY_POSITIONS] = triangle.data();
-        DrawShader shader;
-        shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                       DrawShader::MASK_TEXTURING |
-                       (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-        const auto draw = [&] {
-            g_gerd->draw({.vertices = vertices, .shader = shader, .textures = {&*texture}});
-        };
-        draw();
-        texture.reset();
-        texture.emplace(std::shared_ptr<SDL_Surface>(std::move(green)));
-        draw();
-        g_gerd->invalidateTextureCache();
-        draw();
-        buffer = g_gerd->lockBuffer();
-        REQUIRE(buffer);
-        REQUIRE((ReadARGB(*buffer, 320, 240) & 0xffffff) == 0x00ff00);
-        g_gerd->unlockBuffer();
-    }
-
     ShutdownVideoManager();
-    REQUIRE(g_gerd == nullptr);
-    REQUIRE(GpuRenderer::getActive() == nullptr);
+    REQUIRE(g_renderer == nullptr);
 
     SDL_Quit();
 }

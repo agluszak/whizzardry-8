@@ -1,293 +1,106 @@
-#include <array>
-#include <cstdint>
-#include <cstring>
 #include <memory>
-#include <span>
+#include <utility>
 
-#include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
-#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
+#include <vsg/all.h>
 
-#include "wiz8/render/draw_shader.h"
-#include "wiz8/render/gpu_renderer.h"
-#include "wiz8/render/vertex_stream.h"
+#include "surface_pixels.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/renderer.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/surface_storage.h"
 
 namespace {
-vertexStream::VertexArrayInfo float_vertex_arrays(std::uint32_t mask, std::uint32_t count)
-{
-    return {.mask = mask, .count = count, .components = {}};
-}
-
 struct Fixture {
-    std::unique_ptr<GpuRenderer> device;
-    // Inputs of the next draw; each draw records its own copy.
-    DrawShader shader;
-    std::int32_t polygon_offset = 0;
-    std::array<GpuRenderer::GpuStage, 2> stages{};
+    std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> window{nullptr, SDL_DestroyWindow};
+    std::unique_ptr<Renderer> renderer;
     Fixture()
     {
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
         REQUIRE(SDL_Init(SDL_INIT_VIDEO));
-        device = std::make_unique<GpuRenderer>();
-        REQUIRE(device->gpuCreateContext(nullptr));
-        REQUIRE(device->gpuOpenWindow(64, 64));
-        device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                                {.color = {0, 0, 0, 1}});
+        window.reset(SDL_CreateWindow("VSG rendering", 64, 64,
+                                      SDL_WINDOW_HIDDEN | SDL_WINDOW_VULKAN));
+        REQUIRE(window);
+        renderer = std::make_unique<Renderer>(window.get());
     }
     ~Fixture()
     {
-        device.reset();
+        renderer.reset();
+        window.reset();
         SDL_Quit();
     }
-    void draw(const vertexStream::VertexArrayInfo& arrays,
-              std::span<const std::uint32_t> indices = {})
+    unsigned pixel(int x, int y)
     {
-        device->gpuDraw({.vertices = arrays,
-                         .indices = indices,
-                         .shader = shader,
-                         .polygon_offset = polygon_offset},
-                        stages);
-    }
-    void triangle(float depth, const std::array<float, 4>& color, float u = 0, float v = 0,
-                  float weight = 1)
-    {
-        const float positions[]{-1, -1, depth, 1, 3, -1, depth, 1, -1, 3, depth, 1};
-        const float uv[]{u, v, 1, u, v, 1, u, v, 1};
-        const std::array colors{color, color, color};
-        const std::array weights{weight, weight, weight};
-        auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
-                                              (1 << vertexStream::VERTEX_ARRAY_DIFFUSE) |
-                                              (1 << vertexStream::VERTEX_ARRAY_TEXCOORD0),
-                                          3);
-        arrays.components[0] = arrays.components[1] = 4;
-        arrays.components[4] = 3;
-        arrays.arrays[0] = positions;
-        arrays.arrays[1] = colors.data();
-        arrays.arrays[4] = uv;
-        arrays.texture_weights[0] = weights.data();
-        draw(arrays);
-    }
-    unsigned pixel(int x = 32, int y = 32)
-    {
-        unsigned pixel = 0;
-        auto* surface = device->gpuLockBuffer();
-        std::memcpy(&pixel,
-                    static_cast<unsigned char*>(surface->pixels) + y * surface->pitch + x * 4, 4);
-        device->gpuUnlockBuffer();
-        return pixel & 0xffffff;
+        auto* surface = renderer->readback();
+        REQUIRE(surface);
+        return ReadARGB(*surface, x, y) & 0xffffff;
     }
 };
+std::shared_ptr<Texture> solidTexture(unsigned color)
+{
+    auto pixels = CreateCpuStorage(1, 1, SDL_PIXELFORMAT_BGRA32);
+    REQUIRE(SDL_FillSurfaceRect(pixels.get(), nullptr, color));
+    return std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(pixels)));
+}
 }
 
-TEST_CASE("World viewport clears preserve surrounding UI and unselected buffers")
+TEST_CASE("VSG frame owns submitted overlay resources through completion")
 {
     Fixture fixture;
-    fixture.shader.value = DrawShader::PASS_LESS | DrawShader::MASK_DEPTH_WRITE |
-                           DrawShader::MASK_COLOR_WRITE |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.triangle(0, {1, 0, 0, 1});
-    fixture.device->gpuSetScissor({16, 16, 48, 48});
-    fixture.device->gpuSetViewPort({0, 0, 1, 1, 0.2f, 0.3f});
-    const GpuRenderer::ClearValues green{.color = {0, 1, 0, 1}};
-    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR, green);
-    // State can change again before the queued clear is submitted.
-    fixture.device->gpuSetScissor({0, 0, 64, 64});
-    fixture.device->gpuSetViewPort({0, 0, 64, 64, 0, 1});
-    REQUIRE(fixture.pixel() == 0x00ff00);
-    REQUIRE(fixture.pixel(8, 32) == 0xff0000);
-    REQUIRE(fixture.pixel(48, 32) == 0xff0000);
-    fixture.triangle(0.5f, {0, 0, 1, 1});
-    REQUIRE(fixture.pixel() == 0x00ff00); // Color-only clear retained depth.
-    fixture.device->gpuSetScissor({16, 16, 48, 48});
-    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_DEPTH, green);
-    fixture.device->gpuSetScissor({0, 0, 64, 64});
-    REQUIRE(fixture.pixel() == 0x00ff00); // Depth-only clear retained color.
-    fixture.triangle(0.5f, {0, 0, 1, 1});
-    REQUIRE(fixture.pixel() == 0x0000ff);
-    REQUIRE(fixture.pixel(8, 32) == 0xff0000);
-    fixture.device->gpuSetScissor({32, 32, 32, 48});
-    fixture.device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                                    green);
-    fixture.triangle(-0.5f, {1, 1, 1, 1});
-    REQUIRE(fixture.pixel() == 0x0000ff); // An empty scissor affects no pixels.
-}
-
-TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
-{
-    Fixture fixture;
-    fixture.shader.value = DrawShader::PASS_LESS | DrawShader::MASK_DEPTH_WRITE |
-                           DrawShader::MASK_COLOR_WRITE |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.triangle(0, {1, 0, 0, 1});
-    fixture.polygon_offset = 2;
-    fixture.triangle(0, {0, 1, 0, 1});
-    fixture.polygon_offset = 0;
-    fixture.triangle(0, {0, 0, 1, 1});
-    REQUIRE(fixture.pixel() == 0x00ff00);
-}
-
-TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
-{
-    Fixture fixture;
-    std::array<unsigned, 4> pixels{0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffffff};
-    auto texture = fixture.device->gpuCreateTexture(2, 2, 1);
-    fixture.device->gpuUploadTexture(
-        texture, 0, {0, 0, 2, 2},
-        {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 8);
-    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                           DrawShader::MASK_TEXTURING |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    // U clamps to the green column, V repeats into the top row.
-    fixture.stages[0] = {texture.handle, {.wrap_s = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE}};
-    fixture.triangle(0, {1, 1, 1, 1}, 1.25f, 1.25f);
-    // The next draw's sampler must not change the queued one.
-    fixture.stages[0].parameters = {.wrap_t = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE};
-    REQUIRE(fixture.pixel() == 0x00ff00);
-    fixture.triangle(0, {1, 1, 1, 1}, 1.25f, 1.25f);
-    REQUIRE(fixture.pixel() == 0x0000ff);
-    // Separate Q weights must survive submission and perspective texture division.
-    fixture.triangle(0, {1, 1, 1, 1}, 0.75f, 0.25f, 2.0f);
-    REQUIRE(fixture.pixel() == 0xff0000);
-    fixture.device->gpuDeleteTexture(texture);
-}
-
-TEST_CASE("Texture uploads copy pitched regions before CPU storage changes and defer deletion")
-{
-    Fixture fixture;
-    auto texture = fixture.device->gpuCreateTexture(4, 4, 1);
-    std::array<unsigned, 24> pixels;
-    pixels.fill(0xffff0000);
-    fixture.device->gpuUploadTexture(
-        texture, 0, {0, 0, 4, 4},
-        {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 24);
-    pixels.fill(0xff0000ff);
-    pixels[7] = pixels[8] = pixels[13] = pixels[14] = 0xff00ff00;
-    fixture.device->gpuUploadTexture(
-        texture, 0, {1, 1, 2, 2},
-        {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 24);
-    pixels.fill(0xff0000ff);
-    fixture.stages[0] = {texture.handle, {}};
-    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                           DrawShader::MASK_TEXTURING |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.triangle(0, {1, 1, 1, 1}, 0.125f, 0.125f);
-    REQUIRE(fixture.pixel() == 0xff0000);
-    fixture.triangle(0, {1, 1, 1, 1}, 0.375f, 0.375f);
-    fixture.device->gpuDeleteTexture(texture);
-    REQUIRE(fixture.pixel() == 0x00ff00);
-}
-
-TEST_CASE("SDL framebuffer edits upload only when explicitly marked modified")
-{
-    Fixture fixture;
-    auto* surface = fixture.device->gpuLockBuffer();
-    SDL_Rect pixel{32, 32, 1, 1};
-    REQUIRE(SDL_FillSurfaceRect(surface, &pixel, 0xffffffff));
-    fixture.device->gpuUnlockBuffer(true);
-    REQUIRE(fixture.pixel() == 0xffffff);
-}
-
-TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
-{
-    Fixture fixture;
-    const std::array<std::array<float, 4>, 4> positions{
-        {{-1, -1, 0, 1}, {-1, 1, 0, 1}, {1, -1, 0, 1}, {1, 1, 0, 1}}};
-    std::array<std::array<float, 4>, 4> colors;
-    colors.fill({1, 0, 0, 1});
-    const std::array<std::uint32_t, 6> indices{0, 1, 2, 2, 1, 3};
-    auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
-                                          (1 << vertexStream::VERTEX_ARRAY_DIFFUSE),
-                                      positions.size());
-    arrays.components[0] = arrays.components[1] = 4;
-    arrays.arrays[0] = positions.data();
-    arrays.arrays[1] = colors.data();
-    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetScissor({0, 0, 32, 64});
-    fixture.draw(arrays, indices);
-    colors.fill({0, 0, 1, 1});
-    fixture.device->gpuSetScissor({32, 0, 64, 64});
-    fixture.draw(arrays, indices);
-    auto* surface = fixture.device->gpuLockBuffer();
-    unsigned left = 0, right = 0;
-    const auto* row = static_cast<const unsigned char*>(surface->pixels) + 32 * surface->pitch;
-    std::memcpy(&left, row + 16 * 4, 4);
-    std::memcpy(&right, row + 48 * 4, 4);
-    fixture.device->gpuUnlockBuffer();
-    REQUIRE((left & 0xffffff) == 0xff0000);
-    REQUIRE((right & 0xffffff) == 0x0000ff);
-}
-
-TEST_CASE("Texture updates preserve pixels sampled by earlier queued draws")
-{
-    Fixture fixture;
-    auto texture = fixture.device->gpuCreateTexture(1, 1, 1);
-    const auto update = [&](unsigned pixel) {
-        fixture.device->gpuUploadTexture(
-            texture, 0, {0, 0, 1, 1},
-            {reinterpret_cast<const unsigned char*>(&pixel), sizeof(pixel)}, sizeof(pixel));
-    };
-    update(0xffff0000);
-    fixture.stages[0].texture = texture.handle;
-    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                           DrawShader::MASK_TEXTURING |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetScissor({0, 0, 32, 64});
-    fixture.triangle(0, {1, 1, 1, 1});
-    update(0xff00ff00);
-    fixture.device->gpuSetScissor({32, 0, 64, 64});
-    fixture.triangle(0, {1, 1, 1, 1});
-    auto* surface = fixture.device->gpuLockBuffer();
-    unsigned left = 0, right = 0;
-    const auto* row = static_cast<const unsigned char*>(surface->pixels) + 32 * surface->pitch;
-    std::memcpy(&left, row + 16 * 4, 4);
-    std::memcpy(&right, row + 48 * 4, 4);
-    fixture.device->gpuUnlockBuffer();
-    REQUIRE((left & 0xffffff) == 0xff0000);
-    REQUIRE((right & 0xffffff) == 0x00ff00);
-    fixture.device->gpuDeleteTexture(texture);
-}
-
-TEST_CASE("GPU mipmaps follow base uploads and updates before minified draws")
-{
-    Fixture fixture;
-    auto texture = fixture.device->gpuCreateTexture(4, 4, 3);
-    std::array<unsigned, 16> pixels;
-    for (unsigned i = 0; i < pixels.size(); ++i) pixels[i] = i % 2 ? 0xffff0000 : 0xff0000ff;
-    const auto update = [&] {
-        fixture.device->gpuUploadTexture(
-            texture, 0, {0, 0, 4, 4},
-            {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 16);
-    };
-    update();
-    fixture.stages[0] = {texture.handle, {.max_lod = 2}};
-    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                           DrawShader::MASK_TEXTURING |
-                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    const float positions[]{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
-    const float uv[]{0, 0, 1, 64, 0, 1, 0, 64, 1};
-    auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
-                                          (1 << vertexStream::VERTEX_ARRAY_TEXCOORD0),
-                                      3);
-    arrays.components[0] = 4;
-    arrays.components[4] = 3;
-    arrays.arrays[0] = positions;
-    arrays.arrays[4] = uv;
-    fixture.device->gpuSetScissor({0, 0, 32, 64});
-    fixture.draw(arrays);
-    pixels.fill(0xff00ff00);
-    update();
-    fixture.device->gpuSetScissor({32, 0, 64, 64});
-    fixture.draw(arrays);
-    const auto purple = fixture.pixel(16, 32);
-    REQUIRE(((purple >> 16) & 255) >= 127);
-    REQUIRE(((purple >> 16) & 255) <= 128);
-    REQUIRE((purple & 255) >= 127);
-    REQUIRE((purple & 255) <= 128);
-    REQUIRE((purple & 0xff00) == 0);
+    auto texture = solidTexture(0xffff0000);
+    OverlayQuad quad;
+    quad.size = {320, 480};
+    quad.texture = texture;
+    fixture.renderer->beginFrame({0, 0, 1, 1});
+    fixture.renderer->drawOverlayQuad(quad);
+    texture = solidTexture(0xff00ff00);
+    quad.texture = texture;
+    quad.position.x = 320;
+    fixture.renderer->drawOverlayQuad(quad);
+    texture.reset();
+    quad.texture.reset();
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(fixture.pixel(16, 32) == 0xff0000);
     REQUIRE(fixture.pixel(48, 32) == 0x00ff00);
-    fixture.device->gpuDeleteTexture(texture);
+    fixture.renderer->beginFrame({0, 0, 1, 1});
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(fixture.pixel(16, 32) == 0x0000ff);
+}
+
+TEST_CASE("Two VSG views render an ordinary subgraph from one world")
+{
+    Fixture fixture;
+    WorldScene scene;
+    auto builder = vsg::Builder::create();
+    vsg::GeometryInfo geometry;
+    geometry.position = {0, 0, 3};
+    geometry.dx = {2, 0, 0};
+    geometry.dy = {0, 2, 0};
+    geometry.color = {1, 0, 0, 1};
+    vsg::StateInfo material;
+    material.lighting = false;
+    material.two_sided = true;
+    auto ordinary = builder->createQuad(geometry, material);
+    scene.root->addChild(ordinary);
+    scene.camera.setClipRange(1, 10);
+    scene.camera.setViewPlane(Camera3D::Rect{-1, -1, 1, 1}, 1);
+    fixture.renderer->beginFrame({0, 0, 1, 1});
+    const auto number = fixture.renderer->frameNumber();
+    auto left = scene.createView(fixture.renderer->context(), &scene.camera, {},
+                                 vsg::ViewportState::create(0, 0, 32, 64), number);
+    auto right = scene.createView(fixture.renderer->context(), &scene.camera, {},
+                                  vsg::ViewportState::create(32, 0, 32, 64), number);
+    fixture.renderer->addView(left);
+    fixture.renderer->addView(right);
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(fixture.pixel(16, 32) == 0xff0000);
+    REQUIRE(fixture.pixel(48, 32) == 0xff0000);
+    REQUIRE(scene.root->children.back() == ordinary);
 }

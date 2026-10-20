@@ -116,7 +116,6 @@ bool ClearMouseSurface(void);
 void DrawVideoInspector(int left, unsigned int top);
 /* 0x00428830: the option-4-suppressed render probe - draws the node between
    the dynamic scene's bracketing passes and returns the sampled statistic. */
-unsigned int MeasureMeshRenderWithoutPositionalOption(MeshInstance* mesh);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
 /* 0x00484A40: blit one frame of a video object into a color surface. */
@@ -131,12 +130,11 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
 /* 0x00428AA0: mark both renderer mode words dirty. */
 /* 0x004289C0: the render probe that counts a mesh's drawn pixels — draw the
    node through the world camera and return the sampled statistic. */
-unsigned int MeasureMeshRender(MeshInstance* mesh);
 
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
 class Camera3D;
-class GpuRenderer;
+class Renderer;
 class Material;
 class WorldScene;
 class UiCanvasTexture;
@@ -151,7 +149,7 @@ void DrawColorSurface(SDL_Surface* surface, int x, int y);
 std::unique_ptr<MeshInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
                                               float height, bool additive); /* 0x00424A90 */
 extern bool g_texture_cache_enabled;
-extern std::unique_ptr<GpuRenderer> g_gerd;
+extern std::unique_ptr<Renderer> g_renderer;
 /* Secondary renderer device preferred by the offscreen world-render path. */
 extern std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
@@ -200,7 +198,6 @@ void ReleasePrimarySurface(void);
 unsigned char InitializeVideoDevice(void);
 bool SetupDisablesAudio();
 unsigned char OpenRendererWindow(void);
-void InvalidateRendererTextureCache(void);
 unsigned char DisableCursorScene(void);
 unsigned char EnableCursorScene(void);
 void SetWorldModelPickingEnabled(bool enabled);

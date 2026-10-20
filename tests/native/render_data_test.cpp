@@ -26,7 +26,6 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/render/triangle_selection.h"
-#include "wiz8/render/vertex_shading.h"
 #include "wiz8/render/world_scene.h"
 
 template<class T>

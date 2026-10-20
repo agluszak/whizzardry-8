@@ -26,15 +26,12 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/mesh_resources.h"
-#include "wiz8/render/mesh_submission.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/triangle_selection.h"
-#include "wiz8/render/vertex_shading.h"
 #include "wiz8/spatial/bounding_box.h"
 
 class Material;
@@ -197,39 +194,6 @@ std::vector<std::uint32_t> Mesh::facingPolygons(const TriMesh& mesh,
             : clipMath::selectTriangles(polygons, std::views::iota(std::uint32_t{0}, count), keep);
     polygons.resize(kept);
     return polygons;
-}
-
-/* Wizardry-extended Mesh::renderTriMesh. Optional polygon normals enable
-   a software backface cull into an owned active-polygon list and submit
-   without further face culling; without them the mesh draws as renderTriMesh. */
-void Mesh::RenderTriMeshWithEquations(GpuRenderer& renderer, const TriMesh& mesh,
-                                      std::span<const glm::vec3> arg_poly_equations,
-                                      const MeshState& state)
-{
-    if (arg_poly_equations.empty()) {
-        renderTriMesh(renderer, mesh, state);
-        last_decompress_release_tick = MonotonicMilliseconds();
-        return;
-    }
-    if (arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
-        throw std::invalid_argument("Incomplete mesh polygon normals");
-    if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        auto culled = state;
-        culled.sorted =
-            culled.sorted || (mesh.control_flags & (1UL << Mesh::CONTROL_SORTED_RENDERING)) != 0;
-        culled.cull = FaceCull::None;
-        const auto software_polygons = facingPolygons(
-            mesh, arg_poly_equations, glm::vec3(state.transform.inverseModelView()[3]),
-            state.winding == Winding::Standard, static_cast<float>(0.0));
-        if (!software_polygons.empty()) {
-            auto submitted = mesh;
-            submitted.poly_equations = nullptr;
-            submitted.active_polygons = std::span<const std::uint32_t>(software_polygons);
-            meshSubmission::drawSides(renderer, submitted, culled,
-                                      [](std::int32_t side, MeshState&) { return side; });
-        }
-        last_decompress_release_tick = MonotonicMilliseconds();
-    }
 }
 
 /* Copy or translate `count` vertices: a zero offset is a plain copy and a
@@ -456,6 +420,7 @@ int Mesh::CreateSkinTable(std::string_view name, int base_table)
     }
     Skin skin{table, std::string(name), *source, std::nullopt, false};
     skins.push_back(std::move(skin));
+    render_asset_.reset();
     return table;
 }
 
@@ -463,6 +428,7 @@ void Mesh::RemoveSkinTable(int index)
 {
     if (static_cast<unsigned int>(index) < skins.size()) {
         skins.erase(std::next(skins.begin(), index));
+        render_asset_.reset();
     }
 }
 
