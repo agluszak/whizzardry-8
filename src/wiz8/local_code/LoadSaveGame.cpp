@@ -9,6 +9,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -1598,71 +1599,96 @@ try {
     return {};
 }
 
-/* Load a save slot: begin a new game, apply each section (keeping each level's group
-   undecoded until the party enters the level), then re-arm the message countdowns, the
-   gameplay timer and the held-item cursor and normalize the loaded items. */
+/* Load a save slot. Every section is decoded first, so a malformed one fails the load
+   before the game in progress is replaced; then a new game begins and the sections are
+   installed in the order the file holds them (keeping each level's group undecoded until
+   the party enters the level). The message countdowns, the gameplay timer and the held
+   item are re-armed and the loaded items normalized last. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
-    auto& game = games.begin();
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return false;
+    std::vector<std::move_only_function<void(Game&)>> installs;
+    // The message boxes' encoding follows the save version the status section names.
+    auto save_version = GameStatus{}.retail.save_version;
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
-            game.left_levels[level] = CopyLevelGroupImage(chunks);
+            installs.emplace_back([level, image = CopyLevelGroupImage(chunks)](Game& game) mutable {
+                game.left_levels[level] = std::move(image);
+            });
             break;
         }
         case W8_CHUNK_GAME_STATUS: {
             auto saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks));
-            game.status = std::move(saved.status);
-            game.party = std::move(saved.party);
+            save_version = saved.status.retail.save_version;
+            installs.emplace_back([saved = std::move(saved)](Game& game) mutable {
+                game.status = std::move(saved.status);
+                game.party = std::move(saved.party);
+            });
             break;
         }
         case W8_CHUNK_CHARACTER:
             // A malformed record is skipped; the last complete one under a name wins.
             try {
-                StoreCharacter(game, wiz8::save::decode_stored_character(ReadChunkPayload(chunks)));
+                installs.emplace_back(
+                    [stored = wiz8::save::decode_stored_character(ReadChunkPayload(chunks))](
+                        Game& game) mutable { StoreCharacter(game, std::move(stored)); });
             } catch (const std::runtime_error&) {
             }
             break;
         case W8_CHUNK_MESSAGE_STORAGE:
-            InstallMessageBoxes(wiz8::save::decode_message_boxes(ReadChunkPayload(chunks),
-                                                                 game.status.retail.save_version),
-                                game);
+            installs.emplace_back(
+                [boxes = wiz8::save::decode_message_boxes(ReadChunkPayload(chunks), save_version)](
+                    Game& game) mutable { InstallMessageBoxes(std::move(boxes), game); });
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
-            std::ranges::move(wiz8::save::decode_location_variables(ReadChunkPayload(chunks)),
-                              std::back_inserter(game.story.location_variables));
+            installs.emplace_back([variables = wiz8::save::decode_location_variables(
+                                       ReadChunkPayload(chunks))](Game& game) mutable {
+                std::ranges::move(variables, std::back_inserter(game.story.location_variables));
+            });
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
-            InstallDialogueTranscript(
-                wiz8::save::decode_dialogue_transcript(ReadChunkPayload(chunks)), game);
+            installs.emplace_back([transcript = wiz8::save::decode_dialogue_transcript(
+                                       ReadChunkPayload(chunks))](Game& game) mutable {
+                InstallDialogueTranscript(std::move(transcript), game);
+            });
             break;
         case W8_CHUNK_NPC_STATES:
-            InstallNpcStates(
-                wiz8::save::decode_npc_states(ReadChunkPayload(chunks), Data().npcs.size()));
+            installs.emplace_back([npcs = wiz8::save::decode_npc_states(ReadChunkPayload(chunks),
+                                                                        Data().npcs.size())](
+                                      Game&) mutable { InstallNpcStates(std::move(npcs)); });
             break;
         case W8_CHUNK_FACT_STATE:
-            InstallFacts(wiz8::save::decode_facts(ReadChunkPayload(chunks)));
+            installs.emplace_back([facts = wiz8::save::decode_facts(ReadChunkPayload(chunks))](
+                                      Game&) { InstallFacts(facts); });
             break;
-        case W8_CHUNK_FACTION_STATE: {
-            auto factions = wiz8::save::decode_factions(ReadChunkPayload(chunks));
-            game.story.faction_relations = factions.relations;
-            game.story.factions = factions.states;
-            game.story.factions[W8_FACTION_PARTY].disposition_score = 100;
+        case W8_CHUNK_FACTION_STATE:
+            installs.emplace_back(
+                [factions = wiz8::save::decode_factions(ReadChunkPayload(chunks))](Game& game) {
+                    game.story.faction_relations = factions.relations;
+                    game.story.factions = factions.states;
+                    game.story.factions[W8_FACTION_PARTY].disposition_score = 100;
+                });
             break;
-        }
         case W8_CHUNK_JOURNAL:
-            game.story.journal = wiz8::save::decode_journal(ReadChunkPayload(chunks));
+            installs.emplace_back(
+                [journal = wiz8::save::decode_journal(ReadChunkPayload(chunks))](
+                    Game& game) mutable { game.story.journal = std::move(journal); });
             break;
         case W8_CHUNK_MONSTER_CONTROL:
-            game.spell_effects.push_back(std::make_unique<W8SpellEffectEntry>(
-                wiz8::save::decode_monster_control(ReadChunkPayload(chunks))));
+            installs.emplace_back([control = wiz8::save::decode_monster_control(
+                                       ReadChunkPayload(chunks))](Game& game) mutable {
+                game.spell_effects.push_back(
+                    std::make_unique<W8SpellEffectEntry>(std::move(control)));
+            });
             break;
         }
     });
     chunks.Close();
+    auto& game = games.begin();
+    for (auto& install : installs) install(game);
     for (std::size_t box = 0; box < game.message_log.size(); ++box) {
         for (std::size_t line = 0; line < game.status.text_box_lines_shown[box]; ++line) {
             auto& message = game.message_log[box][line];

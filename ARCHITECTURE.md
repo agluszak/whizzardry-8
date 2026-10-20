@@ -363,10 +363,10 @@ Unlayered code may use the layers.
   level group's STAT record. A save captures each value from the game (the GSTA copy is
   stamped with the camera, difficulty and Iron Man file time, shown messages carry their
   remaining countdowns, and location variables fold in the level script's state) and
-  writes its payload. A load begins the replacement game first, then decodes each
-  payload whole before installing it, so a malformed section is never half-applied;
-  sections are installed one at a time, though, so a failure in a later section leaves
-  the earlier ones installed and the load fails. A malformed CHAR section is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
+  writes its payload. A load decodes every section before it begins the replacement
+  game, so a malformed section fails the load and leaves the game in progress
+  untouched; the decoded sections are then installed in file order. A malformed CHAR
+  section is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
   `GameStatus::retail` carries the serialized bytes that are not game state. A started
   game keeps character files in `Game::stored_characters`. The level groups are still
   written from live worlds by `LoadSaveGame.cpp`; reading one decodes the whole group
