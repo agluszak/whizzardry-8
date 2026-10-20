@@ -648,6 +648,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
     gXStatus.item_drag.reset();
+    CurrentGame().aging_held = false;
     CreatePartyPortraitEventRegions();
     CreateCampInput();
     items.Reset(request.parameter_4);

@@ -1001,7 +1001,7 @@ void InventoryChestScenario()
     chest->flags |= W8_TRIGGER_ITEM_PICKER;
     game.wait("chest-picker", [] { return g_modal_owner != nullptr; });
     game.frame();
-    REQUIRE(gXStatus.world_update_blocked);
+    REQUIRE(CurrentGame().advancement.held);
     auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
     REQUIRE_FALSE(picker->entries.empty());
     const auto& item_button = *picker->m_buttons[5];
@@ -1064,7 +1064,7 @@ void InventoryChestScenario()
     click_button(1); // Take selected items into the party pool.
     game.wait("close-chest-picker", [] { return g_modal_owner == nullptr; });
     REQUIRE(g_modal_owner == nullptr);
-    REQUIRE_FALSE(gXStatus.world_update_blocked);
+    REQUIRE_FALSE(CurrentGame().advancement.held);
     REQUIRE((chest->flags & W8_TRIGGER_ITEM_PICKER) == 0);
     REQUIRE(g_camera_motion_clamp == motion_clamp);
     REQUIRE(g_camera_motion_divisor == motion_divisor);
@@ -1317,7 +1317,7 @@ void CheckGameplayUi(GameHarness& game)
     LearnSpell(&character, W8_SPELL_LIGHT, false);
     const auto realm = MutableData().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
-    gXStatus.world_paused = true;
+    CurrentGame().advancement.paused = true;
     SyncWorldAdvancement();
     REQUIRE(OpenSpellCastingView(slot));
     game.frame();
@@ -1342,10 +1342,10 @@ void CheckGameplayUi(GameHarness& game)
         REQUIRE(CurrentGame().party.rows[slot].spell.detail == W8_SPELL_LIGHT);
         REQUIRE(CurrentGame().party.rows[slot].spell.detail_block.spell.power_level == 2);
     }
-    REQUIRE(gXStatus.world_paused);
-    REQUIRE(WorldAdvancementBlocked());
+    REQUIRE(CurrentGame().advancement.paused);
+    REQUIRE(CurrentGame().advancement.held);
     ToggleMainGamePause();
-    REQUIRE_FALSE(gXStatus.world_paused);
+    REQUIRE_FALSE(CurrentGame().advancement.paused);
     character = original_character;
 
     const auto original_effect = CurrentGame().status.effect_slots[0];

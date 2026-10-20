@@ -79,7 +79,6 @@ W8EnvironmentLightingMode EnvironmentLightingMode();
    Sight.cpp and GameplayTime.cpp consume it through SetViewDistance and
    GetViewDistance, so the rename waits for those owners. */
 extern float g_view_distance;
-extern bool g_environment_time_enabled;
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */
 void SetWorldEnvironmentIntensity(World* world, float value);
 /* Arm the lighting transition. Duration is in milliseconds: negative fades the

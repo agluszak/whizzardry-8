@@ -550,11 +550,7 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
     const ScopedGame game;
     auto& characters = CurrentGame().party.characters;
     auto& slots = CurrentGame().party.rows;
-    struct Restore {
-        bool environment = g_environment_time_enabled;
-        ~Restore() { g_environment_time_enabled = environment; }
-    } restore;
-    g_environment_time_enabled = true;
+    CurrentGame().advancement.time_passes = true;
     auto& queue = CurrentGame().speech;
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty()); // No eligible speaker: retry later.

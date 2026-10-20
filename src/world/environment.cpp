@@ -96,6 +96,9 @@ void AdvanceEnvironmentTime(int elapsed)
     }
     CurrentGame().status.game_time_ms = time % 86400000U;
 
+    /* The game clock (turns, aging, recharges, fatigue, stamina, camping) runs only while
+       the party is in the world. Time reaches it from the environment clock while nothing
+       holds the world and no fight is on, and from the rounds of a fight there. */
     if (CurrentGame().activity.in_world()) {
         UpdateGameClock(elapsed);
     }
@@ -151,7 +154,7 @@ void AdvanceEnvironmentTime(int elapsed)
    test, which SetEnvironmentTimeEnabled repeats right after setting the flag. */
 static void AdvanceEnvironmentClock(void)
 {
-    if (g_environment_time_enabled) {
+    if (CurrentGame().advancement.time_passes) {
         std::uint64_t now = w8_get_ticks();
         std::uint64_t elapsed = now - g_tick;
         if (elapsed != 0) {
@@ -166,12 +169,8 @@ static void AdvanceEnvironmentClock(void)
    multiplier's share of the time since that baseline. */
 void SetEnvironmentTimeEnabled(bool enabled)
 {
-    if (!enabled) {
-        g_environment_time_enabled = false;
-        return;
-    }
-
-    g_environment_time_enabled = true;
+    CurrentGame().advancement.time_passes = enabled;
+    if (!enabled) return;
     g_tick = w8_get_ticks();
     AdvanceEnvironmentClock();
 }
@@ -189,7 +188,7 @@ void UpdateEnvironment(void)
         UpdateEnvironmentLighting();
         return;
     }
-    if (!g_environment_time_enabled) {
+    if (!CurrentGame().advancement.time_passes) {
         return;
     }
     if (GetWorld()->environment.lighting_mode == W8EnvironmentLightingMode::DayNight) {

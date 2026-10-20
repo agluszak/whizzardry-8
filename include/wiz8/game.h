@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -7,6 +8,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
@@ -72,6 +74,19 @@ public:
        blocks the magic-effects tick until it opens. */
     bool item_pick_pending = false;
     int item_manager_pending = 0;
+
+    /* Whether the world moves on. The main game screen reports what holds it
+       (`ApplyWorldAdvancement`); rules read the result. */
+    WorldAdvancement advancement;
+    /* No turns pass: the camp's Use handed an item to the main game's use-item picker,
+       which has not taken it yet. The screens set it. */
+    bool aging_held = false;
+    SurpriseSequence surprise;
+    // When the next search sweep is due.
+    std::uint64_t search_pulse_deadline = 0;
+    // The timed autosave has announced itself and saves on its next tick.
+    bool save_notice_shown = false;
+
     // What happened, in order, for the UI to present.
     Events events;
     /* Last, so its worlds are destroyed first, while combat and speech still exist.

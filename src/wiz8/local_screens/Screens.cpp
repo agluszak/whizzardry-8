@@ -357,6 +357,10 @@ struct GameEventPresentation {
         AnnounceSkillIncrease(game, improved.party_slot, improved.skill,
                               !improved.quiet && SkillIncreasesShownNow(game));
     }
+    void operator()(const WorldAdvancementChanged& change) const
+    {
+        PresentWorldAdvancement(change.held, change.hold_changed);
+    }
 };
 } // namespace
 

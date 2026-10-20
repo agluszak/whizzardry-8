@@ -1,7 +1,51 @@
 #pragma once
 
+class Game;
 struct W8Character;
 struct W8MonsterInfo;
+struct World;
+
+// What the interface holds still, as the main game screen reports it.
+struct WorldHold {
+    /* The world: another screen, a dialog, a picker, dialogue, the formation panel, a
+       level transition or a minimised window covers it. */
+    bool world = false;
+    // The party's movement: it is working a lock or a trap.
+    bool party = false;
+};
+
+/* Whether the world moves on. The player's pause and the interface's hold stop it; the
+   environment clock also stops for a fight, whose rounds advance time themselves. */
+struct WorldAdvancement {
+    // The player's pause. Closing an interaction does not lift it.
+    bool paused = false;
+    // The interface's hold, as last reported.
+    WorldHold hold;
+    // As last applied: paused or held by the interface, so the world's simulation waits.
+    bool held = false;
+    // As last applied: the environment clock runs, as nothing holds the world or fights.
+    bool time_passes = false;
+    // The world the environment state was applied to; a new world takes it up again.
+    const World* world = nullptr;
+    // The pause the move timer was last suspended or resumed for.
+    bool timer_paused = false;
+};
+
+/* Apply the player's pause and the interface's hold to the world. Only edges act: the
+   move timer follows the pause; the environment clock, the navigators and the party's
+   motion follow whether the world is held or a fight is on, and are applied again to a
+   new world. A change is reported as a `WorldAdvancementChanged` event. */
+void ApplyWorldAdvancement(Game& game, WorldHold hold);
+
+// The camping surprise sequence while `Game::surprise_possible` is set.
+struct SurpriseSequence {
+    enum class Phase : unsigned char { fade_in, hold, fade_out_and_resolve };
+    // Surprise started with no character engaged; the hold then waits for one.
+    bool unengaged = false;
+    // World-clock deadline the hold compares against; zero before it starts.
+    unsigned int deadline_turns = 0;
+    Phase phase = Phase::fade_in;
+};
 
 void UpdateGameClock(int elapsed);
 /* The 120-second aging tick - wait-state machine, per-character

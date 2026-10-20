@@ -51,7 +51,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 MonGen::MonGen()
 {
@@ -377,7 +376,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     glm::vec3 camera;
     float distance;
 
-    if (GetWorld()->encounters.save_flag != 0 || gXStatus.world_update_blocked ||
+    if (GetWorld()->encounters.save_flag != 0 || CurrentGame().advancement.held ||
         CurrentGame().combat.active() || CurrentGame().activity.conversation ||
         !generation_enabled) {
         return false;

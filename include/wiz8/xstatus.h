@@ -43,10 +43,8 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    bool world_update_blocked;
-    /* Explicit user-pause choice; closing an interaction does not clear it. */
-    bool world_paused;
-    /* An item the camp's Use action hands to the main game's use-item picker. */
+    /* An item the camp's Use action hands to the main game's use-item picker. While it
+       is pending, the screens hold the game's aging (`Game::aging_held`). */
     std::optional<W8ItemDrag> item_drag;
 };
 

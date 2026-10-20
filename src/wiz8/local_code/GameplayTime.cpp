@@ -77,30 +77,51 @@
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
 
-namespace {
-enum class SurprisePhase : unsigned char { fade_in, hold, fade_out_and_resolve };
+using SurprisePhase = SurpriseSequence::Phase;
 
-/* The camping surprise sequence while fSurprisePossible is set. */
-struct SurpriseSequence {
-    /* Surprise started with no character engaged; the hold then waits for one. */
-    bool unengaged = false;
-    /* World-clock deadline the hold compares against; zero before it starts. */
-    unsigned int deadline_turns = 0;
-    SurprisePhase phase = SurprisePhase::fade_in;
-};
-SurpriseSequence surprise;
-} // namespace
+void ApplyWorldAdvancement(Game& game, WorldHold hold)
+{
+    auto& advancement = game.advancement;
+    advancement.hold = hold;
+    const bool held = advancement.paused || hold.world;
+    const bool time_stopped = held || game.combat.active();
+    const World* world = GetWorld();
+    const bool hold_changed = held != advancement.held;
+    const bool time_changed = world != advancement.world || time_stopped == advancement.time_passes;
+    advancement.held = held;
+    advancement.world = world;
+    if (advancement.timer_paused != advancement.paused) {
+        advancement.timer_paused = advancement.paused;
+        MoveTimer(advancement.timer_paused ? W8_MOVE_TIMER_SUSPEND : W8_MOVE_TIMER_RESUME);
+    }
+    if (!world) return;
+    if (time_changed) {
+        SetEnvironmentTimeEnabled(!time_stopped);
+        if (time_stopped) {
+            StopAllNavigators();
+            ResetLevelDataVectors();
+        } else {
+            ResumeAllNavigators();
+            if (!hold.party) ClearLevelMovementStopped();
+        }
+    }
+    if (hold_changed || time_changed)
+        game.events.push(WorldAdvancementChanged{.held = held, .hold_changed = hold_changed});
+}
 
 bool SurpriseFadingIn()
 {
-    return surprise.phase == SurprisePhase::fade_in;
+    return CurrentGame().surprise.phase == SurprisePhase::fade_in;
 }
 
+// Camping lifts the player's pause; whatever the interface holds stays held.
 static void BeginPartyCamping()
 {
-    gXStatus.world_paused = false;
-    if (gXStatus.world_update_blocked) {
-        SyncWorldAdvancement();
+    auto& game = CurrentGame();
+    auto& surprise = game.surprise;
+    game.advancement.paused = false;
+    if (game.advancement.held) {
+        ApplyWorldAdvancement(game, game.advancement.hold);
     }
     if (!AnyCharacterEngaged()) {
         surprise.unengaged = true;
@@ -111,7 +132,7 @@ static void BeginPartyCamping()
     }
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
-    CurrentGame().surprise_possible = true;
+    game.surprise_possible = true;
     SetWorldResumeInput(true);
     surprise.deadline_turns = 0;
     CreateSurpriseFade();
@@ -131,8 +152,8 @@ void UpdateGameClock(int elapsed)
     CurrentGame().status.world_clock_ms = (CurrentGame().status.world_clock_ms + elapsed) % 1000;
 
     CurrentGame().status.aging_accumulator += elapsed;
-    unsigned int aging_ticks = 0; /* no turns pass while an item is being dragged */
-    if (!gXStatus.item_drag || !gXStatus.item_drag->pending) {
+    unsigned int aging_ticks = 0;
+    if (!CurrentGame().aging_held) {
         aging_ticks = CurrentGame().status.aging_accumulator / 120000;
         if (aging_ticks != 0) {
             CurrentGame().status.aging_accumulator %= 120000;
@@ -211,6 +232,7 @@ void UpdateGameClock(int elapsed)
     if (!CurrentGame().surprise_possible) {
         return;
     }
+    auto& surprise = CurrentGame().surprise;
     if (surprise.unengaged && AnyCharacterEngaged() && surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
@@ -277,6 +299,7 @@ void UpdateSurpriseMode(void)
     if (!CurrentGame().surprise_possible) {
         return;
     }
+    auto& surprise = CurrentGame().surprise;
     switch (surprise.phase) {
     case SurprisePhase::fade_in:
         if (UpdateSurpriseFade() != 0) {
@@ -321,7 +344,7 @@ void UpdateSurpriseMode(void)
    sequence to phase 2. */
 void AcknowledgeSurprise(void)
 {
-    if (surprise.unengaged && !CurrentGame().combat.active()) {
+    if (CurrentGame().surprise.unengaged && !CurrentGame().combat.active()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x794]);
         return;
     }
@@ -333,10 +356,10 @@ void AcknowledgeSurprise(void)
    music. */
 void ResolveSurpriseHold(void)
 {
-    if (surprise.phase == SurprisePhase::hold) {
+    if (CurrentGame().surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        surprise.phase = SurprisePhase::fade_out_and_resolve;
+        CurrentGame().surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -352,6 +375,7 @@ void EndSurprise(void)
     SetWorldResumeInput(false);
 
     std::string text;
+    auto& surprise = CurrentGame().surprise;
     if (!surprise.unengaged) {
         if (surprise.deadline_turns == 0) {
             text = Data().strings[0x793];
@@ -386,7 +410,7 @@ void EndSurprise(void)
 void RestoreSurpriseView(void)
 {
     CurrentGame().surprise_possible = false;
-    surprise.unengaged = false;
+    CurrentGame().surprise.unengaged = false;
     ResetSight();
     DestroySurpriseFade();
 }
