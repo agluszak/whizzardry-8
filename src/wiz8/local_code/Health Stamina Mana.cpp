@@ -45,12 +45,12 @@
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -221,7 +221,7 @@ void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount)
             Fail("pPC->iSPLeft[uiRealm] >= (INT32) uiSPs");
         }
         character->iSPLeft[realm] -= amount;
-        RequestPartySlotRedraw(party_slot);
+        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     }
 }
 
@@ -234,7 +234,7 @@ void RestoreCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, int am
     if (character->sp_max[realm] < character->iSPLeft[realm]) {
         character->iSPLeft[realm] = character->sp_max[realm];
     }
-    RequestPartySlotRedraw(party_slot);
+    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
 }
 
 /* Drain spell points across the party. Unlike its neighbours this does not

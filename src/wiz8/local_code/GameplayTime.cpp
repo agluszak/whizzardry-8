@@ -25,7 +25,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/loaded_game_data.h"
@@ -48,7 +47,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
@@ -281,7 +279,7 @@ void BeginSurprise(void)
         }
     }
     DisableMenuButtonBanks();
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+    for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) CurrentGame().events.push(PartySlotChanged{i});
 }
 
 /* Advance the surprise fade/hold/resolve sequence while the party is locked
@@ -452,7 +450,7 @@ void ResolveSurpriseWake(void)
                 MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);
         }
         entry->portrait.pose_dirty = true;
-        RequestRedraw(1 << slot);
+        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(slot)});
     }
     EnableMenuButtonBanks();
 }
@@ -577,10 +575,10 @@ void AdvanceTimedEffects(unsigned int minutes)
     }
 
     if (party_changed) {
-        RequestRedrawCombatBar();
+        CurrentGame().events.push(PartyEffectsChanged{});
     }
     if (combat_changed) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        CurrentGame().events.push(PartyPanelChanged{});
     }
     for (unsigned int remaining = minutes; remaining != 0; --remaining) {
         TickSpellEffects();
@@ -691,7 +689,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                         }
                         character->hp_current = current - loss;
                     }
-                    RequestPartySlotRedraw(party_slot);
+                    CurrentGame().events.push(
+                        PartySlotChanged{static_cast<unsigned int>(party_slot)});
                 }
                 break;
             case 3:
@@ -710,7 +709,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                         }
                         character->stamina = stamina - loss;
                     }
-                    RequestPartySlotRedraw(party_slot);
+                    CurrentGame().events.push(
+                        PartySlotChanged{static_cast<unsigned int>(party_slot)});
                 }
                 break;
             }

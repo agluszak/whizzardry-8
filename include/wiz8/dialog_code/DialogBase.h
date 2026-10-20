@@ -40,7 +40,7 @@ public:
     bool ProcessInput() override;
 
 public:
-    /* Main Game raises the redraw bit when promoting its pending dialog. */
+    // The main game repaints a pending dialog it promotes.
     bool m_dirty;
 
 protected:

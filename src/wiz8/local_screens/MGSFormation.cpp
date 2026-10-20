@@ -294,7 +294,7 @@ void OpenFormationPanel(void)
     g_formation_drag_slot = -1;
     g_formation_drag_clock = MonotonicMilliseconds() + (0);
     MainGame()->formation_panel_open = true;
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) hud->repaint.submenu_buttons = true;
     CurrentGame().planned_formation = CurrentGame().party.formation;
     UpdateFormationCells();
 }
@@ -504,7 +504,7 @@ static void DropFormationSlot(int cell)
         formation->highlighted[cell] = true;
         g_formation_active_cell = cell;
         MainGameHud()->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[cell]};
-        RequestRedraw(1 << (MainGameHud()->highlight.slot & 0x1f));
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(MainGameHud()->highlight.slot);
     }
     g_formation_drag_cell = -1;
 }
@@ -524,6 +524,6 @@ void CloseFormationPanel(void)
     DestroyFormationPanel();
     MainGame()->formation_panel_open = false;
     ResetPointerCursor();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
 }

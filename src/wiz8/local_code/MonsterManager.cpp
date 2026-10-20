@@ -40,7 +40,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
@@ -144,7 +143,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* r
     CurrentLevelPopulation().monster_roster.add(std::move(owner), record->unborn);
     group->monsters.push_back(monster_info->location_id);
 
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
     GetWorldSpatialIndex()->UpdateMonsterLocation(
         static_cast<unsigned short>(monster_info->location_id), *position);
     return monster_info;
@@ -710,7 +709,7 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
         break;
     }
     monster_info->control_state = control_state;
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
 }
 
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless)
@@ -953,7 +952,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         if (monster_group->highlighted_member == monster_info->location_id)
             monster_group->highlighted_member = -1;
 
-        RequestRedrawParty();
+        CurrentGame().events.push(MonstersChanged{});
         if (monster_group->MemberCount() == 0) {
             DestroyMonsterGroup(monster_group, monster_info);
         } else {
@@ -1118,9 +1117,7 @@ void TogglePartyCombatStance(void)
         message = Data().strings[W8_NOTICE_COMBAT_STANCE_READY];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, message);
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RequestRedraw(W8_MAIN_REDRAW_COMBAT_STANCE);
-    }
+    CurrentGame().events.push(CombatStanceChanged{});
 }
 
 /* The combat toggle the interface drives: out of combat it starts one, and in
@@ -1520,7 +1517,7 @@ void DetectMonsterGroups(void)
         }
     }
     if (noticed) {
-        RequestRedrawParty();
+        CurrentGame().events.push(MonstersChanged{});
     }
 }
 

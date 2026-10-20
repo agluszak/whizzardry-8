@@ -245,9 +245,11 @@ bool OpenSpellCastingView(int party_slot)
     SelectSpellCastingPartySlot(party_slot);
     gpSCSV->selected_spell_index = -1;
     SelectSpellCastingCharacter(party_slot);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.layout = true;
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     return true;
 }
 
@@ -274,9 +276,11 @@ void CloseSpellCastingView(void)
     interact_id = gpSCSV->interact_id;
     gpSCSV.reset();
     RefreshMainGameLayout();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.layout = true;
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     if (IsWorldCursorVisible()) {
         ToggleWorldCursor();
     }
@@ -314,7 +318,7 @@ static void ClearSpellCastingChoice()
     gpSCSV->dialog_confirmed = false;
     UpdateSpellPowerPips();
     SelectSpellCastingPartySlot(CurrentGame().status.selected_character);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 /* Points the view at a new caster: rebuilds the learned-spell buckets and the
@@ -519,7 +523,7 @@ static void RebuildSpellCastingList(int spell_id)
         SelectSpellCastingListRow(selected);
         ScrollTextBoxTo(selected);
     }
-    RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+    if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
 }
 
 /* Recolours one spell-list line; -1 keeps the row's own color, or the
@@ -553,7 +557,7 @@ static void SelectSpellCastingRow(int index)
         if (gpSCSV->selected_spell_index != -1) {
             SetSpellListLineColor(gpSCSV->selected_spell_index, -1);
             gpSCSV->selected_spell_index = -1;
-            RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+            if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
             return;
         }
     } else {
@@ -564,7 +568,7 @@ static void SelectSpellCastingRow(int index)
         SetSpellListLineColor(index, 5);
         gpSCSV->selected_spell_index = index;
     }
-    RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+    if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
 }
 
 /* Opens the spell-casting view when needed and selects the given spell's
@@ -669,7 +673,7 @@ void SetSpellCastingPanelsActive(bool active)
 
 void SpellCastingNoticeClosed(bool)
 {
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 /* Switches the view to another realm: the old realm's icon returns to its
@@ -864,7 +868,7 @@ void CommitSpellCastingSelection(void)
             }
             gpSCSV->dirty[0] = true;
             gpSCSV->realm_anim_timer = MonotonicMilliseconds() + (0x32);
-            RequestRedraw(W8_MAIN_REDRAW_FRAME);
+            if (auto* hud = MainGameHud()) hud->repaint.panels = true;
         }
     }
     TryCommitSpellCast();
@@ -888,7 +892,7 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
                 dialog->SetText("");
                 dialog->cleanup = [pointer = CurrentPointerRequest()] {
                     RestorePointerRequest(pointer);
-                    RequestRedraw(W8_MAIN_REDRAW_ALL);
+                    if (auto* hud = MainGameHud()) hud->repaint.everything = true;
                 };
                 OpenModal(std::move(dialog));
             });
@@ -953,7 +957,7 @@ static void SelectSpellCastingListRow(int index)
     ConfigureSpellTargetFilter(target_type, needed);
     SelectSpellPowerLevel(-1);
     UpdateSpellPowerPips();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 /* Lets a fully priced spell commit once its target is valid; spells 0x49 and

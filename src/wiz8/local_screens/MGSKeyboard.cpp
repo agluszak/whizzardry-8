@@ -628,7 +628,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_DEBUG_TOGGLE_FLAG_271:
         MainGameHud()->text_box_visible ^= 1;
-        RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+        if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
         if (MainGameHud()->highlighted_item != -1) {
@@ -693,7 +693,7 @@ void OpenKeyboardMenuForSlot(int slot)
     MainGame()->edge_targets[slot]->setEnabled(false);
     MainGame()->combat_targets[slot]->setEnabled(false);
     EnableKeyboardMenuInput();
-    RequestRedraw(1 << slot);
+    if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
 }
 
 void CloseKeyboardMenu(void)
@@ -716,7 +716,7 @@ void CloseKeyboardMenu(void)
                          keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
     }
     keyboard_menu.reset();
-    RequestRedraw(1 << g_selected_party_slot);
+    if (auto* hud = MainGameHud()) hud->repaint.portrait(g_selected_party_slot);
 }
 
 static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
@@ -883,7 +883,7 @@ void RedrawKeyboardMenuPanel(bool invalidate)
 static void ChooseKeyboardMenuAction(W8ActionKind action)
 {
     ChooseAction(g_selected_party_slot, action, -1, 0, false, 1);
-    RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+    if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
     CloseKeyboardMenu();
 }
 
@@ -944,7 +944,7 @@ static void KeyboardMenuCastRecordedSpell(void)
     CloseKeyboardMenu();
     if (CanPartySlotCastRecordedSpell(g_selected_party_slot)) {
         StartCharacterSpellCast(g_selected_party_slot, 0);
-        RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+        if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
     }
 }
 
@@ -968,7 +968,7 @@ static void KeyboardMenuUseRecordedItem(void)
 
     CloseKeyboardMenu();
     StartCharacterItemUse(g_selected_party_slot);
-    RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+    if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
 }
 
 void HandleManualCameraHotkeys(void)

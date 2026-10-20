@@ -20,7 +20,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "layouts/npc_state.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
@@ -49,8 +48,8 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
@@ -531,10 +530,7 @@ void DeactivateWorldItem(W8WorldItem* item)
         Fail("pItemInfo->p3D != NULL");
     }
 
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
-        MainGameHud()->selected_item == item->runtime_id) {
-        MainGameHud()->selected_item = -1;
-    }
+    CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
 
     position = item->p3D->GetLocation();
     item->position = position;

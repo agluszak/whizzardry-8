@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/MGSPortraits.h"
 
 #include <array>
+#include <bitset>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -162,7 +163,7 @@ void SyncPartyPortraitVitalsBars(void)
                 (g_settings.numeric_hit_points != 0 &&
                  static_cast<int>(character->hp_current) != entry->cached_hp)) {
                 entry->portrait_stats_dirty = true;
-                RequestRedraw(W8_MAIN_REDRAW_FRAME);
+                if (auto* hud = MainGameHud()) hud->repaint.panels = true;
             }
         }
 
@@ -219,7 +220,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
         }
     }
     if (!entry->keyboard_menu_open) {
-        RequestRedraw(1u << party_slot);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     }
     if (entry->effect_icon_active && splat_started) {
         entry->damage_splat_frame = -1;
@@ -349,7 +350,7 @@ void TickPartyPortraitFx(void)
             entry->portrait_fx_clock = MonotonicMilliseconds() + (100);
         }
         if (dirty && !entry->keyboard_menu_open) {
-            RequestRedraw(1u << (slot & 0x1f));
+            if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
         }
     }
 }
@@ -439,7 +440,7 @@ void ToggleNumericHitPoints(void)
 {
     g_settings.numeric_hit_points = g_settings.numeric_hit_points == 0;
     for (unsigned int slot = 0; slot < 8; slot++) {
-        RequestRedraw(1u << slot);
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
     }
 }
 
@@ -669,7 +670,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
         entry->effect_icon_frame = -1;
     }
     if (!entry->keyboard_menu_open) {
-        RequestRedraw(1 << (party_slot & 0x1f));
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     }
     if (!entry->damage_splat_active) {
         entry->portrait_fx_clock = MonotonicMilliseconds() + (100);
@@ -1116,8 +1117,10 @@ static void ClearConditionHighlight()
 {
     MainGameHud()->condition_highlight_party_slot = -1;
     DismissHighlightOverlay();
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.portrait_panel = true;
+        hud->repaint.portraits.set();
+    }
 }
 
 void DisablePortraitControls()
@@ -1216,7 +1219,7 @@ void CreateConditionButtons()
                 } else if (event.action == UiPointerAction::Down &&
                            event.button == UiPointerButton::Left) {
                     MainGameHud()->condition_highlight_party_slot = slot;
-                    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+                    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
                 }
                 return UiResult::Handled;
             });

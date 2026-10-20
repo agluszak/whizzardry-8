@@ -47,7 +47,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera.h"
@@ -56,6 +55,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
@@ -1270,7 +1270,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
     }
     if (CurrentGame().combat.has_value() && context == W8_TARGETING_CONTEXT_IN_COMBAT &&
         new_target.iType != previous_kind) {
-        RequestPartySlotRedraw(party_slot);
+        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     }
     return result;
 }
@@ -1798,7 +1798,7 @@ void RefreshMonsterTargetCounts(void)
         }
         if (on_screen_count != group->visible_member_count ||
             selectable_count != group->selectable_member_count) {
-            RequestRedrawParty();
+            CurrentGame().events.push(MonstersChanged{});
             group->visible_member_count = on_screen_count;
             group->selectable_member_count = selectable_count;
         }

@@ -328,6 +328,8 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
         }
         if (wrap_width == W8_NOTICE_WRAP_AUTOMATIC) {
             wrap_width = MainGameHud()->text_box_right - MainGameHud()->text_box_left - 10;
+        } else if (wrap_width == W8_NOTICE_WRAP_TEXT_BOX) {
+            wrap_width = MainGameHud()->text_box_right - MainGameHud()->text_box_left;
         }
         text_box = ResolveNoticeTextBox(text_box);
         if (CurrentGame().status.quote_audit) {
@@ -511,7 +513,7 @@ void ClearSelectedTextLine(int index)
 /* Ask for the text box to be redrawn without changing anything. */
 void RedrawTextBox(void)
 {
-    RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+    if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
 }
 
 /* Whether the line the cursor is on has anything on it. */

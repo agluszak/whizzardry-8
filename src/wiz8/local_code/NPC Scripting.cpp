@@ -809,9 +809,7 @@ void AuditNpcScriptQuotes(GameStatus& status)
                             CompareTextIgnoreAsciiCase(text, "UNKNOWN") != 0 &&
                             CompareTextIgnoreAsciiCase(text, "CLASSIFIED") != 0) {
                             display = fmt::format(" \"{}\"", text);
-                            ShowNotice(
-                                W8_FONT_PALETTE_RED, display, 0,
-                                (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+                            ShowNotice(W8_FONT_PALETTE_RED, display, 0, W8_NOTICE_WRAP_TEXT_BOX);
                             if (status.long_quote != 0) {
                                 const std::string line =
                                     "Long Quote: #" + std::to_string(record_index) +
@@ -838,12 +836,10 @@ void AuditNpcScriptQuotes(GameStatus& status)
         file->close();
         log_file->close();
         ShowNotice(W8_FONT_PALETTE_RED, "Quote test complete. See log file for results",
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC,
-                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+                   W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_TEXT_BOX);
     } catch (const std::exception&) {
         ShowNotice(W8_FONT_PALETTE_RED, "Quote test failed. Could not write report",
-                   W8_NOTICE_TEXT_BOX_AUTOMATIC,
-                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+                   W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_TEXT_BOX);
     }
     status.quote_audit = 0;
 }

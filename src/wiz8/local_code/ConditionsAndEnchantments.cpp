@@ -5,7 +5,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "layouts/main_game_screen.h"
 #include "local_code/Factions.h"
 #include "local_code/FormationAndFacing.h"
 #include "monster_spell_icons.h"
@@ -38,19 +37,17 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/screen.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 
@@ -333,7 +330,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
     if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {
         SettleActiveParty(CurrentGame());
     }
-    RequestPartySlotRedraw(party_slot);
+    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     int pose = CurrentGame().monster_manager_entries[party_slot].portrait.target_pose;
     if (character->highest_condition < W8_CONDITION_ASLEEP) {
         if (pose != 2) {
@@ -348,10 +345,8 @@ void RecomputeCharacterHighestCondition(int party_slot)
     }
     SetPortraitTargetPose(&CurrentGame().monster_manager_entries[party_slot], pose);
 done:
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    }
+    CurrentGame().events.push(CharacterActionChanged{});
+    CurrentGame().events.push(PartyPanelChanged{});
 }
 
 /* Settle a condition's enchantment record on the character: a bigger argument
@@ -380,11 +375,9 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
                 break;
             }
         }
-        RequestPartySlotRedraw(party_slot);
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-            RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-        }
+        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
+        CurrentGame().events.push(CharacterActionChanged{});
+        CurrentGame().events.push(PartyPanelChanged{});
         if (slot == W8_ENCHANTMENT_SUPERMAN) {
             CurrentGame().sight_refresh_pending = true;
         }
@@ -441,7 +434,7 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
         --slot;
     }
     monster_info->highest_condition = static_cast<W8Condition>(slot);
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
     if (monster_info->fActive) {
         MonsterInfoSetMotionless(monster_info,
                                  monster_info->highest_condition < W8_CONDITION_WEBBED ? 0 : 1);
@@ -827,11 +820,9 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
         }
     }
 
-    RequestPartySlotRedraw(party_slot);
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    }
+    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
+    CurrentGame().events.push(CharacterActionChanged{});
+    CurrentGame().events.push(PartyPanelChanged{});
     RebuildConditionModifiers(party_slot);
     SettleActiveParty(CurrentGame());
     if (slot == W8_ENCHANTMENT_SUPERMAN) {

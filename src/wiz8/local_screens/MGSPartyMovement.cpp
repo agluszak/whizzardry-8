@@ -91,7 +91,7 @@ void ReleasePartyMovement(void)
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
     }
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     movement.reset();
     if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
 }

@@ -12,7 +12,9 @@ class Game;
 struct InventoryRefusal;
 
 void RefreshPartySlotDisplay(unsigned int party_slot);
-void InitializeMainGameLevelBlock(void);
+struct W8LevelRuntimeBlock;
+// Default the main game's HUD as the main game is entered.
+void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud);
 /* What a screen asked the pointer to show. A request lapses when the hand changes; without
    one, the main game and the camp show the held item and other screens the arrow. */
 struct PointerRequest {

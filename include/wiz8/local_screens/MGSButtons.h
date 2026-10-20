@@ -61,8 +61,8 @@ extern unsigned short g_action_kind_message_ids[12];
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
-/* Draw roof chrome, mark the three buttons dirty, sync state, and request the
-   0x100000 redraw bit. */
+/* Draw roof chrome, mark the three buttons dirty and sync state; the same repaint
+   draws the combat progress gauge. */
 void RedrawRoofButtons(void);
 /* Sync roof-button visibility/enabled/pressed state and Draw each button. */
 void UpdateRoofButtons(void);
@@ -80,12 +80,11 @@ void DrawSubMenuCharacterAction(void);
 /* Sync enable/press of the two sub-menu panel buttons, then Draw them. */
 void UpdateSubMenuPanelButtons(void);
 /* Redraw the bottom sub-menu chrome, bank buttons, panel buttons, character
-   action caption, and scroll arrows (redraw bit 0x1000). */
+   action caption, and scroll arrows. */
 void RedrawSubMenuButtons(void);
-/* Redraw the options-disk button (redraw bit 0x40000). */
+// Redraw the options-disk button.
 void RedrawOptionsDiskButton(void);
-/* Mark combat-stance buttons dirty and refresh which stance is shown
-   (redraw bit 0x80000). */
+// Mark combat-stance buttons dirty and refresh which stance is shown.
 void RedrawCombatStanceButtons(void);
 /* Show the active continuous/manual combat-stance button for the live mode. */
 void UpdateCombatStanceButtons(void);
@@ -97,7 +96,7 @@ void UpdateMainGameButtons(void);
 void UpdateSubMenuAutoClose(void);
 
 /* Move selected_character to the next eligible party slot (0 steps toward
-   slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
+   slot 0, 1 toward slot 7), wrapping, and repaint the portraits involved. */
 void ScrollSubMenuCharacter(char direction);
 
 /* The per-row select callbacks AssignSubMenuCallback installs. */

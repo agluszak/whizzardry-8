@@ -18,6 +18,9 @@ struct W8TargetingPresentation {
     bool subject_valid = false;
 };
 
-W8TargetingPresentation BuildTargetingPresentation();
+struct W8LevelRuntimeBlock;
+
+// What the main game's HUD hovers and highlights, as the scene, radar and list show it.
+W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hud);
 void ApplyTargetingPresentation(const W8TargetingPresentation& presentation);
-bool CurrentCombatSubjectIsValid();
+bool CurrentCombatSubjectIsValid(const W8LevelRuntimeBlock& hud);

@@ -3,7 +3,6 @@
 #include <vector>
 
 #include "layouts/game_status.h"
-#include "layouts/main_game_screen.h"
 #include "local_code/Targeting.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
@@ -22,11 +21,11 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -326,10 +325,7 @@ void CompletePartyMovementTurns(void)
         combat_row->phase = 0;
         party_row->pending_event_type = static_cast<unsigned int>(-1);
     }
-    RequestRedraw(
-        W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 | W8_MAIN_REDRAW_PORTRAIT_2 |
-        W8_MAIN_REDRAW_PORTRAIT_3 | W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
-        W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    CurrentGame().events.push(CombatProgressChanged{.whole_party = true});
 }
 
 /* Choose the party's phase from the best living character initiative, with
@@ -407,7 +403,7 @@ void StartPartyMovementAction(W8PartyAction move_kind)
     }
     AlignCombatantsToPartyMovementPhase();
     RoundPhaseToStep(&CurrentGame().combat->round_counter, CurrentGame().combat->round_counter);
-    RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    CurrentGame().events.push(CombatProgressChanged{});
 }
 
 /* End the party's movement phase. Outside the two combat modes there is
@@ -487,7 +483,8 @@ void InterruptActivePartyMovement(void)
             row->dead = true;
             row->phase = 0;
             party_row->pending_event_type = static_cast<unsigned int>(-1);
-            RequestRedraw((1 << party_slot) | W8_MAIN_REDRAW_COMBAT_PROGRESS);
+            CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
+            CurrentGame().events.push(CombatProgressChanged{});
         }
     }
     UpdatePartyMovementControl();

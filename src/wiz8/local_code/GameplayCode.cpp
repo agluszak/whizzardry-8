@@ -40,11 +40,11 @@
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
@@ -216,7 +216,8 @@ void RefreshLevelUpReadyNotices(void)
         if (!row->fOccupied) {
             if (character->hp_current != 0) {
                 if (*ready_flag != 0) {
-                    RequestPartySlotRedraw(party_slot);
+                    CurrentGame().events.push(
+                        PartySlotChanged{static_cast<unsigned int>(party_slot)});
                 }
                 *ready_flag = 0;
                 row->portrait_advance = 0;
@@ -226,7 +227,8 @@ void RefreshLevelUpReadyNotices(void)
                 character->experience < character->experience_goal) {
                 if (character->hp_current != 0) {
                     if (*ready_flag != 0) {
-                        RequestPartySlotRedraw(party_slot);
+                        CurrentGame().events.push(
+                            PartySlotChanged{static_cast<unsigned int>(party_slot)});
                     }
                     *ready_flag = 0;
                     row->portrait_advance = 0;

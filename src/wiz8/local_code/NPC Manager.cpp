@@ -12,6 +12,7 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
@@ -39,7 +40,6 @@
 #include <fmt/printf.h>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "retail_records.h"
 #include "wiz8/character_skills.h"
@@ -76,7 +76,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_cycles.h"
@@ -514,7 +513,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
             }
         }
     }
-    RequestRedraw(W8_MAIN_REDRAW_ALL);
+    CurrentGame().events.push(PartyMembershipChanged{});
     ReturnDismissedNpcItems(npc, dismissed_character);
     npc->dismissed_flag = true;
     npc->dismissed_timer = 0;

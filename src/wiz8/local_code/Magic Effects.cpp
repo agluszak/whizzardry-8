@@ -32,7 +32,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
@@ -398,7 +397,8 @@ void ResetPartyEffectBlock(W8EffectSlot* slot)
     slot->Reset();
     RebuildPartyEffectBlock();
     InvalidateMainGameEffectHud();
-    RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_COMBAT_EFFECTS);
+    CurrentGame().events.push(PartyEffectsChanged{});
+    CurrentGame().events.push(CombatEffectsChanged{});
 }
 
 /* How much harder each condition is to shrug off, added to the
@@ -1788,7 +1788,8 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
         slot = &CurrentGame().status.effect_slots[slot_index];
         slot->Activate(effect->kind, effect->definition.duration_scale, duration);
         RebuildPartyEffectBlock();
-        RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_COMBAT_EFFECTS);
+        CurrentGame().events.push(PartyEffectsChanged{});
+        CurrentGame().events.push(CombatEffectsChanged{});
         effect->applied = true;
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
@@ -1881,7 +1882,8 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
             slot = &CurrentGame().combat->effect_slots[slot_index];
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
             RebuildPartyEffectBlock();
-            RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_COMBAT_EFFECTS);
+            CurrentGame().events.push(PartyEffectsChanged{});
+            CurrentGame().events.push(CombatEffectsChanged{});
             effect->applied = true;
             effect->result.count += CountActiveCharacters();
         }
@@ -1950,7 +1952,8 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
         slot = &CurrentGame().combat->effect_slots0[slot_index];
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
         RebuildPartyEffectBlock();
-        RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_COMBAT_EFFECTS);
+        CurrentGame().events.push(PartyEffectsChanged{});
+        CurrentGame().events.push(CombatEffectsChanged{});
         effect->applied = true;
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {

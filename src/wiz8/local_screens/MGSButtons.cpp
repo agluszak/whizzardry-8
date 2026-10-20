@@ -225,7 +225,7 @@ void OpenSubMenuPanel(short notification)
         DestroySubMenuControls();
     }
     SetSubMenuButtonTooltips(0);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 void ResetSubMenuPanel(void)
@@ -429,19 +429,28 @@ static void CreateCombatStanceButtons()
 static void MainGameRoofButton0(W8ButtonWidget* button)
 {
     SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
-    RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.layout = true;
+    }
 }
 
 static void MainGameRoofButton1(W8ButtonWidget* button)
 {
     SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
-    RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.layout = true;
+    }
 }
 
 static void MainGameRoofButton2(W8ButtonWidget* button)
 {
     SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
-    RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.layout = true;
+    }
 }
 
 static void CreateRoofButtons()
@@ -476,8 +485,8 @@ static void CreateRoofButtons()
     }
 }
 
-/* Draw the roof chrome strip, mark each roof button dirty, sync enable/press
-   state, and raise redraw bit 0x100000 for the second pass. */
+/* Draw the roof chrome strip, mark each roof button dirty and sync enable/press
+   state; the same repaint draws the combat progress gauge over it. */
 void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
@@ -485,7 +494,7 @@ void RedrawRoofButtons(void)
         MainGame()->hud_buttons.roof[index].m_dirty = true;
     }
     UpdateRoofButtons();
-    RequestRedraw(W8_MAIN_REDRAW_COMBAT_PROGRESS);
+    if (auto* hud = MainGameHud()) hud->repaint.combat_progress = true;
 }
 
 /* Visibility and enablement for the three roof buttons, then Draw. The third
@@ -1008,9 +1017,11 @@ void ScrollSubMenuCharacter(char direction)
     }
 done:
     SelectPartyCharacter(selected);
-    RequestRedraw(1 << current);
-    RequestRedraw(1 << CurrentGame().status.selected_character);
-    RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.portrait(current);
+        hud->repaint.portrait(CurrentGame().status.selected_character);
+        hud->repaint.character_action = true;
+    }
 }
 
 void SetSubMenuButtonTooltips(int enabled)

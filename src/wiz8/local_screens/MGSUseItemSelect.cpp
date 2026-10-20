@@ -176,9 +176,11 @@ bool OpenUseItemSelectView(int slot)
     ResetEditorStatusLine(-1);
     MainGameHud()->text_box_visible = false;
     CreateUseItemSelectControls();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-    RequestRedrawCombatBar();
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.layout = true;
+        hud->repaint.roof_and_spell_icons = true;
+        hud->repaint.submenu_buttons = true;
+    }
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
     return true;
@@ -196,9 +198,11 @@ void CloseUseItemSelectView(void)
         SelectTextBox(CurrentGame().combat.has_value());
         use_item.reset();
         RefreshMainGameLayout();
-        RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
-        RequestRedrawCombatBar();
-        RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
+        if (auto* hud = MainGameHud()) {
+            hud->repaint.layout = true;
+            hud->repaint.roof_and_spell_icons = true;
+            hud->repaint.submenu_buttons = true;
+        }
         MainGame()->item_drag.reset();
         CurrentGame().aging_held = false;
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
@@ -478,7 +482,7 @@ static bool IsUseItemFilteredOut(W8ItemInstance* item)
 void RefreshUseItemSelection(void)
 {
     RebuildUseItemSelectList(use_item->pool, nullptr);
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 /* Right release on the use-item text box: open the assay dialog for the item
@@ -493,7 +497,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 
     dialog->cleanup = [pointer = CurrentPointerRequest()] {
         RestorePointerRequest(pointer);
-        RequestRedraw(W8_MAIN_REDRAW_ALL);
+        if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }

@@ -1,5 +1,6 @@
 #include "wiz8/local_screens/Screens.h"
 
+#include <bitset>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -37,6 +38,7 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
@@ -101,14 +103,23 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
     return false;
 }
 
-/* Route one redraw bit to the open camp or the main game. The slot travels as
-   an int: the body only ever reads its low byte for the shift. */
+namespace {
+// The main game's HUD while the main game is the screen shown.
+W8LevelRuntimeBlock* ShownHud()
+{
+    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) return nullptr;
+    auto* main_game = MainGame();
+    return main_game ? main_game->hud.get() : nullptr;
+}
+} // namespace
+
+// Repaint a member's portrait on the open camp or the shown main game.
 void RequestPartySlotRedraw(int bit)
 {
     if (auto* camp = FindScreen<CampScreen>()) {
         camp->InvalidatePortrait();
-    } else if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RequestRedraw(1 << (bit & 31));
+    } else if (auto* hud = ShownHud()) {
+        hud->repaint.portrait(bit);
     }
 }
 
@@ -132,9 +143,10 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     case W8_SCREEN_CAMP:
         FindScreen<CampScreen>()->RefreshPartySlot(static_cast<int>(party_slot));
         return;
-    case W8_SCREEN_MAIN_GAME:
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
-            MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
+    case W8_SCREEN_MAIN_GAME: {
+        const auto* hud = ShownHud();
+        if (hud && (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
+                    hud->portrait_refresh_pending[party_slot] != 0)) {
             switch (party_slot) {
             case 0:
             case 1:
@@ -159,17 +171,18 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
             overlay_ready =
                 PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
-            if (MainGameHud()->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
-                party_slot == static_cast<unsigned int>(MainGameHud()->held_item_display)) {
+            if (hud->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
+                party_slot == static_cast<unsigned int>(hud->held_item_display)) {
                 highlighted = true;
             }
             RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
-                                       MainGameHud()->portrait_refresh_pending[party_slot] == 0);
+                                       hud->portrait_refresh_pending[party_slot] == 0);
             CurrentGame().monster_manager_entries[party_slot].combat_portrait_dirty = true;
             InvalidatePortraitControl(party_slot);
             return;
         }
         break;
+    }
     default:
         break;
     }
@@ -401,7 +414,7 @@ struct GameEventPresentation {
     {
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
             !CurrentGame().activity.conversation) {
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+            if (auto* hud = ShownHud()) hud->repaint.portraits.set();
         } else if (auto* camp = FindScreen<CampScreen>()) {
             camp->RefreshPartyLoad();
         }
@@ -409,11 +422,13 @@ struct GameEventPresentation {
     void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
     void operator()(const CombatantsMoved&) const
     {
-        if (MainGameHud()) MainGameHud()->refresh_combat_panel = 1;
+        if (auto* main_game = MainGame(); main_game && main_game->hud)
+            main_game->hud->refresh_combat_panel = 1;
     }
     void operator()(const CombatExecutionBegan&) const
     {
-        if (MainGameHud() && MainGameHud()->open_submenu) {
+        if (auto* main_game = MainGame();
+            main_game && main_game->hud && main_game->hud->open_submenu) {
             if (g_settings.continuous_combat == 0) {
                 DestroySubMenuControls();
             } else {
@@ -425,16 +440,87 @@ struct GameEventPresentation {
     }
     void operator()(const CombatCalledOff&) const
     {
-        if (MainGameHud() && MainGameHud()->open_submenu) DestroySubMenuControls();
+        if (auto* main_game = MainGame();
+            main_game && main_game->hud && main_game->hud->open_submenu)
+            DestroySubMenuControls();
+    }
+    void operator()(const CombatBegan&) const
+    {
+        ResetPointerCursor();
+        auto* main_game = MainGame();
+        if (main_game) main_game->party_movement_panel = false;
+        DisablePortraitControls();
+        if (main_game) main_game->combat.setEnabled(true);
+        if (auto* hud = ShownHud()) {
+            hud->repaint.portraits.set();
+            hud->repaint.submenu_buttons = true;
+            hud->repaint.combat_stance = true;
+        }
+    }
+    void operator()(const CombatEnded&) const
+    {
+        auto* hud = ShownHud();
+        if (!hud) return;
+        /* A suspended main game re-arms its input when it is entered again. While
+           quitting, the suspended main game is the current screen as it is left,
+           but its controls were already released when it was suspended. */
+        if (PortraitControlsExist()) {
+            EnablePortraitAdvanceRegions();
+            MainGame()->combat.setEnabled(false);
+        }
+        // The party-death or ending screen keeps the frame it covers.
+        if (hud->review_transition_active) return;
+        ClearSurfaceRect(0x17, 0x34, 0x2d, 0x159);
+        ClearSurfaceRect(0x253, 0x34, 0x269, 0x159);
+        hud->repaint.portraits.set();
+        hud->repaint.submenu_buttons = true;
+        hud->repaint.combat_stance = true;
+    }
+    void operator()(const CombatProgressChanged& change) const
+    {
+        if (auto* hud = ShownHud()) {
+            hud->repaint.combat_progress = true;
+            if (change.whole_party) hud->repaint.portraits.set();
+        }
+    }
+    void operator()(const CombatStanceChanged&) const
+    {
+        if (auto* hud = ShownHud()) hud->repaint.combat_stance = true;
+    }
+    void operator()(const MonstersChanged&) const
+    {
+        if (auto* hud = ShownHud()) hud->repaint.monster_list = true;
+    }
+    void operator()(const PartyEffectsChanged&) const
+    {
+        if (auto* hud = ShownHud()) hud->repaint.roof_and_spell_icons = true;
+    }
+    void operator()(const CombatEffectsChanged&) const
+    {
+        if (auto* hud = ShownHud()) hud->repaint.combat_effects = true;
+    }
+    void operator()(const PartyPanelChanged&) const
+    {
+        if (auto* hud = ShownHud()) hud->repaint.portrait_panel = true;
+    }
+    void operator()(const PartyMembershipChanged&) const
+    {
+        if (auto* hud = ShownHud()) hud->repaint.everything = true;
+    }
+    void operator()(const WorldItemRemoved& removed) const
+    {
+        if (auto* hud = ShownHud(); hud && hud->selected_item == removed.runtime_id)
+            hud->selected_item = -1;
     }
     void operator()(const CharacterActionChanged&) const
     {
-        RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
+        if (auto* hud = ShownHud()) hud->repaint.character_action = true;
     }
     void operator()(const EquipmentSettled&) const
     {
-        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !MainGameHud()) return;
-        if (MainGameHud()->open_submenu) ReopenSubMenuPanel();
+        auto* hud = ShownHud();
+        if (!hud) return;
+        if (hud->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
     void operator()(const SkillAvailabilityChanged& change) const
@@ -469,77 +555,74 @@ void PresentGameEvent(const Event& event)
 /* Default the main game's HUD state after ResetMainGameScreenState: clear
    selection and text-box state, arm the timers, size the text regions, and
    rebuild the logged lines' word hit boxes. */
-void InitializeMainGameLevelBlock(void)
+void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
 {
     int slot;
 
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr) {
-        MainGameHud()->redraw_flags = static_cast<unsigned int>(-1);
-    }
-    MainGameHud()->camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
-    MainGameHud()->highlight = {};
-    MainGameHud()->combat_action_hover_party_slot = -1;
-    MainGameHud()->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
-    MainGameHud()->held_item_display = -1;
-    MainGameHud()->highlight_row = -1;
-    MainGameHud()->highlight_graphic = 0;
-    MainGameHud()->portrait_overlay_party_slot = -1;
-    MainGameHud()->condition_orb_party_slot = -1;
-    MainGameHud()->enchantment_orb_party_slot = -1;
-    MainGameHud()->condition_highlight_party_slot = -1;
-    MainGameHud()->text_content_region =
-        CurrentTextLineHasContent() ? kUpArrowEnabled : kTextBoxArrowNone;
-    MainGameHud()->dialogue_content_region =
+    hud.repaint.everything = true;
+    hud.camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
+    hud.highlight = {};
+    hud.combat_action_hover_party_slot = -1;
+    hud.portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
+    hud.held_item_display = -1;
+    hud.highlight_row = -1;
+    hud.highlight_graphic = 0;
+    hud.portrait_overlay_party_slot = -1;
+    hud.condition_orb_party_slot = -1;
+    hud.enchantment_orb_party_slot = -1;
+    hud.condition_highlight_party_slot = -1;
+    hud.text_content_region = CurrentTextLineHasContent() ? kUpArrowEnabled : kTextBoxArrowNone;
+    hud.dialogue_content_region =
         CurrentDialogueLineHasContent() ? kDownArrowEnabled : kTextBoxArrowNone;
-    MainGameHud()->world_update_flags = 0;
-    MainGameHud()->camera_motion_flags = 0;
-    MainGameHud()->highlighted_item = -1;
-    MainGameHud()->selected_item = -1;
-    MainGameHud()->clock = MonotonicMilliseconds();
-    MainGameHud()->portrait_flash = 0;
+    hud.world_update_flags = 0;
+    hud.camera_motion_flags = 0;
+    hud.highlighted_item = -1;
+    hud.selected_item = -1;
+    hud.clock = MonotonicMilliseconds();
+    hud.portrait_flash = 0;
     for (slot = 0; slot < 8; ++slot) {
-        MainGameHud()->portrait_refresh_pending[slot] = 0;
-        MainGameHud()->portrait_refresh_image[slot] = 0;
+        hud.portrait_refresh_pending[slot] = 0;
+        hud.portrait_refresh_image[slot] = 0;
     }
-    MainGameHud()->open_submenu.reset();
+    hud.open_submenu.reset();
     RefreshMainGameLayout();
-    MainGameHud()->countdown0 = MonotonicMilliseconds() + (60000);
-    MainGameHud()->countdown1 = MonotonicMilliseconds() + (0);
-    MainGameHud()->text_box_visible = true;
-    MainGameHud()->tick = MonotonicMilliseconds();
-    MainGameHud()->group_list_rows = 0;
-    MainGameHud()->group_list_width = 0;
+    hud.countdown0 = MonotonicMilliseconds() + (60000);
+    hud.countdown1 = MonotonicMilliseconds() + (0);
+    hud.text_box_visible = true;
+    hud.tick = MonotonicMilliseconds();
+    hud.group_list_rows = 0;
+    hud.group_list_width = 0;
     MainGame()->monster_list->setEnabled(false);
-    MainGameHud()->action_group = -1;
-    MainGameHud()->text_lines[4 + CurrentGame().status.text_line_cursor] = FindStoppedTextLine();
-    MainGameHud()->refresh_combat_panel = 1;
-    MainGameHud()->combat_panel_timer = MonotonicMilliseconds() + (0);
-    MainGameHud()->text_scroll_drag_idle = 1;
+    hud.action_group = -1;
+    hud.text_lines[4 + CurrentGame().status.text_line_cursor] = FindStoppedTextLine();
+    hud.refresh_combat_panel = 1;
+    hud.combat_panel_timer = MonotonicMilliseconds() + (0);
+    hud.text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    for (unsigned int& text_line : MainGameHud()->text_lines) {
+    for (unsigned int& text_line : hud.text_lines) {
         text_line = 0;
     }
     for (int slot_index = 0; slot_index < 4; ++slot_index) {
-        MainGameHud()->hovered_text_lines[slot_index] = -1;
-        MainGameHud()->selected_text_lines[slot_index] = -1;
+        hud.hovered_text_lines[slot_index] = -1;
+        hud.selected_text_lines[slot_index] = -1;
     }
-    MainGameHud()->text_box_font = &g_wiz_text_font_secondary;
-    MainGameHud()->palette = g_wiz_text_font_secondary.glyphs->colors;
-    MainGameHud()->selection_kind = W8_ACTION_NONE;
-    MainGameHud()->selection_settled = false;
-    MainGameHud()->tooltip_since = 0;
-    MainGameHud()->tooltip_pending = false;
-    MainGameHud()->pending_highlight = {};
-    MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
-    MainGameHud()->combat_slot = -1;
-    MainGameHud()->keyboard_menu_open = false;
-    MainGameHud()->hover_combat_slot = -1;
-    MainGameHud()->cursor_grace = 0;
-    MainGameHud()->countdown4 = MonotonicMilliseconds() + (0);
-    MainGameHud()->portrait_right_hold_armed = false;
-    MainGameHud()->formation_board_alternate = 0;
-    MainGameHud()->radar_map_alternate = 0;
-    MainGameHud()->review_transition_active = false;
-    MainGameHud()->countdown5 = MonotonicMilliseconds() + (0);
+    hud.text_box_font = &g_wiz_text_font_secondary;
+    hud.palette = g_wiz_text_font_secondary.glyphs->colors;
+    hud.selection_kind = W8_ACTION_NONE;
+    hud.selection_settled = false;
+    hud.tooltip_since = 0;
+    hud.tooltip_pending = false;
+    hud.pending_highlight = {};
+    hud.countdown3 = MonotonicMilliseconds() + (0);
+    hud.combat_slot = -1;
+    hud.keyboard_menu_open = false;
+    hud.hover_combat_slot = -1;
+    hud.cursor_grace = 0;
+    hud.countdown4 = MonotonicMilliseconds() + (0);
+    hud.portrait_right_hold_armed = false;
+    hud.formation_board_alternate = 0;
+    hud.radar_map_alternate = 0;
+    hud.review_transition_active = false;
+    hud.countdown5 = MonotonicMilliseconds() + (0);
     RebuildMessageLogWords();
 }
