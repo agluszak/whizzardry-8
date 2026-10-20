@@ -66,7 +66,6 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
@@ -585,7 +584,7 @@ void Monster::Update()
         switch (cycle) {
         case W8_MONSTER_CYCLE_TALK:
             if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                if (talk_duration < MonotonicMilliseconds() - talk_start &&
+                if (talk_duration < GameClockMilliseconds() - talk_start &&
                     IsCycleSupported(0x17)) {
                     visual.pending_cycle = 0x17;
                 } else {
@@ -604,7 +603,7 @@ void Monster::Update()
                     /* 0x004C276F..0x004C27D7: the talking path never stores
                            pending_subcycle, so TALK keeps the current frame
                            (clamped by ApplyPendingCycle) instead of frame 0. */
-                    talk_start = MonotonicMilliseconds();
+                    talk_start = GameClockMilliseconds();
                     talk_duration = CurrentGame().rng.below(2000) + 2000;
                     visual.pending_cycle = 0x18;
                     visual.frame_direction = W8_ANIMATION_FORWARD;
@@ -1098,9 +1097,9 @@ void Monster::StartTalking(bool animate_mouth)
 {
     talking = true;
     this->animate_mouth = animate_mouth;
-    mouth_frame_clock = MonotonicMilliseconds();
+    mouth_frame_clock = GameClockMilliseconds();
     mouth_open = false;
-    talk_start = MonotonicMilliseconds();
+    talk_start = GameClockMilliseconds();
     talk_duration = CurrentGame().rng.below(2000) + 2000;
     visual.pending_cycle = 0x18;
     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1457,9 +1456,9 @@ void Monster::UpdateRepresentation(World* world)
                 mouth->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
                 mouth->SetFrame(0);
             }
-        } else if (MonotonicMilliseconds() - mouth_frame_clock > 120) {
+        } else if (GameClockMilliseconds() - mouth_frame_clock > 120) {
             unsigned short frame;
-            mouth_frame_clock = MonotonicMilliseconds();
+            mouth_frame_clock = GameClockMilliseconds();
             do {
                 frame = static_cast<unsigned short>(CurrentGame().rng.below(6));
                 if (frame > 3) {
@@ -1632,7 +1631,7 @@ void Monster::SetCycle(signed char cycle)
         subcycle = 0;
     } else if (visual.forced_subcycle == -1 || count <= visual.forced_subcycle) {
         if ((runtime_flags & W8_MONSTER_KEEP_SUBCYCLE) == 0) {
-            subcycle = static_cast<signed char>(MonotonicMilliseconds() % count);
+            subcycle = static_cast<signed char>(GameClockMilliseconds() % count);
         } else {
             runtime_flags &= ~W8_MONSTER_KEEP_SUBCYCLE;
             subcycle = visual.current_subcycle;

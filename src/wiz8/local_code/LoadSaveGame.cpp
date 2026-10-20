@@ -1,6 +1,7 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -83,7 +84,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
@@ -1025,7 +1025,7 @@ try {
     SaveTransaction transaction(SaveSlotPath(name));
     WriteGame(name, screenshot, transaction.chunks);
     transaction.commit();
-    CurrentGame().gameplay_timer.Restart();
+    CurrentGame().autosave_due = Game::kAutosaveInterval;
     return true;
 } catch (const std::exception&) {
     return false;
@@ -1534,10 +1534,10 @@ void ProcessMainGameAutoSave(void)
 {
     if ((g_settings.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
     if (!CurrentGame().save_notice_shown) {
-        if (CurrentGame().gameplay_timer.GetProgress() <= 1.0f) return;
+        if (CurrentGame().autosave_due >= std::chrono::milliseconds::zero()) return;
         CurrentGame().save_notice_shown = true;
         ShowMainGameNotice(W8_STRING_AUTOSAVE_STARTING);
-        CurrentGame().gameplay_timer.Restart();
+        CurrentGame().autosave_due = Game::kAutosaveInterval;
         return;
     }
     CurrentGame().save_notice_shown = false;
@@ -1680,7 +1680,7 @@ try {
     ForEachShownMessage([](auto& message) {
         message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
     });
-    CurrentGame().gameplay_timer.Restart();
+    CurrentGame().autosave_due = Game::kAutosaveInterval;
     ResetMainGameScreenState();
     if (CurrentGame().party.held.item.iItemNo == -1) {
         ClearHeldItemDisplay();

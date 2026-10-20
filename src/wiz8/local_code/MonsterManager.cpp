@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <new>
 #include <source_location>
@@ -72,7 +72,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/notices.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/rules/character.h"
@@ -427,7 +426,8 @@ done:
 
 namespace {
 struct RecentCombat {
-    std::uint64_t until = 0;
+    // The game's step time at which the last fight stops counting as recent.
+    std::chrono::milliseconds until{};
     W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
 };
 RecentCombat recent_combat;
@@ -435,12 +435,12 @@ RecentCombat recent_combat;
 
 void RecordCombatStart()
 {
-    recent_combat.until = MonotonicMilliseconds() + 120000;
+    recent_combat.until = CurrentGame().time + std::chrono::minutes{2};
 }
 
 void ForgetRecentCombat()
 {
-    recent_combat.until = 0;
+    recent_combat.until = {};
 }
 
 W8Difficulty LastCombatDifficulty()
@@ -1618,7 +1618,7 @@ void EvaluateCombatDifficulty(void)
         break;
     }
     if ((CurrentGame().combat.has_value() && CurrentGame().combat->party_surprised) ||
-        TimeUntilDeadline(recent_combat.until) == 0 || difficulty != recent_combat.difficulty) {
+        CurrentGame().time >= recent_combat.until || difficulty != recent_combat.difficulty) {
         unsigned int event_type;
         switch (difficulty) {
         case W8_DIFFICULTY_NOVICE:

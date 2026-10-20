@@ -1,6 +1,7 @@
 #pragma once
 struct W8Chunk;
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -29,7 +30,8 @@ struct W8EncounterState {
 W8EncounterState ReadEncounterState(W8Chunk& file);
 void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
 void StartLevelEncounters(World& world);
-void RunMonsterGenerators(void);
+// Roll the generators whose intervals passed in the step's `elapsed` time.
+void RunMonsterGenerators(std::chrono::milliseconds elapsed);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);
 void SetMonsterGeneratorDurationScale(float scale); /* 0x0048CB80 */

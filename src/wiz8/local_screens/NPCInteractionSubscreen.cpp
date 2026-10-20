@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -1180,7 +1181,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
                     QueueCharacterEvent(&CurrentGame().party.characters[slot], g_special_event8,
                                         kCharacterEventNoPreempt, kCharacterEventFullVolume);
                 if (event != 0) {
-                    event->DelayDispatch(1000);
+                    event->DelayDispatch(std::chrono::milliseconds{1000});
                 }
             }
         }

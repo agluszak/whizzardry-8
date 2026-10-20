@@ -261,8 +261,14 @@ Unlayered code may use the layers.
   combat turn in a fight), combat starts, monster sight and the nearby world items on
   their own countdowns, monster groups, and the worlds. The elapsed time drives those
   countdowns, the frame delta motion reads (`GameTimeAccumulator`) and the environment
-  clock (`PassEnvironmentTime`); deeper code still reads the monotonic clock (ROADMAP.md,
-  "One step"). Two screens step the game and measure the time between their steps
+  clock (`PassEnvironmentTime`), and it accumulates into `Game::time`, the game's step
+  time. Code below the step stamps its deadlines on that: the surprise fade, the
+  recent-combat window, speech's dispatch delays, recent-event window and mouth frames,
+  and, through `GameClockMilliseconds`, the world's animation clock (cycles, monsters,
+  missiles, particles). Props, monster generators (`GeneratorInterval`) and the autosave
+  countdown take the elapsed time itself, and stand still while the shared timers are
+  held (`SharedGameTimersHeld`), as their retail timers did. Some world code still reads
+  the monotonic clock or the shared timers (ROADMAP.md, "One step"). Two screens step the game and measure the time between their steps
   (`LapTimer`): the main game, which each frame reads input and moves the camera, steps
   unless a screen transition is pending (passing its hold and whether a picker holds the
   combat turn), animates the portraits (`AnimatePartyPortraits`), then commits pickers,

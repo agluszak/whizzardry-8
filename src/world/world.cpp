@@ -1,5 +1,6 @@
 #include "wiz8/world/world.h"
 
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <initializer_list>
@@ -97,7 +98,7 @@ float g_mesh_view_half_angle_degrees = 60.0f;
 
 /* Build scene resources under a local owner. No active world is required;
    malformed resources destroy only this unpublished result. */
-static void UpdateWorld(World& world)
+static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
 {
     if (&world != GetSecondaryWorld()) {
         UpdateWorldMonsters(&world);
@@ -105,7 +106,7 @@ static void UpdateWorld(World& world)
         UpdateWorldSpellVisuals(&world);
         UpdateAmbientSounds(&world);
         WorldUpdateLights(&world);
-        RunMonsterGenerators();
+        RunMonsterGenerators(elapsed);
         UpdateWorldTriggers(&world);
         if (world.compiledIndex() != 0 && world.script) {
             world.script->runMasters();
@@ -116,7 +117,7 @@ static void UpdateWorld(World& world)
     SweepFinishedParticles(&world);
 }
 
-void UpdateWorlds(void)
+void UpdateWorlds(std::chrono::milliseconds elapsed)
 {
     g_navigator_vertical_enabled =
         !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
@@ -124,7 +125,7 @@ void UpdateWorlds(void)
 
     // Loading registered the sky first; preserve that update order.
     for (World* world : {GetSecondaryWorld(), GetWorld()}) {
-        if (world) UpdateWorld(*world);
+        if (world) UpdateWorld(*world, elapsed);
     }
 
     RefreshWorldView();

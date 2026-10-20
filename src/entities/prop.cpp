@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -75,7 +76,6 @@ Prop::Prop()
 {
     m_path_range.sentinel = -10000000.0f;
     legacy_save_id = AllocateLegacyPropSaveId();
-    timer = GameClockMilliseconds();
     trigger = 0;
     flags = 0;
     anim_frame_fraction = 0;
@@ -145,9 +145,14 @@ void Prop::SetAnimationSpeed(float speed)
 {
     if (speed > 0.0f) {
         this->animation_speed = speed;
-        {
-            animation_timer.SetDuration(1.0f / this->animation_speed);
-        }
+        UpdateAnimationFrameLength();
+    }
+}
+
+void Prop::UpdateAnimationFrameLength()
+{
+    if (const float seconds = 1.0f / animation_speed; seconds > 0.0f) {
+        animation_frame = std::chrono::duration<float>(seconds);
     }
 }
 
@@ -198,7 +203,7 @@ Trigger* Prop::boundTrigger()
 void Prop::SetActivationState(bool active)
 {
     if (this->active == 0) {
-        animation_timer.Restart();
+        animation_elapsed = {};
     }
     this->active = active;
 }
@@ -435,7 +440,7 @@ void Prop::SetRepresentationActive(unsigned char active, bool update_animation)
         return;
     }
 
-    animation_timer.Restart();
+    animation_elapsed = {};
     if (!update_animation) {
         return;
     }
@@ -455,17 +460,20 @@ void Prop::SetRepresentationActive(unsigned char active, bool update_animation)
     }
 }
 
-/* Per-frame prop animation service called from WorldUpdateProps.  While the
-   rep is animating it converts the game timer's progress into whole elapsed
+/* Per-frame prop animation service called from WorldUpdateProps.  The step time
+   reaches the animation clock first, unless the shared timers are held. While the
+   rep is animating it converts the clock's progress into whole elapsed
    frames and drives AdvanceAnimationValue; a finished run leaves the
    0x20 pathing-dirty bit set for the next call to rebuild.  A pending
    pending_subcycle frame is latched into subcycle first, and an idle prop with the
    random flag may start a fresh run on its own. */
-void Prop::UpdatePropAnimation()
+void Prop::UpdatePropAnimation(std::chrono::milliseconds elapsed)
 {
     Prop* rep = this;
     unsigned int total;
     int frames;
+
+    if (!SharedGameTimersHeld()) animation_elapsed += elapsed;
 
     if (rep->active == 0 &&
         (rep->animation_behaviour != W8_ANIMATION_PLAY_ONCE || rep->animation_playing == 0) &&
@@ -492,7 +500,7 @@ void Prop::UpdatePropAnimation()
             rep->subcycle = rep->last_frame;
             rep->frame_direction = W8_ANIMATION_REVERSE;
         }
-        animation_timer.Restart();
+        animation_elapsed = {};
         rep->animation_playing = 1;
     }
     if (rep->animation_playing == 0) {
@@ -504,7 +512,13 @@ void Prop::UpdatePropAnimation()
         flags &= ~W8_PROP_ANIMATION_GEOMETRY_DIRTY;
         return;
     }
-    anim_frame_fraction = animation_timer.GetProgress();
+    /* Progress in frames, whole ones included; the whole frames are consumed and the
+       fraction carries over. Held shared timers show no progress. */
+    if (!SharedGameTimersHeld()) {
+        anim_frame_fraction = animation_elapsed / animation_frame;
+        animation_elapsed -=
+            static_cast<float>(static_cast<int>(anim_frame_fraction)) * animation_frame;
+    }
     BuildOrRefreshPathingRepresentation(GetWorldPathing());
     frames = static_cast<int>(anim_frame_fraction);
     anim_frame_fraction -= frames;
@@ -1167,7 +1181,7 @@ std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info)
     if (!info) throw std::invalid_argument("missing prop load context");
     auto prop = std::make_unique<Prop>();
     if (!prop->LoadProp(info, prop.get())) return nullptr;
-    prop->animation_timer.SetDuration(1.0f / prop->animation_speed);
+    prop->UpdateAnimationFrameLength();
     prop->ApplyAnimationFrame(info->world ? WorldPathing(*info->world) : nullptr);
     return prop;
 }
@@ -1352,7 +1366,6 @@ try {
     this->animation_playing = animation->animation_playing;
     this->frame_direction = W8_ANIMATION_FORWARD;
     this->animation_speed = animation->playback_scale;
-    this->timer = GameClockMilliseconds();
     if (this->animation_behaviour == W8_ANIMATION_PLAY_ONCE ||
         this->animation_behaviour == W8_ANIMATION_REPEAT) {
         this->animation_playing = 0;

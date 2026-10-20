@@ -17,7 +17,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -69,6 +68,10 @@ public:
         bool speech = false;
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
+    /* The step time this game has run: the sum of the elapsed times its steps were given.
+       Code below the step stamps and measures its deadlines on it, never on the monotonic
+       clock, so a step is deterministic given its inputs. */
+    std::chrono::milliseconds time{};
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party
        may be ambushed. Declines (returns false) while no member can fight, the party has
@@ -107,7 +110,10 @@ public:
     std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech;
-    W8GameTimer gameplay_timer{300.0f, false};
+    /* The step time left until the timed autosave announces itself, counted in the world
+       while the shared timers run (`SharedGameTimersHeld`). */
+    static constexpr std::chrono::minutes kAutosaveInterval{5};
+    std::chrono::milliseconds autosave_due = kAutosaveInterval;
     W8MonsterManagerEntry monster_manager_entries[8]{};
     /* The marching order being planned. The formation panel stages its edits here, and in
        a fight the party takes it when the round ends. */

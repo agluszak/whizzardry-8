@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <functional>
 #include <initializer_list>
 #include <memory>
@@ -158,7 +159,8 @@ World* GetSecondaryWorld(void);
 
 std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
 void DetachAllWorldItems(void);
-void UpdateWorlds(void);
+// Run the worlds over the step's `elapsed` time.
+void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
 CameraPose cameraState(const World& world);
 void SetWorldCameraState(World* world, CameraPose* state);
