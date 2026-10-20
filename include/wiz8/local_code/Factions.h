@@ -3,12 +3,6 @@
 
 #include "wiz8/data/faction_ids.h"
 
-struct W8Chunk;
-
-namespace wiz8 {
-class File;
-}
-
 enum W8FactionDisposition : unsigned char {
     W8_FACTION_HOSTILE = 0,
     W8_FACTION_NEUTRAL = 1,
@@ -40,7 +34,4 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info);
 /* Clamp disposition_score + delta to 0..99, stamp the world clock
    when the band moved, and post the worsened/improved notice. */
 void AdjustFactionDisposition(signed char faction, char delta);
-/* FATA section save and load. */
-void SaveFactionState(wiz8::File& file);
-void LoadFactionState(W8Chunk& file);
 #endif

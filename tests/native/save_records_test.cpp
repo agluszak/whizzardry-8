@@ -9,7 +9,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "retail_records.h"
-#include "save_payload.h"
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
@@ -21,16 +20,18 @@
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/encounter_tables.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterGroup.h"
-#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/timer.h"
@@ -56,7 +57,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -87,7 +87,6 @@
 #include "wiz8/entities/script.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -101,13 +100,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
-
-static std::vector<W8NpcState*> NpcStatePointers()
-{
-    std::vector<W8NpcState*> pointers;
-    for (const auto& state : CurrentGame().story.npcs) pointers.push_back(state.get());
-    return pointers;
-}
 
 template<class T> static void write(std::ofstream& out, const T& value)
 {
@@ -345,69 +337,55 @@ static void unicode_file_contracts()
     const auto strings = ReadStringTable("Data/Strings/unicode.dat");
     REQUIRE((strings.size() == 1 && strings[0] == "é中😀 %s %hs %s"));
 
-    CurrentGame().status.text_box_lines_used[0] = 1;
     const std::string message = "é 中 😀";
-    auto& line = CurrentGame().message_log[0][0];
+    wiz8::save::MessageBoxes boxes;
+    auto& line = boxes[0].emplace_back();
     line.text = message;
-    CurrentGame().status.text_box_lines_shown[0] = 1;
-    line.clock = MonotonicMilliseconds() + 600000;
     line.saved_remaining_ms = 87;
     line.entries.push_back({0, 1, 0, 5, W8_NOTICE_WORD_SELECTED, true});
     line.length = 6; // Prefix through 中, stored as three UTF-16 units.
     line.highlight_start = 3; // two UTF-16 units
     line.highlight_stop = 6; // three UTF-16 units
-    file = wiz8::open_file(wiz8::user_path("saves/text.bin"), wiz8::OpenMode::replace);
-    REQUIRE(SaveMessageStorage(*file));
-    REQUIRE(line.saved_remaining_ms == 87);
-    file->close();
-    // A save loads into a new game.
-    game.session.begin();
-    file = wiz8::open_file(wiz8::user_path("saves/text.bin"));
-    // The fixed record starts after format and region count; its obsolete
-    // pointer word must never contain a live allocation address.
-    std::array<std::byte, 8 + 0x24> header{};
-    file->read_exact(header.data(), header.size());
-    for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(header[i] == std::byte{});
-    file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk, 9.0f); }));
-    REQUIRE(std::string(CurrentGame().message_log[0][0].text) == message);
-    REQUIRE(CurrentGame().message_log[0][0].saved_remaining_ms > 87);
-    CurrentGame().status.text_box_lines_shown[0] = 0;
-    REQUIRE(CurrentGame().message_log[0][0].entries.empty());
-    REQUIRE(CurrentGame().message_log[0][0].length == 6);
-    REQUIRE((CurrentGame().message_log[0][0].highlight_start == 3 &&
-             CurrentGame().message_log[0][0].highlight_stop == 6));
+    const auto payload = wiz8::save::encode(boxes);
+    // The fixed record follows the format and the first box's count. Its first word counts
+    // UTF-16 units with the terminator, and its obsolete pointer word is always zero.
+    REQUIRE(payload.size() == 8 + 0x24 + 3 * 4 + (6 + 1) * 2);
+    REQUIRE(payload[8] == std::byte{7});
+    for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(payload[i] == std::byte{});
+    const auto decoded = wiz8::save::decode_message_boxes(payload, 9.0f);
+    REQUIRE((decoded[0].size() == 1 && decoded[1].empty() && decoded[3].empty()));
+    const auto& loaded = decoded[0][0];
+    REQUIRE((loaded.text == message && loaded.saved_remaining_ms == 87));
+    REQUIRE((loaded.entries.empty() && loaded.length == 6));
+    REQUIRE((loaded.highlight_start == 3 && loaded.highlight_stop == 6));
+    // A status record older than 1.1 had three boxes, so the payload holds three counts.
+    auto three_boxes = payload;
+    three_boxes.resize(three_boxes.size() - 4);
+    REQUIRE(wiz8::save::decode_message_boxes(three_boxes, 1.0f)[0][0].text == message);
+    REQUIRE_THROWS(wiz8::save::decode_message_boxes(three_boxes, 9.0f));
 }
 
 static void transcript_contracts()
 {
-    ScopedGame game;
-    auto& state = game.game.npc_interaction;
-    auto entry = std::make_unique<W8DialogueTranscriptRecord>();
-    entry->text = "é中😀";
-    entry->category = W8_DIALOGUE_CATEGORY_PLACES;
-    state.dialogue_transcript.push_back(std::move(entry));
-    state.dialogue_category_filter = W8_DIALOGUE_CATEGORY_MISC;
-    state.transcript_sorted = true;
-    auto file = wiz8::open_file(wiz8::user_path("saves/transcript.bin"), wiz8::OpenMode::replace);
-    REQUIRE(SaveNpcDialogueTranscript(*file));
-    file->close();
-    file = wiz8::open_file(wiz8::user_path("saves/transcript.bin"));
-    std::array<std::byte, 20> bytes{};
-    file->read_exact(bytes.data(), bytes.size());
+    wiz8::save::DialogueTranscript transcript;
+    transcript.keywords.push_back({"é中😀", W8_DIALOGUE_CATEGORY_PLACES});
+    transcript.view = {W8_DIALOGUE_CATEGORY_MISC, true};
+    const auto bytes = wiz8::save::encode(transcript);
     REQUIRE((bytes[0] == std::byte{2} && bytes[1] == std::byte{1}));
     REQUIRE(bytes[5] == std::byte{4}); // Four UTF-16 units, not nine UTF-8 bytes.
     REQUIRE((bytes[9] == std::byte{0xe9} && bytes[10] == std::byte{0}));
     REQUIRE((bytes[13] == std::byte{0x3d} && bytes[14] == std::byte{0xd8}));
-    file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcDialogueTranscript(chunk); }));
-    REQUIRE(state.dialogue_transcript.size() == 1);
-    REQUIRE(state.dialogue_transcript[0]->text == "é中😀");
-    REQUIRE(state.dialogue_transcript[0]->category == W8_DIALOGUE_CATEGORY_PLACES);
-    REQUIRE(
-        (state.dialogue_category_filter == W8_DIALOGUE_CATEGORY_MISC && state.transcript_sorted));
-    file->close();
+    const auto decoded = wiz8::save::decode_dialogue_transcript(bytes);
+    REQUIRE(decoded.keywords.size() == 1);
+    REQUIRE(decoded.keywords[0].text == "é中😀");
+    REQUIRE(decoded.keywords[0].category == W8_DIALOGUE_CATEGORY_PLACES);
+    REQUIRE((decoded.view && decoded.view->category_filter == W8_DIALOGUE_CATEGORY_MISC &&
+             decoded.view->sorted));
+    // Version 1 has no view settings.
+    auto version_1 = bytes;
+    version_1[0] = std::byte{1};
+    version_1.resize(version_1.size() - 2);
+    REQUIRE(!wiz8::save::decode_dialogue_transcript(version_1).view);
 }
 
 static void keyword_file_contracts()
@@ -786,129 +764,40 @@ static void encounter_table_contracts()
     REQUIRE(wiz8::remove_file(wiz8::asset_path(path)));
 }
 
-static void current_game_character_contracts()
+static void stored_character_contracts()
 {
-    W8Chunk chunks;
-    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    chunks.Close();
+    const ScopedGame game;
+    game.game.status.game_started = true;
     W8Character first{}, second{}, loaded{};
     first.name = "Vi";
     first.uiExpLevel = 7;
     second.name = "Bob";
     second.uiExpLevel = 9;
-    REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-    REQUIRE(SaveCharacterToCurrentGame("bob.CHR", -1, &second));
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
+    // A started game keeps character files as its own stored characters.
+    REQUIRE((SaveCharacter(&first, -1) && SaveCharacter(&second, -1)));
     first.uiExpLevel = 8;
-    REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-    REQUIRE(LoadCharacterFromCurrentGame("bob.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
-    REQUIRE(
-        (chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) && chunks.ChunkCount() == 2));
-    int visited = 0;
-    chunks.ForEachChunk([&](unsigned id) {
-        REQUIRE(id == 0x52414843);
-        REQUIRE(chunks.CurrentChunkExtent() ==
-                static_cast<int>(64 + 4 + wiz8::retail::kCharacterBytes));
-        ++visited;
-    });
-    REQUIRE(visited == 2);
-    chunks.Close();
-    REQUIRE(!SaveCharacterToCurrentGame(std::string(64, 'x').c_str(), 0, &first));
-    REQUIRE(
-        (chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) && chunks.ChunkCount() == 2));
-    chunks.Close();
+    REQUIRE(SaveCharacter(&first, -1));
+    REQUIRE(game.game.stored_characters.size() == 2);
+    REQUIRE(LoadCharacter("VI.chr", &loaded, -1));
+    REQUIRE(loaded.uiExpLevel == 8);
+    REQUIRE((LoadCharacter("Bob.CHR", &loaded, -1) && loaded.uiExpLevel == 9));
+    REQUIRE(!LoadCharacter("Nobody.CHR", &loaded, -1));
+    W8Character unnamed = first;
+    unnamed.name = std::string(60, 'x');
+    REQUIRE(!SaveCharacter(&unnamed, -1));
 
-    // Fail every read, write, seek, flush, close and publication in turn.
-    // Even after chunk headers have been patched, the published save is unchanged.
-    std::size_t operations;
-    {
-        FileFaults trace;
-        REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-        operations = trace.operations;
-    }
-    W8Character replacement = first;
-    replacement.uiExpLevel = 99;
-    auto snapshot = [] {
-        auto file = wiz8::open_file(wiz8::user_path("saves\\CurrentGame.SAV"));
-        std::string bytes(file->size(), '\0');
-        file->read_exact(bytes.data(), bytes.size());
-        return bytes;
-    };
-    const auto before = snapshot();
-    // Abandoning an unfinished RIFF must never publish over the old record.
-    {
-        wiz8::StagedFile staged(wiz8::user_path("saves\\CurrentGame.SAV"));
-        W8Chunk unfinished;
-        REQUIRE(unfinished.OpenWrite(staged.file()));
-        REQUIRE_THROWS(
-            unfinished.WriteChunk(0x52414843, [] { throw std::runtime_error("abandoned"); }));
-        bool rejected = false;
-        try {
-            unfinished.Close();
-        } catch (const std::exception&) {
-            rejected = true;
-        }
-        REQUIRE(rejected);
-    }
-    REQUIRE(snapshot() == before);
-
-    for (std::size_t operation = 1; operation <= operations; ++operation) {
-        {
-            FileFaults fault(operation);
-            REQUIRE(!SaveCharacterToCurrentGame("vi.CHR", 0, &replacement));
-            REQUIRE(fault.fired);
-        }
-        REQUIRE(snapshot() == before);
-        REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-    }
-    for (unsigned level = 10; level < 20; ++level) {
-        first.uiExpLevel = level;
-        REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &first));
-        REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-        REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-        REQUIRE((chunks.OpenRead(wiz8::user_path("saves\\CurrentGame.SAV")) &&
-                 chunks.ChunkCount() == 2));
-        chunks.Close();
-    }
-
-    // A payload that reaches into the next chunk must leave the destination intact.
-    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    char name[64] = "vi.CHR";
-    const auto size = static_cast<unsigned>(wiz8::retail::kCharacterBytes);
-    // Only the first byte of the declared payload is present.
-    chunks.WriteChunk(0x52414843, [&] {
-        chunks.WriteValue(name);
-        chunks.WriteValue(size);
-        chunks.WriteBytes(&first, 1);
-    });
-    chunks.WriteChunk(0x444150, [&] { wiz8::retail::write(chunks, second); });
-    chunks.Close();
-    loaded = second;
-    REQUIRE(!LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(second));
-    // A malformed newer payload does not hide the last complete character.
-    REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
-    chunks.WriteChunk(0x52414843, [&] {
-        chunks.WriteValue(name);
-        chunks.WriteValue(size);
-        wiz8::retail::write(chunks, first);
-    });
-    chunks.WriteChunk(0x52414843, [&] {
-        chunks.WriteValue(name);
-        chunks.WriteValue(size);
-        chunks.WriteBytes(&replacement, 1);
-    });
-    chunks.Close();
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(first));
-    REQUIRE(SaveCharacterToCurrentGame("vi.CHR", 0, &replacement));
-    REQUIRE(LoadCharacterFromCurrentGame("vi.CHR", &loaded));
-    REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(replacement));
+    // A CHAR section: the file name in 64 bytes, then the size-prefixed record.
+    const auto& stored = game.game.stored_characters.front();
+    const auto payload = wiz8::save::encode(stored);
+    REQUIRE(payload.size() == 64 + 4 + wiz8::retail::kCharacterBytes);
+    const auto decoded = wiz8::save::decode_stored_character(payload);
+    REQUIRE(decoded.file_name == "Vi.CHR");
+    REQUIRE(wiz8::retail::encode(decoded.character) == wiz8::retail::encode(stored.character));
+    // A record that reaches past its section, or a name without a terminator, is malformed.
+    REQUIRE_THROWS(wiz8::save::decode_stored_character(std::span(payload).first(64 + 4 + 1)));
+    auto unterminated = payload;
+    std::ranges::fill(std::span(unterminated).first(64), std::byte{'x'});
+    REQUIRE_THROWS(wiz8::save::decode_stored_character(unterminated));
 }
 
 static void save_file_contracts(const std::filesystem::path& user)
@@ -1348,9 +1237,8 @@ TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
     REQUIRE(CurrentGame().story.facts == before);
 }
 
-TEST_CASE_METHOD(SaveFixture, "Faction sections keep every byte", "[save][records]")
+TEST_CASE("Faction sections keep every byte", "[save][records]")
 {
-    const ScopedGame game;
     // The relation matrix, then one fourteen-byte disposition record per faction.
     constexpr std::size_t relation_bytes = W8_FACTION_COUNT * W8_FACTION_COUNT, record_bytes = 14;
     std::vector<std::byte> bytes(relation_bytes + W8_FACTION_COUNT * record_bytes);
@@ -1358,31 +1246,56 @@ TEST_CASE_METHOD(SaveFixture, "Faction sections keep every byte", "[save][record
         bytes[index] = static_cast<std::byte>(index * 7 + 3);
     for (std::size_t faction = 0; faction < W8_FACTION_COUNT; ++faction)
         bytes[relation_bytes + faction * record_bytes + 10] = static_cast<std::byte>(faction & 1);
-    // Loading re-arms the party's score, so the fixture stores it already armed.
-    bytes[relation_bytes + W8_FACTION_PARTY * record_bytes] = std::byte{100};
-    const auto input = root / "fata.bin", output = root / "fata-copy.bin";
-    {
-        auto file = wiz8::open_file(input, wiz8::OpenMode::replace);
-        file->write(bytes.data(), bytes.size());
-    }
-    {
-        auto file = wiz8::open_file(input);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { LoadFactionState(chunk); });
-    }
-    const auto& mook = CurrentGame().story.factions[W8_FACTION_MOOK];
+    const auto factions = wiz8::save::decode_factions(bytes);
+    const auto& mook = factions.states[W8_FACTION_MOOK];
     std::int32_t offense_count;
     std::memcpy(&offense_count, bytes.data() + relation_bytes + W8_FACTION_MOOK * record_bytes + 1,
                 sizeof(offense_count));
     REQUIRE((mook.offense_count == offense_count && !mook.encountered));
-    REQUIRE(CurrentGame().story.factions[W8_FACTION_PARTY].encountered);
-    {
-        auto file = wiz8::open_file(output, wiz8::OpenMode::replace);
-        SaveFactionState(*file);
-    }
-    std::ifstream saved(output, std::ios::binary);
-    const std::vector<char> roundtrip{std::istreambuf_iterator<char>(saved), {}};
-    REQUIRE(
-        std::ranges::equal(roundtrip, bytes, {}, [](char c) { return static_cast<std::byte>(c); }));
+    REQUIRE(factions.states[W8_FACTION_PARTY].encountered);
+    REQUIRE(wiz8::save::encode(factions) == bytes);
+    bytes.pop_back();
+    REQUIRE_THROWS(wiz8::save::decode_factions(bytes));
+}
+
+TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
+{
+    W8SpellEffectEntry effect{};
+    effect.kind = static_cast<W8SpellId>(0x26);
+    effect.turns_remaining = 5;
+    effect.sustained = true;
+    effect.definition.power_level = 3;
+    effect.monster_ids = {4, 5}; // Rebuilt while the effect runs, not saved.
+    const auto payload = wiz8::save::encode(effect);
+    // Spell, turns, two sources and two targets, four flags and the definition.
+    REQUIRE(payload.size() == 4 + 4 + 2 * (0x34 + 0x20) + 4 + 0x30);
+    const auto decoded = wiz8::save::decode_monster_control(payload);
+    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 && decoded.sustained &&
+             !decoded.recast && decoded.definition.power_level == 3 &&
+             decoded.monster_ids.empty()));
+    REQUIRE(wiz8::save::encode(decoded) == payload);
+    REQUIRE_THROWS(
+        wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));
+}
+
+TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
+{
+    W8GameSettings settings{};
+    settings.tooltips_enabled = true;
+    settings.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.music_volume = 77;
+    settings.intro_seen = true;
+    settings.unknown_051[0] = 0x5a;
+    const auto record = EncodeGameSettings(settings);
+    REQUIRE(record.size() == 0xa4);
+    REQUIRE((record[0x0c] == std::byte{1} && record[0x0d] == std::byte{W8_DIFFICULTY_EXPERT} &&
+             record[0x2f] == std::byte{77} && record[0x46] == std::byte{1} &&
+             record[0x51] == std::byte{0x5a}));
+    const auto decoded = DecodeGameSettings(record);
+    REQUIRE((decoded.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
+             decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
+    REQUIRE(EncodeGameSettings(decoded) == record);
+    REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));
 }
 
 TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effects]")
@@ -1434,47 +1347,44 @@ TEST_CASE("Level status header record", "[save][records]")
     level_status_header_record();
 }
 
-TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save][npc]")
+template<class T> static void append_bytes(std::vector<std::byte>& bytes, const T& value)
+{
+    const auto view = std::as_bytes(std::span(&value, 1));
+    bytes.insert(bytes.end(), view.begin(), view.end());
+}
+
+TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[save][npc]")
 {
     NpcGlobalGuard globals;
-    const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version =
         GENERATE(static_cast<unsigned char>(2), static_cast<unsigned char>(3));
     CAPTURE(version);
     {
-        std::ofstream out(path, std::ios::binary | std::ios::trunc);
-        write(out, version);
-        write(out, 3u);
+        std::vector<std::byte> bytes;
+        append_bytes(bytes, version);
+        append_bytes(bytes, 3u);
         const unsigned int markers[] = {0x12345678u, live_handle, 0};
         for (unsigned int i = 0; i < 3; ++i) {
             wiz8::retail::NpcState disk = {};
             disk.name_style = static_cast<unsigned char>(i);
             disk.character = markers[i];
-            write(out, disk);
+            append_bytes(bytes, disk);
             if (markers[i]) {
                 W8Character character = {};
                 character.name.assign(1, static_cast<char>('A' + i));
                 character.record_version = 2;
-                if (version == 3) {
-                    write(out, static_cast<unsigned int>(wiz8::retail::kCharacterBytes));
-                }
+                if (version == 3)
+                    append_bytes(bytes, static_cast<unsigned int>(wiz8::retail::kCharacterBytes));
                 const auto image = wiz8::retail::encode(character);
-                out.write(reinterpret_cast<const char*>(image.data()),
-                          version == 2 ? 0x185c : image.size());
-                REQUIRE(out.good());
+                bytes.insert(bytes.end(), image.begin(),
+                             image.begin() + (version == 2 ? 0x185c : image.size()));
             }
         }
         // Version >= 2 follows the states with an item count for each NPC.
-        for (unsigned int i = 0; i < 3; ++i) {
-            write(out, 0u);
-        }
-        write(out, 0xdecafbadU);
-        out.close();
-        auto file = wiz8::open_file(path);
-        REQUIRE(file);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
+        for (unsigned int i = 0; i < 3; ++i) append_bytes(bytes, 0u);
+        InstallNpcStates(wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
         REQUIRE(static_cast<int>(CurrentGame().story.npcs.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = CurrentGame().story.npcs[i].get();
@@ -1487,49 +1397,32 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                 REQUIRE(!npc->character);
             }
         }
-        unsigned int trailer;
-        file->read_exact(&trailer, sizeof(trailer));
-        REQUIRE(trailer == 0xdecafbadU);
-        file.reset();
-        // Round-trip the supported NPCT version through its actual writer.
-        file = wiz8::open_file(root / "roundtrip.npct", wiz8::OpenMode::replace);
-        REQUIRE(SaveNpcStates(*file));
-        file->close();
-        file = wiz8::open_file(root / "roundtrip.npct");
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
+        // Round-trip the current version through its encoder.
+        CurrentGame().story.npcs[1]->items.push_back(
+            {.available_at = 7, .item = {}, .quantity = 2});
+        InstallNpcStates(wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
+                                                       Data().npcs.size()));
         REQUIRE(CurrentGame().story.npcs.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = CurrentGame().story.npcs[index].get();
-            REQUIRE((npc->record == &Data().npcs[index] && npc->items.empty()));
+            REQUIRE(npc->record == &Data().npcs[index]);
             if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
             else
                 REQUIRE(!npc->character);
         }
-        file.reset();
-        const auto previous = NpcStatePointers();
-        auto* previous_npc = previous[0];
+        const auto& stock = CurrentGame().story.npcs[1]->items;
+        REQUIRE((stock.size() == 1 && stock[0].available_at == 7 && stock[0].quantity == 2));
         for (int malformed = 0; malformed < 4; ++malformed) {
-            CAPTURE(version, malformed);
-            std::ofstream bad(path, std::ios::binary | std::ios::trunc);
-            write(bad, static_cast<unsigned char>(3));
-            write(bad, malformed == 0 ? UINT32_MAX : 1u);
+            CAPTURE(malformed);
+            std::vector<std::byte> bad;
+            append_bytes(bad, static_cast<unsigned char>(3));
+            append_bytes(bad, malformed == 0 ? UINT32_MAX : 1u);
             wiz8::retail::NpcState disk{};
             disk.name_style = malformed == 1 ? 255 : 0;
-            if (malformed != 2) write(bad, disk);
-            if (malformed == 3) write(bad, UINT32_MAX); // Missing stock entries.
-            bad.close();
-            file = wiz8::open_file(path);
-            bool rejected = false;
-            try {
-                ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
-            } catch (const std::exception&) {
-                rejected = true;
-            }
-            REQUIRE((rejected && NpcStatePointers() == previous));
-            REQUIRE(CurrentGame().story.npcs[0].get() == previous_npc);
-            REQUIRE(previous_npc->character.value().name[0] == L'A');
-            file.reset();
+            if (malformed != 2) append_bytes(bad, disk);
+            if (malformed == 3) append_bytes(bad, UINT32_MAX); // Missing stock entries.
+            REQUIRE_THROWS(wiz8::save::decode_npc_states(bad, Data().npcs.size()));
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding
@@ -1549,9 +1442,9 @@ TEST_CASE_METHOD(SaveFixture, "Character file records", "[save][records]")
     character_file_contracts(assets, user);
 }
 
-TEST_CASE_METHOD(SaveFixture, "Current-game character replacement", "[save][records]")
+TEST_CASE("Stored characters and their CHAR sections", "[save][records]")
 {
-    current_game_character_contracts();
+    stored_character_contracts();
 }
 
 TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save][npc]")

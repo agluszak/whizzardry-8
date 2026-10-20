@@ -1,9 +1,9 @@
 #pragma once
-struct W8Chunk;
+#include <memory>
 #include <string_view>
+#include <vector>
 
 #include "wiz8/fact_state.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/math.h"
 
@@ -157,8 +157,10 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
-bool SaveNpcStates(wiz8::File& file);
-void LoadNpcStates(W8Chunk& file);
+/* Install the states a save's NPCT section holds, bound to their database records.
+   Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
+   unflagged records no loaded state claims. */
+void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs);
 char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);

@@ -1,9 +1,7 @@
 #include "wiz8/local_screens/JournalScreen.h"
 
 #include <array>
-#include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -20,13 +18,12 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/chunk.h"
+#include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
@@ -128,54 +125,6 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     int range = (MainGameHud()->text_box_right - MainGameHud()->text_box_left);
     ShowNotice(W8_FONT_PALETTE_BLUE, Data().strings[0x74a], 2, range);
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
-}
-
-namespace {
-/* A JRNL entry on disk. Retail writes the alternate-text flag as one byte and
-   leaves the three bytes after it uninitialized. */
-struct JournalEntryRecord {
-    std::int32_t level;
-    std::int32_t fact;
-    std::uint8_t alternate_text;
-    std::array<std::uint8_t, 3> unknown_09;
-};
-static_assert(sizeof(JournalEntryRecord) == 12);
-}
-
-/* Write the JRNL format dword, entry count, then each 0x0c-byte entry. */
-void SaveFactJournal(wiz8::File& file)
-{
-    int format = 1;
-    int count;
-
-    count = static_cast<int>(CurrentGame().story.journal.size());
-    file.write(&format, 4);
-    file.write(&count, 4);
-    for (const auto& entry : CurrentGame().story.journal) {
-        const JournalEntryRecord record{entry.level, static_cast<std::int32_t>(entry.fact),
-                                        entry.alternate_text, entry.unknown_09};
-        file.write(&record, sizeof(record));
-    }
-}
-
-/* Replace the journal with the JRNL records. */
-void LoadJournalEntries(W8Chunk& file)
-{
-    int format;
-    int count;
-
-    file.ReadBytes(&format, 4);
-    file.ReadBytes(&count, 4);
-    if (count < 0 || count > file.RemainingBytes() / std::int64_t{sizeof(JournalEntryRecord)})
-        throw std::runtime_error("invalid journal count");
-    auto& journal = CurrentGame().story.journal;
-    journal.assign(count, {});
-    for (auto& entry : journal) {
-        JournalEntryRecord record;
-        file.ReadBytes(&record, sizeof(record));
-        entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
-                 record.unknown_09};
-    }
 }
 
 void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,

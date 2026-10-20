@@ -2,10 +2,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
 #include <memory>
 #include <span>
 #include <string>
@@ -18,10 +14,8 @@
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
-#include "fact_state.h"
 #include "mgs_commands.h"
 #include "save_payload.h"
-#include "scoped_asset_roots.h"
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
@@ -58,7 +52,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -85,6 +78,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/save_codec.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/world.h"
@@ -413,13 +407,6 @@ static bool keyboardBindingReplacement()
 
 static bool journalSerialization()
 {
-    ScopedTemporaryDirectory temporary{"wiz8-collections"};
-    const auto& root = temporary.path;
-    const auto assets = root / "assets", user = root / "user";
-    std::filesystem::create_directories(assets);
-    std::filesystem::create_directories(user);
-    ScopedAssetRoots roots{{wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)}};
-    const auto input_path = root / "journal.bin", output_path = root / "journal-copy.bin";
     const int format = 1, count = 3;
     // Retail entries: level, fact, a one-byte flag and three uninitialized bytes.
     struct DiskEntry {
@@ -430,45 +417,23 @@ static bool journalSerialization()
                                              {5, 20, {0x01, 0x60, 0x50, 0x00}},
                                              {9, 30, {0x01, 0xff, 0xff, 0xff}}}};
     static_assert(sizeof(disk) == count * 12);
-    {
-        auto file = wiz8::open_file(input_path, wiz8::OpenMode::replace);
-        file->write(&format, sizeof(format));
-        file->write(&count, sizeof(count));
-        file->write(disk.data(), sizeof(disk));
-    }
-    {
-        auto file = wiz8::open_file(input_path);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadJournalEntries(chunk); });
-    }
-    REQUIRE(CurrentGame().story.journal.size() == count);
+    std::vector<std::byte> payload;
+    const std::array<std::span<const std::byte>, 3> parts{std::as_bytes(std::span(&format, 1)),
+                                                          std::as_bytes(std::span(&count, 1)),
+                                                          std::as_bytes(std::span(disk))};
+    for (const auto bytes : parts) payload.insert(payload.end(), bytes.begin(), bytes.end());
+    const auto journal = wiz8::save::decode_journal(payload);
+    REQUIRE(journal.size() == count);
     for (int i = 0; i < count; ++i) {
-        const auto& actual = CurrentGame().story.journal[i];
         // Only the low byte is the flag; the padding must not turn it on.
-        REQUIRE((actual.level == disk[i].level && actual.fact == disk[i].fact &&
-                 actual.alternate_text == (disk[i].flag[0] != 0)));
+        REQUIRE((journal[i].level == disk[i].level && journal[i].fact == disk[i].fact &&
+                 journal[i].alternate_text == (disk[i].flag[0] != 0)));
     }
-    {
-        auto file = wiz8::open_file(output_path, wiz8::OpenMode::replace);
-        SaveFactJournal(*file);
-    }
-    std::ifstream input(input_path, std::ios::binary), output(output_path, std::ios::binary);
-    const std::vector<char> original{std::istreambuf_iterator<char>(input),
-                                     std::istreambuf_iterator<char>{}};
-    const std::vector<char> roundtrip{std::istreambuf_iterator<char>(output),
-                                      std::istreambuf_iterator<char>{}};
-    REQUIRE((original == roundtrip && original.size() == 8 + 3 * 12));
-    // Reusing the journal with an empty chunk must shrink its live extent.
-    {
-        auto file = wiz8::open_file(input_path, wiz8::OpenMode::replace);
-        const int empty = 0;
-        file->write(&format, sizeof(format));
-        file->write(&empty, sizeof(empty));
-    }
-    {
-        auto file = wiz8::open_file(input_path);
-        ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadJournalEntries(chunk); });
-    }
-    REQUIRE(CurrentGame().story.journal.empty());
+    // The uninitialized bytes round-trip unchanged.
+    REQUIRE(wiz8::save::encode(journal) == payload);
+    payload.resize(8);
+    payload[4] = std::byte{4}; // More entries than the payload holds.
+    REQUIRE_THROWS(wiz8::save::decode_journal(payload));
     return true;
 }
 

@@ -8,7 +8,6 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <span>
@@ -58,6 +57,7 @@
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
@@ -1106,34 +1106,16 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
     REQUIRE(pathing.settings.minimum_animation_rate == 0.75f);
     REQUIRE(replacement.settings.flying_swimming_minimum_animation_rate == 0.8999999761581421f);
 }
-struct LocationVariableFixture : LoaderFixture {
-    const ScopedGame game;
-    bool load_variables(const std::string& bytes, bool inject_failure = false)
-    {
-        const auto path = wiz8::asset_path("section.bin");
-        W8Chunk chunk;
-        REQUIRE(chunk.OpenWrite(path));
-        chunk.WriteChunk(W8ChunkId("VARS"), [&] { chunk.WriteBytes(bytes.data(), bytes.size()); });
-        // A following chunk must never supply bytes missing from this section.
-        chunk.WriteChunk(W8ChunkId("NEXT"), [&] { chunk.WriteValue(std::array<char, 256>{}); });
-        chunk.Close();
-        REQUIRE(chunk.OpenRead(path));
-        bool loaded = false;
-        chunk.ForEachChunk([&](unsigned) {
-            FileFaults fault(inject_failure ? 5 : 0);
-            loaded = LoadLocationVariables(chunk);
-            if (inject_failure) REQUIRE(FileFaults::fired);
-            return false;
-        });
-        return loaded;
-    }
-};
+static std::vector<std::byte> payload_bytes(const std::string& bytes)
+{
+    const auto view = std::as_bytes(std::span(bytes));
+    return {view.begin(), view.end()};
+}
 
-TEST_CASE_METHOD(LocationVariableFixture,
-                 "Location variables retain level-scoped names and retail records",
+TEST_CASE_METHOD(LoaderFixture, "Location variables retain level-scoped names and retail records",
                  "[loader][records]")
 {
-    REQUIRE_FALSE(HasLocationVariables());
+    const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>(3));
     CreateLocationVar("Switch", 17);
     CreateLocationVar("SWITCH", 99);
@@ -1141,8 +1123,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     SetTriggerVariableByName("switch", 23);
     game.game.level.replacePrimary(std::make_unique<World>(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
-    CreateLocationVar("Switch", -7);
-    REQUIRE(HasLocationVariables());
+    CreateLocationVar("Switch", 31);
 
     std::string expected;
     append(expected, std::int32_t{2});
@@ -1153,26 +1134,16 @@ TEST_CASE_METHOD(LocationVariableFixture,
         append(expected, name);
         append(expected, std::int32_t{level});
     }
-    {
-        auto file = wiz8::open_file(wiz8::asset_path("variables.bin"), wiz8::OpenMode::replace);
-        SaveLocationVariables(*file, W8SavedLocationState{{"SWITCH", 31}});
-        REQUIRE(GetLocationVarValueByName("Switch") == -7);
-    }
-    std::ifstream saved(fixture_root / "variables.bin", std::ios::binary);
-    REQUIRE(std::string(std::istreambuf_iterator<char>(saved), {}) == expected);
-    CurrentGame().story.location_variables.clear();
-    REQUIRE(load_variables(expected));
+    REQUIRE(wiz8::save::encode(CurrentGame().story.location_variables) == payload_bytes(expected));
+    CurrentGame().story.location_variables =
+        wiz8::save::decode_location_variables(payload_bytes(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == 31);
     game.game.level.replacePrimary(std::make_unique<World>(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }
 
-TEST_CASE_METHOD(LocationVariableFixture,
-                 "Invalid location variable sections leave existing state intact",
-                 "[loader][records]")
+TEST_CASE("Malformed location variable sections are rejected", "[loader][records]")
 {
-    game.game.level.replacePrimary(std::make_unique<World>(5));
-    CreateLocationVar("Existing", 42);
     std::string bytes;
     append(bytes, std::int32_t{2});
     for (const char* name : {"First", "Second"}) {
@@ -1182,7 +1153,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
         append(bytes, disk_name);
         append(bytes, std::int32_t{5});
     }
-    bool inject_failure = false;
+    REQUIRE(wiz8::save::decode_location_variables(payload_bytes(bytes)).size() == 2);
     SECTION("Short count")
     {
         bytes.resize(2);
@@ -1200,14 +1171,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     {
         bytes.replace(4 + 136 + 4, 128, 128, 'x');
     }
-    SECTION("Read failure after first record")
-    {
-        inject_failure = true;
-    }
-    REQUIRE_FALSE(load_variables(bytes, inject_failure));
-    REQUIRE(GetLocationVarValueByName("Existing") == 42);
-    REQUIRE(GetLocationVarIDByName("First") == -1);
-    REQUIRE(GetLocationVarIDByName("Second") == -1);
+    REQUIRE_THROWS(wiz8::save::decode_location_variables(payload_bytes(bytes)));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fields",

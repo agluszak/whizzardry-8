@@ -1,8 +1,8 @@
 #include "wiz8/fact_state.h"
 
+#include <array>
 #include <vector>
 
-#include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
@@ -40,14 +40,11 @@ void PostNewGameLoad(void)
     g_fact_notifications_suppressed = false;
 }
 
-/* Reads the fact array back, then re-applies the consequences that do not
-   survive a save. */
-void LoadFactState(W8Chunk& save_handle)
+/* Install a save's facts, then re-apply the consequences that do not survive a save. */
+void InstallFacts(const std::array<unsigned char, W8_FACT_SLOT_COUNT>& facts)
 {
     W8NpcState* npc;
-    decltype(Story::facts) facts;
 
-    save_handle.ReadBytes(facts.data(), facts.size());
     CurrentGame().story.facts = facts;
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);

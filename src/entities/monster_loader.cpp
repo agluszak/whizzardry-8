@@ -40,8 +40,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"

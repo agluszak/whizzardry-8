@@ -19,7 +19,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -1038,12 +1037,6 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
                 fmt::format("{} set to {}", Data().facts[fact_id].symbolic_name, display_value));
         }
     }
-}
-
-void SaveFactState(const Story& story, wiz8::File& save_handle)
-{
-    const auto& facts = story.facts;
-    save_handle.write(facts.data(), facts.size());
 }
 
 /* Seeds the facts a fresh party starts with. A party imported from Wizardry 7
