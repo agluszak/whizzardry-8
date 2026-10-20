@@ -4,7 +4,6 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"

@@ -3,7 +3,6 @@
 #include <memory>
 #include <string_view>
 
-#include "retail_records.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/spell_ids.h"
