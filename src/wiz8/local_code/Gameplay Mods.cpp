@@ -1,6 +1,5 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -16,9 +15,8 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/utility.h"
+#include "wiz8/rules/party_conditions.h"
 #include "wiz8/world/environment.h"
-#include "wiz8/world/level_session.h"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
