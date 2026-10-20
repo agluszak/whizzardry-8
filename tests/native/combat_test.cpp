@@ -106,3 +106,60 @@ TEST_CASE_METHOD(CombatFixture, "Combat waits on a conscious NPC's queued combat
     game.party.characters[1].highest_condition = W8_CONDITION_ASLEEP;
     REQUIRE(CombatWaitFor(game) == CombatWait::none);
 }
+
+#include <cstdio>
+#include "mutable_game_data.h"
+#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/platform/random.h"
+
+TEST_CASE_METHOD(CombatFixture, "GOLDEN capture")
+{
+    struct RestoreStrings {
+        std::vector<std::string> strings = std::move(MutableData().strings);
+        ~RestoreStrings() { MutableData().strings = std::move(strings); }
+    } restore;
+    MutableData().strings.assign(0x800, "s");
+    for (int slot = 0; slot < 2; ++slot) {
+        auto& character = game.party.characters[slot];
+        character.name = slot == 0 ? "A" : "B";
+        character.hp_current = 30;
+        character.uiHPMax = 30;
+        character.stamina = 100;
+        character.uiStaminaMax = 100;
+        for (auto& item : character.EquippedItem) item.iItemNo = -1;
+        game.party.rows[slot].party_order_index = slot;
+        game.party.formation.setPosition(slot, 0, slot, false, true);
+    }
+    auto& attacker = game.party.characters[0];
+    attacker.Hand[0].in_play = true;
+    attacker.Hand[0].uiHolds = HOLDS_NOTHING;
+    attacker.Hand[0].swings = 1;
+    attacker.Hand[0].attacks = 1;
+    attacker.Hand[0].attack_score = 80;
+    attacker.Hand[0].damage_dice = {2, 4, 1};
+    combat.characters[0].hand_attack_values[0] = 1;
+    combat.characters[0].current_hand = 0;
+    auto& row = game.party.rows[0];
+    row.pending_action = W8_ACTION_ATTACK;
+    row.target_out_of_combat = {};
+    row.target_out_of_combat.iType = W8_TARGET_KIND_CHARACTER;
+    row.target_out_of_combat.iChar = 1;
+    row.target_out_of_combat.iMonsterID = -1;
+    row.target_out_of_combat.iGroupID = -1;
+
+    SeedRandom(12345);
+    REQUIRE(StartCharacterAttack(0, W8_ATTACK_MODE_PUNCH));
+    std::vector<int> steps;
+    for (int i = 0; i < 10; ++i) {
+        const auto step = ResolveCharacterAttack(0);
+        steps.push_back(step == ActionStep::finishing);
+        if (step == ActionStep::finishing) break;
+    }
+    std::printf("steps:");
+    for (int s : steps) std::printf(" %d", s);
+    std::printf("\nhp %u stamina0 %d score %d events %zu next %u\n",
+                game.party.characters[1].hp_current, game.party.characters[0].stamina,
+                combat.characters[0].hand_records[0].score, game.events.pending().size(),
+                Random15());
+    for (const auto& event : game.events.pending()) std::printf(" event %zu\n", event.index());
+}
