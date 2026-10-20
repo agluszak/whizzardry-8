@@ -54,12 +54,6 @@ enum W8NpcTradeMode : unsigned char {
     W8_NPC_TRADE_SHOPLIFT = 5
 };
 
-/* One saved transcript keyword. */
-struct W8DialogueTranscriptRecord {
-    std::string text;
-    W8DialogueCategory category;
-};
-
 /* The NPC conversation's interface state for one play-through: the dialogue layout and
    trade tables, the transcript the save keeps, the quote bubble and the staged script
    notice. The game owns it (`Game::npc_interaction`), so a new game starts it afresh.
