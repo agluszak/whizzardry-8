@@ -110,11 +110,14 @@ the licensed runtime scenarios after every step.
    - Give message ids names.
    - Still outside it: the monster database (read per record), encounter tables (reloaded
      per level), NPC keyword lists and the generic item name cache.
-3. **Inventory and party in `rules`.**
-   - Inventory commands, settlement, encumbrance and equipment rules take a
-     `RuleContext` and emit events, and the camp and main game screens present them.
-   - Done when `inventory`, `live_party`, `character_skills` and their notices no longer
-     include `local_screens/`.
+3. **Inventory and party in `rules`.** They take the `Game` and report through its
+   events (ARCHITECTURE.md, "The game"); what remains is moving them behind the boundary.
+   - Replace `Game&` with a `RuleContext` once the random stream is in the game, and
+     take the calls they still make into unmigrated code (conditions, combat targeting,
+     NPC states, facts, world drops, sounds) as explicit inputs or events.
+   - Presentation is synchronous: the observer shows each event as it is pushed, to keep
+     its order among the direct screen calls of unmigrated code. When those are gone,
+     the UI drains the log after each command and step instead.
    - This absorbs "characters by slot, items by location" below.
 4. **Activity.** Replace `fCampMode`, `fNpcDialogueMode`, `fPartyMovementMode`,
    `scripted_scene` and the screen-id checks in rules (about 130 reads) with
@@ -240,8 +243,11 @@ Substantial but contained work.
 Small, local and low-risk.
 
 - `CreateItemIntoHandOrPool` always replaces the hand; rename it to say so.
-- `MergeItems` and a few other inventory commands still show camp notices
-  themselves; return the refusal to the screen.
+- `MergeItems`, `DropItemInHand` and `GiveHeldItemToCharacterOrParty` report refusals
+  as `NoticeDialog` events; return the refusal to the screen instead.
+- Deferred skill-increase notices are recorded but never shown: `FlushDeferredSkillNotices`
+  lost its main-game frame caller in #365 (retail flushed when the screen was not busy).
+  Restore the call.
 - Add regression tests with a light combat fixture: a weapon-set swap toggles
   `alternate_hand` once, and spending one charge keeps a committed item use.
 - Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep

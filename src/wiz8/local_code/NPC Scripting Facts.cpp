@@ -216,7 +216,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                     g_profession_skill_availability[7][character->iProfession] != 0 &&
                     character->skills[W8_SKILL_MODERN_WEAPONS].points < 10) {
                     character->skills[W8_SKILL_MODERN_WEAPONS].points = 10;
-                    ApplySkillChange(character, W8_SKILL_MODERN_WEAPONS);
+                    ApplySkillChange(CurrentGame(), character, W8_SKILL_MODERN_WEAPONS);
                 }
             }
         }
@@ -459,7 +459,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                     added = 5;
                 }
                 character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base += added;
-                ApplyAttributeChange(character, W8_ATTRIBUTE_INTELLIGENCE);
+                ApplyAttributeChange(CurrentGame(), character, W8_ATTRIBUTE_INTELLIGENCE);
             }
         }
         ShowString(Data().strings[0x1dc]);

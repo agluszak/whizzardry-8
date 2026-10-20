@@ -12,16 +12,12 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
-#include "layouts/npc_state.h"
-#include "local_code/Factions.h"
-#include "local_code/UtilityFunctions.h"
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/compiler.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -37,6 +33,8 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -44,6 +42,7 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
@@ -59,6 +58,7 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
@@ -72,6 +72,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
@@ -498,7 +499,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             character = &CurrentGame().party.characters[target->iChar];
             if (character->skills[W8_SKILL_IRON_WILL].active) {
-                PracticeCharacterSkill(character, W8_SKILL_IRON_WILL, 2, false);
+                PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_IRON_WILL, 2, false);
             }
         }
         return true;
@@ -2159,7 +2160,7 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(CurrentGame().party.locateItem(item), destroyed);
+        RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), destroyed);
     }
 }
 

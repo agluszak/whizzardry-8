@@ -22,6 +22,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -124,7 +125,8 @@ void TryGiveHeldItemToCampPortrait(int slot)
     if (!IsCampActionAllowed(slot)) {
         return;
     }
-    AddItemToCharacter(character, &CurrentGame().party.held.item, false, false, false);
+    AddItemToCharacter(CurrentGame(), character, &CurrentGame().party.held.item, false, false,
+                       false);
 }
 
 bool CanSelectRcsPartySlot(int ui_slot)

@@ -738,7 +738,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        ReceiveItemInHand(item->item);
+        ReceiveItemInHand(CurrentGame(), item->item);
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
@@ -1064,7 +1064,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             gold = npc->gold;
         }
         if (gold != 0) {
-            AddPartyGold(gold, true);
+            AddPartyGold(CurrentGame(), gold, true);
         }
         if (items.size() == 1) {
             auto* dropped = AddWorldItem(std::move(items[0]));

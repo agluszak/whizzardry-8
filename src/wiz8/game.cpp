@@ -1,10 +1,15 @@
 #include "wiz8/game.h"
 
+#include <functional>
 #include <optional>
 #include <stdexcept>
+#include <utility>
+
+#include "wiz8/rules/events.h"
 
 namespace {
 std::optional<Game> current_game;
+std::function<void(const Event&)> game_event_observer;
 }
 
 // Finish speech first: its voices complete into the queue and the characters it names.
@@ -33,10 +38,18 @@ bool GameStarted()
 Game& BeginGame()
 {
     current_game.reset();
-    return current_game.emplace();
+    auto& game = current_game.emplace();
+    game.events.observe(game_event_observer);
+    return game;
 }
 
 void EndGame()
 {
     current_game.reset();
+}
+
+void SetGameEventObserver(std::function<void(const Event&)> observer)
+{
+    game_event_observer = std::move(observer);
+    if (current_game) current_game->events.observe(game_event_observer);
 }

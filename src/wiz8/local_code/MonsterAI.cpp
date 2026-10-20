@@ -1186,8 +1186,8 @@ targets_chosen:
     if (scan_chars) {
         for (index = char_lo; index < char_hi; ++index) {
             if (resisted[index] != 0 && Random(2) == 0) {
-                PracticeCharacterSkill(&CurrentGame().party.characters[index], W8_SKILL_STEALTH, 1,
-                                       false);
+                PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[index],
+                                       W8_SKILL_STEALTH, 1, false);
             }
         }
     }

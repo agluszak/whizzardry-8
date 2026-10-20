@@ -5,9 +5,8 @@
 #include <fmt/printf.h>
 
 #include "character_skills.h"
-#include "local_code/Factions.h"
-#include "local_code/HealthStaminaMana.h"
 #include "monster_actions.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -25,7 +24,9 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -35,7 +36,6 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
@@ -43,6 +43,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
@@ -602,7 +603,7 @@ int CharacterPrayAction(int party_slot)
                 CurrentGame().combat.state()->experience_bonus += 10;
             } else {
                 AppendToLastTextLine(Data().strings[0x177], -1);
-                AddPartyGold(100, true);
+                AddPartyGold(CurrentGame(), 100, true);
             }
             prayed = true;
             break;

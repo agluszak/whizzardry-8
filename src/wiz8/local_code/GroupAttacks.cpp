@@ -8,7 +8,6 @@
 #include <fmt/printf.h>
 
 #include "glm/ext/vector_float3.hpp"
-#include "local_code/Factions.h"
 #include "sight_state.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
@@ -18,6 +17,7 @@
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -31,6 +31,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
 

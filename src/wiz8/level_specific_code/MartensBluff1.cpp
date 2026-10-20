@@ -125,7 +125,8 @@ bool MartensBluff1FHandlock(Trigger* pTrigger)
     if (pTrigger->running) {
         return true;
     }
-    if ((CurrentGame().party.held.item.iItemNo != -1) && GetItemInHand() == 0x26f) {
+    if ((CurrentGame().party.held.item.iItemNo != -1) &&
+        GetItemInHand(CurrentGame().party) == 0x26f) {
         return true;
     }
     SetDice(&dice, 2, 4, 1);

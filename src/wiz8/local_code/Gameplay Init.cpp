@@ -66,7 +66,7 @@ void ResetForNewGame(void)
         if (*id != 0xffffffff) {
             item = MakeItem(*id, true, true, true);
             item.stack_count = 1;
-            AddItemToParty(&item, false, false);
+            AddItemToParty(CurrentGame(), &item, false, false);
         }
         ++id;
     } while (id < g_starting_item_ids + 6);

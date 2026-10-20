@@ -12,6 +12,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
@@ -44,7 +45,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -56,6 +56,7 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
@@ -63,7 +64,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/utility.h"
-#include "xstatus.h"
+#include "wiz8/xstatus.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather
    than singly, so a stack of them divides its bundle value out - rounding up,
@@ -1174,7 +1175,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
 
     margin = strength - Data().items[item->iItemNo].identify_difficulty;
     if (margin >= 0 && margin < 3) {
-        PracticeCharacterSkill(character, W8_SKILL_ARTIFACTS, 2, true);
+        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_ARTIFACTS, 2, true);
     }
     return true;
 }
@@ -1193,7 +1194,7 @@ void BindEveryPartyItem(void)
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (!CurrentGame().party.rows[party_slot].item_action_pending) {
-            BindCharacterItems(party_slot, false);
+            BindCharacterItems(CurrentGame(), party_slot, false);
         }
     }
     ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1ed]);
@@ -1625,7 +1626,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         if (SpellAffectedTarget(character, spell_id,
                                 &CurrentGame().party.rows[party_slot].target_out_of_combat,
                                 power)) {
-            PracticeCharacterSkill(character, skill,
+            PracticeCharacterSkill(CurrentGame(), character, skill,
                                    Data().spells[spell_id].spell_level + (power >> 1), false);
         }
     }

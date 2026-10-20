@@ -13,6 +13,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
@@ -500,7 +501,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
     }
 
     RebuildCharacterModifierBlock(destination, &CurrentGame().party.modifiers);
-    RecalculateCharacterDerivedStats(*destination);
+    RecalculateCharacterDerivedStats(CurrentGame(), *destination);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RefreshPartySlotRegions();
     }
@@ -551,12 +552,12 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 
     for (index = 0; index < 12; ++index) {
         if (character->EquippedItem[index].iItemNo != -1) {
-            AddItemToParty(&character->EquippedItem[index], false, false);
+            AddItemToParty(CurrentGame(), &character->EquippedItem[index], false, false);
         }
     }
     for (index = 0; index < 8; ++index) {
         if (character->backpack[index].iItemNo != -1) {
-            AddItemToParty(&character->backpack[index], false, false);
+            AddItemToParty(CurrentGame(), &character->backpack[index], false, false);
         }
     }
     RemoveCharacterFromParty(slot);
@@ -575,7 +576,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
     CurrentGame().party.formation.positions[slot].bOldQuadrant = 0xff;
     RebuildCharacterModifierBlock(character, &CurrentGame().party.modifiers);
-    RecalculateCharacterDerivedStats(*character);
+    RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
         unsigned int cost = ComputeStartingEquipmentCost(character);
         if (CurrentGame().party.gold < cost) {

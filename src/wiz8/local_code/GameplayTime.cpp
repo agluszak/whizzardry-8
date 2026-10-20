@@ -8,12 +8,12 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/native.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
@@ -26,6 +26,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/loaded_game_data.h"
@@ -45,7 +46,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -637,7 +637,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     character->attributes[attribute].base =
                         character->attributes[attribute].base - 1;
                     ++character->attributes[attribute].change_counter;
-                    ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
+                    ApplyAttributeChange(CurrentGame(), character,
+                                         static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
                         party_slot,
                         fmt::sprintf(Data().strings[0x270],
@@ -714,7 +715,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         }
     }
 
-    if (const auto found = FindPartyItem(ItemWithId(0x243), W8ItemReach::Party);
+    if (const auto found =
+            FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
         found.storage != W8ItemStorage::None && found.storage != W8ItemStorage::Hand) {
         auto* holder = CurrentGame().party.holderOf(found);
         if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
@@ -871,7 +873,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (CharacterHasTrait(character, W8_TRAIT_MAKE_POTIONS)) {
         if (CurrentGame().surprise_possible) {
             if (character->potion_brew_cooldown == 0) {
-                BrewAlchemistPotion(character);
+                BrewAlchemistPotion(CurrentGame(), character);
             }
         } else if (character->potion_brew_cooldown != 0) {
             if (minutes >= character->potion_brew_cooldown) {

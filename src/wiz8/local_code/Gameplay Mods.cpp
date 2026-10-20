@@ -60,7 +60,7 @@ void RebuildPartyEffectBlock(void)
         modifiers.boost_stamina_regen = 1;
         modifiers.boost_spell_regen = 1;
     }
-    ApplyPartyModifiers(modifiers);
+    ApplyPartyModifiers(CurrentGame(), modifiers);
     if (modifiers.light == 0) {
         SetSkyNodeVisible(false);
         return;
@@ -171,7 +171,7 @@ void RebuildConditionsAndDerivedStats(int party_slot)
     ApplyBoundNpcPenalty(character, &character->condition_modifiers);
     RebuildCharacterModifierBlock(character,
                                   character->fInParty ? &CurrentGame().party.modifiers : nullptr);
-    RecalculateCharacterDerivedStats(*character);
+    RecalculateCharacterDerivedStats(CurrentGame(), *character);
 }
 
 /* The monster-side rebuild: refill the monster's modifier block from its

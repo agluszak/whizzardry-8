@@ -21,17 +21,8 @@
 #include <fmt/printf.h>
 
 #include "camera_motion.h"
-#include "dialog_code/DialogBase.h"
-#include "dialog_code/DialogTextArea.h"
-#include "dialog_code/DialogTextEntry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "layouts/main_game_screen.h"
-#include "layouts/npc_dialogue.h"
-#include "local_code/ControlsRect.h"
-#include "local_code/Factions.h"
-#include "local_code/RangeControl.h"
-#include "local_code/TextBuffer.h"
 #include "mgs_commands.h"
 #include "npc_trade_price.h"
 #include "texture_animation.h"
@@ -53,8 +44,11 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/DialogTextArea.h"
+#include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/difficulty.h"
@@ -71,6 +65,8 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -81,6 +77,8 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -97,9 +95,11 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
@@ -139,6 +139,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
@@ -890,7 +891,7 @@ void W8LockInteraction::ResolvePick()
     if (Random(5) == 0 && m_trigger->lock_state.ConsumeCountdown()) {
         character = &CurrentGame().party.characters[m_selected_slot];
         level = character->skills[W8_SKILL_LOCKS_TRAPS].level;
-        PracticeCharacterSkill(character, W8_SKILL_LOCKS_TRAPS, 1, false);
+        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_LOCKS_TRAPS, 1, false);
         if (level != static_cast<int>(character->skills[W8_SKILL_LOCKS_TRAPS].level)) {
             m_info_panel->RefreshInfo();
         }
@@ -1589,7 +1590,7 @@ void W8TrapInteraction::Update()
     case W8_TRAP_DISARM_COLUMN_SUCCESS:
         m_disarm_state = W8_TRAP_DISARM_IDLE;
         m_sound_handle = nullptr;
-        PracticeCharacterSkill(&CurrentGame().party.characters[m_selected_character],
+        PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[m_selected_character],
                                W8_SKILL_LOCKS_TRAPS, 1, false);
         RefreshActionPanel();
         for (column = 0; column < 8; ++column) {
@@ -1676,7 +1677,7 @@ void W8TrapInteraction::ApplyInspectSuccess()
     int roll;
 
     m_sound_handle = nullptr;
-    PracticeCharacterSkill(&CurrentGame().party.characters[m_selected_character],
+    PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[m_selected_character],
                            W8_SKILL_LOCKS_TRAPS, 1, false);
     RefreshActionPanel();
     chance = GetTrapInteractionChance();
@@ -4463,7 +4464,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         } else {
                             force_to_party = true;
                         }
-                        GiveHeldItemToCharacterOrParty(slot, force_to_party);
+                        GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
                         if (ItemUseDraft()) {
                             RefreshUseItemSelection();
                         }
@@ -4569,7 +4570,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
                 return UiResult::Handled;
             }
-            GiveHeldItemToCharacterOrParty(slot, true);
+            GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true);
             if (ItemUseDraft()) {
                 RefreshUseItemSelection();
                 return UiResult::Handled;
@@ -4710,7 +4711,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
             return UiResult::Handled;
         }
         if ((event.modifiers & SHIFT_DOWN) == 0) {
-            BindCharacterItems(slot, true);
+            BindCharacterItems(CurrentGame(), slot, true);
             return UiResult::Handled;
         }
         BindEveryPartyItem();
@@ -5111,7 +5112,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (g_level_block->highlighted_item == -1) {
         if ((CurrentGame().party.held.item.iItemNo != -1) && GetSelectedPropIndex() == -1) {
             if (!gXStatus.world_update_blocked) {
-                DropItemInHand(1);
+                DropItemInHand(CurrentGame(), 1);
             }
         } else if (g_level_block->selected_item != -1) {
             if (!gXStatus.world_update_blocked &&

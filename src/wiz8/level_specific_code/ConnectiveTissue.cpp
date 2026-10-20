@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/ConnectiveTissue.h"
 
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -32,7 +33,7 @@ static void EnableMonGenerator(const char* name)
 bool ConnectiveTissueLiche(Trigger* pTrigger)
 {
 
-    if (GetItemInHand() != 0x15d && pTrigger->action == 0) {
+    if (GetItemInHand(CurrentGame().party) != 0x15d && pTrigger->action == 0) {
         ShowLevelMessage(6);
         g_trigger_feedback = true;
         return false;

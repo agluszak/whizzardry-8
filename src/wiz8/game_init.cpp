@@ -21,6 +21,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
@@ -48,6 +49,7 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
     ResetScreenRouting();
+    SetGameEventObserver(PresentGameEvent);
     SetShadeTablePercent((float)0.66);
     if (!InitializeMenuFonts()) {
         return 0;

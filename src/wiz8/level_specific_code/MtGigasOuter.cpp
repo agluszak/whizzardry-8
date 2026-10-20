@@ -98,7 +98,7 @@ bool OnCrankTriggerActivated(Trigger* trigger)
         position.y = LIFT_PARKED_Y;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
-        ReplaceHeldItem(MakeItem(0x290, false, false, false));
+        ReplaceHeldItem(CurrentGame(), MakeItem(0x290, false, false, false));
         SetItemCursor(0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
@@ -241,7 +241,7 @@ bool OnSentryTriggerActivated(Trigger* trigger)
 bool OnEwaxxDoor03Activated(Trigger* trigger)
 {
     if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        int item_id = GetItemInHand();
+        int item_id = GetItemInHand(CurrentGame().party);
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;
         }

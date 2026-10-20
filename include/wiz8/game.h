@@ -1,10 +1,13 @@
 #pragma once
 
+#include <functional>
+
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 
 /* One play-through, from choosing a new game or loading one until the player quits to
@@ -37,6 +40,8 @@ public:
        blocks the magic-effects tick until it opens. */
     bool item_pick_pending = false;
     int item_manager_pending = 0;
+    // What happened, in order, for the UI to present.
+    Events events;
 };
 
 /* The game in progress. Transitional: code that does not receive the game yet reaches
@@ -46,6 +51,10 @@ Game& CurrentGame();
 bool GameInProgress();
 // A game is in progress and the party has left party creation.
 bool GameStarted();
-// Begin a new game, ending any in progress.
+/* Begin a new game, ending any in progress. The new game's events go to the observer
+   the UI installed. */
 Game& BeginGame();
 void EndGame();
+/* The composition root's presenter for every game's events; a game begun before one is
+   installed keeps its events pending. */
+void SetGameEventObserver(std::function<void(const Event&)> observer);

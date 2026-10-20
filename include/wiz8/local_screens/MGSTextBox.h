@@ -8,6 +8,7 @@ struct W8Chunk;
 
 #include "wiz8/canvas/Font.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;
@@ -19,12 +20,6 @@ enum W8NoticeWordState : unsigned char {
     W8_NOTICE_WORD_NORMAL = 0,
     W8_NOTICE_WORD_HOVERED = 1,
     W8_NOTICE_WORD_SELECTED = 2
-};
-
-enum W8TextBoxMode : unsigned char {
-    W8_TEXT_BOX_MODE_NOTICE = 0,
-    W8_TEXT_BOX_MODE_APPEND = 1,
-    W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
 };
 
 struct W8NoticeWord {
@@ -156,10 +151,6 @@ void ResetMessageStorage(void);
 unsigned char SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */
 unsigned char LoadMessageStorage(W8Chunk& file);
-/* Defaults select the live mode's text box and its available line width. */
-const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
-const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
-
 void ShowNotice(unsigned int font_palette, std::string_view text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);

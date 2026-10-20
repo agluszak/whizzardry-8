@@ -11,9 +11,6 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/npc_state.h"
-#include "local_code/Factions.h"
-#include "local_code/SpellEffect.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
@@ -21,6 +18,7 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/data/attack_modes.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -37,6 +35,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
@@ -46,6 +45,7 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -57,10 +57,10 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
@@ -379,7 +379,7 @@ int ApplyCharacterDamageReduction(W8Character* character, int damage)
         damage = 0;
     }
     if (character->skills[W8_SKILL_IRON_SKIN].active) {
-        PracticeCharacterSkill(character, W8_SKILL_IRON_SKIN, 1, false);
+        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_IRON_SKIN, 1, false);
     }
     return damage;
 }
@@ -4062,18 +4062,21 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
         } else if (outcome > 3) {
             if (character->Hand[hand].combat_skill == W8_SKILL_CLOSE_COMBAT) {
                 if (character->skills[W8_SKILL_CRITICAL_STRIKE].active) {
-                    PracticeCharacterSkill(character, W8_SKILL_CRITICAL_STRIKE, 1, false);
+                    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_CRITICAL_STRIKE, 1,
+                                           false);
                 }
                 if (character->skills[W8_SKILL_POWER_STRIKE].active) {
-                    PracticeCharacterSkill(character, W8_SKILL_POWER_STRIKE, 1, false);
+                    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_POWER_STRIKE, 1,
+                                           false);
                 }
             } else if (character->Hand[hand].combat_skill == W8_SKILL_RANGED_COMBAT) {
                 if (character->skills[W8_SKILL_EAGLE_EYE].active) {
-                    PracticeCharacterSkill(character, W8_SKILL_EAGLE_EYE, 1, false);
+                    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_EAGLE_EYE, 1, false);
                 }
                 if (CharacterHasTrait(character, W8_TRAIT_THROWN_CRITICALS) &&
                     character->skills[W8_SKILL_CRITICAL_STRIKE].active) {
-                    PracticeCharacterSkill(character, W8_SKILL_CRITICAL_STRIKE, 1, false);
+                    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_CRITICAL_STRIKE, 1,
+                                           false);
                 }
             }
         }
@@ -4086,7 +4089,8 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
     }
     FatigueCharacter(party_slot, CharacterActionFatigueCost(party_slot, party_row->pending_action),
                      true, 0);
-    if (ConsumeAttackItems(party_slot, hand, row->current_equip_slot, row->paired_equip_slot))
+    if (ConsumeAttackItems(CurrentGame(), party_slot, hand, row->current_equip_slot,
+                           row->paired_equip_slot))
         row->uiSwingsRemaining = 1;
     if (row->uiSwingsRemaining == 0) {
         Fail("pCmbt->uiSwingsRemaining > 0");

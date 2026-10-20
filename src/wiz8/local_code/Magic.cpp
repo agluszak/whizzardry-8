@@ -21,7 +21,6 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
@@ -54,6 +53,7 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -80,6 +80,7 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
@@ -1079,17 +1080,18 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
 
     LearnSpell(character, spell_id, true);
     usage_points = Data().spells[spell_id].spell_level;
-    PracticeCharacterSkill(character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
+    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
     PracticeCharacterSkill(
-        character,
+        CurrentGame(), character,
         static_cast<W8Skill>(static_cast<int>(W8_SKILL_FIRE_MAGIC) + Data().spells[spell_id].realm),
         usage_points, false);
     for (skill_id = W8_SKILL_SPELLBOOK_WIZARDRY; skill_id < W8_SKILL_FIRE_MAGIC; ++skill_id) {
         if (Data().spells[spell_id].wizardry_spell != 0) {
-            PracticeCharacterSkill(character, static_cast<W8Skill>(skill_id), usage_points, false);
+            PracticeCharacterSkill(CurrentGame(), character, static_cast<W8Skill>(skill_id),
+                                   usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame().party.locateItem(item));
+    (void)TakeInventoryItem(CurrentGame(), CurrentGame().party.locateItem(item));
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -2589,10 +2591,11 @@ finish_difficulty_adjustment:
             if (index < 2) {
                 Fail("uiUsagePoints >= 2");
             }
-            PracticeCharacterSkill(character, best_skill, (index + 2) >> 2, false);
-            PracticeCharacterSkill(character, realm_skill, index, false);
+            PracticeCharacterSkill(CurrentGame(), character, best_skill, (index + 2) >> 2, false);
+            PracticeCharacterSkill(CurrentGame(), character, realm_skill, index, false);
             if (character->skills[W8_SKILL_POWER_CAST].active) {
-                PracticeCharacterSkill(character, W8_SKILL_POWER_CAST, (index + 2) >> 2, false);
+                PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_POWER_CAST,
+                                       (index + 2) >> 2, false);
             }
         }
     }

@@ -15,11 +15,6 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/levels.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/npc_state.h"
-#include "local_code/Factions.h"
-#include "local_screens/MGSPortraitCombat.h"
 #include "message_box.h"
 #include "monster_actions.h"
 #include "sight_state.h"
@@ -30,6 +25,7 @@
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/attack_modes.h"
+#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
@@ -47,6 +43,9 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/levels.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
@@ -56,6 +55,7 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -77,9 +77,9 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
+#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -580,7 +580,7 @@ void BeginCombatExecution(void)
                 character->hp_current == 0 || character->highest_condition >= W8_CONDITION_ASLEEP;
             row->phase_clock_stamp = 0;
             row->defend_switched = false;
-            RecalculateArmorClass(*character);
+            RecalculateArmorClass(CurrentGame(), *character);
         }
     }
     RepickInvalidCombatTargets();
@@ -1107,7 +1107,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     phase_ = Phase::Restoring;
-    if (CurrentGame().party.redistribution_pending) RedistributePartyEncumbrance();
+    if (CurrentGame().party.redistribution_pending) RedistributePartyEncumbrance(CurrentGame());
     if (state_->search_mode_saved != 0) {
         ToggleSearchMode();
     }
@@ -1138,7 +1138,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     ResetLivingMonstersAfterCombat();
     for (int slot = 0; slot < 8; ++slot) {
         if (CurrentGame().party.rows[slot].fOccupied) {
-            RecalculateArmorClass(CurrentGame().party.characters[slot]);
+            RecalculateArmorClass(CurrentGame(), CurrentGame().party.characters[slot]);
         }
     }
     if (gXStatus.world_update_blocked) {
@@ -1309,7 +1309,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
                  CurrentGame().party.rows[party_slot].pending_action == W8_ACTION_EQUIP)) {
         PostCharacterNotice(party_slot, Data().strings[0x226]);
     }
-    RecalculateArmorClass(*character);
+    RecalculateArmorClass(CurrentGame(), *character);
 }
 
 /* Ask the slot's currently selected action which context its outputs hold:
@@ -1388,7 +1388,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
             if (!allow_equipment_changes) {
                 return false;
             }
-            ReadyPrimaryWeapon(party_slot);
+            ReadyPrimaryWeapon(CurrentGame(), party_slot);
             if (!CanAnyHandReachTarget(party_slot)) {
                 return false;
             }
@@ -1399,7 +1399,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
             if (!allow_equipment_changes) {
                 return false;
             }
-            ReadyPrimaryWeapon(party_slot);
+            ReadyPrimaryWeapon(CurrentGame(), party_slot);
             if (!CanCharacterBerserk(party_slot)) {
                 return false;
             }
@@ -1625,7 +1625,7 @@ void AssignCombatPhases(void)
             RoundPhaseToStep(&row->phase, 10);
             if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
                 character->skills[W8_SKILL_SNAKESPEED].active && Random(5) == 0) {
-                PracticeCharacterSkill(character, W8_SKILL_SNAKESPEED, 1, false);
+                PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_SNAKESPEED, 1, false);
             }
         }
     }
@@ -1684,10 +1684,10 @@ void PracticeCombatRoundSkills(int party_slot)
                 } else if (pick == 2) {
                     skill_id = W8_SKILL_DUAL_WEAPONS;
                 }
-                PracticeCharacterSkill(character, skill_id, 1, false);
+                PracticeCharacterSkill(CurrentGame(), character, skill_id, 1, false);
                 if (skill_id == hand_record->weapon_skill &&
                     hand_record->combat_skill == W8_SKILL_CLOSE_COMBAT && Random(100) < 0x19) {
-                    PracticeCharacterSkill(character, skill_id, 1, false);
+                    PracticeCharacterSkill(CurrentGame(), character, skill_id, 1, false);
                 }
             }
             --hand_record->score;
@@ -1697,7 +1697,8 @@ void PracticeCombatRoundSkills(int party_slot)
         if (row->skill_use_flags[skill_id] != 0 &&
             (skill_id == W8_SKILL_SHIELD || skill_id == W8_SKILL_STEALTH ||
              skill_id == W8_SKILL_REFLEXTION)) {
-            PracticeCharacterSkill(character, static_cast<W8Skill>(skill_id), 2, false);
+            PracticeCharacterSkill(CurrentGame(), character, static_cast<W8Skill>(skill_id), 2,
+                                   false);
             row->skill_use_flags[skill_id] = 0;
         }
     }
@@ -1786,7 +1787,7 @@ void AdvanceCombatRound(void)
                 (character->hp_current == 0 || character->highest_condition > W8_CONDITION_WEBBED)
                     ? 1
                     : 0;
-            RecalculateArmorClass(*character);
+            RecalculateArmorClass(CurrentGame(), *character);
         }
     }
     index = 0;
@@ -2168,7 +2169,8 @@ void ExecuteCharacterAction(int party_slot)
         result = CanCharacterAttackItsTarget(party_slot);
         break;
     case W8_ACTION_USE_ITEM: {
-        const auto use = UseItem(party_slot, slot->pending_action_detail.item_use.item);
+        const auto use =
+            UseItem(CurrentGame(), party_slot, slot->pending_action_detail.item_use.item);
         fatigue_cost = use.fatigue_cost.value_or(-1);
         if (use.effect == 0) {
             result = 0;
@@ -2910,13 +2912,13 @@ int GetConditionInterrupt(W8TargetSource* source)
             if (!AreAllHandSlotsEmpty(&CurrentGame().party.characters[party_slot]) &&
                 CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
                 CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
-                SwapWeaponSetSlots(party_slot, false);
+                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
                     PostCharacterNotice(party_slot, Data().strings[0x23d]);
                     return 9;
                 }
-                SwapWeaponSetSlots(party_slot, false);
+                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
             }
             return 10;
         }

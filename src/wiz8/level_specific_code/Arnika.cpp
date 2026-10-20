@@ -322,7 +322,7 @@ bool ArnikaLaserScanMaster(int command)
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
 bool ArnikaScannerDoor(Trigger* pTrigger)
 {
-    if (!PartyHasItem(0x27b)) {
+    if (!PartyHasItem(CurrentGame().party, 0x27b)) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
@@ -861,14 +861,14 @@ int ArnikaPedestalItem(int* previous_item)
     int previous;
 
     if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        item = GetItemInHand();
+        item = GetItemInHand(CurrentGame().party);
         if (item != 0x244 && item != 0x242 && item != 0x264) {
             return -2;
         }
     }
     FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
-        (void)TakeInventoryItem({W8ItemStorage::Hand});
+        (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
     }
     if (GetLocationVarIDByName("PedestalItem") != -1 &&
         GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -888,7 +888,7 @@ int ArnikaPedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ReplaceHeldItem(MakeItem(previous, false, false, false));
+            ReplaceHeldItem(CurrentGame(), MakeItem(previous, false, false, false));
         }
     } else {
         previous = GetLocationVarValueByName("PedestalItem");
@@ -897,7 +897,7 @@ int ArnikaPedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ReplaceHeldItem(MakeItem(previous, false, false, false));
+            ReplaceHeldItem(CurrentGame(), MakeItem(previous, false, false, false));
         }
     }
     SetItemCursor(0);
