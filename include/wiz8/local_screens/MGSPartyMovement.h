@@ -11,5 +11,8 @@ void DrawPartyMovementPanel(void);
 void DisablePartyMovementRegions(void);
 
 void InvalidatePartyMovementPanel(void);
+/* Repaint the movement gauge when the party's remaining move changed since it was last
+   shown, or always with `force`. */
+void ShowPartyMovementGauge(bool force);
 void DisableFreeTurnButton(void);
 void EnableFreeTurnButton(void);

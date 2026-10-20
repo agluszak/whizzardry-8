@@ -74,8 +74,17 @@ unsigned char CreatePartyMovementPanel(void)
         button->SetVisible(index == 1);
     }
     MainGame()->party_movement_panel = true;
-    MainGameHud()->move_percent = MainGameHud()->move_percent_shown = 100;
+    CurrentGame().combat.state()->party_move_percent = 100;
+    MainGameHud()->move_percent_shown = 100;
     return 1;
+}
+
+void ShowPartyMovementGauge(bool force)
+{
+    const int percent = CurrentGame().combat.state()->party_move_percent;
+    if (!force && percent == MainGameHud()->move_percent_shown) return;
+    InvalidatePartyMovementPanel();
+    MainGameHud()->move_percent_shown = percent;
 }
 
 void ReleasePartyMovement(void)
@@ -131,11 +140,12 @@ void DrawPartyMovementPanel(void)
         movement->buttons[visible]->Refresh(true);
         movement->dirty = false;
     }
-    right = 0x1b9 - MainGameHud()->move_percent * 0xf6 / 100;
+    const int percent = CurrentGame().combat.state()->party_move_percent;
+    right = 0x1b9 - percent * 0xf6 / 100;
     if (!CanPartyMove()) {
         if (!IsLevelMovementStopped()) {
             image = 1;
-            caption = ((MainGameHud()->move_percent != 100) - 1 & 0x77f) - 1;
+            caption = ((percent != 100) - 1 & 0x77f) - 1;
         } else {
             image = 2;
             caption = 0x77d;
