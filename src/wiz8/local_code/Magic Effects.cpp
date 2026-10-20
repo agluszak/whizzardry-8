@@ -1166,6 +1166,7 @@ unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition con
         }
         return monster_info->uiCondition[condition];
     }
+    if (argument != 0) *argument = 0;
     return 0;
 }
 
