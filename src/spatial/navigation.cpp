@@ -53,7 +53,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/navigation_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"

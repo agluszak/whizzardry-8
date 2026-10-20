@@ -89,15 +89,12 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/Traps.h"
@@ -228,8 +225,6 @@ static char g_text_enter_default_level[] = "Enter default level ?";
 const float g_mouselook_yaw_scale = 0.004908738192170858f;
 const float g_mouselook_pitch_scale = 0.00654498441144824f;
 const float g_text_panel_progress_scale = 120.0f;
-
-bool g_navigator_position_changed;
 
 static void ApplyPendingMouselook(void);
 void ApplyPendingTooltip(void);
@@ -2422,7 +2417,6 @@ void MainGameScreen::frame()
     if (g_level_block->keyboard_menu_open || g_level_block->combat_slot != -1) {
         UpdateKeyboardMenu();
     }
-    UpdateSurpriseMode();
     if (CurrentGame().combat.active()) {
         for (int slot = 0; slot < 8; ++slot) {
             if (!CurrentGame().party.rows[slot].fOccupied ||
@@ -2445,13 +2439,6 @@ void MainGameScreen::frame()
     if (IsScreenTransitionPending()) {
         DrawMainGameScreen();
         return;
-    }
-    ProcessMainGameAutoSave();
-    UpdateSharedGameDataObject();
-    g_animated_prop_present = false;
-    WorldUpdateProps(GetWorld());
-    if (GetSecondaryWorld()) {
-        WorldUpdateProps(GetSecondaryWorld());
     }
     SDL_Point point;
     point = CursorPosition();
@@ -2516,52 +2503,13 @@ void MainGameScreen::frame()
             }
             ApplyCurrentCursor();
         }
-        ProcessMonsterManagerFrame();
-
-        if (!CurrentGame().combat.active()) {
-            float real_elapsed;
-            float frame_elapsed;
-            HandlePartyMovement(&real_elapsed, &frame_elapsed);
-            RunSearchPulse();
-        } else if (!g_level_block->transition_active && !gpSCSV &&
-                   !CurrentGame().activity.conversation && !ItemUseDraft()) {
-            UpdateCombat();
-        }
-        if (IsSightRangeOverridden() && !CurrentGame().combat.active() && AnyCharacterActive() &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount()) {
-            CurrentGame().combat.Start(0);
-        }
-        if (!TimeUntilDeadline(g_level_block->character_update_timer)) {
-            UpdateMonsterSight();
-            g_level_block->character_update_timer = w8_get_ticks() + (500);
-        }
-        if (!CurrentGame().advancement.held) {
-            UpdateMonsterGroups(true);
-            if (!CurrentGame().combat.active() && AnyCharacterActive() &&
-                CurrentLevelPopulation().monster_roster.hostileCombatCount() &&
-                !CurrentGame().activity.conversation) {
-                CurrentGame().combat.Start(0);
-            }
-            if (g_navigator_position_changed) {
-                g_navigator_position_changed = false;
-                if (g_level_block) {
-                    if (CurrentGame().combat.active()) {
-                        g_level_block->refresh_combat_panel = 1;
-                    }
-                }
-                CurrentGame().sight_refresh_pending = true;
-            }
-        }
+        CurrentGame().advance(
+            {.combat = g_level_block->transition_active || gpSCSV || ItemUseDraft()});
         if (CurrentGame().combat.active() && g_level_block->refresh_combat_panel &&
             !TimeUntilDeadline(g_level_block->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
             g_level_block->combat_panel_timer = w8_get_ticks() + (500);
             g_level_block->refresh_combat_panel = 0;
-        }
-        if (!TimeUntilDeadline(g_level_block->world_update_timer)) {
-            UpdateNearbyWorldItems();
-            DetachAllWorldItems();
-            g_level_block->world_update_timer = w8_get_ticks() + (50);
         }
         if (gpSCSV) CommitSpellCastingSelection();
         if (ItemUseDraft()) CommitSelectedItemUse();
@@ -2587,10 +2535,6 @@ void MainGameScreen::frame()
             }
             SelectPartyCharacter(next);
         }
-    }
-    if (!IsScreenTransitionPending() &&
-        (!CurrentGame().advancement.paused || CurrentGame().combat.active())) {
-        UpdateWorlds();
     }
     DrawMainGameScreen();
 }

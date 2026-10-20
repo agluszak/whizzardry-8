@@ -17,6 +17,7 @@
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
@@ -28,14 +29,18 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 /* PHASES_PER_ROUND, named by the assertion that bounds the phase. */
 enum { W8_PHASES_PER_ROUND = 100 };
+
+constexpr float kMovementFatigueTickScale = 0.0004f;
 
 namespace {
 /* The movement gauge: how far the party may move this action, and how far
@@ -85,16 +90,64 @@ void RoundPhaseToStep(unsigned int* phase, unsigned int base)
     }
 }
 
+/* Movement fatigue: each occupied party slot with stamina and a bearable load
+   accumulates distance scaled by load, doubled in combat and raised again while
+   diseased, until the accumulator crosses 2500 and converts into real fatigue.
+   Returns the elapsed times the level's motion consumed, or nothing when the
+   party did not move. */
+std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
+{
+    PartyMotionElapsed elapsed;
+    if (ConsumeLevelElapsedTime(&elapsed.real, &elapsed.frame) == 0) return std::nullopt;
+    for (unsigned int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
+        W8PartySlotRow& row = game.party.rows[party_slot];
+        const W8Character& character = game.party.characters[party_slot];
+        if (!row.fOccupied || character.stamina <= 0 ||
+            character.highest_condition >= W8_CONDITION_ASLEEP) {
+            continue;
+        }
+        float amount = elapsed.frame;
+        if (game.status.search_mode || game.combat.active()) amount = elapsed.real * 0.5f + amount;
+        float multiplier = 1.0f;
+        switch (character.load_category) {
+        case W8_LOAD_NONE:
+            multiplier = 1.0f;
+            break;
+        case W8_LOAD_LIGHT:
+            multiplier = 1.25f;
+            break;
+        case W8_LOAD_MEDIUM:
+            multiplier = 1.5f;
+            break;
+        case W8_LOAD_HEAVY:
+            multiplier = 2.0f;
+            break;
+        case W8_LOAD_EXTREME:
+            multiplier = 3.0f;
+            break;
+        default:
+            Fail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
+        }
+        if (game.combat.active()) multiplier += multiplier;
+        if (character.uiCondition[W8_CONDITION_DISEASED] != 0) multiplier *= 1.5f;
+        row.movement_fatigue = multiplier * amount + row.movement_fatigue;
+        if (row.movement_fatigue > g_position_height_epsilon) {
+            const auto ticks =
+                static_cast<unsigned int>(row.movement_fatigue * kMovementFatigueTickScale);
+            FatigueCharacter(static_cast<int>(party_slot), static_cast<int>(ticks), false, 0);
+            row.movement_fatigue = row.movement_fatigue - (ticks * 0x9c4);
+        }
+    }
+    return elapsed;
+}
+
 /* Advance the movement gauge from real world motion. Continuous-combat mode
    supplies a bounded synthetic step while the world is stationary. Emptying
    the gauge completes the action and synchronizes every combatant/UI owner. */
 void UpdateActivePartyMovement(void)
 {
-    float real_elapsed;
-    float frame_elapsed;
-
-    if (HandlePartyMovement(&real_elapsed, &frame_elapsed) != 0) {
-        party_move_distance += real_elapsed + frame_elapsed;
+    if (const auto elapsed = AccumulateMovementFatigue(CurrentGame())) {
+        party_move_distance += elapsed->real + elapsed->frame;
     } else if (g_settings.continuous_combat != 0 &&
                TimeUntilDeadline(CurrentGame().combat.state()->party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;

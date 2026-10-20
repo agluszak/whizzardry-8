@@ -22,24 +22,18 @@
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/rules/character.h"
-#include "wiz8/rules/conditions.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
-constexpr float kMovementFatigueTickScale = 0.0004f;
 
 namespace {
 struct PartyMovementPanel {
@@ -248,62 +242,3 @@ void EnableFreeTurnButton(void)
     movement->buttons[0]->SetEnabled(true);
 }
 
-/* Per-frame movement/fatigue processing: each occupied party slot with stamina
-   and a bearable load accumulates distance scaled by load, doubled in combat
-   and raised again while the second condition runs, until the accumulator
-   crosses 2500 and converts into real fatigue. */
-unsigned char HandlePartyMovement(float* real_elapsed, float* frame_elapsed)
-{
-    int party_slot;
-    float amount;
-    float multiplier;
-    unsigned int ticks;
-
-    if (ConsumeLevelElapsedTime(real_elapsed, frame_elapsed) == 0) {
-        return 0;
-    }
-    for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-        W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (!row->fOccupied || character->stamina <= 0 ||
-            character->highest_condition >= W8_CONDITION_ASLEEP) {
-            continue;
-        }
-        amount = *frame_elapsed;
-        if (CurrentGame().status.search_mode || CurrentGame().combat.active()) {
-            amount = *real_elapsed * 0.5f + amount;
-        }
-        switch (character->load_category) {
-        case 0:
-            multiplier = 1.0f;
-            break;
-        case 1:
-            multiplier = 1.25f;
-            break;
-        case 2:
-            multiplier = 1.5f;
-            break;
-        case 3:
-            multiplier = 2.0f;
-            break;
-        case 4:
-            multiplier = 3.0f;
-            break;
-        default:
-            Fail("FALSE", "HandlePartyMovement: ERROR - Invalid load category");
-        }
-        if (CurrentGame().combat.active()) {
-            multiplier += multiplier;
-        }
-        if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
-            multiplier *= 1.5f;
-        }
-        row->movement_fatigue = multiplier * amount + row->movement_fatigue;
-        if (row->movement_fatigue > g_position_height_epsilon) {
-            ticks = static_cast<unsigned int>(row->movement_fatigue * kMovementFatigueTickScale);
-            FatigueCharacter(party_slot, ticks, false, 0);
-            row->movement_fatigue = row->movement_fatigue - (ticks * 0x9c4);
-        }
-    }
-    return 1;
-}

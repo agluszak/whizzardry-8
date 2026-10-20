@@ -189,6 +189,15 @@ Unlayered code may use the layers.
   the world, fed by the environment clock and by the rounds of a fight there; aging also
   waits while `aging_held`, which the screens set while the camp's Use hands an item to
   the use-item picker.
+- **Stepping.** `Game::advance` (`game_advance.cpp`) is the world's simulation step, in
+  retail order: the surprise sequence, autosave pacing, the worlds' props, the monster
+  manager, movement fatigue and the search sweep (or the combat turn in a fight), combat
+  starts, monster sight and the nearby world items on their own deadlines, monster
+  groups, and the worlds. The main game screen is its driver: each frame it reads input
+  and moves the camera, steps the game unless a screen transition is pending (telling it
+  whether a picker or a level transition holds the combat turn), then commits pickers,
+  services dialogue and draws. A navigator that moved during a fight is reported as
+  `CombatantsMoved`, and the screen recounts its monster target panel.
 - **The combat turn.** `W8CombatState::turn()` is a `CombatTurn` value: idle, or a
   `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when
   used) that is scheduled, resolving or finishing. `UpdateCombat` steps it once per

@@ -24,7 +24,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/segment_math.h"
@@ -39,6 +38,8 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
+
+bool g_navigator_position_changed;
 
 /* The world object the navigator notifies when it leaves a location, and
    the notification itself. 0x0042E880 sits outside every assertion-backed

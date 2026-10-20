@@ -4,6 +4,14 @@
 
 #include "wiz8/rules/targeting.h"
 
+class Game;
+
+// The real and frame time the level's party motion consumed in one step.
+struct PartyMotionElapsed {
+    float real = 0.0f;
+    float frame = 0.0f;
+};
+
 void SetPendingMoveKind(W8ActionKind kind);
 std::optional<unsigned int> GetPartyHasteSteps();
 void CompletePartyMovementTurns(void);
@@ -18,6 +26,9 @@ void StartPartyMovementAction(W8PartyAction move_kind);
 /* A new round: arm the movement gauge for a pending walk or run, otherwise
    stop level movement. */
 void ResetRoundPartyMovement(void);
+/* Convert the party's motion since the last step into movement fatigue; nothing when
+   the party did not move. */
+std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game);
 void UpdateActivePartyMovement(void);
 void UpdatePartyMovementControl(void);
 void RoundPhaseToStep(unsigned int* phase, unsigned int base);

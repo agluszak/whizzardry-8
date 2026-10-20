@@ -166,6 +166,7 @@ target_sources(wiz8_engine PRIVATE
     character_skills.cpp
     loaded_game_data.cpp
     game.cpp
+    game_advance.cpp
     fact_state.cpp
     ../world/party_camera.cpp
     ../world/party_motion.cpp
