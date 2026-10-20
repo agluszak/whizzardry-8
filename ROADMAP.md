@@ -19,7 +19,8 @@ Today the architecture is the decompiled program's:
   uses), `g_combat` (1,050), `gXStatus` (630), `g_level_block` (950, 93% of them in
   screens) and `g_localized_strings` (1,080).
 - **The simulation runs inside a screen.** `MainGameScreen::frame` ticks the simulation,
-  and game time passes only while that screen is current (`environment.cpp:98`).
+  and the screen router sets `Activity::place`, so game time passes only while the main
+  game screen is current.
 - **Rules drive presentation directly.** Rules call it about 500 times (notices,
   redraws, cursor, screen ids), and 32 of the 57 `local_code` files include screen
   headers.
@@ -59,10 +60,11 @@ The decisions behind it:
      invalidated.
    - The retail order of messages and voices and every random draw are preserved.
 3. **An activity replaces UI modes.**
-   - `Game::activity` is one of: Exploring, Camping, Conversation{npc}, ScriptedScene
-     or Combat.
+   - `Game::activity` says where the party is (the world or camp) and whether it is
+     talking, has set a conversation aside or is in a scripted scene. Combat stays
+     `Game::combat`, because a fight goes on in any of them.
    - Rules branch on the activity: Identify works only while camping, and time passes
-     while exploring or fighting.
+     while the party is in the world.
    - Rules never branch on a screen id or on `fCampMode`/`fNpcDialogueMode`-style
      flags. Screens follow the activity.
 4. **The simulation steps in one place.**
@@ -119,14 +121,13 @@ the licensed runtime scenarios after every step.
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
    - This absorbs "characters by slot, items by location" below.
-4. **Activity.** Replace `fCampMode`, `fNpcDialogueMode`, `fPartyMovementMode`,
-   `scripted_scene` and the screen-id checks in rules (about 130 reads) with
-   `Game::activity`.
-5. **One step.**
+4. **One step.**
    - Move the frame's simulation order into `Game::advance`, and move the primary and sky
      worlds into the game's `Level`.
-   - Game time follows the activity, not the screen.
-6. **Presentation owned by screens.**
+   - Game time follows the activity, not the screen: camp commands set `Activity::place`
+     instead of the screen router, and `Place::Menu` goes because a covered screen does
+     not step.
+5. **Presentation owned by screens.**
    - `g_level_block`, the cursor, the targeting mode, `edited_formation` and `item_drag`
      become screen members. `gXStatus` is deleted.
    - Camp, character and options state folds into their screens, and the HUD panels
@@ -136,16 +137,16 @@ the licensed runtime scenarios after every step.
      the item-action buttons belong to the items page.
    - The held-item cursor is derived every frame from the hand and the interaction
      mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
-7. **Conditions, magic and combat in `rules`.**
+6. **Conditions, magic and combat in `rules`.**
    - Conditions, spells and attack resolution return results and emit events.
    - `Combat` becomes an owned turn system, signalled by animation and missile events.
-8. **Story state.**
+7. **Story state.**
    - Facts, factions, the journal, NPC states, location variables and the message log
      move into `GameState`.
    - NPC scripting and level scripts take a context (the world, the party, story state,
      events) instead of reaching globals, and level-script statics become per-level
      script objects.
-9. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
+8. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
    `decode(...)`. Then delete `W8GlobalStatus` as a runtime type.
 
 ## Within the layers
@@ -167,7 +168,7 @@ each.
   - Make the retail previous-pass damage bonus used by swings an explicit history
     input, so that a different number of passes cannot change combat results.
 - **The party and actions model.** (After step 1; choices move with `Combat` in
-  step 7.) `W8PartySlotRow` mixes several unrelated kinds of state:
+  step 6.) `W8PartySlotRow` mixes several unrelated kinds of state:
   - persistent membership, NPC binding and marching order;
   - combat choices (pending, committed, remembered and spell actions, targets);
   - UI flags (`item_action_pending`, `portrait_advance`) and accumulators
@@ -189,7 +190,7 @@ each.
   trade rows do, and abandon on mismatch, because pool compaction can silently
   retarget a location.
 - **Runtime types with semantic shape; retail layout only in codecs.** (Finished
-  by step 9.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
+  by step 8.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
   state still carry retail field names and sizes: about 1,230 uses of Hungarian
   names such as `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size
   `static_assert`s. Twenty-eight `wiz8::retail::Record` codecs already exist.
@@ -199,7 +200,7 @@ each.
   - codecs own every byte, including unknown fields;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
-- **Actor references.** (After step 5, when the game owns the level.) About 500
+- **Actor references.** (After step 4, when the game owns the level.) About 500
   uses of raw `p3D` actor pointers survive. The location-ID review fixed some
   unloaded-actor cases. Replace borrowed pointers with world-owned handles or
   explicit lookups resolved at use, including trigger-driven reactivation, and add

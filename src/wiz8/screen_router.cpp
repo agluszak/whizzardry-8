@@ -33,10 +33,42 @@ struct ScreenRouter {
     W8ScreenId previous = W8_SCREEN_NONE;
     W8ScreenId last_suspended = W8_SCREEN_NONE;
 
+    void show(ScreenRequest request)
+    {
+        current = std::move(request);
+        place_party();
+    }
+
+    // No screen is current until the next one enters.
+    void show_none()
+    {
+        current.id = W8_SCREEN_NONE;
+        place_party();
+    }
+
+    /* Until the game steps its own simulation (ROADMAP.md, "Migration"), the current
+       screen is where the party is: the main game shows the world, the camp screen the
+       camp, and any other screen pauses the game under it. */
+    void place_party() const
+    {
+        if (!GameInProgress()) return;
+        switch (current.id) {
+        case W8_SCREEN_MAIN_GAME:
+            CurrentGame().activity.place = Activity::Place::World;
+            break;
+        case W8_SCREEN_CAMP:
+            CurrentGame().activity.place = Activity::Place::Camp;
+            break;
+        default:
+            CurrentGame().activity.place = Activity::Place::Menu;
+            break;
+        }
+    }
+
     void stop()
     {
         gfProgramIsRunning = false;
-        current.id = W8_SCREEN_NONE;
+        show_none();
         screen.reset();
     }
 };
@@ -64,7 +96,7 @@ bool ApplyReturn()
     router.previous = router.current.id;
     const bool continuing = router.screen->leave(ScreenDeparture::Discard);
     router.screen.reset();
-    router.current.id = W8_SCREEN_NONE;
+    router.show_none();
     if (!continuing) return false;
     if (router.pending.id == W8_SCREEN_NONE) {
         if (router.suspended.empty()) return false;
@@ -92,7 +124,7 @@ bool ApplyRequest()
         router.last_suspended = router.current.id;
         router.suspended.push_back({std::move(router.current), std::move(router.screen)});
     }
-    router.current = std::exchange(router.pending, {});
+    router.show(std::exchange(router.pending, {}));
     return EnterScreen();
 }
 } // namespace
@@ -196,10 +228,10 @@ void GameloopExit()
         auto entry = std::move(router.suspended.back());
         router.suspended.pop_back();
         // Teardown reads the current screen id, as it does for the one on top.
-        router.current = std::move(entry.request);
+        router.show(std::move(entry.request));
         entry.screen->leave(ScreenDeparture::Discard);
     }
-    router.current = {};
+    router.show({});
     router.pending = {};
     router.return_requested = false;
 }

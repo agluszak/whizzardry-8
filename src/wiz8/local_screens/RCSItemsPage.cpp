@@ -2128,7 +2128,7 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                     control->SetEnabled(false);
                     continue;
                 }
-                if (gXStatus.fCampMode || LockInteractionSuspended() ||
+                if (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
                     TrapInteractionSuspended()) {
                     control->SetEnabled(false);
                     continue;

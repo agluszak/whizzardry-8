@@ -996,11 +996,11 @@ int GetTargetingCursorForState(bool alternate)
 }
 
 /* Whether this spell choice needs an explicit target in the interaction. */
-bool ActionNeedsExplicitTarget(const W8Action& action, bool camping)
+bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside)
 {
     switch (GetSpellTargetType(action.detail, false)) {
     case W8_TARGET_TYPE_ENEMY:
-        if (camping) {
+        if (conversation_aside) {
             return false;
         }
         return g_settings.autotarget_spells == 0;
@@ -2013,7 +2013,8 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 }
 
 /* Whether the pending item use needs a target picked: most spell target types
-   need one, type 3 only when auto-targeting cannot pick it (never in camp). */
+   need one, type 3 only when auto-targeting cannot pick it (never while a
+   conversation is set aside, whose NPC is the target). */
 bool ItemUseNeedsTarget(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
@@ -2021,7 +2022,7 @@ bool ItemUseNeedsTarget(int party_slot)
     bool normalize = ItemClassNormalizesTarget(&Data().items[item->iItemNo]);
     switch (GetSpellTargetType(GetItemSpell(item), normalize)) {
     case 3:
-        if (gXStatus.fCampMode) {
+        if (CurrentGame().activity.conversation_aside) {
             return false;
         }
         return g_settings.autotarget_spells == 0;

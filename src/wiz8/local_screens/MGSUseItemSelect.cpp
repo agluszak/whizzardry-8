@@ -210,7 +210,7 @@ void CloseUseItemSelectView(void)
             OpenTrapInteraction(0);
             return;
         }
-        if (gXStatus.fCampMode && PendingScreen() != W8_SCREEN_CAMP) {
+        if (CurrentGame().activity.conversation_aside && PendingScreen() != W8_SCREEN_CAMP) {
             SyncDialogueNpcState();
         }
     }
@@ -388,7 +388,8 @@ static void AppendUseItemListEntry(W8ItemInstance* item)
 {
     if (item->iItemNo == -1 || IsUseItemFilteredOut(item)) return;
     const bool usable = CanUseItemForAction(use_item->owner, item);
-    if (!usable && (gXStatus.fCampMode || LockInteractionSuspended() || TrapInteractionSuspended()))
+    if (!usable && (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
+                    TrapInteractionSuspended()))
         return;
     use_item->rows.push_back({item, usable});
 }

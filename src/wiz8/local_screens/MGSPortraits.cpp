@@ -683,7 +683,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
 
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
 {
-    if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
+    if (CurrentGame().activity.conversation && (party_slot & 1) != 0 &&
         IsPortraitObscuredByNpcDialogue(party_slot)) {
         return false;
     }
@@ -744,7 +744,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
     bool show_off_hand_row;
     unsigned short hp_bar_frame;
 
-    if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0) {
+    if (CurrentGame().activity.conversation && (party_slot & 1) != 0) {
         IsPortraitObscuredByNpcDialogue(party_slot);
     }
 
@@ -1076,12 +1076,12 @@ portrait_fx:
         RefreshTrackedPortraitOverlay();
     }
 
-    if (overlay_ready && gXStatus.fNpcDialogueMode &&
+    if (overlay_ready && CurrentGame().activity.conversation &&
         g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
         !g_npc_interaction_state->scripted_dialogue &&
         !g_npc_interaction_state->dialogue_panel_hidden &&
         g_npc_dialogue.reply() == W8NpcReplyState::none &&
-        g_npc_interaction_state->dialogue_hidden == 0 && !gXStatus.scripted_scene) {
+        g_npc_interaction_state->dialogue_hidden == 0 && !CurrentGame().activity.scripted_scene) {
         SetNpcDialoguePanelVisible(1);
     }
 }
@@ -1166,7 +1166,7 @@ void UpdatePortraitAdvanceButtons()
 {
     for (int slot = 0; slot < 8; ++slot) {
         auto& button = *portrait_buttons->buttons[slot];
-        button.SetVisible(IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
+        button.SetVisible(IsCharacterReadyToAdvance(slot) && !CurrentGame().activity.conversation &&
                           CurrentGame().party.rows[slot].portrait_advance);
         button.Refresh();
     }

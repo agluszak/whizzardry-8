@@ -90,7 +90,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
         }
     }
 
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         if (g_npc_interaction_state->dialogue_hidden != 0) {
             SetTargetCursor(1);
             return;
@@ -102,7 +102,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
                     return;
                 }
             }
-        } else if (!gXStatus.scripted_scene) {
+        } else if (!CurrentGame().activity.scripted_scene) {
             SetTargetCursor(W8_CURSOR_MAP_LOAD);
         }
     }
@@ -200,7 +200,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             return W8NpcSubquoteOutcome::classified;
         }
         if (CompareTextIgnoreAsciiCase(plain_text, "SOUND") != 0 && !speaker->is_grouped) {
-            if (!gXStatus.fNpcDialogueMode && speaker->record->voice_script == 0) {
+            if (!CurrentGame().activity.conversation && speaker->record->voice_script == 0) {
                 prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
                 display_text = prefixed_text;
             }

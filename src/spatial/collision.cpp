@@ -48,7 +48,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/triangle_projection.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
@@ -1530,8 +1529,8 @@ const double g_game_data_pi = 3.141592653589793;
 float MoveTimer(W8MoveTimerAction action)
 {
     if (g_shared_timers_paused) {
-        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME &&
-             CurrentScreenState().id == W8_SCREEN_MAIN_GAME) ||
+        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && GameInProgress() &&
+             CurrentGame().activity.in_world()) ||
             action == W8_MOVE_TIMER_RESUME) {
             ResumeSharedGameTimers();
             g_shared_timers_paused = false;

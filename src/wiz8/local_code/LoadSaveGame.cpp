@@ -106,7 +106,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 bool g_save_pending;
 
@@ -786,7 +785,8 @@ bool CanAutoSaveNow()
 {
     return CurrentGame().status.world_cursor_gate == 0 && !AnyMonsterDying() &&
            !CurrentGame().combat.active() && !IsSightRangeOverridden() &&
-           CanInterruptLevelMovement() && !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode;
+           CanInterruptLevelMovement() && !CurrentGame().activity.conversation &&
+           !CurrentGame().activity.conversation_aside;
 }
 
 /* Iron Man games overwrite their own slot instead of the AutoSave slot. */

@@ -7,6 +7,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 
@@ -24,6 +25,9 @@ public:
     W8Party party{};
     W8GlobalStatus status{};
     W8CombatLifecycle combat;
+    /* What the party is doing. The screen router sets the place as the world, the camp or
+       another screen becomes current; dialogue and story scenes set the rest. */
+    Activity activity;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech;
     W8GameTimer gameplay_timer{300.0f, false};

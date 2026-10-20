@@ -30,7 +30,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 /* Original translation unit: Local Code\Formation & Facing.cpp. */
 
@@ -481,7 +480,7 @@ void SetFormationPosition(W8PartyFormationState* formation, int slot, signed cha
 {
     const auto old_row = formation->positions[slot].bQuadrant;
     formation->setPosition(slot, new_row, new_column, detach, update_facing);
-    if (GameStarted() && !gXStatus.fNpcDialogueMode) {
+    if (GameStarted() && !CurrentGame().activity.conversation) {
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
             g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR &&
             formation == &CurrentGame().party.formation) {

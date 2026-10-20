@@ -175,7 +175,7 @@ bool W8CombatLifecycle::Start(int surprise)
         }
     }
     if (g_npc_combat_notice_pending) {
-        if (gXStatus.fNpcDialogueMode || ShouldDeferCharacterEventForNpcScript(false)) {
+        if (CurrentGame().activity.conversation || ShouldDeferCharacterEventForNpcScript(false)) {
             return false;
         }
         g_npc_combat_notice_pending = false;
@@ -195,7 +195,7 @@ bool W8CombatLifecycle::Start(int surprise)
     AutoSaveIfAllowed(true);
     ResetLevelDataVectors();
     phase_ = Phase::Entering;
-    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft()) {
+    if (!CurrentGame().activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
@@ -1130,7 +1130,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
                       W8_MAIN_REDRAW_PORTRAIT_6 | W8_MAIN_REDRAW_PORTRAIT_7 |
                       W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
     }
-    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft()) {
+    if (!CurrentGame().activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
     }
     state_.reset();
@@ -1148,7 +1148,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     ClearLevelMovementState();
     RequestRedrawParty();
     ResetWorldCursorRange();
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentGame().activity.in_world()) {
         ApplyCombatEndEffects();
         ReportSaveFailed(true);
     }

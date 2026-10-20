@@ -31,7 +31,8 @@ are enforced:
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
   party storage (`W8Party`, formation), item rules, character derivation (modifier
   blocks, effective attributes and skills, statistics and the party's shared load) and
-  the event log (`events.h`). Functions that read the databases take `const GameData&`.
+  the event log (`events.h`) and the party's `Activity`. Functions that read the databases
+  take `const GameData&`.
 
 A layer file includes only its own layer, the layers below it, the standard library,
 glm, fmt and three stateless foundation headers (`math.h`, `world/camera_pose.h`,
@@ -119,6 +120,7 @@ Unlayered code may use the layers.
 - **What `Game` is.** `Game` (`game.h`) is one play-through. It owns:
   - the party and the status record;
   - combat;
+  - the activity;
   - the speech queue;
   - the gameplay timer;
   - the monster-manager entries;
@@ -130,6 +132,20 @@ Unlayered code may use the layers.
   and clears the session state it does not own yet (`LeaveGameSession`). Nothing is reset field by field.
 - **Before the opening sequence.** Party selection, import and character creation edit
   the new game's party. `GameStarted()` tells play apart from that party creation.
+- **The activity.** Rules branch on `Game::activity`, never on a screen id or a UI flag.
+  It is a plain value with independent parts, because the game lets them overlap:
+  - `place`: the world, the camp, or `Menu` while another screen covers the game. The
+    screen router sets it whenever the current screen changes, so a rule sees the world
+    exactly while the main game screen is current. Game time, monster sight, queued spell
+    effects and combat-end effects follow it.
+  - `conversation`: the NPC dialogue opens and ends it (`BeginNpcDialogue`,
+    `EndNpcDialogueSession`).
+  - `conversation_aside`: raised when the party steps out of a conversation to camp, the
+    journal or an NPC's spell or item service; the next dialogue panel clears it.
+  - `scripted_scene`: from `BeginNpcScriptedScene` until `EndScriptedPortraitPick`.
+
+  Combat is not part of it (`Game::combat`). Rules that only decide what to redraw or
+  notify still check the screen.
 - **Transitional access.** Code that does not yet receive the game reaches it through
   `CurrentGame()`, which throws when no game is in progress. Menus check
   `GameInProgress()`.
