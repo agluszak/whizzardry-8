@@ -12,8 +12,8 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/matrix.hpp"
 #include "wiz8/math.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
-#include "wiz8/render/matrix_scope.h"
 #include "wiz8/render/vertex_channels.h"
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
@@ -96,13 +96,12 @@ Light& Light::operator=(const Light& other)
     return *this;
 }
 
-void Light::beginPass(GpuRenderer& target)
+void Light::beginPass(GpuRenderer& target, const DrawTransform& view)
 {
     auto* renderer = &target;
     {
-        MatrixScope model_scope(*renderer);
-        renderer->multMatrix(transform.matrix<glm::mat4>());
-        const auto model_view = renderer->getMatrix();
+        const auto light_transform = view.withModel(transform.matrix<glm::mat4>());
+        const auto& model_view = light_transform.model_view;
         derived_flags = Light::DERIVED_ACTIVE;
         channel_mask = 0;
         const struct Channel {
@@ -128,7 +127,7 @@ void Light::beginPass(GpuRenderer& target)
         } else {
             if ((enable_flags & (1UL << Light::ENABLE_SPOT)) != 0 && spot_angle > 0.0f &&
                 spot_exponent != 0.0f) {
-                const auto inverse = renderer->getInverseModelViewMatrix();
+                const auto inverse = light_transform.inverseModelView();
                 derived_flags |= Light::DERIVED_SPOT;
                 spot_cutoff = (float)cos(spot_angle);
                 spot_direction_eye =
@@ -146,7 +145,7 @@ void Light::beginPass(GpuRenderer& target)
                         derived_flags |= Light::DERIVED_CONSTANT_ATTENUATION;
                     }
                 } else {
-                    float scale = renderer->getMaxModelViewScale();
+                    float scale = light_transform.maxModelViewScale();
                     scaled_near_start = scale * (float)near_start;
                     scaled_far_end = scale * (float)far_end;
                     if (near_start == near_end) {
@@ -161,8 +160,8 @@ void Light::beginPass(GpuRenderer& target)
                     }
                     if ((enable_flags & (1UL << Light::ENABLE_RANGE_FAR)) != 0) {
                         if ((enable_flags & (1UL << Light::ENABLE_BOUNDING_SPHERE)) != 0) {
-                            if (renderer->testBoundingSphere(glm::vec3(0), safe_range + far_end) ==
-                                0) {
+                            if (!light_transform.sphereVisible(glm::vec3(0),
+                                                               safe_range + far_end)) {
                                 derived_flags &= ~Light::DERIVED_ACTIVE;
                             }
                         }

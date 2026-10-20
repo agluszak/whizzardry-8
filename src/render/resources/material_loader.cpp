@@ -255,10 +255,7 @@ std::shared_ptr<Texture> LoadTextureFromPath(const std::filesystem::path& path,
         auto texture = std::make_shared<Texture>(candidate, g_texture_cache_enabled);
         texture->setName(wiz8::path_to_utf8(path.filename()).c_str());
         if (required) {
-            if (g_gerd) {
-                g_gerd->setTexture(texture.get(), 0);
-                g_gerd->setTexture(nullptr, 0);
-            }
+            if (g_gerd) g_gerd->prepareTexture(texture.get());
             if (!texture->resolve()) continue;
         }
         g_texture_files.insert_or_assign(path, texture);

@@ -25,6 +25,7 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
@@ -198,42 +199,33 @@ std::vector<w8_ulong> Mesh::facingPolygons(const TriMesh& mesh, std::span<const 
 }
 
 /* Wizardry-extended Mesh::renderTriMesh. Optional polygon normals enable
-   a software backface cull into an owned active-polygon list and
-   forces CULL_NONE; a null table leaves hardware cull at CULL_BACK. */
+   a software backface cull into an owned active-polygon list and submit
+   without further face culling; without them the mesh draws as renderTriMesh. */
 void Mesh::RenderTriMeshWithEquations(GpuRenderer& renderer, const TriMesh& mesh,
-                                      std::span<const glm::vec3> arg_poly_equations)
+                                      std::span<const glm::vec3> arg_poly_equations,
+                                      const MeshState& state)
 {
     if (arg_poly_equations.empty()) {
-        renderTriMesh(renderer, mesh);
+        renderTriMesh(renderer, mesh, state);
         last_decompress_release_tick = w8_get_ticks();
         return;
     }
-    if (!arg_poly_equations.empty() &&
-        arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
+    if (arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
         throw std::invalid_argument("Incomplete mesh polygon normals");
-    std::vector<w8_ulong> software_polygons;
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        {
-            const meshSubmission::EnableScope enabled(
-                renderer, (mesh.control_flags & (1UL << Mesh::CONTROL_SORTED_RENDERING)) != 0);
-
-            if (!arg_poly_equations.empty()) {
-                renderer.setCullMode(GpuRenderer::CULL_NONE);
-
-                software_polygons = facingPolygons(
-                    mesh, arg_poly_equations, glm::vec3(renderer.getInverseModelViewMatrix()[3]),
-                    renderer.getWinding() == GpuRenderer::WINDING_POSITIONAL_0,
-                    static_cast<float>(0.0));
-            } else {
-                renderer.setCullMode(GpuRenderer::CULL_BACK);
-            }
-
-            if (arg_poly_equations.empty() || !software_polygons.empty()) {
-                auto submitted = mesh;
-                submitted.poly_equations = nullptr;
-                submitted.active_polygons = std::span<const w8_ulong>(software_polygons);
-                meshSubmission::drawSides(renderer, submitted, [](w8_long side) { return side; });
-            }
+        auto culled = state;
+        culled.sorted =
+            culled.sorted || (mesh.control_flags & (1UL << Mesh::CONTROL_SORTED_RENDERING)) != 0;
+        culled.cull = FaceCull::None;
+        const auto software_polygons = facingPolygons(
+            mesh, arg_poly_equations, glm::vec3(state.transform.inverseModelView()[3]),
+            state.winding == Winding::Standard, static_cast<float>(0.0));
+        if (!software_polygons.empty()) {
+            auto submitted = mesh;
+            submitted.poly_equations = nullptr;
+            submitted.active_polygons = std::span<const w8_ulong>(software_polygons);
+            meshSubmission::drawSides(renderer, submitted, culled,
+                                      [](w8_long side, MeshState&) { return side; });
         }
         last_decompress_release_tick = w8_get_ticks();
     }

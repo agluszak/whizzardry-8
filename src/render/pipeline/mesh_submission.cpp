@@ -4,9 +4,12 @@
 #include <stdexcept>
 
 #include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_culling.h"
@@ -84,7 +87,8 @@ MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, w8_long pass, w8_long m
     return result;
 }
 
-void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, w8_long material_side)
+void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
+                             w8_long material_side)
 {
     if (mesh.vertex_count < 0 || mesh.polygon_count < 0 || mesh.pass_count < 0 ||
         mesh.pass_count > Mesh::MAX_PASSES)
@@ -127,23 +131,25 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, w8_long material_side)
         bounds_center = (minimum + maximum) * .5f;
         bounds_radius = glm::distance(bounds_center, minimum) * 1.001f;
     }
-    const auto eye_bounds = eyeSpaceBounds({bounds_center, bounds_radius});
-    const auto model_view = this->getMatrix(GpuRenderer::MATRIX_MODELVIEW);
-    const auto inverse_model_view = this->getInverseModelViewMatrix();
-    const auto clip_planes = this->getClipPlanes();
-    const auto project_clip_near = this->getProjectClipNearMatrix();
-    const auto normal_matrix = this->getNormalMatrix();
+    const auto& transform = state.transform;
+    const auto eye_bounds = transform.eyeSpaceBounds({bounds_center, bounds_radius});
+    const auto& model_view = transform.model_view;
+    const auto inverse_model_view = transform.inverseModelView();
+    const auto clip_planes = transform.clipPlanes();
+    const auto project_clip_near = transform.projectClipNear();
+    auto normal_matrix = transform.normalMatrix();
+    if (state.reverse_normals) normal_matrix = glm::mat4(-glm::mat3(normal_matrix));
 
-    GpuRenderer::e_cullMode cull_mode = this->getCullMode();
-    GpuRenderer::e_winding winding = this->getWinding();
+    const auto cull_mode = state.cull;
+    const auto winding = state.winding;
 
     meshCulling::Input culler_input(model_view, inverse_model_view);
-    if (cull_mode == GpuRenderer::CULL_NONE) {
+    if (cull_mode == FaceCull::None) {
         culler_input.cull_mode = 2;
-    } else if (cull_mode == GpuRenderer::CULL_FRONT) {
-        culler_input.cull_mode = winding == GpuRenderer::WINDING_POSITIONAL_0;
+    } else if (cull_mode == FaceCull::Front) {
+        culler_input.cull_mode = winding == Winding::Standard;
     } else {
-        culler_input.cull_mode = winding != GpuRenderer::WINDING_POSITIONAL_0;
+        culler_input.cull_mode = winding != Winding::Standard;
     }
 
     culler_input.vertices = {positions, vertex_count};
@@ -167,7 +173,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, w8_long material_side)
             ratio = 3.0f;
         }
         batch_limit = static_cast<w8_ulong>(1300.0f / (slot_count * ratio));
-        if (cull_mode == GpuRenderer::CULL_NONE) {
+        if (cull_mode == FaceCull::None) {
             batch_limit >>= 1;
         }
         if (batch_limit > total) {
@@ -200,7 +206,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, w8_long material_side)
         auto culler_output = meshCulling::cull(culler_input);
         if (!culler_output.indices.empty()) {
 
-            auto* renderer = &this->batchRenderer();
+            auto* renderer = &this->batchRenderer(state.sorted);
 
             {
                 ShadedVertexArrays* vertex_arrays = output_arrays.data();
@@ -271,6 +277,9 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, w8_long material_side)
                 render_input.direct_vertex_indices = false;
                 render_input.project_clip_near = &project_clip_near;
                 render_input.sort_bias = sort_bias;
+                // Sorted batches draw when the scene pass flushes them, after any
+                // caller's depth bias has ended.
+                render_input.polygon_offset = state.sorted ? 0 : state.polygon_offset;
                 renderer->render(render_input);
             }
             if (renderer->isBatchFull()) renderer->submit();

@@ -7,15 +7,18 @@
 #include <utility>
 
 #include <glm/common.hpp>
+#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/matrix.hpp>
 #include <glm/vector_relational.hpp>
 
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double2.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 
 void Camera3D::setProjectionType(e_project projection)
@@ -27,40 +30,33 @@ void Camera3D::setProjectionType(e_project projection)
     flags |= 1UL << FLAG_PROJECTION_TYPE;
 }
 
-void Camera3D::applyView(GpuRenderer* renderer)
+DrawTransform Camera3D::drawTransform() const
 {
-    glm::dmat4 world;
-    world = this->transform.matrix<glm::dmat4>();
-
     /* The view transform reverses the inverse world matrix's Z row. */
-    glm::dmat4 view;
-    view = glm::inverse(world);
+    auto view = glm::inverse(this->transform.matrix<glm::dmat4>());
     view = glm::row(view, 2, -glm::row(view, 2));
 
-    renderer->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-    renderer->loadMatrix(view);
-    renderer->matrixMode(GpuRenderer::MATRIX_PROJECTION);
-    renderer->loadIdentity();
-
     const auto [near_plane, far_plane] = getClipRange();
-
     auto [rectangle, distance] = getViewPlane();
-    double scale = near_plane / distance;
+    const double scale = near_plane / distance;
     rectangle.left *= scale;
     rectangle.right *= scale;
     rectangle.top *= scale;
     rectangle.bottom *= scale;
 
-    if ((flags & (1UL << FLAG_PROJECTION_TYPE)) == 0) {
-        renderer->frustum(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top,
-                          near_plane, far_plane);
-    } else {
-        renderer->ortho(rectangle.left, rectangle.right, rectangle.bottom, rectangle.top,
-                        near_plane, far_plane);
-    }
+    const float left = rectangle.left, right = rectangle.right;
+    const float bottom = rectangle.bottom, top = rectangle.top;
+    const float near_value = near_plane, far_value = far_plane;
+    const auto projection = (flags & (1UL << FLAG_PROJECTION_TYPE)) == 0
+                                ? glm::frustum(left, right, bottom, top, near_value, far_value)
+                                : glm::ortho(left, right, bottom, top, near_value, far_value);
+    return {.model_view = glm::mat4(view), .projection = projection};
+}
 
-    renderer->setEnvironmentRange(environment_near, environment_far);
-    renderer->setEnvironmentScaleFactor(environment_near_scale, environment_far_scale);
+void Camera3D::applyEnvironment(GpuRenderer& renderer) const
+{
+    renderer.setEnvironmentRange(environment_near, environment_far);
+    renderer.setEnvironmentScaleFactor(environment_near_scale, environment_far_scale);
 }
 
 Camera3D::Camera3D()

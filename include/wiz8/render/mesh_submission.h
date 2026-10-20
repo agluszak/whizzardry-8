@@ -25,21 +25,6 @@ private:
     glm::vec4 previous;
 };
 
-class WindingScope {
-public:
-    explicit WindingScope(GpuRenderer& renderer)
-        : renderer(renderer), previous(renderer.getWinding())
-    {
-    }
-    ~WindingScope() { renderer.setWinding(previous); }
-    WindingScope(const WindingScope&) = delete;
-    WindingScope& operator=(const WindingScope&) = delete;
-
-private:
-    GpuRenderer& renderer;
-    GpuRenderer::e_winding previous;
-};
-
 class PickScope {
 public:
     PickScope(GpuRenderer& renderer, bool suppress) : renderer(renderer)
@@ -58,31 +43,18 @@ private:
     std::optional<GpuRenderer::Pick> pick;
 };
 
-class EnableScope {
-public:
-    explicit EnableScope(GpuRenderer& renderer, bool sorted)
-        : renderer(renderer), previous(renderer.drawOptions())
-    {
-        if (sorted && !renderer.isEnabled(GpuRenderer::ENABLE_SORTED_RENDERING))
-            renderer.toggle(GpuRenderer::ENABLE_SORTED_RENDERING);
-    }
-    ~EnableScope() { renderer.setDrawOptions(previous); }
-    EnableScope(const EnableScope&) = delete;
-    EnableScope& operator=(const EnableScope&) = delete;
-
-private:
-    GpuRenderer& renderer;
-    std::uint32_t previous;
-};
-
 // Side setup stays with the caller: native back faces reverse normals and may
 // reuse the front material, whereas software culling supplies a polygon span.
+// `configure` adjusts its side's copy of the state and returns the material side.
 template<class ConfigureSide>
-void drawSides(GpuRenderer& renderer, const Mesh::TriMesh& mesh, ConfigureSide configure)
+void drawSides(GpuRenderer& renderer, const Mesh::TriMesh& mesh, const MeshState& state,
+               ConfigureSide configure)
 {
     for (w8_long side = 1; side >= 0; --side) {
         if ((mesh.control_flags & (1u << side)) == 0) continue;
-        renderer.submitMesh(mesh, configure(side));
+        auto side_state = state;
+        const w8_long material_side = configure(side, side_state);
+        renderer.submitMesh(mesh, side_state, material_side);
     }
 }
 

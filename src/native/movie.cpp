@@ -326,8 +326,6 @@ void W8NativeVideo::present(SDL_Surface* target)
         throw std::runtime_error("Cannot begin movie presentation");
     g_gerd->setClearColor(0, 0, 0, 1);
     g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
-    g_gerd->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-    g_gerd->loadIdentity();
     state->presentation_overlay->draw(g_gerd.get());
     g_gerd->endFrame();
 }

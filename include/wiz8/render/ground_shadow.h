@@ -48,7 +48,7 @@ public:
 
 private:
 public:
-    void draw(GpuRenderer& renderer); /* 0x004D66A0 */
+    void draw(GpuRenderer& renderer, const DrawTransform& view); /* 0x004D66A0 */
 
 public:
     std::string name = "anonymous";

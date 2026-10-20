@@ -7,6 +7,7 @@
 
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/transform.h"
 
 class GpuRenderer;
@@ -64,7 +65,10 @@ public:
     std::optional<glm::vec3> unproject(const glm::dvec3& input);
 
 public:
-    void applyView(GpuRenderer* renderer);
+    // The eye and clip transforms of this camera; no user clip planes.
+    DrawTransform drawTransform() const;
+    // Hands the depth-cue range and scale to the scene pass.
+    void applyEnvironment(GpuRenderer& renderer) const;
 
 public:
     enum e_flag { FLAG_PROJECTION_TYPE = 0 };

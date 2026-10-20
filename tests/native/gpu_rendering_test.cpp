@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <span>
 
 #include <SDL3/SDL_gpu.h>
 #include <SDL3/SDL_hints.h>
@@ -11,24 +12,22 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/vertex_stream.h"
 
 namespace {
-vertexStream::VertexArrayInfo float_vertex_arrays(std::uint32_t mask)
+vertexStream::VertexArrayInfo float_vertex_arrays(std::uint32_t mask, w8_ulong count)
 {
-    constexpr auto float_type = vertexStream::TYPE_FLOAT;
-    return {.mask = mask,
-            .count = 0,
-            .clip = 0,
-            .components = {},
-            .types = {float_type, float_type, float_type, float_type, float_type, float_type}};
+    return {.mask = mask, .count = count, .components = {}};
 }
 
 struct Fixture {
     std::unique_ptr<GpuRenderer> device;
+    // Inputs of the next draw; each draw records its own copy.
+    DrawShader shader;
+    w8_long polygon_offset = 0;
+    std::array<GpuRenderer::GpuStage, 2> stages{};
     Fixture()
     {
         SDL_SetHint(SDL_HINT_SHUTDOWN_DBUS_ON_QUIT, "1");
@@ -36,7 +35,6 @@ struct Fixture {
         device = std::make_unique<GpuRenderer>();
         REQUIRE(device->gpuCreateContext(nullptr));
         REQUIRE(device->gpuOpenWindow(64, 64));
-        device->gpuSetProjectionMatrix(glm::mat4(1));
         device->gpuSetClearValues({{0, 0, 0, 1}, 1, 0});
         device->gpuClearBuffers(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
     }
@@ -44,6 +42,14 @@ struct Fixture {
     {
         device.reset();
         SDL_Quit();
+    }
+    void draw(const vertexStream::VertexArrayInfo& arrays, std::span<const w8_ulong> indices = {})
+    {
+        device->gpuDraw({.vertices = arrays,
+                         .indices = indices,
+                         .shader = shader,
+                         .polygon_offset = polygon_offset},
+                        stages);
     }
     void triangle(float depth, const std::array<float, 4>& color, float u = 0, float v = 0,
                   float weight = 1)
@@ -53,16 +59,16 @@ struct Fixture {
         const std::array colors{color, color, color};
         const std::array weights{weight, weight, weight};
         auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
-                                          (1 << vertexStream::VERTEX_ARRAY_DIFFUSE) |
-                                          (1 << vertexStream::VERTEX_ARRAY_TEXCOORD0));
+                                              (1 << vertexStream::VERTEX_ARRAY_DIFFUSE) |
+                                              (1 << vertexStream::VERTEX_ARRAY_TEXCOORD0),
+                                          3);
         arrays.components[0] = arrays.components[1] = 4;
         arrays.components[4] = 3;
         arrays.arrays[0] = positions;
         arrays.arrays[1] = colors.data();
         arrays.arrays[4] = uv;
         arrays.texture_weights[0] = weights.data();
-        device->gpuSetVertexArrayInfo(&arrays);
-        device->gpuDrawArrays(vertexStream::PRIMITIVE_TRIANGLES, 0, 3);
+        draw(arrays);
     }
     unsigned pixel(int x = 32, int y = 32)
     {
@@ -79,11 +85,9 @@ struct Fixture {
 TEST_CASE("World viewport clears preserve surrounding UI and unselected buffers")
 {
     Fixture fixture;
-    DrawShader shader;
-    shader.value = DrawShader::PASS_LESS | DrawShader::MASK_DEPTH_WRITE |
-                   DrawShader::MASK_COLOR_WRITE |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.shader.value = DrawShader::PASS_LESS | DrawShader::MASK_DEPTH_WRITE |
+                           DrawShader::MASK_COLOR_WRITE |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     fixture.triangle(0, {1, 0, 0, 1});
     fixture.device->gpuSetScissor({16, 16, 48, 48});
     fixture.device->gpuSetViewPort({0, 0, 1, 1, 0.2f, 0.3f});
@@ -113,15 +117,13 @@ TEST_CASE("World viewport clears preserve surrounding UI and unselected buffers"
 TEST_CASE("Queued coplanar overlays preserve depth bias and its restoration")
 {
     Fixture fixture;
-    DrawShader shader;
-    shader.value = DrawShader::PASS_LESS | DrawShader::MASK_DEPTH_WRITE |
-                   DrawShader::MASK_COLOR_WRITE |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.shader.value = DrawShader::PASS_LESS | DrawShader::MASK_DEPTH_WRITE |
+                           DrawShader::MASK_COLOR_WRITE |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     fixture.triangle(0, {1, 0, 0, 1});
-    fixture.device->gpuSetPolygonOffset(2);
+    fixture.polygon_offset = 2;
     fixture.triangle(0, {0, 1, 0, 1});
-    fixture.device->gpuSetPolygonOffset(0);
+    fixture.polygon_offset = 0;
     fixture.triangle(0, {0, 0, 1, 1});
     REQUIRE(fixture.pixel() == 0x00ff00);
 }
@@ -134,19 +136,14 @@ TEST_CASE("Queued texture draws preserve independent clamp and repeat samplers")
     fixture.device->gpuUploadTexture(
         texture, 0, {0, 0, 2, 2},
         {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 8);
-    fixture.device->gpuBindTexture(0, texture);
-    DrawShader shader;
-    shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                   DrawShader::MASK_TEXTURING |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
+                           DrawShader::MASK_TEXTURING |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     // U clamps to the green column, V repeats into the top row.
-    fixture.device->gpuSetTextureParameters(0,
-                                            {.wrap_s = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE});
+    fixture.stages[0] = {texture.handle, {.wrap_s = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE}};
     fixture.triangle(0, {1, 1, 1, 1}, 1.25f, 1.25f);
-    // Change the live state before queued commands are replayed.
-    fixture.device->gpuSetTextureParameters(0,
-                                            {.wrap_t = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE});
+    // The next draw's sampler must not change the queued one.
+    fixture.stages[0].parameters = {.wrap_t = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE};
     REQUIRE(fixture.pixel() == 0x00ff00);
     fixture.triangle(0, {1, 1, 1, 1}, 1.25f, 1.25f);
     REQUIRE(fixture.pixel() == 0x0000ff);
@@ -171,13 +168,10 @@ TEST_CASE("Texture uploads copy pitched regions before CPU storage changes and d
         texture, 0, {1, 1, 2, 2},
         {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 24);
     pixels.fill(0xff0000ff);
-    fixture.device->gpuBindTexture(0, texture);
-    fixture.device->gpuSetTextureParameters(0, {});
-    DrawShader shader;
-    shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                   DrawShader::MASK_TEXTURING |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.stages[0] = {texture.handle, {}};
+    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
+                           DrawShader::MASK_TEXTURING |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     fixture.triangle(0, {1, 1, 1, 1}, 0.125f, 0.125f);
     REQUIRE(fixture.pixel() == 0xff0000);
     fixture.triangle(0, {1, 1, 1, 1}, 0.375f, 0.375f);
@@ -204,20 +198,18 @@ TEST_CASE("Indexed draws reuse corners and snapshot mutable source streams")
     colors.fill({1, 0, 0, 1});
     const std::array<w8_ulong, 6> indices{0, 1, 2, 2, 1, 3};
     auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
-                                      (1 << vertexStream::VERTEX_ARRAY_DIFFUSE));
+                                          (1 << vertexStream::VERTEX_ARRAY_DIFFUSE),
+                                      positions.size());
     arrays.components[0] = arrays.components[1] = 4;
     arrays.arrays[0] = positions.data();
     arrays.arrays[1] = colors.data();
-    fixture.device->gpuSetVertexArrayInfo(&arrays);
-    DrawShader shader;
-    shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     fixture.device->gpuSetScissor({0, 0, 32, 64});
-    fixture.device->gpuDrawElements(vertexStream::PRIMITIVE_TRIANGLES, indices);
+    fixture.draw(arrays, indices);
     colors.fill({0, 0, 1, 1});
     fixture.device->gpuSetScissor({32, 0, 64, 64});
-    fixture.device->gpuDrawElements(vertexStream::PRIMITIVE_TRIANGLES, indices);
+    fixture.draw(arrays, indices);
     auto* surface = fixture.device->gpuLockBuffer();
     unsigned left = 0, right = 0;
     const auto* row = static_cast<const unsigned char*>(surface->pixels) + 32 * surface->pitch;
@@ -238,12 +230,10 @@ TEST_CASE("Texture updates preserve pixels sampled by earlier queued draws")
             {reinterpret_cast<const unsigned char*>(&pixel), sizeof(pixel)}, sizeof(pixel));
     };
     update(0xffff0000);
-    fixture.device->gpuBindTexture(0, texture);
-    DrawShader shader;
-    shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                   DrawShader::MASK_TEXTURING |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.stages[0].texture = texture.handle;
+    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
+                           DrawShader::MASK_TEXTURING |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     fixture.device->gpuSetScissor({0, 0, 32, 64});
     fixture.triangle(0, {1, 1, 1, 1});
     update(0xff00ff00);
@@ -272,28 +262,25 @@ TEST_CASE("GPU mipmaps follow base uploads and updates before minified draws")
             {reinterpret_cast<const unsigned char*>(pixels.data()), sizeof(pixels)}, 16);
     };
     update();
-    fixture.device->gpuBindTexture(0, texture);
-    fixture.device->gpuSetTextureParameters(0, {.max_lod = 2});
-    DrawShader shader;
-    shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
-                   DrawShader::MASK_TEXTURING |
-                   (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-    fixture.device->gpuSetShader(shader);
+    fixture.stages[0] = {texture.handle, {.max_lod = 2}};
+    fixture.shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
+                           DrawShader::MASK_TEXTURING |
+                           (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
     const float positions[]{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
     const float uv[]{0, 0, 1, 64, 0, 1, 0, 64, 1};
     auto arrays = float_vertex_arrays((1 << vertexStream::VERTEX_ARRAY_POSITIONS) |
-                                      (1 << vertexStream::VERTEX_ARRAY_TEXCOORD0));
+                                          (1 << vertexStream::VERTEX_ARRAY_TEXCOORD0),
+                                      3);
     arrays.components[0] = 4;
     arrays.components[4] = 3;
     arrays.arrays[0] = positions;
     arrays.arrays[4] = uv;
-    fixture.device->gpuSetVertexArrayInfo(&arrays);
     fixture.device->gpuSetScissor({0, 0, 32, 64});
-    fixture.device->gpuDrawArrays(vertexStream::PRIMITIVE_TRIANGLES, 0, 3);
+    fixture.draw(arrays);
     pixels.fill(0xff00ff00);
     update();
     fixture.device->gpuSetScissor({32, 0, 64, 64});
-    fixture.device->gpuDrawArrays(vertexStream::PRIMITIVE_TRIANGLES, 0, 3);
+    fixture.draw(arrays);
     const auto purple = fixture.pixel(16, 32);
     REQUIRE(((purple >> 16) & 255) >= 127);
     REQUIRE(((purple >> 16) & 255) <= 128);

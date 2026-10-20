@@ -59,5 +59,5 @@ public:
     void setFogColor(float r, float g, float b) { fog_color = {r, g, b}; }
 
 private:
-    void drawStaticMeshes(GpuRenderer& renderer);
+    void drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& view);
 };

@@ -216,6 +216,17 @@ Substantial but contained work.
 - **Explicit renderer inputs.** Matrix-mode/load operations and mutable current
   draw state remain in `GpuRenderer`. Replace the implicit protocol with per-draw
   inputs and migrate callers, including `compositor.cpp`.
+- **Spatial query value APIs.** `traceSurfaces`/`traceGeometry` return typed
+  hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers still use
+  mutable output records and surface-zero sentinels. Convert them end to end to
+  explicit inputs and optional typed results, preserving world/prop filtering.
+- **Explicit scene-pass inputs.** Draws and mesh submissions take explicit
+  transforms and draw state, but `GpuRenderer` still carries scene-pass state
+  that `WorldScene::render`, `MeshInstance` and `GroundShadow` set, read back and
+  restore through scope guards: ambient light, the light and fog spans, the depth
+  cue range, the exclusion mask and the pick key and stack. Pass them as a scene
+  pass value (or a `MeshState` member) instead, and delete the save/restore
+  guards.
 - **Delete the compatibility layer.** `include/wiz8/compat/` (`compiler.h` is
   force-included into every game source, plus `native.h`, `unaligned.h` and
   `video.h`) and `src/compat/native_helpers.cpp` should go. Replace them with

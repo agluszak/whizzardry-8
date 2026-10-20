@@ -2,32 +2,16 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/gpu_renderer.h"
-#include "wiz8/spatial/bounding_sphere.h"
 
 TEST_CASE("renderer platform")
 {
     for (int cycle = 0; cycle < 3; ++cycle) {
         {
             GpuRenderer gerd;
-            gerd.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-            gerd.loadIdentity();
-            const auto sphere = gerd.eyeSpaceBounds(BoundingSphere{{1, 2, 3}, 2});
-            REQUIRE(sphere.center == glm::vec3(1, 2, 3));
-            REQUIRE(sphere.radius == 2);
-            gerd.translate(5, 6, 7);
-            gerd.scale(2, -3, 4);
-            const auto scaled = gerd.eyeSpaceBounds(BoundingSphere{{1, 2, 3}, 2});
-            REQUIRE(scaled.center == glm::vec3(7, 0, 19));
-            REQUIRE(scaled.radius == 8);
-            REQUIRE(gerd.eyeSpaceBounds(BoundingSphere{{0, 0, 0}, 0}).radius == 0);
-            REQUIRE(sphere.center == glm::vec3(1, 2, 3));
-            REQUIRE(sphere.radius == 2);
-            gerd.loadIdentity();
             REQUIRE(gerd.lockBuffer() == nullptr);
             REQUIRE(gerd.getError() == GpuRenderer::ERROR_WINDOW_NOT_OPEN);
-            auto* renderer = &gerd.batchRenderer();
+            auto* renderer = &gerd.batchRenderer(false);
             renderer->submit();
             auto statistics = renderer->getStatistics();
             REQUIRE(statistics.device_calls == 1);

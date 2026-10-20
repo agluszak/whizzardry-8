@@ -14,6 +14,7 @@
 #include "wiz8/asset_paths.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
@@ -68,7 +69,7 @@ GroundShadow::GroundShadow(const GroundShadow& other)
    FUNCTION claim: decomplint rejects FOLDED-before-primary when engine_code
    sorts ahead of surface2d.cpp. */
 
-void GroundShadow::draw(GpuRenderer& renderer)
+void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view)
 {
     if (!g_settings.monster_shadows) return;
     const meshSubmission::PickScope picking(renderer, true);
@@ -79,15 +80,7 @@ void GroundShadow::draw(GpuRenderer& renderer)
         GetWorldSpatialIndex()->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
     if (polygons.empty()) return;
 
-    const struct OffsetScope {
-        OffsetScope(GpuRenderer& target, w8_long saved) : renderer(target), previous(saved) {}
-        GpuRenderer& renderer;
-        w8_long previous;
-        ~OffsetScope() { renderer.setPolygonOffset(previous); }
-        OffsetScope(const OffsetScope&) = delete;
-        OffsetScope& operator=(const OffsetScope&) = delete;
-    } offset{renderer, renderer.getPolygonOffset()};
-    renderer.setPolygonOffset(2);
+    const MeshState state{.transform = view, .polygon_offset = 2};
     const GroundShadowProjection projection(position, width, depth, angle);
     std::vector<w8_ulong> selected;
     std::vector<glm::vec2> coordinates;
@@ -112,7 +105,7 @@ void GroundShadow::draw(GpuRenderer& renderer)
         for (std::size_t index = 0; index < coordinates.size(); ++index)
             coordinates[index] = projection.coordinates(mesh.positions[index]);
         mesh.texcoords[0][0] = coordinates.data();
-        model.RenderTriMeshWithEquations(renderer, mesh, {});
+        model.RenderTriMeshWithEquations(renderer, mesh, {}, state);
     }
 }
 

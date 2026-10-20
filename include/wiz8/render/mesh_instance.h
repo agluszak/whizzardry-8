@@ -13,7 +13,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/math.h"
-#include "wiz8/render/matrix_scope.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/transform.h"
 
@@ -54,14 +54,16 @@ private:
         friend class MeshInstance;
         RenderScope(const MeshInstance& instance, GpuRenderer& renderer, bool apply_exclusion);
         GpuRenderer& renderer;
-        MatrixScope transform;
         w8_ulong previous_mask = 0;
         bool restore_mask = false;
     };
     RenderScope scopedRender(GpuRenderer& renderer, bool apply_exclusion = true) const;
 
-    // Push the transform used by both ordinary and screen-facing model draws.
-    MatrixScope scopedRenderTransform(GpuRenderer& renderer) const;
+    /* The view composed with the instance: unaligned instances take the
+       ordinary world-space matrix; aligned instances rebuild the model-view
+       matrix from the camera basis so the model stays screen-facing while
+       inheriting the view's translation, scale and handedness. */
+    DrawTransform renderTransform(const DrawTransform& view) const;
 
     glm::vec3 align_axis;
     float align_angle;
@@ -78,10 +80,10 @@ public:
     /* Mesh-chain submit reached from process(): frustum culling, ambient and
        highlight state, the linked Mesh list, then the optional
        highlight shell pass with reversed winding. */
-    void draw(GpuRenderer& renderer);
-    void RenderMeshes(GpuRenderer& renderer);
+    void draw(GpuRenderer& renderer, const DrawTransform& view);
+    void RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform);
     /* Shadow-volume extrusion helper for the first mesh in the chain. */
-    void RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh);
+    void RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh, const DrawTransform& transform);
 
     Texture* FindMouthTexture(); /* 0x00481080 */
     int AddDamageStage(std::string_view name);

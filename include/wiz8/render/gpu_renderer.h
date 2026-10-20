@@ -20,13 +20,13 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_draw.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vertex_shading.h"
 #include "wiz8/render/vertex_stream.h"
-#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/surface_storage.h"
 struct SDL_Surface;
 class MeshInstance;
@@ -83,7 +83,27 @@ public:
     };
 
     enum GpuBuffer { GPU_BUFFER_COLOR = 1, GPU_BUFFER_DEPTH = 2, GPU_BUFFER_STENCIL = 4 };
-    enum GpuCullMode { GPU_CULL_NONE = 0, GPU_CULL_BACK = 1, GPU_CULL_FRONT = 2 };
+
+    // One draw and every input it reads besides the target's viewport and
+    // scissor. Nothing a draw uses persists into the next one.
+    struct DrawCall {
+        vertexStream::e_primitive primitive = vertexStream::PRIMITIVE_TRIANGLES;
+        // Non-indexed draws read vertices [0, vertices.count).
+        vertexStream::VertexArrayInfo vertices{};
+        std::span<const w8_ulong> indices;
+        // Applied by the vertex shader to the supplied positions.
+        glm::mat4 clip_transform{1};
+        DrawShader shader;
+        // A null stage samples the missing-texture pattern when texturing.
+        std::array<Texture*, 2> textures{};
+        glm::vec4 fog_color{0};
+        w8_long polygon_offset = 0;
+    };
+    // A draw stage resolved to a device texture and its sampler settings.
+    struct GpuStage {
+        SDL_GPUTexture* texture = nullptr;
+        GpuTexParms parameters;
+    };
 
 private:
     /* One interleaved vertex in the device's own stream. */
@@ -122,22 +142,22 @@ private:
         PRIMITIVE_CLASS_POINTS
     };
 
-    /* Fixed-function state that SDL GPU bakes into a pipeline. */
+    /* Fixed-function state that SDL GPU bakes into a pipeline. Mesh culling
+       runs on the CPU, so device pipelines never cull. */
     struct GpuPipelineKey {
         static constexpr uint32_t STENCIL_REPLACE = 1u << 30;
         uint32_t value = 0;
         w8_long offset = 0;
 
         GpuPipelineKey() = default;
-        GpuPipelineKey(const DrawShader& shader, GpuCullMode cull, GpuPrimitiveClass primitive,
-                       w8_long bias)
+        GpuPipelineKey(const DrawShader& shader, GpuPrimitiveClass primitive, w8_long bias)
         {
             offset = bias;
             const uint32_t packed_shader =
                 shader.value & (DrawShader::PASS_MASK | DrawShader::MASK_DEPTH_WRITE |
                                 DrawShader::MASK_COLOR_WRITE | 0x7u << DrawShader::DSTBLEND_SHIFT |
                                 0x3u << DrawShader::SRCBLEND_SHIFT);
-            value = packed_shader | (uint32_t)cull << 24 | (uint32_t)primitive << 28;
+            value = packed_shader | (uint32_t)primitive << 28;
         }
 
         bool operator<(const GpuPipelineKey& other) const
@@ -198,13 +218,10 @@ public:
 
     void gpuSetClearValues(const GpuClearValues& values);
 
-    void gpuSetFogColor(const glm::vec4& color);
-
-    void gpuSetShader(const DrawShader& value);
-
-    void gpuSetTextureParameters(w8_ulong stage, const GpuTexParms& parms);
-
-    void gpuBindTexture(w8_ulong stage, const NativeTexture& texture);
+    /* Expands every primitive to a list: SDL GPU has no fans, and lists let
+       consecutive draws share one vertex stream. The call's textures arrive
+       already resolved into `stages`. */
+    void gpuDraw(const DrawCall& call, const std::array<GpuStage, 2>& stages);
 
     void gpuDeleteTexture(NativeTexture& texture);
 
@@ -217,33 +234,13 @@ public:
 
     void gpuDeleteContext();
 
-    void gpuSetCullMode(GpuCullMode mode);
-
-    void gpuSetProjectionMatrix(const glm::mat4& matrix);
-
-    void gpuSetVertexArrayInfo(const vertexStream::VertexArrayInfo* info);
-
-    void gpuDrawElements(vertexStream::e_primitive primitive, std::span<const w8_ulong> indices);
-
-    void gpuDrawArrays(vertexStream::e_primitive primitive, w8_long first, w8_ulong count);
-
-    void gpuSetPolygonOffset(w8_long offset);
-
 private:
     SDL_GPUShader* gpuCreateShader(SDL_GPUShaderStage stage, uint32_t sampler_count);
 
     NativeTexture gpuCreateDeviceTexture(uint32_t texture_width, uint32_t texture_height,
                                          uint32_t levels);
 
-    template<class Vector>
-    Vector gpuFetch(vertexStream::e_vertexArray slot, uint32_t index, Vector fallback) const;
-
-    void gpuAppendVertex(uint32_t index);
-
-    /* Expands every primitive to a list: SDL GPU has no fans, and lists let
-       consecutive draws share one vertex stream. */
-    void gpuDraw(vertexStream::e_primitive primitive, uint32_t count, const w8_ulong* indices,
-                 uint32_t first);
+    void gpuAppendVertex(const vertexStream::VertexArrayInfo& arrays, uint32_t index);
 
     SDL_GPUSampler* gpuSampler(const GpuTexParms& parameters);
 
@@ -283,17 +280,9 @@ private:
     uint32_t gpu_width{};
     uint32_t gpu_height{};
 
-    DrawShader gpu_shader;
-    GpuCullMode gpu_cull_mode{};
-    w8_long gpu_polygon_offset{};
-    GpuVertexUniforms gpu_projection{glm::mat4(1)};
     GpuClearValues gpu_clear_values{};
-    glm::vec4 gpu_fog_color{0};
     SDL_Rect gpu_scissor{};
     SDL_GPUViewport gpu_viewport{};
-    vertexStream::VertexArrayInfo gpu_vertex_arrays{};
-    SDL_GPUTexture* gpu_bound[2]{};
-    GpuTexParms gpu_parameters[2]{};
 
     std::map<GpuPipelineKey, SDL_GPUGraphicsPipeline*> gpu_pipelines;
     std::unordered_set<SDL_GPUTexture*> gpu_textures;
@@ -324,11 +313,6 @@ public:
         w8_ulong triangle_index{};
     };
 
-    struct ClipPlanes {
-        glm::vec4 planes[32];
-        w8_ulong mask;
-    };
-
     // Distance and amplitude of the frame depth cue.
     struct Environment {
         float minimum;
@@ -337,15 +321,6 @@ public:
         float far_scale;
     };
 
-    /* ortho/frustum take this packed six-double box. */
-    struct Frustum {
-        double left;
-        double right;
-        double bottom;
-        double top;
-        double near_plane;
-        double far_plane;
-    };
     class Renderer {
     public:
         struct TriInput {
@@ -358,6 +333,8 @@ public:
             int direct_vertex_indices;
             const glm::mat4* project_clip_near;
             float sort_bias;
+            // Depth bias recorded with the triangles' texture sets.
+            w8_long polygon_offset = 0;
             w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
         };
 
@@ -368,17 +345,19 @@ public:
             w8_ulong texture_stages;
         };
 
-        /* The interned record additionally carries a blend class derived from the shader's DSTBLEND
-           field (ZERO -> 0, SRC_ALPHA pair -> 1, ONE -> 2, SRC_COLOR pair -> 3). */
+        /* The draw state of one triangle run. The interned record additionally carries a blend
+           class derived from the shader's DSTBLEND field (ZERO -> 0, SRC_ALPHA pair -> 1,
+           ONE -> 2, SRC_COLOR pair -> 3). */
         struct TextureSetKey {
             Texture* texture0;
             Texture* texture1;
             DrawShader shader;
+            w8_long polygon_offset = 0;
 
             bool operator==(const TextureSetKey& other) const
             {
                 return texture0 == other.texture0 && texture1 == other.texture1 &&
-                       shader.value == other.shader.value;
+                       shader.value == other.shader.value && polygon_offset == other.polygon_offset;
             }
             bool operator!=(const TextureSetKey& other) const { return !(*this == other); }
         };
@@ -387,7 +366,8 @@ public:
             {
                 return std::hash<Texture*>{}(key.texture0) ^
                        (std::hash<Texture*>{}(key.texture1) << 1) ^
-                       (std::hash<w8_ulong>{}(key.shader.value) << 2);
+                       (std::hash<w8_ulong>{}(key.shader.value) << 2) ^
+                       (std::hash<w8_long>{}(key.polygon_offset) << 3);
             }
         };
         struct TextureSet {
@@ -395,6 +375,7 @@ public:
             Texture* texture1;
             DrawShader shader;
             w8_ulong blend;
+            w8_long polygon_offset;
         };
         /* GpuTexture-set interning cache; the map's value is the index into sets. */
         struct TextureSetCache {
@@ -453,7 +434,7 @@ public:
            texture_set, folding per-vertex texture/shader table transitions
            into the output ids. */
         void assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices, w8_ulong count,
-                               const MeshPass* pass);
+                               const MeshPass* pass, w8_long polygon_offset);
         /* expands/dedups the input triangles into the index and
            vertex batches, per record. */
         void expandTriangles(const TriInput& input, int sorted);
@@ -470,15 +451,14 @@ public:
         void submit();
         /* the immediate (sorted == 0) and
            sorted draw paths over the accumulated index batch. */
-        void drawImmediate();
-        void drawSorted();
-        /* point the draw state at texture set `index`,
-           updating each of texture0/texture1/shader only on change. */
-        void bindTextureSet(w8_ulong index, bool force = false);
-        void drawTriangleRuns(std::span<const w8_ulong> order);
-        /* Borrow the per-stage texture coordinate and Q streams and program
-           the GPU vertex arrays for the bound batch. */
-        void programVertexArrays(ShadedVertexArrays* arrays, w8_ulong count);
+        void drawImmediate(const vertexStream::VertexArrayInfo& arrays);
+        void drawSorted(const vertexStream::VertexArrayInfo& arrays);
+        void drawTriangleRuns(std::span<const w8_ulong> order,
+                              const vertexStream::VertexArrayInfo& arrays);
+        /* The GPU vertex streams of the bound batch: positions plus the
+           per-stage texture coordinate and Q streams its attributes use. */
+        vertexStream::VertexArrayInfo vertexArrays(const ShadedVertexArrays& arrays,
+                                                   w8_ulong count) const;
         /* discard accumulated state; nonzero also releases
            the backing arrays. */
         void reset(int release_buffers);
@@ -506,14 +486,8 @@ public:
         /* allocVertexArray() snapshots the vertex count here so render() can
            offset indices into the reserved range. */
         w8_long first_vertex;
-        /* Bound draw state, refreshed per texture set. */
-        Texture* texture0;
-        Texture* texture1;
-        DrawShader shader;
-        w8_ulong clip_state;
         GpuRenderer* gerd;
-        /* batchRenderer matches this against the sorted-mode enable bit;
-           flushSort flushes entries where it is 1, flushImmediateRenderers
+        /* flushSort flushes entries where this is 1, flushImmediateRenderers
            where it is 0. */
         w8_long sorted;
         w8_long batch_limit;
@@ -532,26 +506,13 @@ public:
         ERROR_NO_CONTEXT = 8
     };
     enum e_closeHint {};
-    /* applyRenderState translates each value to the same SDL GPU mode. */
-    /* 0 selects the model-view stack and 1 the projection stack. */
-    enum e_matrixMode { MATRIX_MODELVIEW = 0, MATRIX_PROJECTION = 1 };
-    enum e_clipMode { CLIPMODE_POSITIONAL_0 = 0 };
-    /* 0 culls back faces and 1 front faces (each flipped by the winding); 2 disables culling. */
-    enum e_cullMode { CULL_BACK = 0, CULL_FRONT = 1, CULL_NONE = 2 };
-    /* toggle XORs 1<<option into enable_flags. Option 1 selects sorted rendering.
-       The constructor sets options 4 and 6. */
-    enum e_enable {
-        ENABLE_SORTED_RENDERING = 1,
-        ENABLE_REVERSE_NORMALS = 3,
-        ENABLE_AUTO_FLIP = 4,
-        ENABLE_CLEAR_ON_OPEN = 6
-    };
-    enum e_winding { WINDING_POSITIONAL_0 = 0, WINDING_POSITIONAL_1 = 1 };
-    enum e_visibility { VISIBILITY_OUTSIDE = 0 };
+    /* toggle XORs 1<<option into enable_flags. The constructor sets both options. */
+    enum e_enable { ENABLE_AUTO_FLIP = 4, ENABLE_CLEAR_ON_OPEN = 6 };
+
     GpuRenderer();
     ~GpuRenderer();
 
-    void submitMesh(const Mesh::TriMesh& mesh, w8_long material_side = 0);
+    void submitMesh(const Mesh::TriMesh& mesh, const MeshState& state, w8_long material_side = 0);
 
     // The open native renderer, borrowed only while its window remains open.
     static GpuRenderer* getActive();
@@ -598,33 +559,15 @@ public:
         /* getStatistics accumulates this only for sorted renderers. */
         w8_ulong sorted_triangles;
         w8_ulong input_vertices;
-        /* applyViewStateChanges increments this counter on every apply. */
-        w8_ulong view_state_applies;
-        /* applyDrawStateChanges increments this counter on every apply. */
-        w8_ulong draw_state_applies;
-        /* applyFrameStateChanges increments this counter on every apply. */
-        w8_ulong frame_state_count;
-        /* GpuTexture binds counted by changeTexture after the stage's bound
-           texture actually changes; the debug overlay prints it as "TC". */
+        /* Texture changes between consecutive replayed draws; the debug
+           overlay prints it as "TC". */
         w8_ulong texture_binds;
-        /* GpuTexture-parameter updates counted by setTextureParameters. */
-        w8_ulong texture_parameter_sets;
         /* createNewTexture increments this created-texture count. */
         w8_ulong textures_created;
-        /* setShader calls counted by applyDrawStateChanges. */
-        w8_ulong shader_sets;
-        /* drawArrays/drawElements increment this draw-call count. */
+        /* draw increments this draw-call count. */
         w8_ulong draw_calls;
         w8_ulong clipped_triangles;
         w8_ulong device_calls;
-        /* testBoundingSphere call count / visible-result count. */
-        w8_ulong sphere_tests;
-        w8_ulong sphere_visible;
-        /* testBoundingBox call count / visible-result count. */
-        w8_ulong box_tests;
-        w8_ulong box_visible;
-        /* classifyMatrix call count. */
-        w8_ulong matrix_classifications;
     };
     Statistics getStatistics();
     w8_ulong getResidentTextureMemUsed() const;
@@ -644,25 +587,8 @@ public:
     void flipFrame(const Rectangle* first, const Rectangle* second, w8_ulong count);
     void setTextureReduction(w8_long reduction);
     void setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
-    void matrixMode(e_matrixMode mode);
-    e_matrixMode getMatrixMode() const;
-    glm::mat4 getMatrix();
-    glm::mat4 getMatrix(e_matrixMode mode);
-    BoundingSphere eyeSpaceBounds(const BoundingSphere& sphere);
-    glm::vec4 getEyeSpaceLocation(const glm::vec3& object_location);
-    glm::mat4 getInverseModelViewMatrix();
-    ClipPlanes getClipPlanes();
-    bool pushClipPlane(const glm::vec4& plane, e_clipMode mode);
-    void popClipPlane();
-    glm::mat4 getProjectClipNearMatrix();
-    glm::mat4 getNormalMatrix();
-
-    float getMaxModelViewScale();
-    e_cullMode getCullMode() const;
-    e_winding getWinding() const;
-    void setWinding(e_winding winding);
     // Rendering and resource updates run on the main thread.
-    Renderer& batchRenderer();
+    Renderer& batchRenderer(bool sorted);
     SDL_Surface* lockBuffer();
     void unlockBuffer(bool modified = false);
     glm::vec4 getAmbientLight() const;
@@ -673,55 +599,25 @@ public:
     void setExclusionMask(w8_ulong mask);
     // RECOMP: ?getMaxTextureStages@GpuRenderer@@QBEJXZ
     w8_long getMaxTextureStages() const { return max_texture_stages; }
-    void loadIdentity();
-    void multMatrix(const glm::mat4& matrix);
-    void multMatrix(const glm::dmat4& matrix);
-    void rotate(double angle, const glm::vec3& axis);
-    void rotate(double angle, double x, double y, double z);
-    void scale(double x, double y, double z);
-    void scale(const glm::vec3& factors);
-    void scale(double factor);
-    void translate(const glm::vec3& offset);
-    void translate(double x, double y, double z);
-    e_visibility testBoundingSphere(const glm::vec3& center, float radius);
-    e_visibility testBoundingBox(const glm::vec3& minimum, const glm::vec3& maximum);
     void setPickKey(w8_ulong_ptr key);
     w8_ulong_ptr getPickKey() const;
-    void ortho(double left, double right, double bottom, double top, double near_plane,
-               double far_plane);
-    void ortho(const Frustum& frustum);
-    void frustum(double left, double right, double bottom, double top, double near_plane,
-                 double far_plane);
-    void frustum(const Frustum& frustum);
-    void loadMatrix(const glm::dmat4& matrix);
-    void loadMatrix(const glm::mat4& matrix);
-    void loadMatrix(const glm::dmat3& matrix);
-    void loadMatrix(const glm::mat3& matrix);
     void setEnvironmentRange(float minimum, float maximum);
     void setEnvironmentScaleFactor(float scale, float inverse_scale);
-    void setClipState(std::uint32_t state);
-    void setTexture(Texture* texture, w8_ulong layer);
     void setTextureDefaultMagFilter(Texture::e_filter filter);
     void setTextureDefaultMinFilter(Texture::e_filter filter);
     void setTextureDefaultMipmap(Texture::e_mipmap mipmap);
     void setTextureSubImage(Texture* texture, w8_long mipmap, w8_long x, w8_long y, w8_long width,
                             w8_long height);
-    void drawArrays(vertexStream::e_primitive primitive, w8_long first, w8_ulong count);
-    void drawElements(vertexStream::e_primitive primitive, w8_ulong count,
-                      vertexStream::e_indexType type, const void* indices);
+    // Resolves the texture and makes its device copy resident before any draw needs it.
+    void prepareTexture(Texture* texture);
+    void draw(const DrawCall& call);
     std::optional<Pick> popPick();
     void pushPick(const Pick& pick);
     void toggle(e_enable option);
-    std::uint32_t drawOptions() const { return enable_flags; }
-    void setDrawOptions(std::uint32_t options) { enable_flags = options; }
     void invalidateResidentTextures();
     void invalidateTextureCache();
     void invalidateTexture(Texture* texture);
-    /* Clears every open renderer's binding of a texture being destroyed. */
-    static void unbindTexture(const Texture* texture);
     void setSwapInterval(w8_ulong interval);
-    w8_long getPolygonOffset() const;
-    void setPolygonOffset(w8_long offset);
 
     /* Releases every GERD on the global list. */
     e_error getError();
@@ -732,56 +628,6 @@ public:
 
     // RECOMP: ?isEnabled@GpuRenderer@@QBEHW4e_enable@1@@Z
     int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
-
-    // RECOMP: ?setCullMode@GpuRenderer@@QAEXW4e_cullMode@1@@Z
-    void setCullMode(e_cullMode mode)
-    {
-        if (state.cull_mode != mode) {
-            state.cull_mode = mode;
-            dirty |= DIRTY_CULLING;
-        }
-    }
-
-    // RECOMP: ?setShader@GpuRenderer@@QAEXABVsrShader@@@Z
-    void setShader(const DrawShader& shader)
-    {
-        if (this->shader.value != shader.value) {
-            this->shader = shader;
-            dirty |= DIRTY_SHADER;
-        }
-    }
-
-    void setVertexArrayMask(std::uint32_t mask)
-    {
-        vertex_arrays.mask = mask;
-        vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-    }
-
-    std::uint32_t getVertexArrayMask() const { return vertex_arrays.mask; }
-
-    // RECOMP: ?setTexCoordPointer@GpuRenderer@@QAEXJW4e_type@vertexStream@@KPBXK@Z
-    void setTexCoordPointer(w8_long components, vertexStream::e_type type, w8_ulong stride,
-                            const void* values, w8_ulong layer)
-    {
-        w8_ulong index = layer + 4;
-        vertex_arrays.components[index] = components;
-        vertex_arrays.types[index] = type;
-        vertex_arrays.strides[index] = stride;
-        vertex_arrays.arrays[index] = values;
-        vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-    }
-
-    // RECOMP: ?setVertexPointer@GpuRenderer@@QAEXJW4e_type@vertexStream@@KPBXJ@Z
-    void setVertexPointer(w8_long primitive, vertexStream::e_type type, w8_ulong stride,
-                          const void* values, w8_long count)
-    {
-        vertex_arrays.count = count < 0 ? 0 : count;
-        vertex_arrays.components[0] = primitive;
-        vertex_arrays.types[0] = type;
-        vertex_arrays.strides[0] = stride;
-        vertex_arrays.arrays[0] = values;
-        vertex_arrays_dirty |= DIRTY_VERTEX_ARRAY_INFO;
-    }
 
 private:
     struct TextureCacheData {
@@ -811,9 +657,6 @@ private:
     GpuRenderer(const GpuRenderer&) = delete;
     GpuRenderer& operator=(const GpuRenderer&) = delete;
 
-    void setDataPtr(vertexStream::e_vertexArray index, w8_long components,
-                    vertexStream::e_type type, w8_ulong stride, const void* values);
-
     friend class Renderer;
     /* For each queued Pick, w-normalize the batch's positions into pick_vertices and run the
        edge-function triangle test against the pick ray. */
@@ -821,32 +664,23 @@ private:
     void deleteRenderers();
 
     void setError(e_error error);
-    void resetTexture();
     void assertContext() const;
-    void setMatrixDirty();
-    void classifyMatrix(e_matrixMode mode);
     void applyViewStateChanges();
-    void applyClipPlaneChanges();
-    void applyDrawStateChanges();
-    void applyFrameStateChanges();
     void checkViewStateChanges();
-    void checkClipPlaneChanges();
-    void checkDrawStateChanges();
-    void prepareDrawState();
     void checkFrameStateChanges();
+    void applyFrameStateChanges();
     void checkAllStateChanges();
     void recalcScissor();
-    void changeTexture(Texture* texture, w8_ulong stage, int apply_parms);
+    // The resident device copy of a resolved texture and the sampler its parameters select.
+    GpuStage residentStage(Texture* texture);
     GpuTexture* createNewTexture(Texture* texture);
-    void setTextureParameters(w8_ulong stage, const Texture::Parameters& parameters);
+    GpuTexParms samplerParameters(const Texture::Parameters& parameters) const;
     void evaluateTextureDimensions(TextureCacheData& device, const Texture::Dimensions& dimensions);
-    void resetCurrentTexPointers();
     void initTexCache();
     void closeTexCache();
     void initClearColors();
     void initView();
     void initLights();
-    void initMatrices();
     e_error openWindowInternal(const OpenInfo& info);
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
@@ -861,11 +695,6 @@ private:
     };
 
     struct State {
-        // Current model-view and projection values.
-        glm::mat4 matrix_current[2];
-        /* Entries [0..5] are the eye-space frustum planes and [6..31] the user planes pushed by
-           pushClipPlane (mask bits 6..31 of clip_mask). */
-        glm::vec4 clip_planes[32];
         /* Depth range forwarded into GpuViewPort by applyViewStateChanges;
            initView resets it to [0.0, 1.0] and setDepthRange clamps it. */
         double depth_min;
@@ -875,22 +704,8 @@ private:
         w8_ulong view_top;
         w8_ulong view_right;
         w8_ulong view_bottom;
-        e_cullMode cull_mode;
-        e_winding winding;
-        e_matrixMode matrix_mode;
-        unsigned char unknown_12c4_[6];
-        /* Plane-enable mask: bits 0..5 frustum, bits 6..31 user planes. */
-        w8_ulong clip_mask;
-        /* Subset of clip_mask carrying mode-1 user planes. */
-        w8_ulong clip_mode1_mask;
-        w8_long clip_plane_count;
         /* Bit 1: recalcScissor marks the scissor as the full view. */
         w8_ulong scissor_flags;
-        glm::mat4 inverse_modelview;
-        glm::mat4 project_clip_near;
-        glm::mat4 normal_matrix;
-        float max_modelview_scale;
-        unsigned char unknown_13c4_[4];
     };
 
     struct Display {
@@ -925,29 +740,16 @@ private:
     std::vector<glm::vec3> highlight_vertices;
 
     unsigned char unknown_0c_[4];
+    // Immediate and depth-sorted batches.
     std::array<std::unique_ptr<Renderer>, 2> renderers;
     std::uint32_t enable_flags = 0;
     enum {
         DIRTY_SWAP_INTERVAL = 0x4UL,
         DIRTY_SCISSOR = 0x10UL,
-        DIRTY_MATRIX_SHIFT = 5,
-        DIRTY_MODELVIEW = 0x20UL,
-        DIRTY_PROJECTION = 0x40UL,
         DIRTY_VIEWPORT = 0x80UL,
         DIRTY_DEPTH_RANGE = 0x100UL,
-        DIRTY_FOG_COLOR = 0x200UL,
-        DIRTY_TEXTURE_SHIFT = 10,
-        DIRTY_TEXTURE0 = 0x400UL,
-        DIRTY_TEXTURE1 = 0x800UL,
-        DIRTY_SHADER = 0x1000UL,
-        DIRTY_CULLING = 0x2000UL,
-        DIRTY_POLYGON_OFFSET = 0x8000UL,
-        DIRTY_CLIP_PLANES = 0x10000UL,
         DIRTY_FRAME_STATE = DIRTY_SWAP_INTERVAL,
-        DIRTY_VIEW_STATE = DIRTY_SCISSOR | DIRTY_MODELVIEW | DIRTY_PROJECTION | DIRTY_VIEWPORT |
-            DIRTY_DEPTH_RANGE,
-        DIRTY_DRAW_STATE = DIRTY_FOG_COLOR | DIRTY_TEXTURE0 | DIRTY_TEXTURE1 | DIRTY_SHADER |
-            DIRTY_CULLING | DIRTY_POLYGON_OFFSET
+        DIRTY_VIEW_STATE = DIRTY_SCISSOR | DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE
     };
     w8_ulong dirty;
     enum {
@@ -966,17 +768,8 @@ private:
     Statistics statistics;
 
     ClearState clear_state;
-    /* Bound GpuTexture per stage, swapped by changeTexture. */
-    GpuTexture* texture_slots[2];
-    /* Per-stage SDL sampler parameters written by setTextureParameters. */
-    GpuTexParms texture_parms[2];
     TextureState texture_state;
-    w8_long polygon_offset;
     glm::vec4 fog_color;
-    DrawShader shader;
-    /* Borrowed texture resources requested through setTexture for stages 0/1;
-       a texture clears its bindings when destroyed. */
-    Texture* texture_iface[2];
     /* GPU texture records keyed by the source resource's identity. */
     Texture fallback_texture;
     std::unordered_map<Texture*, GpuTexture> textures;
@@ -991,9 +784,6 @@ public:
     std::span<FogParams* const> fogs;
     double frame_time = 0;
     w8_ulong exclusion_mask;
-    enum { DIRTY_VERTEX_ARRAY_INFO = 0x01u };
-    w8_ulong vertex_arrays_dirty;
-    vertexStream::VertexArrayInfo vertex_arrays;
     /* performPickTest's w-normalized {x,y,z,sign(w)} scratch per vertex;
        cleared by closeWindow. */
     std::vector<glm::vec4> pick_vertices;

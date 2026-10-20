@@ -56,13 +56,13 @@
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/ground_shadow.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
-#include "wiz8/render/matrix_scope.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_culling.h"
 #include "wiz8/render/mesh_instance.h"
@@ -386,18 +386,13 @@ static void baked_lighting()
 
 static void renderer_bounds()
 {
-    GpuRenderer renderer;
-    renderer.matrixMode(GpuRenderer::MATRIX_PROJECTION);
-    renderer.loadIdentity();
-    renderer.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-    renderer.loadIdentity();
-    REQUIRE((renderer.testBoundingSphere({0, 0, 0}, 0.1f) != GpuRenderer::VISIBILITY_OUTSIDE));
+    const DrawTransform view;
+    REQUIRE(view.sphereVisible({0, 0, 0}, 0.1f));
     for (int axis = 0; axis < 3; ++axis)
         for (float sign : {-1.0f, 1.0f}) {
             glm::vec3 position(0);
             position[axis] = sign * 2;
-            REQUIRE(
-                (renderer.testBoundingSphere(position, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
+            REQUIRE_FALSE(view.sphereVisible(position, 0.1f));
         }
     Mesh empty;
     const auto empty_bounds = empty.getBounds();
@@ -409,42 +404,42 @@ static void renderer_bounds()
     Mesh mesh(0, 8);
     mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
     mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(renderer)); // Visible sphere, rejected box.
+    REQUIRE_FALSE(mesh.isVisible(view)); // Visible sphere, rejected box.
     mesh.enable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(renderer));
+    REQUIRE(mesh.isVisible(view));
     mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
     mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(renderer)); // Rejected sphere, visible box.
+    REQUIRE_FALSE(mesh.isVisible(view)); // Rejected sphere, visible box.
     mesh.enable(Mesh::CONTROL_SKIP_AUTO_SPHERE);
-    REQUIRE(mesh.isVisible(renderer));
+    REQUIRE(mesh.isVisible(view));
     mesh.setBounds({2, 2, 2}, {3, 3, 3}, {3, 0, 0}, 0.1f);
     mesh.enable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(renderer));
+    REQUIRE(mesh.isVisible(view));
     mesh.disable(Mesh::CONTROL_SKIP_AUTO_BOX);
     mesh.vertex_location_count = 7;
-    REQUIRE(mesh.isVisible(renderer)); // Small meshes bypass box culling.
+    REQUIRE(mesh.isVisible(view)); // Small meshes bypass box culling.
 
-    renderer.loadMatrix(
-        glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4)));
-    const auto sphere = renderer.eyeSpaceBounds({{2, 3, 4}, 2});
+    const DrawTransform scaled{
+        .model_view =
+            glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4))};
+    const auto sphere = scaled.eyeSpaceBounds({{2, 3, 4}, 2});
     REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
     REQUIRE(sphere.radius == 8);
-    renderer.loadIdentity();
-    renderer.pushClipPlane({1, 0, 0, 0}, GpuRenderer::CLIPMODE_POSITIONAL_0);
-    REQUIRE((renderer.testBoundingSphere({-0.5f, 0, 0}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0.5f, 0, 0}, 0.1f) != GpuRenderer::VISIBILITY_OUTSIDE));
-    renderer.popClipPlane();
-    renderer.matrixMode(GpuRenderer::MATRIX_PROJECTION);
-    renderer.loadMatrix(glm::ortho(-2.0f, 4.0f, -3.0f, 5.0f, 1.0f, 10.0f));
-    REQUIRE((renderer.testBoundingSphere({3, 0, -4}, 0.1f) != GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({5, 0, -4}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, 6, -4}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, -4, -4}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
-    renderer.loadMatrix(glm::perspective(glm::half_pi<float>(), 1.0f, 1.0f, 10.0f));
-    REQUIRE((renderer.testBoundingSphere({0, 0, -4}, 0.1f) != GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, 0, -0.5f}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, 0, -12}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({8, 0, -4}, 0.1f) == GpuRenderer::VISIBILITY_OUTSIDE));
+    const std::array user_planes{eyeSpaceClipPlane(glm::mat4(1), {1, 0, 0, 0})};
+    const DrawTransform clipped{.user_clip_planes = user_planes};
+    REQUIRE_FALSE(clipped.sphereVisible({-0.5f, 0, 0}, 0.1f));
+    REQUIRE(clipped.sphereVisible({0.5f, 0, 0}, 0.1f));
+    const DrawTransform ortho{.projection = glm::ortho(-2.0f, 4.0f, -3.0f, 5.0f, 1.0f, 10.0f)};
+    REQUIRE(ortho.sphereVisible({3, 0, -4}, 0.1f));
+    REQUIRE_FALSE(ortho.sphereVisible({5, 0, -4}, 0.1f));
+    REQUIRE_FALSE(ortho.sphereVisible({0, 6, -4}, 0.1f));
+    REQUIRE_FALSE(ortho.sphereVisible({0, -4, -4}, 0.1f));
+    const DrawTransform perspective{.projection =
+                                        glm::perspective(glm::half_pi<float>(), 1.0f, 1.0f, 10.0f)};
+    REQUIRE(perspective.sphereVisible({0, 0, -4}, 0.1f));
+    REQUIRE_FALSE(perspective.sphereVisible({0, 0, -0.5f}, 0.1f));
+    REQUIRE_FALSE(perspective.sphereVisible({0, 0, -12}, 0.1f));
+    REQUIRE_FALSE(perspective.sphereVisible({8, 0, -4}, 0.1f));
 }
 
 static void triangle_visibility()
@@ -1284,24 +1279,17 @@ TEST_CASE("Software backface selection preserves thresholds and active order", "
 TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",
           "[geometry][rendering]")
 {
-    GpuRenderer renderer;
-    renderer.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
     const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
-    renderer.loadMatrix(scale);
-    renderer.pushClipPlane({2, 0, 0, -2}, GpuRenderer::CLIPMODE_POSITIONAL_0);
     // GERD normalizes in object space before the inverse-transpose transform.
-    REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
-    renderer.popClipPlane();
-    // Six bits belong to the view frustum. Rejected pushes leave existing
-    // planes intact; callers balance only the pushes that succeeded.
-    for (int index = 0; index < 40; ++index)
-        REQUIRE(renderer.pushClipPlane({1, 0, 0, 0}, GpuRenderer::CLIPMODE_POSITIONAL_0) ==
-                (index < 26));
-    REQUIRE(renderer.getClipPlanes().mask == 0xffffffffu);
-    renderer.popClipPlane();
-    REQUIRE(renderer.getClipPlanes().mask == 0x7fffffffu);
-    for (int index = 0; index < 25; ++index) renderer.popClipPlane();
-    REQUIRE(renderer.getClipPlanes().mask == 0x3fu);
+    const std::array scaled_plane{eyeSpaceClipPlane(scale, {2, 0, 0, -2})};
+    REQUIRE(DrawTransform{.user_clip_planes = scaled_plane}.clipPlanes().planes[6] ==
+            glm::vec4(0.5f, 0, 0, -1));
+    // Six bits belong to the view frustum; planes beyond the 26 user slots are ignored.
+    const std::vector<glm::vec4> planes(40, glm::vec4(1, 0, 0, 0));
+    REQUIRE(DrawTransform{.user_clip_planes = planes}.clipPlanes().mask == 0xffffffffu);
+    REQUIRE(DrawTransform{.user_clip_planes = std::span(planes).first(25)}.clipPlanes().mask ==
+            0x7fffffffu);
+    REQUIRE(DrawTransform{}.clipPlanes().mask == 0x3fu);
     // The CPU culler normalizes after its supplied covector transform.
     const auto plane =
         meshCulling::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
@@ -1312,9 +1300,8 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
 TEST_CASE("Empty software backface selections skip mesh submission", "[geometry]")
 {
     GpuRenderer renderer;
-    renderer.setWinding(GpuRenderer::WINDING_POSITIONAL_0);
     Mesh model(1, 3);
-    auto& batch = renderer.batchRenderer();
+    auto& batch = renderer.batchRenderer(false);
     std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
     std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
     const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};
@@ -1325,10 +1312,10 @@ TEST_CASE("Empty software backface selections skip mesh submission", "[geometry]
     mesh.poly_vertices = triangles.data();
     mesh.control_flags = (1u << Mesh::CONTROL_FRONT) | (1u << Mesh::CONTROL_BACK);
     const auto before = batch.statistics.input_triangles;
-    model.RenderTriMeshWithEquations(renderer, mesh, normals);
+    model.RenderTriMeshWithEquations(renderer, mesh, normals, {});
     REQUIRE(batch.statistics.input_triangles == before);
     mesh.polygon_count = 2;
-    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals),
+    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals, {}),
                       std::invalid_argument);
     REQUIRE(batch.statistics.input_triangles == before);
 }
@@ -1771,25 +1758,6 @@ TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygon
     REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
     REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
     REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
-}
-
-TEST_CASE("Matrix value scopes restore nested transforms without a depth cap",
-          "[geometry][rendering]")
-{
-    GpuRenderer renderer;
-    renderer.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-    renderer.loadIdentity();
-    std::vector<MatrixScope> transforms;
-    transforms.reserve(64);
-    for (int i = 0; i < 64; ++i) {
-        transforms.emplace_back(renderer);
-        renderer.translate(1, 0, 0);
-    }
-    REQUIRE(renderer.getMatrix()[3].x == 64);
-    while (!transforms.empty()) {
-        transforms.pop_back();
-        REQUIRE(renderer.getMatrix()[3].x == static_cast<float>(transforms.size()));
-    }
 }
 
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",

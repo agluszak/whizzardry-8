@@ -17,6 +17,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "wiz8/render/bounding_radius.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/texture.h"
@@ -565,26 +566,17 @@ glm::vec4* Mesh::getVertexDCG(w8_long vertex, int table)
     return GetVertexColorTable(*this, dcg, vertex, table);
 }
 
-bool Mesh::isVisible(GpuRenderer& renderer)
+bool Mesh::isVisible(const DrawTransform& transform)
 {
     const bool test_sphere = (render_control & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
     const bool test_box =
         (render_control & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 && vertex_location_count >= 8;
     if (!test_sphere && !test_box) return true;
     const auto bounds = getBounds();
-    if (test_sphere && renderer.testBoundingSphere(bounds.sphere.center, bounds.sphere.radius) ==
-                           GpuRenderer::VISIBILITY_OUTSIDE)
+    if (test_sphere && !transform.sphereVisible(bounds.sphere.center, bounds.sphere.radius))
         return false;
-    if (test_box && renderer.testBoundingBox(bounds.box.minimum, bounds.box.maximum) ==
-                        GpuRenderer::VISIBILITY_OUTSIDE)
-        return false;
+    if (test_box && !transform.boxVisible(bounds.box.minimum, bounds.box.maximum)) return false;
     return true;
-}
-
-void Mesh::render(GpuRenderer& renderer)
-{
-    if (!isVisible(renderer)) return;
-    renderTriMesh(renderer, getTriMesh());
 }
 
 void Mesh::reindexPolygons(std::span<const w8_ulong> indices)
@@ -642,25 +634,23 @@ void Mesh::reindexVertices(std::span<const w8_ulong> indices)
     setDirtyAll();
 }
 
-void Mesh::renderTriMesh(GpuRenderer& renderer, const TriMesh& mesh)
+void Mesh::renderTriMesh(GpuRenderer& renderer, const TriMesh& mesh, MeshState state)
 {
     if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        const meshSubmission::EnableScope enabled(
-            renderer, (mesh.control_flags & (1UL << CONTROL_SORTED_RENDERING)) != 0);
-        meshSubmission::drawSides(renderer, mesh, [&](w8_long side) {
+        state.sorted =
+            state.sorted || (mesh.control_flags & (1UL << CONTROL_SORTED_RENDERING)) != 0;
+        meshSubmission::drawSides(renderer, mesh, state, [&](w8_long side, MeshState& side_state) {
             w8_long material_side = side;
             if (side == 1) {
-                renderer.setCullMode(GpuRenderer::CULL_FRONT);
-                if (!renderer.isEnabled(GpuRenderer::ENABLE_REVERSE_NORMALS))
-                    renderer.toggle(GpuRenderer::ENABLE_REVERSE_NORMALS);
+                side_state.cull = FaceCull::Front;
+                side_state.reverse_normals = true;
                 if ((mesh.control_flags & (1UL << CONTROL_REUSE_FRONT_MATERIAL)) != 0)
                     material_side = 0;
             } else {
-                renderer.setCullMode((mesh.control_flags & (1UL << CONTROL_NO_FRONT_CULL)) != 0
-                                         ? GpuRenderer::CULL_NONE
-                                         : GpuRenderer::CULL_BACK);
-                if (renderer.isEnabled(GpuRenderer::ENABLE_REVERSE_NORMALS))
-                    renderer.toggle(GpuRenderer::ENABLE_REVERSE_NORMALS);
+                side_state.cull = (mesh.control_flags & (1UL << CONTROL_NO_FRONT_CULL)) != 0
+                                      ? FaceCull::None
+                                      : FaceCull::Back;
+                side_state.reverse_normals = false;
             }
             return material_side;
         });
