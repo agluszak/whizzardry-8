@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <optional>
-#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
@@ -69,7 +68,7 @@ enum W8ArnikaElevatorState : unsigned char {
 constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 
 struct W8Elevator {
-    W8ArnikaElevatorState state{}; /* persisted as El0XState */
+    W8ArnikaElevatorState state = W8_ARNIKA_ELEVATOR_STEP_1; /* persisted as El0XState */
     int moving = 0;                /* persisted as El0XMoving */
     int button_down = 0;           /* persisted as Red/GreenButtonDown */
     Trigger* pElevator = nullptr;
@@ -93,8 +92,8 @@ struct ElevatorStateBindings {
     bool (ArnikaScript::*moving_master)(int);
     bool (ArnikaScript::*button_master)(int);
     bool open_bottom_on_first_load;
-    void (ArnikaScript::*moving_state)(W8SavedLocationState&) const;
-    void (ArnikaScript::*button_state)(W8SavedLocationState&) const;
+    void (ArnikaScript::*moving_state)(W8SavedLocationState&);
+    void (ArnikaScript::*button_state)(W8SavedLocationState&);
 };
 
 class ArnikaScript final : public LevelScript {
@@ -107,10 +106,10 @@ public:
     bool el1Button(int command);
     bool el2Moving(int command);
     bool el2Button(int command);
-    void captureEl1Moving(W8SavedLocationState& state) const;
-    void captureEl2Moving(W8SavedLocationState& state) const;
-    void captureEl1Button(W8SavedLocationState& state) const;
-    void captureEl2Button(W8SavedLocationState& state) const;
+    void captureEl1Moving(W8SavedLocationState& state);
+    void captureEl2Moving(W8SavedLocationState& state);
+    void captureEl1Button(W8SavedLocationState& state);
+    void captureEl2Button(W8SavedLocationState& state);
 
 private:
     void setup();
@@ -145,8 +144,8 @@ private:
     bool cmBox(Trigger* pTrigger);
     bool ballSlot(Trigger* pTrigger);
     bool flightRecorder(Trigger* pTrigger);
-    void captureLaserScan(W8SavedLocationState& state) const;
-    void captureWarningSound(W8SavedLocationState& state) const;
+    void captureLaserScan(W8SavedLocationState& state);
+    void captureWarningSound(W8SavedLocationState& state);
 
     W8Elevator el01_;
     W8Elevator el02_;
@@ -222,27 +221,27 @@ void ArnikaScript::enter()
     setup();
 }
 
-void ArnikaScript::captureEl1Moving(W8SavedLocationState& state) const
+void ArnikaScript::captureEl1Moving(W8SavedLocationState& state)
 {
     state.emplace_back("El01Moving", 1);
 }
-void ArnikaScript::captureEl2Moving(W8SavedLocationState& state) const
+void ArnikaScript::captureEl2Moving(W8SavedLocationState& state)
 {
     state.emplace_back("El02Moving", 1);
 }
-void ArnikaScript::captureEl1Button(W8SavedLocationState& state) const
+void ArnikaScript::captureEl1Button(W8SavedLocationState& state)
 {
     state.emplace_back("RedButtonDown", el01_.button_down);
 }
-void ArnikaScript::captureEl2Button(W8SavedLocationState& state) const
+void ArnikaScript::captureEl2Button(W8SavedLocationState& state)
 {
     state.emplace_back("GreenButtonDown", el02_.button_down);
 }
-void ArnikaScript::captureLaserScan(W8SavedLocationState& state) const
+void ArnikaScript::captureLaserScan(W8SavedLocationState& state)
 {
     state.emplace_back("LaserScanning", laser_scanning_);
 }
-void ArnikaScript::captureWarningSound(W8SavedLocationState& state) const
+void ArnikaScript::captureWarningSound(W8SavedLocationState& state)
 {
     state.emplace_back("WarningSound", warning_gate_
                                            ? static_cast<int>(warning_gate_->GetElapsedSeconds())

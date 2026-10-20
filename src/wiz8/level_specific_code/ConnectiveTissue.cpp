@@ -9,7 +9,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 
 /* Level Specific Code\ConnectiveTissue.cpp (level 0x1b, the Arnika-Trynton

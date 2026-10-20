@@ -141,7 +141,7 @@ private:
     bool activateOfficer(int door_bit, const char* door_name, int npc_kind);
     bool laserAlarm(Trigger* pTrigger);
     bool umpaniAlarm(int command);
-    void captureUmpaniAlarm(W8SavedLocationState& state) const;
+    void captureUmpaniAlarm(W8SavedLocationState& state);
 
     Sound3D* alarm_sound_ = nullptr;
     std::optional<W8IntervalGate> alarm_gate_;
@@ -302,7 +302,7 @@ bool MtGigas2Script::laserAlarm(Trigger* pTrigger)
     return true;
 }
 
-void MtGigas2Script::captureUmpaniAlarm(W8SavedLocationState& state) const
+void MtGigas2Script::captureUmpaniAlarm(W8SavedLocationState& state)
 {
     state.emplace_back("UmpaniAlarm",
                        alarm_gate_ ? static_cast<int>(alarm_gate_->GetElapsedSeconds()) : 0);

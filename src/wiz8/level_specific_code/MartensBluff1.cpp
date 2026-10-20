@@ -82,7 +82,7 @@ private:
     bool jDoorController(Trigger* pTrigger);
     bool transportSpawn();
     bool transporter(int command);
-    void captureTransporter(W8SavedLocationState& state) const;
+    void captureTransporter(W8SavedLocationState& state);
     bool teleporter(Trigger* pTrigger);
     bool pressTeleporterButton(MartensBluff1TeleporterPad pad);
     bool teleportState(MartensBluff1TeleporterPad new_state);
@@ -356,7 +356,7 @@ bool MartensBluff1Script::transportSpawn()
     return true;
 }
 
-void MartensBluff1Script::captureTransporter(W8SavedLocationState& state) const
+void MartensBluff1Script::captureTransporter(W8SavedLocationState& state)
 {
     state.emplace_back("TransportSpawn",
                        transport_gate_

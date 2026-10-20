@@ -80,8 +80,8 @@ private:
     bool securityButton(Trigger* trigger);
     bool campAlarm(int command);
     bool ewaxxDoor03(Trigger* trigger);
-    void captureLiftGate(W8SavedLocationState& state) const;
-    void captureCampAlarm(W8SavedLocationState& state) const;
+    void captureLiftGate(W8SavedLocationState& state);
+    void captureCampAlarm(W8SavedLocationState& state);
 
     std::optional<W8IntervalGate> lift_gate_;
     Prop* lift_prop_ = nullptr;
@@ -167,13 +167,13 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     return false;
 }
 
-void MtGigasOuterScript::captureLiftGate(W8SavedLocationState& state) const
+void MtGigasOuterScript::captureLiftGate(W8SavedLocationState& state)
 {
     state.emplace_back("FlagPosition",
                        lift_gate_ ? static_cast<int>(lift_gate_->GetProgress() * 100.0f) : 0);
 }
 
-void MtGigasOuterScript::captureCampAlarm(W8SavedLocationState& state) const
+void MtGigasOuterScript::captureCampAlarm(W8SavedLocationState& state)
 {
     state.emplace_back("UmpaniCampAlarm",
                        alarm_gate_ ? static_cast<int>(alarm_gate_->GetElapsedSeconds()) : 0);

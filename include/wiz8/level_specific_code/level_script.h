@@ -63,12 +63,11 @@ protected:
         addMaster(Update(std::bind_front(update, static_cast<Script*>(this))));
     }
     template<class Script>
-    void addMaster(bool (Script::*update)(int),
-                   void (Script::*capture)(W8SavedLocationState&) const)
+    void addMaster(bool (Script::*update)(int), void (Script::*capture)(W8SavedLocationState&))
     {
         auto* script = static_cast<Script*>(this);
         addMaster(Update(std::bind_front(update, script)),
-                  Capture(std::bind_front(capture, static_cast<const Script*>(script))));
+                  Capture(std::bind_front(capture, script)));
     }
 
     // Install `callback` on the trigger the level must have.

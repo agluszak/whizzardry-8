@@ -129,12 +129,12 @@ private:
     void setup();
     bool arrowTrap(Trigger* pTrigger);
     bool spikeball(int command);
-    void captureSpikeball(W8SavedLocationState& state) const;
+    void captureSpikeball(W8SavedLocationState& state);
     bool dummy(Trigger* pTrigger);
     bool perfumeBox(Trigger* pTrigger);
     bool squisherControls(Trigger* pTrigger);
     bool monsterCrusher(int command);
-    void captureCrusher(W8SavedLocationState& state) const;
+    void captureCrusher(W8SavedLocationState& state);
     bool stoneIdol(Trigger* pTrigger);
     bool blueFlowers(Trigger* pTrigger);
     bool idolGas(int command);
@@ -305,7 +305,7 @@ bool MartensBluff2Script::arrowTrap(Trigger* pTrigger)
     return true;
 }
 
-void MartensBluff2Script::captureSpikeball(W8SavedLocationState& state) const
+void MartensBluff2Script::captureSpikeball(W8SavedLocationState& state)
 {
     state.emplace_back("SpikedBallLauncher", spikeball_count_ > 0xf ? 0 : spikeball_count_);
 }
@@ -442,7 +442,7 @@ bool MartensBluff2Script::squisherControls(Trigger* pTrigger)
     return false;
 }
 
-void MartensBluff2Script::captureCrusher(W8SavedLocationState& state) const
+void MartensBluff2Script::captureCrusher(W8SavedLocationState& state)
 {
     state.emplace_back("MonsterCrusher", static_cast<int>(crusher_state_));
 }
