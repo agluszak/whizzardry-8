@@ -21,6 +21,7 @@
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
+struct W8LevelRuntimeBlock;
 
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the

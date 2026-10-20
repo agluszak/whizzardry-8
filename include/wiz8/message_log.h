@@ -22,7 +22,7 @@ struct W8NoticeWord {
     bool redraw; /* repaint once after deselection */
 };
 
-class Font;
+struct Font;
 
 /* One line of a text box. */
 struct W8MessageStorageRecord {
