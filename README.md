@@ -84,7 +84,8 @@ C and C++ changes should use the repository's `.clang-format` configuration (cla
 Linux uses Clang 23 with GCC 16's libstdc++ in C++26 mode. CMake checks for
 `std::function_ref` and `std::inplace_vector` during configuration; upgrading
 only the language flag is insufficient. macOS and Windows also need a standard
-library implementing both facilities and remain unverified.
+library implementing both facilities and remain unverified; the Platforms workflow
+compiles the same check (`cmake/Cxx26LibraryCheck.cpp`) with their toolchains.
 
 `linux-asan` combines ASan and UBSan with fatal undefined-behavior diagnostics.
 Debug and RelWithDebInfo enable `_GLIBCXX_ASSERTIONS`; ordinary assertions follow

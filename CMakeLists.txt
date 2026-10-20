@@ -61,19 +61,8 @@ add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_GLIBCX
 # Fail at configure time if the selected standard library lacks the C++26
 # facilities used by the game (the language flag alone is insufficient).
 include(CheckCXXSourceCompiles)
-check_cxx_source_compiles("
-    #include <functional>
-    #include <inplace_vector>
-    #if __cpp_lib_function_ref < 202306L || __cpp_lib_inplace_vector < 202406L
-    #error Required C++26 library facilities are unavailable
-    #endif
-    int main() {
-        std::inplace_vector<int, 8> slots;
-        auto visit = [&] { slots.push_back(1); };
-        std::function_ref<void()> callback = visit;
-        callback();
-        return slots.front() - 1;
-    }" WIZ8_CXX26_LIBRARY)
+file(READ "${PROJECT_SOURCE_DIR}/cmake/Cxx26LibraryCheck.cpp" wiz8_cxx26_library_check)
+check_cxx_source_compiles("${wiz8_cxx26_library_check}" WIZ8_CXX26_LIBRARY)
 if(NOT WIZ8_CXX26_LIBRARY)
     message(FATAL_ERROR "Whizzardry requires C++26 function_ref and inplace_vector (Linux: libstdc++ 16 or newer)")
 endif()

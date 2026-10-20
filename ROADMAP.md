@@ -412,4 +412,6 @@ before the related refactoring changes behavior.
   and Windows (Vulkan) builds, their C++26 library facilities and a representative
   smoke run are unverified, and platform CI is not enabled. Establish a build and a
   smoke run on each before further large engine changes; this is a portability check,
-  not a rendering-performance project.
+  not a rendering-performance project. The Platforms workflow (manual and weekly) checks
+  the first requirement, a standard library with `std::function_ref` and
+  `std::inplace_vector`, with Xcode clang, Homebrew LLVM, clang-cl and MSVC.

@@ -1,0 +1,62 @@
+name: Platforms
+
+# macOS and Windows are not built in CI yet. This checks the first thing they need: a
+# standard library with the C++26 facilities the game uses (cmake/Cxx26LibraryCheck.cpp,
+# the same check CMake runs). It is not a required check.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 5 * * 1"
+  pull_request:
+    paths:
+      - .github/workflows/platforms.yml
+      - cmake/Cxx26LibraryCheck.cpp
+
+permissions:
+  contents: read
+
+jobs:
+  cxx26-library:
+    name: C++26 library (${{ matrix.toolchain }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: macOS Xcode clang
+            os: macos-15
+          - toolchain: macOS Homebrew LLVM
+            os: macos-15
+          - toolchain: Windows clang-cl
+            os: windows-2025
+          - toolchain: Windows MSVC
+            os: windows-2025
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compile with Xcode clang
+        if: matrix.toolchain == 'macOS Xcode clang'
+        run: |
+          clang++ --version
+          clang++ -std=c++2c cmake/Cxx26LibraryCheck.cpp -o probe && ./probe
+      - name: Compile with Homebrew LLVM
+        if: matrix.toolchain == 'macOS Homebrew LLVM'
+        run: |
+          brew install llvm
+          llvm="$(brew --prefix llvm)"
+          "$llvm/bin/clang++" --version
+          "$llvm/bin/clang++" -std=c++26 -stdlib=libc++ -nostdinc++ \
+            -isystem "$llvm/include/c++/v1" -L "$llvm/lib/c++" -Wl,-rpath,"$llvm/lib/c++" \
+            cmake/Cxx26LibraryCheck.cpp -o probe && ./probe
+      - name: Compile with the MSVC standard library
+        if: startsWith(matrix.toolchain, 'Windows')
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS=%%i
+          call "%VS%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          if "${{ matrix.toolchain }}"=="Windows clang-cl" (
+            clang-cl --version || exit /b 1
+            clang-cl /std:c++latest /EHsc cmake\Cxx26LibraryCheck.cpp /Fe:probe.exe || exit /b 1
+          ) else (
+            cl /std:c++latest /EHsc cmake\Cxx26LibraryCheck.cpp /Fe:probe.exe || exit /b 1
+          )
+          probe.exe
