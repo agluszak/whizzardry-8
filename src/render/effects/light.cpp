@@ -1,19 +1,13 @@
 #include "wiz8/render/light.h"
 
 #include <cassert>
-#include <cmath>
 #include <variant>
 
 #include "glm/common.hpp"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
-#include "glm/matrix.hpp"
 #include "wiz8/math.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/vertex_channels.h"
 #include "wiz8/render/vsg_scene.h"
 
 Light::Light(WorldScene* scene, e_preset preset)

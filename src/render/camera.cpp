@@ -2,11 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
-#include <optional>
 #include <span>
 #include <utility>
 
-#include <glm/common.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/gtc/matrix_access.hpp>
 #include <glm/matrix.hpp>

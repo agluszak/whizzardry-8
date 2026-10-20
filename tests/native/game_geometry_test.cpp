@@ -19,7 +19,6 @@
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>

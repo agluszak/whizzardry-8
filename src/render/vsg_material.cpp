@@ -12,6 +12,7 @@
 #include <vector>
 
 #include <glm/common.hpp>
+#include <glm/ext/matrix_float3x3.hpp>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_double2.hpp>
 #include <glm/ext/vector_float2.hpp>
