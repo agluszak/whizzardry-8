@@ -13,7 +13,6 @@
 #include <fmt/printf.h>
 
 #include "asset_paths.h"
-#include "cursor.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
