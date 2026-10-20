@@ -58,6 +58,7 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
@@ -943,6 +944,7 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         return;
     }
     if (control == m_review_button) {
+        CurrentGame().activity.place = Activity::Place::Camp;
         RequestScreen({.id = W8_SCREEN_CAMP, .character = m_character});
         return;
     }
@@ -1342,7 +1344,7 @@ void PartySelectionScreen::frame()
             }
             return InputRoute::Handled;
         }});
-    UpdateCharacterEventState();
+    AnimatePartyPortraits();
     controller->DrawPartySelectionComposition();
     RenderFrame();
 }

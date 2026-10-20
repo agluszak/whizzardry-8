@@ -84,7 +84,7 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
 {
     auto& advancement = game.advancement;
     advancement.hold = hold;
-    const bool held = advancement.paused || hold.world;
+    const bool held = advancement.paused || hold.covered || hold.world;
     const bool time_stopped = held || game.combat.active();
     const World* world = GetWorld();
     const bool hold_changed = held != advancement.held;

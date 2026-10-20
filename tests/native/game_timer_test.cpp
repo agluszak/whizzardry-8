@@ -1,4 +1,5 @@
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <utility>
 
@@ -83,21 +84,20 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     CurrentGame().status.game_time_ms = 250;
     REQUIRE(game.GetProgress() == Catch::Approx(0.125f));
 
+    // The frame delta follows the elapsed time the step passes, not the clock.
     ResetGameTimeAccumulator();
     auto& accumulator = GameTimeAccumulator();
     accumulator.SetTimeScale(0.5f);
-    advance(25'000);
-    REQUIRE(accumulator.Update() == Catch::Approx(0.5f));
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.5f));
     PauseSharedGameTimers();
-    advance(1'000'000);
-    REQUIRE(accumulator.Update() == 0);
+    REQUIRE(accumulator.Update(std::chrono::seconds{1}) == 0);
     ResumeSharedGameTimers();
-    advance(25'000);
-    REQUIRE(accumulator.Update() == Catch::Approx(0.5f));
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.5f));
     accumulator.ResetTimeScale();
-    advance(25'000);
-    REQUIRE(accumulator.Update() == Catch::Approx(0.25f));
-    REQUIRE(accumulator.GetElapsed() == Catch::Approx(1.25f));
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.25f));
+    REQUIRE(accumulator.Update(std::chrono::seconds{1}) ==
+            Catch::Approx(2.0f)); // One step moves at most 200ms.
+    REQUIRE(accumulator.GetElapsed() == Catch::Approx(3.25f));
 }
 
 TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and saved progress",

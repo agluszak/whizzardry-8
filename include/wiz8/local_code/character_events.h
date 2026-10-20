@@ -21,7 +21,13 @@ struct W8MonsterManagerEntry;
 extern int g_special_event13;
 extern int g_special_event14;
 extern int g_special_event17;
-bool UpdateCharacterEventState(void);
+/* The party's voices, one step: each occupied slot's line finishes when its voice or
+   unvoiced hold ends, a member who can no longer speak is cut off, an idle party lets a
+   member at zero hit points cry out, and a speaking portrait's mouth follows its voice. */
+void AdvancePartyVoices(void);
+/* The party portraits' idle animation: each shown portrait moves toward its pose and
+   blinks, and a portrait whose pose or mouth changed is redrawn. */
+void AnimatePartyPortraits(void);
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
                                       unsigned int volume);
 

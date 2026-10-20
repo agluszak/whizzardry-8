@@ -5,10 +5,16 @@ struct W8Character;
 struct W8MonsterInfo;
 struct World;
 
-// What the interface holds still, as the main game screen reports it.
+/* What the interface holds still. The main game screen reports it to every step and covers
+   the world when another screen replaces it; the camp steps the game with the world
+   covered. */
 struct WorldHold {
-    /* The world: another screen, a dialog, a picker, dialogue, the formation panel, a
-       level transition or a minimised window covers it. */
+    /* The world is not shown: another screen covers it, from the camp or a menu to a
+       level change's please-wait screen. Monsters do not look about. A game's world is
+       covered until the main game first steps it. */
+    bool covered = false;
+    /* The world is shown but held: a dialog, a picker, dialogue, the formation panel, the
+       targeting cone, the review transition or a minimised window. */
     bool world = false;
     // The party's movement: it is working a lock or a trap.
     bool party = false;
@@ -20,9 +26,9 @@ struct WorldAdvancement {
     // The player's pause. Closing an interaction does not lift it.
     bool paused = false;
     // The interface's hold, as last reported.
-    WorldHold hold;
+    WorldHold hold{.covered = true};
     // As last applied: paused or held by the interface, so the world's simulation waits.
-    bool held = false;
+    bool held = true;
     // As last applied: the environment clock runs, as nothing holds the world or fights.
     bool time_passes = false;
     // The world the environment state was applied to; a new world takes it up again.
@@ -34,7 +40,9 @@ struct WorldAdvancement {
 /* Apply the player's pause and the interface's hold to the world. Only edges act: the
    move timer follows the pause; the environment clock, the navigators and the party's
    motion follow whether the world is held or a fight is on, and are applied again to a
-   new world. A change is reported as a `WorldAdvancementChanged` event. */
+   new world. A change is reported as a `WorldAdvancementChanged` event. The step applies
+   the hold it is given; rules that start or end a fight or lift the pause apply the last
+   hold again. */
 void ApplyWorldAdvancement(Game& game, WorldHold hold);
 
 // The camping surprise sequence while `Game::surprise_possible` is set.

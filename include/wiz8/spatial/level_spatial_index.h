@@ -630,7 +630,7 @@ PartyMotion* LevelMotion();
 LevelEnvironment* LevelEnviron();
 
 void ResetInactiveLevelDataVectors(void);
-void UpdateSharedGameDataObject();
+// Resume the shared timers and restart the frame delta as a level is entered.
 void UpdateGameDataRuntime();
 
 void ClearLevelMovementStopped(void);

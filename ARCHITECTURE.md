@@ -175,10 +175,11 @@ Unlayered code may use the layers.
   the new game's party. `GameStarted()` tells play apart from that party creation.
 - **The activity.** Rules branch on `Game::activity`, never on a screen id or a UI flag.
   It is a plain value with independent parts, because the game lets them overlap:
-  - `place`: the world, the camp, or `Menu` while another screen covers the game. The
-    screen router sets it whenever the current screen changes, so a rule sees the world
-    exactly while the main game screen is current. Game time, monster sight, queued spell
-    effects and combat-end effects follow it.
+  - `place`: the world or the camp. The camp commands set it: opening the camp from
+    the world or from party creation's review sets the camp, and leaving it sets the
+    world. Game time, monster sight, queued spell effects and combat-end effects follow
+    it. A screen covering the world is not a place: a covered world is not stepped, and
+    the interface reports it as covered (see "Advancement").
   - `conversation`: the NPC dialogue opens and ends it (`BeginNpcDialogue`,
     `EndNpcDialogueSession`).
   - `conversation_aside`: raised when the party steps out of a conversation to camp, the
@@ -190,26 +191,36 @@ Unlayered code may use the layers.
 - **Advancement.** `Game::advancement` says whether the world moves on. `paused` is the
   player's pause; `held` is the pause or the interface's hold, as last applied, and
   missiles, encounters, combat turns and the search sweep wait while it is set;
-  `time_passes` runs the environment clock, which also stops for a fight. The main game
-  screen reports what holds the world (`SyncWorldAdvancement`, called wherever that
-  interface state changes and once a frame); `ApplyWorldAdvancement` acts only on edges
-  (the move timer, environment time, the navigators, the party's motion) and pushes
-  `WorldAdvancementChanged`, which the screen presents. Camping lifts the pause the same
-  way. The game clock (`UpdateGameClock`: turns, aging, recharges, fatigue) runs only in
+  `time_passes` runs the environment clock, which also stops for a fight. The interface's
+  hold (`WorldHold`) is read once per step: each step applies the hold its screen passes
+  in, and the main game screen covers the world when another screen replaces it
+  (`WorldHold::covered`; a new game's world starts covered). Monsters do not look about
+  while the world is covered, so a level change's loading leaves sight alone.
+  `ApplyWorldAdvancement` acts only on edges (the move timer, environment time, the
+  navigators, the party's motion) and pushes `WorldAdvancementChanged`, which the screen
+  presents. Starting or ending a fight and camping apply the last hold again. The game clock (`UpdateGameClock`: turns, aging, recharges, fatigue) runs only in
   the world, fed by the environment clock and by the rounds of a fight there; aging also
   waits while `aging_held`, which the screens set while the camp's Use hands an item to
   the use-item picker (`MainGameScreen::item_drag`).
 - **The planned formation.** `Game::planned_formation` is the marching order being
   planned: the formation panel stages its edits there, and in a fight the party takes it
   when the round ends. Joins, departures and conditions keep it in step with the party.
-- **Stepping.** `Game::advance` (`game_advance.cpp`) is the world's simulation step, in
-  retail order: the surprise sequence, autosave pacing, the worlds' props, the monster
-  manager, movement fatigue and the search sweep (or the combat turn in a fight), combat
-  starts, monster sight and the nearby world items on their own deadlines, monster
-  groups, and the worlds. The main game screen is its driver: each frame it reads input
-  and moves the camera, steps the game unless a screen transition is pending (telling it
-  whether a picker holds the combat turn), then commits pickers,
-  services dialogue and draws. A navigator that moved during a fight is reported as
+- **Stepping.** `Game::advance(elapsed, hold)` (`game_advance.cpp`) is the game's one
+  step. It applies the interface's hold, runs speech (the deferred character events and
+  the party's voices, `AdvancePartyVoices`) unless the portraits are hidden, and in the
+  world runs the simulation in retail order: the surprise sequence, autosave pacing, the
+  worlds' props, the monster manager, movement fatigue and the search sweep (or the
+  combat turn in a fight), combat starts, monster sight and the nearby world items on
+  their own countdowns, monster groups, and the worlds. The elapsed time drives those
+  countdowns, the frame delta motion reads (`GameTimeAccumulator`) and the environment
+  clock (`PassEnvironmentTime`); deeper code still reads the monotonic clock (ROADMAP.md,
+  "One step"). Two screens step the game and measure the time between their steps
+  (`LapTimer`): the main game, which each frame reads input and moves the camera, steps
+  unless a screen transition is pending (passing its hold and whether a picker holds the
+  combat turn), animates the portraits (`AnimatePartyPortraits`), then commits pickers,
+  services dialogue and draws; and the camp, which steps with the world covered. Time
+  under other screens, and while a transition or the review transition holds the world,
+  never reaches the step. A navigator that moved during a fight is reported as
   `CombatantsMoved`, and the screen recounts its monster target panel.
 - **The combat turn.** `W8CombatState::turn()` is a `CombatTurn` value: idle, or a
   `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -47,8 +48,11 @@ void ClearEnvironmentObjects(void);
    lights, and the animated cloud material. */
 void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colour);
 
-/* Turn the environment clock on or off; enabling resets its tick baseline. */
+/* Turn the environment clock on or off; enabling drops the time it has not taken up. */
 void SetEnvironmentTimeEnabled(bool enabled);
+/* One step's elapsed time reaches the environment clock while it runs; the clock takes it
+   up as it next advances. */
+void PassEnvironmentTime(std::chrono::milliseconds elapsed);
 float GetViewDistance(void);
 void SetGameTimeMilliseconds(int value);
 /* The per-frame environment update, and the alternate lighting transition it
@@ -107,6 +111,8 @@ struct EnvironmentState {
     W8EnvironmentLightingMode lighting_mode = W8EnvironmentLightingMode::DayNight;
     float transition_rate = 0.0f;
     std::uint64_t transition_tick = 0;
+    // Step time that passed in the world and the day clock has not taken up yet.
+    std::chrono::milliseconds untaken_time{};
     // Sun and Moon are owned by this sky world's props collection.
     Prop* sun = nullptr;
     Prop* moon = nullptr;

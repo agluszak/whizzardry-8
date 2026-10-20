@@ -180,7 +180,6 @@ unsigned char OpenUseItemSelectView(int slot)
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     RefreshUseItemSelectionForSlot(slot);
     SelectSpellCastingPartySlot(slot);
-    SyncWorldAdvancement();
     return 1;
 }
 
@@ -199,7 +198,6 @@ void CloseUseItemSelectView(void)
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedrawCombatBar();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-        SyncWorldAdvancement();
         MainGame()->item_drag.reset();
         CurrentGame().aging_held = false;
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {

@@ -1,15 +1,18 @@
 #pragma once
+#include <chrono>
+
 #include "wiz8/platform/game_timer.h"
 
-/* Address-qualified W8GameTimer specialization constructed beside the
-   canonical PartyCamera owner in GameData.cpp. */
+/* The level's frame clock: the game's step feeds it the elapsed time, which it scales
+   into the frame delta that motion reads. */
 class W8GameTimeAccumulator : public W8GameTimer {
 public:
     W8GameTimeAccumulator(); /* 0x0043A910 */
     // Scale game time against real time and restart the frame interval.
     void SetTimeScale(float scale);
     void ResetTimeScale();
-    float Update();
+    // Take one step's elapsed time; the frame delta is zero while the timers are paused.
+    float Update(std::chrono::milliseconds elapsed);
     float GetFrameDelta() const { return m_frame_delta; }
     float GetElapsed() const { return m_elapsed; }
 
@@ -17,7 +20,6 @@ private:
     float m_max_frame_delta;
     /* 0x28: elapsed ticks scaled into duration units, clamped to m_max_frame_delta. */
     float m_frame_delta;
-    unsigned int m_elapsed_ticks;
     /* 0x30: running total of the scaled deltas. */
     float m_elapsed;
 };

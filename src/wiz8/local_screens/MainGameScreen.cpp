@@ -132,6 +132,7 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -324,6 +325,18 @@ bool LockInteractionSuspended()
 bool TrapInteractionSuspended()
 {
     return TrapInteraction() && !IsTrapInteractionActive();
+}
+
+/* The interface holds the world: a pending or current other screen, a picker, dialogue,
+   the formation panel, a dialog, a minimised window, the targeting cone or the review
+   transition. */
+static bool InteractionBlocksWorldAdvancement()
+{
+    return CurrentScreenState().id != W8_SCREEN_MAIN_GAME || IsScreenTransitionPending() ||
+           gpSCSV || ItemUseDraft() || CurrentGame().activity.conversation ||
+           FormationPanelOpen() || IsModalOpen() || !IsVideoActive() ||
+           TargetingMode() == W8_TARGET_NEED_CONE ||
+           (MainGameHud() && MainGameHud()->review_transition_active);
 }
 
 /* Open the lock interaction over a trigger, or re-raise its panels while one
@@ -2240,7 +2253,8 @@ bool MainGameScreen::enter(const ScreenRequest&)
     }
     ResetTransientRenderScenes();
     MoveTimer(W8_MOVE_TIMER_RESUME);
-    SyncWorldAdvancement();
+    // Time spent under other screens does not reach the world.
+    step_timer.restart();
     {
         W8GameTimer* timer = &CurrentGame().gameplay_timer;
         if (timer->m_flags.paused || (g_shared_timer_paused && !timer->m_flags.raw_time) ||
@@ -2382,7 +2396,6 @@ unsigned char ProcessMainGameInput(void)
 /* The active screen's frame, including modal input and pending transitions. */
 void MainGameScreen::frame()
 {
-    SyncWorldAdvancement();
     if (g_dev_mode) {
         RequestExitScreen();
     }
@@ -2397,7 +2410,9 @@ void MainGameScreen::frame()
     if (MainGameHud()->screen_fade_running) {
         if (UpdateScreenFade()) return;
     } else if (MainGameHud()->review_transition_active) {
+        // The review transition holds the world, so its time is not stepped later.
         PumpReviewTransition();
+        step_timer.restart();
         return;
     }
     // Nobody left who can act, or the party fell out of the world: the game is lost.
@@ -2407,11 +2422,9 @@ void MainGameScreen::frame()
     if (SkillIncreasesShownNow(CurrentGame())) FlushDeferredSkillNotices(CurrentGame());
     SyncPartyPortraitVitalsBars();
     if (g_modal_owner && ProcessModalOwner()) RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    SyncWorldAdvancement();
+    SetWorldResumeInput(CurrentGame().advancement.paused && !InteractionBlocksWorldAdvancement());
     DrainNpcDialogueDeferralInput();
     FlushInputWhileWorldCursorGate();
-    CurrentGame().speech.ProcessDeferredCharacterEvents();
-    UpdateCharacterEventState();
     TickPartyPortraitFx();
     if (CurrentGame().combat.active()) {
         UpdateCombatPortraitStatus();
@@ -2440,6 +2453,8 @@ void MainGameScreen::frame()
         AdvanceNoticeLine(CurrentGame().status.text_line_cursor);
     }
     if (IsScreenTransitionPending()) {
+        // A pending transition holds the world until another screen covers it.
+        step_timer.restart();
         DrawMainGameScreen();
         return;
     }
@@ -2495,7 +2510,11 @@ void MainGameScreen::frame()
             UpdateFormationPortraitRefresh();
         }
         if (!IsWorldCursorVisible() && !g_mouselook_active) AnimateShownCursor();
-        CurrentGame().advance({.combat = gpSCSV || ItemUseDraft()});
+        CurrentGame().advance(step_timer.lap(),
+                              {.world = {.world = InteractionBlocksWorldAdvancement(),
+                                         .party = LockInteraction() || TrapInteraction()},
+                               .combat = gpSCSV || ItemUseDraft()});
+        AnimatePartyPortraits();
         if (CurrentGame().combat.active() && MainGameHud()->refresh_combat_panel &&
             !TimeUntilDeadline(MainGameHud()->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
@@ -2564,6 +2583,8 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (PartyMovementPanelShown()) DisablePartyMovementRegions();
     RestoreCurrentNpcQuoteBubble();
     MoveTimer(W8_MOVE_TIMER_SUSPEND);
+    // The world stays covered, and held, until this screen steps it again.
+    ApplyWorldAdvancement(CurrentGame(), {.covered = true});
 
     if (!CurrentGame().gameplay_timer.m_flags.paused) {
         CurrentGame().gameplay_timer.m_flags.paused = true;
@@ -4206,7 +4227,6 @@ bool ProcessModalOwner()
 void OpenModal(std::unique_ptr<ModalContent> owner)
 {
     RetireModal(std::exchange(g_modal_owner, std::move(owner)), false);
-    SyncWorldAdvancement();
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
@@ -5970,29 +5990,6 @@ unsigned char HandleMouselookInput(const InputEvent* input)
     return 0;
 }
 
-static bool InteractionBlocksWorldAdvancement()
-{
-    return CurrentScreenState().id != W8_SCREEN_MAIN_GAME || IsScreenTransitionPending() ||
-           gpSCSV || ItemUseDraft() || CurrentGame().activity.conversation ||
-           FormationPanelOpen() || IsModalOpen() || !IsVideoActive() ||
-           TargetingMode() == W8_TARGET_NEED_CONE ||
-           (MainGameHud() && MainGameHud()->review_transition_active);
-}
-
-// Report what the interface holds; the game applies the edges and the screen shows them.
-void SyncWorldAdvancement()
-{
-    const bool interaction_blocked = InteractionBlocksWorldAdvancement();
-    if (!GameInProgress()) {
-        SetWorldResumeInput(false);
-        return;
-    }
-    auto& game = CurrentGame();
-    SetWorldResumeInput(game.advancement.paused && !interaction_blocked);
-    ApplyWorldAdvancement(
-        game, {.world = interaction_blocked, .party = LockInteraction() || TrapInteraction()});
-}
-
 void PresentWorldAdvancement(bool held, bool hold_changed)
 {
     if (held && hold_changed && PartyMovementPanelShown()) DisablePartyMovementRegions();
@@ -6010,7 +6007,7 @@ void ToggleMainGamePause()
     auto& advancement = CurrentGame().advancement;
     if (advancement.paused || !InteractionBlocksWorldAdvancement()) {
         advancement.paused = !advancement.paused;
-        SyncWorldAdvancement();
+        SetWorldResumeInput(advancement.paused);
     }
 }
 
@@ -6063,6 +6060,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
     request.character = &CurrentGame().party.characters[party_slot];
     request.parameter_4 = flag ? request.character : nullptr;
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
+    CurrentGame().activity.place = Activity::Place::Camp;
     request.id = W8_SCREEN_CAMP;
     RequestScreen(std::move(request));
     UpdateScreenOverlays(1);
@@ -6569,7 +6567,7 @@ resume_world:
         return 1;
     }
     CurrentGame().advancement.paused = false;
-    SyncWorldAdvancement();
+    SetWorldResumeInput(false);
     return 1;
 }
 
@@ -6795,15 +6793,7 @@ void SetTargetingMode(W8TargetNeed state)
         SetTargetCursor(cursor);
     }
     RequestRefreshPartyState();
-    if (state == W8_TARGET_NEED_CONE) {
-        SetTargetConeEnabled(true);
-        SyncWorldAdvancement();
-    } else {
-        SetTargetConeEnabled(false);
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-            SyncWorldAdvancement();
-        }
-    }
+    SetTargetConeEnabled(state == W8_TARGET_NEED_CONE);
 }
 
 void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind)
@@ -6877,15 +6867,7 @@ aim_done:
         SetTargetCursor(cursor);
     }
     RequestRefreshPartyState();
-    if (needed_kind == W8_TARGET_NEED_CONE) {
-        SetTargetConeEnabled(true);
-        SyncWorldAdvancement();
-        return;
-    }
-    SetTargetConeEnabled(false);
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        SyncWorldAdvancement();
-    }
+    SetTargetConeEnabled(needed_kind == W8_TARGET_NEED_CONE);
 }
 
 void ClearSlotTargeting(int party_slot)
@@ -6897,7 +6879,4 @@ void ClearSlotTargeting(int party_slot)
     }
     RequestRefreshPartyState();
     SetTargetConeEnabled(false);
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        SyncWorldAdvancement();
-    }
 }

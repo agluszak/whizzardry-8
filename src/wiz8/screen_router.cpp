@@ -8,7 +8,6 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -34,37 +33,10 @@ struct ScreenRouter {
     W8ScreenId previous = W8_SCREEN_NONE;
     W8ScreenId last_suspended = W8_SCREEN_NONE;
 
-    void show(ScreenRequest request)
-    {
-        current = std::move(request);
-        place_party();
-    }
+    void show(ScreenRequest request) { current = std::move(request); }
 
     // No screen is current until the next one enters.
-    void show_none()
-    {
-        current.id = W8_SCREEN_NONE;
-        place_party();
-    }
-
-    /* Until the game steps its own simulation (ROADMAP.md, "Migration"), the current
-       screen is where the party is: the main game shows the world, the camp screen the
-       camp, and any other screen pauses the game under it. */
-    void place_party() const
-    {
-        if (!GameInProgress()) return;
-        switch (current.id) {
-        case W8_SCREEN_MAIN_GAME:
-            CurrentGame().activity.place = Activity::Place::World;
-            break;
-        case W8_SCREEN_CAMP:
-            CurrentGame().activity.place = Activity::Place::Camp;
-            break;
-        default:
-            CurrentGame().activity.place = Activity::Place::Menu;
-            break;
-        }
-    }
+    void show_none() { current.id = W8_SCREEN_NONE; }
 
     void stop()
     {
@@ -215,7 +187,6 @@ void GameLoop()
         router.stop();
         return;
     }
-    SyncWorldAdvancement();
     router.screen->frame();
 }
 

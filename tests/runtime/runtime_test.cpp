@@ -1324,7 +1324,6 @@ void CheckGameplayUi(GameHarness& game)
     const auto realm = MutableData().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
-    SyncWorldAdvancement();
     REQUIRE(OpenSpellCastingView(slot));
     game.frame();
     const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();

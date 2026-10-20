@@ -248,7 +248,6 @@ unsigned char OpenSpellCastingView(int party_slot)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    SyncWorldAdvancement();
     return 1;
 }
 
@@ -278,7 +277,6 @@ void CloseSpellCastingView(void)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    SyncWorldAdvancement();
     if (IsWorldCursorVisible()) {
         ToggleWorldCursor();
     }

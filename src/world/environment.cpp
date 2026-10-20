@@ -1,10 +1,12 @@
 #include "wiz8/world/environment.h"
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <utility>
 
 #include <glm/common.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -36,7 +38,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
-static std::uint64_t g_tick;
 /* 0x00659AB4: the world being rendered. Its sky node is the one field these
    two bodies reach, and it is the same World the 3d code walks. */
 
@@ -101,7 +102,7 @@ void AdvanceEnvironmentTime(int elapsed)
     if (CurrentGame().activity.in_world()) {
         UpdateGameClock(elapsed);
     }
-    g_tick = MonotonicMilliseconds();
+    if (GetWorld()) GetWorld()->environment.untaken_time = {};
 
     if (!GetSecondaryWorld()) return;
     auto& sky = GetSecondaryWorld()->environment;
@@ -148,30 +149,30 @@ void AdvanceEnvironmentTime(int elapsed)
     }
 }
 
-/* Move the world clock on by the game-clock multiplier's share of the ticks
-   since the baseline. Every caller expands this body, including its enable
-   test, which SetEnvironmentTimeEnabled repeats right after setting the flag. */
+/* Move the world clock on by the game-clock multiplier's share of the step time it has
+   not taken up yet. */
 static void AdvanceEnvironmentClock(void)
 {
-    if (CurrentGame().advancement.time_passes) {
-        std::uint64_t now = MonotonicMilliseconds();
-        std::uint64_t elapsed = now - g_tick;
-        if (elapsed != 0) {
-            AdvanceEnvironmentTime(
-                static_cast<int>(static_cast<double>(elapsed) * g_view_distance));
-        }
+    if (!CurrentGame().advancement.time_passes || !GetWorld()) return;
+    const auto elapsed = std::exchange(GetWorld()->environment.untaken_time, {});
+    if (elapsed.count() != 0) {
+        AdvanceEnvironmentTime(
+            static_cast<int>(static_cast<double>(elapsed.count()) * g_view_distance));
     }
 }
 
-/* Turn environment time progression on or off. Enabling it resets its
-   elapsed-tick baseline and moves the world clock on by the game-clock
-   multiplier's share of the time since that baseline. */
+/* Turn environment time progression on or off. While it is off, no step time reaches
+   it, so it resumes from the moment it is enabled. */
 void SetEnvironmentTimeEnabled(bool enabled)
 {
     CurrentGame().advancement.time_passes = enabled;
-    if (!enabled) return;
-    g_tick = MonotonicMilliseconds();
-    AdvanceEnvironmentClock();
+    if (enabled && GetWorld()) GetWorld()->environment.untaken_time = {};
+}
+
+void PassEnvironmentTime(std::chrono::milliseconds elapsed)
+{
+    if (CurrentGame().advancement.time_passes && GetWorld())
+        GetWorld()->environment.untaken_time += elapsed;
 }
 
 /* The environment's per-frame update. A running transition short-circuits to
@@ -663,7 +664,7 @@ void SetCameraLightMode(W8CameraLightMode mode)
 void SetGameTimeMilliseconds(int value)
 {
     CurrentGame().status.game_time_ms = value;
-    g_tick = MonotonicMilliseconds();
+    if (GetWorld()) GetWorld()->environment.untaken_time = {};
 }
 
 const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Horizon0000.ifl"};

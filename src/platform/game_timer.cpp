@@ -31,11 +31,7 @@ void PauseSharedGameTimers(void)
     g_shared_timer_paused = true;
     g_shared_timer_pause_time = GameClockTicks() - g_shared_timer_pause_base;
 
-    auto& timer = GameTimeAccumulator();
-    if (!timer.m_flags.paused) {
-        timer.m_flags.paused = true;
-        timer.m_start = timer.ReadClock() - timer.m_start;
-    }
+    GameTimeAccumulator().m_flags.paused = true;
 }
 
 void ResumeSharedGameTimers(void)
@@ -45,14 +41,7 @@ void ResumeSharedGameTimers(void)
     g_shared_timer_pause_base = GameClockTicks() - g_shared_timer_pause_time;
     g_shared_timer_pause_time = 0;
 
-    auto& timer = GameTimeAccumulator();
-    timer.m_flags.paused = false;
-    const std::uint32_t sample = timer.ReadClock();
-    float duration = timer.m_duration_scale * timer.m_duration_seconds * 1e+04f;
-    const std::uint32_t start = sample - timer.m_start;
-    timer.m_start = start;
-    timer.m_duration = static_cast<int>(duration);
-    timer.m_end = start + timer.m_duration;
+    GameTimeAccumulator().m_flags.paused = false;
 }
 
 std::uint32_t W8GameTimer::GetTime()

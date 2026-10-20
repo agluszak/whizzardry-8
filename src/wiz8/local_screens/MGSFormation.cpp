@@ -297,7 +297,6 @@ void OpenFormationPanel(void)
     MainGame()->formation_panel_open = true;
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     CurrentGame().planned_formation = CurrentGame().party.formation;
-    SyncWorldAdvancement();
     UpdateFormationCells();
 }
 
@@ -528,5 +527,4 @@ void CloseFormationPanel(void)
     UpdateHeldItemCursor();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
-    SyncWorldAdvancement();
 }

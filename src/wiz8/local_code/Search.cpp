@@ -1,5 +1,6 @@
 #include "wiz8/local_code/Search.h"
 
+#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -31,7 +32,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -145,87 +145,83 @@ void W8Searchable::GetPosition(glm::vec3* position)
     }
 }
 
-/* The 500ms search sweep: while nothing is interacting or surprising the
-   party, walk the in-view searchables, pick the best searcher for each, queue
-   the found event and turn the camera toward the find. */
+/* The search sweep the step runs every 500ms: while nothing is interacting or surprising
+   the party, walk the in-view searchables, pick the best searcher for each, queue the
+   found event and turn the camera toward the find. */
 void RunSearchPulse(void)
 {
-    if (TimeUntilDeadline(CurrentGame().search_pulse_deadline) == 0) {
-        CurrentGame().search_pulse_deadline = MonotonicMilliseconds() + (500);
-        if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
-            !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
-            !LockInteractionSuspended() && !IsTrapInteractionActive() &&
-            !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() && CurrentGame().status.search_mode) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
-            }
-            auto candidates = CollectSearchablesInView(*GetWorld());
-            bool found = false;
-            {
-                for (auto& candidate : candidates) {
-                    auto* searchable = &candidate;
-                    int slot = searchable->PickBestSearcher();
-                    if (slot != -1) {
-                        W8Character* character = &CurrentGame().party.characters[slot];
-                        if (searchable->world_item == 0) {
-                            if (searchable->trigger == 0) {
-                                QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
-                                found = true;
-                            } else {
-                                QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
-                                int message = searchable->trigger->m_lData1;
-                                found = true;
-                                if (message >= 0) {
-                                    const std::string_view level_folder =
-                                        GetLevelFolderName(GetLoadedLevelID());
-                                    const std::string folder =
-                                        level_folder.empty() ? "Test" : std::string(level_folder);
-                                    const std::string path =
-                                        fmt::format("Data\\Messages\\{}.msg", folder);
-                                    std::string text;
-                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
-                                              .empty()) != 0) {
-                                        ShowString(text);
-                                    }
+    if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
+        !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
+        !LockInteractionSuspended() && !IsTrapInteractionActive() && !TrapInteractionSuspended()) {
+        if (IsLevelFastMovement() && CurrentGame().status.search_mode) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+        }
+        auto candidates = CollectSearchablesInView(*GetWorld());
+        bool found = false;
+        {
+            for (auto& candidate : candidates) {
+                auto* searchable = &candidate;
+                int slot = searchable->PickBestSearcher();
+                if (slot != -1) {
+                    W8Character* character = &CurrentGame().party.characters[slot];
+                    if (searchable->world_item == 0) {
+                        if (searchable->trigger == 0) {
+                            QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
+                            found = true;
+                        } else {
+                            QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
+                            int message = searchable->trigger->m_lData1;
+                            found = true;
+                            if (message >= 0) {
+                                const std::string_view level_folder =
+                                    GetLevelFolderName(GetLoadedLevelID());
+                                const std::string folder =
+                                    level_folder.empty() ? "Test" : std::string(level_folder);
+                                const std::string path =
+                                    fmt::format("Data\\Messages\\{}.msg", folder);
+                                std::string text;
+                                if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
+                                          .empty()) != 0) {
+                                    ShowString(text);
                                 }
                             }
-                        } else {
-                            PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
-                            unsigned int event_type = kSearchFoundItemEvent;
-                            if (Random(2) != 0) {
-                                event_type = kSearchFoundItemEventAlt;
-                            }
-                            auto event = std::make_unique<W8CharacterEvent>(
-                                character, event_type, 0, kCharacterEventFullVolume);
-                            if (searchable->world_item != 0) {
-                                event->item = searchable->world_item->item;
-                            }
-                            CurrentGame().speech.QueueEntry(std::move(event));
                         }
-                        glm::vec3 position;
-                        searchable->GetPosition(&position);
-                        ResetInactiveLevelDataVectors();
-                        PointCameraAtTarget(&position, true, true);
-                        searchable->Reveal();
+                    } else {
+                        PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
+                        unsigned int event_type = kSearchFoundItemEvent;
+                        if (Random(2) != 0) {
+                            event_type = kSearchFoundItemEventAlt;
+                        }
+                        auto event = std::make_unique<W8CharacterEvent>(character, event_type, 0,
+                                                                        kCharacterEventFullVolume);
+                        if (searchable->world_item != 0) {
+                            event->item = searchable->world_item->item;
+                        }
+                        CurrentGame().speech.QueueEntry(std::move(event));
                     }
+                    glm::vec3 position;
+                    searchable->GetPosition(&position);
+                    ResetInactiveLevelDataVectors();
+                    PointCameraAtTarget(&position, true, true);
+                    searchable->Reveal();
                 }
             }
-            if (!CurrentGame().status.search_mode || IsLevelFastMovement()) {
-                /* Retail scans the party for a live member carrying the
-                   Scouting skill and then discards the result. */
-                for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8Character* character = &CurrentGame().party.characters[slot];
-                    if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
-                        character->highest_condition < W8_CONDITION_TURNCOAT &&
-                        character->skills[W8_SKILL_SCOUTING].level != 0) {
-                        break;
-                    }
+        }
+        if (!CurrentGame().status.search_mode || IsLevelFastMovement()) {
+            /* Retail scans the party for a live member carrying the
+               Scouting skill and then discards the result. */
+            for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+                W8Character* character = &CurrentGame().party.characters[slot];
+                if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
+                    character->highest_condition < W8_CONDITION_TURNCOAT &&
+                    character->skills[W8_SKILL_SCOUTING].level != 0) {
+                    break;
                 }
             }
-            if (CurrentGame().status.search_mode && !IsLevelFastMovement() && !found &&
-                Random(100) == 0) {
-                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
-            }
+        }
+        if (CurrentGame().status.search_mode && !IsLevelFastMovement() && !found &&
+            Random(100) == 0) {
+            ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
         }
     }
 }
@@ -315,7 +311,7 @@ void ToggleSearchMode(void)
     if (!CurrentGame().combat.active()) {
         CurrentGame().status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
-        CurrentGame().search_pulse_deadline = MonotonicMilliseconds() + (0x1f4);
+        CurrentGame().search_sweep_due = std::chrono::milliseconds{500};
         ClearActiveWorldCursorNode();
     } else {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);

@@ -1,11 +1,12 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 
-#include <cstdint>
+#include <algorithm>
+#include <chrono>
 #include <optional>
 
 #include "wiz8/platform/game_timer.h"
 
-// Scales real elapsed time into accumulated game time, with a per-frame clamp.
+// Scales the step's elapsed time into accumulated game time, with a per-frame clamp.
 
 float g_rate = 0.1f;
 
@@ -27,11 +28,9 @@ W8GameTimeAccumulator::W8GameTimeAccumulator()
     m_duration_seconds = g_rate;
     m_max_frame_delta = 2.0f;
     m_frame_delta = 0;
-    m_elapsed_ticks = 0;
     m_elapsed = 0;
     m_duration_scale = 1.0f;
     m_duration = static_cast<int>(m_duration_seconds * 10000.0f);
-    m_end = m_duration;
 }
 
 void W8GameTimeAccumulator::SetTimeScale(float scale)
@@ -42,7 +41,6 @@ void W8GameTimeAccumulator::SetTimeScale(float scale)
     }
     m_max_frame_delta = 2.0f / scale;
     m_duration = static_cast<int>(scale * m_duration_seconds * 10000.0f);
-    Restart();
     m_frame_delta = 0.0f;
 }
 
@@ -52,24 +50,17 @@ void W8GameTimeAccumulator::ResetTimeScale()
     m_max_frame_delta = 2.0f;
     m_duration_scale = 1.0f;
     m_duration = static_cast<int>(m_duration_seconds * 10000.0f);
-    Restart();
     m_frame_delta = 0.0f;
 }
 
-float W8GameTimeAccumulator::Update()
+float W8GameTimeAccumulator::Update(std::chrono::milliseconds elapsed)
 {
     if (m_flags.paused || (g_shared_timer_paused && !m_flags.raw_time) || g_shared_timer_flag0) {
         m_frame_delta = 0.0f;
     } else {
-        const std::uint32_t sample = ReadClock();
-        m_elapsed_ticks = sample - m_start;
-        m_start = sample;
-        m_frame_delta = m_elapsed_ticks / static_cast<float>(static_cast<unsigned int>(m_duration));
-        if (m_frame_delta > m_max_frame_delta) {
-            m_frame_delta = m_max_frame_delta;
-            m_elapsed_ticks = static_cast<unsigned int>(static_cast<unsigned int>(m_duration) *
-                                                        m_max_frame_delta);
-        }
+        const auto ticks =
+            static_cast<float>(elapsed.count()) * (W8_SHARED_TIMER_TICKS_PER_SECOND / 1000.0f);
+        m_frame_delta = std::min(ticks / static_cast<float>(m_duration), m_max_frame_delta);
         m_elapsed += m_frame_delta;
     }
     if (g_level_motion_resume_pending && !m_flags.raw_time) {
