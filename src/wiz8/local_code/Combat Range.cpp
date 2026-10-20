@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <optional>
 #include <span>
-#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -646,7 +645,7 @@ float CalcRangeDistance(W8RangeCategory range_category)
         steps = 50;
         break;
     default:
-        std::unreachable();
+        return 0.0f;
     }
     return steps * kWorldScale;
 }

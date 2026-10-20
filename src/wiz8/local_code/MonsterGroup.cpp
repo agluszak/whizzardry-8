@@ -207,7 +207,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
                 disposition = W8_DISPOSITION_HOSTILE;
                 break;
             default:
-                std::unreachable();
+                break;
             }
         }
     } else {

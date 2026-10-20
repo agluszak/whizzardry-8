@@ -169,7 +169,7 @@ void CalcXPGoal(W8Character* character)
         weight = 0x640;
         break;
     default:
-        std::unreachable();
+        return;
     }
 
     if (character->uiExpLevel == 1) {

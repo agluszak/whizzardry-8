@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cassert>
 #include <optional>
-#include <utility>
 #include <vector>
 
 #include "layouts/game_status.h"
@@ -123,7 +122,7 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
             multiplier = 3.0f;
             break;
         default:
-            std::unreachable();
+            break;
         }
         if (game.combat.has_value()) multiplier += multiplier;
         if (character.uiCondition[W8_CONDITION_DISEASED] != 0) multiplier *= 1.5f;

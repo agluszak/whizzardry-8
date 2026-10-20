@@ -10,7 +10,6 @@
 #include <span>
 #include <stdexcept>
 #include <tuple>
-#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -187,7 +186,7 @@ bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target
         target_hostile =
             FindMonsterGroup(target->iGroupID)->ubDisposition == W8_DISPOSITION_HOSTILE;
     } else {
-        std::unreachable();
+        return false;
     }
     if (source_hostile == target_hostile) {
         return action_targets_enemies;

@@ -622,7 +622,7 @@ W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
     case W8_SPELL_HASTE:
         return W8_ENCHANTMENT_HASTE;
     default:
-        std::unreachable();
+        return W8_ENCHANTMENT_NONE;
     }
 }
 
@@ -836,7 +836,6 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                 slot = W8_ENCHANTMENT_HASTE;
                 break;
             default:
-                std::unreachable();
                 slot = W8_ENCHANTMENT_NONE;
                 break;
             }
@@ -1167,7 +1166,7 @@ unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition con
         }
         return monster_info->uiCondition[condition];
     }
-    std::unreachable();
+    return 0;
 }
 
 /* Wear the listed targets down: each one with any stamina left takes a fresh
@@ -2814,8 +2813,6 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                         }
                     }
                 }
-            } else {
-                std::unreachable();
             }
         }
     next_slot:
@@ -2976,7 +2973,6 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                 enchantment = W8_ENCHANTMENT_DRACON_BREATH;
                 break;
             default:
-                std::unreachable();
                 enchantment = W8_ENCHANTMENT_NONE;
                 break;
             case W8_SPELL_GUARDIAN_ANGEL:

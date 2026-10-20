@@ -151,7 +151,7 @@ static int PCItemInACSlot(const W8Character* character, int hit_location)
         slot = W8_EQUIP_SLOT_FEET;
         break;
     default:
-        std::unreachable();
+        return -1;
     }
     return character->EquippedItem[slot].iItemNo;
 }
@@ -183,7 +183,7 @@ static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int a
         const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
         target_material = record == 0 ? 0 : record->material;
     } else {
-        std::unreachable();
+        target_material = 0;
     }
     return target_material;
 }

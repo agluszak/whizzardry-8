@@ -1,7 +1,6 @@
 #include "wiz8/world/encounters.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -228,7 +227,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     script = selected->script.c_str();
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
-    assert(record != 0);
+    if (record == 0) throw std::runtime_error("encounter names an unknown monster species");
     if (record->deleted != 0) {
         DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                     "species {:d} has been DELETED!",
@@ -258,7 +257,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     int count = RollEncounterGroupSize(record);
-    assert(count != 0);
+    if (count == 0) throw std::runtime_error("monster database gives an empty encounter group");
 
     group = CreateGroup(species, count, &spawn_position, false, false, true);
     group->encounter_registered = true;
@@ -277,7 +276,8 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         unsigned int companion_species =
             static_cast<unsigned short>(companion_records[index].species);
         const W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
-        assert(companion_record != 0);
+        if (companion_record == 0)
+            throw std::runtime_error("encounter names an unknown companion species");
         if (companion_record->deleted != 0) {
             DebugMessage(1,
                          fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "

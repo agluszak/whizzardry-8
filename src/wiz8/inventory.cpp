@@ -1913,7 +1913,6 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
         }
         target.name_known = true;
 
-        assert(static_cast<int>(record->category) < W8_ITEM_USE_TYPE_COUNT);
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
         if (record->spell_id != W8_SPELL_NONE &&
@@ -1925,18 +1924,18 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
             return {{0, 0}};
         }
 
-        if (TargetSourceIsCharacter(&target, 0)) {
+        // Items outside the use-message table are used without an announcement.
+        const bool announced = static_cast<int>(record->category) < W8_ITEM_USE_TYPE_COUNT;
+        if (announced && TargetSourceIsCharacter(&target, 0)) {
             game.events.push(CharacterNotice{
                 static_cast<unsigned int>(target.iChar),
                 fmt::format("{} {}", Data().strings[g_item_use_messages[record->category * 2]],
                             GetItemDisplayName(item))});
-        } else if (TargetSourceIsMonster(&target, 0)) {
+        } else if (announced && TargetSourceIsMonster(&target, 0)) {
             game.events.push(TextNotice{
                 9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
                                Data().strings[g_item_use_messages[record->category * 2]],
                                GetItemDisplayName(item))});
-        } else {
-            std::unreachable();
         }
 
         if (g_settings.verbose_combat_messages == 0) {

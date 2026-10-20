@@ -865,7 +865,8 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
             load_percent = 200;
             break;
         default:
-            std::unreachable();
+            load_percent = 0;
+            break;
         }
         if (character->uiCondition[W8_CONDITION_SLOWED] == 0) {
             if (character->enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {

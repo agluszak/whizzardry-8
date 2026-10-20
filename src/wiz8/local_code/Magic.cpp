@@ -313,12 +313,8 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool 
                 return W8_TARGET_NEED_ITEM;
             }
             break;
-        case W8_TARGET_TYPE_PARTY:
-        case W8_TARGET_TYPE_ALL_ENEMIES:
-        case W8_TARGET_TYPE_LOCK_OR_TRAP:
-            break;
         default:
-            std::unreachable();
+            break;
         }
     }
     return W8_TARGET_NEED_NONE;
@@ -338,14 +334,8 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
         return W8_TARGET_NEED_CASTER;
     case W8_TARGET_TYPE_ENEMY_GROUP:
         return W8_TARGET_NEED_GROUP;
-    case W8_TARGET_TYPE_PARTY:
-    case W8_TARGET_TYPE_CONE:
-    case W8_TARGET_TYPE_RADIUS:
-    case W8_TARGET_TYPE_ALL_ENEMIES:
-    case W8_TARGET_TYPE_POINT:
-        break;
     default:
-        std::unreachable();
+        break;
     }
     return W8_TARGET_NEED_NONE;
 }
@@ -1344,7 +1334,7 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         target.iType = W8_TARGET_KIND_PARTY;
         break;
     default:
-        std::unreachable();
+        return 0;
     }
 
     CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
@@ -1791,7 +1781,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         return Data().strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
-        std::unreachable();
+        return {};
     }
 
     return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4], Data().strings[name_prefix]);
@@ -3095,8 +3085,6 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             target->iType = W8_TARGET_KIND_GROUP;
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
-        } else {
-            std::unreachable();
         }
         source->point_source = true;
         return;
@@ -3111,13 +3099,11 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             target->iType = W8_TARGET_KIND_GROUP;
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
-        } else {
-            std::unreachable();
         }
         source->point_source = true;
         return;
     default:
-        std::unreachable();
+        return;
     }
     if (TargetSourceIsCharacter(&source_copy, 0)) {
         target->iType = W8_TARGET_KIND_CHARACTER;
@@ -3125,8 +3111,6 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     } else if (TargetSourceIsMonster(&source_copy, 0)) {
         target->iType = W8_TARGET_KIND_MONSTER;
         target->iMonsterID = source_copy.iMonsterID;
-    } else {
-        std::unreachable();
     }
     source->point_source = true;
 }
@@ -3200,7 +3184,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     case 6:
         break;
     default:
-        std::unreachable();
+        return;
     }
     saved = source->point;
     source->point = target->point;

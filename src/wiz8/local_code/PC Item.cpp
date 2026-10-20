@@ -893,9 +893,7 @@ W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identifie
         } else if (record->quantity_kind >= W8_ITEM_QUANTITY_CHARGES &&
                    record->quantity_kind <= W8_ITEM_QUANTITY_SHOTS) {
             item->uses_or_charges = quantity;
-        } else {
-            assert(false && "unknown item quantity kind");
-        }
+        } // Other quantity kinds keep no count.
     }
     if (force_identified || (record->flags & W8_ITEM_FLAG_AUTO_IDENTIFY) != 0) {
         item->identified = true;

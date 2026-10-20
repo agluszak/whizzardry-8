@@ -590,8 +590,6 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* target_info = FindMonster(target->iMonsterID);
         target_name = GetMonsterName(target_info, nullptr, 0);
-    } else {
-        std::unreachable();
     }
     for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
         W8TargetSource* candidate = &candidates[i];
@@ -602,7 +600,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             W8MonsterInfo* defender = FindMonster(candidate->iMonsterID);
             guardian_score = GetMonsterProtectionScore(defender);
         } else {
-            std::unreachable();
+            guardian_score = 0;
         }
         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
             W8Character* attacker = &CurrentGame().party.characters[source->iChar];
@@ -611,7 +609,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             W8MonsterInfo* attacker = FindMonster(source->iMonsterID);
             attacker_score = GetMonsterProtectionScore(attacker);
         } else {
-            std::unreachable();
+            attacker_score = 0;
         }
         if (CurrentGame().combat->unaware != 0) {
             attacker_score += 10;
@@ -724,7 +722,7 @@ static int AttackModeMod(int is_character, W8AttackMode attack_mode)
         case W8_ATTACK_MODE_LASH:
             return 10;
         default:
-            std::unreachable();
+            return 0;
         }
     }
     switch (attack_mode) {
@@ -744,7 +742,7 @@ static int AttackModeMod(int is_character, W8AttackMode attack_mode)
     case W8_ATTACK_MODE_LASH:
         return -10;
     default:
-        std::unreachable();
+        return 0;
     }
 }
 
@@ -1096,7 +1094,7 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
         }
         out_of_formation = character->bonus.out_of_formation;
     } else {
-        std::unreachable();
+        return 0;
     }
     if (distracted && out_of_formation == 0 &&
         (attack_mode != W8_ATTACK_MODE_THROW &&
@@ -1164,7 +1162,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
         return fmt::sprintf(Data().strings[0x1e6],
                             FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
     default:
-        std::unreachable();
+        return {};
     }
     assert(target->iChar != -1);
     if (TargetSourceIsCharacter(source, 0) && !source->name_known &&
@@ -1196,8 +1194,6 @@ int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode)
         }
     } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
         base = CurrentGame().party.characters[target->iChar].armor_class_total;
-    } else {
-        std::unreachable();
     }
     return GetTargetArmorClassModifier(target, attack_mode) + base;
 }
@@ -1227,7 +1223,7 @@ int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, i
                (character->armor_class_by_location[hit_location] - character->armor_class_total) +
                base;
     }
-    std::unreachable();
+    return GetTargetArmorClassModifier(target, attack_mode) + base;
 }
 
 /* Whether a swing the attacker landed is blocked outright: a character blocks
@@ -1269,7 +1265,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         }
         material = 2;
     } else {
-        std::unreachable();
+        return false;
     }
     if (g_settings.verbose_combat_messages != 0) {
         ShowNotice(palette, Data().strings[0x213]);
@@ -1293,7 +1289,7 @@ unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
         monster_info = FindMonster(target->iMonsterID);
         health = monster_info->uiHPMax;
     } else {
-        std::unreachable();
+        health = 0;
     }
     limit = health / 5;
     if (limit <= 1) {
@@ -1346,7 +1342,7 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
         cycle = W8_MONSTER_CYCLE_ATTACK_MELEE;
         break;
     default:
-        std::unreachable();
+        return;
     }
     if (!monster_info->p3D->IsCycleSupported(cycle)) {
         switch (cycle) {
@@ -3058,7 +3054,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
         target_position = target->point;
     } else {
-        std::unreachable();
+        return nullptr;
     }
     if (TargetSourceIsCharacter(source, 0)) {
         GetCharacterProjectilePosition(source->iChar, &source_position);

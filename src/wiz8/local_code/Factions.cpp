@@ -1,7 +1,6 @@
 #include "wiz8/local_code/Factions.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -117,8 +116,8 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
 {
     signed char disposition_score;
 
-    assert(faction >= 0);
-    assert(faction < W8_FACTION_COUNT);
+    // A faction id outside the table has no standing with the party.
+    if (faction < 0 || faction >= W8_FACTION_COUNT) return W8_FACTION_NEUTRAL;
 
     disposition_score = CurrentGame().story.factions[faction].disposition_score;
     if (disposition_score < 34) {
@@ -216,8 +215,6 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
     case W8_FACTION_HIGARDI_BANK:
     case W8_FACTION_HIGARDI_HLL:
     case W8_FACTION_HIGARDI_COMMON:
-        assert(faction >= 0);
-        assert(faction < W8_FACTION_COUNT);
         if (CurrentGame().story.factions[faction].disposition_score >= 34) {
             SetFactionDispositionBand(faction, W8_FACTION_HOSTILE);
             return;

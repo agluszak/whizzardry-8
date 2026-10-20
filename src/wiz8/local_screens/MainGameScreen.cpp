@@ -5786,7 +5786,7 @@ bool IsMGSActionKeyEnabled(unsigned short command)
                 return false;
             }
         default:
-            std::unreachable();
+            return false;
         }
     }
     assert(state != -1);
@@ -5905,7 +5905,7 @@ void RunMGSActionKey(unsigned short command)
         }
         break;
     default:
-        std::unreachable();
+        break;
     }
 }
 

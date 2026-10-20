@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -372,7 +371,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                     }
                     break;
                 default:
-                    std::unreachable();
+                    return;
                 }
             }
         }

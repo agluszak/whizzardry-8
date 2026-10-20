@@ -5,7 +5,6 @@
 #include <cmath>
 #include <optional>
 #include <string_view>
-#include <utility>
 #include <variant>
 #include <vector>
 
@@ -609,8 +608,6 @@ void BeginCombatExecution(void)
                     W8MonsterInfo* target = FindMonster(party->committed.target.iMonsterID);
                     PostCharacterNotice(
                         slot, fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0)));
-                } else {
-                    std::unreachable();
                 }
             }
         }
@@ -634,8 +631,6 @@ void BeginCombatExecution(void)
                     monster,
                     fmt::sprintf(Data().strings[0x229],
                                  CurrentGame().party.characters[monster->Target.iChar].name));
-            } else {
-                std::unreachable();
             }
         }
     }

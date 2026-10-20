@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <utility>
 #include <vector>
 
 #include <fmt/printf.h>
@@ -389,7 +388,7 @@ signed char DecideFacingForPosition(int position, int target_position)
         }
         break;
     }
-    std::unreachable();
+    return 4;
 }
 
 /* Whether the party is looking at a point, measured as a plain difference
@@ -638,7 +637,7 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        std::unreachable();
+        return true;
     }
     return side == CurrentGame().party.formation.positions[party_slot].facing;
 }
@@ -663,7 +662,7 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        std::unreachable();
+        return;
     }
     if (CurrentGame().party.formation.positions[party_slot].facing != side) {
         CurrentGame().party.formation.positions[party_slot].facing = side;
@@ -693,7 +692,7 @@ bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
         side = 3;
         break;
     default:
-        std::unreachable();
+        return false;
     }
     difference = side - CurrentGame().party.formation.positions[party_slot].facing;
     if (difference < 0) {
@@ -747,7 +746,7 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
             facing = 3;
             break;
         default:
-            std::unreachable();
+            return;
         }
     }
     if (CurrentGame().party.formation.positions[party_slot].facing != facing) {

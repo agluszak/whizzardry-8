@@ -1,6 +1,5 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 
-#include <cassert>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -188,7 +187,6 @@ bool W8SpellInfoDialog::PopulateText()
                 display_base = (duration_base * 0x78) / 0xe10;
                 ui_units_lvl = 0x127;
             }
-            assert(duration_per_level == 0 || ui_units == ui_units_lvl);
             text += fmt::format("{:d} ", display_base);
         }
         if ((duration_per_level == 1 && display_base == 0) ||

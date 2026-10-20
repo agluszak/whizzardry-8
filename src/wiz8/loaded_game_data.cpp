@@ -26,6 +26,7 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/missile_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/unicode.h"
@@ -232,6 +233,14 @@ std::vector<W8SpellRuntimeRecord> ReadSpellDatabase()
         handle->seek(0x101, wiz8::SeekOrigin::current);
         if (wiz8::retail::read(*handle, record).bytes != wiz8::retail::kSpellRuntimeRecordBytes)
             Malformed("SpellTables.dbs");
+        // Spell rules switch over these fields, so every value must name a case.
+        const int target_type = record.target_type;
+        const int usable_when = record.usable_when;
+        const int power_class = record.power_class;
+        if (target_type < W8_TARGET_TYPE_NONE || target_type >= W8_TARGET_TYPE_COUNT ||
+            usable_when < W8_SPELL_USABLE_ANY_TIME || usable_when >= W8_SPELL_USAGE_COUNT ||
+            power_class < W8_SPELL_POWER_CLASS_NONE || power_class > W8_SPELL_POWER_FIXED)
+            Malformed("SpellTables.dbs");
     }
     return records;
 }
@@ -298,10 +307,23 @@ std::vector<W8MonsterRecord> ReadMonsterDatabase()
     return records;
 }
 
+/* Item rules index the spell table with an item's spell, and spell-casting
+   items must name one. */
+static void ValidateItemSpells(const GameData& data)
+{
+    for (const auto& item : data.items) {
+        const bool casts = item.category == W8_ITEM_CATEGORY_SPELL_SOURCE ||
+                           item.category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
+                           item.category == W8_ITEM_CATEGORY_CASTER_ITEM_8;
+        if (item.spell_id >= data.spells.size() || (casts && item.spell_id == W8_SPELL_NONE))
+            Malformed("Items.DBS");
+    }
+}
+
 GameData LoadGameData(std::string_view string_data_path)
 {
     auto item_tables = ReadItemTables();
-    return {
+    GameData data{
         .strings = ReadStringTable(string_data_path),
         .items = ReadItemDatabase(),
         .item_table_categories = std::move(item_tables.categories),
@@ -316,6 +338,8 @@ GameData LoadGameData(std::string_view string_data_path)
         .encounter_tables = ReadEncounterTables(),
         .keywords = ReadDialogueKeywords(),
     };
+    ValidateItemSpells(data);
+    return data;
 }
 
 const GameData& Data()
