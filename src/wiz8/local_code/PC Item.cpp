@@ -15,7 +15,6 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
-#include "wiz8/data/item_payloads.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"

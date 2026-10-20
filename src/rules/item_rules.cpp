@@ -1,6 +1,8 @@
 #include "wiz8/rules/item_rules.h"
 
+#include <algorithm>
 #include <array>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 
@@ -538,15 +540,16 @@ bool FindUnmetItemRequirement(const W8Character* character, const W8ItemDatabase
             return true;
         }
     }
-    for (const auto& requirement : record->skill_requirements) {
-        const int stat = static_cast<signed char>(requirement.stat_id);
-        if (requirement.stat_id != W8_ITEM_REQUIREMENT_NONE &&
-            character->skills[stat].level < requirement.minimum) {
-            if (message_id) *message_id = g_character_skill_name_ids[stat];
-            return true;
-        }
-    }
-    return false;
+    const auto* unmet =
+        std::ranges::find_if(record->skill_requirements, [&](const auto& requirement) {
+            return requirement.stat_id != W8_ITEM_REQUIREMENT_NONE &&
+                   character->skills[static_cast<signed char>(requirement.stat_id)].level <
+                       requirement.minimum;
+        });
+    if (unmet == std::end(record->skill_requirements)) return false;
+    if (message_id)
+        *message_id = g_character_skill_name_ids[static_cast<signed char>(unmet->stat_id)];
+    return true;
 }
 
 bool CanCharacterUseItem(const GameData& data, const W8Character* character, int item_id)

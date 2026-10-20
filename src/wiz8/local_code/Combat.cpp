@@ -526,7 +526,6 @@ void BeginCombatExecution(void)
     }
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* party = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
         W8CombatCharacterRow* row = &CurrentGame().combat->characters[slot];
         if (CurrentGame().party.members[slot].has_value()) {

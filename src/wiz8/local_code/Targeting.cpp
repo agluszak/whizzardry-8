@@ -2027,8 +2027,7 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
 {
     const auto& row = CurrentGame().party.rows[party_slot];
     const auto& character = CurrentGame().party.characters[party_slot];
-    if (!g_settings.autoswap_weapons ||
-        CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked ||
+    if (!g_settings.autoswap_weapons || row.remembered.weapon_sets_locked ||
         (CurrentGame().combat && CurrentGame().combat->execution_active &&
          CurrentGame().combat->characters[party_slot].dead &&
          CurrentGame().combat->characters[party_slot].phase != 0) ||
