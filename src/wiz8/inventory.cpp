@@ -68,7 +68,6 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
 

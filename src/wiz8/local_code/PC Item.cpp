@@ -64,7 +64,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather
    than singly, so a stack of them divides its bundle value out - rounding up,
