@@ -277,11 +277,13 @@ Unlayered code may use the layers.
   fight survives into the next one.
 - **The combat turn.** `Combat::turn()` is a `CombatTurn` value: idle, or a
   `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when
-  used) that is scheduled, resolving or finishing. `UpdateCombat` steps it once per
-  frame after `CombatWaitFor` reports nothing to wait on (camera, monster animation,
-  hit sound, retiring spell effect, missile, queued NPC script, in that order). The
-  held hit sound is released by its completion callback; the camera, monsters and
-  missiles are read as they are.
+  used) that is scheduled, resolving or finishing. `Combat::step` (`combat/turn.cpp`)
+  steps it once per frame after `Combat::waitingOn` reports nothing to wait on (camera,
+  monster animation, hit sound, retiring spell effect, missile, queued NPC script, in
+  that order). The held hit sound is released by its completion callback; the camera,
+  monsters and missiles are read as they are. The scheduler and the actions it runs are
+  `Combat` members that take the game (`combat/actions.cpp`); a party member's action
+  is `ExecuteCharacterAction(game, slot)`, because members also act outside a fight.
   Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave
   a turn the actor no longer holds alone, so an actor that dies or leaves while its
   action runs is not given its turn back. `action_delay` paces the scheduled actor and

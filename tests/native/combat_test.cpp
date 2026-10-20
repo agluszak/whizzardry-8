@@ -9,7 +9,6 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/combat/fight.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -88,7 +87,7 @@ TEST_CASE_METHOD(CombatFixture, "The party acts before a monster on the same pha
     game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
     AddMonster(7, 10);
 
-    ScheduleCombatActor();
+    combat.scheduleNextActor(game);
 
     const auto* scheduled = std::get_if<TurnScheduled>(&combat.turn());
     REQUIRE(scheduled);
@@ -116,13 +115,13 @@ TEST_CASE_METHOD(CombatFixture, "A turn ended while its action resolves stays id
 
 TEST_CASE_METHOD(CombatFixture, "Combat waits on a conscious NPC's queued combat script")
 {
-    REQUIRE(CombatWaitFor(game) == CombatWait::none);
+    REQUIRE(combat.waitingOn(game) == CombatWait::none);
 
     combat.npc_combat_script_pending[1] = true;
-    REQUIRE(CombatWaitFor(game) == CombatWait::npc_script);
+    REQUIRE(combat.waitingOn(game) == CombatWait::npc_script);
 
     game.party.characters[1].highest_condition = W8_CONDITION_ASLEEP;
-    REQUIRE(CombatWaitFor(game) == CombatWait::none);
+    REQUIRE(combat.waitingOn(game) == CombatWait::none);
 }
 
 TEST_CASE_METHOD(InventoryCombatFixture,

@@ -38,6 +38,8 @@ target_sources(wiz8_engine PRIVATE
     "local_code/Gameplay Mods.cpp"
     local_code/GameplayCode.cpp
     combat/fight.cpp
+    combat/turn.cpp
+    combat/actions.cpp
     combat/sounds.cpp
     local_code/MonsterAI.cpp
     "local_code/NPC Manager.cpp"

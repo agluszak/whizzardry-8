@@ -1,6 +1,5 @@
 #include <chrono>
 
-#include "wiz8/combat/fight.h"
 #include "wiz8/combat/party_movement.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
@@ -73,7 +72,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         AccumulateMovementFatigue(*this);
         if (Due(search_sweep_due, kSearchSweepInterval)) RunSearchPulse();
     } else if (!hold.combat && !activity.conversation) {
-        UpdateCombat();
+        combat->step(*this);
     }
     if (IsSightRangeOverridden() && HostilesEngage(*this)) beginCombat(0);
     if (Due(sight_due, kSightInterval)) UpdateMonsterSight();
