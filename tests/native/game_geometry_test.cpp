@@ -1104,6 +1104,15 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
     REQUIRE(keys.key_frames.front() == 1);
     REQUIRE(source.path_ai->nodes.front().x == 1);
     REQUIRE_FALSE(copy.path_ai->timed);
+    // A fade starts at its game event, even if the light is sampled later.
+    Light fading;
+    fading.animator.emplace<MonsterLightAnim>();
+    fading.StartFadeOut(10);
+    const glm::vec3 position(0);
+    fading.Update(&position, 15);
+    REQUIRE(fading.intensity == 0.5f);
+    fading.Update(&position, 20);
+    REQUIRE(fading.intensity == 0);
 }
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")

@@ -400,9 +400,9 @@ void Light::Update(const glm::vec3* position, float now)
     this->transform.setLocation(location);
 }
 
-void Light::StartFadeOut()
+void Light::StartFadeOut(float world_seconds)
 {
     auto& state = std::get<MonsterLightAnim>(animator);
     state.fade_out = true;
-    state.start_time.reset();
+    state.start_time = world_seconds;
 }

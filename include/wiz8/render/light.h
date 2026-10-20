@@ -171,7 +171,7 @@ public:
     void SetVisible(bool visible);
     void SetRange(float range);
     void Update(const glm::vec3* position, float world_seconds);
-    void StartFadeOut();
+    void StartFadeOut(float world_seconds);
 
 public:
     std::string name = "anonymous";

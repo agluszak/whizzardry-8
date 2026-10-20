@@ -1700,7 +1700,8 @@ void Monster::SetCycle(signed char cycle)
                                              CurrentGame().rng.below(0x168)));
         }
         if (monster_light != 0) {
-            monster_light->StartFadeOut();
+            monster_light->StartFadeOut(
+                std::chrono::duration<float>(CurrentGame().visual_time).count());
         }
     }
 }
