@@ -328,12 +328,9 @@ bool VideoResizeWindow(void)
 void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
-    if (ghWindow && g_renderer && g_video_active && !videoSurfaceOwner) {
-        g_flush_pending = false;
-        g_renderer->close();
-        if (SDL_SetWindowFullscreen(ghWindow, enabled) && SDL_SyncWindow(ghWindow))
-            OpenRendererWindow();
-    }
+    if (!ghWindow || !SDL_SetWindowFullscreen(ghWindow, enabled) || !SDL_SyncWindow(ghWindow))
+        return;
+    if (g_renderer && g_video_active && !videoSurfaceOwner) VideoResizeWindow();
 }
 
 void ResetTransientRenderScenes(void)
