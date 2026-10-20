@@ -303,8 +303,11 @@ void AgeAllMonsterSight(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    elapsed = CurrentGame().status.world_clock * 1000 -
-              CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
+    // Retail scales both clocks to milliseconds modulo 2^32 before subtracting.
+    elapsed = static_cast<unsigned int>(CurrentGame().status.world_clock) * 1000u -
+              static_cast<unsigned int>(
+                  CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock) *
+                  1000u;
     steps = elapsed / 120000;
     if (steps == 0) {
         return;

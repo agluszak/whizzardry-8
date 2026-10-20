@@ -221,7 +221,10 @@ inline unsigned int PackOctreeObjectKey(unsigned int kind, unsigned int id)
 }
 inline unsigned int PackOctreeCellKey(int x, int y, int z)
 {
-    return (x * 0x100 + y) * 0x100 + 1 + z;
+    const auto ux = static_cast<unsigned int>(x);
+    const auto uy = static_cast<unsigned int>(y);
+    const auto uz = static_cast<unsigned int>(z);
+    return (ux * 0x100 + uy) * 0x100 + 1 + uz;
 }
 inline unsigned int OctreeKeyKind(unsigned int key)
 {
