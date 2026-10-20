@@ -775,7 +775,7 @@ bool Navigator::UpdateLinkedPosition(std::optional<BoundingSphere> player)
     movement.yaw = linked_navigator->movement.yaw;
     movement.velocity = linked_navigator->movement.velocity * 0.5f;
     SetPosition(&position);
-    NavigationOctree()->RegisterNavigatorCell(movement.location_id, &position);
+    NavigationOctree()->RegisterNavigatorCell(movement.location_id, position);
     linked_update_time = 0;
     return true;
 }
@@ -858,11 +858,10 @@ void Navigator::UpdateFacing(bool immediate)
         return;
     }
     glm::vec3 forward(0.0f, 0.0f, 1.0f);
-    glm::vec3 normal;
     forward = glm::vec3(
         glm::angleAxis(std::atan2(sin(movement.yaw), cos(movement.yaw)), glm::dvec3(0, 1, 0)) *
         glm::dvec3(forward));
-    NavigationOctree()->GetPathSurfaceNormal(&movement.position, &normal);
+    const glm::vec3 normal = NavigationOctree()->pathSurfaceNormal(movement.position);
     if (movement.pitch_enabled) {
         float angle = static_cast<float>(acos(glm::dot(normal, forward)));
         if (angle < kQuarterTurn) {
@@ -1534,7 +1533,7 @@ void Navigator::ClearMovement()
         flags = 0;
     }
     movement.attachment->RecordPosition(&movement.position);
-    NavigationOctree()->RegisterNavigatorCell(movement.location_id, &movement.position);
+    NavigationOctree()->RegisterNavigatorCell(movement.location_id, movement.position);
     movement_complete = true;
 }
 
@@ -1958,7 +1957,7 @@ int Navigator::ResolveMovement()
                 flags = 0;
             }
             movement.attachment->RecordPosition(&movement.position);
-            NavigationOctree()->RegisterNavigatorCell(movement.location_id, &movement.position);
+            NavigationOctree()->RegisterNavigatorCell(movement.location_id, movement.position);
             flags |= 5;
             movement_complete = true;
             return 1;

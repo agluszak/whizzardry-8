@@ -216,10 +216,6 @@ each.
 
 Substantial but contained work.
 
-- **Spatial query value APIs.** `traceSurfaces`/`traceGeometry` return typed
-  hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers still use
-  mutable output records and surface-zero sentinels. Convert them end to end to
-  explicit inputs and optional typed results, preserving world/prop filtering.
 - **Remove `-fwrapv` and `-fno-strict-aliasing`.** Fix the arithmetic and aliasing
   assumptions these flags protect, using the integer-sanitizer audit job, then drop
   them from `WIZ8_GAME_OPTIONS`.

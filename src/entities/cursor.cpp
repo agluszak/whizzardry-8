@@ -277,7 +277,7 @@ void ApplyWorldCursorInput(void)
         if (cursor.dragged_info != 0) {
             cursor.dragged_info->p3D->nav.SetPositionInternal(&cursor.position);
             GetWorldSpatialIndex()->UpdateMonsterLocation(cursor.dragged_info->location_id,
-                                                          &cursor.position);
+                                                          cursor.position);
             if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
                 cursor.dragged_info->p3D->ForwardReferencePosition(1);
             }
@@ -384,8 +384,6 @@ void UpdateWorldCursor(void)
     glm::vec3 old_position;
     glm::vec3 position;
     glm::vec3 resolved;
-    glm::vec3 box_min;
-    glm::vec3 box_max;
 
     if (WorldCursor() == 0 || !WorldCursor()->enabled) {
         return;
@@ -419,10 +417,9 @@ void UpdateWorldCursor(void)
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 !GetWorldSpatialIndex()->traceSight(camera, resolved)) {
-                box_min = resolved + cursor.extent_min;
-                box_max = resolved + cursor.extent_max;
                 if (!cursor.footprint_mode ||
-                    GetWorldSpatialIndex()->TestBoxOccupied(&box_min, &box_max) == 0) {
+                    !GetWorldSpatialIndex()->isBoxOccupied(
+                        {resolved + cursor.extent_min, resolved + cursor.extent_max})) {
                     AimAtPlace(CurrentGame().status.selected_character);
                     ToggleWorldCursor();
                     return;

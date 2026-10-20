@@ -147,8 +147,8 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     group->monsters.push_back(monster_info->location_id);
 
     RequestRedrawParty();
-    GetWorldSpatialIndex()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
-                                           position);
+    GetWorldSpatialIndex()->UpdateMonsterLocation(
+        static_cast<unsigned short>(monster_info->location_id), *position);
     return monster_info;
 }
 
@@ -231,8 +231,8 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
     camera_position = cameraLocation(world);
     monster_info->p3D->visual.SelectLOD(&camera_position);
     monster_info->p3D->UpdateRepresentation(&world);
-    world.compiledIndex()->VisitPointCopy(static_cast<unsigned short>(monster_info->location_id),
-                                          &monster_info->position);
+    world.compiledIndex()->UpdateMonsterLocation(
+        static_cast<unsigned short>(monster_info->location_id), monster_info->position);
     monster_info->fActive = true;
     if (monster_info->p3D != 0) {
         int damage_stage_count = monster_info->p3D->GetDamageStageCount();

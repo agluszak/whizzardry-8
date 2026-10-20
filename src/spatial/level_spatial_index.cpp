@@ -92,13 +92,9 @@ constexpr float kRegionAxisAlignmentThreshold = 0.9998999834060669f;
 constexpr float kScatterInnerRingJitterScale = 0.00020000000949949026f;
 constexpr float kScatterOuterRingJitterScale = 0.00040000001899898052f;
 
-void LevelSpatialIndex::GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal)
+glm::vec3 LevelSpatialIndex::pathSurfaceNormal(const glm::vec3& position) const
 {
-    if (pathing != 0) {
-        pathing->GetPathSurfaceNormal(position, normal);
-        return;
-    }
-    (*normal) = glm::vec3(0.0f, 1.0f, 0.0f);
+    return pathing ? pathing->pathSurfaceNormal(position) : glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 static const float NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE = 50.0f;
@@ -1383,7 +1379,7 @@ std::vector<std::uint32_t> LevelSpatialIndex::polygonsNearPoint(const glm::vec3&
 
 /* A location the octree cannot resolve, or one whose submesh has no live model
    instance, clears the monster's cached mesh rather than leaving a stale one. */
-void LevelSpatialIndex::UpdateMonsterLocation(unsigned short location_id, const glm::vec3* position)
+void LevelSpatialIndex::UpdateMonsterLocation(unsigned short location_id, const glm::vec3& position)
 {
     int queue_id = location_id + 1;
     W8MonsterInfo* info;
@@ -1398,14 +1394,14 @@ void LevelSpatialIndex::UpdateMonsterLocation(unsigned short location_id, const 
     info = (owner_world ? owner_world->population->findMonster(location_id) : nullptr);
     if (info != 0 && info->p3D != 0) {
         monster = info->p3D;
-        sector = GetSectorForPosition(position);
+        sector = GetSectorForPosition(&position);
         if (sector == 0 || (mesh = meshForRegion(sector)) == 0) {
             monster->sector_mesh = 0;
         } else {
             monster->sector_mesh = mesh;
         }
     }
-    point = cellAt((*position));
+    point = cellAt(position);
     registry.cells->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, queue_id, point);
 }
 
@@ -1814,16 +1810,6 @@ bool LevelSpatialIndex::TestPropSunBit(int offset)
     return false;
 }
 
-/* Visit a point handed over by address, copied to the stack first so the
-   caller's copy is not the one the traversal holds. */
-void LevelSpatialIndex::VisitPointCopy(unsigned short location_id, glm::vec3* position)
-{
-    glm::vec3 copy;
-
-    copy = *position;
-    UpdateMonsterLocation(location_id, &copy);
-}
-
 /* Remove every kind-12 and kind-13 registry pairing owned by one location
    id; each by_object hit also drops the mirrored by_cell entry.
    MonsterManager/NPC Manager drive this during location teardown.
@@ -1877,19 +1863,18 @@ std::vector<std::uint32_t> LevelSpatialIndex::locationsInBox(const BoundingBox& 
 /* AABB occupancy test: GD triangles, kind-12 location objects (each
    monster's navigator radius inflates the box) and collidable-prop surfaces
    all answer "occupied". */
-unsigned char LevelSpatialIndex::TestBoxOccupied(const glm::vec3* lower,
-                                                 const glm::vec3* upper) const
+bool LevelSpatialIndex::isBoxOccupied(const BoundingBox& box) const
 {
-    auto objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_SURFACE, -1);
+    auto objects = queryObjects(box, W8_OCTREE_KIND_SURFACE, -1);
     auto count = objects.size();
     unsigned int index;
     for (index = 0; index < count; ++index) {
         const W8GDSurface* surface = this->m_pSurfaces.data() + objects[index];
-        if (SurfaceIntersectsBox(*surface, this->m_pVertices, {(*lower), (*upper)})) {
-            return 1;
+        if (SurfaceIntersectsBox(*surface, this->m_pVertices, box)) {
+            return true;
         }
     }
-    objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_LOCATION, -1);
+    objects = queryObjects(box, W8_OCTREE_KIND_LOCATION, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
         W8MonsterInfo* info =
@@ -1897,14 +1882,14 @@ unsigned char LevelSpatialIndex::TestBoxOccupied(const glm::vec3* lower,
         if (info != 0 && info->p3D != 0) {
             glm::vec3 position = info->p3D->nav.GetPosition();
             float radius = info->p3D->nav.radius;
-            if (lower->x - radius < position.x && position.x < radius + upper->x &&
-                lower->y - radius < position.y && position.y < radius + upper->y &&
-                lower->z - radius < position.z && position.z < radius + upper->z) {
-                return 1;
+            if (box.minimum.x - radius < position.x && position.x < radius + box.maximum.x &&
+                box.minimum.y - radius < position.y && position.y < radius + box.maximum.y &&
+                box.minimum.z - radius < position.z && position.z < radius + box.maximum.z) {
+                return true;
             }
         }
     }
-    objects = queryObjects({(*lower), (*upper)}, W8_OCTREE_KIND_PROP, -1);
+    objects = queryObjects(box, W8_OCTREE_KIND_PROP, -1);
     count = objects.size();
     for (index = 0; index < count; ++index) {
         Prop* prop = owner_world->collidable_props[objects[index]];
@@ -1913,13 +1898,13 @@ unsigned char LevelSpatialIndex::TestBoxOccupied(const glm::vec3* lower,
             for (int surface_index = 0;
                  surface_index < static_cast<int>(gd_prop->m_pGDSurfaces.size()); ++surface_index) {
                 W8GDSurface* surface = gd_prop->m_pGDSurfaces.data() + surface_index;
-                if (SurfaceIntersectsBox(*surface, gd_prop->m_pVertices, {(*lower), (*upper)})) {
-                    return 1;
+                if (SurfaceIntersectsBox(*surface, gd_prop->m_pVertices, box)) {
+                    return true;
                 }
             }
         }
     }
-    return 0;
+    return false;
 }
 
 /* Query the inclusive cell box and copy the deduplicated IDs out of the
@@ -1996,11 +1981,11 @@ unsigned int LevelSpatialIndex::CollectObjectsInCell(const glm::ivec3& cell, uns
 
 /* Register the navigator's world position in the spatial cell registry.
    Navigator IDs are stored with a one-based bias. */
-void LevelSpatialIndex::RegisterNavigatorCell(int id, const glm::vec3* position)
+void LevelSpatialIndex::RegisterNavigatorCell(int id, const glm::vec3& position)
 {
     glm::ivec3 point;
 
-    point = cellAt((*position));
+    point = cellAt(position);
     registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, id + 1, point);
 }
 
