@@ -13,20 +13,21 @@ follow.
 
 ## Target architecture
 
-Today the architecture is the decompiled program's:
+The decompiled program's architecture is partly migrated (see "Migration"). What remains
+of it:
 
-- **Shared mutable state.** 341 `extern` globals. The largest are `g_status` (about 2,250
-  uses), `g_combat` (1,050), `gXStatus` (630), `g_level_block` (950, 93% of them in
-  screens) and `g_localized_strings` (1,080).
-- **The simulation runs inside a screen.** `MainGameScreen::frame` ticks the simulation,
-  and the screen router sets `Activity::place`, so game time passes only while the main
-  game screen is current.
-- **Rules drive presentation directly.** Rules call it about 500 times (notices,
-  redraws, cursor, screen ids), and 32 of the 57 `local_code` files include screen
-  headers.
-- **Games are reset by hand.** New game and load clear globals one by one
-  (`ResetForNewGame`, `LeaveGameSession`, `ResetGameplayStatusBlock`,
-  `DestroyGameplayObjects`, `ResetMainGameScreenState`).
+- **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
+  reaches the game through `CurrentGame()` (about 3,500 uses). The game's state has moved
+  into `Game`; the main game's HUD is `MainGameScreen::hud`, reached through
+  `MainGameHud()`, and `g_localized_strings` (about 1,080 uses) is now `Data().strings`.
+- **The step is driven by a screen.** `Game::advance` runs the simulation, but only the
+  main game screen calls it, and the screen router still sets `Activity::place`.
+- **Rules drive presentation directly.** Inventory and party report events, but other
+  rules still call presentation (notices, redraws, cursor, screen ids), and 33 of the 57
+  `local_code` files include screen headers.
+- **Some resets remain.** A game is an object, but leaving one still clears session
+  state it does not own yet (`LeaveGameSession`, `ResetForNewGame`,
+  `ResetMainGameScreenState`).
 - **Combat is driven by animation.** Combat polls animation state, and missile and
   monster entities resolve attacks themselves.
 
@@ -134,7 +135,11 @@ the licensed runtime scenarios after every step.
    - With one step, the world's hold can be read once per step instead of being reported
      from every call site of `SyncWorldAdvancement` (ARCHITECTURE.md, "Advancement").
 5. **Presentation owned by screens.**
-   - `g_level_block` becomes `MainGameScreen::hud`. The shown cursor (`Screens.cpp`) and
+   - `MainGameScreen::hud` (`W8LevelRuntimeBlock`, formerly `g_level_block`) still mixes
+     simulation pacing (the level transition, the combat panel and autosave countdowns)
+     with presentation, and HUD code reaches it through `MainGameHud()`. Move the
+     simulation fields into the game, then pass the HUD to the code that draws it.
+   - The shown cursor (`Screens.cpp`) and
      the targeting mode (`TargetingMode()`) are module state of the UI code that sets
      them; they become members of the screens that show them once camp and main game
      share a pointer owner.

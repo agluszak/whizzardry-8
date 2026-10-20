@@ -22,10 +22,12 @@ struct W8NoticeWord {
     bool redraw; /* repaint once after deselection */
 };
 
+struct Font;
+
 /* One line of a text box. */
 struct W8MessageStorageRecord {
     // Rebuild the word ranges and hit boxes after the text or the font changes.
-    void RebuildEntries();
+    void RebuildEntries(const Font& font);
 
     std::string text;
     unsigned char font_palette = 0;

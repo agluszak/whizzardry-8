@@ -87,8 +87,8 @@ void RefreshCombatEffectHud()
                      0x14, false);
     PaintEffectStrip(right_icons, CurrentGame().combat.state()->effect_slots0, {0x1eb, 0x14}, -0x15,
                      0x14, true);
-    left_icons->setEnabled(!g_level_block->portrait_refresh_pending[0]);
-    right_icons->setEnabled(!g_level_block->portrait_refresh_pending[1]);
+    left_icons->setEnabled(!MainGameHud()->portrait_refresh_pending[0]);
+    right_icons->setEnabled(!MainGameHud()->portrait_refresh_pending[1]);
 }
 
 void InvalidateMainGameEffectHud()

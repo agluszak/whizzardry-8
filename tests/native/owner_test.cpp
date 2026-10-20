@@ -1047,23 +1047,20 @@ void generic_button_images()
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
-    auto previous_level = std::exchange(g_level_block, std::make_unique<W8LevelRuntimeBlock>());
-    g_level_block->text_box_font = &primary;
     W8MessageStorageRecord words{};
     words.text = "  é 中  ";
-    words.RebuildEntries();
+    words.RebuildEntries(primary);
     REQUIRE(words.entries.size() == 2);
     REQUIRE((words.entries[0].start == 2 && words.entries[0].end == 3));
     REQUIRE((words.entries[1].start == 5 && words.entries[1].end == 7));
     REQUIRE(words.entries[1].x_start == primary.textWidth("  é "));
     words.entries[0].keyword = W8_NOTICE_WORD_SELECTED;
     words.text = "中";
-    words.RebuildEntries();
+    words.RebuildEntries(primary);
     REQUIRE((words.entries.size() == 1 && words.entries[0].keyword == W8_NOTICE_WORD_NORMAL));
     words.text.clear();
-    words.RebuildEntries();
+    words.RebuildEntries(primary);
     REQUIRE(words.entries.empty());
-    g_level_block = std::move(previous_level);
     REQUIRE(g_font12point1.load(font_filename));
     {
         UiLayer fields_input;

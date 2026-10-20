@@ -1052,7 +1052,7 @@ void RevalidateSelectedTarget(int party_slot)
     const auto selected = SelectCombatAction(party_slot, context);
     needed = W8_TARGET_NEED_NONE;
     if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-        needed = GetTargetNeededForAction(CurrentGame().party, selected, g_level_block == nullptr);
+        needed = GetTargetNeededForAction(CurrentGame().party, selected, MainGameHud() == nullptr);
     }
     if (TargetMatchesNeeded(&selected.target, needed)) {
         SetTargetingMode(W8_TARGET_NEED_NONE);
@@ -1386,13 +1386,13 @@ bool SlotHasAnyValidTarget(int party_slot)
         return false;
 
     case W8_ACTION_CAST_SPELL:
-        if (g_level_block->selection_settled) {
+        if (MainGameHud()->selection_settled) {
             return SpellHasAnyValidTarget(party_slot, edited_action.detail, false);
         }
         break;
 
     case W8_ACTION_USE_ITEM:
-        if (g_level_block->selection_settled) {
+        if (MainGameHud()->selection_settled) {
             const W8ItemInstance* item =
                 CurrentGame().party.itemAt(edited_action.detail_block.item_use.item);
 
@@ -1625,7 +1625,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     AimAtTarget(party_slot, &target, context);
 
     group->highlighted_member = picked;
-    g_level_block->pick_changed = true;
+    MainGameHud()->pick_changed = true;
 
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
@@ -1678,7 +1678,7 @@ void CycleToNextTarget(int party_slot)
 
     if (!sighting) {
         pick_group = GetTargetNeededForAction(CurrentGame().party, selected,
-                                              g_level_block == nullptr) == W8_TARGET_NEED_GROUP;
+                                              MainGameHud() == nullptr) == W8_TARGET_NEED_GROUP;
     }
     if (pick_group) {
         pick = PickNextTargetableGroup(party_slot, selected, sighting);
@@ -1708,7 +1708,7 @@ void CycleToNextTarget(int party_slot)
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
     PointCameraAtCombatTarget(&source, &target);
-    g_level_block->pick_changed = true;
+    MainGameHud()->pick_changed = true;
 }
 
 /* Refresh each slot's selected target after a sight or range change, repicking

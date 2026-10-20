@@ -164,7 +164,7 @@ unsigned char OpenUseItemSelectView(int slot)
 
     UpdateScreenOverlays(0);
     use_item = std::make_unique<UseItemView>();
-    if (g_level_block->combat_end_notification != -1) {
+    if (MainGameHud()->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
@@ -173,7 +173,7 @@ unsigned char OpenUseItemSelectView(int slot)
     RestoreSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    g_level_block->text_box_visible = false;
+    MainGameHud()->text_box_visible = false;
     CreateUseItemSelectControls();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
@@ -189,10 +189,10 @@ void CloseUseItemSelectView(void)
     if (use_item) {
         SetTextBoxScrollInput(false);
         SetTextBoxEnabled(false);
-        g_level_block->action_panel_visible = 0;
+        MainGameHud()->action_panel_visible = 0;
         SetTargetingMode(W8_TARGET_NEED_NONE);
         ResetEditorStatusLine(-1);
-        g_level_block->text_box_visible = true;
+        MainGameHud()->text_box_visible = true;
         SelectTextBox(CurrentGame().combat.active());
         use_item.reset();
         RefreshMainGameLayout();
@@ -514,13 +514,13 @@ UiResult HandleUseItemTextBox(const UiPointerEvent& event)
         use_item->hover_row = row;
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
-            const int slot = g_level_block->hovered_text_lines[2];
+            const int slot = MainGameHud()->hovered_text_lines[2];
             if (slot != -1) AfterUiDispatch([slot] { SelectUseItemLine(slot); });
         }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const int row = event.local.y / 11;
             if (row >= 0 && row < static_cast<int>(CurrentGame().status.text_box_lines_shown[2])) {
-                const auto item = use_item->rows[g_level_block->text_lines[2] + row].item;
+                const auto item = use_item->rows[MainGameHud()->text_lines[2] + row].item;
                 if (item) AfterUiDispatch([item] { OpenUseItemAssayDialog(item); });
             }
         }
@@ -534,10 +534,10 @@ void UseItemSelectTextBoxWheelAt(short x, unsigned short y, bool flag)
 {
     int row;
 
-    if (y < g_level_block->text_box_top || g_level_block->text_box_bottom < y) {
+    if (y < MainGameHud()->text_box_top || MainGameHud()->text_box_bottom < y) {
         return;
     }
-    row = (y - g_level_block->text_box_top) / 0xb;
+    row = (y - MainGameHud()->text_box_top) / 0xb;
     if (row != use_item->hover_row || flag) {
         HighlightNoticeRow(row);
     }
@@ -589,7 +589,7 @@ void SelectUseItemLine(int iTextLine)
     RedrawTextBox();
     target_type = GetSpellTargetType(GetItemSpell(item),
                                      ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, g_level_block == nullptr));
+    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, MainGameHud() == nullptr));
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -

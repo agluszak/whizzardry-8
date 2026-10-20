@@ -222,7 +222,7 @@ bool W8CombatLifecycle::Start(int surprise)
     CurrentGame().party_movement_mode = false;
     DisablePortraitControls();
     MainGame()->combat.setEnabled(true);
-    g_level_block->pick_changed = false;
+    MainGameHud()->pick_changed = false;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
                   W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
                   W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
@@ -525,7 +525,7 @@ void BeginCombatExecution(void)
         CurrentGame().combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
         AlertWorldNoise();
     }
-    if (g_level_block->combat_end_notification != -1) {
+    if (MainGameHud()->combat_end_notification != -1) {
         if (g_settings.continuous_combat == 0) {
             DestroySubMenuControls();
         } else {
@@ -538,7 +538,7 @@ void BeginCombatExecution(void)
     CurrentGame().combat.state()->execution_active = 1;
     CurrentGame().combat.state()->pending_death_count = 0;
     CurrentGame().combat.state()->passive_round = 1;
-    g_level_block->pick_changed = false;
+    MainGameHud()->pick_changed = false;
     CurrentGame().combat.state()->uiCurrentPartyAction =
         CurrentGame().combat.state()->uiNextPartyAction;
     CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_NOT_STARTED;
@@ -1100,7 +1100,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
         MainGame()->combat.setEnabled(false);
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-        !g_level_block->review_transition_active) {
+        !MainGameHud()->review_transition_active) {
         ClearSurfaceRect(0x17, 0x34, 0x2d, 0x159);
         ClearSurfaceRect(0x253, 0x34, 0x269, 0x159);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
@@ -1278,7 +1278,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
         CatchUpCombatActor(row);
     }
     RequestRedraw(1 << (party_slot & 0x1f));
-    g_level_block->pick_changed = false;
+    MainGameHud()->pick_changed = false;
     if (action_kind == W8_ACTION_EQUIP) {
         PostCharacterNotice(party_slot, Data().strings[0x225]);
     } else if (previous_action == W8_ACTION_EQUIP &&
@@ -1337,7 +1337,7 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
         action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
         break;
     case W8_TARGETING_CONTEXT_DIALOGUE:
-        action = {g_level_block->selection_kind};
+        action = {MainGameHud()->selection_kind};
         break;
     case W8_TARGETING_CONTEXT_ATTACK:
         action = {W8_ACTION_ATTACK};
@@ -1551,7 +1551,7 @@ bool AnyCombatMonsterBusy(void)
    live member without a combat action to take. */
 void AutoAdvanceSelectedCharacter(void)
 {
-    if (g_settings.auto_advance_character == 0 || g_level_block->pick_changed ||
+    if (g_settings.auto_advance_character == 0 || MainGameHud()->pick_changed ||
         !CurrentGame().combat.state()->round_active || TargetingMode() != W8_TARGET_NEED_NONE ||
         gpSCSV || ItemUseDraft()) {
         return;

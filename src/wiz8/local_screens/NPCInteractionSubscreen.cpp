@@ -779,10 +779,10 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     state->transcript_open_count = 0;
     RefreshMainGameLayout();
     CreateNpcDialogueControls();
-    g_level_block->text_box_visible = false;
+    MainGameHud()->text_box_visible = false;
     EnableDialogueTextBoxRegions();
     SetTextBoxScrollInput(true);
-    g_level_block->action_panel_visible = 1;
+    MainGameHud()->action_panel_visible = 1;
     CurrentGame().activity.conversation_aside = false;
     greet = !force;
     if (item != 0) {
@@ -1115,10 +1115,10 @@ void ServiceNpcDialogue(void)
     }
     field_text = NpcFieldText();
     if (g_npc_interaction_state->pending_layout != W8_DIALOGUE_LAYOUT_NONE) {
-        g_level_block->text_box_visible = false;
+        MainGameHud()->text_box_visible = false;
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
-        g_level_block->action_panel_visible = 1;
+        MainGameHud()->action_panel_visible = 1;
         W8NpcDialogueLayout layout = g_npc_interaction_state->pending_layout;
         SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
         OpenNpcDialogueLayout(layout);
@@ -1219,13 +1219,13 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         npc->dismissed_timer = 0;
     }
     CurrentGame().activity.conversation = false;
-    g_level_block->action_panel_visible = 0;
+    MainGameHud()->action_panel_visible = 0;
     DisableDialogueTextBoxRegions();
     SetTextBoxScrollInput(false);
     CloseActiveNpcDialogueLayout();
     SetNpcDialogueInputEnabled(2, false);
     SelectTextBox(0);
-    g_level_block->text_box_visible = true;
+    MainGameHud()->text_box_visible = true;
     RefreshMainGameLayout();
     g_npc_text_fields.reset();
     g_npc_interaction_state->ui.reset();
@@ -1412,8 +1412,8 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
         g_npc_interaction_state->last_mouse_y = event.position.y;
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             y = event.position.y;
-            if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
-                line = (y - g_level_block->text_box_top) / 11;
+            if (y >= MainGameHud()->text_box_top && y <= MainGameHud()->text_box_bottom) {
+                line = (y - MainGameHud()->text_box_top) / 11;
                 HighlightNoticeRow(line);
                 g_npc_interaction_state->hovered_text_line = line;
             }
@@ -1432,8 +1432,8 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
     }
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
         y = event.position.y;
-        if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
-            line = (y - g_level_block->text_box_top) / 11;
+        if (y >= MainGameHud()->text_box_top && y <= MainGameHud()->text_box_bottom) {
+            line = (y - MainGameHud()->text_box_top) / 11;
             if (line != g_npc_interaction_state->hovered_text_line) {
                 HighlightNoticeRow(line);
             }
@@ -1452,11 +1452,11 @@ void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag)
     if (g_npc_interaction_state->dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
         return;
     }
-    if (static_cast<int>(y) < g_level_block->text_box_top ||
-        static_cast<int>(y) > g_level_block->text_box_bottom) {
+    if (static_cast<int>(y) < MainGameHud()->text_box_top ||
+        static_cast<int>(y) > MainGameHud()->text_box_bottom) {
         return;
     }
-    line = (static_cast<int>(y) - g_level_block->text_box_top) / 11;
+    line = (static_cast<int>(y) - MainGameHud()->text_box_top) / 11;
     if (line != g_npc_interaction_state->hovered_text_line || flag) {
         HighlightNoticeRow(line);
     }
@@ -1506,7 +1506,7 @@ static void NpcDialogueTextBoxLeftUp(int x, int y)
         return;
     case W8_DIALOGUE_LAYOUT_SERVICES:
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
-        slot = g_level_block->hovered_text_lines[2];
+        slot = MainGameHud()->hovered_text_lines[2];
         if (slot == -1) {
             return;
         }
@@ -1531,7 +1531,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
 
     switch (g_npc_interaction_state->dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
-        slot = g_level_block->hovered_text_lines[2];
+        slot = MainGameHud()->hovered_text_lines[2];
         if (slot == -1) {
             return;
         }
@@ -1596,12 +1596,12 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
         return;
     }
     y &= 0xffff;
-    if (y >= g_level_block->text_box_top && y <= g_level_block->text_box_bottom) {
-        line = (y - g_level_block->text_box_top) / 11;
+    if (y >= MainGameHud()->text_box_top && y <= MainGameHud()->text_box_bottom) {
+        line = (y - MainGameHud()->text_box_top) / 11;
         HighlightNoticeRow(line);
         g_npc_interaction_state->hovered_text_line = line;
     }
-    slot = g_level_block->hovered_text_lines[2];
+    slot = MainGameHud()->hovered_text_lines[2];
     if (slot != -1) {
         g_npc_interaction_state->selected_trade_row = -1;
         UpdateNpcTradeSelection(slot, 0, 1);
@@ -2079,7 +2079,7 @@ static void RequestNpcJoinParty(void)
     unsigned int slot;
 
     ShowNotice(W8_FONT_PALETTE_BRONZE, Data().strings[0x748], 3,
-               (g_level_block->text_box_right - g_level_block->text_box_left));
+               (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     if (g_npc_interaction_state->dialogue_hidden != 0) {
         SetNpcDialogueHidden(0);
     }
@@ -2101,7 +2101,7 @@ static void RequestNpcJoinParty(void)
 static void ShowNpcDialogueNotice(void)
 {
     ShowNotice(W8_FONT_PALETTE_BRONZE, Data().strings[0x749], 3,
-               (g_level_block->text_box_right - g_level_block->text_box_left));
+               (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     SetNpcDialogueHidden(1);
 }
 
@@ -2507,7 +2507,7 @@ static void ConfirmNpcTradeSlot(void)
     int slot;
 
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
-        slot = g_level_block->selected_text_lines[2];
+        slot = MainGameHud()->selected_text_lines[2];
         if (slot != -1) {
             UpdateNpcTradeSelection(slot, 0, 0);
             if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE && slot == 0) {
@@ -3002,7 +3002,7 @@ static void HandleNpcDialogueReply(std::string_view text, bool echo)
     if (echo) {
         notice = fmt::format("{}...", text);
         ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3,
-                   (g_level_block->text_box_right - g_level_block->text_box_left));
+                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     }
 }
 
@@ -3217,10 +3217,10 @@ void HandleNpcDialogueInput(void)
         const char punctuation = roll >= (plain_text ? 2u : 3u) ? '?' : '.';
         notice = fmt::format("{} {}{}", Data().strings[replies[roll]], field_text, punctuation);
         ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3,
-                   (g_level_block->text_box_right - g_level_block->text_box_left));
+                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     } else {
         ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3,
-                   (g_level_block->text_box_right - g_level_block->text_box_left));
+                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     }
     if (quote_id == -1) {
         g_npc_dialogue.QueueQuote(Random(2) + 0x23, false, false, false);
@@ -3817,7 +3817,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
             }
             bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
             ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
-                       (g_level_block->text_box_right - g_level_block->text_box_left));
+                       (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
         }
         g_npc_interaction_state->quote_width = static_cast<short>(bubble ? bubble->width() : 0);
         g_npc_interaction_state->quote_height = static_cast<short>(bubble ? bubble->height() : 0);
@@ -3923,7 +3923,7 @@ void FlushPendingNoticeLines(void)
             }
         }
         ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3,
-                   (g_level_block->text_box_right - g_level_block->text_box_left));
+                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     }
     g_npc_interaction_state->pending_notice_lines.clear();
 }
@@ -3979,7 +3979,7 @@ static void SetNpcDialogueHidden(char value)
         SetNpcDialogueInputEnabled(2, true);
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
-        g_level_block->action_panel_visible = 1;
+        MainGameHud()->action_panel_visible = 1;
         SetNpcPanelActive(2, true);
         SetNpcPanelActive(3, true);
         g_npc_interaction_state->ui->transcript->Expand();

@@ -130,7 +130,7 @@ struct W8ActionDetailBlock {
     } item_use{};
 };
 
-/* The combat actions a party slot row's action and the level block's
+/* The combat actions a party slot row's action and the HUD state's
    selection_kind carry; SelectCombatAction picks one and ChooseAction applies
    it. The names are the submenu help captions (string ids 0x52-0x5f): a menu-0
    entry's caption is the action its row selects. 10 and 11 are the two party

@@ -233,10 +233,13 @@ void GameloopExit()
     while (!router.suspended.empty()) {
         auto entry = std::move(router.suspended.back());
         router.suspended.pop_back();
-        // Teardown reads the current screen id, as it does for the one on top.
         if (!entry.screen) continue;
+        /* Teardown reads the current screen, as it does for the one on top, so the
+           leaving screen becomes current and can still find itself. */
         router.show(std::move(entry.request));
-        entry.screen->leave(ScreenDeparture::Discard);
+        router.screen = std::move(entry.screen);
+        router.screen->leave(ScreenDeparture::Discard);
+        router.screen.reset();
     }
     router.show({});
     router.pending = {};

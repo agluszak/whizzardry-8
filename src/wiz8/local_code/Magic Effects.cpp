@@ -880,9 +880,9 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
             return;
         }
         CurrentGame().status.pending_move_location = caster->saved_location;
-        g_level_block->pending_level =
+        MainGameHud()->pending_level =
             CurrentGame().party.characters[pQueue->Source.iChar].saved_level;
-        g_level_block->pending_entry_id = -1;
+        MainGameHud()->pending_entry_id = -1;
         BeginLevelTransition();
     }
 }

@@ -149,7 +149,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             return W8NpcSubquoteOutcome::presented;
         }
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
-                   (g_level_block->text_box_right - g_level_block->text_box_left));
+                   (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
         return W8NpcSubquoteOutcome::presented;
     }
 
@@ -234,7 +234,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
     prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
     display_text = prefixed_text;
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0,
-               (g_level_block->text_box_right - g_level_block->text_box_left));
+               (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     return W8NpcSubquoteOutcome::presented;
 }
 

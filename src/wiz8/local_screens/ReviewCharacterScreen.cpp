@@ -1131,7 +1131,7 @@ void BeginEndgameSequence(void)
     }
     SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
     VideoRemoveToolTip();
-    g_level_block->review_transition_active = true;
+    MainGameHud()->review_transition_active = true;
     BeginScreenFade(fade_to_black, 0, fade_code, ShowEndingScreen, true, endgame_variant);
 }
 
@@ -1150,7 +1150,7 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
     g_fade_out = fade_out;
     g_fade_callback = callback;
     g_fade_flag = render_each_tick;
-    g_level_block->screen_fade_running = true;
+    MainGameHud()->screen_fade_running = true;
     if (fullscreen_scene_last) {
         SetFullscreenSceneLast(1);
     }
@@ -1184,12 +1184,12 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
    released and the stored callback runs. Returns g_fade_flag. */
 unsigned char UpdateScreenFade(void)
 {
-    if (!g_level_block->screen_fade_running) {
+    if (!MainGameHud()->screen_fade_running) {
         return 0;
     }
     std::uint64_t elapsed = w8_get_ticks() - g_fade_tick_base;
     if (g_fade_duration < elapsed) {
-        g_level_block->screen_fade_running = false;
+        MainGameHud()->screen_fade_running = false;
         if (g_fade_out == 0) {
             g_fade_overlay->color.a = 1.0f;
             RenderFrame();
@@ -1221,7 +1221,7 @@ unsigned char UpdateScreenFade(void)
    screen to DrawPartyDeathScreen. */
 void BeginPartyDeath(void)
 {
-    if (g_level_block->review_transition_active) {
+    if (MainGameHud()->review_transition_active) {
         return;
     }
     if (CurrentGame().status.iron_man && !CurrentGame().party_moving) {
@@ -1236,7 +1236,7 @@ void BeginPartyDeath(void)
     SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
     VideoRemoveToolTip();
     BeginScreenFade(1, 0, 0x7d0, DrawPartyDeathScreen, true, 0);
-    g_level_block->review_transition_active = true;
+    MainGameHud()->review_transition_active = true;
 }
 
 /* Pump the post-fade review/death state: on the first tick an armed ending
@@ -1248,7 +1248,7 @@ void PumpReviewTransition(void)
     InputEvent input;
     bool exit_review;
 
-    if (!g_level_block->review_transition_active || g_level_block->screen_fade_running) {
+    if (!MainGameHud()->review_transition_active || MainGameHud()->screen_fade_running) {
         return;
     }
     if (g_ending_autosave) {
@@ -1315,7 +1315,7 @@ void EndReviewTransition(void)
     }
     g_world_render_enabled = 1;
     ResetMainGameMode();
-    g_level_block->review_transition_active = false;
+    MainGameHud()->review_transition_active = false;
     if (g_ending_screen) {
         RequestScreen({.id = W8_SCREEN_CREDITS});
         g_ending_screen = false;

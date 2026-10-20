@@ -274,7 +274,8 @@ widget tree.
   current screen and resumes the top of the stack; returning with nothing
   suspended ends the program. `CreateScreen` builds a screen when it is first
   requested and the router destroys it when it is discarded, so a suspended
-  main game keeps its level block and HUD. The camp, character and options
+  main game keeps its HUD (`MainGameScreen::hud`, reached elsewhere through
+  `MainGameHud()`). The camp, character and options
   screens are rebuilt on every visit: their `rebuildRequest` makes the router
   destroy them when they are suspended and enter a new one with that request
   in place of resuming them (a rebuilt camp reviews the character it showed).

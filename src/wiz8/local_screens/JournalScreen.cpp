@@ -118,14 +118,14 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     }
     std::string description =
         GetFact(fact_id) ? record->alternate_description : record->description;
-    if (description.empty() || g_level_block == 0) {
+    if (description.empty() || MainGameHud() == nullptr) {
         return;
     }
     if (CurrentGame().activity.conversation) {
         g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
-    int range = (g_level_block->text_box_right - g_level_block->text_box_left);
+    int range = (MainGameHud()->text_box_right - MainGameHud()->text_box_left);
     ShowNotice(W8_FONT_PALETTE_BLUE, Data().strings[0x74a], 2, range);
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }

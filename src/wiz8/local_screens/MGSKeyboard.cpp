@@ -487,7 +487,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (g_level_block->radar_map_visible != 0) {
+        if (MainGameHud()->radar_map_visible != 0) {
             ToggleRadarMapZoom();
         }
         break;
@@ -523,7 +523,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
-        if (g_level_block->portrait_refresh_pending[slot] != 0) {
+        if (MainGameHud()->portrait_refresh_pending[slot] != 0) {
             ClearPortraitRefreshSlot(slot);
         } else {
             RefreshSelectedPartyPortrait(slot);
@@ -627,12 +627,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollTextBoxDown(1);
         break;
     case W8_MGS_COMMAND_DEBUG_TOGGLE_FLAG_271:
-        g_level_block->text_box_visible ^= 1;
+        MainGameHud()->text_box_visible ^= 1;
         RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
-        if (g_level_block->highlighted_item != -1) {
-            FindMonster(g_level_block->highlighted_item);
+        if (MainGameHud()->highlighted_item != -1) {
+            FindMonster(MainGameHud()->highlighted_item);
         }
         break;
     default:
@@ -680,7 +680,7 @@ void OpenKeyboardMenuForSlot(int slot)
 {
     g_selected_party_slot = slot;
     keyboard_menu.reset();
-    g_level_block->keyboard_menu_open = true;
+    MainGameHud()->keyboard_menu_open = true;
     SelectPartyCharacter(g_selected_party_slot);
     if (BuildKeyboardMenu() == 0) {
         CloseKeyboardMenu();
@@ -699,17 +699,17 @@ void OpenKeyboardMenuForSlot(int slot)
 void CloseKeyboardMenu(void)
 {
     CurrentGame().monster_manager_entries[g_selected_party_slot].keyboard_menu_open = false;
-    g_level_block->keyboard_menu_open = false;
-    g_level_block->combat_slot = -1;
-    g_level_block->hover_combat_slot = g_selected_party_slot;
-    g_level_block->cursor_grace = 0;
+    MainGameHud()->keyboard_menu_open = false;
+    MainGameHud()->combat_slot = -1;
+    MainGameHud()->hover_combat_slot = g_selected_party_slot;
+    MainGameHud()->cursor_grace = 0;
     RefreshPartySlotRegions();
     if (CurrentGame().combat.active()) {
         MainGame()->combat.setEnabled(true);
     } else {
         MainGame()->combat.setEnabled(false);
     }
-    if (keyboard_menu && g_level_block->portrait_refresh_pending[g_selected_party_slot] == 0) {
+    if (keyboard_menu && MainGameHud()->portrait_refresh_pending[g_selected_party_slot] == 0) {
         ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
                          keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
         InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
@@ -985,40 +985,40 @@ void ApplyCameraMotionHotkeys(void)
 {
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
         g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
         g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
     }
 }
