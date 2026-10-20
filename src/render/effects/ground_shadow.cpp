@@ -21,7 +21,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/mesh_submission.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vertex_shading.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -69,10 +68,9 @@ GroundShadow::GroundShadow(const GroundShadow& other)
    FUNCTION claim: decomplint rejects FOLDED-before-primary when engine_code
    sorts ahead of surface2d.cpp. */
 
-void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view)
+void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view, const ScenePass& pass)
 {
     if (!g_settings.monster_shadows) return;
-    const meshSubmission::PickScope picking(renderer, true);
     auto position = glm::vec3(this->transform.getLocation());
     position.y += kWorldScale;
     const float radius = std::max(width, depth);
@@ -80,7 +78,9 @@ void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view)
         GetWorldSpatialIndex()->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
     if (polygons.empty()) return;
 
-    const MeshState state{.transform = view, .polygon_offset = 2};
+    // Shadows are never picked.
+    MeshState state{.transform = view, .polygon_offset = 2, .scene = pass};
+    state.scene.picks = {};
     const GroundShadowProjection projection(position, width, depth, angle);
     std::vector<w8_ulong> selected;
     std::vector<glm::vec2> coordinates;

@@ -28,7 +28,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_resources.h"
-#include "wiz8/render/mesh_submission.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
@@ -57,28 +56,6 @@ DrawTransform MeshInstance::renderTransform(const DrawTransform& view) const
     }
     scale *= world_scale;
     return view.withModelView(glm::scale(model_view, glm::vec3(scale.x, scale.y, -scale.z)));
-}
-
-MeshInstance::RenderScope::RenderScope(const MeshInstance& instance, GpuRenderer& renderer,
-                                       bool apply_exclusion)
-    : renderer(renderer)
-{
-    restore_mask = apply_exclusion && instance.exclusion_mask != 0;
-    if (restore_mask) {
-        previous_mask = renderer.getExclusionMask();
-        renderer.setExclusionMask(previous_mask | instance.exclusion_mask);
-    }
-}
-
-MeshInstance::RenderScope::~RenderScope()
-{
-    if (restore_mask) renderer.setExclusionMask(previous_mask);
-}
-
-MeshInstance::RenderScope MeshInstance::scopedRender(GpuRenderer& renderer,
-                                                     bool apply_exclusion) const
-{
-    return RenderScope(*this, renderer, apply_exclusion);
 }
 
 glm::vec3 MeshInstance::getAlignAxis() const
@@ -289,10 +266,11 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     return *this;
 }
 
-void MeshInstance::draw(GpuRenderer& renderer, const DrawTransform& view)
+void MeshInstance::draw(GpuRenderer& renderer, const DrawTransform& view, const ScenePass& pass)
 {
-    const auto scope = scopedRender(renderer);
-    RenderMeshes(renderer, renderTransform(view));
+    auto instance_pass = pass;
+    instance_pass.exclusion_mask |= exclusion_mask;
+    RenderMeshes(renderer, renderTransform(view), instance_pass);
 }
 
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
@@ -302,7 +280,8 @@ void MeshInstance::draw(GpuRenderer& renderer, const DrawTransform& view)
    RenderTriMeshWithEquations. When the highlight RGBA is configured
    the chain is submitted again inflated along its normals into a shared
    scratch buffer with reversed winding, skipping the linked "blank" skin. */
-void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform)
+void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform,
+                                const ScenePass& pass)
 {
     Mesh::TriMesh mesh;
     mesh.control_flags = 0;
@@ -313,23 +292,16 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& tran
     const auto bounds = model->getBounds();
     if (!model->isVisible(transform)) return;
 
-    // c-style-cast-ok: the pick key is an opaque void* token
-    renderer.setPickKey(
-        (render_flags & RENDER_NO_PICK) != 0 ? 0 : reinterpret_cast<w8_ulong_ptr>(this));
-
-    const meshSubmission::AmbientScope lighting(renderer);
-    const auto ambient = lighting.ambient();
-    const glm::vec3 ambient_color(ambient);
-
-    glm::vec4 light;
-    if (!model->vertex_lighting_ready) {
-        light = glm::vec4((ambient_color * light_scale + renderer.environment_offset) *
-                              renderer.scene_brightness,
-                          1);
-    } else {
-        light = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    }
-    renderer.setAmbientLight(light);
+    const bool pickable = (render_flags & RENDER_NO_PICK) == 0;
+    const glm::vec3 ambient_color(pass.ambient_light);
+    auto instance_pass = pass;
+    instance_pass.pick_owner = pickable ? this : nullptr;
+    instance_pass.ambient_light =
+        model->vertex_lighting_ready
+            ? glm::vec4(0)
+            : glm::vec4((ambient_color * light_scale + renderer.environment_offset) *
+                            renderer.scene_brightness,
+                        1);
 
     if (highlight_colour.x != 0.0f || highlight_colour.y != 0.0f || highlight_colour.z != 0.0f ||
         highlight_colour.w != 0.0f) {
@@ -360,10 +332,11 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& tran
         if (const auto active = linked.GetActivePolygons(table, true))
             selected.active_polygons = active;
     };
-    MeshState state{.transform = transform};
+    // The shadow pass below stays pickable even when the instance is not.
+    MeshState state{.transform = transform, .scene = instance_pass};
+    if (!pickable) state.scene.picks = {};
     const auto submit = [&](Mesh& linked, const Mesh::TriMesh& submitted,
                             std::span<const glm::vec3> normals) {
-        const meshSubmission::PickScope picking(renderer, (render_flags & RENDER_NO_PICK) != 0);
         linked.RenderTriMeshWithEquations(renderer, submitted, normals, state);
     };
     drawLinked([&](Mesh* model, bool first_pass) {
@@ -371,7 +344,7 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& tran
                                renderer.scene_brightness);
         mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
-            RenderShadow(renderer, mesh, transform);
+            RenderShadow(renderer, mesh, transform, instance_pass);
         }
 
         std::span<const glm::vec3> poly_normals;
@@ -483,7 +456,7 @@ static const std::shared_ptr<Material>& ShadowMaterial()
    front-cull the pass, translate to the mesh's mid-height, scale the unit
    quad by a clamped pitch factor, then feed the pipeline slots directly. */
 void MeshInstance::RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh,
-                                const DrawTransform& transform)
+                                const DrawTransform& transform, const ScenePass& pass)
 {
     float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;
     auto model_view = glm::translate(transform.model_view, glm::vec3(0.0f, height * 0.5f, 0.0f));
@@ -503,7 +476,8 @@ void MeshInstance::RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh,
         (1u << Mesh::CONTROL_SKIP_AUTO_BOX) | (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE);
     shadow.materials[0][0] = ShadowMaterial();
     shadow.shaders[0].value = 0x44b3;
-    renderer.submitMesh(
-        shadow,
-        {.transform = transform.withModelView(model_view), .cull = FaceCull::None, .sorted = true});
+    renderer.submitMesh(shadow, {.transform = transform.withModelView(model_view),
+                                 .cull = FaceCull::None,
+                                 .sorted = true,
+                                 .scene = pass});
 }

@@ -35,8 +35,6 @@
 #include "wiz8/render/texture.h"
 #include "wiz8/surface_storage.h"
 
-class MeshInstance;
-
 GpuRenderer* GpuRenderer::active = nullptr;
 
 GpuRenderer::GpuRenderer()
@@ -52,8 +50,6 @@ GpuRenderer::GpuRenderer()
     fallback_texture.setSurfacePtr(std::shared_ptr<SDL_Surface>(std::move(missing)));
     fallback_texture.setName("Missing texture");
     this->device.window = 0;
-    pick.pick_key = 0;
-    exclusion_mask = 0;
     enable_flags = (1u << ENABLE_AUTO_FLIP) | (1u << ENABLE_CLEAR_ON_OPEN);
     state_flags = 0;
     dirty = 0xffffffff;
@@ -61,7 +57,6 @@ GpuRenderer::GpuRenderer()
     display.swap_interval = 1;
     fog_color = glm::vec4(0);
     initClearColors();
-    initLights();
     initView();
 }
 
@@ -120,36 +115,6 @@ void GpuRenderer::setSwapInterval(w8_ulong interval)
         display.swap_interval = interval;
         dirty |= DIRTY_SWAP_INTERVAL;
     }
-}
-
-void GpuRenderer::setAmbientLight(const glm::vec4& light)
-{
-    ambient_light = light;
-}
-
-glm::vec4 GpuRenderer::getAmbientLight() const
-{
-    return ambient_light;
-}
-
-void GpuRenderer::setAmbientLight(float red, float green, float blue, float alpha)
-{
-    glm::vec4 light;
-    light.x = red;
-    light.y = green;
-    light.z = blue;
-    light.w = alpha;
-    setAmbientLight(light);
-}
-
-std::pair<float, float> GpuRenderer::getEnvironmentRange() const
-{
-    return {environment.minimum, environment.maximum};
-}
-
-std::pair<float, float> GpuRenderer::getEnvironmentScaleFactor() const
-{
-    return {environment.near_scale, environment.far_scale};
 }
 
 void GpuRenderer::setClearColor(const glm::vec4& color)
@@ -417,7 +382,7 @@ void GpuRenderer::setViewPort(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong h
 
 void GpuRenderer::performPickTest(const PickInput& input)
 {
-    if (pick.pick_depth == 0) return;
+    if (input.picks.empty()) return;
     const auto vertexIndex = [&](int vertex) -> w8_ulong {
         if (vertex < 0 ||
             (!input.vertices.empty() && static_cast<std::size_t>(vertex) >= input.vertices.size()))
@@ -437,7 +402,7 @@ void GpuRenderer::performPickTest(const PickInput& input)
     }
     pick_vertices.resize(input.positions.size());
     std::ranges::transform(input.positions, pick_vertices.begin(), pickingMath::projectedPosition);
-    for (auto& queued : std::span{pick.pick_stack}.first(pick.pick_depth)) {
+    for (auto& queued : input.picks) {
         for (const auto index : input.indices) {
             const auto& triangle = input.triangles[index];
             const std::array corners{pick_vertices[vertexIndex(triangle.x)],
@@ -445,41 +410,11 @@ void GpuRenderer::performPickTest(const PickInput& input)
                                      pick_vertices[vertexIndex(triangle.z)]};
             if (const auto depth = pickingMath::triangleDepth(corners, queued.position)) {
                 queued.position.z = *depth;
-                /* reinterpret-ok: the public pick key names the selected instance. */
-                queued.selected_model = reinterpret_cast<MeshInstance*>(pick.pick_key);
+                queued.selected_model = input.owner;
                 queued.triangle_index = index;
             }
         }
     }
-}
-
-void GpuRenderer::pushPick(const Pick& pick)
-{
-    if (this->pick.pick_depth < 0x20) {
-        this->pick.pick_stack[this->pick.pick_depth] = pick;
-        this->pick.pick_depth += 1;
-    }
-}
-
-std::optional<GpuRenderer::Pick> GpuRenderer::popPick()
-{
-    if (pick.pick_depth == 0) return std::nullopt;
-    return pick.pick_stack[--pick.pick_depth];
-}
-
-void GpuRenderer::setPickKey(w8_ulong_ptr key)
-{
-    pick.pick_key = key;
-}
-
-void GpuRenderer::setExclusionMask(w8_ulong mask)
-{
-    exclusion_mask = mask;
-}
-
-w8_ulong GpuRenderer::getExclusionMask() const
-{
-    return exclusion_mask;
 }
 
 void GpuRenderer::clear(std::uint32_t buffers)
@@ -566,33 +501,6 @@ void GpuRenderer::checkAllStateChanges()
     }
 }
 
-void GpuRenderer::setEnvironmentRange(float minimum, float maximum)
-{
-    environment.minimum = minimum;
-    environment.maximum = maximum;
-}
-
-void GpuRenderer::setEnvironmentScaleFactor(float scale, float inverse_scale)
-{
-    if (0.0f < scale) {
-        if (1.0f <= scale) {
-            scale = 1.0f;
-        }
-    } else {
-        scale = 0.0f;
-    }
-    environment.near_scale = scale;
-    if (0.0f < inverse_scale) {
-        if (inverse_scale < 1.0f) {
-            environment.far_scale = inverse_scale;
-            return;
-        }
-        environment.far_scale = 1.0f;
-        return;
-    }
-    environment.far_scale = 0.0f;
-}
-
 /* Each component clamps through (0,1): strictly positive keeps the value, 1.0 or above saturates,
    anything else becomes 0. Immediate batches queued under the previous colour draw with it before
    the colour changes. */
@@ -608,11 +516,6 @@ void GpuRenderer::setFogColor(const glm::vec4& color)
 glm::vec4 GpuRenderer::getFogColor() const
 {
     return fog_color;
-}
-
-w8_ulong_ptr GpuRenderer::getPickKey() const
-{
-    return pick.pick_key;
 }
 
 GpuRenderer::GpuTexParms GpuRenderer::samplerParameters(const Texture::Parameters& requested) const
@@ -659,11 +562,6 @@ w8_ulong nextTextureDimension(w8_ulong value)
 }
 
 } // namespace
-
-void GpuRenderer::initLights()
-{
-    ambient_light = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f);
-}
 
 GpuRenderer::e_error GpuRenderer::createContext(SDL_Window* window)
 {

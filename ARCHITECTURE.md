@@ -58,10 +58,8 @@ Unlayered code may use the layers.
 | `platform/` | Window, SDL input events, filesystem roots, timers and game clocks, the seeded RNG, assertions. |
 | `canvas/` | CPU drawing on `SDL_Surface&`: images, STI sprite sheets, fonts, shading tables. Knows nothing about the GPU or the framebuffer. |
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
-| `render/` | `GpuRenderer` (SDL GPU pipelines and submissions), `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
+| `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState`/`ScenePass` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
-| `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
-| `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision and traces with per-query scratch, the navigation mesh and `Navigator`. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits and release frames to their world's `SimulationSink` instead of resolving them. |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
@@ -79,13 +77,18 @@ Unlayered code may use the layers.
   shader, textures, fog colour and depth bias; the device never culls. Mesh
   submissions take a `MeshState`: a `DrawTransform` (model-view, projection and
   borrowed eye-space user clip planes), software cull mode, winding,
-  reverse-normal and sorted flags, and depth bias. `WorldScene::render` builds the
-  camera's transform once and callers compose instance, light and shadow
-  transforms from it. The batches record each run's textures, shader and depth
-  bias; sorted batches draw at the scene flush without depth bias, as retail did.
-  Scene lighting (ambient, lights, fogs, depth cue), picking and the exclusion
-  mask remain scene-pass state on the renderer, and the viewport and scissor
-  belong to the render target.
+  reverse-normal and sorted flags, depth bias and a `ScenePass`: ambient light,
+  the pass's lights and fogs, the camera's `DepthCue`, the light exclusion mask,
+  and the borrowed `Pick` span with the instance a hit records.
+  `WorldScene::render` builds the camera's transform and scene pass once;
+  static meshes, `MeshInstance`, `GroundShadow` and particles adjust their own
+  copies (instance ambient and exclusion, pick owner, no picks) instead of
+  setting and restoring renderer state. Callers that pick pass their `Pick`
+  values to the scene and read the results back from them. The batches record
+  each run's textures, shader and depth bias; sorted batches draw at the scene
+  flush without depth bias, as retail did. Each scene pass sets the fog colour
+  its batches draw with, and the viewport and scissor belong to the render
+  target.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
 - **Shaders.** SDL GPU selects Vulkan, Metal or Direct3D 12 using embedded SPIR-V,

@@ -53,6 +53,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/image_io.h"
@@ -444,7 +445,8 @@ void UpdateRenderElapsedTime(void);
    Scene fog follows the current world's static scene for ordinary overlays;
    the world passes retain their own fog by selecting preserve_fog. */
 
-void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog)
+void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
+                 std::span<Pick> picks)
 {
     g_gerd->environment_offset = CurrentEnvironmentOffset();
     g_gerd->scene_brightness = g_monster_light_scale;
@@ -465,7 +467,7 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
         // NOLINTNEXTLINE(misc-include-cleaner)
         scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
     }
-    scene->render(*g_gerd, camera);
+    scene->render(*g_gerd, camera, picks);
     if (viewport != 0) {
         g_gerd->setViewPort(0, 0, width, height);
         g_gerd->setScissor(0, 0, width, height);
@@ -551,19 +553,14 @@ void RenderFrame(void)
         } else {
             int half_width = (g_viewport.right - g_viewport.left) / 2;
             int half_height = (g_viewport.bottom - g_viewport.top) / 2;
-            GpuRenderer::Pick pick;
+            Pick pick;
             pick.position.x = (g_cursor_hotspot_x - half_width - g_viewport.left + g_cursor_width) /
                               static_cast<float>(half_width);
             pick.position.y = -static_cast<float>(g_cursor_hotspot_y - half_height -
                                                   g_viewport.top + g_cursor_height) /
                               half_height;
-            pick.position.z = 1.0f;
-            pick.selected_model = 0;
-            pick.triangle_index = 0;
-            g_gerd->setPickKey(0);
-            g_gerd->pushPick(pick);
-            RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true);
-            pick = g_gerd->popPick().value();
+            RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
+                        std::span{&pick, 1});
             g_current_model_instance = pick.selected_model;
             ResolvePickedProp();
         }
@@ -1526,23 +1523,8 @@ unsigned int MeasureMeshRenderWithoutPositionalOption(MeshInstance* mesh)
     return pixels_drawn;
 }
 
-/* Open the render-probe pass: force renderer option 4 off, reset the frame
-   to a solid blue clear and prime the scissor before the measured draw. */
-void BeginRenderProbe(void)
-{
-    if (g_gerd->isEnabled(GpuRenderer::ENABLE_AUTO_FLIP)) {
-        g_gerd->toggle(GpuRenderer::ENABLE_AUTO_FLIP);
-    }
-    g_gerd->setClearColor(0.0f, 0.0f, 1.0f, 1.0f);
-    g_gerd->setAmbientLight(1.0f, 1.0f, 1.0f, 1.0f);
-    g_gerd->beginFrame();
-    g_gerd->setScissor(0, 0, g_gerd->getWidth(), g_gerd->getHeight());
-    g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
-    g_gerd->endFrame();
-}
-
-/* Draw the node between the camera's bracketing passes and return the
-   renderer statistic the probe samples. */
+/* Draw the node outside any scene pass and return the renderer statistic the
+   probe samples. */
 unsigned int MeasureMeshRender(MeshInstance* mesh)
 {
 
@@ -1551,23 +1533,16 @@ unsigned int MeasureMeshRender(MeshInstance* mesh)
     g_gerd->beginFrame();
     {
         const auto& camera = *GetWorld()->camera;
-        camera.applyEnvironment(*g_gerd);
-        mesh->draw(*g_gerd, camera.drawTransform());
+        // No scene lights, fogs or picks; the ambient is the renderer's historical default.
+        mesh->draw(
+            *g_gerd, camera.drawTransform(),
+            {.ambient_light = glm::vec4(0.2f, 0.2f, 0.2f, 1.0f), .depth_cue = camera.depthCue()});
         g_gerd->flushRenderers();
     }
     g_gerd->endFrame();
     g_gerd->flushRenderers();
     const auto statistics = g_gerd->getStatistics();
     return static_cast<unsigned int>(statistics.pixels_drawn);
-}
-
-/* Close the render-probe pass: restore renderer option 4 and present. */
-void EndRenderProbe(void)
-{
-    if (!g_gerd->isEnabled(GpuRenderer::ENABLE_AUTO_FLIP)) {
-        g_gerd->toggle(GpuRenderer::ENABLE_AUTO_FLIP);
-    }
-    g_gerd->flipFrame();
 }
 
 std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, float width,
@@ -1615,14 +1590,6 @@ ViewportBounds GetScaledViewportBounds()
 {
     return {{g_viewport.left * g_viewport_x_scale, g_viewport.top * g_viewport_y_scale},
             {g_viewport.right * g_viewport_x_scale, g_viewport.bottom * g_viewport_y_scale}};
-}
-
-void SetPickKey(void* key)
-{
-    if (g_gerd) {
-        g_gerd->setPickKey(
-            reinterpret_cast<w8_ulong_ptr>(key)); // reinterpret-ok: opaque pick token
-    }
 }
 
 /* VertexChannels::MaterialInfo's inline ctor emitted out-of-line inside

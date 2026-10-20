@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -19,7 +18,6 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/mesh_submission.h"
 #include "wiz8/render/particle_system.h"
 
 WorldScene::WorldScene() = default;
@@ -47,14 +45,10 @@ std::size_t WorldScene::renderableCount() const
            shadows.size();
 }
 
-void WorldScene::drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& view)
+void WorldScene::drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& view,
+                                  const ScenePass& pass)
 {
-    const auto old_mask = renderer.getExclusionMask();
-    renderer.setExclusionMask(old_mask | static_exclusion_mask);
-    const meshSubmission::AmbientScope lighting(renderer);
-    const auto ambient = lighting.ambient();
     submitted_polygons = 0;
-    renderer.setPickKey(0);
     for (const auto& instance : static_meshes) {
         auto* model = instance->getModel();
         if (!instance->visible || !model || !model->isVisible(view)) continue;
@@ -62,27 +56,25 @@ void WorldScene::drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& vi
             submitted_polygons += mesh_part->getActivePolygonTable(0)
                                       ? mesh_part->getActivePolygonCount()
                                       : mesh_part->polygon_count;
+            MeshState state{.transform = view, .scene = pass};
+            state.scene.exclusion_mask |= static_exclusion_mask;
+            // Sorted level geometry is never picked.
+            if ((mesh_part->flags & W8_MESH_SORTED_RENDERING) != 0) state.scene.picks = {};
             if (mesh_part->vertex_lighting_ready) {
-                renderer.setAmbientLight(glm::vec4(0));
-                mesh_part->SetAmbientColor(glm::vec3(ambient), renderer.environment_offset,
-                                           renderer.scene_brightness);
+                state.scene.ambient_light = glm::vec4(0);
+                mesh_part->SetAmbientColor(glm::vec3(pass.ambient_light),
+                                           renderer.environment_offset, renderer.scene_brightness);
             }
             auto mesh = mesh_part->getTriMesh();
             if (!mesh.active_polygons)
                 if (const auto active = mesh_part->GetActivePolygons(-1, false))
                     mesh.active_polygons = active;
-            {
-                const meshSubmission::PickScope pick(
-                    renderer, (mesh_part->flags & W8_MESH_SORTED_RENDERING) != 0);
-                mesh_part->renderTriMesh(renderer, mesh, {.transform = view});
-            }
-            if (mesh_part->vertex_lighting_ready) renderer.setAmbientLight(ambient);
+            mesh_part->renderTriMesh(renderer, mesh, state);
         }
     }
-    renderer.setExclusionMask(old_mask);
 }
 
-void WorldScene::render(GpuRenderer& renderer, Camera3D* view)
+void WorldScene::render(GpuRenderer& renderer, Camera3D* view, std::span<Pick> picks)
 {
     auto frame_lights = lights;
     std::erase_if(frame_lights,
@@ -92,45 +84,19 @@ void WorldScene::render(GpuRenderer& renderer, Camera3D* view)
     const auto frame_meshes = dynamic_meshes;
     const auto frame_shadows = shadows;
     const auto frame_particles = particles;
-    struct RestoreState {
-        GpuRenderer& renderer;
-        glm::vec4 ambient, fog;
-        w8_ulong_ptr pick;
-        w8_ulong exclusion;
-        std::span<Light* const> lights;
-        std::span<FogParams* const> fogs;
-        std::pair<float, float> range, scale;
-        ~RestoreState()
-        {
-            renderer.lights = lights;
-            renderer.fogs = fogs;
-            renderer.setAmbientLight(ambient);
-            renderer.setFogColor(fog);
-            renderer.setPickKey(pick);
-            renderer.setExclusionMask(exclusion);
-            renderer.setEnvironmentRange(range.first, range.second);
-            renderer.setEnvironmentScaleFactor(scale.first, scale.second);
-        }
-    } saved{renderer,
-            renderer.getAmbientLight(),
-            renderer.getFogColor(),
-            renderer.getPickKey(),
-            renderer.getExclusionMask(),
-            renderer.lights,
-            renderer.fogs,
-            renderer.getEnvironmentRange(),
-            renderer.getEnvironmentScaleFactor()};
-    // Without a camera the scene draws in the identity view.
+    // Without a camera the scene draws in the identity view with no depth cue.
     auto scene_view = view ? view->drawTransform() : DrawTransform{};
-    if (view) view->applyEnvironment(renderer);
-    renderer.setAmbientLight(glm::vec4(ambient_light, 0));
+    // The batches read the fog colour when they draw, before this pass returns.
     renderer.setFogColor(glm::vec4(fog_color, 0));
     for (auto* light : frame_lights) light->beginPass(renderer, scene_view);
     std::erase_if(frame_lights, [](const auto* light) {
         return !(light->derived_flags & Light::DERIVED_ACTIVE);
     });
-    renderer.lights = frame_lights;
-    renderer.fogs = frame_fogs;
+    const ScenePass pass{.ambient_light = glm::vec4(ambient_light, 0),
+                         .lights = frame_lights,
+                         .fogs = frame_fogs,
+                         .depth_cue = view ? view->depthCue() : DepthCue{},
+                         .picks = picks};
     std::vector<glm::vec4> eye_planes;
     for (const auto& plane : clip_planes)
         if (plane->visible)
@@ -138,23 +104,23 @@ void WorldScene::render(GpuRenderer& renderer, Camera3D* view)
                 eyeSpaceClipPlane(scene_view.model_view * plane->transform.matrix<glm::mat4>(),
                                   plane->getClipPlane()));
     scene_view.user_clip_planes = eye_planes;
-    drawStaticMeshes(renderer, scene_view);
+    drawStaticMeshes(renderer, scene_view, pass);
     for (auto it = frame_meshes.rbegin(); it != frame_meshes.rend(); ++it) {
         auto* mesh = *it;
         if (mesh->visible && mesh->getModel() &&
             !(mesh->getModel()->flags & W8_MESH_SORTED_RENDERING))
-            mesh->draw(renderer, scene_view);
+            mesh->draw(renderer, scene_view, pass);
     }
     for (auto* mesh : frame_meshes)
         if (mesh->visible && mesh->getModel() &&
             (mesh->getModel()->flags & W8_MESH_SORTED_RENDERING))
-            mesh->draw(renderer, scene_view);
+            mesh->draw(renderer, scene_view, pass);
     for (auto* shadow : frame_shadows)
-        if (shadow->visible) shadow->draw(renderer, scene_view);
+        if (shadow->visible) shadow->draw(renderer, scene_view, pass);
     for (auto* particle : frame_particles)
         if (particle->visible && particle->traversal_enabled &&
             (particle->emitting || particle->active_particle_count))
-            particle->SubmitToRenderer(&renderer, scene_view);
+            particle->SubmitToRenderer(&renderer, scene_view, pass);
     renderer.flushRenderers();
 }
 

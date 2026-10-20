@@ -19,6 +19,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/light.h"
@@ -550,8 +551,6 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
 {
     GpuRenderer renderer;
     MeshInstance selected;
-    renderer.setPickKey(reinterpret_cast<w8_ulong_ptr>(&selected));
-    REQUIRE_FALSE(renderer.popPick());
     const std::array<glm::vec4, 3> positions{{{-1, -1, .4f, 1}, {1, -1, .4f, 1}, {0, 1, .4f, 1}}};
     const std::array<glm::ivec3, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
     const std::array<w8_ulong, 1> indices{1};
@@ -567,48 +566,45 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     input.record_count = 1;
     input.passes = &pass;
     input.project_clip_near = &projection;
-    const auto performPick = [&] {
+    input.pick_owner = &selected;
+    const auto performPick = [&](std::span<Pick> picks) {
+        input.picks = picks;
         batch.reset(0);
         batch.allocVertexArray(input.vertex_count);
         std::copy_n(positions.begin(), input.vertex_count,
                     batch.vertices.positions.begin() + batch.first_vertex);
         batch.render(input);
     };
-    renderer.pushPick({{0, 0, 1}, nullptr, 0});
-    renderer.pushPick({{2, 0, 1}, nullptr, 0});
-    performPick();
-    const auto outside = renderer.popPick().value();
+    std::array<Pick, 2> picks{{{{0, 0, 1}, nullptr, 0}, {{2, 0, 1}, nullptr, 0}}};
+    performPick(picks);
+    const auto& [hit, outside] = picks;
     REQUIRE(outside.selected_model == nullptr);
     REQUIRE(outside.position.z == 1);
-    const auto hit = renderer.popPick().value();
     REQUIRE(hit.selected_model == &selected);
     REQUIRE(hit.triangle_index == 1);
     REQUIRE(std::abs(hit.position.z - .4f) < 1e-6f);
 
     input.vertices = {};
     input.direct_vertex_indices = true;
-    renderer.pushPick({{0, 0, .3f}, nullptr, 9});
-    performPick();
-    const auto nearer = renderer.popPick().value();
+    Pick nearer{{0, 0, .3f}, nullptr, 9};
+    performPick({&nearer, 1});
     REQUIRE(nearer.position.z == .3f);
     REQUIRE(nearer.triangle_index == 9);
-    renderer.pushPick({{0, 0, 1}, nullptr, 0});
-    performPick();
-    REQUIRE(renderer.popPick().value().selected_model == &selected);
+    Pick direct{};
+    performPick({&direct, 1});
+    REQUIRE(direct.selected_model == &selected);
 
     const std::array<w8_ulong, 2> invalid_selection{1, 2};
     input.indices = invalid_selection;
-    renderer.pushPick({{0, 0, 1}, nullptr, 9});
-    REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
-    const auto unchanged = renderer.popPick().value();
+    Pick unchanged{.triangle_index = 9};
+    REQUIRE_THROWS_AS(performPick({&unchanged, 1}), std::invalid_argument);
     REQUIRE(unchanged.position.z == 1);
     REQUIRE(unchanged.triangle_index == 9);
     input.indices = indices;
     input.vertex_count = 2;
-    renderer.pushPick({{0, 0, 1}, nullptr, 9});
-    REQUIRE_THROWS_AS(performPick(), std::invalid_argument);
-    REQUIRE(renderer.popPick().value().triangle_index == 9);
-    REQUIRE_FALSE(renderer.popPick());
+    Pick truncated{.triangle_index = 9};
+    REQUIRE_THROWS_AS(performPick({&truncated, 1}), std::invalid_argument);
+    REQUIRE(truncated.triangle_index == 9);
 }
 
 TEST_CASE("Draw material overrides stay local across passes sharing one material", "[renderer]")

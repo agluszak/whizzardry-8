@@ -1,11 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <span>
 #include <vector>
 
 #include <glm/glm.hpp>
 
 #include "wiz8/render/camera.h"
+#include "wiz8/render/draw_inputs.h"
 
 class GpuRenderer;
 class MeshInstance;
@@ -48,7 +50,8 @@ public:
     void detach(GroundShadow&);
     void detach(FogParams&);
     MeshInstance* addStaticMesh(std::unique_ptr<MeshInstance> mesh);
-    void render(GpuRenderer& renderer, Camera3D* view);
+    // Draws the scene and tests `picks` against its pickable triangles.
+    void render(GpuRenderer& renderer, Camera3D* view, std::span<Pick> picks = {});
     std::size_t renderableCount() const;
 
     glm::vec3 getAmbientLight() const { return ambient_light; }
@@ -59,5 +62,5 @@ public:
     void setFogColor(float r, float g, float b) { fog_color = {r, g, b}; }
 
 private:
-    void drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& view);
+    void drawStaticMeshes(GpuRenderer& renderer, const DrawTransform& view, const ScenePass& pass);
 };

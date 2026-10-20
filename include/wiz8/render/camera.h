@@ -10,7 +10,6 @@
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/transform.h"
 
-class GpuRenderer;
 class WorldScene;
 
 class Camera3D {
@@ -67,8 +66,8 @@ public:
 public:
     // The eye and clip transforms of this camera; no user clip planes.
     DrawTransform drawTransform() const;
-    // Hands the depth-cue range and scale to the scene pass.
-    void applyEnvironment(GpuRenderer& renderer) const;
+    // The scene pass's depth cue: this camera's range with each scale clamped to [0, 1].
+    DepthCue depthCue() const;
 
 public:
     enum e_flag { FLAG_PROJECTION_TYPE = 0 };

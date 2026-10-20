@@ -19,7 +19,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/gpu_renderer.h"
 
 void Camera3D::setProjectionType(e_project projection)
 {
@@ -53,10 +52,14 @@ DrawTransform Camera3D::drawTransform() const
     return {.model_view = glm::mat4(view), .projection = projection};
 }
 
-void Camera3D::applyEnvironment(GpuRenderer& renderer) const
+DepthCue Camera3D::depthCue() const
 {
-    renderer.setEnvironmentRange(environment_near, environment_far);
-    renderer.setEnvironmentScaleFactor(environment_near_scale, environment_far_scale);
+    // Non-positive and NaN scales become 0.
+    const auto unit = [](float scale) { return scale > 0.0f ? std::min(scale, 1.0f) : 0.0f; };
+    return {.minimum = environment_near,
+            .maximum = environment_far,
+            .near_scale = unit(environment_near_scale),
+            .far_scale = unit(environment_far_scale)};
 }
 
 Camera3D::Camera3D()
