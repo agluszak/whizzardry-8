@@ -1022,20 +1022,22 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
     for (const auto version : {1u, 2u}) {
         std::string bytes;
         for (const auto value : {version, 1u, 3u, 2u}) append(bytes, value);
-        append(bytes, W8FileWaypoint{});
-        append(bytes, W8FileWaypoint{W8_WAYPOINT_CONDITIONAL, 1, {1, 2, 3}});
-        append(bytes, W8FileWaypoint{W8_WAYPOINT_CONDITIONAL, 0, {4, 5, 6}});
-        for (unsigned index = 0; index < 2; ++index) {
-            const W8PathEdge edge{0, static_cast<unsigned short>(index),
-                                  static_cast<unsigned short>(index ? 2 : 0), 5.0f, 0};
-            if (version == 1) {
-                append(bytes, edge.flags);
-                append(bytes, edge.destination);
-                append(bytes, edge.distance);
-                append(bytes, edge.next);
-            } else {
-                append(bytes, edge);
-            }
+        const auto waypoint = [&](std::uint16_t flags, std::uint16_t first_edge,
+                                  glm::vec3 position) {
+            append(bytes, flags);
+            append(bytes, first_edge);
+            for (int axis = 0; axis < 3; ++axis) append(bytes, position[axis]);
+        };
+        waypoint(0, 0, {});
+        waypoint(W8_WAYPOINT_CONDITIONAL, 1, {1, 2, 3});
+        waypoint(W8_WAYPOINT_CONDITIONAL, 0, {4, 5, 6});
+        // A 12-byte version-one edge has no source; later versions store it.
+        for (std::uint16_t index = 0; index < 2; ++index) {
+            append(bytes, std::uint32_t{0});
+            if (version != 1) append(bytes, index);
+            append(bytes, std::uint16_t(index ? 2 : 0));
+            append(bytes, 5.0f);
+            append(bytes, std::uint16_t{0});
         }
         store("waypoints.wpt", bytes);
         REQUIRE(path.ReadWaypointFile(tree));
