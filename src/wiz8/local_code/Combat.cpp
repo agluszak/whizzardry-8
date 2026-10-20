@@ -2135,9 +2135,8 @@ void ExecuteCharacterAction(int party_slot)
         }
         break;
     case W8_ACTION_TURN_UNDEAD:
-        if (CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0) {
-            result = 0;
-        } else if (TurnUndead(party_slot, true) > 0) {
+        if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
+            TurnUndead(party_slot, true) > 0) {
             fatigue_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
         } else {
             result = 0;
