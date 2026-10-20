@@ -519,7 +519,6 @@ try {
     Trigger* trigger;
     int item_id;
     W8WorldItem* world_item;
-    WorldItemEntity* item;
 
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
         return 0;
@@ -532,7 +531,7 @@ try {
     }
 
     for (index = 0; index < count; ++index) {
-        item = 0;
+        world_item = nullptr;
         trigger = 0;
         success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes ==
                    static_cast<std::size_t>(sizeof(record.item_name)));
@@ -566,13 +565,11 @@ try {
                 if (world_item != 0) {
                     success = 1;
                     ActivateItem(world_item);
-                    item = world_item->p3D;
                 }
             }
-            if (trigger != 0 && item != 0) {
+            if (trigger != 0 && world_item != 0) {
                 trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-                trigger->rep_item = item;
-                item->trigger = trigger;
+                world_item->trigger = trigger;
             }
         }
     }

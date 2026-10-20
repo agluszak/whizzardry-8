@@ -648,7 +648,6 @@ Trigger::Trigger(World* world)
     angle = 0.0f;
     m_bRepType = W8_TRIGGER_REP_NONE;
     m_pProp = 0;
-    rep_item = 0;
     m_pWorld = world;
     initial_action = 0;
     alternate_action = 0;

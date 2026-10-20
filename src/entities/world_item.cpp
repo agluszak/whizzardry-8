@@ -15,7 +15,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/platform/assertion.h"
@@ -214,23 +213,6 @@ bool WorldItemEntity::IsSelected()
 void WorldItemEntity::LightRadarBlip()
 {
     countdown = MonotonicMilliseconds() + 10000;
-}
-
-bool RunItemTrigger(WorldItemEntity* item)
-{
-    if (!item) {
-        return false;
-    }
-    Trigger* trigger = item->trigger;
-    if (!trigger) {
-        return true;
-    }
-    trigger->Run(-1);
-    if (trigger->action_state == W8TriggerActionState::inactive ||
-        trigger->action_state == W8TriggerActionState::fallback_action) {
-        return false;
-    }
-    return true;
 }
 
 std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item)

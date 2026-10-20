@@ -16,7 +16,6 @@ struct W8Chunk;
 #include "wiz8/render/camera_shake.h"
 
 class Light;
-struct WorldItemEntity;
 class Prop;
 class Trigger;
 struct World;
@@ -234,7 +233,6 @@ public:
     W8TriggerRepresentationKind m_bRepType;
     unsigned char unknown_10d[3];
     Prop* m_pProp;
-    WorldItemEntity* rep_item;
     glm::vec3 position;
     World* m_pWorld;
     char action_data[0x80];
