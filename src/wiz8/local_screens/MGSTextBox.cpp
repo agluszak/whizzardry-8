@@ -123,7 +123,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
                              int wrapped_line);
 
 // Rebuild byte ranges and pixel hit boxes when the text or font changes.
-void W8MessageStorageRecord::RebuildEntries()
+void W8MessageStorageRecord::RebuildEntries(const Font& font)
 {
     entries.clear();
     const std::string_view value = text;
@@ -131,9 +131,8 @@ void W8MessageStorageRecord::RebuildEntries()
          start = value.find_first_not_of(' ', start)) {
         auto end = value.find(' ', start);
         if (end == value.npos) end = value.size();
-        const auto x = g_level_block->text_box_font->prefixWidth(value, start);
-        const auto width =
-            g_level_block->text_box_font->textWidth(value.substr(start, end - start));
+        const auto x = font.prefixWidth(value, start);
+        const auto width = font.textWidth(value.substr(start, end - start));
         entries.push_back(
             {start, end - 1, x, static_cast<short>(x + width), W8_NOTICE_WORD_NORMAL, false});
         start = end;
@@ -144,7 +143,7 @@ void RebuildMessageLogWords(void)
 {
     for (auto& box : CurrentGame().message_log)
         for (auto& record : box)
-            if (!record.text.empty()) record.RebuildEntries();
+            if (!record.text.empty()) record.RebuildEntries(*MainGameHud()->text_box_font);
 }
 
 static void ReleaseMessageRow(int row)
@@ -163,13 +162,13 @@ void ResetEditorStatusLine(short line)
     CurrentGame().status.text_box_lines_used[line] = 0;
     CurrentGame().status.text_box_lines_shown[line] = 0;
     if (!IsNpcDialogueTextInputActive()) {
-        g_level_block->text_lines[line] = 0;
+        MainGameHud()->text_lines[line] = 0;
     }
-    g_level_block->text_lines[4 + line] = -1;
-    g_level_block->hovered_text_lines[line] = -1;
-    g_level_block->selected_text_lines[line] = -1;
-    g_level_block->text_content_region = kUpArrowDisabled;
-    g_level_block->dialogue_content_region = kDownArrowDisabled;
+    MainGameHud()->text_lines[4 + line] = -1;
+    MainGameHud()->hovered_text_lines[line] = -1;
+    MainGameHud()->selected_text_lines[line] = -1;
+    MainGameHud()->text_content_region = kUpArrowDisabled;
+    MainGameHud()->dialogue_content_region = kDownArrowDisabled;
     RedrawTextBox();
 }
 
@@ -211,8 +210,8 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         if (CurrentGame().status.text_box_lines_shown[text_box] != 0) {
             --CurrentGame().status.text_box_lines_shown[text_box];
             if (CurrentGame().status.text_box_lines_shown[text_box] <
-                g_level_block->text_lines[text_box]) {
-                g_level_block->text_lines[text_box] =
+                MainGameHud()->text_lines[text_box]) {
+                MainGameHud()->text_lines[text_box] =
                     CurrentGame().status.text_box_lines_shown[text_box];
             }
         }
@@ -220,7 +219,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     unsigned int index = CurrentGame().status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &CurrentGame().message_log[text_box][index];
     record->text.assign(text);
-    record->RebuildEntries();
+    record->RebuildEntries(*MainGameHud()->text_box_font);
     ++CurrentGame().status.text_box_lines_used[text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
@@ -232,7 +231,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         AdvanceNoticeLine(text_box);
     } else if (text_box == 3) {
         CurrentGame().status.text_box_lines_shown[3] = CurrentGame().status.text_box_lines_used[3];
-        g_level_block->text_lines[3] = CurrentGame().status.text_box_lines_used[3];
+        MainGameHud()->text_lines[3] = CurrentGame().status.text_box_lines_used[3];
         W8MessageStorageRecord* last =
             &CurrentGame().message_log[3][CurrentGame().status.text_box_lines_shown[3] - 1];
         auto delay = g_settings.text_display_delay_ms *
@@ -309,10 +308,10 @@ void SetTextBoxMuteInput(bool enabled)
 
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 {
-    g_level_block->text_box_left = left;
-    g_level_block->text_box_top = top;
-    g_level_block->text_box_right = right;
-    g_level_block->text_box_bottom = bottom;
+    MainGameHud()->text_box_left = left;
+    MainGameHud()->text_box_top = top;
+    MainGameHud()->text_box_right = right;
+    MainGameHud()->text_box_bottom = bottom;
     if (!message_input) return;
     auto& targets = message_input->targets;
     targets[3]->setShape(SDL_Rect{left, top, right - left + 1, bottom - top + 1});
@@ -326,23 +325,23 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
-    if (g_level_block != 0 && (CurrentScreenState().id == W8_SCREEN_MAIN_GAME ||
-                               (CurrentScreenState().id == W8_SCREEN_CAMP && !force_dialog) ||
-                               CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT ||
-                               CurrentScreenState().id == W8_SCREEN_CHARACTER)) {
+    if (MainGameHud() != nullptr && (CurrentScreenState().id == W8_SCREEN_MAIN_GAME ||
+                                     (CurrentScreenState().id == W8_SCREEN_CAMP && !force_dialog) ||
+                                     CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT ||
+                                     CurrentScreenState().id == W8_SCREEN_CHARACTER)) {
         if (font_palette >= W8_FONT_PALETTE_COUNT) {
             Fail("uiFontPaletteIndex <= FONT_PALETTE_COUNT");
         }
         if (wrap_width == W8_NOTICE_WRAP_AUTOMATIC) {
-            wrap_width = g_level_block->text_box_right - g_level_block->text_box_left - 10;
+            wrap_width = MainGameHud()->text_box_right - MainGameHud()->text_box_left - 10;
         }
         text_box = ResolveNoticeTextBox(text_box);
         if (CurrentGame().status.quote_audit) {
             g_notice_line_count = 0;
             CurrentGame().status.long_quote = 0;
         }
-        g_level_block->text_lines[8 + text_box] = 0;
-        if (static_cast<unsigned int>(g_level_block->text_box_font->textWidth(text)) < wrap_width) {
+        MainGameHud()->text_lines[8 + text_box] = 0;
+        if (static_cast<unsigned int>(MainGameHud()->text_box_font->textWidth(text)) < wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
         } else {
             std::string_view remaining(text);
@@ -351,7 +350,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
                     const auto next = wiz8::text::next_grapheme(remaining, end);
-                    if (g_level_block->text_box_font->textWidth(remaining.substr(0, next)) >=
+                    if (MainGameHud()->text_box_font->textWidth(remaining.substr(0, next)) >=
                             static_cast<int>(wrap_width) &&
                         end) {
                         if (last_space) end = last_space;
@@ -367,7 +366,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
                 if (!remaining.empty())
-                    g_level_block->text_lines[8 + text_box] =
+                    MainGameHud()->text_lines[8 + text_box] =
                         line_index == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
             }
         }
@@ -507,13 +506,13 @@ try {
 /* Clear one box's hover or selection highlight and request a repaint. */
 void ClearHoveredTextLine(int index)
 {
-    g_level_block->hovered_text_lines[index] = -1;
+    MainGameHud()->hovered_text_lines[index] = -1;
     RedrawTextBox();
 }
 
 void ClearSelectedTextLine(int index)
 {
-    g_level_block->selected_text_lines[index] = -1;
+    MainGameHud()->selected_text_lines[index] = -1;
     RedrawTextBox();
 }
 
@@ -526,7 +525,7 @@ void RedrawTextBox(void)
 /* Whether the line the cursor is on has anything on it. */
 bool CurrentTextLineHasContent(void)
 {
-    return g_level_block->text_lines[CurrentGame().status.text_line_cursor] != 0;
+    return MainGameHud()->text_lines[CurrentGame().status.text_line_cursor] != 0;
 }
 
 /* Scroll so the line the cursor is on is the last of eight showing, or to the
@@ -591,10 +590,10 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     }
     line = &CurrentGame()
                 .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
-    if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
+    if (MainGameHud()->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
         return;
     }
-    if (g_level_block->text_lines[8 + text_box] == 0) {
+    if (MainGameHud()->text_lines[8 + text_box] == 0) {
         line->highlight_stop = stop;
         line->highlight_start = start;
         line->highlight_color = color;
@@ -605,19 +604,19 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     }
     previous = &CurrentGame()
                     .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 2];
-    if (start >= g_level_block->text_lines[8 + text_box]) {
-        line->highlight_start = start - g_level_block->text_lines[8 + text_box];
+    if (start >= MainGameHud()->text_lines[8 + text_box]) {
+        line->highlight_start = start - MainGameHud()->text_lines[8 + text_box];
     } else {
         previous->highlight_start = start;
         previous->highlight_color = color;
-        if (stop < g_level_block->text_lines[8 + text_box]) {
+        if (stop < MainGameHud()->text_lines[8 + text_box]) {
             previous->highlight_stop = stop;
             return;
         }
         previous->highlight_stop = previous->text.size();
         line->highlight_start = 0;
     }
-    line->highlight_stop = stop - g_level_block->text_lines[8 + text_box];
+    line->highlight_stop = stop - MainGameHud()->text_lines[8 + text_box];
     line->highlight_color = color;
 }
 
@@ -714,7 +713,7 @@ bool CurrentDialogueLineHasContent(void)
 {
     short text_box = CurrentGame().status.text_line_cursor;
 
-    return g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
+    return MainGameHud()->text_lines[text_box] + GetTextBoxVisibleLineCount() <
            CurrentGame().status.text_box_lines_shown[text_box];
 }
 
@@ -735,7 +734,7 @@ void AdvanceNoticeLine(short text_box)
     }
     record->clock = w8_get_ticks() + (delay);
     unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
-    if (g_level_block->text_scroll_drag_idle) {
+    if (MainGameHud()->text_scroll_drag_idle) {
         if (CurrentGame().activity.conversation && g_npc_interaction_state->text_box_collapsed) {
             ScrollTextBoxTo(shown);
             g_npc_interaction_state->text_box_collapsed = false;
@@ -746,13 +745,13 @@ void AdvanceNoticeLine(short text_box)
                 ScrollTextBoxTo(shown);
                 CurrentGame().combat.state()->notice_scroll_pending = false;
             } else if (shown == 350) {
-                unsigned int scroll = g_level_block->text_lines[text_box];
+                unsigned int scroll = MainGameHud()->text_lines[text_box];
                 if (scroll >= 344) {
                     ScrollTextBoxTo(scroll - 1);
                 } else if (scroll <= 342) {
                     ScrollTextBoxTo(343);
                 }
-            } else if (shown >= 8 && shown - 7 > g_level_block->text_lines[text_box]) {
+            } else if (shown >= 8 && shown - 7 > MainGameHud()->text_lines[text_box]) {
                 ScrollTextBoxTo(shown - 7);
             }
         } else if (!IsNpcDialogueTextInputActive()) {
@@ -772,21 +771,21 @@ void ScrollTextBoxTo(int line)
     if (count <= visible) {
         return;
     }
-    unsigned int previous = g_level_block->text_lines[text_box];
+    unsigned int previous = MainGameHud()->text_lines[text_box];
     unsigned int target = static_cast<unsigned int>(line);
     if (target + visible <= count) {
         if (target > 349) {
             target = 350;
         }
-        g_level_block->text_lines[text_box] = target;
+        MainGameHud()->text_lines[text_box] = target;
     } else {
-        g_level_block->text_lines[text_box] = count - visible;
+        MainGameHud()->text_lines[text_box] = count - visible;
     }
-    if (g_level_block->text_lines[text_box] != previous) {
-        g_level_block->text_content_region =
-            g_level_block->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
-        g_level_block->dialogue_content_region =
-            g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() < count
+    if (MainGameHud()->text_lines[text_box] != previous) {
+        MainGameHud()->text_content_region =
+            MainGameHud()->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
+        MainGameHud()->dialogue_content_region =
+            MainGameHud()->text_lines[text_box] + GetTextBoxVisibleLineCount() < count
                 ? kDownArrowEnabled
                 : kDownArrowDisabled;
         RedrawTextBox();
@@ -796,28 +795,28 @@ void ScrollTextBoxTo(int line)
 void ScrollTextBoxUp(int lines)
 {
     short text_box = CurrentGame().status.text_line_cursor;
-    unsigned int previous = g_level_block->text_lines[text_box];
+    unsigned int previous = MainGameHud()->text_lines[text_box];
     if (previous == 0) {
         return;
     }
 
     unsigned int amount = static_cast<unsigned int>(lines);
     if (previous < amount) {
-        g_level_block->text_lines[text_box] = 0;
+        MainGameHud()->text_lines[text_box] = 0;
     } else {
-        g_level_block->text_lines[text_box] = previous - amount;
+        MainGameHud()->text_lines[text_box] = previous - amount;
     }
 
-    unsigned int current = g_level_block->text_lines[text_box];
+    unsigned int current = MainGameHud()->text_lines[text_box];
     if (current == previous) {
         return;
     }
     if (current + GetTextBoxVisibleLineCount() <
         CurrentGame().status.text_box_lines_shown[text_box]) {
-        g_level_block->dialogue_content_region = kDownArrowEnabled;
+        MainGameHud()->dialogue_content_region = kDownArrowEnabled;
     }
     if (current == 0) {
-        g_level_block->text_content_region = kUpArrowDisabled;
+        MainGameHud()->text_content_region = kUpArrowDisabled;
     }
     RedrawTextBox();
 }
@@ -827,26 +826,26 @@ void ScrollTextBoxDown(int lines)
     short text_box = CurrentGame().status.text_line_cursor;
     unsigned int count = CurrentGame().status.text_box_lines_shown[text_box];
     unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int previous = g_level_block->text_lines[text_box];
+    unsigned int previous = MainGameHud()->text_lines[text_box];
     if (previous + visible >= count) {
         return;
     }
 
     if (previous + visible + static_cast<unsigned int>(lines) <= count) {
-        g_level_block->text_lines[text_box] = previous + lines;
+        MainGameHud()->text_lines[text_box] = previous + lines;
     } else {
-        g_level_block->text_lines[text_box] = count - visible;
+        MainGameHud()->text_lines[text_box] = count - visible;
     }
 
-    unsigned int current = g_level_block->text_lines[text_box];
+    unsigned int current = MainGameHud()->text_lines[text_box];
     if (current == previous) {
         return;
     }
     if (current != 0) {
-        g_level_block->text_content_region = kUpArrowEnabled;
+        MainGameHud()->text_content_region = kUpArrowEnabled;
     }
     if (current + visible >= count) {
-        g_level_block->dialogue_content_region = kDownArrowDisabled;
+        MainGameHud()->dialogue_content_region = kDownArrowDisabled;
     }
     RedrawTextBox();
 }
@@ -856,7 +855,7 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
 {
 
     if (!(event.buttons & SDL_BUTTON_LMASK)) {
-        g_level_block->text_scroll_drag_idle = 1;
+        MainGameHud()->text_scroll_drag_idle = 1;
         return UiResult::Handled;
     }
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down)
@@ -866,24 +865,24 @@ UiResult HandleTextThumb(const UiPointerEvent& event)
     const int count = static_cast<int>(CurrentGame().status.text_box_lines_shown[box]);
     if (count <= visible) return UiResult::Handled;
     const auto position = std::clamp(event.local.y + 1, 0, 46);
-    const int previous = static_cast<int>(g_level_block->text_lines[box]);
+    const int previous = static_cast<int>(MainGameHud()->text_lines[box]);
     const int current = (count - visible) * position / 47;
-    g_level_block->text_lines[box] = current;
+    MainGameHud()->text_lines[box] = current;
     if (current != previous) {
-        g_level_block->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;
-        g_level_block->dialogue_content_region =
+        MainGameHud()->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;
+        MainGameHud()->dialogue_content_region =
             current + visible < count ? kDownArrowEnabled : kDownArrowDisabled;
         RedrawTextBox();
     }
-    g_level_block->text_scroll_drag_idle = 0;
+    MainGameHud()->text_scroll_drag_idle = 0;
     return UiResult::Handled;
 }
 
 UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
 {
     const short box = CurrentGame().status.text_line_cursor;
-    const bool enabled = up ? g_level_block->text_lines[box] != 0
-                            : g_level_block->text_lines[box] + GetTextBoxVisibleLineCount() <
+    const bool enabled = up ? MainGameHud()->text_lines[box] != 0
+                            : MainGameHud()->text_lines[box] + GetTextBoxVisibleLineCount() <
                                   CurrentGame().status.text_box_lines_shown[box];
     if ((enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
@@ -891,9 +890,9 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
         (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
         const bool hover = event.action == UiPointerAction::Enter;
         if (up)
-            g_level_block->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
+            MainGameHud()->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
         else
-            g_level_block->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
+            MainGameHud()->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
         RedrawTextBox();
     }
     if ((event.action == UiPointerAction::Up || event.action == UiPointerAction::Repeat) &&
@@ -938,9 +937,9 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
         event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK))
         return UiResult::Handled;
     CurrentGame().status.text_line_cursor = static_cast<short>(channel);
-    const auto scroll = g_level_block->text_lines[channel];
-    g_level_block->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
-    g_level_block->dialogue_content_region =
+    const auto scroll = MainGameHud()->text_lines[channel];
+    MainGameHud()->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
+    MainGameHud()->dialogue_content_region =
         scroll + GetTextBoxVisibleLineCount() < CurrentGame().status.text_box_lines_shown[channel]
             ? kDownArrowEnabled
             : kDownArrowDisabled;
@@ -972,7 +971,7 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y);
 /* Paint one message-storage line at (x, y). hovered_line / selected_line
    select alternate palettes for the editor slot highlights; skip_invalidate
    is forwarded from RedrawTextBoxBody and skips the word-overlay pass when
-   set. Retail reuses the leading bytes of the level block as a wchar scratch. */
+   set. Retail reuses the leading bytes of the HUD state as a wchar scratch. */
 static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hovered_line,
                             bool selected_line, bool skip_invalidate)
 {
@@ -985,14 +984,14 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
                       : hovered_line ? W8_FONT_PALETTE_YELLOW
                                      : line->font_palette;
     auto set_palette = [&](unsigned int index) {
-        g_level_block->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX
+        MainGameHud()->text_box_font->setPalette(index < W8_FONT_PALETTE_TEXT_BOX
                                                      ? g_font_state_palettes[index]
-                                                     : g_level_block->palette);
+                                                     : MainGameHud()->palette);
     };
     auto draw = [&](std::string_view span, unsigned int palette) {
         set_palette(palette);
-        DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font, {x, y}, span);
-        x += g_level_block->text_box_font->textWidth(span);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), *MainGameHud()->text_box_font, {x, y}, span);
+        x += MainGameHud()->text_box_font->textWidth(span);
     };
     auto end = line->length < 0 ? text.size() : wiz8::text::byte_prefix(text, line->length);
     auto visible = text.substr(0, end);
@@ -1008,8 +1007,8 @@ static void DrawTextBoxLine(W8MessageStorageRecord* line, int x, int y, bool hov
         const auto suffix = text.substr(end);
         set_palette(foreground);
         DrawTextAndInvalidate(
-            GetFrameBufferSurface(), *g_level_block->text_box_font,
-            {g_level_block->text_box_right - g_level_block->text_box_font->textWidth(suffix), y},
+            GetFrameBufferSurface(), *MainGameHud()->text_box_font,
+            {MainGameHud()->text_box_right - MainGameHud()->text_box_font->textWidth(suffix), y},
             suffix);
     }
     DrawNoticeWordOverlays(line, x, y);
@@ -1031,8 +1030,8 @@ void RedrawTextBoxBody(bool skip_invalidate)
     bool can_scroll_down;
 
     if (!skip_invalidate) {
-        InvalidateRegion(g_level_block->text_box_left, g_level_block->text_box_top,
-                         g_level_block->text_box_right, g_level_block->text_box_bottom);
+        InvalidateRegion(MainGameHud()->text_box_left, MainGameHud()->text_box_top,
+                         MainGameHud()->text_box_right, MainGameHud()->text_box_bottom);
     }
 
     text_box = CurrentGame().status.text_line_cursor;
@@ -1041,9 +1040,9 @@ void RedrawTextBoxBody(bool skip_invalidate)
         return;
     }
 
-    g_level_block->text_lines[4 + text_box] = FindStoppedTextLine();
+    MainGameHud()->text_lines[4 + text_box] = FindStoppedTextLine();
 
-    scroll = g_level_block->text_lines[text_box];
+    scroll = MainGameHud()->text_lines[text_box];
     rows = shown - scroll;
     if (rows < 7) {
         if (rows == 0) {
@@ -1053,7 +1052,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         rows = 7;
     }
 
-    if (g_level_block->action_panel_visible == 0) {
+    if (MainGameHud()->action_panel_visible == 0) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
@@ -1064,11 +1063,11 @@ void RedrawTextBoxBody(bool skip_invalidate)
 
     {
 
-        SDL_Rect clip{g_level_block->text_box_left, g_level_block->text_box_top,
-                      g_level_block->text_box_right - g_level_block->text_box_left,
-                      g_level_block->text_box_bottom - g_level_block->text_box_top};
+        SDL_Rect clip{MainGameHud()->text_box_left, MainGameHud()->text_box_top,
+                      MainGameHud()->text_box_right - MainGameHud()->text_box_left,
+                      MainGameHud()->text_box_bottom - MainGameHud()->text_box_top};
         ScopedClipRect clipping(GetFrameBufferSurface(), clip);
-        g_level_block->text_box_font->setPalette(g_level_block->palette);
+        MainGameHud()->text_box_font->setPalette(MainGameHud()->palette);
 
         y_offset = 0;
         for (row = 0; row < rows; ++row) {
@@ -1076,24 +1075,24 @@ void RedrawTextBoxBody(bool skip_invalidate)
             if (static_cast<unsigned int>(line_index) < 0x15e) {
                 line = &CurrentGame().message_log[text_box][line_index];
                 if (!line->text.empty()) {
-                    if (text_box == 3 || !g_level_block->text_box_visible) {
-                        x = g_level_block->text_box_left;
+                    if (text_box == 3 || !MainGameHud()->text_box_visible) {
+                        x = MainGameHud()->text_box_left;
                     } else {
-                        x = g_level_block->text_box_left +
-                            ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                             g_level_block->text_box_font->textWidth(line->text) / 2);
+                        x = MainGameHud()->text_box_left +
+                            ((MainGameHud()->text_box_right - MainGameHud()->text_box_left) / 2 -
+                             MainGameHud()->text_box_font->textWidth(line->text) / 2);
                     }
                     DrawTextBoxLine(
-                        line, x, g_level_block->text_box_top + y_offset,
-                        line_index - line->link == g_level_block->hovered_text_lines[text_box],
-                        line_index - line->link == g_level_block->selected_text_lines[text_box],
+                        line, x, MainGameHud()->text_box_top + y_offset,
+                        line_index - line->link == MainGameHud()->hovered_text_lines[text_box],
+                        line_index - line->link == MainGameHud()->selected_text_lines[text_box],
                         skip_invalidate);
                 }
             }
             y_offset += 0xb;
         }
 
-        g_level_block->text_box_font->setPalette(g_level_block->palette);
+        MainGameHud()->text_box_font->setPalette(MainGameHud()->palette);
     }
 }
 
@@ -1113,29 +1112,29 @@ void RedrawTextBoxScrollChrome(void)
     clip.h = (0x1db) - clip.y;
     ScopedClipRect clipped(framebuffer, clip);
 
-    if (g_level_block->action_panel_visible != 0) {
+    if (MainGameHud()->action_panel_visible != 0) {
         text_box = CurrentGame().status.text_line_cursor;
-        scroll = g_level_block->text_lines[text_box];
+        scroll = MainGameHud()->text_lines[text_box];
         if (scroll == 0) {
-            g_level_block->text_content_region = kUpArrowDisabled;
-        } else if (g_level_block->text_content_region == kUpArrowDisabled) {
-            g_level_block->text_content_region = kUpArrowEnabled;
+            MainGameHud()->text_content_region = kUpArrowDisabled;
+        } else if (MainGameHud()->text_content_region == kUpArrowDisabled) {
+            MainGameHud()->text_content_region = kUpArrowEnabled;
         }
 
-        switch (g_level_block->text_content_region) {
+        switch (MainGameHud()->text_content_region) {
         case kUpArrowEnabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0,
-                                               g_level_block->text_box_right + 5, 0x16b);
+                                               MainGameHud()->text_box_right + 5, 0x16b);
             break;
         case kUpArrowPressed:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 1,
-                                               g_level_block->text_box_right + 5, 0x16b);
+                                               MainGameHud()->text_box_right + 5, 0x16b);
             break;
         case kTextBoxArrowNone:
         case kUpArrowDisabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 3,
-                                               g_level_block->text_box_right + 5, 0x16b);
-            g_level_block->text_content_region = kTextBoxArrowNone;
+                                               MainGameHud()->text_box_right + 5, 0x16b);
+            MainGameHud()->text_content_region = kTextBoxArrowNone;
             break;
         default:
             break;
@@ -1144,27 +1143,27 @@ void RedrawTextBoxScrollChrome(void)
         line_count = CurrentGame().status.text_box_lines_shown[text_box];
         visible = GetTextBoxVisibleLineCount();
         if (scroll + static_cast<unsigned int>(visible) < line_count) {
-            if (g_level_block->dialogue_content_region == kDownArrowDisabled) {
-                g_level_block->dialogue_content_region = kDownArrowEnabled;
+            if (MainGameHud()->dialogue_content_region == kDownArrowDisabled) {
+                MainGameHud()->dialogue_content_region = kDownArrowEnabled;
             }
         } else {
-            g_level_block->dialogue_content_region = kDownArrowDisabled;
+            MainGameHud()->dialogue_content_region = kDownArrowDisabled;
         }
 
-        switch (g_level_block->dialogue_content_region) {
+        switch (MainGameHud()->dialogue_content_region) {
         case kDownArrowEnabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 8,
-                                               g_level_block->text_box_right + 5, 0x1ad);
+                                               MainGameHud()->text_box_right + 5, 0x1ad);
             break;
         case kDownArrowPressed:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 9,
-                                               g_level_block->text_box_right + 5, 0x1ad);
+                                               MainGameHud()->text_box_right + 5, 0x1ad);
             break;
         case kTextBoxArrowNone:
         case kDownArrowDisabled:
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 0xb,
-                                               g_level_block->text_box_right + 5, 0x1ad);
-            g_level_block->dialogue_content_region = kTextBoxArrowNone;
+                                               MainGameHud()->text_box_right + 5, 0x1ad);
+            MainGameHud()->dialogue_content_region = kTextBoxArrowNone;
             break;
         default:
             break;
@@ -1173,11 +1172,11 @@ void RedrawTextBoxScrollChrome(void)
         if (line_count > static_cast<unsigned int>(visible)) {
             thumb_y = static_cast<int>(scroll * 0x28 / (line_count - visible)) + 0x17b;
             CatalogArtwork::Load(0x86, 0).draw(GetFrameBufferSurface(), 4,
-                                               g_level_block->text_box_right + 5, thumb_y);
+                                               MainGameHud()->text_box_right + 5, thumb_y);
         }
     }
 
-    InvalidateRegion(g_level_block->text_box_right + 5, 0x16b, g_level_block->text_box_right + 0x1e,
+    InvalidateRegion(MainGameHud()->text_box_right + 5, 0x16b, MainGameHud()->text_box_right + 0x1e,
                      0x1c1);
     RedrawTextBoxBody(false);
 }
@@ -1277,21 +1276,21 @@ void SelectTextBox(short text_box)
 {
     CurrentGame().status.text_line_cursor = text_box;
     RedrawTextBox();
-    if (g_level_block->text_lines[text_box] != 0) {
-        g_level_block->text_content_region = kUpArrowEnabled;
+    if (MainGameHud()->text_lines[text_box] != 0) {
+        MainGameHud()->text_content_region = kUpArrowEnabled;
     } else {
-        g_level_block->text_content_region = kUpArrowDisabled;
+        MainGameHud()->text_content_region = kUpArrowDisabled;
     }
 
-    const bool can_scroll = g_level_block->text_lines[text_box] + GetTextBoxVisibleLineCount() <
+    const bool can_scroll = MainGameHud()->text_lines[text_box] + GetTextBoxVisibleLineCount() <
                             CurrentGame().status.text_box_lines_shown[text_box];
-    g_level_block->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
+    MainGameHud()->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
 }
 
 static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
 {
     if (line < 0x15e) {
-        unsigned int first = g_level_block->text_lines[CurrentGame().status.text_line_cursor];
+        unsigned int first = MainGameHud()->text_lines[CurrentGame().status.text_line_cursor];
         if (first <= static_cast<unsigned int>(line) &&
             static_cast<unsigned int>(line) < first + 7) {
             W8MessageStorageRecord* record = &CurrentGame().message_log[box][line];
@@ -1307,11 +1306,11 @@ static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
 
 void SetHoveredTextLine(int line, int index)
 {
-    SelectWrappedTextLine(line, index, g_level_block->hovered_text_lines);
+    SelectWrappedTextLine(line, index, MainGameHud()->hovered_text_lines);
 }
 void SetSelectedTextLine(int line, int index)
 {
-    SelectWrappedTextLine(line, index, g_level_block->selected_text_lines);
+    SelectWrappedTextLine(line, index, MainGameHud()->selected_text_lines);
 }
 
 static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWord* word, int x,
@@ -1319,7 +1318,7 @@ static void DrawNoticeWordOverlay(const W8MessageStorageRecord* line, W8NoticeWo
 {
     std::string word_text;
     word_text = line->text.substr(word->start, word->end - word->start + 1);
-    DrawTextAndInvalidate(GetFrameBufferSurface(), *g_level_block->text_box_font,
+    DrawTextAndInvalidate(GetFrameBufferSurface(), *MainGameHud()->text_box_font,
                           {word->x_start + x, y}, word_text);
     word->redraw = false;
 }
@@ -1332,7 +1331,7 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
             Palette16 palette = word->keyword == W8_NOTICE_WORD_SELECTED
                                     ? g_font_state_palettes[W8_FONT_PALETTE_BLUE]
                                     : g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
-            g_level_block->text_box_font->setPalette(palette);
+            MainGameHud()->text_box_font->setPalette(palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
         if (word->redraw) {
@@ -1340,9 +1339,9 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
             if (line->font_palette < W8_FONT_PALETTE_TEXT_BOX) {
                 palette = g_font_state_palettes[line->font_palette];
             } else {
-                palette = g_level_block->palette;
+                palette = MainGameHud()->palette;
             }
-            g_level_block->text_box_font->setPalette(palette);
+            MainGameHud()->text_box_font->setPalette(palette);
             DrawNoticeWordOverlay(line, word, x, y);
         }
     }
@@ -1376,12 +1375,12 @@ void ClearNoticeWordHover(int text_box, bool redraw)
 static int GetNoticeLineLeft(int text_box, int line)
 {
     int x_base;
-    if (CurrentGame().status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
-        x_base = g_level_block->text_box_left;
+    if (CurrentGame().status.text_line_cursor == 3 || !MainGameHud()->text_box_visible) {
+        x_base = MainGameHud()->text_box_left;
     } else {
-        x_base = g_level_block->text_box_left +
-                 ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-                  g_level_block->text_box_font->textWidth(
+        x_base = MainGameHud()->text_box_left +
+                 ((MainGameHud()->text_box_right - MainGameHud()->text_box_left) / 2 -
+                  MainGameHud()->text_box_font->textWidth(
                       CurrentGame().message_log[text_box][line].text) /
                       2);
     }
@@ -1395,8 +1394,8 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
     int offset;
 
     ClearNoticeWordHover(text_box, false);
-    if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
-        line = g_level_block->text_lines[text_box] + (y - g_level_block->text_box_top) / 0xb;
+    if (MainGameHud()->text_box_top <= y && y <= MainGameHud()->text_box_bottom) {
+        line = MainGameHud()->text_lines[text_box] + (y - MainGameHud()->text_box_top) / 0xb;
         if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
@@ -1418,8 +1417,8 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
     int x_base;
     int offset;
 
-    if (g_level_block->text_box_top <= y && y <= g_level_block->text_box_bottom) {
-        line = g_level_block->text_lines[text_box] + (y - g_level_block->text_box_top) / 0xb;
+    if (MainGameHud()->text_box_top <= y && y <= MainGameHud()->text_box_bottom) {
+        line = MainGameHud()->text_lines[text_box] + (y - MainGameHud()->text_box_top) / 0xb;
         if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
@@ -1512,7 +1511,7 @@ void HighlightNoticeRow(int line)
 {
     ClearHoveredTextLine(2);
     if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[2])) {
-        SetHoveredTextLine(g_level_block->text_lines[2] + line, 2);
+        SetHoveredTextLine(MainGameHud()->text_lines[2] + line, 2);
     }
     RedrawTextBox();
 }

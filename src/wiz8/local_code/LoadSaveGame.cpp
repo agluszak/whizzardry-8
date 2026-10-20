@@ -1305,7 +1305,7 @@ void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
         CurrentGame().status.next_world_item_id = 1;
     CurrentGame().status.next_trigger_id = world.next_trigger_id;
     CurrentGame().item_manager_pending = 0;
-    if (g_level_block) g_level_block->highlighted_item = g_level_block->selected_item = -1;
+    if (MainGameHud()) MainGameHud()->highlighted_item = MainGameHud()->selected_item = -1;
     if (!status) return;
     auto& data = *status->data;
     if (data.header) ApplyStatusHeader(*data.header);

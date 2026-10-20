@@ -36,15 +36,15 @@ int PreviewPower(const W8Action& action)
 
 bool CurrentCombatSubjectIsValid()
 {
-    if (!g_level_block) return false;
+    if (!MainGameHud()) return false;
     const int actor = CurrentGame().status.selected_character;
     if (actor == -1) return true;
     const auto context = GetEditedActionContext(actor);
     const auto action = SelectCombatAction(actor, context);
     const bool sighting = context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
-    if (g_level_block->highlighted_item != -1)
-        return AssessMonsterTarget(actor, g_level_block->highlighted_item, action, true, sighting);
-    if (auto* group = FindMonsterGroup(g_level_block->action_group, false))
+    if (MainGameHud()->highlighted_item != -1)
+        return AssessMonsterTarget(actor, MainGameHud()->highlighted_item, action, true, sighting);
+    if (auto* group = FindMonsterGroup(MainGameHud()->action_group, false))
         return CanTargetMonsterGroup(actor, group, action, sighting);
     return false;
 }
@@ -52,9 +52,9 @@ bool CurrentCombatSubjectIsValid()
 W8TargetingPresentation BuildTargetingPresentation()
 {
     W8TargetingPresentation result;
-    if (!GetWorld() || !g_level_block) return result;
+    if (!GetWorld() || !MainGameHud()) return result;
     const int selected = CurrentGame().status.selected_character;
-    int tint_owner = g_level_block->highlight.SlotFor(W8_HIGHLIGHT_TARGET);
+    int tint_owner = MainGameHud()->highlight.SlotFor(W8_HIGHLIGHT_TARGET);
     if (tint_owner == -1) tint_owner = selected;
     bool area_preview = false;
     if (selected != -1 && (TargetingMode() == W8_TARGET_NEED_CONE ||
@@ -110,7 +110,7 @@ W8TargetingPresentation BuildTargetingPresentation()
     }
     result.subject_valid = CurrentCombatSubjectIsValid();
     const glm::vec4 tint = result.subject_valid ? glm::vec4{0, 1, 0, 1} : glm::vec4{1, 0, 0, 1};
-    if (auto* info = FindMonster(g_level_block->highlighted_item, false)) {
+    if (auto* info = FindMonster(MainGameHud()->highlighted_item, false)) {
         result.monsters[info->location_id].hovered = true;
         const auto action = selected == -1
                                 ? W8Action{}
@@ -121,7 +121,7 @@ W8TargetingPresentation BuildTargetingPresentation()
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else
             result.monsters[info->location_id].tint = tint;
-    } else if (auto* group = FindMonsterGroup(g_level_block->action_group, false)) {
+    } else if (auto* group = FindMonsterGroup(MainGameHud()->action_group, false)) {
         const auto action = selected == -1
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
@@ -158,7 +158,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
         if (item->fActive && item->p3D) {
-            const bool hovered = g_level_block && g_level_block->selected_item == item->runtime_id;
+            const bool hovered = MainGameHud() && MainGameHud()->selected_item == item->runtime_id;
             item->p3D->SetHighlight(true, hovered);
         }
     }

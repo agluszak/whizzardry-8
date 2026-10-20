@@ -57,6 +57,9 @@ struct MainGameScreen final : Screen {
     bool formation_panel_open = false;
     // The combat party-movement panel is shown.
     bool party_movement_panel = false;
+    /* The HUD's presentation state; created on the first entry and released when the
+       screen is discarded. */
+    std::unique_ptr<W8LevelRuntimeBlock> hud;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
@@ -72,6 +75,8 @@ inline MainGameScreen* MainGame()
 {
     return FindScreen<MainGameScreen>();
 }
+// The main game's HUD state, or null while there is no main game.
+W8LevelRuntimeBlock* MainGameHud();
 // The main game exists with its formation panel open.
 bool FormationPanelOpen();
 // The main game exists with its combat party-movement panel shown.
@@ -373,7 +378,6 @@ public:
     W8GameTimer m_timer;
 };
 
-extern std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
 W8TrapInteraction* TrapInteraction();
 bool IsLockInteractionActive();
 bool IsTrapInteractionActive();

@@ -159,19 +159,19 @@ void UpdateActivePartyMovement(void)
     if (party_move_limit <= 0.0f) {
         Fail("party_move_limit > 0.0f");
     }
-    g_level_block->move_percent =
+    MainGameHud()->move_percent =
         static_cast<int>(100.0f - party_move_distance * 100.0f / party_move_limit + 0.5);
-    g_level_block->move_percent = std::clamp(g_level_block->move_percent, 0, 100);
-    if (g_level_block->move_percent != g_level_block->move_percent_shown) {
+    MainGameHud()->move_percent = std::clamp(MainGameHud()->move_percent, 0, 100);
+    if (MainGameHud()->move_percent != MainGameHud()->move_percent_shown) {
         InvalidatePartyMovementPanel();
-        g_level_block->move_percent_shown = g_level_block->move_percent;
+        MainGameHud()->move_percent_shown = MainGameHud()->move_percent;
     }
     if (g_settings.continuous_combat != 0) {
         CurrentGame().combat.state()->party_movement_clock = w8_get_ticks() + (1000);
     }
 
 check_completion:
-    if (g_level_block->move_percent < 1) {
+    if (MainGameHud()->move_percent < 1) {
         BeginFreeTurnPhase();
     }
 }
@@ -217,8 +217,8 @@ void UpdatePartyMovementControl(void)
         ReleasePartyMovement();
         return;
     }
-    g_level_block->move_percent = 100;
-    g_level_block->move_percent_shown = 100;
+    MainGameHud()->move_percent = 100;
+    MainGameHud()->move_percent_shown = 100;
     InvalidatePartyMovementPanel();
 }
 
@@ -298,14 +298,14 @@ float GetPartyMovementSpeed(void)
    marked finished for this round and have their queued portrait event reset. */
 void CompletePartyMovementTurns(void)
 {
-    if (g_level_block->move_percent < 0) {
+    if (MainGameHud()->move_percent < 0) {
         Fail("gpMGSV->iPartyMovementPercent >= 0");
     }
-    if (g_level_block->move_percent > 100) {
+    if (MainGameHud()->move_percent > 100) {
         Fail("gpMGSV->iPartyMovementPercent <= 100");
     }
 
-    unsigned int remaining = 100 - g_level_block->move_percent;
+    unsigned int remaining = 100 - MainGameHud()->move_percent;
     if (CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         remaining = static_cast<unsigned int>(remaining * 1.5f);
     }

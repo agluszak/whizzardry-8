@@ -38,7 +38,7 @@ struct W8MainGameResourceSlot {
     unsigned short hotspot_y;
 };
 
-/* Main-game chrome mode RefreshMainGameLayout writes into both the level block
+/* Main-game chrome mode RefreshMainGameLayout writes into both the HUD state
    and g_settings. NONE is settings-only: Screens parks it at -1 while
    RefreshMainGameLayout re-raises panels during main-game enter. */
 enum W8MainUiMode {

@@ -207,7 +207,7 @@ void RefreshRadarMap(void)
     }
 
     const auto frame_artwork =
-        CatalogArtwork::Load(g_level_block->radar_map_alternate ? 0xa2 : 0xa1);
+        CatalogArtwork::Load(MainGameHud()->radar_map_alternate ? 0xa2 : 0xa1);
     auto frame_surface = RenderSpriteToImage(*frame_artwork.spriteSheet(), 0);
     if (!frame_surface) return;
     const auto compass_artwork = CatalogArtwork::Load(0x9b);

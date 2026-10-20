@@ -1180,7 +1180,7 @@ void ToggleCombatMode(void)
     }
     CurrentGame().combat.End(false);
     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_ENDED]);
-    if (g_level_block->combat_end_notification != -1) {
+    if (MainGameHud()->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
 }

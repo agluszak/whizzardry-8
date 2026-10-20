@@ -106,7 +106,7 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
         top = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].y;
         image = position->facing * 3;
         order_image = row->party_order_index * 3;
-        if (slot == g_level_block->highlight.FormationSlot()) {
+        if (slot == MainGameHud()->highlight.FormationSlot()) {
             image += 1;
             order_image += 1;
         }
@@ -125,30 +125,30 @@ void RefreshFormationBoard(void)
     if (CurrentGame().status.selected_character != -1) {
         FaceCameraToSelection(CurrentGame().status.selected_character);
     }
-    if (!g_level_block->formation_board_visible) {
+    if (!MainGameHud()->formation_board_visible) {
         return;
     }
     ReleaseFormationBoard();
     const auto board_artwork =
-        CatalogArtwork::Load(g_level_block->formation_board_alternate ? 0x9a : 0x99);
+        CatalogArtwork::Load(MainGameHud()->formation_board_alternate ? 0x9a : 0x99);
     board_image = RenderSpriteToImage(*board_artwork.spriteSheet(), 0);
     if (!board_image) return;
     const auto compass_artwork = CatalogArtwork::Load(0x9b);
     compass_image = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
     if (!compass_image) return;
     DrawFormationSlotMarkers(*board_image);
-    g_level_block->formation_compass_sprite = makeOverlayFromSurface(*compass_image, 0, 1, 1);
-    positionOverlay(g_level_block->formation_compass_sprite.get(), 0x207, 0x167, false);
-    g_level_block->formation_board_sprite = makeOverlayFromSurface(*board_image, 0, 1, 1);
-    positionOverlay(g_level_block->formation_board_sprite.get(), 0x207, 0x167, false);
+    MainGameHud()->formation_compass_sprite = makeOverlayFromSurface(*compass_image, 0, 1, 1);
+    positionOverlay(MainGameHud()->formation_compass_sprite.get(), 0x207, 0x167, false);
+    MainGameHud()->formation_board_sprite = makeOverlayFromSurface(*board_image, 0, 1, 1);
+    positionOverlay(MainGameHud()->formation_board_sprite.get(), 0x207, 0x167, false);
     UpdateFormationCompass();
 }
 
 /* Rotate the compass needle to party_facing - party_heading. */
 void UpdateFormationCompass(void)
 {
-    if (g_level_block->formation_compass_sprite != 0) {
-        g_level_block->formation_compass_sprite->rotation = static_cast<float>(
+    if (MainGameHud()->formation_compass_sprite != 0) {
+        MainGameHud()->formation_compass_sprite->rotation = static_cast<float>(
             (CurrentGame().status.party_facing - CurrentGame().status.party_heading + 0x168) *
             -0.017453292519943295);
     }
@@ -159,15 +159,15 @@ void CreateFormationBoardOverlay(void)
 {
     W8ControlsRect bounds;
 
-    if (g_level_block->formation_overlay_sprite == 0 &&
-        g_level_block->formation_board_sprite != 0) {
+    if (MainGameHud()->formation_overlay_sprite == 0 &&
+        MainGameHud()->formation_board_sprite != 0) {
         bounds.left = 0x200;
         bounds.top = 0x166;
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
-        g_level_block->formation_overlay_sprite =
+        MainGameHud()->formation_overlay_sprite =
             makeOverlayFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
-        positionOverlay(g_level_block->formation_overlay_sprite.get(), 0x200, 0x166, false);
+        positionOverlay(MainGameHud()->formation_overlay_sprite.get(), 0x200, 0x166, false);
     }
 }
 
@@ -203,17 +203,17 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
             break;
         }
     }
-    if (hit != g_level_block->highlight.FormationSlot()) {
+    if (hit != MainGameHud()->highlight.FormationSlot()) {
         SetTooltipSubject(W8_HIGHLIGHT_FORMATION_BOARD, hit);
     }
     if (event.action != UiPointerAction::Enter) {
         if (event.action == UiPointerAction::Leave) {
-            g_level_block->formation_board_alternate = 0;
+            MainGameHud()->formation_board_alternate = 0;
             RefreshFormationBoard();
         }
         return UiResult::Handled;
     }
-    g_level_block->formation_board_alternate = 1;
+    MainGameHud()->formation_board_alternate = 1;
     RefreshFormationBoard();
     return UiResult::Handled;
 }
@@ -508,8 +508,8 @@ static void DropFormationSlot(int cell)
     if (cell != -1) {
         formation->highlighted[cell] = true;
         g_formation_active_cell = cell;
-        g_level_block->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[cell]};
-        RequestRedraw(1 << (g_level_block->highlight.slot & 0x1f));
+        MainGameHud()->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[cell]};
+        RequestRedraw(1 << (MainGameHud()->highlight.slot & 0x1f));
     }
     g_formation_drag_cell = -1;
 }

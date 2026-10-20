@@ -228,7 +228,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     }
     UpdateScreenOverlays(0);
     gpSCSV = std::make_unique<W8SpellCastingView>();
-    if (g_level_block->combat_end_notification != -1) {
+    if (MainGameHud()->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
     gpSCSV->location_id = -1;
@@ -240,7 +240,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     gpSCSV->input.setEnabled(true);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    g_level_block->text_box_visible = false;
+    MainGameHud()->text_box_visible = false;
     SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
     gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
     SelectSpellCastingPartySlot(party_slot);
@@ -264,12 +264,12 @@ void CloseSpellCastingView(void)
     if (!gpSCSV) return;
     gpSCSV->input.setEnabled(false);
     SetTextBoxScrollInput(false);
-    g_level_block->action_panel_visible = 0;
+    MainGameHud()->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
-    g_level_block->text_box_visible = true;
+    MainGameHud()->text_box_visible = true;
     SelectTextBox(CurrentGame().combat.active());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     location_id = gpSCSV->location_id;
@@ -301,7 +301,7 @@ void RestoreSpellCastingRegions(void)
 {
     SetTextBoxEnabled(true);
     SetTextBoxScrollInput(true);
-    g_level_block->action_panel_visible = 1;
+    MainGameHud()->action_panel_visible = 1;
     SetTextBoxMuteInput(false);
     SetTextBoxChannelTabInput(false);
 }
@@ -878,7 +878,7 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
     if (CurrentGame().status.selected_character == -1 || gpSCSV->iSpellRealm == W8_SPELL_REALM_NONE)
         return UiResult::Handled;
     int line =
-        g_level_block->text_lines[CurrentGame().status.text_line_cursor] + event.local.y / 11;
+        MainGameHud()->text_lines[CurrentGame().status.text_line_cursor] + event.local.y / 11;
     if (!event.inside || line < 0 || line >= static_cast<int>(gpSCSV->spells.size())) line = -1;
     if (line != gpSCSV->selected_spell_index) SelectSpellCastingRow(line);
     if (line != -1 && event.action == UiPointerAction::Up) {
@@ -951,7 +951,7 @@ static void SelectSpellCastingListRow(int index)
         return;
     }
     gpSCSV->draft.detail = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, g_level_block == nullptr);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed);
     SelectSpellPowerLevel(-1);
@@ -969,7 +969,7 @@ void TryCommitSpellCast(void)
     if (gpSCSV->draft.detail != 0 && (gpSCSV->draft.detail_block.spell.power_level != 0 ||
                                       gpSCSV->PowerClass() == W8_SPELL_POWER_FIXED)) {
         ready = IsSpellTargetOfNeededKind(&gpSCSV->draft.target, gpSCSV->draft.detail,
-                                          g_level_block == nullptr);
+                                          MainGameHud() == nullptr);
     }
     if (gpSCSV->draft.detail == 0x4b && !gpSCSV->dialog_confirmed) {
         if (!IsModalOpen() && CurrentGame()

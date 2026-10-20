@@ -423,17 +423,17 @@ void CampScreen::UpdateRcsDismissPanel(void)
 /* Release the formation board, compass and overlay sprites. */
 void ReleaseFormationBoard(void)
 {
-    if (g_level_block->formation_board_sprite != 0) {
-        g_level_block->formation_board_sprite.reset();
-        g_level_block->formation_board_sprite = 0;
+    if (MainGameHud()->formation_board_sprite != 0) {
+        MainGameHud()->formation_board_sprite.reset();
+        MainGameHud()->formation_board_sprite = 0;
     }
-    if (g_level_block->formation_compass_sprite != 0) {
-        g_level_block->formation_compass_sprite.reset();
-        g_level_block->formation_compass_sprite = 0;
+    if (MainGameHud()->formation_compass_sprite != 0) {
+        MainGameHud()->formation_compass_sprite.reset();
+        MainGameHud()->formation_compass_sprite = 0;
     }
-    if (g_level_block->formation_overlay_sprite != 0) {
-        g_level_block->formation_overlay_sprite.reset();
-        g_level_block->formation_overlay_sprite = 0;
+    if (MainGameHud()->formation_overlay_sprite != 0) {
+        MainGameHud()->formation_overlay_sprite.reset();
+        MainGameHud()->formation_overlay_sprite = 0;
     }
 }
 

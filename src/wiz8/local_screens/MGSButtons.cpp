@@ -218,7 +218,7 @@ void SubMenuSelectWalk(void)
 
 void OpenSubMenuPanel(short notification)
 {
-    if (g_level_block->combat_end_notification != -1) {
+    if (MainGameHud()->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
     UpdateScreenOverlays(0);
@@ -233,7 +233,7 @@ void ResetSubMenuPanel(void)
 {
     short saved_notification;
 
-    saved_notification = g_level_block->combat_end_notification;
+    saved_notification = MainGameHud()->combat_end_notification;
     DestroySubMenuControls();
     OpenSubMenuPanel(saved_notification);
 }
@@ -559,8 +559,8 @@ void SyncRoofButtonPressedState(void)
 
 static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
-    if (g_level_block->radar_map_visible != 0) {
-        if (!g_level_block->formation_board_visible && g_level_block->action_panel_visible == 0) {
+    if (MainGameHud()->radar_map_visible != 0) {
+        if (!MainGameHud()->formation_board_visible && MainGameHud()->action_panel_visible == 0) {
             SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -580,9 +580,9 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
-    if (g_level_block->action_panel_visible != 0) {
+    if (MainGameHud()->action_panel_visible != 0) {
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
-            if (g_level_block->radar_map_visible == 0 && !g_level_block->formation_board_visible) {
+            if (MainGameHud()->radar_map_visible == 0 && !MainGameHud()->formation_board_visible) {
                 SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
@@ -613,8 +613,8 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
-    if (g_level_block->formation_board_visible) {
-        if (g_level_block->radar_map_visible == 0 && g_level_block->action_panel_visible == 0) {
+    if (MainGameHud()->formation_board_visible) {
+        if (MainGameHud()->radar_map_visible == 0 && MainGameHud()->action_panel_visible == 0) {
             SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -660,7 +660,7 @@ void RedrawLayoutArrowButtons(void)
     }
     MainGame()->hud_buttons.layout_arrows[2].SetEnabled(enabled);
 
-    if (g_level_block->radar_map_visible == 0) {
+    if (MainGameHud()->radar_map_visible == 0) {
         MainGame()->hud_buttons.layout_arrows[3].SetVisible(true);
         MainGame()->hud_buttons.layout_arrows[0].SetVisible(false);
         draw_button = &MainGame()->hud_buttons.layout_arrows[3];
@@ -671,7 +671,7 @@ void RedrawLayoutArrowButtons(void)
     }
     draw_button->Refresh();
 
-    if (g_level_block->action_panel_visible == 0) {
+    if (MainGameHud()->action_panel_visible == 0) {
         MainGame()->hud_buttons.layout_arrows[4].SetVisible(true);
         MainGame()->hud_buttons.layout_arrows[1].SetVisible(false);
         draw_button = &MainGame()->hud_buttons.layout_arrows[4];
@@ -682,7 +682,7 @@ void RedrawLayoutArrowButtons(void)
     }
     draw_button->Refresh();
 
-    if (g_level_block->formation_board_visible) {
+    if (MainGameHud()->formation_board_visible) {
         MainGame()->hud_buttons.layout_arrows[2].SetVisible(true);
         MainGame()->hud_buttons.layout_arrows[5].SetVisible(false);
         MainGame()->hud_buttons.layout_arrows[2].Refresh();
@@ -877,7 +877,7 @@ void UpdateSubMenuPanelButtons(void)
     if (!CurrentGame().combat.active() || !CurrentGame().combat.state()->round_active ||
         CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
         CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
-        g_level_block->combat_end_notification != -1) {
+        MainGameHud()->combat_end_notification != -1) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
@@ -886,7 +886,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!CurrentGame().surprise_possible && !IsLockInteractionActive() &&
         !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !gpSCSV &&
-        !ItemUseDraft() && g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
+        !ItemUseDraft() && MainGameHud()->combat_end_notification == -1 && AnyCharacterEngaged()) {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!FormationPanelOpen()) {
             if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {
@@ -907,7 +907,7 @@ void UpdateSubMenuPanelButtons(void)
 static void UpdateSubMenuScrollButtons()
 {
 
-    const bool enabled = g_level_block->combat_end_notification == -1 &&
+    const bool enabled = MainGameHud()->combat_end_notification == -1 &&
                          !CurrentGame().activity.conversation &&
                          !CurrentGame().activity.conversation_aside;
     for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
@@ -1234,7 +1234,7 @@ bool BuildSubMenuPanel(short notification)
     cancel->SetPosition(left + built * 19 - 14, 0x1c8);
     cancel->Resize(18, 18);
     submenu->buttons.push_back(std::move(cancel));
-    g_level_block->combat_end_notification = notification;
+    MainGameHud()->combat_end_notification = notification;
     EnableSubMenuRegions();
     return true;
 }
@@ -1244,8 +1244,8 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
     unsigned char matches;
 
     matches = 0;
-    if (g_level_block->selection_kind == CurrentGame().party.rows[party_slot].committed.kind &&
-        !g_level_block->selection_settled) {
+    if (MainGameHud()->selection_kind == CurrentGame().party.rows[party_slot].committed.kind &&
+        !MainGameHud()->selection_settled) {
         matches = 1;
     }
     if (CharacterCanSwitchTo(party_slot, GetEditedActionContext(party_slot), true, false) &&
@@ -1331,8 +1331,8 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
         }
         break;
     }
-    g_level_block->selection_kind = W8_ACTION_NONE;
-    g_level_block->selection_settled = false;
+    MainGameHud()->selection_kind = W8_ACTION_NONE;
+    MainGameHud()->selection_settled = false;
     return state;
 }
 
@@ -1396,6 +1396,6 @@ void MapSubMenuSelection(short menu, short item)
         }
         break;
     }
-    g_level_block->selection_kind = action;
-    g_level_block->selection_settled = settled;
+    MainGameHud()->selection_kind = action;
+    MainGameHud()->selection_settled = settled;
 }

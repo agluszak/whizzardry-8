@@ -133,7 +133,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
         return;
     case W8_SCREEN_MAIN_GAME:
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
-            g_level_block->portrait_refresh_pending[party_slot] != 0) {
+            MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
             switch (party_slot) {
             case 0:
             case 1:
@@ -158,12 +158,12 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
             overlay_ready =
                 PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
             highlighted = false;
-            if (g_level_block->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
-                party_slot == static_cast<unsigned int>(g_level_block->held_item_display)) {
+            if (MainGameHud()->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
+                party_slot == static_cast<unsigned int>(MainGameHud()->held_item_display)) {
                 highlighted = true;
             }
             RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
-                                       g_level_block->portrait_refresh_pending[party_slot] == 0);
+                                       MainGameHud()->portrait_refresh_pending[party_slot] == 0);
             CurrentGame().monster_manager_entries[party_slot].combat_portrait_dirty = true;
             InvalidatePortraitControl(party_slot);
             return;
@@ -349,7 +349,7 @@ struct GameEventPresentation {
     void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
     void operator()(const CombatantsMoved&) const
     {
-        if (g_level_block) g_level_block->refresh_combat_panel = 1;
+        if (MainGameHud()) MainGameHud()->refresh_combat_panel = 1;
     }
     void operator()(const CharacterActionChanged&) const
     {
@@ -357,8 +357,8 @@ struct GameEventPresentation {
     }
     void operator()(const EquipmentSettled&) const
     {
-        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !g_level_block) return;
-        if (g_level_block->combat_end_notification != -1) ReopenSubMenuPanel();
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !MainGameHud()) return;
+        if (MainGameHud()->combat_end_notification != -1) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
     void operator()(const HeldItemChanged&) const { UpdateHeldItemCursor(); }
@@ -391,80 +391,80 @@ void PresentGameEvent(const Event& event)
     std::visit(GameEventPresentation{}, event);
 }
 
-/* Default the live main-game level block after ResetMainGameScreenState: clear
+/* Default the main game's HUD state after ResetMainGameScreenState: clear
    selection and text-box state, arm the timers, size the text regions, and
    rebuild the logged lines' word hit boxes. */
 void InitializeMainGameLevelBlock(void)
 {
     int slot;
 
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_level_block != 0) {
-        g_level_block->redraw_flags = static_cast<unsigned int>(-1);
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr) {
+        MainGameHud()->redraw_flags = static_cast<unsigned int>(-1);
     }
-    g_level_block->camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
-    g_level_block->highlight = {};
-    g_level_block->combat_action_hover_party_slot = -1;
-    g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
-    g_level_block->held_item_display = -1;
-    g_level_block->highlight_row = -1;
-    g_level_block->highlight_graphic = 0;
-    g_level_block->portrait_overlay_party_slot = -1;
-    g_level_block->condition_orb_party_slot = -1;
-    g_level_block->enchantment_orb_party_slot = -1;
-    g_level_block->condition_highlight_party_slot = -1;
-    g_level_block->text_content_region =
+    MainGameHud()->camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
+    MainGameHud()->highlight = {};
+    MainGameHud()->combat_action_hover_party_slot = -1;
+    MainGameHud()->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
+    MainGameHud()->held_item_display = -1;
+    MainGameHud()->highlight_row = -1;
+    MainGameHud()->highlight_graphic = 0;
+    MainGameHud()->portrait_overlay_party_slot = -1;
+    MainGameHud()->condition_orb_party_slot = -1;
+    MainGameHud()->enchantment_orb_party_slot = -1;
+    MainGameHud()->condition_highlight_party_slot = -1;
+    MainGameHud()->text_content_region =
         CurrentTextLineHasContent() ? kUpArrowEnabled : kTextBoxArrowNone;
-    g_level_block->dialogue_content_region =
+    MainGameHud()->dialogue_content_region =
         CurrentDialogueLineHasContent() ? kDownArrowEnabled : kTextBoxArrowNone;
-    g_level_block->world_update_flags = 0;
-    g_level_block->camera_motion_flags = 0;
-    g_level_block->highlighted_item = -1;
-    g_level_block->selected_item = -1;
-    g_level_block->clock = w8_get_ticks();
-    g_level_block->portrait_flash = 0;
+    MainGameHud()->world_update_flags = 0;
+    MainGameHud()->camera_motion_flags = 0;
+    MainGameHud()->highlighted_item = -1;
+    MainGameHud()->selected_item = -1;
+    MainGameHud()->clock = w8_get_ticks();
+    MainGameHud()->portrait_flash = 0;
     for (slot = 0; slot < 8; ++slot) {
-        g_level_block->portrait_refresh_pending[slot] = 0;
-        g_level_block->portrait_refresh_image[slot] = 0;
+        MainGameHud()->portrait_refresh_pending[slot] = 0;
+        MainGameHud()->portrait_refresh_image[slot] = 0;
     }
-    g_level_block->combat_end_notification = -1;
+    MainGameHud()->combat_end_notification = -1;
     RefreshMainGameLayout();
-    g_level_block->countdown0 = w8_get_ticks() + (60000);
-    g_level_block->countdown1 = w8_get_ticks() + (0);
-    g_level_block->text_box_visible = true;
-    g_level_block->tick = w8_get_ticks();
-    g_level_block->group_list_rows = 0;
-    g_level_block->group_list_width = 0;
+    MainGameHud()->countdown0 = w8_get_ticks() + (60000);
+    MainGameHud()->countdown1 = w8_get_ticks() + (0);
+    MainGameHud()->text_box_visible = true;
+    MainGameHud()->tick = w8_get_ticks();
+    MainGameHud()->group_list_rows = 0;
+    MainGameHud()->group_list_width = 0;
     MainGame()->monster_list->setEnabled(false);
-    g_level_block->action_group = -1;
-    g_level_block->text_lines[4 + CurrentGame().status.text_line_cursor] = FindStoppedTextLine();
-    g_level_block->refresh_combat_panel = 1;
-    g_level_block->combat_panel_timer = w8_get_ticks() + (0);
-    g_level_block->text_scroll_drag_idle = 1;
+    MainGameHud()->action_group = -1;
+    MainGameHud()->text_lines[4 + CurrentGame().status.text_line_cursor] = FindStoppedTextLine();
+    MainGameHud()->refresh_combat_panel = 1;
+    MainGameHud()->combat_panel_timer = w8_get_ticks() + (0);
+    MainGameHud()->text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    for (unsigned int& text_line : g_level_block->text_lines) {
+    for (unsigned int& text_line : MainGameHud()->text_lines) {
         text_line = 0;
     }
     for (int slot_index = 0; slot_index < 4; ++slot_index) {
-        g_level_block->hovered_text_lines[slot_index] = -1;
-        g_level_block->selected_text_lines[slot_index] = -1;
+        MainGameHud()->hovered_text_lines[slot_index] = -1;
+        MainGameHud()->selected_text_lines[slot_index] = -1;
     }
-    g_level_block->text_box_font = &g_wiz_text_font_secondary;
-    g_level_block->palette = g_wiz_text_font_secondary.glyphs->colors;
-    g_level_block->selection_kind = W8_ACTION_NONE;
-    g_level_block->selection_settled = false;
-    g_level_block->tooltip_since = 0;
-    g_level_block->tooltip_pending = false;
-    g_level_block->pending_highlight = {};
-    g_level_block->countdown3 = w8_get_ticks() + (0);
-    g_level_block->combat_slot = -1;
-    g_level_block->keyboard_menu_open = false;
-    g_level_block->hover_combat_slot = -1;
-    g_level_block->cursor_grace = 0;
-    g_level_block->countdown4 = w8_get_ticks() + (0);
-    g_level_block->portrait_right_hold_armed = false;
-    g_level_block->formation_board_alternate = 0;
-    g_level_block->radar_map_alternate = 0;
-    g_level_block->review_transition_active = false;
-    g_level_block->countdown5 = w8_get_ticks() + (0);
+    MainGameHud()->text_box_font = &g_wiz_text_font_secondary;
+    MainGameHud()->palette = g_wiz_text_font_secondary.glyphs->colors;
+    MainGameHud()->selection_kind = W8_ACTION_NONE;
+    MainGameHud()->selection_settled = false;
+    MainGameHud()->tooltip_since = 0;
+    MainGameHud()->tooltip_pending = false;
+    MainGameHud()->pending_highlight = {};
+    MainGameHud()->countdown3 = w8_get_ticks() + (0);
+    MainGameHud()->combat_slot = -1;
+    MainGameHud()->keyboard_menu_open = false;
+    MainGameHud()->hover_combat_slot = -1;
+    MainGameHud()->cursor_grace = 0;
+    MainGameHud()->countdown4 = w8_get_ticks() + (0);
+    MainGameHud()->portrait_right_hold_armed = false;
+    MainGameHud()->formation_board_alternate = 0;
+    MainGameHud()->radar_map_alternate = 0;
+    MainGameHud()->review_transition_active = false;
+    MainGameHud()->countdown5 = w8_get_ticks() + (0);
     RebuildMessageLogWords();
 }

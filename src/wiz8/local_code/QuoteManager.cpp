@@ -855,13 +855,13 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             std::string formatted;
             std::string character_name = CurrentGame().party.characters[party_slot].name;
             formatted = character_name;
-            int scroll_range = (g_level_block->text_box_right - g_level_block->text_box_left);
+            int scroll_range = (MainGameHud()->text_box_right - MainGameHud()->text_box_left);
             ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
-                       (g_level_block->text_box_right - g_level_block->text_box_left));
+                       (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
         } else {
             if (kFirstRemappedEvent <= mapped_event) {
                 mapped_event = g_normal_event_count - kFirstRemappedEvent + mapped_event;
@@ -873,7 +873,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         quote->bubble.reset();
         if (CurrentScreenState().id == W8_SCREEN_CAMP ||
             (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-             !g_level_block->review_transition_active)) {
+             !MainGameHud()->review_transition_active)) {
             int left = quote->x;
             int top = quote->y;
             EraseRegion(left, top, quote->width + left, quote->height + top);
@@ -971,7 +971,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
         g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-        g_level_block->portrait_refresh_pending[party_slot] == 0 &&
+        MainGameHud()->portrait_refresh_pending[party_slot] == 0 &&
         event_type != static_cast<unsigned int>(g_special_event17)) {
         RefreshSelectedPartyPortrait(party_slot);
         record->auto_portrait_refresh = true;

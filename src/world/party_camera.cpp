@@ -212,8 +212,8 @@ unsigned char PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, f
                                                       float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
-    if (g_level_block->camera_mode == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
-        g_level_block->camera_mode == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL) {
+    if (MainGameHud()->camera_mode == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
+        MainGameHud()->camera_mode == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL) {
         lower_margin = -g_camera_vertical_margin * 0.5f;
     }
 

@@ -535,9 +535,9 @@ void DeactivateWorldItem(W8WorldItem* item)
         Fail("pItemInfo->p3D != NULL");
     }
 
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && g_level_block != 0 &&
-        g_level_block->selected_item == item->runtime_id) {
-        g_level_block->selected_item = -1;
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
+        MainGameHud()->selected_item == item->runtime_id) {
+        MainGameHud()->selected_item = -1;
     }
 
     position = item->p3D->GetLocation();
