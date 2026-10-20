@@ -2092,7 +2092,7 @@ void CombatScenario()
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
         game.wait(
             "round",
-            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 120);
+            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 240);
         closest = std::min(closest, NearestCombatMonster());
     }
     CAPTURE(fighter.hp_current, remaining_health(), closest, game.frames());

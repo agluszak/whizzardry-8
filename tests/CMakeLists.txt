@@ -243,9 +243,8 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
 endforeach()
 # These scenarios advance many simulated frames. Software Vulkan with
 # validation needs more wall time while retaining the normal 60 Hz game clock.
-set_tests_properties(runtime_combat PROPERTIES TIMEOUT 600)
-set_tests_properties(runtime_npc-dialogue runtime_random-play
-    PROPERTIES TIMEOUT 300)
+set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600)
+set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.
 set_tests_properties(runtime_quick-save PROPERTIES FIXTURES_SETUP runtime_save)

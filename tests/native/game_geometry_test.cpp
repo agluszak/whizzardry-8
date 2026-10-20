@@ -62,6 +62,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -713,9 +714,12 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
 TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry][rendering]")
 {
     const ScopedTemporaryDirectory directory("wiz8-shadow-bounds");
-    const ScopedAssetRoots asset_roots({directory.path.string(), directory.path.string()});
-    const auto bitmap_path = directory.path / "data/monsters/bitmaps";
+    const auto assets = directory.path / "assets";
+    const auto user = directory.path / "user";
+    const auto bitmap_path = assets / "data/monsters/bitmaps";
     std::filesystem::create_directories(bitmap_path);
+    std::filesystem::create_directory(user);
+    const ScopedAssetRoots asset_roots({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)});
     // A one-pixel opaque TGA keeps this a CPU graph test without retail assets.
     const std::array<unsigned char, 22> tga{0, 0, 2, 0, 0, 0,  0, 0,   0,   0,   0,
                                             0, 1, 0, 1, 0, 32, 8, 255, 255, 255, 255};
