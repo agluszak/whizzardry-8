@@ -1,7 +1,7 @@
 #include "wiz8/level_specific_code/MtGigas2.h"
 
+#include <memory>
 #include <optional>
-#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
@@ -12,19 +12,20 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/level_specific_code/MtGigasOuter.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/render/camera.h"
+#include "wiz8/rules/activity.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 
@@ -33,158 +34,21 @@ struct W8NpcState;
 
 /* Level Specific Code\MtGigas2.cpp (level 0x0d).
 
-   Attribution evidence: InitializeLevelMasterFunctions runs
-   0x004DB200 and registers 0x004DB380-0x004DBA90 under case 0x0d, and the
-   range sits between the Trynnie1 TU and the MtGigasOuter TU which starts
-   at 0x004DBE70. The UmpaniAlarm master at 0x004DB860 is the same shape as
-   ControlCampAlarm (0x004DC3D0) in MtGigasOuter.cpp. */
+   Attribution evidence: the level-0x0d script runs 0x004DB200 and binds
+   0x004DB380-0x004DBA90, and the range sits between the Trynnie1 TU and the
+   MtGigasOuter TU which starts at 0x004DBE70. The UmpaniAlarm master at
+   0x004DB860 is the same shape as the camp alarm (0x004DC3D0) in
+   MtGigasOuter.cpp. */
 
-static Sound3D* g_mt_gigas_alarm_sound;
-static std::optional<W8IntervalGate> g_mt_gigas_alarm_gate;
+namespace {
 
-static void MtGigas2WireShock(void);
-static bool MtGigas2UmpaniAlarm(int command);
-
-/* Level-load restore. Recreates the wire-panel location variable (armed but
-   untouched reads back -1), re-runs the three wire triggers when the panel
-   was already solved, restarts a saved UmpaniAlarm countdown, and moves the
-   Sergeant Rubble NPC to his covert when the rubble teleport was pending. */
-void MtGigas2Setup(void)
-{
-    if (GetLocationVarIDByName("WirePanel") != -1) {
-        if (GetLocationVarValueByName("WirePanel") == 3) {
-            RunNamedTrigger("redwire", -1);
-            RunNamedTrigger("bluewire", -1);
-            RunNamedTrigger("yellowwire", -1);
-        }
-    } else {
-        CreateLocationVar("WirePanel", -1);
-    }
-    if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
-        int alarm = GetLocationVarValueByName("UmpaniAlarm");
-        if (alarm != 0) {
-            MtGigas2UmpaniAlarm(alarm);
-        }
-    }
-    if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
-        GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
-        GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
-        W8NpcState* npc;
-        W8MonsterInfo* info;
-        glm::vec3 position;
-
-        SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
-        RunNamedTrigger("door08", -1);
-        SetFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0, false);
-        npc = GetNpcStateByKind(0x29);
-        if (npc != 0) {
-            info = GetNpcMonsterInfo(npc);
-            if (info != 0 && FindEntityByName("RubbleCovert", &position, 0, 0)) {
-                info->p3D->SetPosition(&position);
-            }
-        }
-    }
-}
-
-/* Activation callback on _VOC_EWAXXTRAIN: queues the wire-panel NPC notice
-   with the held item, and accepts the 0x269/0x26c wire items to arm the
-   panel (value 0) when it was still untouched (-1). */
-bool MtGigas2Train(Trigger* pTrigger)
-{
-    W8NpcState* npc;
-    W8ItemInstance* item;
-    int item_id;
-    int value;
-
-    if (CurrentGame().activity.conversation) {
-        return false;
-    }
-    npc = GetNpcStateByKind(0x5b);
-    item = 0;
-    item_id = 0;
-    if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        item = &CurrentGame().party.held.item;
-        item_id = GetItemInHand(CurrentGame().party);
-    }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
-    g_trigger_feedback = true;
-    value = GetLocationVarValueByName("WirePanel");
-    if (value == 3) {
-        return false;
-    }
-    if (item_id == 0x269 || item_id == 0x26c) {
-        wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 01.wav");
-        if (value == -1) {
-            SetTriggerVariableByName("WirePanel", 0);
-            return true;
-        }
-    }
-    return false;
-}
-
-/* Each wire passes only from its expected panel state; 3 means already fixed. */
-static bool advanceWirePanel(int expected, int next)
-{
-    const int value = GetLocationVarValueByName("WirePanel");
-
-    if (value == 3) {
-        return true;
-    }
-    g_trigger_feedback = true;
-    if (value != expected) {
-        MtGigas2WireShock();
-        return false;
-    }
-    SetTriggerVariableByName("WirePanel", next);
-    return true;
-}
-
-/* Activation callback on redwire: the first wire moves the panel from 0 to
-   1; any other order shocks the party. */
-bool MtGigas2RedWire(Trigger* pTrigger)
-{
-    return advanceWirePanel(0, 1);
-}
-
-/* Activation callback on bluewire: valid only as the second wire (1 -> 2). */
-bool MtGigas2BlueWire(Trigger* pTrigger)
-{
-    return advanceWirePanel(1, 2);
-}
-
-/* Activation callback on yellowwire: valid only as the last wire (2 -> 3);
-   on success it latches fact 0xa7 and re-arms all three wire triggers. */
-bool MtGigas2YellowWire(Trigger* pTrigger)
-{
-    int value = GetLocationVarValueByName("WirePanel");
-    Trigger* wire;
-
-    if (value == 3) {
-        return true;
-    }
-    g_trigger_feedback = true;
-    if (value != 2) {
-        MtGigas2WireShock();
-        return false;
-    }
-    SetFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1, false);
-    SetTriggerVariableByName("WirePanel", 3);
-    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    wire = FindTriggerByName("redwire");
-    if (wire != 0) {
-        wire->flags &= ~W8_TRIGGER_ENABLED;
-    }
-    wire = FindTriggerByName("bluewire");
-    if (wire != 0) {
-        wire->flags &= ~W8_TRIGGER_ENABLED;
-    }
-    return true;
-}
+/* The master command a trigger starts the alarm with. */
+constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 
 /* Shared wrong-wire penalty: resets the panel and all three wire props, then
    rolls 2d4+1 electric damage into the party with the spark sound. The third
    wire prop is looked up under the misspelled name "yellowire". */
-static void MtGigas2WireShock(void)
+void WireShock()
 {
     Trigger* pTrigger;
     Prop* prop;
@@ -218,33 +82,192 @@ static void MtGigas2WireShock(void)
     wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
 }
 
-/* Activation callback on _VOC_EWAXXLIFT3: queues the lift NPC notice with
-   the held item, if any. */
-bool MtGigas2Lift3(Trigger* pTrigger)
+/* Each wire passes only from its expected panel state; 3 means already fixed. */
+bool AdvanceWirePanel(int expected, int next)
 {
-    if (CurrentGame().activity.conversation) {
+    const int value = GetLocationVarValueByName("WirePanel");
+
+    if (value == 3) {
+        return true;
+    }
+    g_trigger_feedback = true;
+    if (value != expected) {
+        WireShock();
         return false;
     }
-    QueueNpcHeldItemNotice(0x5c);
+    SetTriggerVariableByName("WirePanel", next);
+    return true;
+}
+
+/* Activation callback on yellowwire: valid only as the last wire (2 -> 3);
+   on success it latches fact 0xa7 and re-arms all three wire triggers. */
+bool YellowWire(Trigger* pTrigger)
+{
+    int value = GetLocationVarValueByName("WirePanel");
+    Trigger* wire;
+
+    if (value == 3) {
+        return true;
+    }
+    g_trigger_feedback = true;
+    if (value != 2) {
+        WireShock();
+        return false;
+    }
+    SetFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1, false);
+    SetTriggerVariableByName("WirePanel", 3);
+    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
+    wire = FindTriggerByName("redwire");
+    if (wire != 0) {
+        wire->flags &= ~W8_TRIGGER_ENABLED;
+    }
+    wire = FindTriggerByName("bluewire");
+    if (wire != 0) {
+        wire->flags &= ~W8_TRIGGER_ENABLED;
+    }
+    return true;
+}
+
+class MtGigas2Script final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
+
+    void enter() override;
+
+private:
+    void setup();
+    bool train(Trigger* pTrigger);
+    bool heldItemNotice(int npc_kind);
+    bool activateOfficer(int door_bit, const char* door_name, int npc_kind);
+    bool laserAlarm(Trigger* pTrigger);
+    bool umpaniAlarm(int command);
+    void captureUmpaniAlarm(W8SavedLocationState& state) const;
+
+    Sound3D* alarm_sound_ = nullptr;
+    std::optional<W8IntervalGate> alarm_gate_;
+};
+
+void MtGigas2Script::enter()
+{
+    setup();
+    bindTrigger("_VOC_EWAXXTRAIN", &MtGigas2Script::train);
+    // The wires pass in order: red (0 -> 1), blue (1 -> 2), then yellow.
+    bindTrigger("redwire", [](Trigger*) { return AdvanceWirePanel(0, 1); });
+    bindTrigger("bluewire", [](Trigger*) { return AdvanceWirePanel(1, 2); });
+    bindTrigger("yellowwire", YellowWire);
+    bindTrigger("_VOC_EWAXXLIFT3", [this](Trigger*) { return heldItemNotice(0x5c); });
+    bindTrigger("_VOC_EWAXXTOPDOOR1", [this](Trigger*) { return heldItemNotice(0x5f); });
+    // While ObstacleDoors bit 0 (1) is set the officer runs Door19 (Door18) and clears the bit.
+    bindTrigger("_VOC_EWAXXOFFICER1",
+                [this](Trigger*) { return activateOfficer(1, "Door19", 0x7c); });
+    bindTrigger("_VOC_EWAXXOFFICER2",
+                [this](Trigger*) { return activateOfficer(2, "Door18", 0x7d); });
+    bindTrigger("triggerPlaneLaserAlarm", &MtGigas2Script::laserAlarm);
+    bindTrigger("triggerPlaneLaserAlarm01", &MtGigas2Script::laserAlarm);
+    // The access hatch plays the falling-statue sound.
+    bindTrigger("accessHatch", [](Trigger*) {
+        wiz8::sound::play("Data\\Sound\\Ambients\\Sign Falling Statue.wav");
+        return true;
+    });
+    // The wiring malfunction plays the short spark sound.
+    bindTrigger("wiringMalfunction", [](Trigger*) {
+        wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
+        return true;
+    });
+}
+
+/* Level-load restore. Recreates the wire-panel location variable (armed but
+   untouched reads back -1), re-runs the three wire triggers when the panel
+   was already solved, restarts a saved UmpaniAlarm countdown, and moves the
+   Sergeant Rubble NPC to his covert when the rubble teleport was pending. */
+void MtGigas2Script::setup()
+{
+    if (GetLocationVarIDByName("WirePanel") != -1) {
+        if (GetLocationVarValueByName("WirePanel") == 3) {
+            RunNamedTrigger("redwire", -1);
+            RunNamedTrigger("bluewire", -1);
+            RunNamedTrigger("yellowwire", -1);
+        }
+    } else {
+        CreateLocationVar("WirePanel", -1);
+    }
+    if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
+        int alarm = GetLocationVarValueByName("UmpaniAlarm");
+        if (alarm != 0) {
+            umpaniAlarm(alarm);
+        }
+    }
+    if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
+        GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
+        GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
+        W8NpcState* npc;
+        W8MonsterInfo* info;
+        glm::vec3 position;
+
+        SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
+        RunNamedTrigger("door08", -1);
+        SetFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0, false);
+        npc = GetNpcStateByKind(0x29);
+        if (npc != 0) {
+            info = GetNpcMonsterInfo(npc);
+            if (info != 0 && FindEntityByName("RubbleCovert", &position, 0, 0)) {
+                info->p3D->SetPosition(&position);
+            }
+        }
+    }
+}
+
+/* Activation callback on _VOC_EWAXXTRAIN: queues the wire-panel NPC notice
+   with the held item, and accepts the 0x269/0x26c wire items to arm the
+   panel (value 0) when it was still untouched (-1). */
+bool MtGigas2Script::train(Trigger* pTrigger)
+{
+    W8NpcState* npc;
+    W8ItemInstance* item;
+    int item_id;
+    int value;
+
+    if (ctx.activity.conversation) {
+        return false;
+    }
+    npc = GetNpcStateByKind(0x5b);
+    item = 0;
+    item_id = 0;
+    if ((ctx.party.held.item.iItemNo != -1)) {
+        item = &ctx.party.held.item;
+        item_id = GetItemInHand(ctx.party);
+    }
+    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    g_trigger_feedback = true;
+    value = GetLocationVarValueByName("WirePanel");
+    if (value == 3) {
+        return false;
+    }
+    if (item_id == 0x269 || item_id == 0x26c) {
+        wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 01.wav");
+        if (value == -1) {
+            SetTriggerVariableByName("WirePanel", 0);
+            return true;
+        }
+    }
+    return false;
+}
+
+/* The lift (_VOC_EWAXXLIFT3) and top-door (_VOC_EWAXXTOPDOOR1) callbacks:
+   outside a conversation, queue the NPC's notice with the held item, if any. */
+bool MtGigas2Script::heldItemNotice(int npc_kind)
+{
+    if (ctx.activity.conversation) {
+        return false;
+    }
+    QueueNpcHeldItemNotice(npc_kind);
     g_trigger_feedback = true;
     return false;
 }
 
-/* Activation callback on _VOC_EWAXXTOPDOOR1: queues the top-door NPC notice
-   with the held item, if any. */
-bool MtGigas2TopDoor1(Trigger* pTrigger)
+bool MtGigas2Script::activateOfficer(int door_bit, const char* door_name, int npc_kind)
 {
-    if (CurrentGame().activity.conversation) {
-        return false;
-    }
-    QueueNpcHeldItemNotice(0x5f);
-    g_trigger_feedback = true;
-    return false;
-}
-
-static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_kind)
-{
-    if (CurrentGame().activity.conversation) {
+    if (ctx.activity.conversation) {
         return false;
     }
     int doors = 0;
@@ -262,26 +285,10 @@ static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_
     return false;
 }
 
-/* Activation callback on _VOC_EWAXXOFFICER1: while ObstacleDoors bit 0 is
-   set, runs Door19 and clears the bit; otherwise queues the officer NPC
-   notice with the held item. */
-bool MtGigas2Officer1(Trigger* pTrigger)
-{
-    return ActivateMtGigasOfficer(1, "Door19", 0x7c);
-}
-
-/* Activation callback on _VOC_EWAXXOFFICER2: while ObstacleDoors bit 1 is
-   set, runs Door18 and clears the bit; otherwise queues the officer NPC
-   notice with the held item. */
-bool MtGigas2Officer2(Trigger* pTrigger)
-{
-    return ActivateMtGigasOfficer(2, "Door18", 0x7d);
-}
-
 /* Activation callback on triggerPlaneLaserAlarm/01: once per level (fact
    0xa5 and the UmpaniAlarm variable both unset) turns the Umpani faction
    hostile and starts the intruder alarm. */
-bool MtGigas2LaserAlarm(Trigger* pTrigger)
+bool MtGigas2Script::laserAlarm(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
     if (GetFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
@@ -291,66 +298,57 @@ bool MtGigas2LaserAlarm(Trigger* pTrigger)
         return false;
     }
     SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
-    MtGigas2UmpaniAlarm(0xEFFFFFFF);
+    umpaniAlarm(kMasterToggle);
     return true;
 }
 
-static void CaptureUmpaniAlarm(W8SavedLocationState& state)
+void MtGigas2Script::captureUmpaniAlarm(W8SavedLocationState& state) const
 {
-    state.emplace_back(
-        "UmpaniAlarm",
-        g_mt_gigas_alarm_gate ? static_cast<int>(g_mt_gigas_alarm_gate->GetElapsedSeconds()) : 0);
+    state.emplace_back("UmpaniAlarm",
+                       alarm_gate_ ? static_cast<int>(alarm_gate_->GetElapsedSeconds()) : 0);
 }
 
-/* The Umpani alarm's master function, same shape as ControlCampAlarm in
+/* The Umpani alarm's master function, same shape as the camp alarm in
    MtGigasOuter.cpp: command zero ticks the alarm gate while registered, -1
    writes the remaining seconds into UmpaniAlarm, and any other command plays
    the intruder warning at the camera and arms the gate (clamped to 30
-   seconds). Unlike ControlCampAlarm the gate and sound are only created when
+   seconds). Unlike the camp alarm the gate and sound are only created when
    both are absent, and finishing stops the sound but keeps its node. */
-static bool MtGigas2UmpaniAlarm(int command)
+bool MtGigas2Script::umpaniAlarm(int command)
 {
     glm::vec3 position;
 
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniAlarm") == -1) CreateLocationVar("UmpaniAlarm", 30);
-        if (g_mt_gigas_alarm_gate || g_mt_gigas_alarm_sound != 0) {
+        if (alarm_gate_ || alarm_sound_ != 0) {
             return false;
         }
-        position = glm::vec3(GetWorld()->camera->transform.getLocation());
+        position = glm::vec3(world().camera->transform.getLocation());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        g_mt_gigas_alarm_gate.emplace(static_cast<float>(static_cast<unsigned int>(command)), false,
-                                      true);
-        g_mt_gigas_alarm_sound =
-            CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
-                                   position, 1.0f, 75.0f, true);
-        if (g_mt_gigas_alarm_sound != 0 && g_mt_gigas_alarm_gate) {
-            g_master_functions.push_back({MtGigas2UmpaniAlarm, CaptureUmpaniAlarm});
+        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)), false, true);
+        alarm_sound_ = CreateAndPlaySoundNode(
+            world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", position, 1.0f,
+            75.0f, true);
+        if (alarm_sound_ != 0 && alarm_gate_) {
+            addMaster(&MtGigas2Script::umpaniAlarm, &MtGigas2Script::captureUmpaniAlarm);
         }
     }
-    if (!g_mt_gigas_alarm_gate) return true;
-    if (!g_mt_gigas_alarm_gate->PollFinished()) {
+    if (!alarm_gate_) return true;
+    if (!alarm_gate_->PollFinished()) {
         return false;
     }
 
-    if (g_mt_gigas_alarm_sound) g_mt_gigas_alarm_sound->Stop();
-    g_mt_gigas_alarm_gate.reset();
+    if (alarm_sound_) alarm_sound_->Stop();
+    alarm_gate_.reset();
     SetTriggerVariableByName("UmpaniAlarm", 0);
     return true;
 }
 
-/* Activation callback on wiringMalfunction: plays the short spark sound. */
-bool MtGigas2WiringMalfunction(Trigger* pTrigger)
-{
-    wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
-    return true;
-}
+} // namespace
 
-/* Activation callback on accessHatch: plays the falling-statue sound. */
-bool MtGigas2AccessHatch(Trigger* pTrigger)
+std::unique_ptr<LevelScript> MakeMtGigas2Script(const ScriptContext& context)
 {
-    wiz8::sound::play("Data\\Sound\\Ambients\\Sign Falling Statue.wav");
-    return true;
+    return std::make_unique<MtGigas2Script>(context);
 }

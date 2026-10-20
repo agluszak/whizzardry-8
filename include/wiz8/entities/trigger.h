@@ -1,6 +1,7 @@
 #pragma once
 struct W8Chunk;
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <source_location>
@@ -138,7 +139,9 @@ enum class W8TriggerActionDataMode : signed char {
 
 class Trigger {
 public:
-    typedef bool (*ActivationCallback)(Trigger* trigger);
+    /* Decides whether an activation runs the trigger's action. Level scripts and NPC
+       bindings install it; it may refer to the level script that owns it. */
+    using ActivationCallback = std::function<bool(Trigger* trigger)>;
 
     explicit Trigger(World* world = nullptr);
     ~Trigger();

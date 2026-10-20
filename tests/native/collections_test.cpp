@@ -40,7 +40,7 @@
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
@@ -78,6 +78,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/world.h"
 
@@ -110,45 +111,48 @@ static GameData EncounterLevelData()
     return data;
 }
 
-static std::vector<int> masterCalls;
+// A level script whose masters the test arms directly.
+class MasterTestScript final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
 
-static bool laterMaster(int command)
-{
-    masterCalls.push_back(30 + command);
-    return false;
-}
-
-static bool firstMaster(int command)
-{
-    masterCalls.push_back(10 + command);
-    if (command == 0) {
-        g_master_functions.push_back({laterMaster});
+    void arm(Update update, Capture capture = {})
+    {
+        addMaster(std::move(update), std::move(capture));
     }
-    return false;
-}
-
-static bool removingMaster(int command)
-{
-    masterCalls.push_back(20 + command);
-    // A nested script's result cannot overwrite this callback's completion.
-    laterMaster(1);
-    return true;
-}
+};
 
 static bool masterFunctionMutation()
 {
-    g_master_functions = {{firstMaster}, {removingMaster}};
-    RunMasterFunctions();
-    REQUIRE((masterCalls == std::vector<int>{10, 20, 31}));
-    REQUIRE((g_master_functions == std::vector<W8LevelMaster>{{firstMaster}, {laterMaster}}));
-    masterCalls.clear();
-    g_master_functions[0].capture = [](W8SavedLocationState& state) {
-        state.emplace_back("SavedScript", 17);
+    MasterTestScript script(MakeScriptContext(CurrentGame()));
+    std::vector<int> calls;
+    const auto later = [&calls](int command) {
+        calls.push_back(30 + command);
+        return false;
     };
-    const auto saved = CaptureMasterFunctionState();
-    REQUIRE(masterCalls.empty());
+    script.arm(
+        [&](int command) {
+            calls.push_back(10 + command);
+            // Armed during the run, so it waits for the next one.
+            if (command == 0) script.arm(later);
+            return false;
+        },
+        [](W8SavedLocationState& state) { state.emplace_back("SavedScript", 17); });
+    script.arm([&](int command) {
+        calls.push_back(20 + command);
+        // A nested script's result cannot overwrite this callback's completion.
+        later(1);
+        return true;
+    });
+    script.runMasters();
+    REQUIRE((calls == std::vector<int>{10, 20, 31}));
+    calls.clear();
+    const auto saved = script.captureState();
+    REQUIRE(calls.empty());
     REQUIRE((saved == W8SavedLocationState{{"SavedScript", 17}}));
-    g_master_functions.clear();
+    // The completed master left; the first and the one it armed remain.
+    script.runMasters();
+    REQUIRE((calls == std::vector<int>{10, 30}));
     return true;
 }
 

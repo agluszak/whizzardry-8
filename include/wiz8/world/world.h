@@ -25,6 +25,7 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/party_camera.h"
 
+class LevelScript;
 class W8AmbientSound;
 struct W8AmbientTrack;
 struct W8LevelPopulation;
@@ -116,6 +117,9 @@ struct World {
     W8EncounterState encounters;
     // Where the entities report missile hits and release frames; null reports nowhere.
     SimulationSink* simulation = nullptr;
+    /* The level's script, installed when the level is entered. Last, so it goes first:
+       it borrows the entities above and its trigger callbacks refer to it. */
+    std::unique_ptr<LevelScript> script;
 };
 
 /* Typed element access for the homogeneous world lists. */

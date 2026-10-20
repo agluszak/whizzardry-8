@@ -248,7 +248,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         } else if (FormationPanelOpen()) {
             CloseFormationPanel();
         } else if (IsNpcScriptSessionActive()) {
-            TryFinishNpcVoicePlayback(true);
+            TryFinishNpcVoicePlayback(CurrentGame().status, true);
         } else if (CurrentGame().speech.HasActiveEvents()) {
             CurrentGame().speech.CompleteFirstActiveEvent();
         } else {
@@ -602,7 +602,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_REPEAT);
         break;
     case W8_MGS_COMMAND_DEBUG_AUDIT_QUOTES:
-        AuditNpcScriptQuotes();
+        AuditNpcScriptQuotes(CurrentGame().status);
         break;
     case W8_MGS_COMMAND_DEBUG_NUMERIC_HP:
         ToggleNumericHitPoints();

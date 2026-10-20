@@ -1,11 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x0f (MtGigasTop) activation callbacks, registered by
-   InitializeLevelMasterFunctions under case 0x0f. */
-bool OnEwaxxCannon1Activated(Trigger* trigger);
-bool OnEwaxxLandingActivated(Trigger* trigger);
-bool OnCatchCordActivated(Trigger* trigger);
-bool OnEwaxxTopDoor2Activated(Trigger* trigger);
-bool OnPainActivatorActivated(Trigger* trigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x0f (MtGigasTop): the cannon, the landing and the pain activator. */
+std::unique_ptr<LevelScript> MakeMtGigasTopScript(const ScriptContext& context);

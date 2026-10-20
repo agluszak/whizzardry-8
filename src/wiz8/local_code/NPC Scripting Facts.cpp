@@ -52,8 +52,11 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
 
@@ -71,7 +74,7 @@ static void ReplayEarthquakeShake(void)
     BeginEndgameSequence();
 }
 
-void HandleFactChange(W8FactId fact_id, unsigned char value)
+void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned char value)
 {
     W8NpcState* npc;
     W8MonsterGroup* group;
@@ -169,10 +172,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:
-        if (value != 0 && CurrentGame()
-                                  .party.characters[CurrentGame().status.party_slot]
-                                  .uiCondition[W8_CONDITION_MISSING] != 0) {
-            RemoveCharacterCondition(CurrentGame().status.party_slot, W8_CONDITION_MISSING, true);
+        if (value != 0 &&
+            context.party.characters[context.status.party_slot].uiCondition[W8_CONDITION_MISSING] !=
+                0) {
+            RemoveCharacterCondition(context.status.party_slot, W8_CONDITION_MISSING, true);
         }
         return;
     case W8_FACT_ALIGNMENT_TRANG:
@@ -205,13 +208,13 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     case W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN:
         if (value != 0) {
             for (slot = 0; slot < 8; ++slot) {
-                character = &CurrentGame().party.characters[slot];
-                if (CurrentGame().party.rows[slot].fOccupied &&
+                character = &context.party.characters[slot];
+                if (context.party.rows[slot].fOccupied &&
                     character->highest_condition < W8_CONDITION_DEAD &&
                     g_profession_skill_availability[7][character->iProfession] != 0 &&
                     character->skills[W8_SKILL_MODERN_WEAPONS].points < 10) {
                     character->skills[W8_SKILL_MODERN_WEAPONS].points = 10;
-                    ApplySkillChange(CurrentGame(), character, W8_SKILL_MODERN_WEAPONS);
+                    ApplySkillChange(context.game, character, W8_SKILL_MODERN_WEAPONS);
                 }
             }
         }
@@ -447,14 +450,14 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             return;
         }
         for (slot = 0; slot < 8; ++slot) {
-            character = &CurrentGame().party.characters[slot];
+            character = &context.party.characters[slot];
             if (CanPartySlotParticipate(slot)) {
                 added = 100 - character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base;
                 if (added > 5) {
                     added = 5;
                 }
                 character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base += added;
-                ApplyAttributeChange(CurrentGame(), character, W8_ATTRIBUTE_INTELLIGENCE);
+                ApplyAttributeChange(context.game, character, W8_ATTRIBUTE_INTELLIGENCE);
             }
         }
         ShowString(Data().strings[0x1dc]);
@@ -534,14 +537,14 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        BeginNpcScriptedScene();
+        BeginNpcScriptedScene(context);
         return;
     case W8_FACT_ALSEDEXUS_PARTY_PASSOUT:
         if (value == 0) {
             g_npc_dialogue.Queue(W8NpcStoryAction::sedexus_passout);
             return;
         }
-        BeginSedexusCapture();
+        BeginSedexusCapture(context);
         return;
     case W8_FACT_RIFT_RAFE_FREE:
         if (value == 0) {
@@ -628,13 +631,13 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         g_npc_dialogue.Queue(W8NpcStoryAction::savant_appears);
         return;
     case W8_FACT_QUE_ENDGAME2:
-        CurrentGame().status.endgame2_queued = 1;
+        context.status.endgame2_queued = 1;
         return;
     case W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT:
         g_npc_dialogue.Queue(W8NpcStoryAction::phoonzang_split);
         return;
     case W8_FACT_QUE_ENDGAME3:
-        CurrentGame().status.endgame3_queued = 1;
+        context.status.endgame3_queued = 1;
         return;
     case W8_FACT_UMISSION_MOVE_RUBBLE_COVERT:
         if (value == 0) {
@@ -781,7 +784,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        CurrentGame().status.vi_event_stage = 1;
+        context.status.vi_event_stage = 1;
         group = FindFirstMonsterByID(0x234);
         if (group != 0) {
             SetMonsterGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
@@ -830,7 +833,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     }
 }
 
-void HandleScriptedNpcDeath(unsigned int monster_list_index)
+void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_list_index)
 {
     W8MonsterInfo* monster_info = GetMonsterListEntry(monster_list_index);
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -870,8 +873,8 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     unsigned int index;
     int pick;
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &context.party.characters[slot];
+        if (context.party.rows[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             eligible_slots[eligible_count] = slot;
             ++eligible_count;
@@ -879,7 +882,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     for (index = 0; index < eligible_count; ++index) {
         if (eligible_slots[index] == lead_index) {
-            QueueCharacterEvent(&CurrentGame().party.characters[eligible_slots[index]], 36,
+            QueueCharacterEvent(&context.party.characters[eligible_slots[index]], 36,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
     }
@@ -887,21 +890,21 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         do {
             pick = CurrentGame().rng.below(eligible_count);
         } while (eligible_slots[pick] == lead_index);
-        QueueCharacterEvent(&CurrentGame().party.characters[eligible_slots[pick]], 36,
+        QueueCharacterEvent(&context.party.characters[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &context.party.characters[slot];
+        if (context.party.rows[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             QueueCharacterEvent(character, 42, kCharacterEventNoNpcDefer,
                                 kCharacterEventFullVolume);
         }
     }
-    if (CurrentGame().status.endgame2_queued != 0 ||
-        (CurrentGame().status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
+    if (context.status.endgame2_queued != 0 ||
+        (context.status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
         g_npc_dialogue.Queue(W8NpcStoryAction::turn_to_book);
-    } else if (CurrentGame().status.endgame3_queued != 0) {
+    } else if (context.status.endgame3_queued != 0) {
         g_npc_dialogue.Queue(W8NpcStoryAction::phoonzang_notice);
     }
     for (unsigned int entry_index = 0;
@@ -919,7 +922,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
    changes for the special kills, the Rattkin breeder location-variable count,
    and the 0x22b cleanup that clears the victim's condition and queues the
    death event on the recorded party slot. */
-void MonsterKilled(int record_id, int killer_party_slot)
+void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot)
 {
     unsigned char value;
 
@@ -946,16 +949,14 @@ void MonsterKilled(int record_id, int killer_party_slot)
             if (value != 0) {
                 SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
             }
-            if (CurrentGame().status.rpc_active) {
-                if (CurrentGame()
-                        .party.characters[CurrentGame().status.sedexus_party_slot]
+            if (context.status.rpc_active) {
+                if (context.party.characters[context.status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    RemoveCharacterCondition(CurrentGame().status.sedexus_party_slot,
+                    RemoveCharacterCondition(context.status.sedexus_party_slot,
                                              W8_CONDITION_INFATUATED, false);
                 }
-                QueueCharacterEvent(
-                    &CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot], 131,
-                    0, kCharacterEventFullVolume);
+                QueueCharacterEvent(&context.party.characters[context.status.sedexus_party_slot],
+                                    131, 0, kCharacterEventFullVolume);
             }
             SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);
             return;
@@ -1006,7 +1007,8 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
         return;
     }
 
-    auto& facts = CurrentGame().story.facts;
+    Game& game = CurrentGame();
+    auto& facts = game.story.facts;
     previous_value = facts[fact_id];
     facts[fact_id] = value;
 
@@ -1022,10 +1024,9 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
         if (facts[fact_id] != previous_value) {
             RecordFactChangeForJournal(fact_id);
         }
-        HandleFactChange(fact_id, value);
+        HandleFactChange(MakeScriptContext(game), fact_id, value);
 
-        if (CurrentGame().status.log_fact_checks &&
-            static_cast<unsigned>(fact_id) < Data().facts.size()) {
+        if (game.status.log_fact_checks && static_cast<unsigned>(fact_id) < Data().facts.size()) {
             if (value) {
                 display_value = "TRUE";
             } else {
@@ -1038,9 +1039,9 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-void SaveFactState(wiz8::File& save_handle)
+void SaveFactState(const Story& story, wiz8::File& save_handle)
 {
-    const auto& facts = CurrentGame().story.facts;
+    const auto& facts = story.facts;
     save_handle.write(facts.data(), facts.size());
 }
 
@@ -1049,10 +1050,10 @@ void SaveFactState(wiz8::File& save_handle)
    0x4c/0x4b/0x4d, then two independent import bytes can set 0x199 and 0x7b. The
    0x7b path unsuppresses and returns; the other imported path and the new-game
    path unsuppress at the shared exit. */
-void SeedNewGameFacts(void)
+void SeedNewGameFacts(const GameStatus& status)
 {
     g_fact_notifications_suppressed = true;
-    if (CurrentGame().status.skip_loose_character_check) {
+    if (status.skip_loose_character_check) {
         SetFact(W8_FACT_IMPORT, 1, false);
         switch (g_wiz7_ending) {
         case 1:

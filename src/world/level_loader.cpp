@@ -58,7 +58,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/legacy_prop_save_ids.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"

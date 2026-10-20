@@ -54,7 +54,7 @@
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -101,6 +101,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
@@ -977,7 +978,9 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         CopyCurrentGameChunks(current_game, chunks);
         current_game.Close();
     }
-    const auto script_state = CaptureMasterFunctionState();
+    const World* world = GetWorld();
+    const auto script_state =
+        world && world->script ? world->script->captureState() : W8SavedLocationState{};
     {
         auto snapshot = CaptureStateForSave(CurrentGame(), chunks.WriteStream());
         // Normalize transient UI state in the save image, without changing the game.
@@ -1007,7 +1010,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
                       [&] { RequireSection(SaveNpcDialogueTranscript(file), "NPC transcript"); });
     chunks.WriteChunk(W8_CHUNK_NPC_STATES,
                       [&] { RequireSection(SaveNpcStates(file), "NPC states"); });
-    chunks.WriteChunk(W8_CHUNK_FACT_STATE, [&] { SaveFactState(file); });
+    chunks.WriteChunk(W8_CHUNK_FACT_STATE, [&] { SaveFactState(CurrentGame().story, file); });
     chunks.WriteChunk(W8_CHUNK_FACTION_STATE, [&] { SaveFactionState(file); });
     chunks.WriteChunk(W8_CHUNK_JOURNAL, [&] { SaveFactJournal(file); });
     if (FindMonsterControlSpellEffect())

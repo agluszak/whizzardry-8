@@ -1,8 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 9 (Monastery2) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-bool Monastery2BellButton(Trigger* pTrigger);
-bool Monastery2MicroDoor2(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 9 (Monastery2): the bells and the micro door. */
+std::unique_ptr<LevelScript> MakeMonastery2Script(const ScriptContext& context);
