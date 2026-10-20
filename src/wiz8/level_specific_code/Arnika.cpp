@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
@@ -159,7 +160,8 @@ private:
     Sound3D* warning_loop_ = nullptr;
     Sound3D* warning_oneshot_ = nullptr;
     std::optional<W8IntervalGate> warning_gate_;
-    Monster* mookholo_monster_ = nullptr;
+    // Resolved when used: the monster can be killed or removed while the party talks to it.
+    int mookholo_monster_id_ = 0;
     /* Raised while the pedestal runs a relic trigger itself, so the relic
        callbacks let it through with an item in hand. */
     bool running_trigger_from_script_ = false;
@@ -526,7 +528,7 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
         if (location_id != 0) {
             info = FindMonster(location_id);
             if (info != 0) {
-                mookholo_monster_ = info->p3D;
+                mookholo_monster_id_ = location_id;
                 npc_dialogue_closed = false;
                 addMaster(&ArnikaScript::mookholoWatch);
             }
@@ -549,10 +551,8 @@ bool ArnikaScript::mookholoWatch(int command)
         return false;
     }
     if (npc_dialogue_closed) {
-        if (mookholo_monster_ != 0) {
-            mookholo_monster_->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE);
-            mookholo_monster_ = 0;
-        }
+        if (Monster* mookholo = GetMonsterByLocationID(std::exchange(mookholo_monster_id_, 0)))
+            mookholo->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE);
         return true;
     }
     return false;
