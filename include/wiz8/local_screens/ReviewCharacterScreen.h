@@ -94,15 +94,40 @@ enum W8CampItemFilter {
     W8_CAMP_ITEM_FILTER_COUNT = 6
 };
 
-class CampScreen;
-
-class W8CampCharacterInfo {
-    CampScreen& screen;
-
+/* The camp's one modal dialog. Opening a dialog retires the open one; the
+   pages open theirs here. */
+class CampDialogs {
 public:
-    explicit W8CampCharacterInfo(CampScreen& screen);
+    CampDialogs() = default;
+    CampDialogs(const CampDialogs&) = delete;
+    CampDialogs& operator=(const CampDialogs&) = delete;
+    ~CampDialogs();
+
+    void Display(std::unique_ptr<W8DialogBase> dialog);
+    void ShowNotice(std::string_view text, std::function<void(bool)> callback, bool confirmation,
+                    bool cancel);
+    W8DialogBase* open() const { return dialog.get(); }
+    // Runs the open dialog's input; true when it closed.
+    bool ProcessInput();
+
+private:
+    std::unique_ptr<W8DialogBase> dialog;
+};
+
+/* The reviewed character's party slot, or -1 for a character outside the party. */
+int CampPartySlot(const W8Character& character);
+
+/* The combat and armor panel beside the items and stats pages. */
+class W8CampCharacterInfo {
+public:
+    W8CampCharacterInfo();
+    W8CampCharacterInfo(const W8CampCharacterInfo&) = delete;
+    W8CampCharacterInfo& operator=(const W8CampCharacterInfo&) = delete;
+
+    void CreateControls();
     void SetActive(bool enabled);
-    void Redraw(SDL_Surface& target, bool full_redraw);
+    // Returns whether the panel was repainted.
+    bool Redraw(SDL_Surface& target, const W8Character& character, bool full_redraw);
     void SetCombatView(bool enabled);
     void InvalidateAll() { m_dirty = true; }
     UiLayer input;
@@ -112,22 +137,8 @@ public:
     int m_backgroundImage = 0;
     std::unique_ptr<W8ButtonWidget> m_combat_tab;
     std::unique_ptr<W8ButtonWidget> m_stats_tab;
-    std::array<HitTarget*, 4> m_values;
+    std::array<HitTarget*, 4> m_values{};
     std::array<std::string, 4> m_help;
-};
-
-/* W8CampItemsPage::item_redraw_flags. Cell bits are shifted by the cell. */
-enum W8CampItemRedrawFlag {
-    W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER = 0x00000001,
-    W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST = 0x00000002,
-    W8_CAMP_ITEM_REDRAW_BACKPACK = 0x000001ff,
-    W8_CAMP_ITEM_REDRAW_PAPER_DOLL = 0x00000200,
-    W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST = 0x00000400,
-    W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELLS = 0x003ffc00,
-    W8_CAMP_ITEM_REDRAW_EQUIPMENT = 0x003ffe00,
-    W8_CAMP_ITEM_REDRAW_POOL_HEADER = 0x00400000,
-    W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST = 0x00800000,
-    W8_CAMP_ITEM_REDRAW_POOL = 0x7fc00000
 };
 
 struct CampHeaderButtons {
@@ -157,27 +168,40 @@ struct CampItemControls {
 
 /* The items page: the reviewed character's equipment and backpack cells, the party
    pool list and its filters, the item actions, and the character-info panel beside
-   them. The camp screen owns it and routes input and drawing to it. */
+   them. The camp screen owns it and routes input and drawing to it; selecting
+   another character and leaving the camp go back to the camp through the two
+   callbacks. */
 class W8CampItemsPage {
 public:
-    explicit W8CampItemsPage(CampScreen& screen) : screen(screen) {}
+    W8CampItemsPage(CampDialogs& dialogs, W8CampCharacterInfo& character_info,
+                    std::function<void(int)> select_character, std::function<void()> leave_camp)
+        : dialogs(dialogs), character_info(character_info),
+          select_character(std::move(select_character)), leave_camp(std::move(leave_camp))
+    {
+    }
     W8CampItemsPage(const W8CampItemsPage&) = delete;
     W8CampItemsPage& operator=(const W8CampItemsPage&) = delete;
 
     void CreateInput();
     // Start a camp visit; an identify spell opens the page targeting an item.
     void Reset(W8Character* identifying_character);
-    void Activate();
+    void Activate(W8Character& character);
     void Deactivate();
-    void ReviewedCharacterChanged();
+    void ReviewedCharacterChanged(W8Character& character);
     void Tick();
-    /* Cells whose items changed, and the panels invalidated since the last
-       draw, repaint with the next camp draw; a full camp repaint repaints them
-       all. */
+    /* Cells whose items changed, and the cells and panels invalidated since
+       the last draw, repaint with the next camp draw; a full camp repaint
+       repaints them all. */
     void BeginRedraw();
     bool RedrawPending() const;
-    void InvalidateCells() { item_redraw_flags = 0xffffffff; }
+    void InvalidateCells() { cell_redraw.InvalidateAll(); }
     void InvalidateCharacterInfo() { character_info_dirty = true; }
+    // What the page asked the camp to repaint since the last call.
+    struct CampRepaint {
+        bool all = false;
+        bool portrait = false;
+    };
+    CampRepaint TakeCampRepaint() { return std::exchange(camp_repaint, {}); }
     void EndRedraw();
     void DrawControls(bool dialog_open);
     void InvalidateControls() { item_controls.dirty = true; }
@@ -196,7 +220,6 @@ public:
     bool ActionButtonsInvalidated() const { return action_buttons_invalidated; }
     void RefreshActionButtons();
     void RedrawCampItemsPage(bool full);
-    unsigned int ChangedItemCells();
     void RebuildCampItemList();
     bool ResolvePendingCampCharacter(bool force);
     void SetCampInfoPageMode(W8CampInfoPage mode);
@@ -216,10 +239,16 @@ public:
     void RefreshCampSecondaryPanel(bool invalidate);
     void SelectCampItemAction(W8CampItemActionButton button);
     void SetCampItemActionMode(W8CampItemAction mode);
-    void CreateCampItemControls();
+    void CreateCampItemControls(UiLayer& scroll_input);
 
 private:
-    CampScreen& screen;
+    CampDialogs& dialogs;
+    W8CampCharacterInfo& character_info;
+    std::function<void(int)> select_character;
+    std::function<void()> leave_camp;
+    // The character the page shows, given by the camp.
+    W8Character* character = nullptr;
+    int PartySlot() const { return CampPartySlot(*character); }
     CampItemControls item_controls;
     UiLayer action_input{UiLayerOrder::CampButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, W8_CAMP_ACTION_BUTTON_COUNT> action_buttons;
@@ -239,7 +268,40 @@ private:
     UiLayer pool_input{UiLayerOrder::CampPool};
     std::array<HitTarget*, 20> inventory_targets{};
     std::array<HitTarget*, 8> pool_targets{};
-    unsigned int item_redraw_flags = 0;
+    // The cells, and the strips behind them, the next draw repaints.
+    struct CellRedraw {
+        bool backpack_header = false;
+        std::bitset<8> backpack;
+        bool paper_doll = false;
+        std::bitset<12> equipment;
+        bool pool_header = false;
+        std::bitset<8> pool;
+        void InvalidateBackpack()
+        {
+            backpack_header = true;
+            backpack.set();
+        }
+        void InvalidateEquipment()
+        {
+            paper_doll = true;
+            equipment.set();
+        }
+        void InvalidatePool()
+        {
+            pool_header = true;
+            pool.set();
+        }
+        void InvalidateAll()
+        {
+            InvalidateBackpack();
+            InvalidateEquipment();
+            InvalidatePool();
+        }
+        bool BackpackPending() const { return backpack_header || backpack.any(); }
+        bool EquipmentPending() const { return paper_doll || equipment.any(); }
+        bool PoolPending() const { return pool_header || pool.any(); }
+    } cell_redraw;
+    CampRepaint camp_repaint;
     // Panels the next draw repaints besides the cells.
     bool character_info_dirty = false;
     bool action_buttons_invalidated = false;
@@ -262,6 +324,7 @@ private:
        timer was enabled; its stop forces a full redraw to drop them. */
     bool item_icons_drawn = false;
 
+    void InvalidateChangedCells();
     void DrawCampCharacterInfo();
     void DrawCampBackpackItems();
     void DrawCampEquipmentItems();
@@ -294,27 +357,25 @@ private:
 /* The stats page: the attribute summary and the scrolling list of effects from conditions and worn items. */
 class W8CampStatsPage {
 public:
-    explicit W8CampStatsPage(CampScreen& screen) : screen(screen) {}
+    explicit W8CampStatsPage(W8CampCharacterInfo& character_info) : character_info(character_info)
+    {
+    }
     W8CampStatsPage(const W8CampStatsPage&) = delete;
     W8CampStatsPage& operator=(const W8CampStatsPage&) = delete;
 
-    void CreateControls();
-    void Activate();
+    void CreateControls(UiLayer& scroll_input);
+    void Activate(const W8Character& character);
     void Deactivate();
-    void ReviewedCharacterChanged();
+    void ReviewedCharacterChanged(const W8Character& character);
     void DrawControls();
 
-    void RebuildCampEffectList();
+    void RebuildCampEffectList(const W8Character& character);
     void FilterCampEffectList();
     // The effect list repaints with the next draw.
     void InvalidateEffectList() { effect_list_dirty = true; }
     bool RedrawPending() const { return effect_list_dirty; }
     void EndRedraw() { effect_list_dirty = false; }
-    void DrawCampStatsPage(bool full);
-    unsigned int CountEquipItemBenefits(int slot);
-    unsigned int CountEquipItemPenalties(int slot);
-    void DrawCampEffectList();
-    void DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_out);
+    void DrawCampStatsPage(const W8Character& character, bool full);
 
     std::unique_ptr<W8RangeControl> stats_range;
     std::unique_ptr<W8CampStatsControls> stats_controls;
@@ -332,41 +393,46 @@ public:
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
 
 private:
-    CampScreen& screen;
+    W8CampCharacterInfo& character_info;
     bool effect_list_dirty = false;
+    void DrawCampEffectList(const W8Character& character);
 };
 
 /* The skills page: one hover region per skill row, grouped into five categories. */
 class W8CampSkillsPage {
 public:
-    explicit W8CampSkillsPage(CampScreen& screen) : screen(screen) {}
+    explicit W8CampSkillsPage(CampDialogs& dialogs) : dialogs(dialogs) {}
     W8CampSkillsPage(const W8CampSkillsPage&) = delete;
     W8CampSkillsPage& operator=(const W8CampSkillsPage&) = delete;
 
-    void CreateCampSkillRegions();
-    void DisableCampSkillRegions();
+    void Activate(W8Character& character);
+    // Leaving the page forgets which skills improved.
+    void Deactivate();
+    void ReviewedCharacterChanged(W8Character& character) { this->character = &character; }
     void DrawCampSkillsPage(bool full);
 
     std::unique_ptr<UiLayer> skill_input;
     int skill_hover_row = -1;
 
 private:
-    CampScreen& screen;
+    CampDialogs& dialogs;
+    // The character the page shows, given by the camp.
+    W8Character* character = nullptr;
     UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category);
 };
 
 /* The spells page: the six realm lists with their scrollbars and animations, and the resistance bars. */
 class W8CampSpellsPage {
 public:
-    explicit W8CampSpellsPage(CampScreen& screen) : screen(screen) {}
+    explicit W8CampSpellsPage(CampDialogs& dialogs) : dialogs(dialogs) {}
     W8CampSpellsPage(const W8CampSpellsPage&) = delete;
     W8CampSpellsPage& operator=(const W8CampSpellsPage&) = delete;
 
     void CreateInput();
-    void CreateControls();
-    void Activate();
+    void CreateControls(UiLayer& scroll_input);
+    void Activate(W8Character& character);
     void Deactivate();
-    void ReviewedCharacterChanged();
+    void ReviewedCharacterChanged(W8Character& character);
     void Tick();
     void DrawControls();
 
@@ -388,11 +454,12 @@ public:
     int selected_spell_row = 0;
 
 private:
-    CampScreen& screen;
+    CampDialogs& dialogs;
+    // The character the page shows, given by the camp.
+    W8Character* character = nullptr;
     // Realm lists, and the realm animations, the next draw repaints.
     std::bitset<6> realms_dirty;
     bool animation_dirty = false;
-    void SetCampSpellRangesEnabled(bool enable);
     void RefreshCampSpellRanges();
     void DrawCampResistances();
     UiResult HandleCampSpellList(const UiPointerEvent& event, int realm);
@@ -401,13 +468,13 @@ private:
 
 /* The camp: the reviewed character's items, stats, skills and spells pages
    over the party strip. The camp is rebuilt on every visit; after a suspension
-   it reviews the character it showed. */
+   it reviews the character it showed. Each page is given the character it
+   shows and the dialogs it opens. */
 class CampScreen final : public Screen {
 public:
     static constexpr W8ScreenId id = W8_SCREEN_CAMP;
 
     CampScreen() = default;
-    ~CampScreen() override;
 
     /* Build the pages for `request.character` (null when no character is
        selected); `request.parameter_4` names an identifying character. */
@@ -425,26 +492,25 @@ public:
     // The party's load changed: the weights and the reviewed portrait.
     void RefreshPartyLoad();
 
-    void ShowNotice(std::string_view text, std::function<void(bool)> callback, bool confirmation,
-                    bool cancel);
-    void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog);
     void DismissSelectedPartyCharacter();
     void SelectCampCharacter(int slot);
     int ReviewedPartySlot() const;
 
+    // Declared first: the open dialog is retired after the pages that opened it.
+    CampDialogs dialogs;
     // All camp scrollbars share this foreground layer; each control owns its
     // registrations, but cannot disable input belonging to another scrollbar.
     // It outlives the pages' scrollbars.
     UiLayer scroll_input;
-    W8CampItemsPage items{*this};
-    W8CampStatsPage stats{*this};
-    W8CampSkillsPage skills{*this};
-    W8CampSpellsPage spells{*this};
     // Shared by the items and stats pages.
-    std::unique_ptr<W8CampCharacterInfo> character_info;
+    W8CampCharacterInfo character_info;
+    W8CampItemsPage items{dialogs, character_info, [this](int slot) { SelectCampCharacter(slot); },
+                          [this] { DismissSelectedPartyCharacter(); }};
+    W8CampStatsPage stats{character_info};
+    W8CampSkillsPage skills{dialogs};
+    W8CampSpellsPage spells{dialogs};
     W8Character* reviewed = nullptr;
     W8CampPage page = W8_CAMP_PAGE_ITEMS;
-    std::unique_ptr<W8DialogBase> dialog;
 
 private:
     CampHeaderButtons header_buttons;

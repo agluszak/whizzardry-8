@@ -68,9 +68,7 @@
 
 int CampScreen::ReviewedPartySlot() const
 {
-    if (reviewed)
-        if (const auto slot = CurrentGame().party.slotOf(*reviewed)) return *slot;
-    return -1;
+    return reviewed ? CampPartySlot(*reviewed) : -1;
 }
 
 /* Select a party member and rebuild the active page for that character. */
@@ -80,13 +78,16 @@ void CampScreen::SelectCampCharacter(int slot)
     SyncReviewCharInputRegion();
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
-        items.ReviewedCharacterChanged();
+        items.ReviewedCharacterChanged(*reviewed);
         break;
     case W8_CAMP_PAGE_STATS:
-        stats.ReviewedCharacterChanged();
+        stats.ReviewedCharacterChanged(*reviewed);
+        break;
+    case W8_CAMP_PAGE_SKILLS:
+        skills.ReviewedCharacterChanged(*reviewed);
         break;
     case W8_CAMP_PAGE_SPELLS:
-        spells.ReviewedCharacterChanged();
+        spells.ReviewedCharacterChanged(*reviewed);
         break;
     default:
         break;
@@ -390,7 +391,7 @@ void CampScreen::ShowDismissCharacterDialog()
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
     dialog->on_complete = [this](bool accepted) { OnDismissCharacterDialogClosed(accepted); };
-    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
+    dialogs.Display(std::unique_ptr<W8DialogBase>(dialog));
 }
 
 // FUNCTION: WIZ8 0x005b6a60

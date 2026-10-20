@@ -284,9 +284,8 @@ void camp_effects()
         // A camp rebuilt after a suspension reviews the character it showed.
         const auto rebuilt = state->rebuildRequest({.id = W8_SCREEN_CAMP, .character = &character});
         REQUIRE((rebuilt && rebuilt->character == &CurrentGame().party.characters[3]));
-        state->reviewed = &character;
         state->stats.effect_items_only = false;
-        state->stats.RebuildCampEffectList();
+        state->stats.RebuildCampEffectList(character);
         REQUIRE(state->stats.effect_list.size() == 28);
         REQUIRE((state->stats.effect_detrimental_count == 20 &&
                  state->stats.effect_beneficial_count == 8));
@@ -294,10 +293,9 @@ void camp_effects()
                  state->stats.effect_list.back().index == 0));
         REQUIRE((state->stats.effect_visible_lines == 64 && range.m_enabled));
         character = {};
-        state->stats.RebuildCampEffectList();
+        state->stats.RebuildCampEffectList(character);
         REQUIRE((state->stats.effect_list.empty() && state->stats.effect_visible_lines == 0));
         REQUIRE((state->stats.effect_beneficial_count == 0 && !range.m_enabled));
-        state->reviewed = {};
     }
 }
 
