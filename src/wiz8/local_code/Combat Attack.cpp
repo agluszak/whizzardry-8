@@ -3139,8 +3139,8 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     bool primary = false;
     bool secondary = false;
     unsigned char position_ok;
-    glm::vec3 source_position;
-    glm::vec3 target_position;
+    glm::vec3 source_position{};
+    glm::vec3 target_position{};
     W8MonsterInfo* monster_info;
     Monster* monster;
     Missile* missile;
