@@ -2,8 +2,8 @@
 #include <optional>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/combat/fight.h"
 #include "wiz8/data/records.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/rules/targeting.h"

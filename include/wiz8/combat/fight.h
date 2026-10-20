@@ -5,22 +5,6 @@
 #include "wiz8/rules/targeting.h"
 
 class Game;
-struct W8MonsterRecord;
-enum class ActionStep : unsigned char;
-
-/* What combat waits on before its turn may advance, checked in this order. */
-enum class CombatWait : unsigned char {
-    none,
-    camera,       // the party camera is still turning
-    monster,      // a monster's cycle, animation or turn toward its target is unfinished
-    hit_sound,    // the last hit sound is still playing
-    spell_effect, // a spell effect has run out and is being retired
-    missile,      // an engaged or spell missile is still in flight
-    npc_script,   // a conscious NPC party slot's combat script is still queued
-};
-
-/* The first thing combat waits on this frame. */
-CombatWait CombatWaitFor(Game& game);
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
@@ -30,9 +14,12 @@ void SetCharacterCombatAction(int party_slot, W8Action action, int notify);
    attack keeps a reachable target, and the alternate-hand toggle flips so the
    hand-attack values are rebuilt. Outside combat it does nothing. */
 void ReconcileCombatHandChange(Game& game, unsigned int party_slot);
+/* Run a party slot's action, in a fight (its committed choice, when its turn comes) or in
+   the world (its executing action): a condition interrupt can cancel or redirect it
+   first; the action kind is dispatched and the fatigue charged. */
+void ExecuteCharacterAction(Game& game, int party_slot);
 void BeginCombatExecution(void);
 void AssignCombatPhases(void);
-void UpdateCombat(void);
 void SwitchCharacterTo(int party_slot, W8ActionKind action);
 void ApplyCombatEndEffects(void);
 bool CombatHasContinuingEffects(void);
@@ -40,13 +27,11 @@ bool CombatHasContinuingEffects(void);
    NPC-script / engagement gate. */
 bool CombatMayAdvanceContinuously(void);
 bool QueueNpcCombatScript(void);
-/* The combat turn scheduler - picks the next party slot or
-   monster whose action phase arrived, starts party-movement phases, arms the
-   action pacing clock, and rolls the round counter forward until someone
-   can act or the round ends. */
-void ScheduleCombatActor(void);
 int CheckCombatEnd(unsigned int end_if_no_hostiles);
 void AdvanceCombatRound(void);
+/* While the auto-advance option is on and nothing else captures input, move the
+   selection to the next live member without a combat action. */
+void AutoAdvanceSelectedCharacter(void);
 void RollCombatSurprise(char party_cannot_be_surprised);
 struct W8Character;
 struct W8MonsterInfo;
@@ -58,31 +43,11 @@ bool AnyCharacterEngaged(void);
    still covers its spell_point_cost. */
 bool CharacterHasCastableSpell(W8Character* character);
 void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* target);
-/* Run one party slot's committed combat action - commit the
-   chosen block, check conditions that can redirect or cancel it, dispatch on
-   the action kind, and charge the fatigue. */
-void ExecuteCharacterAction(int party_slot);
-/* Run one monster's committed combat action - the monster-side
-   counterpart of ExecuteCharacterAction. */
-void ExecuteMonsterAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
-/* Pick the hand the slot's attack lands with this round and
-   derive the row's next action phase from the stored attack values. */
-void ComputeCharacterActionPhase(int party_slot);
 /* Set one monster's turn up, once - phase and speed by action. */
 void SetUpMonsterTurn(W8MonsterInfo* monster_info);
 /* The condition interrupt that fires before the actor's action;
    returns the interrupt kind, or -1 when none fires. */
 int GetConditionInterrupt(W8TargetSource* source);
-/* The monster's breathe/special-attack action step. */
-bool MonsterFleeAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
-/* Run the monster's committed special attack against its marker
-   lists and every monster hostile to it; returns the action outcome code. */
-ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
-/* The character's breathe/special-attack action step. */
-bool CreateCharacterBreathEffect(int party_slot);
-/* The character's committed breath attack against the marker
-   lists plus every hostile monster; returns the action outcome code. */
-ActionStep ExecuteCharacterSpecialAttack(int party_slot);
 void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify);
 bool IsPartyEngaged(void);
@@ -102,7 +67,6 @@ void EndMonsterAttack(W8MonsterInfo* monster_info);
 /* Face the monster toward whatever its combat slot targets before
    the attack starts; `alternate` picks the immediate versus animated turn. */
 void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate);
-void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info);
 bool CanCharReBreathe(int party_slot);
 bool TryPanicWoundedCharacter(const W8CombatSlot* target);
 short GetCombatActionProgress(int* out_total);

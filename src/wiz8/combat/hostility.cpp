@@ -1,3 +1,5 @@
+#include "wiz8/combat/hostility.h"
+
 #include <span>
 #include <variant>
 #include <vector>
@@ -8,6 +10,8 @@
 #include "character_skills.h"
 #include "monster_actions.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
+#include "wiz8/combat/range.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
@@ -20,9 +24,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -362,9 +363,10 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
     group->ubDisposition = hostility;
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
-        ShowNotice(9, fmt::format("{} {} {}!", GetMonsterGroupName(group),
-                                  Data().strings[0x1d7 + (group->MemberCount() != 1)],
-                                  Data().strings[g_group_hostility_notice_ids[hostility]]));
+        CurrentGame().events.push(
+            TextNotice{9, fmt::format("{} {} {}!", GetMonsterGroupName(group),
+                                      Data().strings[0x1d7 + (group->MemberCount() != 1)],
+                                      Data().strings[g_group_hostility_notice_ids[hostility]])});
     }
     group->hostility_set_at = CurrentGame().status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
@@ -446,8 +448,9 @@ int TurnUndead(int party_slot, bool check)
     std::vector<int> party;
     if (check) {
         if (!CanPartySlotTurnUndead(party_slot)) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(Data().strings[0x1b7], Data().strings[0x512]));
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot),
+                                fmt::sprintf(Data().strings[0x1b7], Data().strings[0x512])});
             return 0;
         }
         CurrentGame().combat->characters[party_slot].turn_undead_used = true;
@@ -465,7 +468,8 @@ int TurnUndead(int party_slot, bool check)
     } else {
         power = CurrentGame().party.characters[party_slot].profession_levels[W8_PROFESSION_BISHOP] +
                 CurrentGame().party.characters[party_slot].profession_levels[W8_PROFESSION_PRIEST];
-        PostCharacterNotice(party_slot, Data().strings[0x182]);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x182]});
     }
 
     W8CombatSlot target;
@@ -475,7 +479,7 @@ int TurnUndead(int party_slot, bool check)
     if (monsters.empty()) {
         return 0;
     }
-    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     unsigned int spell_power = power / static_cast<int>(monsters.size());
     if (spell_power == 0) {
         while (power < static_cast<int>(monsters.size())) {
@@ -557,17 +561,19 @@ int CharacterPrayAction(int party_slot)
     source.auto_cast = true;
     source.aim_resolved = true;
     ResetCombatSlot(&target);
-    PostCharacterNotice(party_slot, Data().strings[0x174]);
+    CurrentGame().events.push(
+        CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x174]});
     cost = CharacterActionFatigueCost(party_slot, W8_ACTION_PRAY);
     if (character->stamina < static_cast<int>(cost) &&
         character->stamina < static_cast<int>(CurrentGame().rng.below(cost))) {
-        PostCharacterNotice(party_slot, Data().strings[0x175]);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
         return cost;
     }
     if (g_settings.verbose_combat_messages == 0) {
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         AppendToLastTextLine(g_pray_dash, -1);
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     }
     roll = CurrentGame().rng.below(g_pray_roll_sums[PRAY_ROLL_TIERS]);
     if (CurrentGame().combat->round_count < 4) {

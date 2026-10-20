@@ -16,7 +16,6 @@
 #include <fmt/format.h>
 
 #include "glm/ext/vector_int2.hpp"
-#include "local_code/CombatAttack.h"
 #include "local_code/RangeControl.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
@@ -24,6 +23,7 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/item_records.h"

@@ -17,7 +17,10 @@
 #include "monster_spell_icons.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/combat/range.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -36,9 +39,6 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -536,11 +536,11 @@ char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8
                         magnitude = remaining;
                     } else {
                         if (announce) {
-                            PostCharacterNotice(
-                                target->iChar,
+                            CurrentGame().events.push(CharacterNotice{
+                                static_cast<unsigned int>(target->iChar),
                                 fmt::format("{}!",
                                             Data().strings[g_condition_notices[W8_CONDITION_SLOWED]
-                                                               .singular]));
+                                                               .singular])});
                         }
                         return 1;
                     }
@@ -555,11 +555,11 @@ char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8
                         magnitude = remaining;
                     } else {
                         if (announce) {
-                            ShowNotice(
+                            CurrentGame().events.push(TextNotice{
                                 W8_FONT_PALETTE_RUST,
                                 fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
                                             Data().strings[g_condition_notices[W8_CONDITION_SLOWED]
-                                                               .singular]));
+                                                               .singular])});
                         }
                         return 1;
                     }
@@ -592,7 +592,8 @@ void AnnounceEffectResisted(W8CombatSlot* target)
         PostMonsterNotice(FindMonster(target->iMonsterID), Data().strings[0x1b3]);
         return;
     }
-    PostCharacterNotice(target->iChar, Data().strings[0x1b3]);
+    CurrentGame().events.push(
+        CharacterNotice{static_cast<unsigned int>(target->iChar), Data().strings[0x1b3]});
 }
 
 /* Apply an effect and say so if it did not take. Only a zero result counts as
@@ -711,10 +712,11 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     if (TargetSourceIsCharacter(&effect->Source, 0) &&
         GetConditionRecordFlag(effect->Source.iChar, W8_DEPENDENCE_SUMMON)) {
         if (g_settings.verbose_combat_messages != 0) {
-            PostCharacterNotice(effect->Source.iChar, Data().strings[0x1a8]);
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(effect->Source.iChar), Data().strings[0x1a8]});
         } else {
             AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             AppendToLastTextLine(Data().strings[0x1a8], -1);
         }
         effect->reported = true;
@@ -939,7 +941,8 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
             case W8_CONDITION_AFRAID:
                 if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
                     if (announce_resistance) {
-                        PostCharacterNotice(target->iChar, Data().strings[0x180]);
+                        CurrentGame().events.push(CharacterNotice{
+                            static_cast<unsigned int>(target->iChar), Data().strings[0x180]});
                     }
                     return true;
                 }
@@ -963,10 +966,10 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
             case W8_CONDITION_TURNCOAT:
                 if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
                     if (announce_resistance) {
-                        PostCharacterNotice(
-                            target->iChar,
+                        CurrentGame().events.push(CharacterNotice{
+                            static_cast<unsigned int>(target->iChar),
                             fmt::sprintf(Data().strings[0x181],
-                                         Data().strings[g_condition_notices[condition_id].name]));
+                                         Data().strings[g_condition_notices[condition_id].name])});
                     }
                     return true;
                 }
@@ -1083,15 +1086,15 @@ static void ReportSpellDeaths(W8SpellEffectEntry* effect)
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                PostCharacterNotice(
-                    report->value,
+                CurrentGame().events.push(CharacterNotice{
+                    static_cast<unsigned int>(report->value),
                     fmt::format("{}!",
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
             } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                ShowNotice(
+                CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", report->text,
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
             }
         }
     }
@@ -1114,7 +1117,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
         text_box_mode = GetTextBoxMode();
         if (text_box_mode != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         if (static_cast<int>(effect->target_indices.size()) +
                 static_cast<int>(effect->monster_ids.size()) ==
@@ -1126,7 +1129,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
                                               effect->result.amount / effect->result.count, -1),
                                  -1);
         }
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         effect->reported = true;
         effect->applied = true;
     }
@@ -1135,7 +1138,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
             text_box_mode = GetTextBoxMode();
             if (text_box_mode != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
             if (effect->result.condition_counts[condition] == 1) {
                 condition_name = Data().strings[g_condition_notices[condition].singular];
@@ -1145,7 +1148,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
             AppendToLastTextLine(
                 fmt::format("{:d} {}", effect->result.condition_counts[condition], condition_name),
                 -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
     }
 
@@ -1290,7 +1293,7 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
         if (stamina) effect->applied = true;
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         if (count == 1) {
             const std::string name = target_is_character
@@ -1304,7 +1307,7 @@ static char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource r
             AppendToLastTextLine(fmt::sprintf(Data().strings[format], count, total / count, -1),
                                  -1);
         }
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         effect->reported = true;
         if (!stamina) effect->applied = true;
     }
@@ -1559,10 +1562,10 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                     ++remaining_count;
                     all_cured = false;
                     if (g_settings.verbose_combat_messages != 0) {
-                        PostCharacterNotice(
-                            character_index,
+                        CurrentGame().events.push(CharacterNotice{
+                            static_cast<unsigned int>(character_index),
                             fmt::sprintf(Data().strings[0x1b1],
-                                         Data().strings[g_condition_notices[condition].noun]));
+                                         Data().strings[g_condition_notices[condition].noun])});
                         effect->applied = true;
                         continue;
                     }
@@ -1599,14 +1602,14 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
     if (g_settings.verbose_combat_messages == 0 && remaining_count != 0) {
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         if (remaining_count == 1) {
             if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
-                PostCharacterNotice(
-                    effect->target.iChar,
+                CurrentGame().events.push(CharacterNotice{
+                    static_cast<unsigned int>(effect->target.iChar),
                     fmt::sprintf(Data().strings[0x1b1],
-                                 Data().strings[g_condition_notices[condition].noun]));
+                                 Data().strings[g_condition_notices[condition].noun])});
                 effect->reported = true;
                 return all_cured;
             }
@@ -1730,7 +1733,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     }
     if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
         AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     }
     if (static_cast<int>(effect->monster_ids.size()) +
             static_cast<int>(effect->target_indices.size()) !=
@@ -1741,7 +1744,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
             notice = Data().strings[g_condition_notices[condition].plural];
         }
         AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     } else {
         notice = Data().strings[g_condition_notices[condition].singular];
         if (target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1755,7 +1758,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         } else {
             AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
         }
-        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     }
     effect->reported = true;
     effect->applied = true;
@@ -1912,7 +1915,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     if (effect->result.count != 0) {
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         AppendToLastTextLine(fmt::sprintf(Data().strings[0x1a4], effect->result.count, -1), -1);
         effect->reported = true;
@@ -2113,7 +2116,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
         if (hits != 0) {
             if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
             if (static_cast<int>(effect->monster_ids.size()) +
                     static_cast<int>(effect->target_indices.size()) ==
@@ -2123,7 +2126,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
                 AppendToLastTextLine(fmt::sprintf(Data().strings[0x1a7], hits, total / hits, -1),
                                      -1);
             }
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             effect->reported = true;
             effect->applied = true;
         }
@@ -2205,7 +2208,8 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                 if (!verbose) {
                     AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
                 }
-                SetTextBoxMode(verbose ? W8_TEXT_BOX_MODE_NOTICE : W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{
+                    verbose ? W8_TEXT_BOX_MODE_NOTICE : W8_TEXT_BOX_MODE_APPEND, -1});
                 if (index == 0) {
                     AppendToLastTextLine(fmt::sprintf(Data().strings[0x1fa], totals[0], -1), -1);
                 } else if (index == 1) {
@@ -2214,7 +2218,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                     AppendToLastTextLine(fmt::sprintf(Data().strings[0x1fc], totals[2], -1), -1);
                 }
                 if (!verbose) {
-                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                 }
                 effect->reported = true;
             }
@@ -2317,7 +2321,7 @@ char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
             if (!verbose) {
                 effect->applied = true;
                 AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
             if (result == 2) {
                 AppendToLastTextLine(
@@ -2577,7 +2581,9 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
                     }
                 }
             } else {
-                PostCharacterNotice(CharacterPointerToPartySlot(character), Data().strings[0x198]);
+                CurrentGame().events.push(CharacterNotice{
+                    static_cast<unsigned int>(CharacterPointerToPartySlot(character)),
+                    Data().strings[0x198]});
                 if (--character->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].power == 0) {
                     ClearCharacterEnchantmentSlot(CharacterPointerToPartySlot(character),
                                                   W8_ENCHANTMENT_EYE_FOR_AN_EYE);
@@ -2610,10 +2616,11 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
     target = {};
     for (const auto& slot : effect_slots) {
         if (slot.active && slot.effect_id == 0x3e) {
-            ShowNotice(W8_FONT_PALETTE_WHITE,
-                       fmt::sprintf(Data().strings[0x1ae],
-                                    Data().spells[W8_SPELL_RING_OF_FIRE].display_name));
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_WHITE,
+                           fmt::sprintf(Data().strings[0x1ae],
+                                        Data().spells[W8_SPELL_RING_OF_FIRE].display_name)});
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
                 float radius = PartyNavigator()->radius;
@@ -2641,7 +2648,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
             if (!verbose) {
                 if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                     AppendToLastTextLine(" -- ", -1);
-                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                 }
                 if (local_result.count != 0) {
                     std::string line;
@@ -2660,19 +2667,17 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                     local_result.reports.erase(local_result.reports.begin());
                     if (report != 0) {
                         if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                            PostCharacterNotice(
-                                report->value,
-                                fmt::format(
-                                    "{}!",
-                                    Data()
-                                        .strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                            CurrentGame().events.push(CharacterNotice{
+                                static_cast<unsigned int>(report->value),
+                                fmt::format("{}!",
+                                            Data().strings[g_condition_notices[W8_CONDITION_DEAD]
+                                                               .singular])});
                         } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                            ShowNotice(
+                            CurrentGame().events.push(TextNotice{
                                 W8_FONT_PALETTE_RUST,
-                                fmt::format(
-                                    "{} {}!", report->text,
-                                    Data()
-                                        .strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                                fmt::format("{} {}!", report->text,
+                                            Data().strings[g_condition_notices[W8_CONDITION_DEAD]
+                                                               .singular])});
                         }
                     }
                 }
@@ -2745,9 +2750,9 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                 hit_count = 0;
                 resisted_total = 0;
                 if (verbose && !sleep_type) {
-                    ShowNotice(
+                    CurrentGame().events.push(TextNotice{
                         W8_FONT_PALETTE_BEIGE,
-                        fmt::sprintf(Data().strings[0x1ae], Data().spells[spell_id].display_name));
+                        fmt::sprintf(Data().strings[0x1ae], Data().spells[spell_id].display_name)});
                 }
                 do {
                     if (CurrentGame().party.rows[party_slot].fOccupied &&
@@ -2816,10 +2821,10 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                     ++party_slot;
                 } while (party_slot < 8);
                 if (!verbose && hit_count != 0) {
-                    ShowNotice(W8_FONT_PALETTE_BEIGE,
-                               fmt::sprintf(Data().strings[0x1af],
-                                            Data().spells[spell_id].display_name, hit_count,
-                                            resisted_total / hit_count));
+                    CurrentGame().events.push(TextNotice{
+                        W8_FONT_PALETTE_BEIGE,
+                        fmt::sprintf(Data().strings[0x1af], Data().spells[spell_id].display_name,
+                                     hit_count, resisted_total / hit_count)});
                 }
             } else if (target->iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(target->iMonsterID);
@@ -3330,7 +3335,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             if (g_settings.verbose_combat_messages == 0 &&
                 GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(" -- ", -1);
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
             if (percent_roll < 100) {
                 AppendToLastTextLine(Data().strings[0x1b5], -1);
@@ -3374,14 +3379,15 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         ApplyDamageToTargets(effect);
         break;
     default:
-        ShowNotice(W8_FONT_PALETTE_BROWN, fmt::format("{} - spell effect not implemented",
-                                                      Data().spells[spell_id].display_name));
+        CurrentGame().events.push(
+            TextNotice{W8_FONT_PALETTE_BROWN, fmt::format("{} - spell effect not implemented",
+                                                          Data().spells[spell_id].display_name)});
         break;
     }
     if (g_settings.verbose_combat_messages == 0 && !effect->reported && !effect->Source.fBackfire) {
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(" -- ", -1);
-            SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         AppendToLastTextLine(effect->applied ? Data().strings[0x1b0] : Data().strings[0x1a5], -1);
         effect->reported = true;

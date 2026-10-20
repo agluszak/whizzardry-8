@@ -10,6 +10,7 @@
 #include <source_location>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -23,6 +24,9 @@
 #include "sight_state.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/combat/range.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
@@ -44,9 +48,6 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -60,6 +61,7 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/ThingEditorShared.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
@@ -1316,6 +1318,15 @@ void ProcessMonsterManagerFrame(void)
    used, and name_form picks the variant within it - the sets are twenty-four
    wide characters apart. A monster with no group at all is a bug unless it is
    already dying, and says so on the debug channel rather than asserting. */
+void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
+{
+    const std::string_view separator =
+        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
+    CurrentGame().events.push(TextNotice{
+        W8_FONT_PALETTE_RUST,
+        fmt::format("{}{}{}", GetMonsterName(monster_info, nullptr, 0), separator, text)});
+}
+
 std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            unsigned char name_form)
 {

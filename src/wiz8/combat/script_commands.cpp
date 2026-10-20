@@ -1,8 +1,8 @@
 #include <glm/ext/vector_float3.hpp>
 
+#include "wiz8/combat/hostility.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/game.h"
-#include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/Magic.h"

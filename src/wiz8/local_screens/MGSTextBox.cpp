@@ -34,7 +34,6 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -1429,14 +1428,6 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 {
     return CurrentGame().message_log[text_box][line].text.substr(word->start,
                                                                  word->end - word->start + 1);
-}
-
-void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
-{
-    const std::string_view separator =
-        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
-    ShowNotice(W8_FONT_PALETTE_RUST,
-               fmt::format("{}{}{}", GetMonsterName(monster_info, 0, 0), separator, text));
 }
 
 /* Re-show the last wrapped entry of `mode`'s message run as a notice line;

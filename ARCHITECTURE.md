@@ -68,7 +68,7 @@ Unlayered code may use the layers.
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
-| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
+| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` is the fight: starting, ending and pacing it (`fight`), attack resolution (`attack`), hostility, range, the party's move in a round, group attacks and combat sounds; it resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
 
 ## Runtime contracts
 
@@ -282,15 +282,19 @@ Unlayered code may use the layers.
   fight survives into the next one.
 - **The combat turn.** `Combat::turn()` is a `CombatTurn` value: idle, or a
   `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when
-  used) that is scheduled, resolving or finishing. `UpdateCombat` steps it once per
-  frame after `CombatWaitFor` reports nothing to wait on (camera, monster animation,
-  hit sound, retiring spell effect, missile, queued NPC script, in that order). The
-  held hit sound is released by its completion callback; the camera, monsters and
-  missiles are read as they are.
+  used) that is scheduled, resolving or finishing. `Combat::step` (`combat/turn.cpp`)
+  steps it once per frame after `Combat::waitingOn` reports nothing to wait on (camera,
+  monster animation, hit sound, retiring spell effect, missile, queued NPC script, in
+  that order). The held hit sound is released by its completion callback; the camera,
+  monsters and missiles are read as they are. The scheduler and the actions it runs are
+  `Combat` members that take the game (`combat/actions.cpp`); a party member's action
+  is `ExecuteCharacterAction(game, slot)`, because members also act outside a fight.
   Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave
   a turn the actor no longer holds alone, so an actor that dies or leaves while its
-  action runs is not given its turn back. `action_clock` paces the scheduled actor and
-  outlives the turn. Combat is not saved.
+  action runs is not given its turn back. `action_delay` paces the scheduled actor and
+  outlives the turn. It and the fight's other countdowns (continuous combat's start
+  delay, a continuous-combat move's pacing) run down by the step's elapsed time
+  (`Combat::passTime`), not by the clock. Combat is not saved.
 - **Transitional access.** Code that does not yet receive the game reaches it through
   `CurrentGame()`, which throws when no game is in progress. Menus check
   `GameInProgress()`.

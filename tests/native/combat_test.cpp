@@ -18,7 +18,6 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/monster_roster.h"
@@ -93,7 +92,7 @@ TEST_CASE_METHOD(CombatFixture, "The party acts before a monster on the same pha
     game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
     AddMonster(7, 10);
 
-    ScheduleCombatActor();
+    combat.scheduleNextActor(game);
 
     const auto* scheduled = std::get_if<TurnScheduled>(&combat.turn());
     REQUIRE(scheduled);
@@ -121,13 +120,13 @@ TEST_CASE_METHOD(CombatFixture, "A turn ended while its action resolves stays id
 
 TEST_CASE_METHOD(CombatFixture, "Combat waits on a conscious NPC's queued combat script")
 {
-    REQUIRE(CombatWaitFor(game) == CombatWait::none);
+    REQUIRE(combat.waitingOn(game) == CombatWait::none);
 
     combat.npc_combat_script_pending[1] = true;
-    REQUIRE(CombatWaitFor(game) == CombatWait::npc_script);
+    REQUIRE(combat.waitingOn(game) == CombatWait::npc_script);
 
     game.party.characters[1].highest_condition = W8_CONDITION_ASLEEP;
-    REQUIRE(CombatWaitFor(game) == CombatWait::none);
+    REQUIRE(combat.waitingOn(game) == CombatWait::none);
 }
 
 TEST_CASE_METHOD(InventoryCombatFixture,

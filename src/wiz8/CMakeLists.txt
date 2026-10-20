@@ -33,16 +33,18 @@ target_sources(wiz8_engine PRIVATE
     local_code/ConditionsAndEnchantments.cpp
     local_code/GameplayTime.cpp
     local_code/Sight.cpp
-    "local_code/Combat Party Movement.cpp"
-    "local_code/Combat Range.cpp"
+    combat/party_movement.cpp
+    combat/range.cpp
     "local_code/Gameplay Mods.cpp"
     local_code/GameplayCode.cpp
-    local_code/Combat.cpp
-    "local_code/Combat Sound.cpp"
+    combat/fight.cpp
+    combat/turn.cpp
+    combat/actions.cpp
+    combat/sounds.cpp
     local_code/MonsterAI.cpp
     "local_code/NPC Manager.cpp"
-    "local_code/Combat Attack.cpp"
-    "local_code/Combat Hostility.cpp"
+    combat/attack.cpp
+    combat/hostility.cpp
     "local_code/Magic Effects.cpp"
     local_code/CatalogArtwork.cpp
     "local_screens/IntroScreen.cpp"
@@ -188,7 +190,7 @@ target_sources(wiz8_engine PRIVATE
     "local_code/NPC Scripting.cpp"
     "local_code/NPC Scripting Facts.cpp"
     local_code/formation_state.cpp
-    local_code/GroupAttacks.cpp
+    combat/group_attacks.cpp
     local_code/CharGeneration.cpp
     local_screens/AutomapScreen.cpp
     local_screens/ExitScreen.cpp

@@ -1,4 +1,4 @@
-#include "wiz8/local_code/GroupAttacks.h"
+#include "wiz8/combat/group_attacks.h"
 
 #include <stdexcept>
 #include <string>
@@ -9,11 +9,11 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "sight_state.h"
+#include "wiz8/combat/hostility.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -434,11 +434,11 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                             uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
-                        SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                         continue;
                     }
                     AppendToLastTextLine(text, -1);
-                    SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                 }
             }
         }
@@ -518,7 +518,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     }
     if (!placed) {
         RemoveAllGroupMembers(group);
-        ShowNotice(W8_FONT_PALETTE_RUST, Data().strings[0x26a]);
+        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x26a]});
         return;
     }
     RefreshAllSight();
