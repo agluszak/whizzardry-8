@@ -22,4 +22,3 @@ void SaveLocationVariables(wiz8::File& handle,
                            std::span<const std::pair<std::string, int>> script_state = {});
 bool LoadLocationVariables(W8Chunk& chunk);
 bool HasLocationVariables();
-void ClearLocationVariables();

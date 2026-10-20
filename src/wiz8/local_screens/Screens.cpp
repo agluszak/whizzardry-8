@@ -370,7 +370,7 @@ void PresentGameEvent(const Event& event)
 
 /* Default the live main-game level block after ResetMainGameScreenState: clear
    selection and text-box state, arm the timers, size the text regions, and
-   reset message storage. */
+   rebuild the logged lines' word hit boxes. */
 void InitializeMainGameLevelBlock(void)
 {
     int slot;
@@ -445,5 +445,5 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->radar_map_alternate = 0;
     g_level_block->review_transition_active = false;
     g_level_block->countdown5 = w8_get_ticks() + (0);
-    ResetMessageStorage();
+    RebuildMessageLogWords();
 }

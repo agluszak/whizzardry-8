@@ -34,7 +34,6 @@
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -1305,7 +1304,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         message = 47;
         break;
     case 0x244:
-        message = g_factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
+        message = CurrentGame().story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
         break;
     case 0x264:
         message = 66;

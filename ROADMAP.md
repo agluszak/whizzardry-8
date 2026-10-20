@@ -101,9 +101,8 @@ the licensed runtime scenarios after every step.
    - Move the random stream into the game. Party creation draws from the same stream
      today, so settle the random-stream research item first.
    - Fold in the reset functions that still clear per-game state:
-     `LeaveGameSession`, `ResetMainScreenStateBlock`, `ResetNpcStates`,
-     `InitializeFactJournal`, `ResetFactions`, `ClearLocationVariables` and the
-     spell-effect list. Each goes when its state moves into the game.
+     `LeaveGameSession` and `ResetMainScreenStateBlock`. Each goes when its state
+     moves into the game.
 2. **Finish `GameData`.** The databases and the string table are one immutable value
    (ARCHITECTURE.md, "Layers").
    - The Application should own it once screens receive it instead of calling `Data()`.
@@ -140,9 +139,8 @@ the licensed runtime scenarios after every step.
 6. **Conditions, magic and combat in `rules`.**
    - Conditions, spells and attack resolution return results and emit events.
    - `Combat` becomes an owned turn system, signalled by animation and missile events.
-7. **Story state.**
-   - Facts, factions, the journal, NPC states, location variables and the message log
-     move into `GameState`.
+7. **Story state.** `Game::story` and `Game::message_log` hold it (ARCHITECTURE.md,
+   "The game").
    - NPC scripting and level scripts take a context (the world, the party, story state,
      events) instead of reaching globals, and level-script statics become per-level
      script objects.

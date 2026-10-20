@@ -7,6 +7,7 @@ struct W8Chunk;
 #include <vector>
 
 #include "wiz8/canvas/Font.h"
+#include "wiz8/message_log.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/ui_input.h"
@@ -16,44 +17,7 @@ namespace wiz8 {
 class File;
 }
 
-enum W8NoticeWordState : unsigned char {
-    W8_NOTICE_WORD_NORMAL = 0,
-    W8_NOTICE_WORD_HOVERED = 1,
-    W8_NOTICE_WORD_SELECTED = 2
-};
-
-struct W8NoticeWord {
-    std::size_t start;
-    std::size_t end;
-    short x_start;
-    short x_end;
-    W8NoticeWordState keyword;
-    bool redraw;           /* repaint once after deselection */
-};
-
 void AdvanceNoticeLine(short text_box);
-
-struct W8MessageStorageRecord {
-    void RebuildEntries();
-
-    std::string text;
-    unsigned char font_palette;
-    /* The recoloured span [start, stop) of this line. */
-    unsigned char highlight_color;
-    std::size_t highlight_start;
-    std::size_t highlight_stop;
-    uint64_t clock;
-    /* SaveGame snapshots the unsigned milliseconds remaining from
-       TimeUntilDeadline; load rearms the countdown with this duration. */
-    std::uint32_t saved_remaining_ms;
-    /* Continuation link count of a wrapped entry; -1 when unlinked. */
-    int link;
-    int length; /* UTF-8 byte length, -1 when unset */
-    std::vector<W8NoticeWord> entries;
-    unsigned char unknown_1c[8];
-};
-
-extern W8MessageStorageRecord g_message_storage[4][0x15e];
 
 enum class TextBoxRegion : std::size_t {
     ScrollUp,
@@ -78,7 +42,6 @@ void SetTextBoxMuteInput(bool enabled);
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
 
-void ReleaseMessageStorage(void);
 char TextBoxHandleKey(const InputEvent* event);
 void ClearSelectedTextLine(int index);
 void ClearHoveredTextLine(int index);
@@ -146,7 +109,8 @@ bool CurrentTextLineHasContent(void);
 bool CurrentDialogueLineHasContent(void);
 int FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
-void ResetMessageStorage(void);
+/* Rebuild every logged line's word hit boxes for the current text-box font. */
+void RebuildMessageLogWords(void);
 /* Write the four message runs into the open TEXT chunk. */
 unsigned char SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk. */

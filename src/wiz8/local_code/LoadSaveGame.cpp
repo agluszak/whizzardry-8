@@ -26,10 +26,8 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
-#include "layouts/levels.h"
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
 #include "retail_records.h"
@@ -38,6 +36,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
@@ -53,6 +52,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -81,6 +81,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
@@ -286,7 +287,7 @@ template<class F> void ForEachShownMessage(F&& visit)
 {
     for (int box = 0; box < 4; ++box) {
         for (unsigned int line = 0; line < CurrentGame().status.text_box_lines_shown[box]; ++line) {
-            visit(g_message_storage[box][line]);
+            visit(CurrentGame().message_log[box][line]);
         }
     }
 }
@@ -1332,8 +1333,6 @@ void LeaveGameSession(void)
     ResetMainGameScreenState();
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
-    g_spell_effects.clear();
-    ClearLocationVariables();
     ResetSpellCooldowns();
 }
 
@@ -1631,8 +1630,8 @@ W8SavedGameStatus DecodeGameStatus(W8Chunk& chunks)
         status.text_box_lines_shown[3] = 0;
     }
     for (int box = 0; box < 4; ++box) {
-        if (status.text_box_lines_used[box] > std::size(g_message_storage[box]) ||
-            status.text_box_lines_shown[box] > std::size(g_message_storage[box]))
+        if (status.text_box_lines_used[box] > W8_TEXT_BOX_LINES ||
+            status.text_box_lines_shown[box] > W8_TEXT_BOX_LINES)
             throw std::runtime_error("invalid message storage count");
     }
     for (auto& character : party.characters) {
@@ -1774,5 +1773,5 @@ void LoadMonsterControlSpellEffect(W8Chunk* chunks)
         else
             chunks->ReadValue(field);
     });
-    g_spell_effects.push_back(std::move(effect));
+    CurrentGame().spell_effects.push_back(std::move(effect));
 }

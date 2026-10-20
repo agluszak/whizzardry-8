@@ -31,6 +31,7 @@
 #include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
+#include "scoped_game.h"
 #include "scoped_records.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
@@ -42,6 +43,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/loaded_game_data.h"
@@ -1110,8 +1112,8 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
     REQUIRE(replacement.settings.flying_swimming_minimum_animation_rate == 0.8999999761581421f);
 }
 struct LocationVariableFixture : LoaderFixture {
+    const ScopedGame game;
     std::unique_ptr<World> previous_world = ReplaceWorld(nullptr);
-    LocationVariableFixture() { ClearLocationVariables(); }
     bool load_variables(const std::string& bytes, bool inject_failure = false)
     {
         const auto path = wiz8::asset_path("section.bin");
@@ -1131,11 +1133,7 @@ struct LocationVariableFixture : LoaderFixture {
         });
         return loaded;
     }
-    ~LocationVariableFixture()
-    {
-        ClearLocationVariables();
-        ReplaceWorld(std::move(previous_world));
-    }
+    ~LocationVariableFixture() { ReplaceWorld(std::move(previous_world)); }
 };
 
 TEST_CASE_METHOD(LocationVariableFixture,
@@ -1169,7 +1167,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     }
     std::ifstream saved(fixture_root / "variables.bin", std::ios::binary);
     REQUIRE(std::string(std::istreambuf_iterator<char>(saved), {}) == expected);
-    ClearLocationVariables();
+    CurrentGame().story.location_variables.clear();
     REQUIRE(load_variables(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == 31);
     ReplaceWorld(std::make_unique<World>(3));

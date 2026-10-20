@@ -97,10 +97,9 @@ void UpdateNpcEvents(void);
 void AdvanceNpcTimers(unsigned int elapsed);
 void ProcessNpcPendingEvents(void);
 
-/* Lazily create and then empty the shared NPC-state
-   vector, recreating a runtime node for every database record still in use. */
-void ResetNpcStates(void);
-void ReleaseNpcStates(void);
+/* Create the NPC states a new game begins with, one for every database record
+   not bound to a level's monster. The opening sequence runs it once. */
+void CreateNewGameNpcStates(void);
 /* Build one runtime state from its database record and return it,
    reusing the slot of a released node when one is free. */
 W8NpcState* CreateNpcRuntimeNode(int npc_id);

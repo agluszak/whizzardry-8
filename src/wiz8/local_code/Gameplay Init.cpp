@@ -2,19 +2,18 @@
 #include <memory>
 #include <string_view>
 
-#include "compat/native.h"
-#include "difficulty.h"
-#include "layouts/main_game_screen.h"
 #include "retail_records.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -24,8 +23,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/JournalScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/platform/random.h"
@@ -54,7 +51,6 @@ void ResetForNewGame(void)
     unsigned int index;
 
     BeginGame();
-    ReleaseMessageStorage();
     *(&CurrentGame().party.held.item) = W8ItemInstance{.iItemNo = -1};
     slot = CurrentGame().party.item_pool;
     do {
@@ -95,9 +91,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     if (notify) {
         ReturnToPreviousScreen();
     }
-    ResetNpcStates();
-    InitializeFactJournal();
-    ResetFactions();
+    CreateNewGameNpcStates();
     ResetMainScreenStateBlock();
     RequestScreen({.id = W8_SCREEN_GAME_START_ROUTER});
 }

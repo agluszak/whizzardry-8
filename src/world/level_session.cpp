@@ -464,7 +464,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        g_spell_effects.clear();
+        CurrentGame().spell_effects.clear();
     } else {
         W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
 

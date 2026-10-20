@@ -122,12 +122,6 @@ enum { W8_NPC_ALWAYS_TRADED_ITEM = 0x29f, W8_NPC_MINIMUM_TRADE_VALUE = 300 };
 /* The two thresholds the disposition band is cut at. */
 enum { W8_NPC_DISPOSITION_HOSTILE = 0x21, W8_NPC_DISPOSITION_FRIENDLY = 0x42 };
 
-/* Every NPC state, held in the shared growable vector. */
-std::vector<std::unique_ptr<W8NpcState>> g_npc_states;
-// Script/dialogue callbacks can still hold a replaced state. Keep its address
-// valid until the game resets, then dispose of it with the active registry.
-static std::vector<std::unique_ptr<W8NpcState>> g_retired_npc_states;
-
 /* Whether the NPC's database record names a trade pool. */
 void QueueNpcHeldItemNotice(int npc_kind)
 {
@@ -167,7 +161,7 @@ static char GetNpcDisposition(W8NpcState* npc)
     if (npc->record->faction == 0) {
         return disposition;
     }
-    faction_disposition = g_factions[npc->record->faction].disposition_score;
+    faction_disposition = CurrentGame().story.factions[npc->record->faction].disposition_score;
     if (npc->record->monster_bound != 0) {
         return faction_disposition;
     }
@@ -261,14 +255,15 @@ bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
 /* The NPC state at one index, skipping released bindings and invalid indices. */
 W8NpcState* GetNpcState(int index)
 {
-    if (index < 0 || static_cast<std::size_t>(index) >= g_npc_states.size()) return nullptr;
-    auto* npc = g_npc_states[index].get();
+    if (index < 0 || static_cast<std::size_t>(index) >= CurrentGame().story.npcs.size())
+        return nullptr;
+    auto* npc = CurrentGame().story.npcs[index].get();
     return npc && !npc->binding_unavailable ? npc : nullptr;
 }
 
 W8NpcState* GetNpcStateByKind(int kind)
 {
-    for (const auto& state_owner : g_npc_states) {
+    for (const auto& state_owner : CurrentGame().story.npcs) {
         auto* npc = state_owner.get();
         if (npc->record->kind == kind) {
             return npc;
@@ -819,7 +814,7 @@ W8NpcState* FindNpcStateByName(std::string_view name)
 {
     std::string candidate;
 
-    for (const auto& state_owner : g_npc_states) {
+    for (const auto& state_owner : CurrentGame().story.npcs) {
         auto* npc = state_owner.get();
         if (npc->binding_unavailable == 0) {
             if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
@@ -841,7 +836,7 @@ W8NpcState* FindNpcStateByName(std::string_view name)
    drops once its world-clock stamp is more than 0xa8c0 old. */
 void AdvanceNpcTimers(unsigned int elapsed)
 {
-    for (const auto& state_owner : g_npc_states) {
+    for (const auto& state_owner : CurrentGame().story.npcs) {
         auto* npc = state_owner.get();
         if (npc->binding_unavailable == 0) {
             if (npc->dismissed_flag) {
@@ -879,7 +874,7 @@ void ProcessNpcPendingEvents(void)
     if (!CurrentGame().combat.active() && !CurrentGame().surprise_possible) {
         if (CurrentGame().status.infatuation_pending) {
             bool flagged = false;
-            for (const auto& state_owner : g_npc_states) {
+            for (const auto& state_owner : CurrentGame().story.npcs) {
                 auto* candidate = state_owner.get();
                 if (candidate->record->kind == 0x42) {
                     if (candidate != 0 && static_cast<unsigned char>(candidate->spawned) != 0) {
@@ -1090,7 +1085,7 @@ static void SelectStartNpcGreeting(void)
     }
 }
 
-/* New-game start level from the campaign facts InitializeFactState planted.
+/* New-game start level from the campaign facts SeedNewGameFacts planted.
    Import path 0x4c is level 14, 0x4b is level 6, and 0x4e or neither is 8. */
 int SelectNewGameStartLevel(void)
 {
@@ -1113,26 +1108,15 @@ int SelectNewGameStartLevel(void)
     return 8;
 }
 
-/* Empty the shared vector: release every state's monster binding and character,
-   hand its stock to the item-list teardown, and delete the state itself. Then
-   rebuild a runtime node for every database record that is not flagged at
-   0x054, which is the state a fresh game starts from. */
-void ResetNpcStates(void)
+/* Create a runtime node for every database record that is not flagged at 0x054,
+   which is the state a new game starts from. */
+void CreateNewGameNpcStates(void)
 {
-    unsigned int npc_id;
-
-    ReleaseNpcStates();
-    for (npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+    for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
         if (Data().npcs[npc_id].monster_bound == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
     }
-}
-
-void ReleaseNpcStates(void)
-{
-    g_npc_states.clear();
-    g_retired_npc_states.clear();
 }
 
 /* The NPCT section writer: a version byte, the state count, then each 0x13d
@@ -1146,10 +1130,10 @@ try {
     unsigned int index;
 
     file.write(&version, 1);
-    count = wiz8::checked_integer<unsigned int>(g_npc_states.size());
+    count = wiz8::checked_integer<unsigned int>(CurrentGame().story.npcs.size());
     file.write(&count, 4);
     for (index = 0; index < count; ++index) {
-        npc = g_npc_states[index].get();
+        npc = CurrentGame().story.npcs[index].get();
         wiz8::retail::write(file, *npc);
         if (npc->character) wiz8::retail::write_sized(file, *npc->character);
     }
@@ -1167,7 +1151,7 @@ try {
    count, then each 0x14-byte stock entry in list order. */
 static bool SaveNpcItemLists(wiz8::File& file)
 try {
-    for (const auto& state_owner : g_npc_states) {
+    for (const auto& state_owner : CurrentGame().story.npcs) {
         auto* npc = state_owner.get();
         const auto item_count = static_cast<unsigned int>(npc->items.size());
         file.write(&item_count, sizeof(item_count));
@@ -1207,26 +1191,27 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
 {
     auto owner = MakeNpcRuntimeNode(npc_id);
     auto* npc = owner.get();
+    auto& story = CurrentGame().story;
     W8NpcState* released;
     int index;
-    for (index = 0; index < static_cast<int>(g_npc_states.size()); ++index) {
-        released = g_npc_states[index].get();
+    for (index = 0; index < static_cast<int>(story.npcs.size()); ++index) {
+        released = story.npcs[index].get();
         if (released != 0 && released->binding_unavailable != 0) {
-            g_retired_npc_states.push_back(std::move(g_npc_states[index]));
-            g_npc_states[index] = std::move(owner);
+            story.retired_npcs.push_back(std::move(story.npcs[index]));
+            story.npcs[index] = std::move(owner);
             npc->partner_index = static_cast<unsigned char>(index);
             return npc;
         }
     }
-    g_npc_states.push_back(std::move(owner));
-    npc->partner_index = static_cast<unsigned char>(static_cast<int>(g_npc_states.size()) - 1);
+    story.npcs.push_back(std::move(owner));
+    npc->partner_index = static_cast<unsigned char>(static_cast<int>(story.npcs.size()) - 1);
     return npc;
 }
 
 W8PreparedNpcBindings PrepareNpcBindings(World& world)
 {
     W8PreparedNpcBindings pending;
-    std::vector<bool> reserved(g_npc_states.size(), false);
+    std::vector<bool> reserved(CurrentGame().story.npcs.size(), false);
     const auto prepare = [&](W8MonsterInfo& info) {
         const auto* record = GetMonsterDataForInfo(&info);
         if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
@@ -1246,7 +1231,7 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         int slot = source ? source->partner_index : -1;
         if (slot == -1) {
             for (size_t index = 0; index < reserved.size(); ++index) {
-                if (!reserved[index] && g_npc_states[index]->binding_unavailable) {
+                if (!reserved[index] && CurrentGame().story.npcs[index]->binding_unavailable) {
                     slot = static_cast<int>(index);
                     break;
                 }
@@ -1288,19 +1273,21 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
     for (const auto* list :
          {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
         for (const auto& info : *list) prepare(*info);
-    g_npc_states.reserve(reserved.size());
-    g_retired_npc_states.reserve(g_retired_npc_states.size() + pending.records.size());
+    auto& story = CurrentGame().story;
+    story.npcs.reserve(reserved.size());
+    story.retired_npcs.reserve(story.retired_npcs.size() + pending.records.size());
     return pending;
 }
 
 void InstallNpcBindings(W8PreparedNpcBindings pending)
 {
+    auto& story = CurrentGame().story;
     for (auto& binding : pending.records) {
-        if (static_cast<size_t>(binding.slot) == g_npc_states.size())
-            g_npc_states.push_back(std::move(binding.state));
+        if (static_cast<size_t>(binding.slot) == story.npcs.size())
+            story.npcs.push_back(std::move(binding.state));
         else {
-            g_retired_npc_states.push_back(std::move(g_npc_states[binding.slot]));
-            g_npc_states[binding.slot] = std::move(binding.state);
+            story.retired_npcs.push_back(std::move(story.npcs[binding.slot]));
+            story.npcs[binding.slot] = std::move(binding.state);
         }
     }
 }
@@ -1488,11 +1475,11 @@ void LoadNpcStates(W8Chunk& file)
     struct StateRollback {
         std::vector<std::unique_ptr<W8NpcState>> previous;
         bool committed = false;
-        StateRollback() { previous.swap(g_npc_states); }
+        StateRollback() { previous.swap(CurrentGame().story.npcs); }
         StateRollback(const StateRollback&) = delete;
         ~StateRollback()
         {
-            if (!committed) previous.swap(g_npc_states);
+            if (!committed) previous.swap(CurrentGame().story.npcs);
         }
     } rollback;
     file.ReadBytes(&version, 1);
@@ -1522,12 +1509,13 @@ void LoadNpcStates(W8Chunk& file)
             }
             wiz8::retail::read_exact(file, disk_state.character.emplace(), size);
         }
-        disk_state.partner_index = static_cast<unsigned char>(g_npc_states.size());
-        g_npc_states.reserve(g_npc_states.size() + 1);
-        g_npc_states.push_back(std::make_unique<W8NpcState>(std::move(disk_state)));
+        auto& npcs = CurrentGame().story.npcs;
+        disk_state.partner_index = static_cast<unsigned char>(npcs.size());
+        npcs.reserve(npcs.size() + 1);
+        npcs.push_back(std::make_unique<W8NpcState>(std::move(disk_state)));
     }
     for (loaded = 0; loaded < count; ++loaded) {
-        npc = g_npc_states[loaded].get();
+        npc = CurrentGame().story.npcs[loaded].get();
 
         npc->script_file.reset();
         npc->has_monster = false;
@@ -1559,7 +1547,7 @@ void LoadNpcStates(W8Chunk& file)
 /* Stage all stock lists before replacing any live NPC's inventory. */
 static bool LoadNpcItemLists(W8Chunk& file)
 try {
-    std::vector<std::vector<W8NpcItemEntry>> pending(g_npc_states.size());
+    std::vector<std::vector<W8NpcItemEntry>> pending(CurrentGame().story.npcs.size());
     for (auto& items : pending) {
         unsigned int item_count;
         file.ReadBytes(&item_count, sizeof(item_count));
@@ -1570,8 +1558,8 @@ try {
         items.resize(item_count);
         file.ReadBytes(items.data(), items.size() * sizeof(W8NpcItemEntry));
     }
-    for (std::size_t npc_index = 0; npc_index < g_npc_states.size(); ++npc_index) {
-        g_npc_states[npc_index]->items = std::move(pending[npc_index]);
+    for (std::size_t npc_index = 0; npc_index < CurrentGame().story.npcs.size(); ++npc_index) {
+        CurrentGame().story.npcs[npc_index]->items = std::move(pending[npc_index]);
     }
     return true;
 } catch (const std::exception&) {
@@ -1589,7 +1577,7 @@ W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info)
     if (record == 0 || (record->flags & W8_MONSTER_FLAG_NPC) == 0 || record->npc_kind == 0xfa) {
         return 0;
     }
-    npc = g_npc_states[monster_info->bound_npc_index].get();
+    npc = CurrentGame().story.npcs[monster_info->bound_npc_index].get();
     if (npc->binding_unavailable == 0) {
         return npc;
     }
@@ -1606,7 +1594,7 @@ W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_un
     if (record == 0 || (record->flags & W8_MONSTER_FLAG_NPC) == 0 || record->npc_kind == 0xfa) {
         return 0;
     }
-    npc = g_npc_states[monster_info->bound_npc_index].get();
+    npc = CurrentGame().story.npcs[monster_info->bound_npc_index].get();
     if (npc->binding_unavailable == 0 || allow_unavailable) {
         return npc;
     }
@@ -2004,8 +1992,8 @@ void UpdateNpcEvents(void)
     }
 
     if (CurrentGame().status.npc_restore_pending) {
-        for (int slot = 0; slot < static_cast<int>(g_npc_states.size()); ++slot) {
-            npc = g_npc_states[slot].get();
+        for (int slot = 0; slot < static_cast<int>(CurrentGame().story.npcs.size()); ++slot) {
+            npc = CurrentGame().story.npcs[slot].get();
             if (npc->binding_unavailable != 0 || !npc->restored) {
                 CurrentGame().status.npc_restore_pending = false;
                 continue;
@@ -2030,7 +2018,7 @@ void UpdateNpcEvents(void)
         bool run_event = GetFact(W8_FACT_VI_IS_DEAD) != 0;
 
         if (!run_event) {
-            for (const auto& state_owner : g_npc_states) {
+            for (const auto& state_owner : CurrentGame().story.npcs) {
                 auto* candidate = state_owner.get();
                 if (candidate->record->kind == 99) {
                     if (candidate != 0 && static_cast<unsigned char>(candidate->spawned) != 0) {
@@ -2042,7 +2030,7 @@ void UpdateNpcEvents(void)
         }
         if (run_event) {
             CurrentGame().status.vi_event_stage = 0;
-            for (const auto& state_owner : g_npc_states) {
+            for (const auto& state_owner : CurrentGame().story.npcs) {
                 auto* candidate = state_owner.get();
                 if (candidate->record->kind == 0x8d) {
                     if (candidate != 0) {
@@ -2154,8 +2142,8 @@ void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
    can remove an entry. */
 void ClearPendingNpcLevelFlags(void)
 {
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index].get();
+    for (std::size_t index = 0; index < CurrentGame().story.npcs.size(); ++index) {
+        auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->pending_restore && npc->binding_unavailable == 0 &&
             npc->pending_restore_level == GetLoadedLevelID()) {
             if (RestoreNpcMonster(npc, npc->restore_entity_name)) {
@@ -2184,8 +2172,8 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
    handed back. */
 void ReleaseNpcMonsterBindings(void)
 {
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index].get();
+    for (std::size_t index = 0; index < CurrentGame().story.npcs.size(); ++index) {
+        auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->pending_release && npc->binding_unavailable == 0 &&
             npc->pending_release_level == GetLoadedLevelID()) {
             W8NpcState* companion = GetNpcStateByKind(npc->name_style);
@@ -2361,8 +2349,8 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
    callback. */
 void ReleaseMarkedNpcBindings(void)
 {
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index].get();
+    for (std::size_t index = 0; index < CurrentGame().story.npcs.size(); ++index) {
+        auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->binding_unavailable == 0) {
             if (npc->event_pending != 0) {
                 HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::release_companion);
@@ -2383,7 +2371,7 @@ bool NotifyNpcTriggerActivation(Trigger* trigger)
     W8ItemInstance* item = 0;
 
     if (!CurrentGame().activity.conversation) {
-        W8NpcState* npc = g_npc_states[trigger->m_lData1].get();
+        W8NpcState* npc = CurrentGame().story.npcs[trigger->m_lData1].get();
 
         if ((trigger->flags & W8_TRIGGER_ENABLED) != 0 || npc->name_style == '{') {
             if ((CurrentGame().party.held.item.iItemNo != -1)) {
@@ -2402,8 +2390,8 @@ void RebindNpcLevelTriggers(void)
 {
     unsigned int npc_index;
 
-    for (std::size_t index = 0; index < g_npc_states.size(); ++index) {
-        auto* npc = g_npc_states[index].get();
+    for (std::size_t index = 0; index < CurrentGame().story.npcs.size(); ++index) {
+        auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->has_monster &&
             (npc->record->merchant != 0 || (npc->record->voice_script != 0 && !npc->is_present))) {
             npc->has_monster = false;
@@ -2415,9 +2403,9 @@ void RebindNpcLevelTriggers(void)
     }
 
     for (npc_index = 0;
-         npc_index < static_cast<unsigned int>(static_cast<int>(g_npc_states.size()));
+         npc_index < static_cast<unsigned int>(static_cast<int>(CurrentGame().story.npcs.size()));
          ++npc_index) {
-        W8NpcState* npc = g_npc_states[npc_index].get();
+        W8NpcState* npc = CurrentGame().story.npcs[npc_index].get();
         std::string trigger_name;
 
         if (npc->record->merchant != 0 || npc->record->voice_script != 0) {

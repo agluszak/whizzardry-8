@@ -1,7 +1,5 @@
 #include "wiz8/fact_state.h"
 
-#include <cstring>
-#include <iterator>
 #include <vector>
 
 #include "wiz8/chunk.h"
@@ -22,6 +20,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/story.h"
 
 /* Runs once the new-game level has finished loading: records the two starting
    transcript keywords from string-table entries 0x7e7/0x7e8 and
@@ -46,10 +45,10 @@ void PostNewGameLoad(void)
 void LoadFactState(W8Chunk& save_handle)
 {
     W8NpcState* npc;
-    unsigned char values[sizeof(g_fact_values)];
+    decltype(Story::facts) facts;
 
-    save_handle.ReadBytes(values, sizeof(values));
-    memcpy(g_fact_values, values, sizeof(values));
+    save_handle.ReadBytes(facts.data(), facts.size());
+    CurrentGame().story.facts = facts;
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);
         if (npc && npc->has_monster) {
@@ -72,7 +71,7 @@ void LoadFactState(W8Chunk& save_handle)
    fact-check log is enabled. */
 unsigned char EvaluateFact(W8FactId fact_id)
 {
-    if (static_cast<unsigned>(fact_id) >= std::size(g_fact_values)) return 0;
+    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) return 0;
     unsigned char value;
     unsigned char count;
 
@@ -237,7 +236,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return NpcLeadHasNameStyle(W8_NPC_SPARKLE);
         case W8_FACT_VI_IS_DEAD: {
             if (!NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
-                return g_fact_values[fact_id];
+                return CurrentGame().story.facts[fact_id];
             }
             W8NpcState* npc = GetNpcStateByKind(0x18);
             if (npc != 0 && CurrentGame().party.characters[npc->group_index].highest_condition >=
@@ -279,5 +278,5 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return value;
         }
     }
-    return g_fact_values[fact_id];
+    return CurrentGame().story.facts[fact_id];
 }

@@ -11,10 +11,8 @@ namespace wiz8 {
 class File;
 }
 
-/* 1000 entries, indices 0..999, stored at 0x00689B78 and ending exactly at
-   g_npc_name_buffer. Retail GetFact/SetFact checked fact_id > 1000, so index 1000
-   historically aliases g_npc_name_buffer[0]. Native storage has no such alias. */
-extern unsigned char g_fact_values[1000];
+/* Raised while facts are seeded, so that the journal records the changes without
+   posting their notices. */
 extern bool g_fact_notifications_suppressed;
 
 unsigned char GetFact(W8FactId fact_id);
@@ -25,7 +23,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value);
 void HandleScriptedNpcDeath(unsigned int monster_list_index); /* 0x00508D70 */
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
 void SaveFactState(wiz8::File& save_handle);
-void InitializeFactState(void);
+void SeedNewGameFacts(void);
 void LoadFactState(W8Chunk& save_handle);
 
 void PostNewGameLoad(void);
