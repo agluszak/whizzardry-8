@@ -105,7 +105,7 @@ void SetUseItemSelectInputEnabled(bool enabled)
 void UpdateUseItemScrollButtons(void);
 static void SelectUseItemPool(ItemPool pool);
 static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select);
-static void AppendUseItemListEntry(W8ItemInstance* item);
+static void AppendUseItemListEntry(W8ItemLocation location);
 static void ShowUseItemList(W8ItemInstance* select);
 static bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectAssayButton(void);
