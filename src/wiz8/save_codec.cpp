@@ -196,7 +196,7 @@ struct GlobalStatus {
     int fact_b8_clock;
     bool greeting_pending;
     unsigned int camp_fatigue_count;
-    /* 0x249c: party slot fact 0x39 hands to RemoveCharacterCondition. */
+    /* 0x249c: party slot fact 0x39 hands to LiftCondition. */
     int party_slot;
     /* 0x24a0: per-spell 0x10-byte stat records; TrackItemSpellSource
        walks records[0..149] bumping usable_cast_count for spells the character

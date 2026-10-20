@@ -94,7 +94,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
 
         PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
-        ClearCharacterEnchantmentSlot(party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
+        Disenchant(CurrentGame(), party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
         PostCharacterNotice(party_slot, Data().strings[0x194]);
     }
 
@@ -119,7 +119,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     if (applied <= amount) {
         if (CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
             character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
-            CheatDeathRevive(CurrentGame(), party_slot);
+            ReviveByCheatingDeath(CurrentGame(), party_slot);
             RecordCharacterDamage(party_slot, amount);
             return applied;
         }
@@ -141,14 +141,16 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             report->value = party_slot;
             result_stats->reports.push_back(std::move(report));
         }
-        SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
-                              result_stats == 0);
+        InflictCondition(CurrentGame(), party_slot,
+                         {.condition = W8_CONDITION_DEAD,
+                          .duration = W8_CONDITION_INDEFINITE,
+                          .announce = result_stats == 0});
     }
 
     if (character->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
         CurrentGame().rng.below(100) <
             (character->attributes[W8_ATTRIBUTE_SENSES].effective >> 1) + 0x32) {
-        RemoveCharacterCondition(party_slot, W8_CONDITION_ASLEEP, true);
+        LiftCondition(CurrentGame(), party_slot, W8_CONDITION_ASLEEP, true);
     }
     return amount;
 }
@@ -555,7 +557,7 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
     }
     if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         character->stamina > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
-        RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, true);
+        LiftCondition(CurrentGame(), party_slot, W8_CONDITION_UNCONSCIOUS, true);
     }
 }
 
@@ -669,8 +671,10 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
         character->hp_adjustment -= damage;
         SettleActiveParty(CurrentGame());
         if (character->uiCondition[W8_CONDITION_DRAINED] == 0) {
-            SetCharacterCondition(party_slot, W8_CONDITION_DRAINED, W8_CONDITION_INDEFINITE, 0, 0,
-                                  0);
+            InflictCondition(CurrentGame(), party_slot,
+                             {.condition = W8_CONDITION_DRAINED,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = false});
         }
         if (character->hp_current != 0) {
             QueueDamageReactionEvents(character);
@@ -862,8 +866,10 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
 
     if (character->stamina < 1) {
         if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
-            SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
-                                  0, report_to == 0);
+            InflictCondition(CurrentGame(), party_slot,
+                             {.condition = W8_CONDITION_UNCONSCIOUS,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = report_to == 0});
             if (report_to != 0) {
                 ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
             }
@@ -987,53 +993,6 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
 }
 
-/* One character dies. Every condition but the tenth is lifted, both pools are
-   emptied, the two targeting blocks on their slot row are cleared, combat
-   forgets them as a participant, and whatever they were animating is told to
-   stop. */
-void CharacterDies(int party_slot)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    unsigned int condition;
-    int animation;
-
-    assert(CurrentGame().party.members[party_slot].has_value());
-
-    ++character->death_count;
-    for (condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
-        if (condition != W8_CONDITION_INFATUATED && character->uiCondition[condition] != 0) {
-            RemoveCharacterCondition(party_slot, static_cast<W8Condition>(condition), false);
-        }
-    }
-    character->hp_current = 0;
-    character->stamina = 0;
-
-    ResetCombatSlot(&row->executing.target);
-    ResetCombatSlot(&row->committed.target);
-    if (CurrentGame().combat.has_value()) {
-        RecordCharacterDeath(party_slot);
-    }
-    QueuePartyDeathReaction(party_slot);
-    wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
-
-    if (CurrentGame().combat.has_value()) {
-        CurrentGame().combat->endTurnOf(PartyActor{party_slot});
-        row->executing.kind = W8_ACTION_NONE;
-        CurrentGame().combat->characters[party_slot].phase = 0;
-        CurrentGame().combat->characters[party_slot].dead = true;
-        DropCharacterFromRound(party_slot);
-    }
-
-    animation = CurrentGame().party.npcIndex(party_slot);
-    if (animation != -1) {
-        W8NpcState* npc = GetNpcState(animation);
-        if (npc != 0) {
-            npc->spawned = 1;
-        }
-    }
-}
-
 int SumCharacterSpellPoints(const W8Character* character)
 {
     int total = 0;
@@ -1104,21 +1063,4 @@ void ApplyQueuedFatigue(W8CombatSlot* op, unsigned int amount, int)
         W8MonsterInfo* monster_info = FindMonster(op->iMonsterID);
         FatigueMonster(monster_info, amount, 0);
     }
-}
-
-W8Character* FindPartyMemberWithLowestResistance4(void)
-{
-    unsigned int lowest = 999;
-    int selected = 0;
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (CurrentGame().party.members[party_slot].has_value() &&
-            character->highest_condition < W8_CONDITION_DEAD &&
-            character->resistances[4].total < lowest) {
-            selected = party_slot;
-            lowest = character->resistances[4].total;
-        }
-    }
-    if (lowest == 999) return 0;
-    return &CurrentGame().party.characters[selected];
 }

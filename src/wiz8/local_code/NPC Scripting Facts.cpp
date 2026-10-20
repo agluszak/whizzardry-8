@@ -28,6 +28,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
@@ -173,7 +174,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0 &&
             context.party.characters[context.status.party_slot].uiCondition[W8_CONDITION_MISSING] !=
                 0) {
-            RemoveCharacterCondition(context.status.party_slot, W8_CONDITION_MISSING, true);
+            LiftCondition(CurrentGame(), context.status.party_slot, W8_CONDITION_MISSING, true);
         }
         return;
     case W8_FACT_ALIGNMENT_TRANG:
@@ -946,8 +947,8 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
             if (context.status.rpc_active) {
                 if (context.party.characters[context.status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    RemoveCharacterCondition(context.status.sedexus_party_slot,
-                                             W8_CONDITION_INFATUATED, false);
+                    LiftCondition(CurrentGame(), context.status.sedexus_party_slot,
+                                  W8_CONDITION_INFATUATED, false);
                 }
                 QueueCharacterEvent(&context.party.characters[context.status.sedexus_party_slot],
                                     131, 0, kCharacterEventFullVolume);

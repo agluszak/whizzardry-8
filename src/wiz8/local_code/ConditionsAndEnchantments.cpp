@@ -51,21 +51,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 
-/* Notice string ids for each condition row: the status label, the singular
-   and plural "inflicted" verb phrases and the noun used by resistance and
-   immunity text. Rows past W8_CONDITION_MISSING are unused placeholders. */
-W8ConditionNoticeIds g_condition_notices[25] = {
-    {0x348, 0x349, 0x34a, 0x34b}, {0x34c, 0x34d, 0x34e, 0x34f}, {0x350, 0x351, 0x352, 0x353},
-    {0x354, 0x355, 0x356, 0x357}, {0x358, 0x359, 0x35a, 0x35b}, {0x35c, 0x35d, 0x35e, 0x35f},
-    {0x360, 0x361, 0x362, 0x363}, {0x364, 0x365, 0x366, 0x367}, {0x368, 0x369, 0x36a, 0x36b},
-    {0x36c, 0x36d, 0x36e, 0x36f}, {0x370, 0x371, 0x372, 0x373}, {0x374, 0x375, 0x376, 0x377},
-    {0x378, 0x379, 0x37a, 0x37b}, {0x37c, 0x37d, 0x37e, 0x37f}, {0x380, 0x381, 0x382, 0x383},
-    {0x384, 0x385, 0x386, 0x387}, {0x38c, 0x38d, 0x38e, 0x38f}, {0x388, 0x389, 0x38a, 0x38b},
-    {0x390, 0x391, 0x392, 0x393}, {0x394, 0x395, 0x396, 0x397}, {0x273, 0x65d, 0x65e, 0x65f},
-    {0x660, 0x661, 0x662, 0x663}, {0x664, 0x665, 0x666, 0x667}, {0x668, 0x669, 0x66a, 0x66b},
-    {0x66c, 0x66d, 0x66e, 0x66f},
-};
-
 /* Enchantment-slot names, indexed by W8EnchantmentSlot. */
 unsigned short g_enchantment_notices[16] = {
     0x398, 0x399, 0x39a, 0x39b, 0x39c, 0x39d, 0x39e, 0x39f,
@@ -108,7 +93,7 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                     record->level_acquired = 0;
                     record->source_monster = 0;
                     if (condition != W8_CONDITION_NONE && character->fInParty) {
-                        RemoveCharacterCondition(party_slot, condition, true);
+                        LiftCondition(CurrentGame(), party_slot, condition, true);
                     }
                 }
             }
@@ -123,75 +108,6 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
                 }
             }
         }
-    }
-}
-
-/* Lifting a character's condition clears its duration and any state that
-   condition alone maintained, then notifies dependents. */
-void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announce)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    if (character->uiCondition[condition] != 0 || !CurrentGame().status.world_suspended) {
-        assert(CurrentGame().party.members[party_slot].has_value());
-        assert(character->uiCondition[condition] != 0);
-        if (condition == W8_CONDITION_HEXED) {
-            if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
-                GetLevelBand(GetLoadedLevelID()) != 9 && GetLevelBand(GetLoadedLevelID()) != 10) {
-                return;
-            }
-        } else if (const auto found =
-                       FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
-                   condition == W8_CONDITION_INSANE && found.storage != W8ItemStorage::None &&
-                   found.storage != W8ItemStorage::Hand) {
-            W8Character* holder = found.storage == W8ItemStorage::Pool
-                                      ? nullptr
-                                      : &CurrentGame().party.characters[found.character];
-            if (!holder) {
-                holder = FindPartyMemberWithLowestResistance4();
-            }
-            if (CharacterPointerToPartySlot(holder) == static_cast<unsigned int>(party_slot) &&
-                !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
-                return;
-            }
-        }
-        if (announce) {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot),
-                                fmt::sprintf(Data().strings[0x243],
-                                             Data().strings[g_condition_notices[condition].name])});
-        }
-        character->uiCondition[condition] = 0;
-        RecomputeCharacterHighestCondition(party_slot);
-        switch (condition) {
-        case W8_CONDITION_HEXED:
-        case W8_CONDITION_BLIND:
-            CurrentGame().sight_refresh_pending = true;
-            break;
-        case W8_CONDITION_POISONED:
-            character->condition_argument = 0;
-            break;
-        case W8_CONDITION_DRAINED:
-            character->hp_adjustment = 0;
-            character->fatigue_penalty = 0;
-            break;
-        case W8_CONDITION_INSANE:
-            if (CurrentGame().combat.has_value() &&
-                CurrentGame().combat->characters[party_slot].berserk) {
-                row->executing.target = row->committed.target;
-            }
-            break;
-        case W8_CONDITION_TURNCOAT:
-            SetTargetToCharacter(party_slot, true);
-            RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
-            RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
-            break;
-        default:
-            break;
-        }
-        RebuildConditionModifiers(party_slot);
-        SettleActiveParty(CurrentGame());
-        QueueConditionClearedReaction(character, condition);
     }
 }
 
@@ -303,117 +219,9 @@ W8ConditionImmunity g_condition_immunities[3] = {
              W8_CONDITION_NONE,   W8_CONDITION_NONE,   W8_CONDITION_NONE,      W8_CONDITION_NONE}},
 };
 
-/* Rescan the character's condition countdowns from the top and write
-   highest_condition, then resync the three formation copies, encumbrance when
-   the dead threshold was crossed either way, the portrait pose and the
-   portrait page if it is up. */
-void RecomputeCharacterHighestCondition(int party_slot)
-{
-    assert(CurrentGame().party.members[party_slot].has_value());
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8Condition previous = character->highest_condition;
-    for (int index = 0x13; index >= 0; --index) {
-        if (character->uiCondition[index] != 0 || index == 0) {
-            character->highest_condition = static_cast<W8Condition>(index);
-            break;
-        }
-    }
-    UpdateFormationSlotState(&CurrentGame().party.formation, party_slot);
-    if (CurrentGame().combat.has_value()) {
-        UpdateFormationSlotState(&CurrentGame().planned_formation, party_slot);
-        UpdateFormationSlotState(&CurrentGame().combat->saved_formation, party_slot);
-    }
-    if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {
-        SettleActiveParty(CurrentGame());
-    }
-    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-    int pose = CurrentGame().monster_manager_entries[party_slot].portrait.target_pose;
-    if (character->highest_condition < W8_CONDITION_ASLEEP) {
-        if (pose != 2) {
-            goto done;
-        }
-        pose = 1;
-    } else {
-        if (pose == 2) {
-            goto done;
-        }
-        pose = 2;
-    }
-    SetPortraitTargetPose(&CurrentGame().monster_manager_entries[party_slot], pose);
-done:
-    CurrentGame().events.push(CharacterActionChanged{});
-    CurrentGame().events.push(PartyPanelChanged{});
-}
-
-/* Settle a condition's enchantment record on the character: a bigger argument
-   replaces the stored one, slot two rolls its bonus dice, and the top scan,
-   redraw and stats rebuild follow. */
-void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument,
-                             unsigned int duration, unsigned int percent)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8Enchantment* enchantment = &character->enchantments[slot];
-    if (enchantment->power < static_cast<unsigned int>(argument)) {
-        enchantment->power = argument;
-        enchantment->percent = static_cast<unsigned short>(percent);
-        enchantment->turns = duration;
-        if (slot == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
-            enchantment->magnitude = static_cast<short>(
-                RollDice(&Data().spells[W8_SPELL_GUARDIAN_ANGEL].effect_dice) * argument);
-            enchantment->magnitude =
-                static_cast<short>((static_cast<unsigned int>(enchantment->magnitude) * percent) /
-                                   100) +
-                enchantment->magnitude;
-        }
-        for (int scan = 7; scan >= 0; --scan) {
-            if (character->enchantments[scan].turns > 0 || scan == 0) {
-                character->enchantment_top = static_cast<W8EnchantmentSlot>(scan);
-                break;
-            }
-        }
-        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-        CurrentGame().events.push(CharacterActionChanged{});
-        CurrentGame().events.push(PartyPanelChanged{});
-        if (slot == W8_ENCHANTMENT_SUPERMAN) {
-            CurrentGame().sight_refresh_pending = true;
-        }
-    }
-    RebuildConditionModifiers(party_slot);
-    SettleActiveParty(CurrentGame());
-}
-
 /* Setting a monster's condition runs the sameCountdown rescan, group recount
    and motion update as clearing it, plus immunity, argument and combat-hate
    handling on the way in. */
-/* One condition's share of the aging tick: run its remaining turns down by
-   the elapsed minutes, lifting it once they run out. POISONED also bleeds its
-   stored strength pro rata over the remaining duration, with a hundred-sided
-   roll covering the fractional part when the quotient floors to zero. */
-void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes)
-{
-    assert(CurrentGame().party.members[party_slot].has_value());
-    assert(CurrentGame().party.characters[party_slot].uiCondition[condition] != 0);
-    if (CurrentGame().party.characters[party_slot].uiCondition[condition] <= minutes) {
-        RemoveCharacterCondition(party_slot, condition, true);
-        return;
-    }
-    if (condition == W8_CONDITION_POISONED) {
-        int strength = CurrentGame().party.characters[party_slot].condition_argument;
-        unsigned int lost =
-            strength * minutes /
-            CurrentGame().party.characters[party_slot].uiCondition[W8_CONDITION_POISONED];
-
-        if (lost == 0 &&
-            CurrentGame().rng.below(100) <
-                CurrentGame().party.characters[party_slot].condition_argument * minutes * 100 /
-                    CurrentGame().party.characters[party_slot].uiCondition[W8_CONDITION_POISONED]) {
-            lost = 1;
-        }
-        CurrentGame().party.characters[party_slot].condition_argument = strength - lost;
-    }
-    CurrentGame().party.characters[party_slot].uiCondition[condition] -= minutes;
-}
-
 static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
 {
     int slot = 0x13;
@@ -535,7 +343,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         auto name = GetMonsterName(monster_info, 0, 0);
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST,
-            fmt::format("{} {}!", name, Data().strings[g_condition_notices[condition].singular])});
+            fmt::format("{} {}!", name, Data().strings[kConditionNotices[condition].singular])});
     }
     if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -560,7 +368,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             CurrentGame().events.push(
                 TextNotice{W8_FONT_PALETTE_RUST,
                            fmt::sprintf(Data().strings[0x244], GetMonsterName(monster_info, 0, 0),
-                                        Data().strings[g_condition_notices[condition].name])});
+                                        Data().strings[kConditionNotices[condition].name])});
         }
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
@@ -618,127 +426,6 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
     monster_info->uiCondition[condition] -= minutes;
 }
 
-/* Setting a character's condition runs poison/immunity gates, the duration
-   switch, trait gates, and the same rescan/notify/tail handling as the other
-   transitions. */
-bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, int poison_strength,
-                           signed char alternate_missing_notice, signed char announce)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8Condition old_highest;
-    unsigned int old_duration;
-    bool handled;
-
-    assert(CurrentGame().party.members[party_slot].has_value());
-    assert(poison_strength == 0 || condition == W8_CONDITION_POISONED);
-    if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
-        return false;
-    }
-    if (condition == W8_CONDITION_DEAD && CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
-        character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
-        CheatDeathRevive(CurrentGame(), party_slot);
-        return false;
-    }
-    switch (condition) {
-    case W8_CONDITION_DISEASED:
-    case W8_CONDITION_INFATUATED:
-    case W8_CONDITION_DEAD:
-    case W8_CONDITION_MISSING:
-        duration = W8_CONDITION_INDEFINITE;
-        break;
-    default:
-        if (duration == 0) {
-            return false;
-        }
-        break;
-    }
-    if (CurrentGame().status.world_suspended) {
-        CurrentGame().events.push(
-            CharacterNotice{static_cast<unsigned int>(party_slot),
-                            fmt::sprintf(Data().strings[0x242],
-                                         Data().strings[g_condition_notices[condition].name])});
-        return false;
-    }
-    switch (condition) {
-    case W8_CONDITION_AFRAID:
-        if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x180]});
-            return false;
-        }
-        [[fallthrough]];
-    case W8_CONDITION_DISEASED:
-    case W8_CONDITION_IRRITATED:
-    case W8_CONDITION_NAUSEATED:
-    case W8_CONDITION_POISONED:
-    case W8_CONDITION_ASLEEP:
-        if (CharacterHasTrait(character, static_cast<W8Trait>(0x1e))) {
-            return false;
-        }
-        break;
-    case W8_CONDITION_INSANE:
-        if (duration == W8_CONDITION_INDEFINITE) {
-            break;
-        }
-        [[fallthrough]];
-    case W8_CONDITION_TURNCOAT:
-        if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x181]});
-            return false;
-        }
-        break;
-    default:
-        break;
-    }
-    old_highest = character->highest_condition;
-    old_duration = character->uiCondition[condition];
-    if (old_duration < static_cast<unsigned int>(duration)) {
-        if (old_duration == 0) {
-            if (condition == W8_CONDITION_HEXED || condition == W8_CONDITION_BLIND) {
-                CurrentGame().sight_refresh_pending = true;
-            } else if (condition == W8_CONDITION_TURNCOAT) {
-                SetTargetToCharacter(party_slot, true);
-            }
-        }
-        character->uiCondition[condition] = duration;
-        RecomputeCharacterHighestCondition(party_slot);
-        handled = true;
-    } else {
-        handled = false;
-    }
-    if (static_cast<unsigned int>(character->condition_argument) <
-        static_cast<unsigned int>(poison_strength)) {
-        character->condition_argument = poison_strength;
-    }
-    RebuildConditionModifiers(party_slot);
-    SettleActiveParty(CurrentGame());
-    if (!handled) {
-        return false;
-    }
-    if (condition == W8_CONDITION_DEAD) {
-        CharacterDies(party_slot);
-    }
-    if (condition >= W8_CONDITION_DEAD) {
-        SetTargetToCharacter(party_slot, false);
-    }
-    if (old_highest != character->highest_condition) {
-        QueueConditionChangeReaction(character);
-    }
-    if (announce != 0) {
-        if (condition == W8_CONDITION_MISSING && alternate_missing_notice != 0) {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x1d5]});
-        } else {
-            CurrentGame().events.push(CharacterNotice{
-                static_cast<unsigned int>(party_slot),
-                fmt::format("{}!", Data().strings[g_condition_notices[condition].singular])});
-        }
-    }
-
-    return true;
-}
-
 /* Copy every condition a character is under onto something else in the world.
    Condition seven carries an argument alongside its duration, so it is the one
    entry that is not just a duration. */
@@ -780,55 +467,16 @@ void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInf
             if (condition == W8_CONDITION_POISONED) {
                 duration = monster_info->uiCondition[W8_CONDITION_POISONED];
             }
-            SetCharacterCondition(CharacterPointerToPartySlot(character),
-                                  static_cast<W8Condition>(condition), duration, argument, 0, 0);
+            InflictCondition(CurrentGame(), CharacterPointerToPartySlot(character),
+                             {.condition = static_cast<W8Condition>(condition),
+                              .duration = duration,
+                              .poison_strength = argument,
+                              .announce = false});
         }
     }
 }
 
-/* Empty one of a character's enchantment slots and find the highest one still
-   in use, scanning down from the last. Emptying the sixth also raises the flag
-   the interface watches. */
-void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
-{
-    W8Character* character;
-    int scan;
-
-    CurrentGame().party.characters[party_slot].enchantments[slot] = {};
-
-    character = &CurrentGame().party.characters[party_slot];
-    for (scan = 7; scan >= 0; --scan) {
-        if (character->enchantments[scan].turns > 0 || scan == 0) {
-            character->enchantment_top = static_cast<W8EnchantmentSlot>(scan);
-            break;
-        }
-    }
-
-    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-    CurrentGame().events.push(CharacterActionChanged{});
-    CurrentGame().events.push(PartyPanelChanged{});
-    RebuildConditionModifiers(party_slot);
-    SettleActiveParty(CurrentGame());
-    if (slot == W8_ENCHANTMENT_SUPERMAN) {
-        CurrentGame().sight_refresh_pending = true;
-    }
-}
-
-/* Run one of a character's enchantment slots down by the given number of
-   turns, emptying it the same way ClearCharacterEnchantmentSlot does when
-   nothing is left. */
-void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsigned int turns)
-{
-    unsigned int remaining = CurrentGame().party.characters[party_slot].enchantments[slot].turns;
-
-    if (remaining <= turns) {
-        ClearCharacterEnchantmentSlot(party_slot, slot);
-    } else {
-        CurrentGame().party.characters[party_slot].enchantments[slot].turns = remaining - turns;
-    }
-}
-
-/* The monster-side counterpart of ApplyCharacterCondition: a bigger
+/* The monster-side counterpart of the party rules' Enchant: a bigger
    argument replaces the stored one, slot two rolls its bonus dice, a freshly
    applied slot adds the spell icon, and the stats rebuild and special-slot
    sight refresh follow. */
@@ -892,19 +540,6 @@ void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigne
     ClearMonsterEnchantmentSlot(location_id, slot);
 }
 
-/* Lift one condition from everybody in the party who is under it. */
-void RemoveConditionFromParty(W8Condition condition)
-{
-    unsigned int party_slot;
-
-    for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.members[party_slot].has_value() &&
-            CurrentGame().party.characters[party_slot].uiCondition[condition] != 0) {
-            RemoveCharacterCondition(party_slot, condition, true);
-        }
-    }
-}
-
 /* Lift one condition from everybody in the world - the party first, then every
    live monster. The monster count is re-read every iteration because lifting a
    condition can remove one. */
@@ -913,7 +548,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
     unsigned int monster_index;
     W8MonsterInfo* monster_info;
 
-    RemoveConditionFromParty(condition);
+    LiftConditionFromParty(CurrentGame(), condition);
 
     for (monster_index = 0; monster_index < CurrentLevelPopulation().monster_roster.live().size();
          ++monster_index) {
@@ -936,8 +571,7 @@ void RemoveAllEnchantments(void)
 
             if (CurrentGame().party.members[party_slot].has_value() &&
                 character->enchantments[enchantment].turns != 0) {
-                ClearCharacterEnchantmentSlot(party_slot,
-                                              static_cast<W8EnchantmentSlot>(enchantment));
+                Disenchant(CurrentGame(), party_slot, static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
         for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
@@ -949,21 +583,6 @@ void RemoveAllEnchantments(void)
                                             static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
-    }
-}
-
-/* Lift every condition from the whole party. The tenth is left alone, the same
-   one death leaves alone, and the last two of the twenty are outside the sweep
-   entirely. */
-void RemoveAllConditionsFromParty(void)
-{
-    unsigned int condition;
-
-    for (condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
-        if (condition == W8_CONDITION_INFATUATED) {
-            continue;
-        }
-        RemoveConditionFromParty(static_cast<W8Condition>(condition));
     }
 }
 
@@ -993,6 +612,5 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
     CurrentGame().party.characters[party_slot].conditions[dependence_slot].source_monster =
         monster_id;
     CurrentGame().party.characters[party_slot].conditions[dependence_slot].active = true;
-    RebuildConditionModifiers(party_slot);
-    SettleActiveParty(CurrentGame());
+    RefreshConditionModifiers(CurrentGame(), party_slot);
 }

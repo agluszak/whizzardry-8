@@ -11,7 +11,6 @@ struct W8Dice;
 struct W8MonsterInfo;
 struct W8SpellEffectResult;
 
-W8Character* FindPartyMemberWithLowestResistance4(void);
 unsigned int FindPartySlotWithLowestHitPoints(void);
 unsigned int FindPartySlotWithLowestSpellPoints(void);
 
@@ -64,7 +63,6 @@ extern char g_poison_suffix[];
 /* How a monster answers being struck - the struck cycle, a
    possible condition knock-on, and the hostility check toward the attacker. */
 void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* attacker, bool quiet);
-void CharacterDies(int party_slot);
 void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* result, int announce);
 /* Roll the dice once for every live monster within the radius of
    a point and apply each roll as damage. */

@@ -218,7 +218,7 @@ bool W8MonsterInfoDialog::PopulateText()
             if (count > 0) {
                 text += g_comma_space;
             }
-            text += Data().strings[g_condition_notices[index].name];
+            text += Data().strings[kConditionNotices[index].name];
             ++count;
         }
     }
@@ -376,7 +376,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     if (count > 0) {
                         text += g_comma_space;
                     }
-                    text += Data().strings[g_condition_notices[immunity->conditions[slot]].noun];
+                    text += Data().strings[kConditionNotices[immunity->conditions[slot]].noun];
                     ++count;
                 }
                 if (immunity->immune_all != 0) {

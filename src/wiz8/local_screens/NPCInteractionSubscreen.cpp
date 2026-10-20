@@ -57,6 +57,7 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -539,8 +540,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
                     characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
                     for (condition = 0; condition <= 0x12; ++condition) {
                         if (characters[slot].uiCondition[condition] != 0) {
-                            RemoveCharacterCondition(slot, static_cast<W8Condition>(condition),
-                                                     false);
+                            LiftCondition(CurrentGame(), slot, static_cast<W8Condition>(condition),
+                                          false);
                             if (condition == W8_CONDITION_DEAD) {
                                 characters[slot].hp_current = 10;
                             }

@@ -107,9 +107,6 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id);
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
 void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
-/* The bound-NPC penalty the condition/enchantment rebuild folds
-   into the character's modifier block while the slot's flag_fe is set. */
-void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* target);
 /* The activation callback the rebinding installs on the level's
    NPC triggers. */
 void ResetNpcBindingsForParty(void);

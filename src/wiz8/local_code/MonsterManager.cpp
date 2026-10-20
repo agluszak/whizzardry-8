@@ -337,7 +337,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
         ShowNotice(notice_channel,
                    fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
-                               Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+                               Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular]));
     }
     ReleaseMonsterConditionBindings(monster_info);
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {

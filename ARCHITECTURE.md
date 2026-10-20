@@ -42,7 +42,9 @@ are enforced:
   party storage (`W8Party`, formation), item rules (`item_rules.h`: names, equip slots,
   requirements, item making), the inventory's storage rules (`inventory.h`), character
   derivation (modifier blocks, effective attributes and skills, statistics and the
-  party's shared load), the event log (`events.h`) and the party's `Activity`. Functions
+  party's shared load), members' conditions, enchantments, death and the party's
+  settlement (`party_conditions.h`), the event log (`events.h`) and the party's
+  `Activity`. Functions
   that read the databases take `const GameData&`; those that change the party, draw
   random numbers or report events take a `RuleContext` (`rule_context.h`: the data, the
   party, the game's `Rng` and `Events`, and whether the game has started), which
@@ -422,16 +424,31 @@ Unlayered code may use the layers.
   alone. `party_stats.h` evaluates the members, assigns the shared load, derives, and
   then applies the resource transitions: hit points, stamina and spell points follow
   changed ceilings and the fatigue band follows stamina; an exhausted hit-point pool
-  and a crossed carrying capacity are reported, and `live_party.h` applies death and
-  the overload notice. An operation captures one `CharacterBaseline`; the transitions
+  and a crossed carrying capacity are reported, and settlement turns them into death
+  and the overload notice ("Conditions"). An operation captures one `CharacterBaseline`; the transitions
   compare against it and swings read its damage bonuses (retail scores swings with
   the bonus its previous calculation left), so a second pass, as after a fatigue-band
   change, cannot change the result. Every change a statistic depends on settles the
-  party (`SettleActiveParty`); condition changes rebuild the member's condition block
-  first (`RebuildConditionModifiers`). The creation editor, which edits effective
+  party (`SettleParty`). The creation editor, which edits effective
   attributes and skill levels itself, recalculates without re-evaluating them
   (`RecalculateEditedCharacterStats`), and learning a spell rebuilds the realm
   ceilings for every profession, as retail does, and lets the pools follow.
+- **Conditions.** `party_conditions.h` holds a member's conditions and enchantments,
+  death and the party's settlement as rules over a `RuleContext` and a `PartyHost`.
+  The rules change the party, draw from the game's stream and push notices, display
+  changes and `CharacterDied`; the host supplies what they read from the game (the
+  statistic rules, the world's suspension, the level band, a swallowing monster's level,
+  whether a fight still owes a full cheat-death revival) and applies what they owe it
+  (unequipping through the inventory, combat's hand and death bookkeeping, formation
+  seats and the portrait pose, sight refreshes, targeting, the NPC's state and the
+  members' spoken reactions), each at the point the rules reach it so the order of
+  consequences and draws is kept. Inflicting, lifting, aging and enchanting rebuild
+  the member's condition block and settle the party once; settling kills a member whose
+  pool ran out, and death's own bookkeeping happens only when the death condition
+  takes hold. `live_party.h` applies the rules to the game's party with the game as
+  host (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …), and the
+  presenter plays the death sound. Monster conditions stay with the world's monster
+  records (`ConditionsAndEnchantments.cpp`).
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,
   and cancelling it prevents late completions from restarting idle dialogue.

@@ -883,9 +883,9 @@ void ProcessNpcPendingEvents(void)
                     if (character->gender == W8_GENDER_MALE) {
                         QueueCharacterEvent(character, 44, 0, kCharacterEventFullVolume);
                     }
-                    SetCharacterCondition(CurrentGame().status.sedexus_party_slot,
-                                          W8_CONDITION_INFATUATED, W8_CONDITION_INDEFINITE, 0, 0,
-                                          1);
+                    InflictCondition(CurrentGame(), CurrentGame().status.sedexus_party_slot,
+                                     {.condition = W8_CONDITION_INFATUATED,
+                                      .duration = W8_CONDITION_INDEFINITE});
                     CurrentGame().status.infatuation_pending = false;
                     SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 1, false);
                 }
@@ -959,8 +959,7 @@ void ProcessNpcPendingEvents(void)
                                          g_npc_services[index].bit) != 0) {
                                         CurrentGame().party.members[slot]->npc_bound = true;
                                         bound->event_clock = CurrentGame().status.world_clock;
-                                        RebuildConditionModifiers(slot);
-                                        SettleActiveParty(CurrentGame());
+                                        RefreshConditionModifiers(CurrentGame(), slot);
                                         QueueCharacterEvent(character, 0x56, 0,
                                                             kCharacterEventFullVolume);
                                     }
@@ -1950,28 +1949,8 @@ void ResetNpcBindingsForParty(void)
         if (CurrentGame().party.members[party_slot].has_value() && character->hp_current != 0) {
             GetNpcState(CurrentGame().party.npcIndex(party_slot))->incapacitated = 0;
             CurrentGame().party.members[party_slot]->npc_bound = false;
-            RebuildConditionModifiers(party_slot);
-            SettleActiveParty(CurrentGame());
+            RefreshConditionModifiers(CurrentGame(), party_slot);
         }
-    }
-}
-
-/* Subtract 0x14 from every attribute adjustment and the 0x13 byte run of the
-   character's modifier block while the slot's bound-NPC flag is set. The
-   condition/enchantment rebuild at 0x0050E650 runs it as the last source. */
-void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* target)
-{
-    unsigned int index;
-
-    const auto& member = CurrentGame().party.members[CharacterPointerToPartySlot(character)];
-    if (!member || !member->npc_bound) {
-        return;
-    }
-    for (index = 0; index < 7; ++index) {
-        target->attribute_adjustments[index] -= 0x14;
-    }
-    for (index = 0; index < 0x29; ++index) {
-        target->skill_bonus[index] -= 0x14;
     }
 }
 

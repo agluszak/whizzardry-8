@@ -20,7 +20,6 @@ char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second);
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);
-void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
 

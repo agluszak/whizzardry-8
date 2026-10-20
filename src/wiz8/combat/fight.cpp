@@ -978,7 +978,7 @@ void Game::endCombat(bool forced_cleanup)
 
     SetTargetingMode(W8_TARGET_NEED_NONE);
     RemoveConditionFromEveryone(W8_CONDITION_SLOWED);
-    RemoveConditionFromParty(W8_CONDITION_TURNCOAT);
+    LiftConditionFromParty(*this, W8_CONDITION_TURNCOAT);
     RemoveAllEnchantments();
     ResetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
@@ -1653,8 +1653,9 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             W8Character* character = &CurrentGame().party.characters[party_slot];
             if (CurrentGame().party.members[party_slot].has_value() &&
                 (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
-                SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
-                                      1);
+                InflictCondition(
+                    CurrentGame(), party_slot,
+                    {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE});
             }
         }
     } else {

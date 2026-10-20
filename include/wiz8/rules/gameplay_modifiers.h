@@ -104,4 +104,10 @@ extern const int g_combat_effect_slot_spells[9];
    Combat::effect_slots0 and the monster's combat_effects_2. */
 extern const int g_combat_effect_slot_spells_and_cast_success[23];
 
+// Raise a byte by `percent` percent, rounding to the nearest unit.
+inline void AdjustByteByPercent(unsigned char* value, unsigned int percent)
+{
+    *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
+}
+
 #endif
