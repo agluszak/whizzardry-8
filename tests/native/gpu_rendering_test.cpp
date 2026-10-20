@@ -78,9 +78,11 @@ TEST_CASE("VSG frame owns submitted overlay resources through completion")
     fixture.renderer->beginFrame({0, 0, 1, 1});
     fixture.renderer->drawOverlayQuad(quad);
     texture = solidTexture(0xff00ff00);
-    quad.texture = texture;
-    quad.position.x = 320;
-    fixture.renderer->drawOverlayQuad(quad);
+    OverlayQuad second;
+    second.size = quad.size;
+    second.texture = texture;
+    second.position.x = 320;
+    fixture.renderer->drawOverlayQuad(second);
     texture.reset();
     quad.texture.reset();
     fixture.renderer->endFrame(false, true);
@@ -89,6 +91,21 @@ TEST_CASE("VSG frame owns submitted overlay resources through completion")
     fixture.renderer->beginFrame({0, 0, 1, 1});
     fixture.renderer->endFrame(false, true);
     REQUIRE(fixture.pixel(16, 32) == 0x0000ff);
+    const auto node = second.node->children.front().node;
+    second.position = {0, 0};
+    second.size = {640, 480};
+    second.color = {0, 0, 1, 1};
+    second.texture.reset();
+    fixture.renderer->beginFrame();
+    fixture.renderer->drawOverlayQuad(second);
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(second.node->children.front().node == node);
+    REQUIRE(fixture.pixel(16, 32) == 0x0000ff);
+    second.visible = false;
+    fixture.renderer->beginFrame({1, 0, 0, 1});
+    fixture.renderer->drawOverlayQuad(second);
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(fixture.pixel(16, 32) == 0xff0000);
 }
 
 TEST_CASE("Two VSG views share ordinary and Wizardry geometry in one world")

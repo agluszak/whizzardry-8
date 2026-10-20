@@ -1124,7 +1124,6 @@ void BeginEndgameSequence(void)
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
                      bool fullscreen_scene_last, signed char render_each_tick)
 {
-    DrawShader shader;
     glm::vec4 color;
 
     g_fade_duration = duration;
@@ -1147,13 +1146,7 @@ void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callb
     color.w = 1.0f;
     g_fade_overlay = makeColorOverlay(0x280, 0x1e0, color, true);
     positionOverlay(g_fade_overlay.get(), 0, 0, false);
-    shader = g_fade_overlay->shader;
-    if (fade_to_black == 0) {
-        shader.value = (shader.value & ~0x6040) | 0xa0;
-    } else {
-        shader.value = (shader.value & ~0x20c0) | 0x4020;
-    }
-    g_fade_overlay->shader = shader;
+    g_fade_overlay->material.blend = fade_to_black ? OverlayBlend::Additive : OverlayBlend::Fade;
     g_fade_overlay->color.a = fade_out != 0 ? 1.0f : 0.0f;
     g_fade_tick_base = MonotonicMilliseconds();
 }

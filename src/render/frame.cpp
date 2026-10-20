@@ -582,7 +582,7 @@ std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> tex
     auto quad = std::make_unique<OverlayQuad>();
     quad->texture = std::move(texture);
     quad->size = {width * 640, height * 480};
-    quad->shader.value = alpha_blend ? 0x100c4b7 : 0x100a417;
+    quad->material.blend = alpha_blend ? OverlayBlend::Alpha : OverlayBlend::Opaque;
     if (quad->texture) {
         auto dimensions = quad->texture->getDimensions();
         dimensions.native_size = true;
@@ -630,7 +630,6 @@ std::unique_ptr<OverlayQuad> makeColorOverlay(int width, int height, const glm::
     auto quad = std::make_unique<OverlayQuad>();
     quad->size = {width, height};
     quad->color = color;
-    quad->shader.value = 0x2417;
     g_compositor.attach(*quad, fullscreen ? OverlayLayer::Fullscreen : OverlayLayer::OverUi);
     return quad;
 }

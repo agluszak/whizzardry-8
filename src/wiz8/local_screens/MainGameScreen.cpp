@@ -6600,16 +6600,13 @@ void ResetMainGameMode(void)
 
 void CreateSurpriseFade(void)
 {
-    DrawShader shader;
     glm::vec4 color;
 
     SetFullscreenSceneLast(0);
     color = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     g_surprise_fade_node = makeColorOverlay(0x280, 0x1e0, color, true);
     positionOverlay(g_surprise_fade_node.get(), 0, 0, false);
-    shader = g_surprise_fade_node->shader;
-    shader.value = (shader.value & ~0x6040) | 0xa0;
-    g_surprise_fade_node->shader = shader;
+    g_surprise_fade_node->material.blend = OverlayBlend::Fade;
     g_surprise_fade_node->color.a = 0.0;
     g_surprise_fade_start = CurrentGame().time;
     g_surprise_fade_in = true;
