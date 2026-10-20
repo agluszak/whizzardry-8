@@ -530,7 +530,7 @@ void DeactivateWorldItem(W8WorldItem* item)
         Fail("pItemInfo->p3D != NULL");
     }
 
-    CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
+    if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
 
     position = item->p3D->GetLocation();
     item->position = position;
