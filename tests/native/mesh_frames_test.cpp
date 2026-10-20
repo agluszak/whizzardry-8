@@ -246,7 +246,7 @@ static std::shared_ptr<Texture> countingTexture()
             }};
 }
 
-static bool skins_and_automap()
+static bool skins_and_mapped_vertices()
 {
     const int destroyed = destroyed_textures;
     {
@@ -292,30 +292,12 @@ static bool skins_and_automap()
             REQUIRE(mesh.CreateSkinTable("", -1) == 3);
             REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == 4);
             REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
-            const std::array<std::string_view, 1> excluded{visible->getName()};
-            mesh.ApplyAutomapPolygonFilter(excluded);
-            selection = mesh.GetActivePolygons(-1, false);
-            REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 0 &&
-                     (*selection)[1] == 2));
-            mesh.ApplyAutomapPolygonFilter({});
-            REQUIRE(!mesh.GetActivePolygons(-1, true)); // All selected.
-            mesh.ClearAutomapPolygonFilter();
             REQUIRE(!mesh.GetActivePolygons(-1, false));
             selection = mesh.GetActivePolygons(-1, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
             base->set(1, blank);
             base->set(2, blank);
-            const std::array<std::string_view, 1> exclude_all{"BLANK-BODY"};
-            mesh.ApplyAutomapPolygonFilter(exclude_all);
-            selection = mesh.GetActivePolygons(-1, true);
-            REQUIRE((selection &&
-                     selection->empty())); // None selected is NOT the unfiltered null case.
-            REQUIRE((mesh.automap_polygons && mesh.automap_polygons->empty()));
-            mesh.ClearAutomapPolygonFilter();
-            const auto empty_automap = mesh.GetActivePolygons(-1, true);
-            REQUIRE(empty_automap);
-            REQUIRE(empty_automap.value().empty());
             const int all_blank = mesh.CreateSkinTable("all-blank", -1);
             const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
             REQUIRE(empty_skin);
@@ -369,9 +351,9 @@ TEST_CASE("Mesh part ownership", "[mesh][ownership]")
     REQUIRE(g_decompressed_mesh_bytes == 0);
 }
 
-TEST_CASE("Mesh skins and automap", "[mesh][ownership]")
+TEST_CASE("Mesh skins and mapped vertices", "[mesh][ownership]")
 {
-    REQUIRE(skins_and_automap());
+    REQUIRE(skins_and_mapped_vertices());
     REQUIRE(g_mesh_models.empty());
     REQUIRE(g_decompressed_mesh_bytes == 0);
 }

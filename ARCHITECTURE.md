@@ -99,6 +99,14 @@ Unlayered code may use the layers.
   inputs. Each camera has its own depth cue and derived light, fog and clipping
   data. Materials resolve animated textures while updating, rather than freezing
   their initial frame.
+- **Map view.** The automap is a separate view of the world scene, not a change
+  to it. `WorldScene::map` (`MapView`) owns the map's orthographic camera, the
+  `MapFilters.txt` texture exclusions and the explored vertices. Its graph holds
+  only static geometry: draws that share each static mesh's arrays, materials and
+  textures, with map-owned index and colour arrays. It has no actors, effects,
+  lights, fog or ambient light. The layer is the map camera's near clip. Opening
+  the map changes no gameplay camera, lighting, picking or mesh state, so
+  gameplay needs nothing restored afterwards.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs
   run in shaders. The descriptor layout is scoped to Wizardry geometry.
   Animated retail faces retain their authored integer-frame polygon normals

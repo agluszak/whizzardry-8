@@ -1444,7 +1444,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.right = 640;
     rect.bottom = 480;
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
-    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true)
+    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect)
                                     ? W8ScreenshotCaptureResult::succeeded
                                     : W8ScreenshotCaptureResult::failed;
 }
