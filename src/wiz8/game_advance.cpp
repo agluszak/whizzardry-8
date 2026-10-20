@@ -16,6 +16,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/quality.h"
@@ -51,6 +52,7 @@ bool Due(milliseconds& due, milliseconds interval)
 
 void Game::advance(milliseconds elapsed, StepHold hold)
 {
+    time += elapsed;
     // Time that passed while the world ran reaches its clock before the new hold applies.
     PassEnvironmentTime(elapsed);
     ApplyWorldAdvancement(*this, hold.world);
@@ -64,12 +66,13 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     sight_due -= elapsed;
     world_items_due -= elapsed;
     if (combat) combat->passTime(elapsed);
+    if (!SharedGameTimersHeld()) autosave_due -= elapsed;
     UpdateSurpriseMode();
     ProcessMainGameAutoSave();
     GameTimeAccumulator().Update(elapsed);
     g_animated_prop_present = false;
-    WorldUpdateProps(level.primary.get());
-    if (level.sky) WorldUpdateProps(level.sky.get());
+    WorldUpdateProps(level.primary.get(), elapsed);
+    if (level.sky) WorldUpdateProps(level.sky.get(), elapsed);
 
     ProcessMonsterManagerFrame();
     if (!combat.has_value()) {
@@ -93,7 +96,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         UpdateNearbyWorldItems();
         DetachAllWorldItems();
     }
-    if (!advancement.paused || combat.has_value()) UpdateWorlds();
+    if (!advancement.paused || combat.has_value()) UpdateWorlds(elapsed);
     // Preserve the game's scene-activity gates and sky-before-world order.
     // Particle clocks keep running while world advancement is held; additional
     // camera views consume these results without advancing them again.

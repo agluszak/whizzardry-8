@@ -277,11 +277,12 @@ public:
     /* 0x1fd: the StartTalking argument; mouth texture animation only runs
        while it is set. */
     bool animate_mouth;
-    /* 0x200/0x204: the 120 ms clock and the last frame of the random mouth
-       flicker used while the gap track reports the mouth closed. */
-    int64_t mouth_frame_clock;
+    /* The world-clock stamp (`GameClockMilliseconds`) of the last frame of the random
+       mouth flicker used while the gap track reports the mouth closed, and that frame. */
+    std::uint32_t mouth_frame_clock;
     int mouth_frame;
-    uint64_t talk_start;
+    // When the current talk cycle began, on the world clock.
+    std::uint32_t talk_start;
     unsigned int talk_duration;
     /* The mouth state the dialogue update copies out of the active
        W8MouthGapTrack; forces mouth frame 0 while open. */

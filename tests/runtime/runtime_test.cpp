@@ -2108,12 +2108,20 @@ void CombatScenario()
     attacker.iType = W8_TARGET_SOURCE_CHARACTER;
     attacker.iChar = PremadeSlot();
     attacker.iMonsterID = -1;
-    for (int id : crab_ids)
-        if (W8MonsterInfo* crab = FindMonster(id, false); crab && crab->hp_current)
+    // A Crab slain in a round fades out and leaves the roster a few seconds later.
+    std::vector<int> slain;
+    for (int id : crab_ids) {
+        W8MonsterInfo* crab = FindMonster(id, false);
+        if (crab && crab->hp_current)
             ApplyDamageToMonster(crab, crab->hp_current, &attacker, false, 1, 0, nullptr, false);
+        else
+            slain.push_back(id);
+    }
     for (int id : crab_ids) {
         // Resolve by ID after death/cleanup rather than relying on a retained pointer.
         const W8MonsterInfo* dead = FindMonster(id, false);
+        CAPTURE(id, slain);
+        if (!dead && std::ranges::contains(slain, id)) continue;
         REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
                  dead->uiCondition[W8_CONDITION_DEAD] != 0));
     }

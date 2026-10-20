@@ -1,6 +1,7 @@
 #include "wiz8/local_code/Sight.h"
 
 #include <algorithm>
+#include <chrono>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -681,7 +682,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                         kCharacterEventFullVolume);
 
                                     if (notice != 0) {
-                                        notice->DelayDispatch(0x5dc);
+                                        notice->DelayDispatch(std::chrono::milliseconds{1500});
                                     }
                                 }
                             }
@@ -711,7 +712,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                             kCharacterEventFullVolume);
 
                                         if (notice != 0) {
-                                            notice->DelayDispatch(0x5dc);
+                                            notice->DelayDispatch(std::chrono::milliseconds{1500});
                                         }
                                     }
                                 }

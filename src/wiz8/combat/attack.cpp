@@ -1,6 +1,7 @@
 #include "wiz8/combat/attack.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <string>
 #include <string_view>
@@ -2781,7 +2782,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                                        (event = QueueCharacterEvent(
                                             &CurrentGame().party.characters[source->iChar], 56, 0,
                                             kCharacterEventFullVolume)) != nullptr) {
-                                event->DelayDispatch(800);
+                                event->DelayDispatch(std::chrono::milliseconds{800});
                             }
                         } else {
                             CurrentGame().events.push(
@@ -3893,7 +3894,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                 W8CharacterEvent* event = QueueCharacterEvent(
                                     character, 56, 0, kCharacterEventFullVolume);
                                 if (event != nullptr) {
-                                    event->DelayDispatch(800);
+                                    event->DelayDispatch(std::chrono::milliseconds{800});
                                 }
                             }
                         } else {

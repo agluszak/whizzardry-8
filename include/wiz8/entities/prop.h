@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <span>
@@ -12,7 +13,6 @@
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/geometry.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/navigation.h"
 
@@ -72,7 +72,6 @@ public:
     glm::mat3 rotation{1.0f};
     unsigned char subcycle = 0;
     unsigned short pending_subcycle = 0xffff;
-    unsigned int timer = 0;
     unsigned char active = 0;
     unsigned char animation_playing = 0;
     W8AnimationDirection frame_direction = W8_ANIMATION_DIRECTION_NONE;
@@ -107,7 +106,12 @@ public:
     W8FootstepMaterial footstep_material = static_cast<W8FootstepMaterial>(0xff);
 
     void DetachAnimationInstances(World* world);
-    void UpdatePropAnimation();
+    /* The step's prop animation service: `elapsed` is the step time since the previous
+       one. */
+    void UpdatePropAnimation(std::chrono::milliseconds elapsed);
+    /* A frame lasts 1 / animation_speed seconds; a speed that gives no positive length
+       keeps the previous one. */
+    void UpdateAnimationFrameLength();
     void ApplyAnimationPaths();
     void AdvanceAnimationValue(int frames, char total);
     char NextAnimationValue() const;
@@ -151,7 +155,10 @@ public:
     unsigned int flags = 0;
     std::string name;
     float anim_frame_fraction = 0.0f;
-    W8GameTimer animation_timer; // timer is the frame-advance stamp
+    /* The step time since the animation's current frame began, and how long a frame lasts
+       (1 / animation_speed seconds). It stands still while the shared timers are held. */
+    std::chrono::duration<float> animation_elapsed{};
+    std::chrono::duration<float> animation_frame{1.0f};
     glm::vec3 animation_position{0.0f};
     bool collision_ready = false;
     bool collision_unattached = false;

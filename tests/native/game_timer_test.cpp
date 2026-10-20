@@ -1,6 +1,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 #include <utility>
 
 #include <catch2/catch_approx.hpp>
@@ -9,14 +10,19 @@
 #include "save_payload.h"
 #include "scoped_game.h"
 #include "temporary_directory.h"
+#include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/runtime_test_hooks.h"
+#include "wiz8/world/world.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 
@@ -65,7 +71,8 @@ TEST_CASE_METHOD(TimerFixture, "Clock lifetime is independent of timers and game
         REQUIRE(gameplay.GetElapsedSeconds() == Catch::Approx(0.5f));
         REQUIRE(real.GetElapsedSeconds() == Catch::Approx(1.0f));
     }
-    REQUIRE(GameClockMilliseconds() == 2500);
+    // The world's animation clock is the game's step time, not the monotonic clock.
+    REQUIRE(GameClockMilliseconds() == 0);
     W8GameTimer later;
     REQUIRE(later.ReadClock() == 15000);
 }
@@ -139,6 +146,82 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.25f));
     advance(250'000);
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.5f));
+}
+
+TEST_CASE_METHOD(TimerFixture, "Generator intervals catch up on step time and save their progress",
+                 "[timers][save]")
+{
+    using std::chrono::milliseconds;
+    GeneratorInterval interval;
+    interval.setSeconds(0.1f);
+    REQUIRE(interval.advance(milliseconds{350}) == 3);
+    REQUIRE(interval.advance(milliseconds{40}) == 0);
+    REQUIRE(interval.progress() == Catch::Approx(0.9f));
+
+    // A new scale keeps the progress through the interval, as the retail timer did.
+    interval.setSeconds(2.0f);
+    interval.arm();
+    interval.advance(milliseconds{500});
+    interval.setScale(0.5f);
+    REQUIRE(interval.progress() == Catch::Approx(0.25f));
+
+    ScopedTemporaryDirectory directory{"wiz8-generator-interval"};
+    const auto path = directory.path / "progress.bin";
+    {
+        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+        interval.save(*file);
+    }
+    {
+        auto file = wiz8::open_file(path);
+        REQUIRE(file->size() == sizeof(float) * 2);
+        std::array<float, 2> values{};
+        file->read_exact(values.data(), sizeof(values));
+        REQUIRE(values[0] == Catch::Approx(0.25f));
+        REQUIRE(values[1] == Catch::Approx(0.5f));
+    }
+    GeneratorInterval loaded;
+    loaded.setSeconds(2.0f);
+    {
+        auto file = wiz8::open_file(path);
+        REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) {
+            loaded.load(chunk);
+            return true;
+        }));
+    }
+    REQUIRE(loaded.progress() == Catch::Approx(0.25f));
+    REQUIRE(loaded.advance(milliseconds{750}) == 1);
+}
+
+TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it is given",
+                 "[timers][step]")
+{
+    using std::chrono::milliseconds;
+    // An empty level in view: each step runs the whole simulation over nothing.
+    auto& game = CurrentGame();
+    game.level.replacePrimary(std::make_unique<World>());
+    game.level.primary->camera = &game.level.primary->scene->camera;
+    const auto auto_save = std::exchange(g_settings.auto_save, 0);
+    const auto step = [&](int ms) { game.advance(milliseconds{ms}, {}); };
+
+    step(16);
+    step(17);
+    step(400);
+    REQUIRE(game.time == milliseconds{433});
+    REQUIRE(GameClockMilliseconds() == 433);
+    REQUIRE(game.autosave_due == Game::kAutosaveInterval - milliseconds{433});
+
+    // The monotonic clock moving between steps changes nothing.
+    advance(10'000'000);
+    REQUIRE(game.time == milliseconds{433});
+
+    // Held shared timers stop the countdowns that stand in for them, not the step time.
+    PauseSharedGameTimers();
+    step(1000);
+    ResumeSharedGameTimers();
+    REQUIRE(game.time == milliseconds{1433});
+    REQUIRE(game.autosave_due == Game::kAutosaveInterval - milliseconds{433});
+
+    g_settings.auto_save = auto_save;
 }
 
 TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-bit tick rollover",

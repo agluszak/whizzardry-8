@@ -303,7 +303,7 @@ static void QueueInteractionNotice(int event_type)
     W8CharacterEvent* event =
         ApplyItemEffectToRandomCharacter(event_type, -1, kCharacterEventNoPreempt);
     if (event != 0) {
-        event->DelayDispatch(600);
+        event->DelayDispatch(std::chrono::milliseconds{600});
     }
 }
 
@@ -2212,7 +2212,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         CurrentGame().advancement.held = false;
         CurrentGame().advancement.paused = false;
         CurrentGame().aging_held = false;
-        CurrentGame().gameplay_timer.Restart();
+        CurrentGame().autosave_due = Game::kAutosaveInterval;
         ResetAssayTab();
         ResetTargetingState();
         LoadMainGameCursorResources();
@@ -2257,15 +2257,6 @@ bool MainGameScreen::enter(const ScreenRequest&)
     MoveTimer(W8_MOVE_TIMER_RESUME);
     // Time spent under other screens does not reach the world.
     step_timer.restart();
-    {
-        W8GameTimer* timer = &CurrentGame().gameplay_timer;
-        if (timer->m_flags.paused || (g_shared_timer_paused && !timer->m_flags.raw_time) ||
-            g_shared_timer_flag0) {
-            timer->m_flags.paused = false;
-            timer->m_start = timer->GetTime() - timer->m_start;
-            timer->SetDuration(-1.0f);
-        }
-    }
     DrainInputEventQueue();
     ResetPointerCursor();
     SetTargetingMode(W8_TARGET_NEED_NONE);
@@ -2583,12 +2574,6 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     MoveTimer(W8_MOVE_TIMER_SUSPEND);
     // The world stays covered, and held, until this screen steps it again.
     ApplyWorldAdvancement(CurrentGame(), {.covered = true});
-
-    if (!CurrentGame().gameplay_timer.m_flags.paused) {
-        CurrentGame().gameplay_timer.m_flags.paused = true;
-        CurrentGame().gameplay_timer.m_start =
-            CurrentGame().gameplay_timer.GetTime() - CurrentGame().gameplay_timer.m_start;
-    }
 
     if (leaving) {
         for (index = 0; index < 17; ++index) {
@@ -6597,7 +6582,8 @@ resume_world:
 /* Note that the party's state changed. The combat half is only asked for while
    a fight is on; the party half always. */
 
-static std::uint64_t g_surprise_fade_tick_base;
+// The game's step time when the surprise fade's current direction began.
+static std::chrono::milliseconds g_surprise_fade_start;
 const float g_fade_resume_scale = -500.0f;
 static bool g_surprise_fade_in;
 static std::shared_ptr<SDL_Surface> g_surprise_snapshot_surface;
@@ -6634,7 +6620,7 @@ void CreateSurpriseFade(void)
     shader.value = (shader.value & ~0x6040) | 0xa0;
     g_surprise_fade_node->shader = shader;
     g_surprise_fade_node->color.a = 0.0;
-    g_surprise_fade_tick_base = MonotonicMilliseconds();
+    g_surprise_fade_start = CurrentGame().time;
     g_surprise_fade_in = true;
 }
 
@@ -6644,17 +6630,14 @@ void ReverseSurpriseFade(void)
         OverlayQuad* material = g_surprise_fade_node.get();
         float opacity = material->color.a;
 
-        std::uint64_t now = MonotonicMilliseconds();
+        const auto now = CurrentGame().time;
         g_surprise_fade_in = !g_surprise_fade_in;
-        if (g_surprise_fade_in) {
-            g_surprise_fade_tick_base =
-                now + static_cast<int>((1.0f - opacity) * g_fade_resume_scale);
-        } else {
-            g_surprise_fade_tick_base = now + static_cast<int>(opacity * g_fade_resume_scale);
-        }
+        const float resumed = g_surprise_fade_in ? 1.0f - opacity : opacity;
+        g_surprise_fade_start =
+            now + std::chrono::milliseconds(static_cast<int>(resumed * g_fade_resume_scale));
     } else {
         g_surprise_fade_node->visible = true;
-        g_surprise_fade_tick_base = MonotonicMilliseconds();
+        g_surprise_fade_start = CurrentGame().time;
         g_surprise_fade_in = true;
     }
 }
@@ -6673,9 +6656,9 @@ unsigned char UpdateSurpriseFade(void)
     bool done = false;
     bool boundary = false;
     float opacity;
-    std::uint64_t now = MonotonicMilliseconds();
+    const auto now = CurrentGame().time;
 
-    if (g_surprise_fade_tick_base + 500 < now) {
+    if (now - g_surprise_fade_start > std::chrono::milliseconds{500}) {
         if (!g_surprise_fade_in) {
             opacity = 0.0f;
             done = true;
@@ -6683,10 +6666,10 @@ unsigned char UpdateSurpriseFade(void)
             boundary = true;
             opacity = 1.0f;
             g_surprise_fade_in = false;
-            g_surprise_fade_tick_base = now;
+            g_surprise_fade_start = now;
         }
     } else {
-        opacity = (now - g_surprise_fade_tick_base) * 0.002f;
+        opacity = static_cast<float>((now - g_surprise_fade_start).count()) * 0.002f;
         if (!g_surprise_fade_in) {
             opacity = 1.0f - opacity;
         }
@@ -6702,7 +6685,7 @@ unsigned char UpdateSurpriseFade(void)
                 std::make_shared<Texture>(g_surprise_snapshot_surface), 1, 1, false, false);
             g_compositor.attach(*g_surprise_snapshot_overlay, OverlayLayer::Fullscreen);
             g_world_render_enabled = 0;
-            g_surprise_fade_tick_base = MonotonicMilliseconds();
+            g_surprise_fade_start = CurrentGame().time;
         } else {
             g_surprise_snapshot_overlay.reset();
             g_surprise_snapshot_surface.reset();

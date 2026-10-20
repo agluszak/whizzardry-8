@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 
+#include <chrono>
 #include <memory>
 
 #include <SDL3/SDL_keycode.h>
@@ -116,12 +117,13 @@ bool W8CharacterSummaryDialog::ProcessInput()
                 .total_ms;
         m_portrait.frame = 7;
         m_portrait.frame_dirty = true;
-        m_portrait.frame_clock = MonotonicMilliseconds() + 120;
+        m_portrait.frame_due = std::chrono::milliseconds(MonotonicMilliseconds() + 120);
         m_portrait.target_pose = m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
     }
     if (m_voice_started) {
         UpdateMouthGapTrack(m_voice, m_mouth_gap);
-        AdvancePortraitSpeech(m_portrait, m_mouth_gap.mouth_open, false);
+        AdvancePortraitSpeech(m_portrait, std::chrono::milliseconds(MonotonicMilliseconds()),
+                              m_mouth_gap.mouth_open, false);
         AdvancePortraitPose(m_portrait);
         if (m_voice ? !wiz8::sound::is_playing(m_voice) : m_portrait.voice_remaining_ms == 0)
             m_keep_open = false;

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <ranges>
@@ -343,7 +344,7 @@ void ConfigureWorldLight(Light* light, float range)
 
 // Source unit is Engine Code\3d.cpp; the assertion at line 344 is what names
 // and types World::plsProps.
-void WorldUpdateProps(World* world)
+void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed)
 {
     int count;
     int index;
@@ -357,7 +358,7 @@ void WorldUpdateProps(World* world)
         prop = GetWorldProp(world, index);
         if (prop) {
             prop->DetachAnimationInstances(world);
-            prop->UpdatePropAnimation();
+            prop->UpdatePropAnimation(elapsed);
             prop->AttachAnimationInstances(world);
         }
     }

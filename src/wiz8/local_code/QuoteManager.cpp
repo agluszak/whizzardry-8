@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -331,8 +332,7 @@ static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 
 W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_type,
                                    unsigned int flags, int volume)
-    : character(character), event_type(event_type), flags(flags), volume(volume),
-      dispatch_delay_ms(0)
+    : character(character), event_type(event_type), flags(flags), volume(volume)
 {
     item.iItemNo = -1;
     switch (event_type) {
@@ -400,6 +400,12 @@ std::string GetPartyQuoteText(const W8Character& character, unsigned int event_t
 }
 
 W8CharacterEventQueue::W8CharacterEventQueue() : active_event_type(-1), active_party_slot(-1) {}
+
+void W8CharacterEvent::DelayDispatch(std::chrono::milliseconds delay)
+{
+    dispatch_delay = delay;
+    dispatch_delay_start = CurrentGame().time;
+}
 
 static void ReleasePartyQuoteInput();
 W8CharacterEventQueue::~W8CharacterEventQueue()
@@ -638,7 +644,7 @@ void W8CharacterEventQueue::RecordDispatchedEvent(unsigned int event_type, unsig
         active_event_type = event_type;
         active_party_slot = party_slot;
     }
-    recent_event_clock = MonotonicMilliseconds() + (5000);
+    recent_event_until = CurrentGame().time + std::chrono::seconds{5};
 }
 
 bool W8CharacterEvent::Dispatch()
@@ -892,7 +898,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     record->portrait_event_active = true;
     record->portrait.frame = 7;
     record->portrait.frame_dirty = true;
-    record->portrait.frame_clock = MonotonicMilliseconds() + (0x78);
+    record->portrait.frame_due = CurrentGame().time + std::chrono::milliseconds{120};
     int pose_category;
     if (static_cast<int>(g_normal_event_count) < static_cast<int>(event_type)) {
         pose_category = 1;
@@ -1079,7 +1085,7 @@ bool W8CharacterEventQueue::TryAdjustQueuedEvent(W8CharacterEvent* entry)
         return true;
     }
 
-    if (TimeUntilDeadline(recent_event_clock) == 0) {
+    if (CurrentGame().time >= recent_event_until) {
         active_event_type = -1;
         active_party_slot = -1;
         return true;
@@ -1187,9 +1193,8 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
                 if (PartyPortraitEventsIdle() == 0) {
                     return;
                 }
-                if (entry.dispatch_delay_ms != 0 &&
-                    MonotonicMilliseconds() - entry.dispatch_delay_start <=
-                        static_cast<unsigned int>(entry.dispatch_delay_ms)) {
+                if (entry.dispatch_delay != std::chrono::milliseconds::zero() &&
+                    CurrentGame().time - entry.dispatch_delay_start <= entry.dispatch_delay) {
                     return;
                 }
                 std::unique_ptr<W8CharacterEvent> dispatched = std::move(*position);
@@ -1324,7 +1329,7 @@ void QueuePartyDeathReaction(unsigned int party_slot)
         entry = QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], effect, 0,
                                     kCharacterEventFullVolume);
         if (entry != 0) {
-            entry->DelayDispatch(3000);
+            entry->DelayDispatch(std::chrono::milliseconds{3000});
         }
     }
 }
@@ -1362,7 +1367,7 @@ void QueueDamageReactionEvents(W8Character* character)
             entry = QueueCharacterEvent(character, 3, 1, kCharacterEventFullVolume);
         }
         if (entry != 0) {
-            entry->DelayDispatch(0x5dc);
+            entry->DelayDispatch(std::chrono::milliseconds{1500});
         }
     }
 queue_follow_up_event:
@@ -1583,10 +1588,11 @@ static void SetCurrentPortraitPose(W8PortraitAnimation& record, int pose)
     }
 }
 
-void AdvancePortraitSpeech(W8PortraitAnimation& state, bool mouth_open, bool fixed_frame)
+void AdvancePortraitSpeech(W8PortraitAnimation& state, std::chrono::milliseconds now,
+                           bool mouth_open, bool fixed_frame)
 {
     if (!mouth_open) {
-        if (TimeUntilDeadline(state.frame_clock) == 0) {
+        if (now >= state.frame_due) {
             if (state.voice_remaining_ms < 120) {
                 state.frame = 6;
                 state.frame_dirty = true;
@@ -1599,7 +1605,7 @@ void AdvancePortraitSpeech(W8PortraitAnimation& state, bool mouth_open, bool fix
                 }
                 state.frame = direction;
                 state.frame_dirty = true;
-                state.frame_clock = MonotonicMilliseconds() + (120);
+                state.frame_due = now + std::chrono::milliseconds{120};
                 state.voice_remaining_ms -= 120;
             }
         }
@@ -1674,7 +1680,7 @@ void AdvancePartyVoices(void)
                     MaybeStartIncapacitationEvent(party_slot);
                 }
             } else {
-                AdvancePortraitSpeech(record->portrait, sound_active,
+                AdvancePortraitSpeech(record->portrait, CurrentGame().time, sound_active,
                                       g_event_range_min <= record->pending_event_type &&
                                           record->pending_event_type <= g_event_range_max);
             }
