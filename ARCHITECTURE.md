@@ -145,6 +145,14 @@ Unlayered code may use the layers.
   combat membership are queries over ownership, not maintained counters; retail
   count fields are decoded data, re-derived when saving. Formation linking
   reserves a destination before changing either relationship.
+- A monster or world item record links to its scene entity (`p3D`). Activation sets the link,
+  and removal or deactivation clears it before the entity is destroyed. An active record
+  always has an entity, but an inactive one may not. Anything that keeps an actor
+  past the current call keeps its id: a monster's location id or a world item's runtime
+  id. It looks the actor up again when it is used and does nothing when the actor is
+  gone. Navigators target and follow each other by address, so a destroyed navigator
+  clears every link to itself. A placed item's level trigger belongs to the item's
+  record, because the item's entity is rebuilt each time the item comes back into range.
 - A level's script is part of the level ("Scripts"). Its masters return completion
   directly; masters armed during a dispatch wait for the next frame.
 
