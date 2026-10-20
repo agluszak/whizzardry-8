@@ -48,7 +48,7 @@ struct SavedTrigger {
     unsigned char state_index = 0;
     W8TriggerStateDirection state_direction{};
     unsigned short action = 0;
-    W8TriggerActionState action_state{};
+    W8TriggerActionState action_state = W8TriggerActionState::inactive;
     int required_item_id = 0;
     // The kind of action payload saved with the trigger, and the door's state when it is one.
     std::optional<std::uint8_t> payload_kind;
