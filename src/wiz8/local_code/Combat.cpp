@@ -4,7 +4,6 @@
 #include <cmath>
 #include <memory>
 #include <optional>
-#include <stdexcept>
 #include <string_view>
 #include <variant>
 #include <vector>
@@ -81,7 +80,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -223,7 +221,6 @@ bool W8CombatLifecycle::Start(int surprise)
     CurrentGame().party_movement_mode = false;
     DisablePortraitControls();
     MainGame()->combat.setEnabled(true);
-    MainGameHud()->pick_changed = false;
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_0 | W8_MAIN_REDRAW_PORTRAIT_1 |
                   W8_MAIN_REDRAW_PORTRAIT_2 | W8_MAIN_REDRAW_PORTRAIT_3 |
                   W8_MAIN_REDRAW_PORTRAIT_4 | W8_MAIN_REDRAW_PORTRAIT_5 |
@@ -526,20 +523,11 @@ void BeginCombatExecution(void)
         CurrentGame().combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
         AlertWorldNoise();
     }
-    if (MainGameHud()->combat_end_notification != -1) {
-        if (g_settings.continuous_combat == 0) {
-            DestroySubMenuControls();
-        } else {
-            ReopenSubMenuPanel();
-        }
-    }
-    if (g_settings.continuous_combat == 0 && TargetingMode() != W8_TARGET_NEED_NONE) {
-        SetTargetingMode(W8_TARGET_NEED_NONE);
-    }
+    CurrentGame().events.push(CombatExecutionBegan{});
     CurrentGame().combat.state()->execution_active = 1;
     CurrentGame().combat.state()->pending_death_count = 0;
     CurrentGame().combat.state()->passive_round = 1;
-    MainGameHud()->pick_changed = false;
+    CurrentGame().combat.state()->target_picked = false;
     CurrentGame().combat.state()->uiCurrentPartyAction =
         CurrentGame().combat.state()->uiNextPartyAction;
     CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_NOT_STARTED;
@@ -1279,7 +1267,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
         CatchUpCombatActor(row);
     }
     RequestRedraw(1 << (party_slot & 0x1f));
-    MainGameHud()->pick_changed = false;
+    CurrentGame().combat.state()->target_picked = false;
     if (action_kind == W8_ACTION_EQUIP) {
         PostCharacterNotice(party_slot, Data().strings[0x225]);
     } else if (previous_action == W8_ACTION_EQUIP &&
@@ -1306,50 +1294,6 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
     game.combat.state()->characters[party_slot].alternate_hand ^= 1;
     if (party_slot == static_cast<unsigned int>(game.status.selected_character))
         game.events.push(CombatPanelChanged{});
-}
-
-/* Ask the slot's currently selected action which context its outputs hold:
-   the chosen action kind plus three context-dependent words. */
-W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
-{
-    const auto& row = CurrentGame().party.rows[party_slot];
-    W8Action action;
-    switch (context) {
-    case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
-        action = row.executing.action();
-        break;
-    case W8_TARGETING_CONTEXT_IN_COMBAT:
-        action = row.committed;
-        break;
-    case W8_TARGETING_CONTEXT_SHARED:
-        if (gpSCSV) {
-            action = gpSCSV->draft;
-        } else {
-            action = ItemUseDraft() ? *ItemUseDraft() : W8Action{W8_ACTION_USE_ITEM, -1};
-        }
-        break;
-    case W8_TARGETING_CONTEXT_SPELL:
-        action = row.remembered.spell;
-        break;
-    case W8_TARGETING_CONTEXT_ITEM:
-        action = {W8_ACTION_USE_ITEM, -1, row.remembered.item_target, row.remembered.item_detail};
-        break;
-    case W8_TARGETING_CONTEXT_BREATH:
-        action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
-        break;
-    case W8_TARGETING_CONTEXT_DIALOGUE:
-        action = {MainGameHud()->selection_kind};
-        break;
-    case W8_TARGETING_CONTEXT_ATTACK:
-        action = {W8_ACTION_ATTACK};
-        break;
-    default:
-        throw std::invalid_argument("invalid action selection");
-    }
-    if (!CanPartySlotParticipate(party_slot) && action.kind != W8_ACTION_WALK &&
-        action.kind != W8_ACTION_RUN)
-        return {};
-    return action;
 }
 
 /* Whether a slot may switch to the given action context, optionally repairing
@@ -1552,7 +1496,7 @@ bool AnyCombatMonsterBusy(void)
    live member without a combat action to take. */
 void AutoAdvanceSelectedCharacter(void)
 {
-    if (g_settings.auto_advance_character == 0 || MainGameHud()->pick_changed ||
+    if (g_settings.auto_advance_character == 0 || CurrentGame().combat.state()->target_picked ||
         !CurrentGame().combat.state()->round_active || TargetingMode() != W8_TARGET_NEED_NONE ||
         gpSCSV || ItemUseDraft()) {
         return;

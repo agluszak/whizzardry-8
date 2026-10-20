@@ -343,7 +343,7 @@ int OpenLockInteraction(Trigger* trigger)
         return 1;
     }
     MainGame()->lock_active = true;
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
@@ -1732,7 +1732,7 @@ int OpenTrapInteraction(Trigger* trigger)
         return 1;
     }
     MainGame()->trap_active = true;
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
@@ -2852,7 +2852,7 @@ finish_mode_overlays:
     if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_CHARACTER_ACTION) != 0) {
         DrawSubMenuCharacterAction();
     }
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         RefreshSubMenuPanel((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_SUBMENU_PANEL) != 0);
     }
     if ((MainGameHud()->redraw_flags & W8_MAIN_REDRAW_OPTIONS_BUTTON) != 0) {
@@ -2900,7 +2900,7 @@ void DrawMainGameScreen(void)
         if (g_modal_owner != 0) {
             g_modal_owner->RefreshModal();
         }
-        if (MainGameHud()->combat_end_notification != -1) {
+        if (MainGameHud()->open_submenu) {
             UpdateSubMenuAutoClose();
         }
         if (!CurrentGame().combat.active()) {
@@ -3154,7 +3154,7 @@ void SelectPartyCharacter(int party_slot)
     if (FormationPanelOpen()) {
         SelectFormationSlotCell(CurrentGame().status.selected_character);
     }
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         ResetSubMenuPanel();
     }
     if (MainGameHud()->keyboard_menu_open && party_slot != g_selected_party_slot) {
@@ -3163,7 +3163,7 @@ void SelectPartyCharacter(int party_slot)
     SetTargetingMode(W8_TARGET_NEED_NONE);
     RequestRedraw(1 << (party_slot & 0x1f) | W8_MAIN_REDRAW_SUBMENU_BUTTONS |
                   W8_MAIN_REDRAW_CHARACTER_ACTION);
-    MainGameHud()->pick_changed = true;
+    if (auto* combat = CurrentGame().combat.state()) combat->target_picked = true;
 }
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
@@ -5790,7 +5790,7 @@ bool IsMGSActionKeyEnabled(unsigned short command)
    the combat action, or dispatch the slot's queued action's own command. */
 void RunMGSActionKey(unsigned short command)
 {
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
     if (MainGameHud()->keyboard_menu_open) {
@@ -6735,7 +6735,7 @@ void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext conte
                 RequestRedrawParty();
                 RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
             }
-            MainGameHud()->pick_changed = false;
+            if (auto* combat = CurrentGame().combat.state()) combat->target_picked = false;
         }
     }
     if (chosen.iType != W8_TARGET_KIND_NONE && context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT &&

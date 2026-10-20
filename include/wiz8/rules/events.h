@@ -91,12 +91,16 @@ struct WorldAdvancementChanged {
 };
 // The party or a monster moved during a fight, so the monster target panel recounts.
 struct CombatantsMoved {};
+// The party's actions for the round start executing.
+struct CombatExecutionBegan {};
+// The party ended a fight that nothing kept going.
+struct CombatCalledOff {};
 
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, PartySlotChanged,
                  PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
                  HeldItemChanged, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved>;
+                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

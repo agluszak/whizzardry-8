@@ -228,7 +228,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     }
     UpdateScreenOverlays(0);
     gpSCSV = std::make_unique<W8SpellCastingView>();
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
     gpSCSV->location_id = -1;

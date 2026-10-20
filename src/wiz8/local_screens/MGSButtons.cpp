@@ -218,7 +218,7 @@ void SubMenuSelectWalk(void)
 
 void OpenSubMenuPanel(short notification)
 {
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
     UpdateScreenOverlays(0);
@@ -231,11 +231,9 @@ void OpenSubMenuPanel(short notification)
 
 void ResetSubMenuPanel(void)
 {
-    short saved_notification;
-
-    saved_notification = MainGameHud()->combat_end_notification;
+    const auto open = MainGameHud()->open_submenu;
     DestroySubMenuControls();
-    OpenSubMenuPanel(saved_notification);
+    OpenSubMenuPanel(open.value_or(-1));
 }
 
 static void CreateSubMenuScrollButtons()
@@ -877,7 +875,7 @@ void UpdateSubMenuPanelButtons(void)
     if (!CurrentGame().combat.active() || !CurrentGame().combat.state()->round_active ||
         CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
         CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
-        MainGameHud()->combat_end_notification != -1) {
+        MainGameHud()->open_submenu) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
@@ -886,7 +884,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!CurrentGame().surprise_possible && !IsLockInteractionActive() &&
         !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !gpSCSV &&
-        !ItemUseDraft() && MainGameHud()->combat_end_notification == -1 && AnyCharacterEngaged()) {
+        !ItemUseDraft() && !MainGameHud()->open_submenu && AnyCharacterEngaged()) {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!FormationPanelOpen()) {
             if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {
@@ -907,8 +905,7 @@ void UpdateSubMenuPanelButtons(void)
 static void UpdateSubMenuScrollButtons()
 {
 
-    const bool enabled = MainGameHud()->combat_end_notification == -1 &&
-                         !CurrentGame().activity.conversation &&
+    const bool enabled = !MainGameHud()->open_submenu && !CurrentGame().activity.conversation &&
                          !CurrentGame().activity.conversation_aside;
     for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);
@@ -1234,7 +1231,7 @@ bool BuildSubMenuPanel(short notification)
     cancel->SetPosition(left + built * 19 - 14, 0x1c8);
     cancel->Resize(18, 18);
     submenu->buttons.push_back(std::move(cancel));
-    MainGameHud()->combat_end_notification = notification;
+    MainGameHud()->open_submenu = notification;
     EnableSubMenuRegions();
     return true;
 }

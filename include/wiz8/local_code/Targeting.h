@@ -55,6 +55,9 @@ bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selec
 
 void SetTargetToCharacter(int character_slot, bool in_combat);
 
+/* The action a slot's selection holds in a targeting context: its committed or
+   executing action, or the spell, item or submenu choice being drafted. */
+W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
 /* What the player is asked to pick a target for, if anything; the cursor follows it. */
 W8TargetNeed TargetingMode();
 void SetTargetingMode(W8TargetNeed state);

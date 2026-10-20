@@ -67,7 +67,6 @@
 #include "wiz8/local_code/ThingEditorShared.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
@@ -1180,9 +1179,7 @@ void ToggleCombatMode(void)
     }
     CurrentGame().combat.End(false);
     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_ENDED]);
-    if (MainGameHud()->combat_end_notification != -1) {
-        DestroySubMenuControls();
-    }
+    CurrentGame().events.push(CombatCalledOff{});
 }
 
 /* Starts one animation cycle on a monster, and refuses in three ways.

@@ -8,6 +8,7 @@
 #include <iterator>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <tuple>
 #include <vector>
 
@@ -1625,7 +1626,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     AimAtTarget(party_slot, &target, context);
 
     group->highlighted_member = picked;
-    MainGameHud()->pick_changed = true;
+    if (auto* combat = CurrentGame().combat.state()) combat->target_picked = true;
 
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
@@ -1708,7 +1709,7 @@ void CycleToNextTarget(int party_slot)
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
     PointCameraAtCombatTarget(&source, &target);
-    MainGameHud()->pick_changed = true;
+    if (auto* combat = CurrentGame().combat.state()) combat->target_picked = true;
 }
 
 /* Refresh each slot's selected target after a sight or range change, repicking
@@ -2099,4 +2100,48 @@ void ReconcilePartyEquipmentAfterCombat(void)
             row->weapon_swap_pending = false;
         }
     }
+}
+
+/* Ask the slot's currently selected action which context its outputs hold:
+   the chosen action kind plus three context-dependent words. */
+W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
+{
+    const auto& row = CurrentGame().party.rows[party_slot];
+    W8Action action;
+    switch (context) {
+    case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
+        action = row.executing.action();
+        break;
+    case W8_TARGETING_CONTEXT_IN_COMBAT:
+        action = row.committed;
+        break;
+    case W8_TARGETING_CONTEXT_SHARED:
+        if (gpSCSV) {
+            action = gpSCSV->draft;
+        } else {
+            action = ItemUseDraft() ? *ItemUseDraft() : W8Action{W8_ACTION_USE_ITEM, -1};
+        }
+        break;
+    case W8_TARGETING_CONTEXT_SPELL:
+        action = row.remembered.spell;
+        break;
+    case W8_TARGETING_CONTEXT_ITEM:
+        action = {W8_ACTION_USE_ITEM, -1, row.remembered.item_target, row.remembered.item_detail};
+        break;
+    case W8_TARGETING_CONTEXT_BREATH:
+        action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
+        break;
+    case W8_TARGETING_CONTEXT_DIALOGUE:
+        action = {MainGameHud()->selection_kind};
+        break;
+    case W8_TARGETING_CONTEXT_ATTACK:
+        action = {W8_ACTION_ATTACK};
+        break;
+    default:
+        throw std::invalid_argument("invalid action selection");
+    }
+    if (!CanPartySlotParticipate(party_slot) && action.kind != W8_ACTION_WALK &&
+        action.kind != W8_ACTION_RUN)
+        return {};
+    return action;
 }
