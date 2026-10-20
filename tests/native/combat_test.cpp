@@ -19,11 +19,6 @@
 
 namespace {
 
-struct ScopedWorld {
-    std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
-    ~ScopedWorld() { ReplaceWorld(std::move(previous)); }
-};
-
 struct ScopedSettings {
     W8GameSettings previous = g_settings;
     ~ScopedSettings() { g_settings = previous; }
@@ -31,7 +26,6 @@ struct ScopedSettings {
 
 // A fight in an empty level with two conscious party members.
 struct CombatFixture {
-    ScopedWorld world;
     ScopedSettings settings;
     ScopedGame game_scope;
     ScopedCombat combat_scope{true};
@@ -40,6 +34,7 @@ struct CombatFixture {
 
     CombatFixture()
     {
+        game.level.replacePrimary(std::make_unique<World>());
         g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
         g_settings.verbose_combat_messages = 0;
         for (int slot = 0; slot < 2; ++slot) {
