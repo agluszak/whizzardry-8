@@ -2267,7 +2267,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         }
         eye = monster_info->p3D->nav.movement.position;
         eye.y += monster_info->p3D->nav.movement.height_offset;
-        if (!GetWorldSpatialIndex()->HasLineOfSight(&eye, &center, true)) {
+        if (!GetWorldSpatialIndex()->hasLineOfSight(eye, center)) {
             continue;
         }
         if (monster_info->control_state < W8_MONSTER_CONTROL_NONE ||

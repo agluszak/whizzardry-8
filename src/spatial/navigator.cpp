@@ -794,13 +794,11 @@ glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current
     if (navigation_mode != W8_NAVIGATOR_MODE_PATH_ONLY) {
         glm::vec3 probe = *current;
         probe.y += kWorldScale;
-        bool hit;
         const auto ground_probe = octree.settleToGround(probe, 1, 500.0f);
         probe = ground_probe.position;
-        hit = ground_probe.hit;
         float ground = ground_probe.position.y;
-        if (hit) {
-            if (ground_probe.prop < 0) {
+        if (ground_probe.contact) {
+            if (!ground_probe.prop()) {
                 movement.position_adjusted = false;
             } else {
                 movement.position_adjusted = true;
@@ -1971,26 +1969,6 @@ int Navigator::ResolveMovement()
         ClearMovement();
     }
     return 0;
-}
-
-// Construction and reuse share endpoint copying and direction normalization.
-void W8OctreeTrace::reset(const glm::vec3& from, const glm::vec3& to)
-{
-    // Copy before mutation so resetting from this trace's endpoints is safe.
-    const auto from_value = from;
-    const auto to_value = to;
-    start = from_value;
-    end = to_value;
-    step = end - start;
-    length = glm::length(step);
-    hit_limit = length;
-    step = glm::vec3(glm::dvec3(step) * (1.0 / static_cast<double>(length)));
-    state = 0;
-}
-
-W8OctreeTrace::W8OctreeTrace(const glm::vec3& from, const glm::vec3& to)
-{
-    reset(from, to);
 }
 
 void Navigator::SetMonsterTurnSpeed(float speed)

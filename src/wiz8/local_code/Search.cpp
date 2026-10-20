@@ -104,8 +104,7 @@ static std::vector<W8Searchable> CollectSearchablesInView(World& world)
             const float yaw = GetCameraYawRadians();
             if ((half_cone <= NormalizeAngle(yaw - heading) &&
                  half_cone <= NormalizeAngle(heading - yaw)) ||
-                !world.compiledIndex() ||
-                !world.compiledIndex()->HasLineOfSight(&camera, &position, true))
+                !world.compiledIndex() || !world.compiledIndex()->hasLineOfSight(camera, position))
                 return;
         }
         found.push_back(candidate);

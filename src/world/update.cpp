@@ -221,7 +221,7 @@ bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds)
     for (const auto& sample : bounds.visibilitySamples()) {
         if (!projectsToCamera(sample)) continue;
         glm::vec3 point(sample);
-        if (GetWorldSpatialIndex()->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldSpatialIndex()->hasLineOfSight(from, point)) return true;
     }
     return false;
 }
@@ -231,8 +231,7 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (GetWorldSpatialIndex()->TraceLineOfSight(&from, &point, true, -3, -3, true, 0) == 0)
-            return true;
+        if (!GetWorldSpatialIndex()->traceSight(from, point)) return true;
     }
     return false;
 }
@@ -242,7 +241,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
     const glm::vec3 from(origin);
     for (const auto& sample : bounds.visibilitySamples()) {
         glm::vec3 point(sample);
-        if (GetWorldSpatialIndex()->HasLineOfSight(&from, &point, true)) return true;
+        if (GetWorldSpatialIndex()->hasLineOfSight(from, point)) return true;
     }
     return false;
 }

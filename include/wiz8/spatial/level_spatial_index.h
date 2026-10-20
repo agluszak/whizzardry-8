@@ -25,6 +25,7 @@
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/mesh_links.h"
+#include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/world/environment_state.h"
@@ -68,7 +69,6 @@ class Trigger;
 class Camera3D;
 class MeshInstance;
 class LevelSpatialIndex;
-struct W8OctreeTrace;
 struct World;
 
 /* One environment record: seventeen dwords mixing counters and factors. */
@@ -126,7 +126,6 @@ class File;
 
 typedef std::unordered_multimap<unsigned int, int> W8OctreeIndex;
 
-class NavigationMesh;
 class CompiledMesh;
 struct CondPathNode;
 struct World;
@@ -146,19 +145,40 @@ struct OctreeScratch {
     std::vector<bool> visited_objects;
 };
 
-struct W8OctreeTrace {
-    glm::vec3 start{0};
-    glm::vec3 end{0};
-    glm::vec3 step{0};
-    float hit_limit = 1.0e20f;
-    float length = 0;
-    unsigned short state = 0;
-    // Surface the last ray test accepted; reset() leaves it for the caller to read.
-    int hit_surface = 0;
+// The collidable props a prop trace tests.
+struct PropTraceFilter {
+    // Skip prop surfaces flagged out of filtered traces.
+    bool skip_filtered = false;
+    // Skip props that are not attached to the level.
+    bool attached_only = false;
+};
 
-    W8OctreeTrace() = default;
-    W8OctreeTrace(const glm::vec3& from, const glm::vec3& to);
-    void reset(const glm::vec3& from, const glm::vec3& to);
+/* Location spheres a sight trace also tests, through traceSphereHit: `source`
+   is skipped (-1 skips none), and `target` selects the probe set and is
+   skipped as well. */
+struct SightLocations {
+    int source;
+    int target;
+    bool noise_adjust = false;
+};
+
+struct SightQuery {
+    // Collidable props block the line as well as level geometry.
+    bool props = true;
+    // Absent when location spheres do not block the line.
+    std::optional<SightLocations> locations;
+};
+
+enum class SightBlocker : unsigned char {
+    // Level geometry or a collidable prop.
+    Obstacle,
+    // A location sphere: a monster or the party.
+    Location,
+};
+
+struct SightHit {
+    glm::vec3 point;
+    SightBlocker blocker;
 };
 
 /* One 0x10-byte entry of the .oct file's submesh table. Field +4 is the index
@@ -357,16 +377,16 @@ public:
     void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
     /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
     int FindPointerByName(std::string_view name);
-    /* Loop the buffered prop ids through TestProp and return the id of the
-       last prop that reported a hit, or -1. */
-    int TestPropSurfaces(std::span<const w8_ulong> ids, W8OctreeTrace* trace, char skip_flag,
-                         char gate) const; /* 0x0041C0D0 */
-    /* Ray-test one collidable prop: traces its surface and vertex arrays in
-       prop-local space through the prop's position delta, reseeding the
-       caller's record to the world-space hit on a hit. `gate` skips props
-       that are not attached. */
-    bool TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag,
-                  char gate) const; /* 0x0041C140 */
+    struct PropTraceHit {
+        glm::vec3 position;
+        int prop_id;
+    };
+    /* Ray-test the listed collidable props in order (0x0041C0D0, 0x0041C140).
+       Each hit shortens the segment, so the last prop that hits is the
+       nearest; its contact is in world space. */
+    std::optional<PropTraceHit> tracePropList(std::span<const w8_ulong> ids,
+                                              const PlaneSegment& segment,
+                                              PropTraceFilter filter) const;
     std::optional<SurfaceRayHit>
     traceGeometry(const PlaneSegment& segment, SurfaceTraceFilter filter,
                   std::span<const unsigned int> surface_ids = {}) const;
@@ -425,14 +445,18 @@ public:
        coordinate words. */
     int DescendByMask(const unsigned int* masked_cell) const; /* 0x004336D0 */
     unsigned int GetSectorForPosition(const glm::vec3* position) const;
-    bool HasLineOfSight(const glm::vec3* from, glm::vec3* to, bool allow_fallback) const;
-    /* Paths `from` toward `to`; on success `range` returns the path cost and
-       `hops` the reached-waypoint count. */
-    unsigned char TestNoiseLineOfSight(const glm::vec3* from, glm::vec3* to, float* range,
-                                       int* hops) const; /* 0x00434220 */
-    short TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trace_world,
-                           int from_location_id, int to_location_id, bool visit_octree,
-                           int trace_mode) const;
+    /* Whether no visible mesh polygon or attached collidable prop blocks the
+       segment. */
+    bool hasLineOfSight(const glm::vec3& from, const glm::vec3& to) const;
+    /* The walkable route a noise travels from `from` to `to` within `budget`
+       when it is positive; no value when none exists. */
+    std::optional<MeasuredPath> measureNoisePath(const glm::vec3& from, const glm::vec3& to,
+                                                 float budget) const; /* 0x00434220 */
+    /* The first thing blocking the segment: the nearer of the first level
+       surface along the walked cells and any collidable prop, else the
+       query's location spheres. No value means the line is clear. */
+    std::optional<SightHit> traceSight(const glm::vec3& from, const glm::vec3& to,
+                                       SightQuery query = {}) const;
     W8OctreeWalk cellWalk(const glm::vec3& from, const glm::vec3& to) const;
     /* Reset the shared buffer and collect one cell's leaf object ids. */
     std::size_t ProbeCellForTrace(const glm::ivec3& cell,
@@ -444,16 +468,13 @@ public:
     void AppendBlockerStream(const w8_ulong* stream, OctreeScratch& scratch) const;
     std::size_t ProbeCellForBlockersAppend(const glm::ivec3& cell,
                                            OctreeScratch& scratch) const; /* 0x00435DA0 */
-    /* Test every buffered (mesh<<16)|polygon key's triangle against the trace
-       ray; on a closer hit, end returns the contact point. */
-    unsigned char TestProbeResult(W8OctreeTrace* trace,
-                                  OctreeScratch& scratch) const; /* 0x00435F00 */
-    struct PropTraceHit {
-        glm::vec3 position;
-        int prop_id;
-    };
+    /* Whether the segment meets any visible (mesh<<16)|polygon key's
+       triangle. */
+    bool meshPolygonsBlock(const PlaneSegment& segment,
+                           std::span<const w8_ulong> keys) const; /* 0x00435F00 */
+    // The nearest collidable prop along the segment's walked cells.
     std::optional<PropTraceHit> traceProps(const glm::vec3& from, const glm::vec3& to,
-                                           int skip_flag, int gate) const;
+                                           PropTraceFilter filter) const;
     struct SphereTraceHit {
         glm::vec3 position;
         int location_id;
@@ -488,6 +509,8 @@ public:
     unsigned char LinkNavigatorTarget(NavigatorMovement* movement, const glm::vec3* target,
                                       float separation);
     void GetPathSurfaceNormal(const glm::vec3* position, glm::vec3* normal);
+    /* Settle a point onto the walkable surface or, when `test_props`, the
+       collidable prop below it, starting `limit` above it. */
     GroundProbe settleToGround(const glm::vec3& position, bool test_props,
                                float limit) const; /* 0x00433820 */
     void RegisterNavigatorCell(int id, const glm::vec3* position);
@@ -625,7 +648,7 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
 
 /* 0x00420BD0: settle a world point onto the octree ground through the
    GameData geometry index. Without an octree, return the original position
-   with a false hit flag. */
+   with no contact. */
 GroundProbe probeGround(const glm::vec3& position);
 
 void ClearLevelMovementState(void); /* 0x0041F0C0 */
@@ -653,7 +676,7 @@ glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no
    world, true for a loaded world without an octree. */
-bool HasCameraLineOfSight(const glm::vec3* position);
+bool hasCameraLineOfSight(const glm::vec3& position);
 void PlacePartyAtPoint(const glm::vec3* point);
 /* 0x00420E20: start/stop the sustained movement footstep loop. */
 void UpdateLevelMovementAudio(void);

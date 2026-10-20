@@ -334,6 +334,6 @@ void ResolveSprungTrap(Trigger* trigger)
         point = *center;
     }
     camera = cameraLocation();
-    GetWorldSpatialIndex()->TraceLineOfSight(&camera, &point, true, -3, -3, true, 0);
+    if (const auto hit = GetWorldSpatialIndex()->traceSight(camera, point)) point = hit->point;
     DischargeTrapSpell(point, g_table2[type + 11], power, count);
 }

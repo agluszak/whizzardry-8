@@ -510,7 +510,7 @@ void ActivateItem(W8WorldItem* item)
         sun_position = glm::vec3(sun->transform.getLocation());
         mesh = static_cast<MeshInstance*>(item->p3D->GetMesh());
         if (mesh != 0) {
-            if (GetWorldSpatialIndex()->HasLineOfSight(&position, &sun_position, true)) {
+            if (GetWorldSpatialIndex()->hasLineOfSight(position, sun_position)) {
                 mesh->light_scale = glm::vec3(1);
             } else {
                 mesh->light_scale = glm::vec3(0);
@@ -654,7 +654,8 @@ std::optional<glm::vec3> FindItemDropPosition()
 
     glm::vec3 camera = cameraLocation();
     direction += camera;
-    GetWorldSpatialIndex()->TraceLineOfSight(&camera, &direction, true, -3, -3, true, 0);
+    if (const auto hit = GetWorldSpatialIndex()->traceSight(camera, direction))
+        direction = hit->point;
 
     glm::vec3 delta = direction - camera;
     delta = glm::dot(delta, delta) == 0
@@ -820,7 +821,6 @@ bool AnyWorldItemVisible(void)
 unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
 {
     glm::vec3 probe;
-    bool hit;
     float ground;
     float previous_y;
     float dt;
@@ -839,15 +839,14 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
 
     const auto ground_probe = GetWorldSpatialIndex()->settleToGround(probe, 1, 250.0f);
     probe = ground_probe.position;
-    hit = ground_probe.hit;
     ground = ground_probe.position.y;
-    if (!hit || fabs(ground - previous_y) < kCameraSnapEpsilon) {
+    if (!ground_probe.contact || fabs(ground - previous_y) < kCameraSnapEpsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
         return 0;
     }
 
-    sector = ground_probe.prop;
+    sector = ground_probe.prop().value_or(-1);
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);
@@ -882,7 +881,6 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
 unsigned char SettleWorldItem(W8WorldItem* item)
 {
     glm::vec3 start;
-    bool hit;
     int sector;
 
     start = glm::vec3(item->position.x, item->position.y + kWorldScale, item->position.z);
@@ -892,12 +890,11 @@ unsigned char SettleWorldItem(W8WorldItem* item)
 
     const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
-    hit = ground_probe.hit;
-    if (!hit) {
+    if (!ground_probe.contact) {
         return 0;
     }
 
-    sector = ground_probe.prop;
+    sector = ground_probe.prop().value_or(-1);
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
             RemoveItemFromSector(item->sector_id, item);

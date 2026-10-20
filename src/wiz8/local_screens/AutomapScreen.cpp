@@ -939,7 +939,7 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
     glm::vec3 to(location.x, g_automap_grid_min.y, location.y);
 
     float ground;
-    if (GetWorldCollision()->TraceLineOfSight(&from, &to, true, -3, -3, true, 0) == 0) {
+    if (!GetWorldCollision()->traceSight(from, to)) {
         ground = g_automap_grid_min.y;
         if (!g_automap_layers.empty() && 1 < static_cast<int>(g_automap_layers.size()) &&
             g_automap_layers[1] != 0) {
@@ -1521,7 +1521,7 @@ void RenderAutomapMarkers(void)
         int layer = FindAutomapLayerAtHeight(location.y);
         if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0 &&
             (detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
-             HasCameraLineOfSight(&location)) &&
+             hasCameraLineOfSight(location)) &&
             layer - 1 == g_automap_layer) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;

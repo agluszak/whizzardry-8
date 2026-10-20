@@ -181,7 +181,7 @@ float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps
     (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
                        position.z + direction.z * advance);
     if (GetWorld()->compiledIndex() != 0) {
-        if (const auto hit = GetWorld()->compiledIndex()->traceProps(position, (*out), 0, 0)) {
+        if (const auto hit = GetWorld()->compiledIndex()->traceProps(position, (*out), {})) {
             *out = hit->position;
             record->limit = 1.0f;
             prop = GetWorld()->collidable_props[hit->prop_id];
@@ -519,8 +519,8 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
-            if (octree->TraceLineOfSight(source, &end, false, -3, -3, true, 0) != 0) {
-                end -= *source;
+            if (const auto hit = octree->traceSight(*source, end, {.props = false})) {
+                end = hit->point - *source;
                 limit = glm::length(end);
                 if (limit < 1.0f) {
                     limit = 1.0f;
