@@ -316,3 +316,6 @@ bool InsideDestinationTrigger(const World& world, float x, float y, float z);
 // Stop callbacks before retiring the primary world; trigger owners survive until teardown.
 
 Trigger* FindTriggerInWorld(World& world, std::string_view name);
+/* Trigger action 0x0b: mark the first placed group of a monster species active and
+   restart its first member's animation and pathing when that member is loaded. */
+void WakeMonsterGroup(int monster_id);
