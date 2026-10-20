@@ -63,7 +63,6 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -200,7 +199,7 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
         Fail("fsAttackModes != 0");
     }
 
-    wanted = Random(W8_ATTACK_MODE_COUNT);
+    wanted = CurrentGame().rng.below(W8_ATTACK_MODE_COUNT);
     while (((attack_modes & 0xffff) & (1 << mode)) == 0 || seen++ < wanted) {
         ++mode;
         if (mode > 8) {
@@ -636,7 +635,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         } else {
             chance = 0x5f;
         }
-        if (Random(100) < static_cast<unsigned int>(chance)) {
+        if (CurrentGame().rng.below(100) < static_cast<unsigned int>(chance)) {
             interposers.push_back(*candidate);
         }
     }
@@ -661,7 +660,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     if (uiSuccessfulCnt <= 0) {
         Fail("uiSuccessfulCnt > 0");
     }
-    W8TargetSource* interposer = &interposers[Random(uiSuccessfulCnt)];
+    W8TargetSource* interposer = &interposers[CurrentGame().rng.below(uiSuccessfulCnt)];
     CurrentGame().combat.state()->attack_message = fmt::sprintf(Data().strings[0x21a], target_name);
     if (interposer->iType == W8_TARGET_SOURCE_CHARACTER) {
         int slot = interposer->iChar;
@@ -677,7 +676,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
                                        .weight /
                                    0x28 +
                                1;
-        FatigueCharacter(slot, Random(fatigue) + 1 + fatigue, true, nullptr);
+        FatigueCharacter(slot, CurrentGame().rng.below(fatigue) + 1 + fatigue, true, nullptr);
     } else if (interposer->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* defender = FindMonster(interposer->iMonsterID);
         PostMonsterNotice(defender, CurrentGame().combat.state()->attack_message);
@@ -685,7 +684,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         target->iType = W8_TARGET_KIND_MONSTER;
         target->iMonsterID = interposer->iMonsterID;
         ++defender->pCombat->interception_count;
-        FatigueMonster(defender, Random(3) + 2, nullptr);
+        FatigueMonster(defender, CurrentGame().rng.below(3) + 2, nullptr);
     }
     CurrentGame().combat.state()->unaware = 0;
     CurrentGame().combat.state()->natural_attack = 0;
@@ -875,7 +874,7 @@ void ResolveSpellMissileHit(Missile* missile)
 static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
 {
     unsigned int total = 0;
-    unsigned int roll = Random(100);
+    unsigned int roll = CurrentGame().rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_MONSTER_HIT_LOCATIONS) {
             DebugMessage(0, fmt::format("ERROR: DBS Hit Locations total only {:d}% for monster {}",
@@ -892,7 +891,7 @@ static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
 static unsigned int RollCharacterHitLocation()
 {
     unsigned int total = 0;
-    unsigned int roll = Random(100);
+    unsigned int roll = CurrentGame().rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_PC_HIT_LOCATIONS) {
             DebugMessage(1, "ERROR: gubLocalACPercent total only %d%%");
@@ -980,7 +979,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     attack_mode = Data().missiles[missile->missile_table_index].attack_mode;
     chance = AttackModeMod(1, attack_mode) + 50 +
              (10 - TargetArmorClassAtLocation(target, attack_mode, hit_location)) * 5;
-    penetration_roll = Random(100) + 1;
+    penetration_roll = CurrentGame().rng.below(100) + 1;
     CombatLog(fmt::format("TO PENETRATE: Chance {:d}, Rolled {:d}", chance, penetration_roll));
     if (penetration_roll <= chance) {
         magnitude = RollEffectMagnitude(&missile->definition);
@@ -1574,12 +1573,12 @@ static W8CombatSlot ChooseCombatFumbleTarget(const std::vector<W8CombatSlot>& ta
     if (count == 0) {
         Fail("uiChoices > 0");
     }
-    return targets[Random(count)];
+    return targets[CurrentGame().rng.below(count)];
 }
 
 static int RollBackstabExtraDice(int chance)
 {
-    unsigned int roll = Random(100);
+    unsigned int roll = CurrentGame().rng.below(100);
     int extra = 0;
     if (roll + 15 < static_cast<unsigned int>(chance)) {
         extra = 1;
@@ -1668,7 +1667,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     range = GetMonsterActionRangeCategory(monster_info, record, attack_index);
     if (range < W8_RANGE_LONG) {
         to_hit = GetMonsterAttackScore(monster_info, attack, action_detail, 0);
-        roll = Random(100) + 1;
+        roll = CurrentGame().rng.below(100) + 1;
         guaranteed_hit = roll <= 5;
         swing_missed = roll > 95;
         std::vector<W8CombatSlot> fumble_list;
@@ -1688,7 +1687,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             guaranteed_hit = true;
             guaranteed_penetration = false;
             swing_missed = false;
-            roll = Random(100) + 1;
+            roll = CurrentGame().rng.below(100) + 1;
             CurrentGame().combat.state()->unaware = 0;
             CurrentGame().combat.state()->natural_attack = 0;
         } else {
@@ -1708,7 +1707,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             swing_missed = false;
             guaranteed_hit = true;
             guaranteed_penetration = false;
-            roll = Random(100) + 1;
+            roll = CurrentGame().rng.below(100) + 1;
         } else if (CurrentGame().combat.state()->missile_hit_result == W8_MISSILE_HIT_DEFLECTED) {
             swing_missed = false;
             deflected = true;
@@ -1744,7 +1743,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
         PointCameraAtCombatTarget(&source, &CurrentGame().combat.state()->TargetHit);
         if (CurrentGame().combat.state()->TargetHit.iType == W8_TARGET_KIND_CHARACTER) {
             unsigned int total = 0;
-            unsigned int location_roll = Random(100);
+            unsigned int location_roll = CurrentGame().rng.below(100);
             for (hit_location = 0;; ++hit_location) {
                 if (hit_location >= W8_PC_HIT_LOCATIONS) {
                     if (monster_info == nullptr) {
@@ -1790,14 +1789,14 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                 }
                 if (!TryPanicWoundedCharacter(&CurrentGame().combat.state()->TargetHit) &&
                     CurrentGame().combat.state()->TargetHit.iType == W8_TARGET_KIND_CHARACTER &&
-                    Random(100) < 0x32) {
+                    CurrentGame().rng.below(100) < 0x32) {
                     event_ids[0] = g_special_event19;
                     event_ids[1] = g_special_event15;
                     event_ids[2] = g_special_event20;
                     QueueCharacterEvent(
                         &CurrentGame()
                              .party.characters[CurrentGame().combat.state()->TargetHit.iChar],
-                        event_ids[Random(3)], 0, kCharacterEventFullVolume);
+                        event_ids[CurrentGame().rng.below(3)], 0, kCharacterEventFullVolume);
                 }
                 if (CurrentGame().combat.state()->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
                     target_info->p3D->IsFacingMonster(monster_info->p3D) != 0 &&
@@ -2008,7 +2007,7 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
             return false;
         }
     }
-    combat->uiSwingsRemaining = Random(record->swings_per_round) + 1;
+    combat->uiSwingsRemaining = CurrentGame().rng.below(record->swings_per_round) + 1;
     AnnounceMonsterAttack(monster_info, record, 0);
     StartMonsterAttackCycle(monster_info, action_detail);
     return true;
@@ -2060,7 +2059,7 @@ bool CharacterNoticesAttacker(int party_slot)
     int senses =
         CurrentGame().party.characters[party_slot].attributes[W8_ATTRIBUTE_SENSES].effective -
         row->spot_attempts * 0x19;
-    noticed = Random(100) < static_cast<unsigned int>(senses);
+    noticed = CurrentGame().rng.below(100) < static_cast<unsigned int>(senses);
     ++row->spot_attempts;
     return noticed;
 }
@@ -2185,9 +2184,10 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
                 if (attempts == 0) {
                     notices = true;
                 } else {
-                    notices = Random(100) < static_cast<unsigned int>(
-                                                second->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
-                                                attempts * -0x19);
+                    notices =
+                        CurrentGame().rng.below(100) <
+                        static_cast<unsigned int>(second->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
+                                                  attempts * -0x19);
                 }
                 ++second_combat->spot_attempts;
                 if (notices) {
@@ -2465,7 +2465,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
                 rolled >= (1.0f - dice.count * g_facing_tolerance0) * dice.Maximum() * dice_count)
                    ? 1
                    : 0;
-    if (dice_count > 1 && Random(100) < dice_count * 20 - 20) {
+    if (dice_count > 1 && CurrentGame().rng.below(100) < dice_count * 20 - 20) {
         QueueCharacterEvent(pPC, g_learn_sound, 0, kCharacterEventFullVolume);
     }
 
@@ -2718,7 +2718,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
             break;
         }
         if (definition->condition_chances[i] != 0) {
-            if (Random(100) < definition->condition_chances[i]) {
+            if (CurrentGame().rng.below(100) < definition->condition_chances[i]) {
                 count_base = definition->power_level / 3 + 1;
                 magnitude = RollEffectDuration(definition);
                 if (magnitude < 2) {
@@ -2771,7 +2771,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                     if (!resisted) {
                         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
                             ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x17f]);
-                            if (Random(100) < 0x32) {
+                            if (CurrentGame().rng.below(100) < 0x32) {
                                 QueueCharacterEvent(&CurrentGame().party.characters[source->iChar],
                                                     g_learn_sound, 0, kCharacterEventFullVolume);
                             } else if (CurrentLevelPopulation()
@@ -3104,7 +3104,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
 void QueueFumbleReaction(int party_slot)
 {
     int slot;
-    if (Random(2) != 0) {
+    if (CurrentGame().rng.below(2) != 0) {
         QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 16, 0,
                             kCharacterEventFullVolume);
         return;
@@ -3333,7 +3333,7 @@ void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, 
     float sx = py * dz - pz * dy;
     float sy = pz * dx - dz * px;
     float sz = px * dy - py * dx;
-    double angle = static_cast<double>(Random(0x168));
+    double angle = static_cast<double>(CurrentGame().rng.below(0x168));
     float radians = static_cast<float>(3.141592653589793 * kCameraViewFactor0 * angle);
     float mag = sx * sx + sz * sz + sy * sy;
     if (mag != 0.0f) {
@@ -3382,7 +3382,7 @@ void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, 
         magnitude =
             raw_radius + (probability - factor) * (300.0 - effective) * (1.0 / 300.0) * distance;
     }
-    int roll = Random(100) + 1;
+    int roll = CurrentGame().rng.below(100) + 1;
     int cap = effective;
     if (cap >= 0x60) {
         cap = 0x5f;
@@ -3496,7 +3496,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         row->current_equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
         row->paired_equip_slot = W8_EQUIP_SLOT_NONE;
     }
-    row->uiSwingsRemaining = Random(character->Hand[hand].swings) + 1;
+    row->uiSwingsRemaining = CurrentGame().rng.below(character->Hand[hand].swings) + 1;
     range = GetCharAttackRange(character, hand);
     if (CharacterHasTrait(character, W8_TRAIT_BACKSTAB) && range <= W8_RANGE_TOUCH &&
         (character->Hand[hand].weapon_skill == W8_SKILL_SWORD ||
@@ -3511,7 +3511,9 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         if (character->Hand[0].weapon_skill == W8_SKILL_SWORD &&
             character->uiCondition[W8_CONDITION_SLOWED] == 0) {
             PostCharacterNotice(party_slot, Data().strings[0x203]);
-            if (Random(0xb) + character->profession_levels[character->iProfession] < 0x14) {
+            if (CurrentGame().rng.below(0xb) +
+                    character->profession_levels[character->iProfession] <
+                0x14) {
                 row->uiSwingsRemaining += 3;
             } else {
                 row->uiSwingsRemaining += 4;
@@ -3567,10 +3569,10 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
                 if (monster_info->pCombat->spot_attempts == 0) {
                     noticed = true;
                 } else {
-                    noticed =
-                        Random(100) < static_cast<unsigned int>(
-                                          monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] -
-                                          monster_info->pCombat->spot_attempts * 25);
+                    noticed = CurrentGame().rng.below(100) <
+                              static_cast<unsigned int>(
+                                  monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] -
+                                  monster_info->pCombat->spot_attempts * 25);
                 }
                 monster_info->pCombat->spot_attempts++;
                 if (noticed) {
@@ -3632,7 +3634,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         event_ids[0] = g_event_range_min;
         event_ids[1] = g_special_event18;
         event_ids[2] = g_event_range_max;
-        QueueCharacterEvent(character, event_ids[Random(3)], 0, kCharacterEventFullVolume);
+        QueueCharacterEvent(character, event_ids[CurrentGame().rng.below(3)], 0,
+                            kCharacterEventFullVolume);
     }
     return true;
 }
@@ -3707,7 +3710,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
         }
         if (range < W8_RANGE_LONG) {
             to_hit = GetTargetAttackAttributes(party_slot, hand, attack_mode, 0);
-            roll = Random(100) + 1;
+            roll = CurrentGame().rng.below(100) + 1;
             guaranteed_hit = roll <= 5;
             swing_missed = roll > 95;
             std::vector<W8CombatSlot> fumble_list;
@@ -3735,7 +3738,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 guaranteed_hit = true;
                 guaranteed_penetration = false;
                 swing_missed = false;
-                roll = Random(100) + 1;
+                roll = CurrentGame().rng.below(100) + 1;
                 CurrentGame().combat.state()->unaware = 0;
                 CurrentGame().combat.state()->natural_attack = 0;
 
@@ -3755,7 +3758,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                         .unidentified_name_index != 0xd) {
                 guaranteed_penetration = true;
             }
-            roll = Random(100) + 1;
+            roll = CurrentGame().rng.below(100) + 1;
         } else {
             if (CurrentGame().combat.state()->missile_hit_result == W8_MISSILE_HIT_DEFLECTED) {
                 swing_missed = false;
@@ -3822,11 +3825,11 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     }
                     if (character->hp_current / static_cast<float>(character->uiHPMax) <
                         kNavigatorMode3Scale) {
-                        if (Random(100) < 0x1e) {
+                        if (CurrentGame().rng.below(100) < 0x1e) {
                             QueueCharacterEvent(character, g_special_event13, 0,
                                                 kCharacterEventFullVolume);
                         }
-                    } else if (Random(100) < 0x19) {
+                    } else if (CurrentGame().rng.below(100) < 0x19) {
                         QueueCharacterEvent(character, g_special_event13, 0,
                                             kCharacterEventFullVolume);
                     }
@@ -3883,7 +3886,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
                             applied =
                                 ApplyDamageToMonster(monster_info, damage, &source, false, verbose,
                                                      verbose, verbose ? nullptr : report, false);
-                            if (monster_info->hp_current == 0 && hit_flag != 0 && Random(2) == 0 &&
+                            if (monster_info->hp_current == 0 && hit_flag != 0 &&
+                                CurrentGame().rng.below(2) == 0 &&
                                 CurrentLevelPopulation().monster_roster.hostileCombatCount() > 1) {
                                 W8CharacterEvent* event = QueueCharacterEvent(
                                     character, 56, 0, kCharacterEventFullVolume);
@@ -3970,7 +3974,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                 if (skill_level != 0) {
                                     char bonus = static_cast<char>(skill_level / 0x19);
                                     if (skill_level % 0x19 != 0 &&
-                                        Random(0x19) < skill_level % 0x19) {
+                                        CurrentGame().rng.below(0x19) < skill_level % 0x19) {
                                         ++bonus;
                                     }
                                     effect.condition_chances[W8_ATTACK_EFFECT_KILL] += bonus;

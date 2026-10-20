@@ -70,7 +70,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/notices.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
@@ -209,7 +208,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
                 Fail("MonsterQuery(pMonsterInfo->p3D, QUERY_NUM_FRAMES) != -1");
             }
             monster_info->p3D->visual.SetSubCycle(
-                Random(monster_info->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT)));
+                CurrentGame().rng.below(monster_info->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT)));
             monster_info->p3D->SetAnimating(!monster_info->fMotionless);
         }
 
@@ -835,7 +834,7 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
         ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
             (maximum_hp - minimum_hp) +
         minimum;
-    float result = (maximum - minimum) * (Random(1000) * 0.0004f - 0.2f) + scale;
+    float result = (maximum - minimum) * (CurrentGame().rng.below(1000) * 0.0004f - 0.2f) + scale;
 
     if (result < minimum) {
         return minimum;
@@ -869,7 +868,7 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
                 unsigned int chance = group->MemberCount() * 20;
 
-                if (!CurrentGame().activity.conversation && Random(chance) == 0) {
+                if (!CurrentGame().activity.conversation && CurrentGame().rng.below(chance) == 0) {
                     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPICE, W8_ANIMATION_PLAY_ONCE);
                 }
             }
@@ -1464,7 +1463,7 @@ void DetectMonsterGroups(void)
                         3 +
                     character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective / 10 +
                     character->skills[W8_SKILL_MYTHOLOGY].level;
-                int roll = Random(100);
+                int roll = CurrentGame().rng.below(100);
                 if (roll >= score) {
                     continue;
                 }

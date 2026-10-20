@@ -24,7 +24,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/rules/character.h"
@@ -124,7 +123,7 @@ void ResetGameplaySlot(unsigned int slot)
     record->portrait.frame_clock = MonotonicMilliseconds() + (0);
     record->portrait.voice_remaining_ms = 0;
     record->portrait.pose_clock = MonotonicMilliseconds() + (0);
-    record->portrait.idle_clock = MonotonicMilliseconds() + (Random(5000) + 5000);
+    record->portrait.idle_clock = MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);
     record->portrait_fx_clock = MonotonicMilliseconds() + (0);
     record->damage_splat_active = false;
     record->damage_splat_death_variant = false;

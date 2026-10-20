@@ -16,7 +16,6 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party_slot.h"
@@ -35,7 +34,7 @@ int RollDice(const W8Dice* dice)
     int result = dice->base;
 
     for (roll = 0; roll < dice->count; ++roll) {
-        result += Random(dice->sides) + 1;
+        result += CurrentGame().rng.below(dice->sides) + 1;
     }
     return result;
 }
@@ -229,7 +228,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
                 claimed[index] = 0;
             }
             while (returned < count && found != 0) {
-                unsigned int pick = Random(found);
+                unsigned int pick = CurrentGame().rng.below(found);
                 while (pick < 8 && claimed[pick] != 0) {
                     ++pick;
                 }
@@ -258,7 +257,7 @@ int GetRandomCharacter(int require_primary, int require_secondary, int excluded_
     W8Character* character;
 
 retry:
-    skip = Random(8);
+    skip = CurrentGame().rng.below(8);
     scanned = 0;
     slot = 0;
     do {

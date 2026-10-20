@@ -17,6 +17,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/story.h"
 
 struct World;
@@ -66,6 +67,10 @@ public:
 
     W8Party party{};
     GameStatus status{};
+    /* Every gameplay draw, party creation's included. A game continues the stream of the
+       game it replaces or that ended before it, so a session draws one sequence from one
+       seed, as retail did; loot and NPC theft reseed it from saved values. */
+    Rng rng;
     Story story;
     W8MessageLog message_log;
     W8CombatLifecycle combat;
@@ -129,9 +134,12 @@ bool GameInProgress();
 // A game is in progress and the party has left party creation.
 bool GameStarted();
 /* Begin a new game, ending any in progress. The new game's events go to the observer
-   the UI installed. */
+   the UI installed, and it continues the previous game's random stream. */
 Game& BeginGame();
 void EndGame();
+/* Seeds the random stream of the game in progress, or of the next game when none is.
+   The session's stream starts from the clock. */
+void SeedGameRandom(std::uint32_t seed);
 /* The composition root's presenter for every game's events; a game begun before one is
    installed keeps its events pending. */
 void SetGameEventObserver(std::function<void(const Event&)> observer);

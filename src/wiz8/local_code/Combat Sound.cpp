@@ -44,7 +44,8 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     wiz8::sound::Playback handle;
 
     if (sound_name.empty()) return;
-    const auto variant = variant_count > 1 ? fmt::format("{}", Random(variant_count) + 1) : "";
+    const auto variant =
+        variant_count > 1 ? fmt::format("{}", PresentationRng().below(variant_count) + 1) : "";
     zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}{}.wav", sound_name, variant);
     if (![&]() {
             const auto status = wiz8::file_status(wiz8::asset_path(zSoundFileName));

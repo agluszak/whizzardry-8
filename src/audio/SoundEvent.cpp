@@ -69,8 +69,8 @@ void UpdateSoundEvents(std::span<W8SoundEvent> events, const glm::vec3& position
         if (candidates.empty()) continue;
         int selected;
         do {
-            selected =
-                static_cast<int>(Random(wiz8::checked_integer<std::uint32_t>(candidates.size())));
+            selected = static_cast<int>(
+                PresentationRng().below(wiz8::checked_integer<std::uint32_t>(candidates.size())));
         } while (candidates.size() > 1 && selected == g_last_sound_event);
         if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
     }
@@ -84,7 +84,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
     Monster* monster = 0;
     bool track_sound = false;
 
-    if (IsSoundEffectsMuted() || !Chance(probability)) {
+    if (IsSoundEffectsMuted() || !PresentationRng().chance(probability)) {
         return false;
     }
     float angle = -GetCameraYawRadians();
@@ -108,7 +108,8 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
             }
         } else {
             base_volume =
-                static_cast<unsigned int>(Random(volume_max - volume_min + 1)) + volume_min;
+                static_cast<unsigned int>(PresentationRng().below(volume_max - volume_min + 1)) +
+                volume_min;
         }
 
         glm::mat3 rotation;
@@ -127,7 +128,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
                 int variant;
                 int attempts = 0;
                 do {
-                    variant = static_cast<int>(Random(4)) + 1;
+                    variant = static_cast<int>(PresentationRng().below(4)) + 1;
                     ++attempts;
                     if (variant != g_previous_footstep_variant) {
                         break;

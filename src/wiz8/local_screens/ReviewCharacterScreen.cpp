@@ -1403,7 +1403,8 @@ void W8CampSpellsPage::CreateControls(UiLayer& scroll_input)
     }
     animation_timer = MonotonicMilliseconds() + (50);
     for (unsigned int animation = 0; animation < 6; ++animation) {
-        animation_frames[animation] = Random(g_spell_realm_animations[animation].frame_count);
+        animation_frames[animation] =
+            PresentationRng().below(g_spell_realm_animations[animation].frame_count);
     }
 }
 

@@ -2,13 +2,10 @@
    Distributed under the accompanying SFI Source Code license agreement. */
 #pragma once
 
-#include <cstdint>
+#include "wiz8/rules/random.h"
 
-void InitializeRandom();
-// MSVC-compatible 32-bit state and 15-bit output, shared by all game randomness.
-void SeedRandom(std::uint32_t seed);
-std::uint32_t Random15();
-// Returns [0, range); an empty range returns zero without consuming a draw.
-std::uint32_t Random(std::uint32_t range);
-// Still consumes a draw when chance >= 100, preserving the shared sequence.
-bool Chance(std::uint32_t chance);
+/* The presentation's random stream: sound variants and volumes, music, particles,
+   animated textures and lights, prop animation, camera shake and portrait flourishes.
+   It is seeded from the clock and never shared with a game (`Game::rng`), so what is
+   drawn or played, and how often, cannot change a game's draws. */
+Rng& PresentationRng();

@@ -219,15 +219,16 @@ void Texture::UpdateFrame()
     }
 
     if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
-        if (Random15() / static_cast<float>(0x7fff) < state.probability) {
-            state.frame = std::min(
-                count - 1, static_cast<int>(Random15() / static_cast<float>(0x7fff) * count));
+        if (PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
+            state.frame = std::min(count - 1, static_cast<int>(PresentationRng().next() /
+                                                               static_cast<float>(0x7fff) * count));
         }
         return;
     }
 
     if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_START) {
-        if (!state.running && Random15() / static_cast<float>(0x7fff) < state.probability) {
+        if (!state.running &&
+            PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
             state.running = true;
             state.direction = 0;
             state.frame = 0;

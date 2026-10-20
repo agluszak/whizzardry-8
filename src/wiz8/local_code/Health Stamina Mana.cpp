@@ -48,7 +48,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -148,7 +147,8 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     }
 
     if (character->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
-        Random(100) < (character->attributes[W8_ATTRIBUTE_SENSES].effective >> 1) + 0x32) {
+        CurrentGame().rng.below(100) <
+            (character->attributes[W8_ATTRIBUTE_SENSES].effective >> 1) + 0x32) {
         RemoveCharacterCondition(party_slot, W8_CONDITION_ASLEEP, true);
     }
     return amount;
@@ -425,21 +425,21 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
     switch (monster_info->action_kind) {
     case W8_MONSTER_ACTION_ADVANCE:
     case W8_MONSTER_ACTION_BACK_OFF:
-        cost = Random(5) + 5;
+        cost = CurrentGame().rng.below(5) + 5;
         break;
     case W8_MONSTER_ACTION_APPROACH:
     case W8_MONSTER_ACTION_RETURN_TO_START:
-        cost = Random(3) + 3;
+        cost = CurrentGame().rng.below(3) + 3;
         break;
     case W8_MONSTER_ACTION_WAIT:
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
-        cost = Random(2) + 1;
+        cost = CurrentGame().rng.below(2) + 1;
         break;
     case W8_MONSTER_ACTION_ATTACK:
         if (monster_info->action_detail == 3) {
-            cost = Random(8) + 5;
+            cost = CurrentGame().rng.below(8) + 5;
         } else {
-            cost = Random(3) + 2;
+            cost = CurrentGame().rng.below(3) + 2;
         }
         break;
     case W8_MONSTER_ACTION_NONE:
@@ -618,7 +618,7 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
     }
 
     for (attempts = 0x32; remaining != 0 && attempts != 0; --attempts) {
-        realm = static_cast<W8SpellRealm>(Random(W8_SPELL_REALM_COUNT));
+        realm = static_cast<W8SpellRealm>(CurrentGame().rng.below(W8_SPELL_REALM_COUNT));
         if (character->iSPLeft[realm] > 0) {
             taken = remaining;
             if (static_cast<unsigned int>(character->iSPLeft[realm]) <= remaining) {
@@ -813,8 +813,9 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
 
     if (monster_info->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
-        Random(100) < static_cast<unsigned int>(
-                          (monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] >> 1) + 0x32)) {
+        CurrentGame().rng.below(100) <
+            static_cast<unsigned int>((monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] >> 1) +
+                                      0x32)) {
         ClearMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP);
     }
     if (monster_info->control_state == W8_MONSTER_CONTROL_LURED) {
@@ -949,19 +950,19 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
         attack_mode = static_cast<W8AttackMode>(
             CurrentGame().party.rows[party_slot].executing.attack_mode[combat_row.current_hand]);
         if (attack_mode == W8_ATTACK_MODE_PUNCH) {
-            cost = Random(3) + 2;
+            cost = CurrentGame().rng.below(3) + 2;
         } else if (attack_mode == W8_ATTACK_MODE_KICK) {
-            cost = Random(3) + 3;
+            cost = CurrentGame().rng.below(3) + 3;
         } else {
             item_id = CurrentGame()
                           .party.characters[party_slot]
                           .EquippedItem[combat_row.current_equip_slot]
                           .iItemNo;
             if (item_id == -1) {
-                cost = Random(4) + 3;
+                cost = CurrentGame().rng.below(4) + 3;
             } else {
                 weight_bands = Data().items[item_id].weight / 0x28 + 1;
-                cost = Random(weight_bands) + 1 + weight_bands;
+                cost = CurrentGame().rng.below(weight_bands) + 1 + weight_bands;
             }
         }
         if (action_kind == W8_ACTION_BERSERK) {
@@ -983,10 +984,10 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
         }
         break;
     case W8_ACTION_USE_ITEM:
-        cost = Random(2) + 1;
+        cost = CurrentGame().rng.below(2) + 1;
         break;
     case W8_ACTION_EQUIP:
-        cost = Random(4) + 3;
+        cost = CurrentGame().rng.below(4) + 3;
         break;
     default:
         cost = 0;

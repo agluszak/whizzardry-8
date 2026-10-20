@@ -43,7 +43,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -507,11 +506,12 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 }
             }
         } else if (monster_info->pause_time != 0) {
-            if (Random(0x14) == 0) {
+            if (CurrentGame().rng.below(0x14) == 0) {
                 double angle;
 
                 mode = W8_RT_AI_FACE_DIRECTION;
-                angle = (Random(0x168) << 1) * g_camera_pi * kInverseFullTurnDegrees;
+                angle =
+                    (CurrentGame().rng.below(0x168) << 1) * g_camera_pi * kInverseFullTurnDegrees;
                 monster->move_direction.x = static_cast<float>(cos(angle) * 500.0);
                 monster->move_direction.y = 0.0f;
                 monster->move_direction.z = static_cast<float>(sin(angle) * 500.0);
@@ -567,11 +567,12 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 } else if ((monster_info->ai_mode & W8_MONSTER_AI_MODE_MASK) ==
                            W8_RT_AI_MOVE_TO_PATROL_POINT) {
                     do {
-                        next = static_cast<signed char>(Random(count));
+                        next = static_cast<signed char>(CurrentGame().rng.below(count));
                     } while (next == monster->patrol_index);
                     monster->patrol_index = static_cast<signed char>(next);
                 } else {
-                    monster->patrol_index = static_cast<signed char>(Random(count));
+                    monster->patrol_index =
+                        static_cast<signed char>(CurrentGame().rng.below(count));
                 }
                 changed = true;
                 break;
@@ -793,7 +794,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
         return;
     }
     chance = MonsterAdvanceChance(monster_info, record);
-    if (Random(100) < chance) {
+    if (CurrentGame().rng.below(100) < chance) {
         monster_info->action_kind = W8_MONSTER_ACTION_ADVANCE;
         goto validate;
     }
@@ -824,7 +825,8 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
             if (rating != 0) {
                 chance = 100;
             }
-            if (CanMonsterFlee(monster_info, record, false) && Random(100) < chance) {
+            if (CanMonsterFlee(monster_info, record, false) &&
+                CurrentGame().rng.below(100) < chance) {
                 monster_info->action_kind = W8_MONSTER_ACTION_SPECIAL_ATTACK;
                 if (g_special_attack_table[record->special_attack_kind][0] ==
                     W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
@@ -853,7 +855,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                 } else {
                     for (spell = 0; spell < 10; ++spell) {
                         if (IsSpellUsableByMonster(monster_info, record->spells[spell], true)) {
-                            if (Random(100) < chance) {
+                            if (CurrentGame().rng.below(100) < chance) {
                                 monster_info->action_kind = W8_MONSTER_ACTION_SPELL;
                                 monster_info->action_detail =
                                     ChooseMonsterSpell(monster_info, record);
@@ -1054,7 +1056,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
     actions.clear();
     if (!target_locked && !attack_locked) {
         if (CanMonsterProtect(monster_info) &&
-            Random(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
+            CurrentGame().rng.below(100) <
+                monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                  ++index) {
@@ -1083,7 +1086,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
             }
         }
         if (record->combat_morale == 2 && record->combat_behavior != 3 &&
-            Random(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
+            CurrentGame().rng.below(100) <
+                monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             QueueMonsterAction(monster_info, W8_MONSTER_ACTION_WAIT, -1, 0, W8_TARGET_KIND_NONE, 0);
         }
     }
@@ -1128,7 +1132,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         }
     }
     for (index = char_lo; index < char_hi; ++index) {
-        if (Random(100) <
+        if (CurrentGame().rng.below(100) <
             CurrentGame().party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
             avoided[index] = 1;
         }
@@ -1180,7 +1184,7 @@ targets_chosen:
     }
     if (scan_chars) {
         for (index = char_lo; index < char_hi; ++index) {
-            if (resisted[index] != 0 && Random(2) == 0) {
+            if (resisted[index] != 0 && CurrentGame().rng.below(2) == 0) {
                 PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[index],
                                        W8_SKILL_STEALTH, 1, false);
             }
@@ -1209,7 +1213,7 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
     } else if (target_kind == W8_TARGET_KIND_MONSTER) {
         entry.target.iMonsterID = target_value;
     }
-    entry.tie_break = static_cast<unsigned char>(Random(100)) + 1;
+    entry.tie_break = static_cast<unsigned char>(CurrentGame().rng.below(100)) + 1;
 }
 
 /* Build the monster's list of possible actions and take one of them at
@@ -1227,7 +1231,8 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
     if (actions.empty()) {
         return false;
     }
-    const auto& entry = actions[Random(wiz8::checked_integer<std::uint32_t>(actions.size()))];
+    const auto& entry =
+        actions[CurrentGame().rng.below(wiz8::checked_integer<std::uint32_t>(actions.size()))];
     monster_info->action_kind = entry.action_kind;
     switch (entry.action_kind) {
     case W8_MONSTER_ACTION_ATTACK:
@@ -1292,7 +1297,7 @@ bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
     if (targets.empty()) {
         return false;
     }
-    monster_info->Target = targets[Random(static_cast<int>(targets.size()))];
+    monster_info->Target = targets[CurrentGame().rng.below(static_cast<int>(targets.size()))];
     return true;
 }
 
@@ -1781,7 +1786,7 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* recor
     if (count == 0) {
         Fail("uiCastableSpellCnt > 0");
     }
-    roll = Random(total);
+    roll = CurrentGame().rng.below(total);
     index = 0;
     while (index < count && roll >= weights[index]) {
         roll -= weights[index];

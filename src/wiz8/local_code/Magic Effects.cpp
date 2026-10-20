@@ -63,7 +63,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
@@ -276,7 +275,7 @@ static unsigned int RollEffectDuration(int per_power, int scale, int base, unsig
 
     if (duration != W8_CONDITION_INDEFINITE) {
         ++duration;
-        switch (Random(4)) {
+        switch (CurrentGame().rng.below(4)) {
         case 0:
             if (duration > 1) {
                 ++duration;
@@ -336,7 +335,7 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
     score = (monster->effective_level - power) * 3 + monster_info->modifiers.resistance_bonus[4] +
             monster->resistances[4];
     score = std::clamp(score, 5, 0x5f);
-    return static_cast<int>(Random(100)) < score;
+    return static_cast<int>(CurrentGame().rng.below(100)) < score;
 }
 
 /* Empty one effect slot, dropping its visual first if it was running. The
@@ -440,7 +439,7 @@ void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, 
     if (chance > 0) {
         ++chance;
         half = chance / 2;
-        percent = Random(chance - half) + half + Random(half);
+        percent = CurrentGame().rng.below(chance - half) + half + CurrentGame().rng.below(half);
         if (percent > 100) {
             percent = 100;
         }
@@ -492,7 +491,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
         ScaleValueForCharacterDifficulty(target->iChar, &chance);
     }
     chance = std::clamp(chance, 5, 95);
-    if (static_cast<int>(Random(100)) < chance) {
+    if (static_cast<int>(CurrentGame().rng.below(100)) < chance) {
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             character = &CurrentGame().party.characters[target->iChar];
             if (character->skills[W8_SKILL_IRON_WILL].active) {
@@ -741,7 +740,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     if (g_camera_sway_active) {
         weights[0] = 0;
     }
-    roll = Random(weights[0] + weights[1] + weights[2] + weights[3]);
+    roll = CurrentGame().rng.below(weights[0] + weights[1] + weights[2] + weights[3]);
     tier = 0;
     for (index = 0; index < 4; ++index) {
         if (roll < weights[index]) {
@@ -791,7 +790,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     } else if (source_monster != nullptr) {
         source_monster->elemental_summon = summon->location_id;
     }
-    if (effect->definition.percent != 0 && Random(100) < effect->definition.percent) {
+    if (effect->definition.percent != 0 &&
+        CurrentGame().rng.below(100) < effect->definition.percent) {
         attack_block = {};
         attack_block.duration_scale = effect->definition.duration_scale;
         switch (tier) {
@@ -1056,7 +1056,7 @@ void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
     if (effect->target.iType != W8_TARGET_KIND_CHARACTER) {
         Fail("(pQueue->Target.iType == TARGET_TYPE_CHAR)");
     }
-    roll = Random(100);
+    roll = CurrentGame().rng.below(100);
     if (roll < 0x28) {
         InflictConditionAttack(effect, W8_CONDITION_NAUSEATED, 100, 0);
         return;
@@ -1520,7 +1520,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                 } else {
                     chance = effect->definition.duration_scale * 0xf;
                 }
-                if (Random(100) < chance) {
+                if (CurrentGame().rng.below(100) < chance) {
                     RemoveCharacterCondition(character_index, condition, true);
                     effect->applied = true;
                     effect->reported = true;
@@ -1544,7 +1544,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                             npc_state->spawned = 0;
                         }
                     }
-                    if (Random(100) < 0x32) {
+                    if (CurrentGame().rng.below(100) < 0x32) {
                         QueueCharacterEvent(character, g_special_event14, 0,
                                             kCharacterEventFullVolume);
                     }
@@ -1582,7 +1582,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                 } else {
                     chance = effect->definition.duration_scale * 0xf;
                 }
-                if (Random(100) < chance) {
+                if (CurrentGame().rng.below(100) < chance) {
                     ClearMonsterCondition(monster_info->location_id, condition);
                     effect->applied = true;
                 } else {
@@ -1697,7 +1697,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     verbose = g_settings.verbose_combat_messages != 0;
     affected = 0;
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
+        if (CurrentGame().rng.below(100) >= static_cast<unsigned int>(chance)) {
             continue;
         }
         duration = RollEffectDuration(&effect->definition);
@@ -1713,7 +1713,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) {
+        if (CurrentGame().rng.below(100) >= static_cast<unsigned int>(chance)) {
             continue;
         }
         duration = RollEffectDuration(&effect->definition);
@@ -1818,7 +1818,7 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
     const std::size_t total = character_count + effect->monster_ids.size();
 
     for (std::size_t index = 0; index < total; ++index) {
-        if (Random(100) >= static_cast<unsigned int>(chance)) continue;
+        if (CurrentGame().rng.below(100) >= static_cast<unsigned int>(chance)) continue;
 
         const unsigned int duration = RollEffectDuration(&effect->definition);
         if (index < character_count) {
@@ -1998,7 +1998,7 @@ static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot*
                                        W8SpellRealm realm, int power_level, unsigned int duration,
                                        bool verbose, W8MonsterInfo* monster_info)
 {
-    const unsigned int roll = Random(100);
+    const unsigned int roll = CurrentGame().rng.below(100);
     if (roll < 0x32) {
         ResolveAfflictionCondition(effect, target, realm, power_level, duration, verbose, roll);
         return;
@@ -2142,7 +2142,7 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
           Data().items[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD))) {
         destroyed = 0;
         for (unit = 0; unit < item->stack_count; ++unit) {
-            if (Random(100) < chance) {
+            if (CurrentGame().rng.below(100) < chance) {
                 ++destroyed;
             }
         }
@@ -2362,9 +2362,10 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     monster_info = FindMonster(target->iMonsterID);
     if (effect->Source.fBackfire) {
         monster = GetMonsterDataForInfo(monster_info);
-        if (Random(100) < (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
-                           monster->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) /
-                              2) {
+        if (CurrentGame().rng.below(100) <
+            (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
+             monster->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) /
+                2) {
             g_npc_dialogue.QueueQuote(0x16, false, false, false);
         }
         return;
@@ -2422,9 +2423,10 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
         QueueDialogueNpcRefusal();
     } else {
         monster = GetMonsterDataForInfo(monster_info);
-        if (Random(100) < (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
-                           monster->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) /
-                              2) {
+        if (CurrentGame().rng.below(100) <
+            (monster->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES] +
+             monster->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) /
+                2) {
             g_npc_dialogue.QueueQuote(0x16, false, false, false);
             return;
         }
@@ -2452,7 +2454,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
     duration = effect->definition.duration_scale;
     if (duration != W8_CONDITION_INDEFINITE) {
         ++duration;
-        switch (Random(4)) {
+        switch (CurrentGame().rng.below(4)) {
         case 0:
             if (duration > 1) {
                 ++duration;
@@ -2994,7 +2996,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             applied &= TryCureConditionOnTargets(effect, W8_CONDITION_ASLEEP, false);
             applied &= TryCureConditionOnTargets(effect, W8_CONDITION_BLIND, false);
         } else {
-            switch (Random(5)) {
+            switch (CurrentGame().rng.below(5)) {
             case W8_SPELL_NONE:
                 InflictConditionAttack(effect, W8_CONDITION_IRRITATED, 100, 0);
                 break;
@@ -3114,9 +3116,9 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             applied &= TryCureConditionOnTargets(effect, W8_CONDITION_POISONED, false);
         } else {
             int turns = GetTargetConditionTurns(effect, W8_CONDITION_POISONED, &condition);
-            unsigned int roll = Random(effect->definition.duration_scale);
+            unsigned int roll = CurrentGame().rng.below(effect->definition.duration_scale);
             effect->definition.duration_base = roll + 1 + turns;
-            roll = Random(effect->definition.duration_scale / 3);
+            roll = CurrentGame().rng.below(effect->definition.duration_scale / 3);
             InflictConditionAttack(effect, W8_CONDITION_POISONED, 100, roll + 1 + condition);
         }
         break;

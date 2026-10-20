@@ -88,7 +88,6 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -3138,7 +3137,7 @@ void HandleNpcDialogueInput(void)
         echo = true;
     }
     if (!echo && show_fallback) {
-        const auto roll = Random(5);
+        const auto roll = CurrentGame().rng.below(5);
         const auto* replies = plain_text ? g_dialogue_fallback_ids0 : g_dialogue_fallback_ids1;
         const char punctuation = roll >= (plain_text ? 2u : 3u) ? '?' : '.';
         notice = fmt::format("{} {}{}", Data().strings[replies[roll]], field_text, punctuation);
@@ -3149,7 +3148,7 @@ void HandleNpcDialogueInput(void)
                    (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     }
     if (quote_id == -1) {
-        g_npc_dialogue.QueueQuote(Random(2) + 0x23, false, false, false);
+        g_npc_dialogue.QueueQuote(CurrentGame().rng.below(2) + 0x23, false, false, false);
         return;
     }
     if (quote_id == 0x59 || second_quote_id == 0x59) {

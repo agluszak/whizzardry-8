@@ -25,7 +25,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/message_box.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -163,16 +162,18 @@ void CheatDeathRevive(Game& game, int party_slot)
             7,
         0, 0, 1);
     if (game.combat.state() != 0 && !game.combat.state()->characters[party_slot].cheat_death_used) {
-        character->hp_current = (Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                                     character, W8_TRAIT_CHEAT_DEATH,
-                                     static_cast<unsigned int>(character->uiHPMax) * 0.5f))) +
-                                 0x32) *
-                                character->uiHPMax / 100;
+        character->hp_current =
+            (game.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+                 character, W8_TRAIT_CHEAT_DEATH,
+                 static_cast<unsigned int>(character->uiHPMax) * 0.5f))) +
+             0x32) *
+            character->uiHPMax / 100;
         game.combat.state()->characters[party_slot].cheat_death_used = true;
     } else {
-        character->hp_current = Random(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                                    character, W8_TRAIT_CHEAT_DEATH, character->hp_current))) +
-                                1;
+        character->hp_current =
+            game.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+                character, W8_TRAIT_CHEAT_DEATH, character->hp_current))) +
+            1;
     }
 }
 
@@ -223,7 +224,7 @@ void BrewAlchemistPotion(Game& game, W8Character* character)
                 ++recipes;
             }
         }
-        pick = Random(recipes) + 1;
+        pick = game.rng.below(recipes) + 1;
         for (recipe = &g_alchemist_brew_recipes[0][2];
              alchemy < recipe[-1] || (recipe[0] != -1 && recipe[0] < alchemy) || --pick != 0;
              recipe += 3) {
@@ -440,7 +441,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                     if (threshold == 0) {
                         threshold = 1;
                     }
-                    if (Random(100) < threshold) {
+                    if (game.rng.below(100) < threshold) {
                         ++skill->practice_count;
                         if (skill->practice_count >= 8) {
                             ++skill->points;

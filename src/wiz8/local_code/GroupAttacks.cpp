@@ -26,7 +26,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -87,9 +86,9 @@ bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind)
 
 static unsigned int RollSpecialAttackSum(unsigned int bound)
 {
-    unsigned int first = Random(bound);
-    unsigned int second = Random(bound);
-    unsigned int third = Random(bound);
+    unsigned int first = CurrentGame().rng.below(bound);
+    unsigned int second = CurrentGame().rng.below(bound);
+    unsigned int third = CurrentGame().rng.below(bound);
     return first + second + third;
 }
 
@@ -195,18 +194,19 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
             target.iChar = iChar;
             for (i = 0; i < 2; ++i) {
                 if (i == 0) {
-                    if (pSource->iType == W8_TARGET_SOURCE_MONSTER && Random(100) <= 9) {
+                    if (pSource->iType == W8_TARGET_SOURCE_MONSTER &&
+                        CurrentGame().rng.below(100) <= 9) {
                         continue;
                     }
-                } else if (Random(100) <= 0x31) {
+                } else if (CurrentGame().rng.below(100) <= 0x31) {
                     continue;
                 }
                 switch (g_special_attack_table[special_attack_kind][i]) {
                 case 1:
                     uiBound = uiBounds[i];
-                    uiDamage = Random(uiBound);
+                    uiDamage = CurrentGame().rng.below(uiBound);
                     if (g_special_attack_condition_table[special_attack_kind][i] == 7) {
-                        extra = Random(uiBound) + 1;
+                        extra = CurrentGame().rng.below(uiBound) + 1;
                     } else {
                         extra = 0;
                     }
@@ -302,10 +302,10 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
             monster_info = FindMonster(iMonsterID);
             for (i = 0; i < 2; ++i) {
                 if (i == 0) {
-                    if (Random(100) <= 9) {
+                    if (CurrentGame().rng.below(100) <= 9) {
                         continue;
                     }
-                } else if (Random(100) <= 0x31) {
+                } else if (CurrentGame().rng.below(100) <= 0x31) {
                     continue;
                 }
                 switch (g_special_attack_table[special_attack_kind][i]) {
@@ -315,7 +315,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                         uiBound = uiBounds[i] / 3;
                     }
                     if (g_special_attack_condition_table[special_attack_kind][i] == 7) {
-                        extra = Random(2) + 1;
+                        extra = CurrentGame().rng.below(2) + 1;
                     } else {
                         extra = 0;
                     }

@@ -39,7 +39,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -480,7 +479,8 @@ int TurnUndead(int party_slot, bool check)
     unsigned int spell_power = power / static_cast<int>(monsters.size());
     if (spell_power == 0) {
         while (power < static_cast<int>(monsters.size())) {
-            monsters.erase(monsters.begin() + Random(static_cast<int>(monsters.size())));
+            monsters.erase(monsters.begin() +
+                           CurrentGame().rng.below(static_cast<int>(monsters.size())));
         }
         spell_power = 1;
     } else if (spell_power > 6) {
@@ -560,7 +560,7 @@ int CharacterPrayAction(int party_slot)
     PostCharacterNotice(party_slot, Data().strings[0x174]);
     cost = CharacterActionFatigueCost(party_slot, W8_ACTION_PRAY);
     if (character->stamina < static_cast<int>(cost) &&
-        character->stamina < static_cast<int>(Random(cost))) {
+        character->stamina < static_cast<int>(CurrentGame().rng.below(cost))) {
         PostCharacterNotice(party_slot, Data().strings[0x175]);
         return cost;
     }
@@ -569,11 +569,11 @@ int CharacterPrayAction(int party_slot)
         AppendToLastTextLine(g_pray_dash, -1);
         SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
     }
-    roll = Random(g_pray_roll_sums[PRAY_ROLL_TIERS]);
+    roll = CurrentGame().rng.below(g_pray_roll_sums[PRAY_ROLL_TIERS]);
     if (CurrentGame().combat.state()->round_count < 4) {
         roll += (CurrentGame().combat.state()->round_count * 3 - 12) * 5;
     } else if (CurrentGame().combat.state()->round_count > 8) {
-        roll += Random(10);
+        roll += CurrentGame().rng.below(10);
     }
     if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
         roll -= 10;
@@ -594,7 +594,7 @@ int CharacterPrayAction(int party_slot)
         --action;
         switch (action) {
         case 0:
-            if (Random(2) == 0) {
+            if (CurrentGame().rng.below(2) == 0) {
                 AppendToLastTextLine(Data().strings[0x178], -1);
                 CurrentGame().combat.state()->experience_bonus += 10;
             } else {
@@ -628,7 +628,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             if (found) {
-                pick = Random(in_range) + 1;
+                pick = CurrentGame().rng.below(in_range) + 1;
                 for (index = 0; index < 8; ++index) {
                     W8Character* member = &CurrentGame().party.characters[index];
                     if (CanPartySlotParticipate(index) &&
@@ -662,7 +662,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             if (found) {
-                pick = Random(in_range) + 1;
+                pick = CurrentGame().rng.below(in_range) + 1;
                 for (index = 0; index < 8; ++index) {
                     W8Character* member = &CurrentGame().party.characters[index];
                     if (CanPartySlotParticipate(index) &&
@@ -749,7 +749,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             if (in_range != 0) {
-                pick = Random(in_range) + 1;
+                pick = CurrentGame().rng.below(in_range) + 1;
                 for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                      ++index) {
                     W8MonsterInfo* monster = GetMonsterListEntry(index);

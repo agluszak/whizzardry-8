@@ -36,7 +36,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -674,7 +673,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 if (party_slot != -1) {
                                     int effect = 0x43;
 
-                                    if (Random(2) == 0) {
+                                    if (CurrentGame().rng.below(2) == 0) {
                                         effect = 0x44;
                                     }
                                     W8CharacterEvent* notice = QueueCharacterEvent(

@@ -27,7 +27,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -69,9 +68,9 @@ void MartensBluff1Setup(void)
     g_gas_sound1 = 0;
     g_teleport_running = false;
     if (g_door_controller != 0 && GetLocationVarIDByName("DialState") == -1) {
-        Random(8);
-        Random(8);
-        Random(8);
+        CurrentGame().rng.below(8);
+        CurrentGame().rng.below(8);
+        CurrentGame().rng.below(8);
         CreateLocationVar("DialState", 0x470111);
     }
     MartensBluff1Transporter(static_cast<int>(0xEFFFFFFF));
@@ -364,7 +363,7 @@ bool MartensBluff1Teleporter(Trigger* pTrigger)
             static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
     }
     if (state == MartensBluff1TeleporterPad::none) {
-        state = static_cast<MartensBluff1TeleporterPad>(Random(4) + 1);
+        state = static_cast<MartensBluff1TeleporterPad>(CurrentGame().rng.below(4) + 1);
     }
     switch (state) {
     case MartensBluff1TeleporterPad::gigas:

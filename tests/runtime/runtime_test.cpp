@@ -51,7 +51,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -231,9 +230,9 @@ public:
         const std::string_view arguments[] = {"/WINDOW"};
         w8_native::audio_offline_for_test(true);
         application_.emplace(arguments);
-        // The game seeds Random15() from the clock. Catch's seed makes a run
+        // Games draw from a stream seeded by the clock. Catch's seed makes a run
         // repeatable: CTest fixes it, and failures print it.
-        SeedRandom(Catch::getSeed());
+        SeedGameRandom(Catch::getSeed());
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
         REQUIRE(window_);
         SDL_Event focus{};
@@ -1224,7 +1223,7 @@ void CampSpellsScenario()
     FindScreen<CampScreen>()->InvalidateAll();
     game.frame();
     // Fix the roll sequence so successful but insufficient attempts repeat.
-    SeedRandom(1);
+    CurrentGame().rng.seed(1);
     game.click_at(286, 466);
     REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
     const auto slot = PremadeSlot();

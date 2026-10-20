@@ -485,7 +485,7 @@ void Prop::UpdatePropAnimation()
         return;
     }
     if (rep->animation_playing == 0 && rep->random_play &&
-        Random15() * (1.0f / static_cast<float>(0x7fff)) < rep->play_chance) {
+        PresentationRng().next() * (1.0f / static_cast<float>(0x7fff)) < rep->play_chance) {
         if (rep->frame_direction == W8_ANIMATION_FORWARD_COMPLETE) {
             rep->subcycle = rep->first_frame;
             rep->frame_direction = W8_ANIMATION_FORWARD;
@@ -584,7 +584,7 @@ void Prop::AdvanceAnimationValue(int frames, char total)
     int index;
 
     if (behaviour == W8_ANIMATION_RANDOM_FRAME) {
-        rep->subcycle = static_cast<unsigned char>(Random(total));
+        rep->subcycle = static_cast<unsigned char>(PresentationRng().below(total));
     } else if (rep->animation_behaviour == W8_ANIMATION_PLAY_ONCE) {
         if (rep->frame_direction == W8_ANIMATION_FORWARD) {
             if (static_cast<int>(frame) + frames < end) {

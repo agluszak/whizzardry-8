@@ -20,7 +20,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game_init.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 
@@ -80,7 +79,6 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
-        InitializeRandom();
         game_started_ = true;
         if (!InitializeGame(options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");

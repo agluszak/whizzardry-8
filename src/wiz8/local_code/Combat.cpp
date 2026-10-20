@@ -89,7 +89,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -572,8 +571,9 @@ void BeginCombatExecution(void)
                 W8Character* character = &CurrentGame().party.characters[slot];
                 if (CharacterHasTrait(character, W8_TRAIT_LIGHTNING_STRIKE) &&
                     character->Hand[0].weapon_skill == W8_SKILL_SWORD &&
-                    Random(100) < static_cast<unsigned char>(ScaleValueByProfessionLevel(
-                                      character, W8_TRAIT_LIGHTNING_STRIKE, 12.0f))) {
+                    CurrentGame().rng.below(100) <
+                        static_cast<unsigned char>(ScaleValueByProfessionLevel(
+                            character, W8_TRAIT_LIGHTNING_STRIKE, 12.0f))) {
                     row->extra_swings[0] = 1;
                 }
             }
@@ -591,7 +591,7 @@ void BeginCombatExecution(void)
             state->active = false;
             state->turn_started = false;
             ++state->settle_ticks;
-            state->reconsider_action = Random(100) < 75;
+            state->reconsider_action = CurrentGame().rng.below(100) < 75;
         }
     }
     ++CurrentGame().combat.state()->combat_update_count;
@@ -805,9 +805,9 @@ int PartyAvoidsSurprise(void)
             return 1;
         }
     }
-    Random(1);
+    CurrentGame().rng.below(1);
     if (CurrentGame().party.characters[party_slot].attributes[W8_ATTRIBUTE_SENSES].effective >> 1 <=
-        Random(100)) {
+        CurrentGame().rng.below(100)) {
         return 1;
     }
     return 0;
@@ -860,7 +860,7 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
         kFleeHpFraction) {
         return false;
     }
-    if (Random(100) >= kFleeChance) {
+    if (CurrentGame().rng.below(100) >= kFleeChance) {
         return false;
     }
     QueueCharacterEvent(character, 34, 0, kCharacterEventFullVolume);
@@ -1531,7 +1531,7 @@ void AssignCombatPhases(void)
             row->phase = 0;
             row->dead = true;
         } else {
-            int value = Random(4) + character->initiative;
+            int value = CurrentGame().rng.below(4) + character->initiative;
             W8ActionKind action = party_row->committed.kind;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
                 int hand = ChooseCharacterAttackHand(party_slot);
@@ -1543,7 +1543,7 @@ void AssignCombatPhases(void)
             row->phase = 0x5a - value;
             RoundPhaseToStep(&row->phase, 10);
             if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
-                character->skills[W8_SKILL_SNAKESPEED].active && Random(5) == 0) {
+                character->skills[W8_SKILL_SNAKESPEED].active && CurrentGame().rng.below(5) == 0) {
                 PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_SNAKESPEED, 1, false);
             }
         }
@@ -1567,7 +1567,8 @@ void AssignCombatPhases(void)
                 monster_info->pCombat->phase = 0;
                 monster_info->pCombat->active = true;
             } else {
-                int value = Random(4) + GetMonsterDataForInfo(monster_info)->initiative;
+                int value =
+                    CurrentGame().rng.below(4) + GetMonsterDataForInfo(monster_info)->initiative;
                 value = std::clamp(value, -10, 0x59);
                 monster_info->pCombat->phase = 0x5a - value;
                 RoundPhaseToStep(&monster_info->pCombat->phase, 10);
@@ -1593,9 +1594,9 @@ void PracticeCombatRoundSkills(int party_slot)
             chance = 0x4b;
         }
         while (hand_record->score != 0) {
-            if (Random(100) < chance) {
+            if (CurrentGame().rng.below(100) < chance) {
                 W8Skill skill_id = W8_SKILL_SWORD;
-                int pick = Random((hand_record->dual_wielding != 0) + 2);
+                int pick = CurrentGame().rng.below((hand_record->dual_wielding != 0) + 2);
                 if (pick == 0) {
                     skill_id = hand_record->weapon_skill;
                 } else if (pick == 1) {
@@ -1605,7 +1606,8 @@ void PracticeCombatRoundSkills(int party_slot)
                 }
                 PracticeCharacterSkill(CurrentGame(), character, skill_id, 1, false);
                 if (skill_id == hand_record->weapon_skill &&
-                    hand_record->combat_skill == W8_SKILL_CLOSE_COMBAT && Random(100) < 0x19) {
+                    hand_record->combat_skill == W8_SKILL_CLOSE_COMBAT &&
+                    CurrentGame().rng.below(100) < 0x19) {
                     PracticeCharacterSkill(CurrentGame(), character, skill_id, 1, false);
                 }
             }
@@ -1861,11 +1863,12 @@ void RollCombatSurprise(char party_cannot_be_surprised)
         }
         if (!CurrentGame().combat.state()->party_surprised) {
             if (IsLevelFastMovement()) {
-                if (Random(100) < 0x14) {
+                if (CurrentGame().rng.below(100) < 0x14) {
                     CurrentGame().combat.state()->party_surprised = true;
                     level_surprise = true;
                 }
-            } else if (CurrentGame().status.search_mode != 0 && Random(100) < 0x14) {
+            } else if (CurrentGame().status.search_mode != 0 &&
+                       CurrentGame().rng.below(100) < 0x14) {
                 CurrentGame().combat.state()->party_surprised = true;
                 search_surprise = true;
             }
@@ -2694,7 +2697,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
         } else {
             progress_pct = 100;
         }
-        if (static_cast<int>(Random(100)) < 100 - progress_pct) {
+        if (static_cast<int>(CurrentGame().rng.below(100)) < 100 - progress_pct) {
             if (monster_info->action_kind != W8_MONSTER_ACTION_CONTROLLED_MOVE) {
                 UpdateMonsterAI(monster_info);
             }
@@ -2785,13 +2788,13 @@ int GetConditionInterrupt(W8TargetSource* source)
             RateMonsterBestAttack(monster_info, GetMonsterDataForInfo(monster_info), true) == 0;
         controlled = monster_info->control_state == W8_MONSTER_CONTROL_LURED;
     }
-    if (condition_turns[W8_CONDITION_NAUSEATED] != 0 && Random(100) < 0x19) {
+    if (condition_turns[W8_CONDITION_NAUSEATED] != 0 && CurrentGame().rng.below(100) < 0x19) {
         return 3;
     }
     if (condition_turns[W8_CONDITION_WEBBED] != 0) {
-        return (Random(100) < attribute / 3) ? 7 : 0;
+        return (CurrentGame().rng.below(100) < attribute / 3) ? 7 : 0;
     }
-    if (condition_turns[W8_CONDITION_BLIND] != 0 && Random(100) < 0x14) {
+    if (condition_turns[W8_CONDITION_BLIND] != 0 && CurrentGame().rng.below(100) < 0x14) {
         if (source->iType == W8_TARGET_SOURCE_CHARACTER &&
             !CharacterHasTrait(character, W8_TRAIT_EFFECTIVE_WHILE_BLIND)) {
             return 2;
@@ -2801,17 +2804,18 @@ int GetConditionInterrupt(W8TargetSource* source)
             return 2;
         }
     }
-    if (condition_turns[W8_CONDITION_INSANE] != 0 && Random(100) < 0x50) {
-        if (second_hand_attack && !secondary_flag && Random(100) < 0x28) {
+    if (condition_turns[W8_CONDITION_INSANE] != 0 && CurrentGame().rng.below(100) < 0x50) {
+        if (second_hand_attack && !secondary_flag && CurrentGame().rng.below(100) < 0x28) {
             return 8;
         }
-        return Random(3) + 4;
+        return CurrentGame().rng.below(3) + 4;
     }
-    if (condition_turns[W8_CONDITION_AFRAID] != 0 && Random(100) < 0x19 && !moving) {
+    if (condition_turns[W8_CONDITION_AFRAID] != 0 && CurrentGame().rng.below(100) < 0x19 &&
+        !moving) {
         return 1;
     }
     if (source->iType == W8_TARGET_SOURCE_MONSTER && condition_turns[W8_CONDITION_AFRAID] != 0 &&
-        Random(100) < 0x28) {
+        CurrentGame().rng.below(100) < 0x28) {
         return 0xc;
     }
     if (controlled) {

@@ -44,6 +44,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -56,7 +57,6 @@
 #include "wiz8/navigation_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/spatial/bounding_box.h"
@@ -1188,7 +1188,7 @@ bool NavigationMesh::BuildPatrolPath(PathSearchScratch& path_search, NavigatorRo
     if (maximum < glm::length(delta)) {
         return BuildAttachmentPath(path_search, attachment, flags);
     }
-    float roll = Random(900) + g_octree_cell_scale;
+    float roll = CurrentGame().rng.below(900) + g_octree_cell_scale;
     path_search.start_waypoint = 0;
     patrol.distance = roll * maximum * 0.001f + maximum;
     unsigned short usStartNode = FindWaypoint(path_search, attachment->segment_start, true);

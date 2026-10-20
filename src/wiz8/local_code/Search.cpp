@@ -31,7 +31,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -189,7 +188,7 @@ void RunSearchPulse(void)
                     } else {
                         PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
                         unsigned int event_type = kSearchFoundItemEvent;
-                        if (Random(2) != 0) {
+                        if (CurrentGame().rng.below(2) != 0) {
                             event_type = kSearchFoundItemEventAlt;
                         }
                         auto event = std::make_unique<W8CharacterEvent>(character, event_type, 0,
@@ -220,7 +219,7 @@ void RunSearchPulse(void)
             }
         }
         if (CurrentGame().status.search_mode && !IsLevelFastMovement() && !found &&
-            Random(100) == 0) {
+            CurrentGame().rng.below(100) == 0) {
             ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
         }
     }
@@ -275,7 +274,7 @@ int W8Searchable::PickBestSearcher()
             }
         }
         if (CurrentGame().party.modifiers.detect_secrets != 0) {
-            if (best_slot != -1 && Random(2) == 0) {
+            if (best_slot != -1 && CurrentGame().rng.below(2) == 0) {
                 continue;
             }
             best_score = 100;

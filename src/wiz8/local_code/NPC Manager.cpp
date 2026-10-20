@@ -84,7 +84,6 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
@@ -1766,7 +1765,7 @@ static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, 
         skill += character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 0x14;
     }
     score = skill + (GetNpcDisposition(npc) - 0x32) / 4;
-    score -= (Random(5) + 10) * static_cast<signed char>(npc->suspicion);
+    score -= (CurrentGame().rng.below(5) + 10) * static_cast<signed char>(npc->suspicion);
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     unsigned int penalty = character->skills[W8_SKILL_PICKPOCKET].level >> 2;
@@ -1800,9 +1799,9 @@ static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
             seed += CurrentGame().party.characters[index].experience;
         }
     }
-    SeedRandom(seed);
+    CurrentGame().rng.seed(seed);
     for (; spins != 0; --spins) {
-        Random(100);
+        CurrentGame().rng.below(100);
     }
 }
 
@@ -1827,19 +1826,19 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         }
     }
     char score;
-    if (candidates.empty() || Random(100) < 0x21) {
+    if (candidates.empty() || CurrentGame().rng.below(100) < 0x21) {
         empty_pick = true;
         score = ScoreNpcTheft(character, npc, -1, 0);
     } else {
         W8ItemInstance item;
-        picked = candidates[Random(static_cast<int>(candidates.size()))];
+        picked = candidates[CurrentGame().rng.below(static_cast<int>(candidates.size()))];
         item = MakeItem(npc->item_ids[picked], true, true, false);
         score = ScoreNpcTheft(character, npc, item.iItemNo, 1);
     }
     if (static_cast<signed char>(npc->suspicion) < 'd') {
         ++npc->suspicion;
     }
-    char roll = static_cast<char>(Random(100));
+    char roll = static_cast<char>(CurrentGame().rng.below(100));
     if (roll > '_' || score * 2 < roll) {
         return W8_PICKPOCKET_CAUGHT;
     }
@@ -1849,7 +1848,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     if (empty_pick) {
         if (npc->gold != 0) {
             PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
-            unsigned int taken = Random(100) * 7;
+            unsigned int taken = CurrentGame().rng.below(100) * 7;
             if (static_cast<unsigned int>(npc->gold) < taken) {
                 taken = npc->gold;
             }
@@ -1888,7 +1887,7 @@ char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, i
     if (static_cast<signed char>(npc->suspicion) < 'd') {
         ++npc->suspicion;
     }
-    char roll = static_cast<char>(Random(100));
+    char roll = static_cast<char>(CurrentGame().rng.below(100));
     if (roll < '`' && roll <= score * 2) {
         if (roll < score) {
             PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
@@ -1961,7 +1960,7 @@ void UpdateNpcEvents(void)
     if (CurrentGame().status.trang_check_pending &&
         static_cast<unsigned int>(CurrentGame().status.world_clock -
                                   CurrentGame().status.trang_check_clock) > 0x2a30) {
-        if (GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0 && Random(100) < 6) {
+        if (GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0 && CurrentGame().rng.below(100) < 6) {
             SetFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 1, false);
         }
         CurrentGame().status.trang_check_pending = false;
@@ -2052,11 +2051,11 @@ void UpdateNpcEvents(void)
                 W8NpcState* npc_state = GetNpcState(row->npc_index);
                 if (row->npc_bound && npc_state &&
                     (CurrentGame().status.world_clock - npc_state->event_clock) > 0x168) {
-                    if (Random(2) == 0) {
+                    if (CurrentGame().rng.below(2) == 0) {
                         npc_state->event_clock =
-                            CurrentGame().status.world_clock + Random(6) * 0x3c;
+                            CurrentGame().status.world_clock + CurrentGame().rng.below(6) * 0x3c;
                     } else {
-                        int event = Random(2) == 0 ? 0x57 : 0x58;
+                        int event = CurrentGame().rng.below(2) == 0 ? 0x57 : 0x58;
                         QueueCharacterEvent(character, event, 0, kCharacterEventFullVolume);
                         npc_state->event_clock = CurrentGame().status.world_clock;
                     }

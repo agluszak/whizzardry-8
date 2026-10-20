@@ -55,7 +55,6 @@
 #include "wiz8/notices.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -1906,7 +1905,7 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
                     continue;
                 }
                 chance = power * 7;
-                while (power != 0 && chance > Random(100)) {
+                while (power != 0 && chance > game.rng.below(100)) {
                     --power;
                     chance -= 7;
                 }

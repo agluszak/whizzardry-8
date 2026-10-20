@@ -54,7 +54,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
@@ -429,7 +428,7 @@ void ResolveSurpriseWake(void)
                 continue;
             }
             int roll =
-                static_cast<int>(Random(100)) - 0x14 -
+                static_cast<int>(CurrentGame().rng.below(100)) - 0x14 -
                 static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
             if (roll < 1) {
                 PostCharacterNotice(
@@ -448,8 +447,9 @@ void ResolveSurpriseWake(void)
         }
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
         SetPortraitTargetPose(entry, 1);
-        if (Random(2) != 0) {
-            entry->portrait.idle_clock = MonotonicMilliseconds() + (Random(5000) + 5000);
+        if (CurrentGame().rng.below(2) != 0) {
+            entry->portrait.idle_clock =
+                MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);
         }
         entry->portrait.pose_dirty = true;
         RequestRedraw(1 << slot);
@@ -623,11 +623,12 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 
     if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
         diseased = true;
-        if (Random(character->attributes[W8_ATTRIBUTE_VITALITY].effective * 10) < minutes) {
-            switch (Random(4)) {
+        if (CurrentGame().rng.below(character->attributes[W8_ATTRIBUTE_VITALITY].effective * 10) <
+            minutes) {
+            switch (CurrentGame().rng.below(4)) {
             case 0: {
                 unsigned int condition;
-                switch (Random(5)) {
+                switch (CurrentGame().rng.below(5)) {
                 case 0:
                     condition = W8_CONDITION_IRRITATED;
                     break;
@@ -656,7 +657,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 break;
             }
             case 1: {
-                unsigned int attribute = Random(7);
+                unsigned int attribute = CurrentGame().rng.below(7);
                 if (1 < character->attributes[attribute].base) {
                     character->attributes[attribute].base =
                         character->attributes[attribute].base - 1;
@@ -675,7 +676,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     break;
                 }
                 {
-                    unsigned int loss = Random(4) + 1;
+                    unsigned int loss = CurrentGame().rng.below(4) + 1;
                     character->uiHPMax -= loss;
                     character->hp_adjustment -= loss;
                     if (loss == 1) {
@@ -698,7 +699,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     break;
                 }
                 {
-                    unsigned int loss = Random(4) + 1;
+                    unsigned int loss = CurrentGame().rng.below(4) + 1;
                     character->uiStaminaMax -= loss;
                     character->fatigue_penalty += loss;
                     PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x271], loss));
@@ -724,7 +725,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         } else {
             unsigned int hits = 0;
             for (unsigned int roll = minutes; roll != 0; --roll) {
-                if (Random(4) == 0) {
+                if (CurrentGame().rng.below(4) == 0) {
                     ++hits;
                 }
             }
@@ -1085,7 +1086,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 
             monster_info->look_time = 0;
             monster_info->pause_time = static_cast<unsigned char>(
-                Random(static_cast<unsigned int>(duration)) + duration / 2);
+                CurrentGame().rng.below(static_cast<unsigned int>(duration)) + duration / 2);
             if (monster_info->pause_time == 0) {
                 monster_info->pause_time = 1;
             }
@@ -1098,7 +1099,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 
             monster_info->pause_time = 0;
             monster_info->look_time = static_cast<unsigned char>(
-                Random(static_cast<unsigned int>(frequency)) + frequency / 2);
+                CurrentGame().rng.below(static_cast<unsigned int>(frequency)) + frequency / 2);
             if (monster_info->look_time == 0) {
                 monster_info->look_time = 1;
             }

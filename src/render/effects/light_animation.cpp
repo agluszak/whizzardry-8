@@ -41,7 +41,7 @@
 
 unsigned int g_light_update_flags = 1;
 
-/* Normalizes a retail 15-bit Random15() roll to a 0..1 flicker probability;
+/* Normalizes a retail 15-bit raw draw to a 0..1 flicker probability;
    only Update uses it. */
 const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;
 
@@ -203,7 +203,7 @@ void Light::Update()
                 SetModelAnimatedTextureFrame(instance, 1);
             }
         } else {
-            int roll = Random15() & 0x7fff;
+            int roll = PresentationRng().next() & 0x7fff;
             if (roll * g_light_flicker_random_unit_scale < definition->flicker_chance) {
                 if (visible) {
                     visible = false;

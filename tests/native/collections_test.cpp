@@ -64,7 +64,6 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character_derivation.h"
@@ -749,9 +748,9 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     W8NpcState npc{};
     npc.record = &record;
     npc.items = {{0, {.iItemNo = 0, .stack_count = 1}, 1}};
-    SeedRandom(1);
+    CurrentGame().rng.seed(1);
     REQUIRE(CalculateNpcTradeStackPrice(&npc, 0, W8_TRADE_PRICE_PARTY_BUYS, 1, true) == 10);
-    REQUIRE(Random15() == 41); // Drawing a price must not roll an item quantity.
+    REQUIRE(CurrentGame().rng.next() == 41); // Drawing a price must not roll an item quantity.
     const auto result = CompleteNpcItemPurchase(&npc, 0, 1, false);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
     REQUIRE(CurrentGame().party.gold == 100);

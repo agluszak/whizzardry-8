@@ -50,7 +50,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/resource_cache.h"
@@ -152,7 +151,7 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
                              script_line));
             return false;
         }
-        if (Chance(static_cast<unsigned int>(*parameter)) != 0) {
+        if (CurrentGame().rng.chance(static_cast<unsigned int>(*parameter)) != 0) {
             return true;
         }
     }

@@ -60,7 +60,7 @@ Unlayered code may use the layers.
 
 | Module | Owns |
 | :--- | :--- |
-| `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the seeded RNG, assertions. |
+| `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the presentation random stream, assertions. |
 | `canvas/` | CPU drawing on `SDL_Surface&`: images, STI sprite sheets, fonts, shading tables. Knows nothing about the GPU or the framebuffer. |
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
 | `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState`/`ScenePass` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
@@ -72,9 +72,9 @@ Unlayered code may use the layers.
 
 ## Runtime contracts
 
-- **Randomness.** All game randomness uses the explicitly seeded MSVC 32-bit
-  sequence with 15-bit draws. Loot and NPC theft keep their shared-stream
-  reseeding and draw order, so moving a draw changes gameplay.
+- **Randomness.** Randomness uses the MSVC 32-bit sequence with 15-bit draws
+  (`Rng`, `rules/random.h`) in two streams. Moving, adding or dropping a draw on the
+  game's stream changes gameplay ("The game", "Its random stream").
 - **Pixels.** The software UI framebuffer is fixed ARGB1555. Assets and video
   may use other SDL formats; palette, TGA and STI decoding is explicit.
 - **Renderer inputs.** `GpuRenderer` keeps no current matrix or draw state. A
@@ -152,6 +152,7 @@ Unlayered code may use the layers.
 
 - **What `Game` is.** `Game` (`game.h`) is one play-through. It owns:
   - the party and the status record;
+  - the random stream, `rng`;
   - the story (`story.h`): facts, faction dispositions and relations, the journal, NPC
     states and level-script variables;
   - the text boxes' message log;
@@ -178,6 +179,29 @@ Unlayered code may use the layers.
   section instead.
 - **Before the opening sequence.** Party selection, import and character creation edit
   the new game's party. `GameStarted()` tells play apart from that party creation.
+- **Its random stream.** Every gameplay draw comes from `Game::rng`: party creation
+  (import conversion, voices, starting hit points), combat, monster AI, spells, traps,
+  encounters, loot, NPC trade and theft, skill practice and level scripts all share
+  that one stream, as they shared retail's `rand()`. Rules that receive the game draw
+  from `game.rng`; unmigrated code reaches it through `CurrentGame()`.
+  - A session draws one sequence from one seed, as retail did. The stream starts from
+    the clock, and a game continues the stream of the game it replaces or that ended
+    before it, so party selection, which begins a new game each time it is entered,
+    keeps retail's draw order into play. `SeedGameRandom` fixes the seed (the runtime
+    scenarios use Catch's seed).
+  - Loot and NPC theft reseed the stream from saved values: a trigger's item group from
+    its persistent seed, a theft from the party's experience spun by the NPC's naming
+    style and suspicion. Their outcomes do not depend on earlier draws, but every later
+    draw follows from the reseed.
+  - Presentation draws from its own stream, `PresentationRng()` (`platform/random.h`),
+    seeded from the clock: sound variants, pitch and volume, ambient sound and music,
+    particles, animated textures and lights, prop animation, the world-item pulse, camera
+    shake, damage splats and portrait and spell-page flourishes. In retail they shared the game's
+    stream, so frame timing and the sound settings moved game draws; now they cannot.
+    The game's sequence is retail's with those draws removed.
+  - `tests/native/random_test.cpp` traces a seeded game's draws (`Rng::trace` records
+    each value and the function that drew it) through party creation, loot, skill
+    practice and combat rules and compares them with the expected sequence.
 - **The activity.** Rules branch on `Game::activity`, never on a screen id or a UI flag.
   It is a plain value with independent parts, because the game lets them overlap:
   - `place`: the world or the camp. The camp commands set it: opening the camp from

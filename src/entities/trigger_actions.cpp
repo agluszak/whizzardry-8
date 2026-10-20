@@ -76,7 +76,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
@@ -673,7 +672,8 @@ Trigger::Trigger(World* world)
     position = glm::vec3(0);
     action_data[0] = 0;
     action_data_mode = W8TriggerActionDataMode::toggle_alternate;
-    item_group_seed = static_cast<unsigned int>(MonotonicMilliseconds() + Random(30000));
+    item_group_seed =
+        static_cast<unsigned int>(MonotonicMilliseconds() + CurrentGame().rng.below(30000));
     gold = 0;
     uses_remaining = 0;
     trigger_id = world ? world->next_trigger_id++ : 0;
@@ -958,7 +958,7 @@ void Trigger::RunDestination(std::string_view destination)
 
 /* Materialize this trigger's item table once. The two dice fields are the
    item-count and gold rolls at ItemTable record offsets 0x1cd and 0x1d5.
-   The trigger's persistent seed reseeds the CRT RNG before generation. */
+   The trigger's persistent seed reseeds the game's random stream first. */
 void Trigger::GenerateItemGroup()
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
@@ -970,7 +970,7 @@ void Trigger::GenerateItemGroup()
         return;
     }
 
-    SeedRandom(item_group_seed);
+    CurrentGame().rng.seed(item_group_seed);
     table_id = FindItemTableByName(inline_action_data);
     if (table_id == static_cast<unsigned int>(-1)) {
         return;
@@ -1104,7 +1104,8 @@ void Trigger::Run(int source)
                 break;
             }
             ApplyItemEffectToRandomCharacter(
-                Random(2) != 0 ? kConditionReaction : kConditionReactionAlt, -1, 0);
+                CurrentGame().rng.below(2) != 0 ? kConditionReaction : kConditionReactionAlt, -1,
+                0);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -1441,8 +1442,10 @@ void Trigger::Run(int source)
 
                 if (item_count == 0) {
                     if (m_pProp->subcycle == 0) {
-                        ApplyItemEffectToRandomCharacter(
-                            Random(2) != 0 ? g_container_event : g_container_event_alt, -1, 0);
+                        ApplyItemEffectToRandomCharacter(CurrentGame().rng.below(2) != 0
+                                                             ? g_container_event
+                                                             : g_container_event_alt,
+                                                         -1, 0);
                     }
                 } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();

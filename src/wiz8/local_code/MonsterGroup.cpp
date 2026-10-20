@@ -39,7 +39,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -1102,9 +1101,9 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
         return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
     }
     member_info = FindMonster(group->leader_location_id);
-    angle =
-        NormalizeAngle(GetCameraYawRadians() + Random(1000) * kMonsterScatterHeadingRandomScale +
-                       g_monster_rotation_offset - kMonsterScatterHeadingBias);
+    angle = NormalizeAngle(GetCameraYawRadians() +
+                           CurrentGame().rng.below(1000) * kMonsterScatterHeadingRandomScale +
+                           g_monster_rotation_offset - kMonsterScatterHeadingBias);
     radius = member_info->p3D->nav.radius;
     for (index = 0; index < W8_MONSTER_GROUP_ALLY_COUNT; ++index) {
         if (group->allied_group_ids[index] != 0) {

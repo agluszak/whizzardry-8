@@ -137,10 +137,11 @@ void ServiceMusicPlaylist(void)
     }
 
     if (!g_music_force_next && !CurrentGame().combat.active() &&
-        Random(100) <= static_cast<unsigned int>(playlist_info.pause_chance_percent)) {
-        g_music_playlist_tick =
-            MonotonicMilliseconds() + playlist_info.pause_min_seconds * 1000 +
-            Random(playlist_info.pause_max_seconds * 1000 - playlist_info.pause_min_seconds * 1000);
+        PresentationRng().below(100) <=
+            static_cast<unsigned int>(playlist_info.pause_chance_percent)) {
+        g_music_playlist_tick = MonotonicMilliseconds() + playlist_info.pause_min_seconds * 1000 +
+                                PresentationRng().below(playlist_info.pause_max_seconds * 1000 -
+                                                        playlist_info.pause_min_seconds * 1000);
         return;
     }
 
@@ -148,9 +149,9 @@ void ServiceMusicPlaylist(void)
         int selected = -1;
 
         if (playlist_info.weight_total == 0) {
-            selected = Random(playlist_info.track_count);
+            selected = PresentationRng().below(playlist_info.track_count);
         } else {
-            unsigned int target = Random(playlist_info.weight_total);
+            unsigned int target = PresentationRng().below(playlist_info.weight_total);
             unsigned int accumulated = 0;
             for (int index = 0; index < static_cast<int>(g_music_playlist->lines.size()); ++index) {
                 const char* line = g_music_playlist->lines[index].text.c_str();
