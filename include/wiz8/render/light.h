@@ -1,5 +1,9 @@
 #pragma once
 class WorldScene;
+class MeshInstance;
+namespace render {
+class VertexAttachment;
+}
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -7,6 +11,11 @@ class WorldScene;
 #include <string>
 #include <variant>
 #include <vector>
+
+#include <vsg/core/observer_ptr.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
 
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/render/draw_inputs.h"
@@ -112,10 +121,10 @@ public:
     double far_start;                     /* 0x168 */
     double far_end;                       /* 0x170 */
 
-    float scaled_near_start; /* 0x178 */
-    float scaled_far_end;    /* 0x17c */
-    float near_attenuation;  /* 0x180 */
-    float far_attenuation;   /* 0x184 */
+    float scaled_near_start = 0; /* 0x178 */
+    float scaled_far_end = 0;    /* 0x17c */
+    float near_attenuation = 0;  /* 0x180 */
+    float far_attenuation = 0;   /* 0x184 */
 
     glm::vec3 opengl_attenuation;    /* 0x188 */
     std::uint32_t enable_flags;           /* 0x194 */
@@ -127,12 +136,12 @@ public:
     float spot_exponent;                  /* 0x1cc */
     float intensity;                      /* 0x1d0 */
     float safe_range;                     /* 0x1d4 */
-    glm::vec4 scaled_ambient;     /* 0x1d8: ambient * intensity */
-    glm::vec4 scaled_diffuse;     /* 0x1e8: diffuse * intensity */
-    glm::vec4 scaled_specular;    /* 0x1f8: specular * intensity */
-    glm::vec3 spot_direction_eye; /* 0x208 */
-    float spot_cutoff;                    /* 0x214: cos(spot_angle) */
-    float attenuation_range;              /* 0x218: scaled far end */
+    glm::vec4 scaled_ambient{0};     /* 0x1d8: ambient * intensity */
+    glm::vec4 scaled_diffuse{0};     /* 0x1e8: diffuse * intensity */
+    glm::vec4 scaled_specular{0};    /* 0x1f8: specular * intensity */
+    glm::vec3 spot_direction_eye{0}; /* 0x208 */
+    float spot_cutoff = 0;                    /* 0x214: cos(spot_angle) */
+    float attenuation_range = 0;              /* 0x218: scaled far end */
     enum {
         DERIVED_ACTIVE = 0x01u,
         DERIVED_SPOT = 0x02u,
@@ -197,7 +206,17 @@ public:
     bool visible = true;
     bool bake_into_mesh = false;
     Transform3D transform;
-    WorldScene* scene = nullptr; // Borrowed typed render membership.
+    WorldScene* scene = nullptr; // Borrowed world for animation and named queries.
+    vsg::ref_ptr<vsg::Node> render_node;
+    vsg::observer_ptr<vsg::Group> render_parent;
+    vsg::ref_ptr<render::VertexAttachment> render_attachment;
+    // Authored cycle lights rotate their offset around the actor but keep
+    // their own orientation and range, independent of the model's scale.
+    enum class Attachment { Inherit, CycleOrigin };
+    Attachment attachment = Attachment::Inherit;
+    void attachTo(MeshInstance&, std::optional<short> mapped_key = {},
+                  Attachment policy = Attachment::Inherit);
+    glm::dmat4 worldMatrix() const;
     void setScene(WorldScene* value);
     std::uint32_t group_mask = 0x80000000u;
     glm::vec3 eye_location{0};

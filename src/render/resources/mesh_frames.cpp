@@ -6,7 +6,6 @@
 #include <iterator>
 #include <memory>
 #include <optional>
-#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -25,16 +24,11 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/mesh_resources.h"
-#include "wiz8/render/mesh_submission.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/triangle_selection.h"
-#include "wiz8/render/vertex_shading.h"
 #include "wiz8/spatial/bounding_box.h"
 
 class Material;
@@ -174,61 +168,6 @@ void Mesh::updateBakedLighting()
         if (add_environment) color += environment;
         if (light_scale != 1) color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
         destination[vertex] = color;
-    }
-}
-
-std::vector<std::uint32_t> Mesh::facingPolygons(const TriMesh& mesh,
-                                                std::span<const glm::vec3> normals,
-                                                const glm::vec3& eye, bool positive_winding,
-                                                float threshold)
-{
-    const auto available = mesh.active_polygons ? mesh.active_polygons->size() : mesh.polygon_count;
-    if (available <= 0) return {};
-    const auto count = static_cast<std::uint32_t>(available);
-    std::vector<std::uint32_t> polygons(count);
-    const auto keep = [&](std::uint32_t polygon) {
-        const auto position = mesh.positions[mesh.poly_vertices[polygon].y];
-        const float facing = glm::dot(eye - position, normals[polygon]);
-        return positive_winding ? threshold <= facing : facing <= threshold;
-    };
-    const auto kept =
-        mesh.active_polygons
-            ? clipMath::selectTriangles(polygons, *mesh.active_polygons, keep)
-            : clipMath::selectTriangles(polygons, std::views::iota(std::uint32_t{0}, count), keep);
-    polygons.resize(kept);
-    return polygons;
-}
-
-/* Wizardry-extended Mesh::renderTriMesh. Optional polygon normals enable
-   a software backface cull into an owned active-polygon list and submit
-   without further face culling; without them the mesh draws as renderTriMesh. */
-void Mesh::RenderTriMeshWithEquations(GpuRenderer& renderer, const TriMesh& mesh,
-                                      std::span<const glm::vec3> arg_poly_equations,
-                                      const MeshState& state)
-{
-    if (arg_poly_equations.empty()) {
-        renderTriMesh(renderer, mesh, state);
-        last_decompress_release_tick = MonotonicMilliseconds();
-        return;
-    }
-    if (arg_poly_equations.size() < static_cast<std::size_t>(mesh.polygon_count))
-        throw std::invalid_argument("Incomplete mesh polygon normals");
-    if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        auto culled = state;
-        culled.sorted =
-            culled.sorted || (mesh.control_flags & (1UL << Mesh::CONTROL_SORTED_RENDERING)) != 0;
-        culled.cull = FaceCull::None;
-        const auto software_polygons = facingPolygons(
-            mesh, arg_poly_equations, glm::vec3(state.transform.inverseModelView()[3]),
-            state.winding == Winding::Standard, static_cast<float>(0.0));
-        if (!software_polygons.empty()) {
-            auto submitted = mesh;
-            submitted.poly_equations = nullptr;
-            submitted.active_polygons = std::span<const std::uint32_t>(software_polygons);
-            meshSubmission::drawSides(renderer, submitted, culled,
-                                      [](std::int32_t side, MeshState&) { return side; });
-        }
-        last_decompress_release_tick = MonotonicMilliseconds();
     }
 }
 
@@ -456,13 +395,43 @@ int Mesh::CreateSkinTable(std::string_view name, int base_table)
     }
     Skin skin{table, std::string(name), *source, std::nullopt, false};
     skins.push_back(std::move(skin));
+    render_asset_.reset();
     return table;
+}
+
+bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
+                              const std::shared_ptr<Texture>& replacement)
+{
+    auto skin = std::find_if(skins.begin(), skins.end(),
+                             [table](const auto& entry) { return entry.id == table; });
+    if (skin == skins.end()) return false;
+    bool matched = false;
+    bool changed = false;
+    for (std::size_t polygon = 0; polygon < skin->textures.size(); ++polygon) {
+        const auto& texture = skin->textures[polygon];
+        if (!texture || (texture->source_path.empty() && !texture->playback) ||
+            !MeshNameEquals(texture->getName(), old_name))
+            continue;
+        matched = true;
+        if (texture != replacement) {
+            skin->textures.set(polygon, replacement);
+            changed = true;
+        }
+    }
+    if (changed) {
+        skin->active_polygons.reset();
+        skin->blanking_checked = false;
+        // Skin assignments also participate in the shared batch boundaries.
+        render_asset_.reset();
+    }
+    return matched;
 }
 
 void Mesh::RemoveSkinTable(int index)
 {
     if (static_cast<unsigned int>(index) < skins.size()) {
         skins.erase(std::next(skins.begin(), index));
+        render_asset_.reset();
     }
 }
 

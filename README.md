@@ -10,7 +10,7 @@ This repository does **not** include game assets. You'll need your own retail co
 
 ## Build on Linux
 
-You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3.11 or newer, [Conan 2](https://conan.io/) and a working Vulkan driver. Conan handles the C/C++ library dependencies.
+You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3.11 or newer, [Conan 2](https://conan.io/), Vulkan development headers and loader (`libvulkan-dev` on Debian/Ubuntu), and a working Vulkan driver. Conan handles the other C/C++ library dependencies; CMake fetches the pinned VulkanSceneGraph source.
 
 From the repository root:
 
@@ -31,6 +31,11 @@ cmake --build --preset linux
 ```
 
 The first build may take a while because Conan needs to build some dependencies.
+
+The renderer uses Vulkan on all platforms. Windows builds require the Vulkan SDK;
+macOS builds require the Vulkan SDK with MoltenVK. Set `VULKAN_SDK` as instructed
+by the SDK installer. SDL continues to provide windows, input, audio and CPU
+surfaces. Linux is the platform covered by CI.
 
 ## Play
 
@@ -61,6 +66,10 @@ After building, run the tests with:
 ```sh
 ctest --preset linux
 ```
+
+On a headless Linux host, run CTest under `xvfb-run -a`; the graphics scenarios use
+SDL's X11 Vulkan surface. CI also enables the Khronos validation layer and fails
+graphics tests on validation errors.
 
 Some runtime tests also need prepared retail assets:
 

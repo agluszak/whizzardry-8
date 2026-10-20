@@ -39,10 +39,8 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
-#include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/texture.h"
+#include "wiz8/render/renderer.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
@@ -53,13 +51,12 @@
 
 static std::vector<unsigned int> ReadFrame()
 {
-    auto surface = g_gerd->lockBuffer();
+    auto surface = g_renderer->readback();
     REQUIRE(surface);
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)
             pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x, y);
-    g_gerd->unlockBuffer();
     return pixels;
 }
 
@@ -107,6 +104,7 @@ TEST_CASE("world graphics")
     const std::array<std::string_view, 1> arguments{"/WINDOW"};
     fprintf(stderr, "world: initialize native application/game\n");
     application = std::make_unique<wiz8::Application>(arguments);
+    g_renderer->setCaptureEnabled(true);
     ResetForNewGame();
     W8Character character{};
     REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));
@@ -213,12 +211,10 @@ TEST_CASE("world graphics")
     // Same scene and UI, with only the actual world pass switched off.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
-    const auto with_world = g_gerd->getStatistics();
     unsigned polygons = world->scene->submitted_polygons;
     auto visible = ReadFrame();
     g_world_render_enabled = 0;
     RenderFrame();
-    const auto without_world = g_gerd->getStatistics();
     auto control = ReadFrame();
     g_world_render_enabled = 1;
     RenderFrame();
@@ -231,12 +227,10 @@ TEST_CASE("world graphics")
             if (restored[index] != control[index]) ++recovered;
         }
     fprintf(stderr,
-            "world: %u enabled meshes, %u submitted polygons; draws %u/%u, "
-            "triangles %u/%u; viewport pixels %u changed, %u restored\n",
-            enabled, polygons, with_world.draw_calls, without_world.draw_calls,
-            with_world.input_triangles, without_world.input_triangles, changed, recovered);
-    REQUIRE((polygons > 0 && with_world.draw_calls > without_world.draw_calls));
-    REQUIRE(with_world.input_triangles > without_world.input_triangles);
+            "world: %u enabled meshes, %u submitted polygons; viewport pixels %u changed, %u "
+            "restored\n",
+            enabled, polygons, changed, recovered);
+    REQUIRE(polygons > 0);
     REQUIRE((changed > 1000 && recovered > 1000));
     const char* output = SDL_getenv("WIZ8_WORLD_OUTPUT");
     if (!output) output = "/tmp/wiz8-native-world.ppm";

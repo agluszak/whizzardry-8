@@ -26,7 +26,6 @@ jobs:
     runs-on: ubuntu-26.04
     outputs:
       checks: ${{ steps.scope.outputs.checks }}
-      shaders: ${{ steps.scope.outputs.shaders }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select required checks
@@ -38,12 +37,10 @@ jobs:
           if [[ '${{ github.event_name }}' != pull_request && '${{ github.event_name }}' != push ]] ||
              [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
             echo 'checks=true' >> "$GITHUB_OUTPUT"
-            echo 'shaders=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if ! git fetch --no-tags --depth=1 origin "$BASE_SHA"; then
             echo 'checks=true' >> "$GITHUB_OUTPUT"
-            echo 'shaders=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/changed"
@@ -52,12 +49,8 @@ jobs:
           from pathlib import Path
           names = [os.fsdecode(p) for p in Path(os.environ['RUNNER_TEMP'], 'changed').read_bytes().split(b'\0') if p]
           checks = any(not (p.endswith('.md') or p in ('LICENSE', '.gitignore') or p.startswith('docs/')) for p in names)
-          shaders = any(p.startswith(('tools/shadercross/', 'src/render/shaders/compiled/'))
-                        or p.endswith('.glsl') or p.startswith('conan')
-                        or p in ('CMakeLists.txt', 'CMakePresets.json', '.github/workflows/native.yml', 'tools/install-llvm.sh')
-                        for p in names)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write(f'checks={str(checks).lower()}\nshaders={str(shaders).lower()}\n')
+              output.write(f'checks={str(checks).lower()}\n')
           PYTHON
 
   native:
@@ -74,6 +67,7 @@ jobs:
     env:
       # Both sanitizer presets use the same unsanitized Conan dependencies.
       CONAN_BUILD_TYPE: ${{ matrix.preset == 'linux' && 'Debug' || 'RelWithDebInfo' }}
+      VK_INSTANCE_LAYERS: VK_LAYER_KHRONOS_validation
       CCACHE_DIR: ${{ github.workspace }}/build/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_NOHASHDIR: "true"
@@ -85,7 +79,7 @@ jobs:
       - name: Install Clang 23, libstdc++ 16, CMake 4.4.4 and Conan 2
         run: |
           tools/install-llvm.sh 23 clang
-          sudo apt-get install -y g++-16 ninja-build ccache python3-venv mesa-vulkan-drivers
+          sudo apt-get install -y g++-16 ninja-build ccache python3-venv libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers xvfb xauth
           python3 -m venv "$RUNNER_TEMP/conan-venv"
           "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0' 'cmake==4.4.4'
           echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
@@ -252,7 +246,7 @@ jobs:
             export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
-          ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
+          xvfb-run -a ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
@@ -286,7 +280,7 @@ jobs:
       - name: Install Clang 23, libstdc++ 16, CMake 4.4.4 and Conan 2
         run: |
           tools/install-llvm.sh 23 clang clang-tidy
-          sudo apt-get install -y g++-16 ninja-build python3-venv
+          sudo apt-get install -y g++-16 ninja-build python3-venv libvulkan-dev
           python3 -m venv "$RUNNER_TEMP/conan-venv"
           "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0' 'cmake==4.4.4'
           echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
@@ -325,17 +319,6 @@ jobs:
             -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
             -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_RENDER_UNITY_BUILD=OFF
           cmake --build build/linux-tidy --target wiz8_shader_headers
-      - name: Verify offline Metal and Direct3D shaders
-        if: matrix.shard == 0 && needs.scope.outputs.shaders == 'true'
-        run: |
-          source build/linux-tidy/conan/conanbuild.sh
-          cmake -S tools/shadercross -B build/shadercross -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
-          cmake --build build/shadercross --target shadercross --parallel 2
-          python3 tools/shadercross/generate.py --check \
-            --shadercross build/shadercross/_deps/shadercross-build/shadercross
       - name: Restore successful static analyses
         if: ${{ !inputs.full_scan }}
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4

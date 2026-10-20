@@ -15,7 +15,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
+#include "wiz8/render/renderer.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -312,7 +312,7 @@ W8NativeVideo::Result W8NativeVideo::update_now()
 
 void W8NativeVideo::present(SDL_Surface* target)
 {
-    if (!g_gerd || !g_ui_canvas) return;
+    if (!g_renderer || !g_ui_canvas) return;
     const auto& description = *target;
     if (!state->presentation_surface || state->presentation_surface.get() != target) {
         ++target->refcount;
@@ -322,11 +322,9 @@ void W8NativeVideo::present(SDL_Surface* target)
         state->presentation_overlay->setAlphaTestEnabled(false);
     }
     if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
-    state->presentation_overlay->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
-    if (g_gerd->beginFrame() != GpuRenderer::ERROR_NONE)
-        throw std::runtime_error("Cannot begin movie presentation");
-    g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH,
-                  {.color = {0, 0, 0, 1}});
-    state->presentation_overlay->draw(g_gerd.get());
-    g_gerd->endFrame();
+    state->presentation_overlay->updateRectangle(g_renderer.get(), 0, 0, description.w,
+                                                 description.h);
+    g_renderer->beginFrame();
+    state->presentation_overlay->draw(g_renderer.get());
+    g_renderer->endFrame();
 }

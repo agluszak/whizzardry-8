@@ -25,14 +25,12 @@
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_shading.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -255,7 +253,6 @@ std::shared_ptr<Texture> LoadTextureFromPath(const std::filesystem::path& path,
         auto texture = std::make_shared<Texture>(candidate, g_texture_cache_enabled);
         texture->setName(wiz8::path_to_utf8(path.filename()).c_str());
         if (required) {
-            if (g_gerd) g_gerd->prepareTexture(texture.get());
             if (!texture->resolve()) continue;
         }
         g_texture_files.insert_or_assign(path, texture);

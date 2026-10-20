@@ -5,26 +5,6 @@
 #include "wiz8/math.h"
 #include "wiz8/render/draw_shader.h"
 
-struct ShadedVertexArrays {
-    enum {
-        ATTRIBUTE_DIFFUSE = 0x01u,
-        ATTRIBUTE_SPECULAR = 0x02u,
-        ATTRIBUTE_SPECULAR_ALPHA = 0x04u,
-        ATTRIBUTE_ST0 = 0x08u,
-        ATTRIBUTE_ST1 = 0x10u,
-        ATTRIBUTE_Q0 = 0x20u,
-        ATTRIBUTE_Q1 = 0x40u
-    };
-    glm::vec4* eye_locations;
-    glm::vec4* diffuse;
-    glm::vec4* specular;
-    glm::vec2* st0;
-    glm::vec2* st1;
-    float* q0;
-    float* q1;
-    unsigned char* attributes;
-};
-
 namespace VertexChannels {
 struct MaterialInfo {
     MaterialInfo() = default;

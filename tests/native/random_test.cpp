@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <memory>
 #include <set>
 #include <string>
 #include <string_view>
@@ -20,6 +21,8 @@
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/rules/random.h"
 
 namespace {
@@ -143,4 +146,25 @@ TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
                                          "ScatterMissileAimPoint below(360) = 62",
                                          "ScatterMissileAimPoint below(100) = 85",
                                      });
+}
+
+TEST_CASE("Animated texture random triggers advance once across views", "[random][renderer]")
+{
+    auto& rng = PresentationRng();
+    rng.seed(1);
+    ScopedTrace trace(rng);
+    TexturePlayback playback;
+    playback.trigger_mode = W8_TEXTURE_TRIGGER_RANDOM_FRAME;
+    playback.probability = 1;
+    playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
+                         std::make_shared<Texture>()};
+    Texture animation(std::move(playback));
+    animation.UpdateFrame(42);
+    REQUIRE(trace.draws.size() == 2);
+    const auto selected = animation.currentFrame();
+    animation.UpdateFrame(42);
+    REQUIRE(animation.currentFrame() == selected);
+    REQUIRE(trace.draws.size() == 2);
+    animation.UpdateFrame(43);
+    REQUIRE(trace.draws.size() == 4);
 }

@@ -20,10 +20,6 @@ add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE wiz8_engine)
 catch_discover_tests(native_game_geometry_test TEST_PREFIX "native_game_geometry/")
 
-add_executable(native_hash_consumers_test native/hash_consumers_test.cpp)
-target_link_libraries(native_hash_consumers_test PRIVATE wiz8_engine wiz8_native_settings)
-add_test(NAME native_hash_consumers COMMAND native_hash_consumers_test)
-
 add_executable(native_bit_array_io_test native/bit_array_io_test.cpp)
 target_link_libraries(native_bit_array_io_test PRIVATE wiz8_engine)
 add_test(NAME native_bit_array_io COMMAND native_bit_array_io_test)
@@ -69,11 +65,6 @@ add_executable(native_image_io_test native/image_io_test.cpp)
 target_link_libraries(native_image_io_test PRIVATE wiz8_engine wiz8_native_settings)
 add_test(NAME native_image_io COMMAND native_image_io_test)
 
-add_executable(native_renderer_platform_test native/renderer_platform_test.cpp)
-target_link_libraries(native_renderer_platform_test PRIVATE wiz8_engine wiz8_native_settings)
-add_test(NAME native_renderer_platform COMMAND native_renderer_platform_test)
-set_tests_properties(native_renderer_platform PROPERTIES TIMEOUT 10)
-
 add_executable(native_runtime_lookup_test native/runtime_lookup_test.cpp)
 target_link_libraries(native_runtime_lookup_test PRIVATE wiz8_engine wiz8_native_settings)
 add_test(NAME native_runtime_lookup COMMAND native_runtime_lookup_test)
@@ -83,7 +74,7 @@ target_link_libraries(native_render_data_test PRIVATE wiz8_engine wiz8_native_se
 add_test(NAME native_render_data COMMAND native_render_data_test)
 
 add_executable(native_unicode_test "${PROJECT_SOURCE_DIR}/tests/native/unicode_test.cpp")
-target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings)
+target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings vsg::vsg)
 catch_discover_tests(native_unicode_test
     TEST_PREFIX "native_unicode/")
 
@@ -184,28 +175,25 @@ catch_discover_tests(native_audio_test
     TEST_SPEC "~[.manual]"
     PROPERTIES ENVIRONMENT "SDL_AUDIO_DRIVER=wiz8-offline")
 
-# Standalone SDL/Vulkan lifetime control for diagnosing host leak reports.
-# Failures here are independent of game and SurRender ownership.
-add_executable(native_gpu_lifecycle "${PROJECT_SOURCE_DIR}/tests/native/gpu_lifecycle.cpp")
-target_link_libraries(native_gpu_lifecycle PRIVATE SDL3::SDL3)
-# This is an SDL/driver diagnostic, not a game regression test.
-# Keep its executable for manual leak investigations; don't run it in CTest.
-
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE wiz8_engine wiz8_native_settings SDL3::SDL3)
+# Linux CI provides an X11 Vulkan surface under Xvfb. Other platforms use
+# SDL's native video driver.
+set(WIZ8_GRAPHICS_TEST_ENVIRONMENT)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
-    set_tests_properties(native_gpu_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
+    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "SDL_VIDEODRIVER=x11")
 endif()
+add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
+set_tests_properties(native_gpu_rendering PROPERTIES
+    ENVIRONMENT "${WIZ8_GRAPHICS_TEST_ENVIRONMENT}" TIMEOUT 30
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 
 add_executable(native_surface_rendering_test native/surface_rendering_test.cpp)
 target_link_libraries(native_surface_rendering_test PRIVATE wiz8_engine SDL3::SDL3)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
-    set_tests_properties(native_surface_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=offscreen" TIMEOUT 30)
-endif()
+add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
+set_tests_properties(native_surface_rendering PROPERTIES
+    ENVIRONMENT "${WIZ8_GRAPHICS_TEST_ENVIRONMENT}" TIMEOUT 30
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
 target_compile_definitions(native_movie_test PRIVATE
@@ -243,14 +231,20 @@ set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
+set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=offscreen;SDL_AUDIO_DRIVER=dummy"
+        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT}"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
-        RESOURCE_LOCK game_gpu LABELS runtime)
+        RESOURCE_LOCK game_gpu LABELS runtime
+        FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endforeach()
+# These scenarios advance many simulated frames. Software Vulkan with
+# validation needs more wall time while retaining the normal 60 Hz game clock.
+set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600)
+set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.
 set_tests_properties(runtime_quick-save PROPERTIES FIXTURES_SETUP runtime_save)

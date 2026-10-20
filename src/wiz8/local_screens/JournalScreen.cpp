@@ -384,7 +384,7 @@ bool JournalScreen::enter(const ScreenRequest&)
     int maximum_visibility;
 
     SetViewport({0, 0, 0x281, 0x1e1});
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
     UpdateHeldItemCursor();
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 

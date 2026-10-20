@@ -530,7 +530,6 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
         status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
                                  true);
     if (GetWorld()) LeaveLevel();
-    InvalidateRendererTextureCache();
     current.replacePrimary(std::move(replacement));
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
     InstallLevelSessionState(*GetWorld(), status.get());

@@ -18,7 +18,6 @@
 #include "glm/geometric.hpp"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/bounding_radius.h"
-#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/texture.h"
@@ -29,11 +28,8 @@
 #include <limits>
 
 #include "wiz8/math.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/mesh_resources.h"
-#include "wiz8/render/mesh_submission.h"
-#include "wiz8/render/vertex_shading.h"
 
 // A validated permutation carries both directions for attribute-table reorder
 // and references that point into those tables. Validate before mutating a mesh.
@@ -129,7 +125,8 @@ std::int32_t Mesh::getActivePolygonCount()
 void Mesh::setActivePolygonCount(std::int32_t count)
 {
     active_polygon_count = count;
-    setDirty(DIRTY_TRI_MESH);
+    // Visibility selects existing triangles; it never changes render topology.
+    dirty_flags |= 1u << DIRTY_TRI_MESH;
 }
 
 void Mesh::setUVCount(std::int32_t count)
@@ -208,7 +205,7 @@ std::uint32_t* Mesh::getActivePolygonTable(int table)
         for (std::int32_t index = 0; index < polygon_count; ++index) {
             active_polygons[index] = index;
         }
-        setDirty(DIRTY_TRI_MESH);
+        dirty_flags |= 1u << DIRTY_TRI_MESH;
     }
     return active_polygons.empty() ? nullptr : active_polygons.data();
 }
@@ -568,19 +565,6 @@ glm::vec4* Mesh::getVertexDCG(std::int32_t vertex, int table)
     return GetVertexColorTable(*this, dcg, vertex, table);
 }
 
-bool Mesh::isVisible(const DrawTransform& transform)
-{
-    const bool test_sphere = (render_control & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0;
-    const bool test_box =
-        (render_control & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0 && vertex_location_count >= 8;
-    if (!test_sphere && !test_box) return true;
-    const auto bounds = getBounds();
-    if (test_sphere && !transform.sphereVisible(bounds.sphere.center, bounds.sphere.radius))
-        return false;
-    if (test_box && !transform.boxVisible(bounds.box.minimum, bounds.box.maximum)) return false;
-    return true;
-}
-
 void Mesh::reindexPolygons(std::span<const std::uint32_t> indices)
 {
     const MeshPermutation permutation(indices, polygon_count);
@@ -635,30 +619,6 @@ void Mesh::reindexVertices(std::span<const std::uint32_t> indices)
     }
     permutation.remapCorners({getPolyVertex(), static_cast<std::size_t>(polygon_count)}, false);
     setDirtyAll();
-}
-
-void Mesh::renderTriMesh(GpuRenderer& renderer, const TriMesh& mesh, MeshState state)
-{
-    if (mesh.polygon_count != 0 && mesh.vertex_count != 0) {
-        state.sorted =
-            state.sorted || (mesh.control_flags & (1UL << CONTROL_SORTED_RENDERING)) != 0;
-        meshSubmission::drawSides(
-            renderer, mesh, state, [&](std::int32_t side, MeshState& side_state) {
-                std::int32_t material_side = side;
-                if (side == 1) {
-                    side_state.cull = FaceCull::Front;
-                    side_state.reverse_normals = true;
-                    if ((mesh.control_flags & (1UL << CONTROL_REUSE_FRONT_MATERIAL)) != 0)
-                        material_side = 0;
-                } else {
-                    side_state.cull = (mesh.control_flags & (1UL << CONTROL_NO_FRONT_CULL)) != 0
-                                          ? FaceCull::None
-                                          : FaceCull::Back;
-                    side_state.reverse_normals = false;
-                }
-                return material_side;
-            });
-    }
 }
 
 float Mesh::getSortBias() const

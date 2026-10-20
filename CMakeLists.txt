@@ -83,6 +83,8 @@ find_package(SDL3_image 3.4 CONFIG REQUIRED)
 find_package(glm 1.0.3 CONFIG REQUIRED)
 find_package(fmt 11.2.0 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+# Linux: libvulkan-dev; macOS/Windows: the Vulkan SDK (MoltenVK on macOS).
+find_package(Vulkan REQUIRED)
 
 # Conan supplies SDL3, SDL3_image, GLM, fmt, FFmpeg, zlib and glslang.
 # The remaining fetched sources are hash- or commit-pinned until their
@@ -91,8 +93,8 @@ include(FetchContent)
 
 # ConanCenter has SDL_mixer 3.2.0, but we require 3.2.4.
 # The SDL release archive doesn't contain its optional vendored submodules.
-# Build SDL_mixer static, matching Conan's static SDL3, so there is one
-# SDL runtime and its audio device state is shared with the game.
+# Build SDL_mixer static against Conan's shared SDL3, so the mixer and game
+# use the same SDL runtime and audio device state.
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build third-party dependencies statically")
 # Use the built-in decoders (WAV, MP3, Vorbis, FLAC, MIDI) instead of
 # introducing system codec dependencies.
@@ -132,6 +134,27 @@ FetchContent_Declare(utf8proc
     URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
 FetchContent_MakeAvailable(utf8proc)
 wiz8_system_headers(fmt::fmt utf8proc)
+
+# SDL owns platform windows and Vulkan surfaces. VSG owns the render graph,
+# graphics resources and presentation. Wizardry shaders compile at build time.
+set(VSG_SUPPORTS_Windowing OFF CACHE BOOL "" FORCE)
+# Require runtime compilation so standard VSG subgraphs can request ordinary
+# ShaderSet variants beyond the combinations shipped as embedded SPIR-V.
+find_package(glslang CONFIG REQUIRED)
+set(VSG_SUPPORTS_ShaderCompiler ON CACHE BOOL "" FORCE)
+set(VSG_SUPPORTS_ShaderOptimizer OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(vsg
+    GIT_REPOSITORY https://github.com/vsg-dev/VulkanSceneGraph.git
+    GIT_TAG 77839c704362d832c027cc878e5496a14972e83d # v1.1.16
+    EXCLUDE_FROM_ALL SYSTEM)
+# Upstream has its own warning and language requirements. Avoid imposing the
+# game's compiler diagnostics on the dependency while preserving them locally.
+get_property(wiz8_compile_options DIRECTORY PROPERTY COMPILE_OPTIONS)
+set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "")
+set(CMAKE_CXX_STANDARD 17)
+FetchContent_MakeAvailable(vsg)
+set(CMAKE_CXX_STANDARD 26)
+set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${wiz8_compile_options}")
 
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC

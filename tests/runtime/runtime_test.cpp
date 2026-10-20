@@ -72,8 +72,10 @@
    virtual clock advanced one 60 Hz frame per GameLoop: game time, movement and
    animation are the same on every run, and nothing waits for real time.
 
-   Run under SDL's offscreen video driver (no window, no host input) with
+   Run under SDL's X11 video driver under Xvfb (no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
+#include <vsg/state/ViewportState.h>
+
 #include "catch2/catch_message.hpp"
 #include "mgs_commands.h"
 #include "scoped_asset_roots.h"
@@ -133,11 +135,14 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/particle_system.h"
+#include "wiz8/render/renderer.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -230,6 +235,8 @@ public:
         const std::string_view arguments[] = {"/WINDOW"};
         w8_native::audio_offline_for_test(true);
         application_.emplace(arguments);
+        REQUIRE(g_renderer);
+        g_renderer->setCaptureEnabled(true);
         // Games draw from a stream seeded by the clock. Catch's seed makes a run
         // repeatable: CTest fixes it, and failures print it.
         SeedGameRandom(Catch::getSeed());
@@ -269,6 +276,10 @@ public:
             FailStep("audio", "offline mixer did not advance");
         ++frames_;
         g_runtime_test_hooks.clock_us += frame_us;
+        if (frames_ % 120 == 0)
+            std::fprintf(stderr, "runtime: %lu frames, screen %s, %.1fs elapsed\n", frames_,
+                         ScreenName(CurrentScreenState().id),
+                         std::chrono::duration<double>(Clock::now() - started_).count());
     }
 
     /* Steps frames until `ready` holds. The time limit only catches hangs. */
@@ -470,7 +481,7 @@ public:
     /* Pixels of the last rendered frame, or the CPU frame before renderer setup. */
     std::vector<unsigned> read_frame()
     {
-        if (!g_gerd) {
+        if (!g_renderer) {
             // Camp renders through SGP's CPU surface, without a world renderer.
             const auto& surface = GetFrameBufferSurface();
             std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
@@ -479,13 +490,12 @@ public:
                                       SCREEN_WIDTH * sizeof(unsigned)));
             return pixels;
         }
-        auto* surface = g_gerd->lockBuffer();
+        auto* surface = g_renderer->readback();
         REQUIRE(surface);
         std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
         for (int y = 0; y < SCREEN_HEIGHT; ++y)
             for (int x = 0; x < SCREEN_WIDTH; ++x)
                 pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x, y) & 0xffffff;
-        g_gerd->unlockBuffer();
         return pixels;
     }
 
@@ -516,6 +526,7 @@ private:
     }
 
     ScopedTemporaryDirectory user_{"wiz8-runtime"};
+    Clock::time_point started_ = Clock::now();
     std::optional<ScopedAssetRoots> roots_;
     std::optional<wiz8::Application> application_;
     SDL_Window* window_ = nullptr;
@@ -1248,12 +1259,10 @@ void CheckWorldRender(GameHarness& game)
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
     RenderFrame();
-    const auto with_world = g_gerd->getStatistics();
     const unsigned polygons = world->scene->submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
     RenderFrame();
-    const auto without_world = g_gerd->getStatistics();
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
 
@@ -1263,16 +1272,68 @@ void CheckWorldRender(GameHarness& game)
     for (int y = g_viewport.top; y < g_viewport.bottom; ++y)
         for (int x = g_viewport.left; x < g_viewport.right; ++x, ++viewport)
             changed += visible[y * SCREEN_WIDTH + x] != control[y * SCREEN_WIDTH + x];
-    std::printf("world: %u meshes, %u polygons, draws %u/%u, triangles %u/%u, %u/%u viewport "
-                "pixels from the world\n",
-                enabled, polygons, with_world.draw_calls, without_world.draw_calls,
-                with_world.input_triangles, without_world.input_triangles, changed, viewport);
+    std::printf("world: %u meshes, %u polygons, %u/%u viewport pixels from the world\n", enabled,
+                polygons, changed, viewport);
     REQUIRE(polygons > 0);
-    REQUIRE(with_world.draw_calls > without_world.draw_calls);
-    REQUIRE(with_world.input_triangles > without_world.input_triangles);
     // The sky is a separate pass and stays in the control frame; the world
     // (ground, cliffs, water at the Monastery start) covers about half the view.
     REQUIRE(changed > viewport / 4);
+}
+
+// Both cameras traverse the same retail graph in one visual frame. Neither
+// view may age particles or advance a creature's animation a second time.
+void CheckTwoWorldViews(GameHarness& game)
+{
+    auto& scene = *GetWorld()->scene;
+    struct ParticleState {
+        ParticleSystem* system;
+        unsigned active, emitted, integration_tick, emission_tick;
+        std::vector<glm::vec3> positions;
+    };
+    std::vector<ParticleState> particles;
+    for (auto* system : scene.particles)
+        particles.push_back({system, system->active_particle_count, system->emission_count,
+                             system->last_integration_tick, system->last_emission_tick,
+                             system->particle_positions});
+    std::vector<std::pair<MeshInstance*, std::pair<unsigned, float>>> poses;
+    for (auto* mesh : scene.dynamic_meshes)
+        poses.push_back({mesh, {mesh->frame_index, mesh->frame_interpolation}});
+    g_renderer->beginFrame({0, 0, 0, 1});
+    const auto stamp = g_renderer->frameNumber();
+    const SceneFrame frame{.time = RenderClockSeconds()};
+    for (int x : {0, SCREEN_WIDTH / 2})
+        g_renderer->addView(scene.createView(
+            g_renderer->context(), GetWorld()->camera, frame,
+            vsg::ViewportState::create(x, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT), stamp));
+    g_renderer->endFrame(false, true);
+    const auto pixels = game.read_frame();
+    unsigned colored = 0;
+    int max_channel_difference = 0;
+    for (int y = 0; y < SCREEN_HEIGHT; ++y)
+        for (int x = 0; x < SCREEN_WIDTH / 2; ++x) {
+            const auto left = pixels[y * SCREEN_WIDTH + x];
+            const auto right = pixels[y * SCREEN_WIDTH + x + SCREEN_WIDTH / 2];
+            for (int shift : {0, 8, 16})
+                max_channel_difference = std::max(
+                    max_channel_difference, std::abs(static_cast<int>((left >> shift) & 255) -
+                                                     static_cast<int>((right >> shift) & 255)));
+            colored += left != 0;
+        }
+    // A shifted viewport can round interpolated texture/color values to an
+    // adjacent byte even with identical geometry and camera matrices.
+    REQUIRE(max_channel_difference <= 1);
+    REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
+    for (const auto& saved : particles) {
+        REQUIRE(saved.system->active_particle_count == saved.active);
+        REQUIRE(saved.system->emission_count == saved.emitted);
+        REQUIRE(saved.system->last_integration_tick == saved.integration_tick);
+        REQUIRE(saved.system->last_emission_tick == saved.emission_tick);
+        REQUIRE(saved.system->particle_positions == saved.positions);
+    }
+    for (const auto& [mesh, pose] : poses) {
+        REQUIRE(mesh->frame_index == pose.first);
+        REQUIRE(mesh->frame_interpolation == pose.second);
+    }
 }
 
 // Exercise the screen-template behaviours that generic widget dispatch cannot replace.
@@ -1385,21 +1446,27 @@ void CheckGameplayUi(GameHarness& game)
     UpdatePortraitAdvanceButtons();
 }
 
-// Load and render the retail level, evict resident textures, then reload the
+// Load and render the retail level, recreate presentation, then reload the
 // saved level through the shipped loading screen. Leave gameplay resident at
 // scope exit so Application shutdown exercises the same owners as gameplay.
 void ResourceLifecycleScenario()
 {
     GameHarness game(false);
     StartPremadeGame(game);
-    REQUIRE(g_gerd);
-    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
-    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
-    REQUIRE(GpuRenderer::getActive() == nullptr);
+    REQUIRE(g_renderer);
+    REQUIRE(g_renderer->isOpen());
+    g_renderer->close();
     REQUIRE(OpenRendererWindow());
-    REQUIRE(GpuRenderer::getActive() == g_gerd.get());
-    // Rendering must rebuild texture residency after reopening the same device.
+    REQUIRE(g_renderer->isOpen());
+    SuspendVideoManager();
+    REQUIRE_FALSE(IsVideoActive());
+    REQUIRE_FALSE(g_renderer->isOpen());
+    REQUIRE(RestoreVideoManager());
+    REQUIRE(IsVideoActive());
+    REQUIRE(g_renderer->isOpen());
+    // Rendering must retain the world graph when presentation is reopened.
     CheckWorldRender(game);
+    CheckTwoWorldViews(game);
     CheckGameplayUi(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
@@ -1482,7 +1549,7 @@ void ResourceLifecycleScenario()
     const int level = GetLoadedLevelID();
     const auto anchor = Walk(game, "settle-before-save", 2.0f);
     QuickSave(game);
-    { // One save/load cycle covers eviction, reconstruction and live teardown.
+    { // One save/load cycle covers reconstruction and live teardown.
         auto* world = GetWorld();
         REQUIRE((world && world->compiledIndex() && world->scene));
         unsigned linked = 0, animated = 0;
@@ -1500,11 +1567,6 @@ void ResourceLifecycleScenario()
         for (int frame = 0; frame != 4; ++frame) game.frame();
         RenderFrame();
         REQUIRE(world->scene->submitted_polygons > 0);
-        REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
-        g_gerd->invalidateTextureCache();
-        RenderFrame();
-        REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
-        REQUIRE(world->scene->submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
         game.wait("reload-level", [&] {
@@ -1516,7 +1578,7 @@ void ResourceLifecycleScenario()
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();
-    REQUIRE(g_gerd->getResidentTextureMemUsed() > 0);
+    REQUIRE(GetWorld()->scene->submitted_polygons > 0);
 }
 
 /* The UI load test consumes the save written by the quick-save regression.
@@ -1786,13 +1848,16 @@ bool DialogueAwaitingPlayer()
 /* Skip voiced lines with Escape, as the player can, while waiting for input. */
 void WaitDialogue(GameHarness& game, const char* step, const std::function<bool()>& ready)
 {
-    game.wait(step, [&] {
-        if (ready()) return true;
-        if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
-            game.key(SDLK_ESCAPE);
-        }
-        return false;
-    });
+    game.wait(
+        step,
+        [&] {
+            if (ready()) return true;
+            if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
+                game.key(SDLK_ESCAPE);
+            }
+            return false;
+        },
+        90);
 }
 
 void StartConversation(GameHarness& game, const char* step, W8NpcState* npc)
@@ -2027,7 +2092,7 @@ void CombatScenario()
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
         game.wait(
             "round",
-            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 60);
+            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 240);
         closest = std::min(closest, NearestCombatMonster());
     }
     CAPTURE(fighter.hp_current, remaining_health(), closest, game.frames());
@@ -2394,8 +2459,7 @@ void RunScenario(Scenario scenario)
 {
     RequireAssets();
     scenario();
-    REQUIRE(g_gerd == nullptr);
-    REQUIRE(GpuRenderer::getActive() == nullptr);
+    REQUIRE(g_renderer == nullptr);
     CheckGameErrors();
 }
 

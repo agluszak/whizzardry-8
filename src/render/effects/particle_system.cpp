@@ -13,9 +13,17 @@
 #include <vector>
 
 #include <glm/geometric.hpp>
-#include <glm/gtc/matrix_access.hpp>
 #include <glm/matrix.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/nodes/CullNode.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/PipelineLayout.h>
 
+#include "effect_geometry.h"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -23,9 +31,7 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/ext/vector_int3.hpp"
 #include "glm/gtx/rotate_vector.hpp"
-#include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
@@ -36,12 +42,13 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
-#include "wiz8/render/gpu_renderer.h"
-#include "wiz8/render/mesh.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_shading.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
@@ -51,6 +58,44 @@ constexpr float kParticleFlutterAngleRandomScale = 0.00019174758926965296f;
 constexpr float kParticleFlutterDisplacementScale = -0.0010000000474974513f;
 constexpr float kParticleFlutterVelocityFloor = -1000.0f;
 constexpr float kParticleRandomUnitScale = 3.0517578125e-05f;
+
+struct ParticleRenderData {
+    struct Draw {
+        vsg::ref_ptr<render::DrawNode> node;
+        vsg::ref_ptr<vsg::ImageInfo> image;
+        std::uint32_t shader = ~std::uint32_t{0};
+    };
+    vsg::ref_ptr<vsg::PipelineLayout> layout;
+    vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
+    vsg::ref_ptr<vsg::Group> particles = vsg::Group::create();
+    vsg::ref_ptr<vsg::CullNode> cull;
+    render::EffectGeometry geometry;
+    std::vector<Draw> draws;
+    std::uint64_t frame_number = ~std::uint64_t{0};
+
+    ParticleRenderData(render::RenderContext& context, const ParticleSystem& source)
+        : layout(context.layout),
+          geometry(context, source.particle_count * 4, source.material,
+                   render::HasAlpha | render::HasTexcoord0 | render::ParticleBillboard, false, 0)
+    {
+        cull = vsg::CullNode::create(vsg::dsphere(), particles);
+        root->addChild(cull);
+        static constexpr std::array<glm::vec2, 4> uv{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
+        for (std::uint32_t particle = 0; particle < source.particle_count; ++particle) {
+            const auto first = particle * 4;
+            for (std::uint32_t corner = 0; corner < 4; ++corner)
+                geometry.attributes[0]->at(first + corner) =
+                    vsg::vec4(uv[corner].x, uv[corner].y, 0, 0);
+            auto indices = vsg::uintArray::create(6);
+            const std::array values{first, first + 1, first + 2, first + 2, first + 3, first};
+            std::ranges::copy(values, indices->begin());
+            auto draw = geometry.draw(indices, source.requires_sorted_renderer != 0);
+            draw->draw->indexCount = 0;
+            particles->addChild(draw);
+            draws.push_back({std::move(draw), {}, ~std::uint32_t{0}});
+        }
+    }
+};
 
 void ParticleSystem::SetRenderFlags(DrawShader flags)
 {
@@ -135,20 +180,7 @@ void ParticleSystem::AllocateParticles(unsigned int count)
     velocities.assign(count, glm::vec3(0));
     birth_ticks.resize(count);
     particle_active.assign(count, false);
-    active_triangles.resize(count * 2);
-    vertex_positions.resize(count * 4);
-    texcoords.resize(count * 4);
-    alphas.assign(count * 4, 1.0f);
-    triangles.resize(count * 2);
-    for (unsigned int index = 0; index < count; ++index) {
-        int vertex = static_cast<int>(index * 4);
-        triangles[index * 2] = glm::ivec3{vertex, vertex + 1, vertex + 2};
-        triangles[index * 2 + 1] = glm::ivec3{vertex + 2, vertex + 3, vertex};
-        texcoords[vertex] = glm::vec2(0.0f, 0.0f);
-        texcoords[vertex + 1] = glm::vec2(1.0f, 0.0f);
-        texcoords[vertex + 2] = glm::vec2(1.0f, 1.0f);
-        texcoords[vertex + 3] = glm::vec2(0.0f, 1.0f);
-    }
+    alphas.assign(count, 1.0f);
 }
 
 ParticleSystem::~ParticleSystem()
@@ -226,7 +258,6 @@ ParticleSystem::ParticleSystem(const ParticleSystem& other)
     lifetime_maximum = other.lifetime_maximum;
     bounds_origin = other.bounds_origin;
     bounds_radius = other.bounds_radius;
-    update_flags = W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
     last_integration_tick = GameClockMilliseconds();
     last_emission_tick = last_integration_tick;
     attachment_key = other.attachment_key;
@@ -329,12 +360,10 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
         flutter_angles[index] = PresentationRng().next() * kParticleFlutterAngleRandomScale;
     }
     if (!texture_frames.empty()) {
-        static_cast<Texture*>(texture_frames[index * 2].get())->SetFrame(0);
+        texture_frames[index].get()->SetFrame(0);
     }
 
-    std::fill_n(alphas.begin() + index * 4, 4, 1.0f);
-
-    update_flags |= W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
+    alphas[index] = 1.0f;
     ++emission_count;
     ++active_particle_count;
     return index;
@@ -344,7 +373,6 @@ void ParticleSystem::DeactivateParticle(unsigned int index)
 {
     if (particle_active[index]) {
         particle_active[index] = false;
-        update_flags |= W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY;
         --active_particle_count;
     }
 }
@@ -377,7 +405,6 @@ void ParticleSystem::Update()
                 continue;
             }
 
-            unsigned int vertex = index * 4;
             if (expiry_mode == W8_PARTICLE_EXPIRY_TIMED) {
                 unsigned int expires_at = birth_ticks[index] + lifetime_ms;
                 if (expires_at < now) {
@@ -386,7 +413,7 @@ void ParticleSystem::Update()
                 }
                 if (expires_at - 500 < now) {
                     float alpha = (expires_at - now) * 0.002f;
-                    std::fill_n(alphas.begin() + vertex, 4, alpha);
+                    alphas[index] = alpha;
                 }
             } else if (expiry_mode == W8_PARTICLE_EXPIRY_TEXTURE) {
                 if (texture_frames.empty()) {
@@ -395,8 +422,7 @@ void ParticleSystem::Update()
                         lifetime_ms = 1000;
                     }
                 } else {
-                    auto* animation = static_cast<Texture*>(texture_frames[index * 2].get());
-                    animation->UpdateFrame();
+                    auto* animation = texture_frames[index].get();
                     if (animation->IsFinished() != 0) {
                         DeactivateParticle(index);
                         continue;
@@ -507,64 +533,22 @@ void ParticleSystem::SetTraversalEnabled(bool enabled)
     traversal_enabled = enabled;
 }
 
-/* Build the four camera-facing offsets once per call, then expand every
-   particle center into a quad. */
-void ParticleSystem::PrepareRenderer(const glm::mat4& view)
+/* Keep the old activation gate and emission/integration/completion order in
+   the game update. Frustum visibility only affects drawing: an enabled system
+   still expires and restores its owner's animation when it is offscreen. */
+void ParticleSystem::AdvanceSimulation()
 {
-    static const std::array<glm::vec3, 4> corners{
-        {{-0.5f, 0.5f, 0}, {0.5f, 0.5f, 0}, {0.5f, -0.5f, 0}, {-0.5f, -0.5f, 0}}};
-    auto basis = glm::mat3(view);
-    const float normalization = float(1.0 / glm::length(glm::vec3(glm::row(view, 0))));
-    basis *= normalization;
-    const float scale = float(particle_size) * size_scale;
-    std::array<glm::vec3, 4> offsets;
-    for (unsigned corner = 0; corner < corners.size(); ++corner)
-        offsets[corner] = (basis * corners[corner]) * scale;
-
-    float phase = 0;
-    if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
-        phase = float(GameClockMilliseconds() % flutter_period) / int(flutter_period) *
-                kCameraAnglePeriod;
-    const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
-    for (unsigned index = 0; index < particle_count; ++index) {
-        auto position = particle_positions[index];
-        if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && velocities[index].y < 0) {
-            float amount = flutter;
-            if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED)
-                amount *= std::max(kParticleFlutterVelocityFloor, velocities[index].y) *
-                          kParticleFlutterDisplacementScale;
-            position +=
-                glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
-        }
-        for (unsigned corner = 0; corner < corners.size(); ++corner)
-            vertex_positions[index * 4 + corner] = position + offsets[corner];
-    }
-}
-
-/* One particle system's complete submission. The system is placed (either
-   relative to the camera or at its own node location), aged, stopped after
-   its configured total activation count, culled against the renderer, and
-   finally handed to the shared triangle-mesh pipeline as a single slot.
-
-   The retired path is the only one that can drop the system: a particle whose
-   activity has run out notifies its shake callback and, when release_when_done marks
-   it as self-owned, marks itself finished for its owner to destroy. */
-void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view,
-                                      const ScenePass& pass)
-{
-    glm::vec3 position;
-
-    if (finished) {
+    if (finished || !visible || !traversal_enabled || (!emitting && !active_particle_count)) {
         return;
     }
     if (camera_relative) {
-        position = cameraLocation() + camera_offset;
-
-        this->transform.setLocation(glm::dvec3(position));
-    } else {
-        position = glm::vec3(this->transform.getLocation());
+        transform.setLocation(glm::dvec3(cameraLocation() + camera_offset));
     }
 
+    // An IFL frame can itself be animated. Resolve the selected chain here
+    // so every view later consumes the same complete playback snapshot.
+    for (unsigned index = 0; index < texture_frames.size(); ++index)
+        if (particle_active[index]) texture_frames[index]->resolve();
     Update();
 
     if (emission_limit != 0 && emission_count >= emission_limit) {
@@ -578,87 +562,126 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform
         finished = release_when_done;
         return;
     }
+}
 
-    glm::mat3 rotation;
-
-    if (bounds_mode == W8_PARTICLE_BOUNDS_SPHERE) {
-        bool visible;
-
-        const auto& extent = bounds_origin;
-
-        if (extent.x == 0.0f && extent.y == 0.0f && extent.z == 0.0f) {
-            visible = view.sphereVisible(position, size_scale * bounds_radius);
-        } else {
-            rotation = this->transform.getRotation<glm::mat3>();
-            glm::vec3 center = rotation * extent + position;
-            visible = view.sphereVisible(center, size_scale * bounds_radius);
+vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode(render::RenderContext& context)
+{
+    if (!render_data || render_data->layout != context.layout) {
+        auto replacement = std::make_unique<ParticleRenderData>(context, *this);
+        if (render_data) {
+            render_data->root->children = std::move(replacement->root->children);
+            replacement->root = render_data->root;
         }
-        if (!visible) {
-            return;
-        }
+        render_data = std::move(replacement);
     }
+    return render_data->root;
+}
 
-    if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
-        rotation = this->transform.getRotation<glm::mat3>();
+vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode() const
+{
+    if (!render_data) return {};
+    return render_data->root;
+}
+
+void ParticleSystem::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
+                                      std::uint64_t frame_number)
+{
+    renderNode(context);
+    auto& data = *render_data;
+    if (data.frame_number == frame_number) return;
+    data.frame_number = frame_number;
+
+    const auto position = glm::vec3(transform.getLocation());
+    const auto rotation = transform.getRotation<glm::mat3>();
+    glm::vec3 center = position;
+    float radius = 0;
+    if (bounds_mode == W8_PARTICLE_BOUNDS_SPHERE) {
+        center += rotation * bounds_origin;
+        radius = size_scale * bounds_radius;
+    } else if (bounds_mode == W8_PARTICLE_BOUNDS_BOX) {
         glm::mat4 world(rotation);
         world[3] = glm::vec4(position, 1);
         const auto bounds = BoundingBox{lifetime_minimum, lifetime_maximum}.transformed(world);
-        if (!view.boxVisible(bounds.minimum, bounds.maximum)) {
-            return;
-        }
+        center = bounds.center();
+        radius = glm::length(bounds.maximum - center);
+    } else {
+        for (unsigned index = 0; index < particle_count; ++index)
+            if (particle_active[index])
+                radius = std::max(radius, glm::length(particle_positions[index] - center));
+        radius += float(particle_size) * size_scale;
     }
+    data.cull->bound = vsg::dsphere(center.x, center.y, center.z, radius);
+    render::InstanceBlock instance;
+    if (scene) instance.ambient = glm::vec4(scene->ambient_light, 0);
+    instance.bounds = glm::vec4(center, radius);
+    render::store(*data.geometry.instance, instance);
+    render::store(*data.geometry.pass, render::packPass(std::array{material},
+                                                        render::HasAlpha | render::HasTexcoord0 |
+                                                            render::ParticleBillboard,
+                                                        false, frame.time));
 
-    /* Two indices per surviving particle, rebuilt only after a deactivation
-       has marked the pairs stale. */
-    if ((update_flags & W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY) != 0) {
-        unsigned int written = 0;
-        for (unsigned int index = 0; index < particle_count; ++index) {
-            if (particle_active[index] != 0) {
-                active_triangles[written++] = index * 2;
-                active_triangles[written++] = index * 2 + 1;
+    float phase = 0;
+    if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
+        phase = float(GameClockMilliseconds() % flutter_period) / int(flutter_period) *
+                kCameraAnglePeriod;
+    const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
+    const bool enabled = visible && traversal_enabled && !finished;
+    bool positions_changed = false;
+    bool metadata_changed = false;
+    for (unsigned index = 0; index < particle_count; ++index) {
+        auto& state = data.draws[index];
+        auto& draw = *state.node;
+        draw.draw->indexCount = enabled && particle_active[index] ? 6 : 0;
+        draw.sorted = requires_sorted_renderer != 0;
+        if (!draw.draw->indexCount) continue;
+        auto center = particle_positions[index];
+        if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && velocities[index].y < 0) {
+            float amount = flutter;
+            if (flutter_mode == W8_PARTICLE_FLUTTER_VELOCITY_SCALED)
+                amount *= std::max(kParticleFlutterVelocityFloor, velocities[index].y) *
+                          kParticleFlutterDisplacementScale;
+            center +=
+                glm::vec3(glm::rotateY(glm::dvec3(amount, 0, 0), double(flutter_angles[index])));
+        }
+        for (unsigned corner = 0; corner < 4; ++corner) {
+            const auto vertex = index * 4 + corner;
+            // All four centers have the billboard's actual eye-space depth,
+            // which is also the key used by global triangle sorting.
+            auto& position = data.geometry.positions->at(vertex);
+            const vsg::vec3 next_position(center.x, center.y, center.z);
+            if (position != next_position) {
+                position = next_position;
+                positions_changed = true;
+            }
+            auto& metadata = data.geometry.attributes[4]->at(vertex);
+            const vsg::vec4 next_metadata(0, 1, alphas[index], float(particle_size) * size_scale);
+            if (metadata != next_metadata) {
+                metadata = next_metadata;
+                metadata_changed = true;
             }
         }
-        update_flags &= ~static_cast<unsigned int>(W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY);
+        auto* image = texture_frames.empty() ? texture.get() : texture_frames[index].get();
+        if (image) image = image->currentFrame();
+        auto current_image = context.texture(image, frame.texture_reduction);
+        if (state.image != current_image || state.shader != render_flags.value) {
+            state.image = current_image;
+            state.shader = render_flags.value;
+            draw.stateCommands = {context.pipeline(render_flags.value, FaceCull::None),
+                                  data.geometry.instance_bind, data.geometry.pass_bind,
+                                  context.batchSet(render_flags.value, current_image)};
+        }
     }
-
-    PrepareRenderer(view.inverseModelView());
-
-    Mesh::TriMesh mesh;
-    mesh.active_polygons = std::span(active_triangles).first(active_particle_count * 2);
-    mesh.poly_vertices = triangles.data();
-    mesh.polygon_count = wiz8::checked_integer<std::int32_t>(triangles.size());
-    mesh.positions = vertex_positions.data();
-    mesh.vertex_count = wiz8::checked_integer<std::int32_t>(vertex_positions.size());
-    mesh.pass_count = 1;
-    mesh.control_flags =
-        (1u << Mesh::CONTROL_SKIP_AUTO_BOX) | (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE);
-    mesh.vertex_alpha = alphas;
-    mesh.materials[0][0] = material;
-    mesh.shaders[0] = render_flags;
-    mesh.texcoords[0][0] = texcoords.data();
-    if (!texture_frames.empty())
-        mesh.poly_textures[0][0] = &texture_frames;
-    else
-        mesh.textures[0][0] = texture;
-    // Particles are never picked.
-    MeshState state{.transform = view,
-                    .cull = FaceCull::None,
-                    .sorted = requires_sorted_renderer != 0,
-                    .scene = pass};
-    state.scene.picks = {};
-    renderer->submitMesh(mesh, state);
+    if (positions_changed) data.geometry.positions->dirty();
+    if (metadata_changed) data.geometry.attributes[4]->dirty();
 }
 
 void ParticleSystem::SetTexture(std::shared_ptr<Texture> texture)
 {
     texture_frames = {};
     if (auto* animation = ((texture.get() && texture.get()->playback) ? texture.get() : nullptr)) {
-        texture_frames.resize(particle_count * 2);
-        for (unsigned int i = 0; i < texture_frames.size(); i += 2) {
-            auto frame = std::make_shared<Texture>(*animation);
-            texture_frames.set(i, frame);
-            texture_frames.set(i + 1, std::move(frame));
-        }
+        texture_frames.reserve(particle_count);
+        for (unsigned int i = 0; i < particle_count; ++i)
+            texture_frames.push_back(std::make_shared<Texture>(*animation));
     }
     this->texture = std::move(texture);
 }
@@ -704,6 +727,14 @@ void RetireParticle(World& world, std::unique_ptr<ParticleSystem> particle)
 {
     particle->release_when_done = true;
     world.retired_particles.push_back(std::move(particle));
+}
+
+void AdvanceWorldParticles(World& world)
+{
+    // Completion can change a monster's animation. Newly attached systems wait
+    // for the next step, just as they did in the scene's submission snapshot.
+    const auto particles = world.scene->particles;
+    for (auto* particle : particles) particle->AdvanceSimulation();
 }
 
 void SweepFinishedParticles(World* world)

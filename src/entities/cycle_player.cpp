@@ -767,11 +767,16 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         rot = GetRotation();
         for (index = 0; index < count; ++index) {
             Light* light = (*m_plsLights)[index].get();
-            glm::vec3 offset = light->m_position;
-
-            glm::vec3 placed = rot * offset + origin;
-            loc = glm::dvec3(placed);
-            light->transform.setLocation(loc);
+            if (animation->path_lists != 1 && current_model_instance) {
+                // The light is a child of the visual. VSG composes it for
+                // rendering; the bake query reads that same parentage.
+                light->transform.setLocation(glm::dvec3(light->m_position));
+                if (light->scene)
+                    light->attachTo(*current_model_instance, {}, Light::Attachment::CycleOrigin);
+            } else {
+                const auto placed = rot * light->m_position + origin;
+                light->transform.setLocation(glm::dvec3(placed));
+            }
         }
     }
 }
@@ -818,37 +823,16 @@ void CyclePlayer::DetachRepresentation(World* world)
    An attachment normally rides a named vertex of the model's mesh: the
    particle's own key is looked up through the mesh-model chain, and the vertex
    it maps to gives the offset. An attachment whose key resolves to nothing
-   falls back to the offset it carries itself. Either way the offset is scaled
-   and rotated into the model instance's frame and added to its location.
+   falls back to the offset it carries itself. The same sampled pose used by
+   rendering supplies the vertex; the instance's accumulated transform places it.
 
    The particle's own mode then decides its orientation: mode three aims it
    along the cycle's stored axis, mode four leaves the orientation alone, and
    anything else composes the attachment's own rotation with the model's. */
 void CyclePlayer::UpdateParticleAttachments()
 {
-    int count;
-    int index;
-    MeshInstance* psrMesh;
-    Mesh* pMeshModel = nullptr;
-    glm::mat3 rot;
-    glm::dvec3 scale_vec;
-    glm::dvec3 loc;
-    glm::dvec3 target;
-    glm::dvec3 axis;
-    glm::mat3 combined;
-    glm::dmat3 world;
-    glm::vec3 offset;
-    glm::vec3 placed;
-    int vertex;
-    float scale_x;
-    float scale_y;
-    float scale_z;
-
-    count = static_cast<int>(particles.size());
-    if (count == 0) {
-        return;
-    }
-    psrMesh = current_model_instance;
+    if (particles.empty()) return;
+    auto* psrMesh = current_model_instance;
     if (!psrMesh) {
         auto* animation = active_animation;
         if (!animation) return;
@@ -856,51 +840,28 @@ void CyclePlayer::UpdateParticleAttachments()
                                              : SelectCycleFrameLod(subcycle, m_bLOD);
     }
     if (!psrMesh || !psrMesh->getModel()) return;
-    pMeshModel = psrMesh->getModel();
-    rot = psrMesh->transform.getRotation<glm::mat3>();
-    scale_vec = psrMesh->transform.getScale();
-    scale_x = static_cast<float>(scale_vec.x);
-    scale_y = static_cast<float>(scale_vec.y);
-    scale_z = static_cast<float>(scale_vec.z);
-
-    for (index = 0; index < count; ++index) {
-        ParticleAttachment* attachment = &particles[index];
-        ParticleSystem* particle = attachment->m_pstParticles.get();
+    const auto matrix = psrMesh->worldMatrix();
+    const auto rotation = psrMesh->worldRotation();
+    for (auto& attachment : particles) {
+        auto* particle = attachment.m_pstParticles.get();
         if (!particle->emitting) {
             continue;
         }
-        const auto mapped = findMappedVertex(pMeshModel, particle->attachment_key);
-        if (!mapped) {
-            offset = attachment->position;
-        } else {
-            auto* model = mapped->mesh;
-            auto* locations = (model->flags & W8_MESH_HAS_FRAME_STORAGE)
-                                  ? model->GetVertexLocations(subcycle, true, 0)
-                                  : model->getVertexLoc();
-            vertex = mapped->index < model->vertex_location_count ? mapped->index : 0;
-            offset = locations[vertex];
+        auto offset = attachment.position;
+        if (const auto mapped = findMappedVertex(psrMesh->getModel(), particle->attachment_key)) {
+            const auto vertex =
+                mapped->index < mapped->mesh->vertex_location_count ? mapped->index : 0;
+            if (const auto sampled = psrMesh->sampledPosition(*mapped->mesh, vertex))
+                offset = *sampled;
         }
-        offset.x *= scale_x;
-        offset.y *= scale_y;
-        offset.z *= scale_z;
-        placed = rot * offset;
-        loc = psrMesh->transform.getLocation();
-        glm::vec3 anchor;
-        anchor = glm::vec3(loc);
-        placed += anchor;
+        const auto placed = glm::dvec3(matrix * glm::dvec4(offset, 1));
 
         if (aim_set && particle->direction_mode == W8_PARTICLE_DIRECTION_CONE) {
-            target = glm::dvec3(placed);
-            axis = glm::dvec3(m_axis);
-            particle->transform.setRotation(axis, target, 0.0);
+            particle->transform.setRotation(glm::dvec3(m_axis), placed, 0.0);
         } else if (particle->direction_mode != W8_PARTICLE_DIRECTION_RANDOM) {
-            combined = rot;
-            combined = combined * (attachment->rotation);
-            world = glm::dmat3(combined);
-            particle->transform.setRotation(world);
+            particle->transform.setRotation(rotation * glm::dmat3(attachment.rotation));
         }
-        loc = glm::dvec3(placed);
-        particle->transform.setLocation(loc);
+        particle->transform.setLocation(placed);
     }
 }
 

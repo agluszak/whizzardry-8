@@ -21,11 +21,6 @@
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
    Distributed under the accompanying SFI Source Code license agreement. */
 
-#define BUFFER_READY 0x00
-#define BUFFER_BUSY 0x01
-#define BUFFER_DIRTY 0x02
-#define BUFFER_DISABLED 0x03
-
 #define MAX_CURSOR_WIDTH 64
 #define MAX_CURSOR_HEIGHT 64
 #define VIDEO_NO_CURSOR 0xFFFF
@@ -72,7 +67,6 @@ extern int g_cursor_image_height;
    PartyCamera::applySway. */
 extern bool g_camera_sway_active;
 extern int g_screenshot_index;
-extern int g_screenshot_page;
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom);
 /* Clear a rectangle of the interface overlay and upload it. */
 void EraseRegion(int left, int top, int right, int bottom);
@@ -81,7 +75,6 @@ extern const float g_viewport_x_scale;
 extern const float g_viewport_y_scale;
 
 struct SDL_Surface;
-class MeshInstance;
 class MeshInstance;
 class Texture;
 struct OverlayQuad;
@@ -116,7 +109,6 @@ bool ClearMouseSurface(void);
 void DrawVideoInspector(int left, unsigned int top);
 /* 0x00428830: the option-4-suppressed render probe - draws the node between
    the dynamic scene's bracketing passes and returns the sampled statistic. */
-unsigned int MeasureMeshRenderWithoutPositionalOption(MeshInstance* mesh);
 /* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
    RenderAutomapMarkers' item-marker factory calls it cross-TU. */
 /* 0x00484A40: blit one frame of a video object into a color surface. */
@@ -131,12 +123,11 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
 /* 0x00428AA0: mark both renderer mode words dirty. */
 /* 0x004289C0: the render probe that counts a mesh's drawn pixels — draw the
    node through the world camera and return the sampled statistic. */
-unsigned int MeasureMeshRender(MeshInstance* mesh);
 
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
 class Camera3D;
-class GpuRenderer;
+class Renderer;
 class Material;
 class WorldScene;
 class UiCanvasTexture;
@@ -146,19 +137,16 @@ extern bool g_screenshot_pending;
 extern bool g_video_inspector_enabled;
 extern bool g_cursor_scene_enabled;
 extern unsigned char g_fullscreen_scene_last;
-extern std::shared_ptr<SDL_Surface> g_primary_color_surface;
 void DrawColorSurface(SDL_Surface* surface, int x, int y);
 std::unique_ptr<MeshInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
                                               float height, bool additive); /* 0x00424A90 */
 extern bool g_texture_cache_enabled;
-extern std::unique_ptr<GpuRenderer> g_gerd;
-/* Secondary renderer device preferred by the offscreen world-render path. */
+extern std::unique_ptr<Renderer> g_renderer;
+/* CPU canvas published as a VSG texture. */
 extern std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern MeshInstance* g_current_model_instance;
 extern float g_texture_inset_pixels;
-extern int g_surface_opaque_shader_bits;
-extern int g_surface_alpha_blend_shader_bits;
 extern DesignRect g_viewport;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;
@@ -178,7 +166,7 @@ struct ViewportBounds {
 ViewportBounds GetScaledViewportBounds();
 bool InitializeRendererSceneObjects(void);
 void ResetVideoFrameState(void);
-void SetPrimarySurfaceTextureHint2Enabled(bool enabled);
+void SetUiCanvasAlphaTestEnabled(bool enabled);
 bool ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
@@ -200,12 +188,9 @@ void ReleasePrimarySurface(void);
 unsigned char InitializeVideoDevice(void);
 bool SetupDisablesAudio();
 bool OpenRendererWindow(void);
-void InvalidateRendererTextureCache(void);
 bool DisableCursorScene(void);
 bool EnableCursorScene(void);
 void SetWorldModelPickingEnabled(bool enabled);
-bool RendererBufferIsLockable(void);
-void SetRendererAutoFlipEnabled(bool enabled);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */
 bool IsCursorImageInsideViewport(void); /* 0x00428030 */
 

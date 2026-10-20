@@ -6,8 +6,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-// A world-space pose. Attachments compute their poses explicitly; there are no
-// parent links, transform notifications, or mutable matrix caches.
+// A local pose. VSG nodes own render parentage and compose these values during
+// traversal; this value holds no parent links or accumulated-matrix cache.
 struct Transform3D {
     glm::dvec3 position{0};
     glm::dmat3 rotation{1};

@@ -5,8 +5,6 @@
 
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/index_algorithms.h"
-#include "wiz8/render/draw_shader.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 
@@ -82,26 +80,9 @@ static bool pathPriorityOrder()
     return true;
 }
 
-static bool renderingIndexes()
-{
-    GpuRenderer::Renderer::TextureSetCache cache;
-    const GpuRenderer::Renderer::TextureSetKey first{nullptr, nullptr, DrawShader{}};
-    auto second = first;
-    second.shader.value = 1;
-    REQUIRE(cache.intern(first) == 0); // zero is a real cached index
-    REQUIRE(cache.intern(second) == 1);
-    REQUIRE(cache.intern(first) == 0);
-    REQUIRE(cache.sets.size() == 2);
-    cache.clear();
-    REQUIRE(cache.intern(second) == 0);
-
-    return true;
-}
-
 TEST_CASE("indexes_test")
 {
     REQUIRE(candidateOrdering());
     REQUIRE(mirroredOctreeIndexes());
     REQUIRE(pathPriorityOrder());
-    REQUIRE(renderingIndexes());
 }

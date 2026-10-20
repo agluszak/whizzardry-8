@@ -25,6 +25,7 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"

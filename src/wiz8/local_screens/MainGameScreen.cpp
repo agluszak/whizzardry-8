@@ -129,7 +129,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/world_scene.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -196,7 +195,6 @@ bool g_mouselook_left_held;
 
 /* When set, the draw path clears FLAG_DISABLE on level model instances before
    RenderFrame, then re-evaluates each instance afterward. */
-bool g_node_cull_pending;
 
 unsigned short g_trap_name_string_ids[] = {
     0x542, 0x543, 0x544, 0x545, 0x546, 0x547, 0x548, 0x549, 0x54a, 0x54b,
@@ -2269,7 +2267,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         ClearHeldItemDisplay();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    SetPrimarySurfaceTextureHint2Enabled(true);
+    SetUiCanvasAlphaTestEnabled(true);
     if (LockInteractionSuspended()) {
         OpenLockInteraction(0);
     }
@@ -2954,15 +2952,7 @@ void DrawMainGameScreen(void)
         if (MainGameHud()->radar_map_visible != 0) {
             EnsureRadarMapOverlay();
         }
-        if (g_node_cull_pending) {
-            for (const auto& instance : GetWorld()->scene->static_meshes) instance->visible = true;
-        }
         RenderFrame();
-        if (g_node_cull_pending) {
-            for (const auto& instance : GetWorld()->scene->static_meshes)
-                instance->visible = MeasureMeshRenderWithoutPositionalOption(instance.get()) != 0;
-            g_node_cull_pending = false;
-        }
         if (g_dev_mode) {
             CurrentGame().status.dev_flagged = true;
         }
@@ -6061,7 +6051,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
     request.id = W8_SCREEN_CAMP;
     RequestScreen(std::move(request));
     UpdateScreenOverlays(1);
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
 }
 
 /* The viewport mode the screen falls back to after a raised overlay drops:
@@ -6592,7 +6582,7 @@ void ResetMainGameMode(void)
     CurrentGame().status.game_started = false;
     ClearHeldItemDisplay();
     ReturnToPreviousScreen();
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
 }
 
 void CreateSurpriseFade(void)

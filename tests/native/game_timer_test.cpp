@@ -15,7 +15,6 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/runtime_test_hooks.h"
 
@@ -140,18 +139,6 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.25f));
     advance(250'000);
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.5f));
-}
-
-TEST_CASE_METHOD(TimerFixture, "Renderer statistics measure elapsed seconds without a clock owner",
-                 "[timers][renderer]")
-{
-    GpuRenderer renderer;
-    renderer.resetStatistics();
-    advance(250'000);
-    REQUIRE(renderer.getStatistics().elapsed == Catch::Approx(0.25));
-    renderer.resetStatistics();
-    advance(125'000);
-    REQUIRE(renderer.getStatistics().elapsed == Catch::Approx(0.125));
 }
 
 TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-bit tick rollover",

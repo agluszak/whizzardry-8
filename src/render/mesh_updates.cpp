@@ -163,7 +163,6 @@ void UpdateWorldMeshFromQuads(World* world)
             *table++ = polygon;
         }
     }
-    mesh->setDirty(Mesh::DIRTY_TRI_MESH);
 }
 
 void UpdateWorldOctree(World* world)
@@ -191,6 +190,5 @@ void UpdateWorldMesh()
         for (index = 0; static_cast<std::int32_t>(index) < polygon_count; ++index) {
             table[index] = index;
         }
-        mesh->setDirty(Mesh::DIRTY_TRI_MESH);
     }
 }

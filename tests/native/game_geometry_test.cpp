@@ -4,6 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <ios>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -19,6 +22,17 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/ConstVisitor.h>
+#include <vsg/core/Object.h>
+#include <vsg/nodes/Node.h>
+#include <vsg/nodes/StateGroup.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/DescriptorBuffer.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/PipelineLayout.h>
+#include <vulkan/vulkan_core.h>
 
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -30,8 +44,9 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
+#include "scoped_asset_roots.h"
 #include "scoped_game.h"
+#include "temporary_directory.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/audio/sound3d.h"
@@ -42,29 +57,30 @@
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
-#include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/ground_shadow.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_culling.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/mesh_resources.h"
@@ -73,8 +89,10 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/segment_math.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/render/triangle_projection.h"
-#include "wiz8/render/vertex_shading.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -84,6 +102,7 @@
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
 #include "wiz8/surface_geometry.h"
+#include "wiz8/texture_animation.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/environment_state.h"
@@ -96,6 +115,33 @@
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {
     return glm::length(actual - expected) < tolerance;
+}
+
+static void requireEffectLayout(const vsg::Node& root, const vsg::PipelineLayout* expected)
+{
+    struct Check : vsg::ConstVisitor {
+        explicit Check(const vsg::PipelineLayout* expected) : expected(expected) {}
+        const vsg::PipelineLayout* expected;
+        unsigned pipelines = 0;
+        unsigned descriptors = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            for (const auto& command : group.stateCommands) {
+                if (const auto* bind = command->cast<vsg::BindGraphicsPipeline>()) {
+                    REQUIRE(bind->pipeline->layout.get() == expected);
+                    ++pipelines;
+                } else if (const auto* bind = command->cast<vsg::BindDescriptorSet>()) {
+                    REQUIRE(bind->layout.get() == expected);
+                    ++descriptors;
+                }
+            }
+            group.traverse(*this);
+        }
+    } check(expected);
+    root.accept(check);
+    REQUIRE(check.pipelines > 0);
+    REQUIRE(check.descriptors >= 3);
 }
 
 static void bounds()
@@ -401,30 +447,6 @@ static void renderer_bounds()
     REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.radius == 0);
 
-    Mesh mesh(0, 8);
-    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
-    mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(view)); // Visible sphere, rejected box.
-    mesh.enable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(view));
-    mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
-    mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(view)); // Rejected sphere, visible box.
-    mesh.enable(Mesh::CONTROL_SKIP_AUTO_SPHERE);
-    REQUIRE(mesh.isVisible(view));
-    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {3, 0, 0}, 0.1f);
-    mesh.enable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(view));
-    mesh.disable(Mesh::CONTROL_SKIP_AUTO_BOX);
-    mesh.vertex_location_count = 7;
-    REQUIRE(mesh.isVisible(view)); // Small meshes bypass box culling.
-
-    const DrawTransform scaled{
-        .model_view =
-            glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4))};
-    const auto sphere = scaled.eyeSpaceBounds({{2, 3, 4}, 2});
-    REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
-    REQUIRE(sphere.radius == 8);
     const std::array user_planes{eyeSpaceClipPlane(glm::mat4(1), {1, 0, 0, 0})};
     const DrawTransform clipped{.user_clip_planes = user_planes};
     REQUIRE_FALSE(clipped.sphereVisible({-0.5f, 0, 0}, 0.1f));
@@ -440,51 +462,6 @@ static void renderer_bounds()
     REQUIRE_FALSE(perspective.sphereVisible({0, 0, -0.5f}, 0.1f));
     REQUIRE_FALSE(perspective.sphereVisible({0, 0, -12}, 0.1f));
     REQUIRE_FALSE(perspective.sphereVisible({8, 0, -4}, 0.1f));
-}
-
-static void triangle_visibility()
-{
-    const std::array<glm::vec3, 9> positions{{{-0.5f, -0.5f, 0},
-                                              {0.5f, -0.5f, 0},
-                                              {0, 0.5f, 0},
-                                              {2, -0.5f, 0},
-                                              {3, -0.5f, 0},
-                                              {2.5f, 0.5f, 0},
-                                              {0, 0.25f, 0},
-                                              {2.5f, 0, 0},
-                                              {0, -0.25f, 0}}};
-    const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}};
-    const std::array<glm::vec4, 6> planes{
-        {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
-    const glm::mat4 identity(1);
-    std::array<std::uint32_t, 3> indices;
-    meshCulling::Input input(identity, identity);
-    input.cull_mode = 2;
-    input.triangles = triangles;
-    input.vertices = positions;
-    input.clip_planes = planes;
-    input.clip_mask = 0x3f;
-    auto output = meshCulling::cull(input);
-    REQUIRE((output.indices == std::vector<std::uint32_t>{0, 2}));
-    REQUIRE((output.vertexCount() == 6));
-    const std::array<std::uint32_t, 6> expected{{0, 1, 2, 6, 7, 8}};
-    for (unsigned i = 0; i < expected.size(); ++i)
-        REQUIRE((output.avt[i] == expected[i] && output.vertex_remap[expected[i]] == i));
-    // Active triangle filtering must keep source order without changing the input list.
-    indices = {2, 1, 0};
-    const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
-    input.active_triangles = indices;
-    input.polygon_planes = facing;
-    input.cull_mode = 0;
-    input.clip_mask = 0;
-    output = meshCulling::cull(input);
-    REQUIRE((output.indices == std::vector<std::uint32_t>{2, 0}));
-    REQUIRE((indices == std::array<std::uint32_t, 3>{2, 1, 0}));
-    input.active_triangles = std::span<const std::uint32_t>{};
-    output = meshCulling::cull(input);
-    REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
-    const auto clip = meshCulling::getClipMask({1, 0, 0}, 0, planes, 0x3f);
-    REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
 }
 
 TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]")
@@ -525,11 +502,6 @@ TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]"
 TEST_CASE("Renderer bounds", "[geometry]")
 {
     renderer_bounds();
-}
-
-TEST_CASE("Triangle visibility", "[geometry]")
-{
-    triangle_visibility();
 }
 
 TEST_CASE("Bounding volumes", "[geometry]")
@@ -737,6 +709,105 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     REQUIRE(polygons.size() == faces);
     REQUIRE(polygons.front() == (1u << 16));
     REQUIRE(tree.registry.current_regions == std::vector<bool>{true, false});
+}
+
+TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry][rendering]")
+{
+    const ScopedTemporaryDirectory directory("wiz8-shadow-bounds");
+    const auto assets = directory.path / "assets";
+    const auto user = directory.path / "user";
+    const auto bitmap_path = assets / "data/monsters/bitmaps";
+    std::filesystem::create_directories(bitmap_path);
+    std::filesystem::create_directory(user);
+    const ScopedAssetRoots asset_roots({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)});
+    // A one-pixel opaque TGA keeps this a CPU graph test without retail assets.
+    const std::array<unsigned char, 22> tga{0, 0, 2, 0, 0, 0,  0, 0,   0,   0,   0,
+                                            0, 1, 0, 1, 0, 32, 8, 255, 255, 255, 255};
+    {
+        std::ofstream output(bitmap_path / "shadow.tga", std::ios::binary);
+        output.write(reinterpret_cast<const char*>(tga.data()), tga.size());
+        REQUIRE(output.good());
+    }
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& world = *GetWorld();
+    auto mesh = std::make_shared<Mesh>(1, 4);
+    mesh->getVertexLoc()[0] = {-1, 0, -1};
+    mesh->getVertexLoc()[1] = {0, 0, 1};
+    mesh->getVertexLoc()[2] = {1, 0, -1};
+    // Unselected terrain still contributes to the original shading bound.
+    mesh->getVertexLoc()[3] = {10000, 0, 0};
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    MeshInstance instance;
+    instance.setModel(mesh);
+    world.psrMeshes = {nullptr, &instance};
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    auto& tree = *world.spatial;
+    tree.m_meshCount = 2;
+    tree.m_alpha_bits.assign(2, false);
+    tree.m_polygon_bit_count = 2;
+    tree.m_spatial.m_bounds.minimum = {-50000, -50000, -50000};
+    tree.m_spatial.m_node_extent = 100000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = {1};
+    tree.m_leaves.resize(2);
+    tree.m_leaves[1].polygon_offset = 1;
+    tree.m_polygon_index_stream = {0, 1, 1};
+    tree.m_aulPolyLookup = {0, 1u << 16};
+
+    struct ShadowSetting {
+        unsigned char previous = g_settings.monster_shadows;
+        ~ShadowSetting() { g_settings.monster_shadows = previous; }
+    } setting;
+    g_settings.monster_shadows = true;
+    GroundShadow shadow(world.scene.get());
+    std::optional<render::RenderContext> context;
+    context.emplace(VkExtent2D{640, 480});
+    shadow.updateRenderNode(*context, {}, 0);
+    struct ShadingBounds : vsg::ConstVisitor {
+        std::vector<glm::vec4> bounds;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            if (dynamic_cast<const render::DrawNode*>(&group))
+                for (const auto& command : group.stateCommands) {
+                    const auto* bind = command->cast<vsg::BindDescriptorSet>();
+                    if (!bind || bind->firstSet != 1) continue;
+                    const auto* buffer =
+                        bind->descriptorSet->descriptors.front()->cast<vsg::DescriptorBuffer>();
+                    REQUIRE(buffer);
+                    const auto data = buffer->bufferInfoList.front()->data.cast<vsg::vec4Array>();
+                    REQUIRE(data);
+                    const auto value = data->at(1);
+                    bounds.emplace_back(value.x, value.y, value.z, value.w);
+                }
+            group.traverse(*this);
+        }
+    } before;
+    shadow.renderNode()->accept(before);
+    REQUIRE(before.bounds.size() == 1);
+    const auto source = mesh->getTriMesh();
+    REQUIRE(before.bounds.front() == glm::vec4(source.bounds_center, source.bounds_radius));
+    REQUIRE(before.bounds.front().w > shadow.width);
+
+    mesh->setBounds({-20, -30, -40}, {20, 30, 40}, {5, 6, 7}, 80);
+    shadow.width *= 2;
+    shadow.updateRenderNode(*context, {}, 1);
+    ShadingBounds after;
+    shadow.renderNode()->accept(after);
+    REQUIRE(after.bounds == std::vector<glm::vec4>{glm::vec4(5, 6, 7, 80)});
+
+    const auto previous_root = shadow.renderNode();
+    const auto* address = &*context;
+    context.reset();
+    context.emplace(VkExtent2D{640, 480});
+    REQUIRE(&*context == address);
+    REQUIRE(shadow.renderNode(*context) == previous_root);
+    shadow.updateRenderNode(*context, {}, 1);
+    requireEffectLayout(*previous_root, context->layout.get());
+    ShadingBounds recreated;
+    shadow.renderNode()->accept(recreated);
+    REQUIRE(recreated.bounds == after.bounds);
 }
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
@@ -1253,30 +1324,6 @@ TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geome
     REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
 }
 
-TEST_CASE("Software backface selection preserves thresholds and active order", "[geometry]")
-{
-    std::array<glm::vec3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {0, 0, -2}}};
-    std::array<glm::ivec3, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
-    const std::array<glm::vec3, 3> normals{{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}}};
-    Mesh::TriMesh mesh;
-    mesh.polygon_count = triangles.size();
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    const auto positive = Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
-    REQUIRE(positive == std::vector<std::uint32_t>{0, 2});
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
-            std::vector<std::uint32_t>{0, 1});
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
-            std::vector<std::uint32_t>{2});
-    std::array<std::uint32_t, 4> active{2, 1, 0, 2};
-    mesh.active_polygons = std::span<const std::uint32_t>(active);
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
-            std::vector<std::uint32_t>{2, 0, 2});
-    REQUIRE(positive == std::vector<std::uint32_t>{0, 2});
-    mesh.active_polygons = std::span<const std::uint32_t>{};
-    REQUIRE(Mesh::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
-}
-
 TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",
           "[geometry][rendering]")
 {
@@ -1291,34 +1338,6 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
     REQUIRE(DrawTransform{.user_clip_planes = std::span(planes).first(25)}.clipPlanes().mask ==
             0x7fffffffu);
     REQUIRE(DrawTransform{}.clipPlanes().mask == 0x3fu);
-    // The CPU culler normalizes after its supplied covector transform.
-    const auto plane =
-        meshCulling::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
-    REQUIRE(plane == glm::vec4(1, 0, 0, -2));
-    REQUIRE(meshCulling::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) == glm::vec4(0, 0, 0, 4));
-}
-
-TEST_CASE("Empty software backface selections skip mesh submission", "[geometry]")
-{
-    GpuRenderer renderer;
-    Mesh model(1, 3);
-    auto& batch = renderer.batchRenderer(false);
-    std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
-    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
-    const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};
-    Mesh::TriMesh mesh;
-    mesh.vertex_count = positions.size();
-    mesh.polygon_count = triangles.size();
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    mesh.control_flags = (1u << Mesh::CONTROL_FRONT) | (1u << Mesh::CONTROL_BACK);
-    const auto before = batch.statistics.input_triangles;
-    model.RenderTriMeshWithEquations(renderer, mesh, normals, {});
-    REQUIRE(batch.statistics.input_triangles == before);
-    mesh.polygon_count = 2;
-    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals, {}),
-                      std::invalid_argument);
-    REQUIRE(batch.statistics.input_triangles == before);
 }
 
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
@@ -1385,7 +1404,7 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     REQUIRE(!surfaceTriangle(vertices, indices));
 }
 
-TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
+TEST_CASE("Particle activation preserves emission limits and world placement", "[geometry]")
 {
     ParticleSystem empty(nullptr, 0);
     REQUIRE(!empty.activateParticle(true));
@@ -1413,19 +1432,147 @@ TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
     particles.size_scale = 2;
     particles.transform.setLocation(100, 200, 300);
     REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
-    particles.particle_size = 2;
-    particles.particle_positions[0] = {10, 20, 30};
-    particles.particle_positions[1] = {-10, -20, -30};
-    glm::mat4 view(1);
-    view[3] = {70, 80, 90, 1};
-    const auto originalView = view;
-    particles.PrepareRenderer(view);
-    REQUIRE(view == originalView);
-    const std::array<glm::vec3, 4> offsets{{{-2, 2, 0}, {2, 2, 0}, {2, -2, 0}, {-2, -2, 0}}};
-    for (unsigned particle = 0; particle < 2; ++particle)
-        for (unsigned corner = 0; corner < 4; ++corner)
-            REQUIRE(particles.vertex_positions[particle * 4 + corner] ==
-                    particles.particle_positions[particle] + offsets[corner]);
+}
+
+TEST_CASE("Attached particle orientation follows rotations independently of model scale",
+          "[geometry][particles]")
+{
+    MeshInstance parent, model;
+    model.setModel(std::make_shared<Mesh>());
+    model.attachTo(parent);
+    parent.transform.setRotation(.2, -.3, .4);
+    model.transform.setRotation(-.4, .1, -.2);
+    CyclePlayer cycle;
+    cycle.current_model_instance = &model;
+    auto& attachment = cycle.particles.emplace_back();
+    attachment.position = {1, 2, 3};
+    attachment.rotation = glm::mat3(1);
+    attachment.m_pstParticles = std::make_unique<ParticleSystem>(nullptr, 1);
+    auto& particle = *attachment.m_pstParticles;
+    particle.direction_mode = W8_PARTICLE_DIRECTION_CONE;
+    const auto expected_rotation = parent.transform.getRotation() * model.transform.getRotation();
+    for (const auto& scale : {glm::dvec3(-2, 3, -4), glm::dvec3(0), glm::dvec3(2, 3, 4)}) {
+        parent.transform.setScale(scale);
+        model.transform.setScale(scale);
+        cycle.UpdateParticleAttachments();
+        const auto expected_position =
+            glm::dvec3(model.worldMatrix() * glm::dvec4(attachment.position, 1));
+        REQUIRE(particle.transform.getLocation() == expected_position);
+        const auto rotation = particle.transform.getRotation();
+        for (int column = 0; column < 3; ++column)
+            REQUIRE(glm::length(rotation[column] - expected_rotation[column]) < 1e-12);
+    }
+}
+
+TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
+{
+    ParticleSystem particles(nullptr, 2);
+    particles.emission_gap = 0;
+    particles.emission_mode = W8_PARTICLE_EMISSION_SINGLE;
+    particles.emission_interval = 0;
+    particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 0;
+    particles.visible = false;
+    particles.AdvanceSimulation();
+    REQUIRE(particles.emission_count == 0);
+    particles.visible = true;
+    particles.SetTraversalEnabled(false);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.emission_count == 0);
+
+    particles.SetTraversalEnabled(true);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.emission_count == 1);
+    particles.AdvanceSimulation();
+    REQUIRE(particles.active_particle_count == 2);
+    particles.DeactivateParticle(0);
+    particles.SetActive(false);
+    particles.AdvanceSimulation();
+    REQUIRE_FALSE(particles.particle_active[0]);
+    REQUIRE(particles.particle_active[1]);
+
+    const auto centers = particles.particle_positions;
+    // Constructing VSG state and arrays needs no graphics device. Preparing
+    // additional views must consume the current simulation without advancing it.
+    std::optional<render::RenderContext> context;
+    context.emplace(VkExtent2D{640, 480});
+    particles.updateRenderNode(*context, {}, 0);
+    particles.updateRenderNode(*context, {}, 1);
+    REQUIRE(particles.particle_positions == centers);
+    REQUIRE(particles.emission_count == 2);
+    struct CheckParticleDraws : vsg::ConstVisitor {
+        std::uint32_t index_count = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::VertexIndexDraw& draw) override
+        {
+            if (!draw.indexCount) return;
+            // A valid index range with VSG's default zero instance count
+            // silently renders nothing through the ordinary draw path.
+            REQUIRE(draw.instanceCount == 1);
+            index_count += draw.indexCount;
+        }
+    } draws;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 6);
+
+    // Reconstructing a renderer can reuse the C++ context's storage. Resource
+    // identity and its frame guard must still restart with the new layout.
+    const auto previous_root = particles.renderNode();
+    const auto* address = &*context;
+    context.reset();
+    context.emplace(VkExtent2D{640, 480});
+    REQUIRE(&*context == address);
+    REQUIRE(particles.renderNode(*context) == previous_root);
+    particles.updateRenderNode(*context, {}, 1);
+    requireEffectLayout(*previous_root, context->layout.get());
+    draws.index_count = 0;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 6);
+
+    particles.release_when_done = true;
+    particles.birth_ticks[1] = GameClockMilliseconds() - 1;
+    particles.lifetime_ms = 0;
+    particles.AdvanceSimulation();
+    REQUIRE(particles.active_particle_count == 0);
+    REQUIRE(particles.finished);
+    particles.updateRenderNode(*context, {}, 2);
+    draws.index_count = 0;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 0);
+}
+
+TEST_CASE("Particle simulation resolves nested animation before views consume it",
+          "[geometry][particles]")
+{
+    auto first = std::make_shared<Texture>();
+    auto last = std::make_shared<Texture>();
+    auto inner = std::make_shared<Texture>(TexturePlayback{});
+    inner->AddTexture(first);
+    inner->AddTexture(last);
+    inner->playback->animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    inner->playback->frame_rate = 10;
+    auto outer = std::make_shared<Texture>(TexturePlayback{});
+    outer->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+    outer->AddTexture(inner);
+    ParticleSystem particles(nullptr, 1);
+    particles.emission_gap = 0;
+    particles.initial_speed = 0;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.SetTexture(outer);
+    REQUIRE(particles.activateParticle(false));
+    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    particles.AdvanceSimulation();
+    REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
+
+    // Time may elapse before another view. Only simulation advances playback.
+    inner->SetFrame(0);
+    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    render::RenderContext context({640, 480});
+    particles.updateRenderNode(context, {}, 0);
+    particles.updateRenderNode(context, {}, 1);
+    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")

@@ -63,7 +63,7 @@ Unlayered code may use the layers.
 | `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the presentation random stream, assertions. |
 | `canvas/` | CPU drawing on `SDL_Surface&`: images, STI sprite sheets, fonts, shading tables. Knows nothing about the GPU or the framebuffer. |
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
-| `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState`/`ScenePass` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
+| `render/` | VSG scene topology, shared mesh assets and instance poses, material state, views, Vulkan resources and presentation; SDL CPU canvas publication and overlay composition. SDL owns the platform window. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
@@ -77,46 +77,51 @@ Unlayered code may use the layers.
   game's stream changes gameplay ("The game", "Its random stream").
 - **Pixels.** The software UI framebuffer is fixed ARGB1555. Assets and video
   may use other SDL formats; palette, TGA and STI decoding is explicit.
-- **Renderer inputs.** `GpuRenderer` keeps no current matrix or draw state. A
-  `GpuRenderer::DrawCall` carries its vertex streams, indices, clip transform,
-  shader, textures, fog colour, depth bias and the size reduction for textures
-  it makes resident; the device never culls. A clear takes its colour, depth
-  and stencil values. Mesh submissions take a `MeshState`: a `DrawTransform`
-  (model-view, projection and borrowed eye-space user clip planes), software
-  cull mode, winding, reverse-normal and sorted flags, depth bias and a
-  `ScenePass`: the frame's `SceneFrame` (environment light offset, brightness,
-  texture reduction and render-clock time), ambient light, fog colour, the
-  pass's lights and fogs, the camera's `DepthCue`, the light exclusion mask,
-  and the borrowed `Pick` span with the instance a hit records. The frame
-  builds one `SceneFrame` and passes it to each `WorldScene::render`, which
-  builds the camera's transform and scene pass once; static meshes,
-  `MeshInstance`, `GroundShadow` and particles adjust their own copies
-  (instance ambient and exclusion, pick owner, no picks) instead of setting and
-  restoring renderer state. Callers that pick pass their `Pick` values to the
-  scene and read the results back from them. The batches record each run's
-  textures, shader, depth bias, fog colour and texture reduction; sorted
-  batches draw at the scene flush without depth bias, as retail did. The
-  viewport and scissor belong to the render target, and texture filter
-  defaults are renderer configuration.
+- **Render ownership.** `WorldScene::root` is the actual VSG graph. A visual
+  instance owns its transform and drawable subgraph; its model owns shared render
+  topology, UVs and material batches. Ordinary VSG subgraphs can join the root
+  without a Wizardry material or submission adapter. Typed scene collections
+  remain where game activation, ownership and world queries need them; they do
+  not define render parentage. Adopting or detaching a subtree updates those
+  collections by traversing its graph. The spatial index retains collision, authored
+  regions and activation timing.
+- **Poses and views.** Each instance samples its current pose on the CPU into
+  ordinary VSG position and normal arrays. Positions interpolate; normals use
+  the current integer frame. The frame stamp prevents additional views from
+  sampling the pose again. Picking, attachments and translucent ordering use
+  the same pose. Scene brightness, environment offset and time are shared frame
+  inputs. Each camera has its own depth cue and derived light, fog and clipping
+  data. Materials resolve animated textures while updating, rather than freezing
+  their initial frame.
+- **Materials.** Wizardry lighting, fog, material operations and generated UVs
+  run in shaders. The descriptor layout is scoped to Wizardry geometry.
+  Animated retail faces retain their authored integer-frame polygon normals
+  for face selection. Translucent triangles retain the game's global ordering
+  rule. Resource counts
+  follow the content rather than the evaluation prototype's fixed limits.
+- **Effects.** Particle integration and completion callbacks run in the game
+  update, preserving visibility and activation gates. Render traversal consumes
+  the resulting geometry and never advances gameplay.
+- **Presentation and lifetime.** SDL creates the Vulkan-capable window; `Renderer`
+  supplies its surface to VSG. VSG owns the device, views, command graphs and
+  swapchain. `endFrame` waits for submitted work before returning. That is the
+  single resource-retirement boundary: game-thread graph mutations and object
+  destruction occur between completed frames. Readback is requested before
+  presentation and copies the completed image into an SDL surface. Window and
+  offscreen targets follow physical pixel dimensions, including swapchain changes
+  during acquisition or present-mode updates. Offscreen capture renders the same
+  prepared graph; presentation surfaces without transfer-source support use it
+  for screenshots as well.
+- **UI publication.** Drawing still uses the 640×480 ARGB1555 CPU canvas.
+  Invalidation publishes pixels into a separate texture image, so `Draw`
+  without `Refresh` cannot expose uncommitted painting. VSG composes that image,
+  overlays, video and the cursor with the world views.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
-- **Shaders.** SDL GPU selects Vulkan, Metal or Direct3D 12 using embedded SPIR-V,
-  MSL or DXIL. Normal builds compile GLSL to SPIR-V and embed checked-in Metal and
-  Direct3D outputs; source digests make CMake reject stale outputs after a GLSL
-  edit. Regenerate them on Linux x86-64 with the pinned SDL_shadercross tool,
-  using the same Conan environment and build type as the game:
-
-  ```sh
-  cmake -S tools/shadercross -B build/shadercross -G Ninja \
-    -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
-  cmake --build build/shadercross --target shadercross --parallel 2
-  python3 tools/shadercross/generate.py \
-    --shadercross build/shadercross/_deps/shadercross-build/shadercross
-  ```
-
-  Linux CI regenerates both formats and compares the outputs.
+- **Shaders and platforms.** GLSL is compiled to SPIR-V in the normal build.
+  VSG uses Vulkan on Linux and Windows and MoltenVK on macOS. There are no
+  SDL_GPU pipelines or separate MSL/DXIL shader outputs. The Vulkan SDK is a
+  build dependency; macOS packaging also supplies MoltenVK.
 
 ## Worlds and levels
 
@@ -472,6 +477,5 @@ widget tree.
 CTest contains asset-independent fixtures and licensed runtime scenarios (label
 `runtime`: video, character creation, game start, movement, quick-save, combat,
 save-fixture creation and loading). Runtime scenarios need `WIZ8_ASSET_ROOT` and a
-usable SDL GPU backend; CI provisions the licensed assets. A skipped licensed test
-does not establish behavioral parity. `tests/native/gpu_lifecycle.md` documents a
-known NVIDIA driver leak.
+usable Vulkan backend; CI provisions the licensed assets. A skipped licensed test
+does not establish behavioral parity.

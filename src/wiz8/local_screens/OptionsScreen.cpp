@@ -1724,7 +1724,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
     const W8OptionsMode mode = std::get<W8OptionsMode>(request.mode);
 
     SetViewport({0, 0, 0x281, 0x1e1});
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
     UpdateHeldItemCursor();
     g_wiz_text_font_secondary.resetPalette();
     values.TransferSettings();
@@ -1757,7 +1757,6 @@ bool OptionsScreen::enter(const ScreenRequest& request)
         selected = 0;
     }
     SelectPanel(selected);
-    first_frame_ = true;
     return true;
 }
 
@@ -1804,12 +1803,6 @@ void OptionsScreen::frame()
                 },
         });
     Redraw();
-    if (first_frame_) {
-        SetRendererAutoFlipEnabled(false);
-        RenderFrame();
-        SetRendererAutoFlipEnabled(true);
-        first_frame_ = false;
-    }
     RenderFrame();
 }
 std::string_view GetLastSaveName(void)

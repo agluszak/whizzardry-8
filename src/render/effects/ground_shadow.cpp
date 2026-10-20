@@ -1,60 +1,140 @@
 #include "wiz8/render/ground_shadow.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/PipelineLayout.h>
 
-#include "glm/ext/vector_float2.hpp"
+#include "effect_geometry.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_shading.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/world.h"
 
-/* The SR.DLL registry string is the original runtime class identity. */
+struct GroundShadowAsset {
+    std::shared_ptr<Texture> texture;
+    std::shared_ptr<Material> material = std::make_shared<Material>();
+    DrawShader shader;
 
-static std::shared_ptr<Texture> g_ground_shadow_texture;
-static std::shared_ptr<Material> g_ground_shadow_material;
-/* A default-constructed DrawShader: retail's dynamic initializer (0x004D61A0)
-   stores the DrawShader default 0x0100241b before the constructor masks in
-   the shadow bits, so the 0x13 bits survive into the shadow shader. */
-static DrawShader g_ground_shadow_shader;
-
-GroundShadow::GroundShadow(WorldScene* scene)
-{
-    angle = 0;
-    depth = 500.0f;
-    width = 500.0f;
-    setScene(scene);
-
-    if (g_ground_shadow_texture == 0) {
-        g_ground_shadow_texture = LoadTextureFromPath(
-            wiz8::asset_path("data/monsters/bitmaps/Shadow.tga"), nullptr, true);
-        g_ground_shadow_texture->setMipmap(Texture::MIPMAP_NONE);
-        g_ground_shadow_texture->setWrapS(Texture::WRAP_CLAMP);
-        g_ground_shadow_texture->setWrapT(Texture::WRAP_CLAMP);
-
-        g_ground_shadow_material = std::make_shared<Material>();
-        g_ground_shadow_shader.value = (g_ground_shadow_shader.value & 0xfeff9277UL) | 0x00808260UL;
+    GroundShadowAsset()
+    {
+        texture = LoadTextureFromPath(wiz8::asset_path("data/monsters/bitmaps/Shadow.tga"), nullptr,
+                                      true);
+        texture->setMipmap(Texture::MIPMAP_NONE);
+        texture->setWrapS(Texture::WRAP_CLAMP);
+        texture->setWrapT(Texture::WRAP_CLAMP);
+        // Preserve the default shader's low bits when applying the blob-shadow rules.
+        shader.value = (shader.value & 0xfeff9277u) | 0x00808260u;
     }
+};
+
+struct ShadowRenderData {
+    struct Part {
+        Mesh* mesh;
+        std::shared_ptr<render::MeshAsset> source_asset;
+        std::uint32_t control;
+        render::EffectGeometry geometry;
+        vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
+        std::array<vsg::ref_ptr<render::DrawNode>, 2> draws;
+        std::array<vsg::ref_ptr<vsg::vec4Array>, 2> instances;
+        vsg::ref_ptr<vsg::BindDescriptorSet> batch;
+
+        static std::uint32_t flags(const Mesh::TriMesh& source)
+        {
+            std::uint32_t flags = render::HasTexcoord0;
+            if (source.dig[0]) flags |= render::HasColors;
+            if (source.dcg[0]) flags |= render::HasDiffuseMultipliers;
+            if (source.scg[0]) flags |= render::HasSpecularMultipliers;
+            return flags;
+        }
+        Part(render::RenderContext& context, Mesh& mesh, const Mesh::TriMesh& source,
+             const GroundShadowAsset& asset, std::uint32_t capacity,
+             vsg::ref_ptr<vsg::BindDescriptorSet> batch)
+            : mesh(&mesh), source_asset(mesh.renderAsset()), control(source.control_flags),
+              geometry(context, capacity, asset.material, flags(source), source.normals != nullptr,
+                       0),
+              batch(batch)
+        {
+            geometry.normals->properties.dataVariance = vsg::DYNAMIC_DATA;
+            auto indices = vsg::uintArray::create(capacity);
+            for (std::uint32_t vertex = 0; vertex < capacity; ++vertex)
+                indices->at(vertex) = vertex;
+            for (unsigned side = 0; side < 2; ++side) {
+                if (!(control & (1u << side))) continue;
+                auto cull = FaceCull::Back;
+                if (side)
+                    cull = FaceCull::Front;
+                else if (control & (1u << Mesh::CONTROL_NO_FRONT_CULL))
+                    cull = FaceCull::None;
+                instances[side] = side ? render::makeInstanceArray({}) : geometry.instance;
+                auto draw = geometry.draw(indices, false);
+                draw->cull = cull;
+                draw->setPipeline(context.pipeline(asset.shader.value, cull, Winding::Standard, 2),
+                                  context.pipeline(asset.shader.value, cull, Winding::Reversed, 2));
+                draw->add(side ? context.descriptor(1, instances[side]) : geometry.instance_bind);
+                draw->add(geometry.pass_bind);
+                draw->add(batch);
+                root->addChild(draw);
+                draws[side] = draw;
+            }
+        }
+    };
+
+    vsg::ref_ptr<vsg::PipelineLayout> layout;
+    vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
+    std::vector<std::unique_ptr<Part>> parts;
+    vsg::ref_ptr<vsg::ImageInfo> image;
+    vsg::ref_ptr<vsg::BindDescriptorSet> batch;
+    std::uint64_t frame_number = ~std::uint64_t{0};
+
+    explicit ShadowRenderData(render::RenderContext& context) : layout(context.layout) {}
+};
+
+static std::shared_ptr<GroundShadowAsset> shadowAsset()
+{
+    // The last shadow releases its image and device references with the world.
+    static std::weak_ptr<GroundShadowAsset> shared;
+    if (auto asset = shared.lock()) return asset;
+    auto asset = std::make_shared<GroundShadowAsset>();
+    shared = asset;
+    return asset;
 }
 
-GroundShadow::GroundShadow(const GroundShadow& other)
+GroundShadow::GroundShadow(WorldScene* scene) : asset(shadowAsset())
+{
+    setScene(scene);
+}
+
+GroundShadow::GroundShadow(const GroundShadow& other) : asset(other.asset)
 {
     transform = other.transform;
     visible = other.visible;
@@ -64,48 +144,160 @@ GroundShadow::GroundShadow(const GroundShadow& other)
     width = other.width;
 }
 
-/* Retail ICF folds this onto stSurface2D::traverse at 0x004D6540. No separate
-   FUNCTION claim: decomplint rejects FOLDED-before-primary when engine_code
-   sorts ahead of surface2d.cpp. */
-
-void GroundShadow::draw(GpuRenderer& renderer, const DrawTransform& view, const ScenePass& pass)
+vsg::ref_ptr<vsg::Node> GroundShadow::renderNode(render::RenderContext& context)
 {
-    if (!g_settings.monster_shadows) return;
-    auto position = glm::vec3(this->transform.getLocation());
+    if (!render_data || render_data->layout != context.layout) {
+        auto replacement = std::make_unique<ShadowRenderData>(context);
+        if (render_data) {
+            render_data->root->children = std::move(replacement->root->children);
+            replacement->root = render_data->root;
+        }
+        render_data = std::move(replacement);
+    }
+    return render_data->root;
+}
+
+vsg::ref_ptr<vsg::Node> GroundShadow::renderNode() const
+{
+    if (!render_data) return {};
+    return render_data->root;
+}
+
+void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
+                                    std::uint64_t frame_number)
+{
+    renderNode(context);
+    auto& data = *render_data;
+    if (data.frame_number == frame_number) return;
+    data.frame_number = frame_number;
+    const auto hide = [&] {
+        for (auto& part : data.parts)
+            for (auto& draw : part->draws)
+                if (draw) draw->draw->indexCount = 0;
+    };
+    auto* world = GetWorld();
+    auto* spatial = GetWorldSpatialIndex();
+    if (!visible || !g_settings.monster_shadows || !world || !spatial || width <= 0 || depth <= 0) {
+        hide();
+        return;
+    }
+    auto position = glm::vec3(transform.getLocation());
     position.y += kWorldScale;
     const float radius = std::max(width, depth);
-    const auto polygons =
-        GetWorldSpatialIndex()->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
-    if (polygons.empty()) return;
-
-    // Shadows are never picked.
-    MeshState state{.transform = view, .polygon_offset = 2, .scene = pass};
-    state.scene.picks = {};
+    const auto polygons = spatial->polygonsNearPoint(position, radius, radius * 2 + kWorldScale);
     const GroundShadowProjection projection(position, width, depth, angle);
-    std::vector<std::uint32_t> selected;
-    std::vector<glm::vec2> coordinates;
-
-    for (std::size_t first = 0; first < polygons.size();) {
+    render::InstanceBlock instance;
+    if (scene) instance.ambient = glm::vec4(scene->ambient_light, 0);
+    auto image = context.texture(asset->texture.get(), frame.texture_reduction);
+    if (!data.batch || data.image != image) {
+        data.image = image;
+        data.batch = context.batchSet(asset->shader.value, image);
+    }
+    std::size_t part_index = 0;
+    bool graph_changed = false;
+    for (std::size_t first = 0; first < polygons.size(); ++part_index) {
         const auto mesh_index = polygons[first] >> 16;
-        auto& model = *static_cast<Mesh*>(GetWorld()->psrMeshes[mesh_index]->getModel());
-        auto mesh = model.getTriMesh();
-        selected.clear();
-        do {
-            selected.push_back(polygons[first++] & 0xffff);
-        } while (first < polygons.size() && (polygons[first] >> 16) == mesh_index);
-        mesh.active_polygons = std::span<const std::uint32_t>(selected);
-        mesh.materials[0][0] = g_ground_shadow_material;
-        mesh.poly_textures[0][0] = nullptr;
-        mesh.textures[0][0] = g_ground_shadow_texture;
-        mesh.vertex_materials[0][0] = nullptr;
-        mesh.poly_shaders[0] = nullptr;
-        mesh.shaders[0] = g_ground_shadow_shader;
-        mesh.poly_uv[0] = nullptr;
-        coordinates.resize(mesh.vertex_count);
-        for (std::size_t index = 0; index < coordinates.size(); ++index)
-            coordinates[index] = projection.coordinates(mesh.positions[index]);
-        mesh.texcoords[0][0] = coordinates.data();
-        model.RenderTriMeshWithEquations(renderer, mesh, {}, state);
+        std::size_t end = first + 1;
+        while (end < polygons.size() && (polygons[end] >> 16) == mesh_index) ++end;
+        auto& model = *world->psrMeshes[mesh_index]->getModel();
+        const auto mesh = model.getTriMesh();
+        const auto count = static_cast<std::uint32_t>((end - first) * 3);
+        if (part_index == data.parts.size()) {
+            data.parts.push_back(std::make_unique<ShadowRenderData::Part>(
+                context, model, mesh, *asset, count, data.batch));
+            graph_changed = true;
+        } else {
+            auto& part = data.parts[part_index];
+            if (part->mesh != &model || part->source_asset != model.renderAsset() ||
+                part->control != mesh.control_flags || count > part->geometry.positions->size()) {
+                const auto previous_capacity =
+                    static_cast<std::uint32_t>(part->geometry.positions->size());
+                const auto capacity = count > previous_capacity
+                                          ? std::max(count, previous_capacity * 2)
+                                          : previous_capacity;
+                part = std::make_unique<ShadowRenderData::Part>(context, model, mesh, *asset,
+                                                                capacity, data.batch);
+                graph_changed = true;
+            }
+        }
+        auto& part = *data.parts[part_index];
+        auto& geometry = part.geometry;
+        auto center = mesh.bounds_center;
+        auto shading_radius = mesh.bounds_radius;
+        if (mesh.control_flags & (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE)) {
+            auto bounds = BoundingBox{mesh.bounds_minimum, mesh.bounds_maximum};
+            if (mesh.control_flags & (1u << Mesh::CONTROL_SKIP_AUTO_BOX))
+                bounds = boundingBox(std::span(mesh.positions, mesh.vertex_count));
+            center = bounds.center();
+            shading_radius = glm::length(bounds.minimum - center) * 1.001f;
+        }
+        // Native shading rejects lights and fog against the source terrain's
+        // complete bound, even when the shadow selects only a few of its faces.
+        instance.bounds = glm::vec4(center, shading_radius);
+        bool positions_changed = false, normals_changed = false;
+        std::array<bool, 4> attributes_changed{};
+        const auto update = [](auto& destination, const auto& value, bool& changed) {
+            if (destination != value) {
+                destination = value;
+                changed = true;
+            }
+        };
+        std::uint32_t written = 0;
+        for (; first < end; ++first) {
+            const auto triangle = mesh.poly_vertices[polygons[first] & 0xffff];
+            for (unsigned corner = 0; corner < 3; ++corner) {
+                const auto vertex = triangle[corner];
+                const auto p = mesh.positions[vertex];
+                const auto uv = projection.coordinates(p);
+                update(geometry.positions->at(written), vsg::vec3(p.x, p.y, p.z),
+                       positions_changed);
+                if (mesh.normals) {
+                    const auto normal = mesh.normals[vertex];
+                    update(geometry.normals->at(written), vsg::vec3(normal.x, normal.y, normal.z),
+                           normals_changed);
+                }
+                update(geometry.attributes[0]->at(written), vsg::vec4(uv.x, uv.y, 0, 0),
+                       attributes_changed[0]);
+                if (mesh.dig[0]) {
+                    const auto color = mesh.dig[0][vertex];
+                    update(geometry.attributes[1]->at(written),
+                           vsg::vec4(color.x, color.y, color.z, 0), attributes_changed[1]);
+                }
+                if (mesh.dcg[0]) {
+                    const auto color = mesh.dcg[0][vertex];
+                    update(geometry.attributes[2]->at(written),
+                           vsg::vec4(color.x, color.y, color.z, color.w), attributes_changed[2]);
+                }
+                if (mesh.scg[0]) {
+                    const auto color = mesh.scg[0][vertex];
+                    update(geometry.attributes[3]->at(written),
+                           vsg::vec4(color.x, color.y, color.z, color.w), attributes_changed[3]);
+                }
+                ++written;
+            }
+        }
+        if (positions_changed) geometry.positions->dirty();
+        if (normals_changed) geometry.normals->dirty();
+        for (std::size_t attribute = 0; attribute < attributes_changed.size(); ++attribute)
+            if (attributes_changed[attribute]) geometry.attributes[attribute]->dirty();
+        for (unsigned side = 0; side < part.draws.size(); ++side) {
+            auto& draw = part.draws[side];
+            if (!draw) continue;
+            draw->draw->indexCount = count;
+            auto block = instance;
+            block.masks.y = side;
+            render::store(*part.instances[side], block);
+            if (part.batch != data.batch) draw->stateCommands[3] = data.batch;
+        }
+        part.batch = data.batch;
+    }
+    if (data.parts.size() != part_index) {
+        data.parts.resize(part_index);
+        graph_changed = true;
+    }
+    if (graph_changed) {
+        data.root->children.clear();
+        for (auto& part : data.parts) data.root->addChild(part->root);
     }
 }
 

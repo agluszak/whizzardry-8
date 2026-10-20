@@ -14,9 +14,7 @@
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_draw.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_shading.h"
 
 static_assert(std::is_same_v<decltype(Mesh::poly_vertices), std::vector<glm::ivec3>>);
 static_assert(std::is_same_v<decltype(Mesh::vertex_locations), std::vector<glm::vec3>>);
@@ -198,33 +196,6 @@ static bool reset()
     return true;
 }
 
-static bool meshPassViews()
-{
-    // A pass borrows the source tables without mutating another pass's bindings.
-    Mesh mesh(1, 3);
-    auto* uv = mesh.getVertexTexCoords(0, 0, 1);
-    auto* textures = mesh.getPolygonTextureTable(0, 0, true);
-    auto* indices = mesh.getPolyUVIndex(0, 1);
-    DrawShader shader;
-    auto submitted = mesh.getTriMesh();
-    submitted.poly_shaders[0] = &shader;
-    const auto first = makeMeshDrawPass(submitted, 0, Mesh::SIDE_FRONT);
-    REQUIRE(first.vertex.st_source[0] == uv);
-    REQUIRE(first.render.poly_uv == indices);
-    REQUIRE(first.render.texture_tables[0] == textures);
-    REQUIRE(first.render.shaders == &shader);
-    submitted.poly_shaders[0] = nullptr;
-    submitted.poly_textures[0][0] = nullptr;
-    submitted.shaders[0].value ^= DrawShader::PASS_MASK;
-    const auto next = makeMeshDrawPass(submitted, 0, Mesh::SIDE_FRONT);
-    REQUIRE(next.render.shaders == nullptr);
-    REQUIRE(next.render.shader.value == submitted.shaders[0].value);
-    REQUIRE(next.render.texture_tables[0] == nullptr);
-    REQUIRE(first.render.shaders == &shader);
-    REQUIRE(first.render.texture_tables[0] == textures);
-    return true;
-}
-
 TEST_CASE("mesh_ownership_test")
 {
     REQUIRE(defaults());
@@ -232,7 +203,6 @@ TEST_CASE("mesh_ownership_test")
     REQUIRE(lazyTables());
     REQUIRE(uvGrowth());
     REQUIRE(reset());
-    REQUIRE(meshPassViews());
 }
 
 TEST_CASE("Mesh resource assignments retain one owner per resource and survive reindexing")

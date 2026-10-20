@@ -109,7 +109,7 @@ void FinalizeStaticScene(World& world)
    skipped here. `walk_chain` limits the light walk to the first sibling. */
 bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights)
 {
-    auto world = instance->transform.matrix<glm::mat4>();
+    auto world = glm::mat4(instance->worldMatrix());
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
     std::vector<glm::vec3> world_vertices, world_normals, material_colors;
 
@@ -145,7 +145,7 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
             const float range = static_cast<float>(
                 kLightRangeAttenuationNumerator /
                 (light->opengl_attenuation.y * kLightRangeAttenuationDenominator));
-            const auto position = glm::vec3(light->transform.getLocation());
+            const auto position = glm::vec3(light->worldMatrix()[3]);
             if (!box.overlaps({position - range, position + range})) continue;
             mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
             for (int i = 0; i < count; ++i) {
@@ -240,12 +240,15 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
     });
 }
 
-/* Build the concrete first-party instance used for an already-created mesh. */
+/* Finish the retail render representation before publishing its first instance.
+   All frames, material partitions, owned parts and compound bounds are ready
+   here; building ordinary VSG arrays does not require a graphics device. */
 std::unique_ptr<MeshInstance> CreateModelInstance(std::shared_ptr<Mesh> model)
 {
     if (model == nullptr) {
         Fail("pstMeshModel");
     }
+    for (auto* part : meshParts(model.get())) part->renderAsset();
     auto instance = std::make_unique<MeshInstance>(nullptr);
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
@@ -421,6 +424,7 @@ void SetSceneMeshShaderBit3(WorldScene* scene, int argument)
                         polygon_shader[index].value |= DrawShader::MASK_DEPTH_WRITE;
                     }
                 }
+                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
             }
         }
     }
@@ -458,6 +462,7 @@ void SetSceneMeshShaderLowBits(WorldScene* scene, int argument)
                             (polygon_shader[index].value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
                     }
                 }
+                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
             }
         }
     }

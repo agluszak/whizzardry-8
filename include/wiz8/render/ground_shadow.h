@@ -1,16 +1,25 @@
 #pragma once
 class WorldScene;
-class GpuRenderer;
 #include <cmath>
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <utility>
+
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Node.h>
 
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/draw_inputs.h"
-#include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/transform.h"
+
+namespace render {
+class RenderContext;
+}
+struct ShadowRenderData;
+struct GroundShadowAsset;
 
 struct GroundShadowProjection {
     glm::mat2 matrix;
@@ -43,14 +52,19 @@ public:
 
     /* GrCycle's 0x004A7470 stores the navigator's facing angle here with
        fstp, which is what types it. */
-    float angle;
-    float depth;
-    float width;
+    float angle = 0;
+    float depth = 500;
+    float width = 500;
+
+public:
+    vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
+    vsg::ref_ptr<vsg::Node> renderNode() const;
+    void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
+                          std::uint64_t frame_number);
 
 private:
-public:
-    void draw(GpuRenderer& renderer, const DrawTransform& view,
-              const ScenePass& pass); /* 0x004D66A0 */
+    std::shared_ptr<GroundShadowAsset> asset;
+    std::unique_ptr<ShadowRenderData> render_data;
 
 public:
     std::string name = "anonymous";

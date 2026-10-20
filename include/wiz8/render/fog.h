@@ -1,6 +1,5 @@
 #pragma once
 class WorldScene;
-class GpuRenderer;
 #include <cstdint>
 #include <string>
 #include <utility>

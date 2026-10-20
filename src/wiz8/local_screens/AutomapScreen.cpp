@@ -195,7 +195,6 @@ unsigned int g_automap_page;
 bool g_automap_show_all_monsters;
 bool g_automap_overlay_redraw;
 float g_automap_zoom;
-bool g_automap_surface_mode;
 /* The camera's near clip: how far above the selected layer it floats. */
 float g_automap_near_clip = 1.0f;
 enum class AutomapZoomMode { ZoomInOnly, Both, ZoomOutOnly };
@@ -585,17 +584,13 @@ bool AutomapScreen::enter(const ScreenRequest&)
     CreateAutomapMarkerSprites();
     CreateAutomapButtons();
     g_automap_party_marker->detach();
-    g_automap_surface_mode = RendererBufferIsLockable();
-    if (g_automap_surface_mode) {
-        g_world_render_enabled = 0;
-        g_monster_shadow_updates_enabled = 0;
-        if (!g_automap_surface) {
-            g_automap_surface = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
-        }
-    }
+    g_world_render_enabled = 0;
+    g_monster_shadow_updates_enabled = 0;
+    if (!g_automap_surface)
+        g_automap_surface = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_ARGB1555);
     g_automap_redraw = true;
     g_automap_overlay_redraw = true;
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
     ClearSurfaceRect(0, 0, 640, 480);
     DisableCursorScene();
     CatalogArtwork::Load(0x14a, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0);
@@ -1111,31 +1106,24 @@ void LightAutomapCell(const glm::vec3* position)
 void RenderAutomapFrame(void)
 {
     if (g_automap_redraw) {
-        if (!g_automap_surface_mode) {
-            RenderAutomapMarkers();
-        } else {
-            if (g_automap_overlay_redraw) {
-                SetResidentTexturePolicy(3);
-                float half = g_automap_zoom * 0.5f;
-                Camera3D::Rect view;
-                view.left = static_cast<double>(-half);
-                view.bottom = static_cast<double>(-half);
-                view.right = static_cast<double>(half);
-                view.top = static_cast<double>(half);
-                GetWorld()->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
-                GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
-                RenderWorldToSurface(g_automap_surface.get(), &g_automap_viewport, false);
-                g_automap_overlay_redraw = false;
-                SetResidentTexturePolicy(0);
-            }
-            SDL_Rect region{0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
-            SDL_BlitSurface(g_automap_surface.get(), &region, &GetFrameBufferSurface(), &region);
-            RenderAutomapMarkers();
-            InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
-            SetRendererAutoFlipEnabled(false);
-            RenderFrame();
-            SetRendererAutoFlipEnabled(true);
+        if (g_automap_overlay_redraw) {
+            SetResidentTexturePolicy(3);
+            float half = g_automap_zoom * 0.5f;
+            Camera3D::Rect view;
+            view.left = static_cast<double>(-half);
+            view.bottom = static_cast<double>(-half);
+            view.right = static_cast<double>(half);
+            view.top = static_cast<double>(half);
+            GetWorld()->camera->setViewPlane(view, static_cast<double>(g_automap_near_clip));
+            GetWorld()->camera->setClipRange(g_automap_near_clip, 1500000.0);
+            RenderWorldToSurface(g_automap_surface.get(), &g_automap_viewport, false);
+            g_automap_overlay_redraw = false;
+            SetResidentTexturePolicy(0);
         }
+        SDL_Rect region{0xc, 0x20, 0x1d3 - 0xc, 0x1d3 - 0x20};
+        SDL_BlitSurface(g_automap_surface.get(), &region, &GetFrameBufferSurface(), &region);
+        RenderAutomapMarkers();
+        InvalidateRegion(0xc, 0x20, 0x1d3, 0x1d3);
         g_automap_redraw = false;
     }
     for (int button = 0; button < 16; ++button) {

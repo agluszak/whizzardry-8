@@ -14,6 +14,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/vertex_channels.h"
+#include "wiz8/render/vsg_scene.h"
 
 /* Derived-state bits: bit0 = pushed as an active vertex processor this frame, bit1 = spotlight cone
    active, bit2 = directional, bit3 = OpenGL attenuation active, bit4 = constant-only OpenGL

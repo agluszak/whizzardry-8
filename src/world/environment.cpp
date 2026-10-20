@@ -33,7 +33,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vertex_channels.h"
-#include "wiz8/render/vertex_shading.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"

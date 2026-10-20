@@ -37,7 +37,7 @@ void HandleGameEvent(const SDL_Event& event)
     HandleInputEvent(event);
     if (!ghWindow || SDL_GetWindowFromEvent(&event) != ghWindow) return;
     switch (event.type) {
-    case SDL_EVENT_WINDOW_RESIZED:
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         if (event.window.data1 > 0 && event.window.data2 > 0) VideoResizeWindow();
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:

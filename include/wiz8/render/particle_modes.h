@@ -31,4 +31,3 @@ enum W8ParticleFlutterMode {
 /* Zero expires by birth tick/lifetime; one follows texture playback and
    falls back to timed expiry if no texture-frame bank exists. */
 enum W8ParticleExpiryMode { W8_PARTICLE_EXPIRY_TIMED = 0, W8_PARTICLE_EXPIRY_TEXTURE = 1 };
-enum W8ParticleUpdateFlags { W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY = 2 };
