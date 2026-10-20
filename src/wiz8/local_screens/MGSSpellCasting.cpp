@@ -901,7 +901,6 @@ static void SelectSpellCastingListRow(int index)
 {
     char color;
     int cost;
-    W8SpellPowerClass power_class;
     int previous;
     int spell_id;
     W8SpellTargetType target_type;
@@ -931,8 +930,7 @@ static void SelectSpellCastingListRow(int index)
         return;
     }
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
-    power_class = Data().spells[spell_id].power_class;
-    assert(power_class != W8_SPELL_POWER_CLASS_NONE);
+    assert(Data().spells[spell_id].power_class != W8_SPELL_POWER_CLASS_NONE);
     cost = Data().spells[spell_id].spell_point_cost;
     levels = GetCharacterRealmSpellPoints(
                  &CurrentGame().party.characters[CurrentGame().status.selected_character],
