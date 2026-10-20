@@ -1,9 +1,11 @@
 #include "wiz8/local_code/MonsterManager.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <new>
@@ -26,9 +28,12 @@
 #include "navigation_flags.h"
 #include "sight_state.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"

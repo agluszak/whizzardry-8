@@ -30,6 +30,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"

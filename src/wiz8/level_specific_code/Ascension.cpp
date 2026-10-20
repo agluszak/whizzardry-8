@@ -10,6 +10,7 @@
 #include "layouts/npc_state.h"
 #include "local_code/Factions.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"

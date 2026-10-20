@@ -11,15 +11,15 @@
 
 #include <fmt/format.h>
 
-#include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
-#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/combat_state.h"

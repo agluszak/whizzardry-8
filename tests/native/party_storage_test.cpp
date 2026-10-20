@@ -1,6 +1,9 @@
 // Links only the rules layer: a rules dependency on the engine fails to link here.
+#include <initializer_list>
+
 #include <catch2/catch_test_macros.hpp>
 
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 
 namespace {

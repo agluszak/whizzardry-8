@@ -6,7 +6,6 @@
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
@@ -14,6 +13,8 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/entities/animation_types.h"

@@ -4,6 +4,7 @@
 
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"

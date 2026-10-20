@@ -21,6 +21,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/levels.h"
 #include "wiz8/audio/AmbientSound.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
@@ -59,7 +60,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 std::unique_ptr<World> primary_world;

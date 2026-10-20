@@ -5,6 +5,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"

@@ -1,5 +1,8 @@
 #include "wiz8/data/character_tables.h"
 
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+
 /* Profession and race trait-id sets. Values are the retail table contents at
    0x0061507C (fifteen triples) and 0x00615130 (sixteen quintuples); -1 is no
    trait. */

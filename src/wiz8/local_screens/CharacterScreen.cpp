@@ -26,6 +26,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"

@@ -19,20 +19,21 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/matrix.hpp>
 
-#include "compat/native.h"
-#include "difficulty.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"

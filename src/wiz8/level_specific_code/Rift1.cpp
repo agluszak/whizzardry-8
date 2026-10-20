@@ -3,6 +3,7 @@
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"

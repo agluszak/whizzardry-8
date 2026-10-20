@@ -16,14 +16,15 @@
 #include <glm/geometric.hpp>
 
 #include "asset_paths.h"
-#include "difficulty.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/encounter_tables.h"
 #include "layouts/levels.h"
 #include "local_code/Factions.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"

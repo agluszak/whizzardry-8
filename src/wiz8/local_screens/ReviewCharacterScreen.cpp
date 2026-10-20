@@ -17,7 +17,6 @@
 #include <fmt/printf.h>
 
 #include "audio_resources.h"
-#include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/learned_spells.h"
@@ -32,9 +31,12 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"

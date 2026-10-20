@@ -13,6 +13,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"

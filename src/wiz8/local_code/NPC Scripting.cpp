@@ -21,6 +21,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/entities/monster.h"

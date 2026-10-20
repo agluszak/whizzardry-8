@@ -5,12 +5,14 @@
 #include <fmt/printf.h>
 
 #include "character_skills.h"
-#include "difficulty.h"
 #include "local_code/Factions.h"
 #include "local_code/HealthStaminaMana.h"
 #include "monster_actions.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"

@@ -24,6 +24,7 @@
 #include "wiz8/character_stats.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -49,7 +50,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/string_database.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
 
 /* Which tab the dialog opens on: the profession icons, or the race side. The
    choice outlives the dialog. */

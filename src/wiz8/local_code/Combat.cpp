@@ -13,7 +13,6 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/levels.h"
@@ -28,12 +27,16 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cursor.h"
 #include "wiz8/entities/missile.h"

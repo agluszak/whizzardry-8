@@ -18,6 +18,7 @@
 #include "unicode.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/local_code/GameplayDatabase.h"

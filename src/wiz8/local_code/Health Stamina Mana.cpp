@@ -19,6 +19,7 @@
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"

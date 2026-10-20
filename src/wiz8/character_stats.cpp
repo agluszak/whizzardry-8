@@ -7,6 +7,7 @@
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/HealthStaminaMana.h"

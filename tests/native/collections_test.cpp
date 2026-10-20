@@ -28,6 +28,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/inventory.h"

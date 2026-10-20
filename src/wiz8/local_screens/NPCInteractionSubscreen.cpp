@@ -25,7 +25,6 @@
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "dialog_code/DialogBase.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
@@ -45,8 +44,11 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"

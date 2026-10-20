@@ -12,6 +12,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"

@@ -42,6 +42,8 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "../native/surface_pixels.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -123,7 +125,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"

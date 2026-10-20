@@ -16,6 +16,7 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"

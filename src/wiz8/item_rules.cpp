@@ -5,7 +5,7 @@
 
 #include <fmt/format.h>
 
-#include "wiz8/character_skills.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"

@@ -8,20 +8,19 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/printf.h>
 
-#include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/rules/character.h"
 
 /* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
    constructors are the same body twice over: the canonical pair differs only

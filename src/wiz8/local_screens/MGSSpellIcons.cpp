@@ -9,7 +9,6 @@
 #include <fmt/printf.h>
 
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/data/records.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"

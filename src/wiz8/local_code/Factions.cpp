@@ -7,6 +7,7 @@
 #include <fmt/printf.h>
 
 #include "wiz8/chunk.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/game_status.h"

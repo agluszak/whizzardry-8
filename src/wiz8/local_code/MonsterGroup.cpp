@@ -16,6 +16,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"

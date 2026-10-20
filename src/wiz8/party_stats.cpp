@@ -4,6 +4,7 @@
 
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/item_rules.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/HealthStaminaMana.h"

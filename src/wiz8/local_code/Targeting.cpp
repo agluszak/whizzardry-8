@@ -17,6 +17,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/cursor.h"

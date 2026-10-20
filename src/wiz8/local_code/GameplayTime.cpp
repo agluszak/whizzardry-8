@@ -7,15 +7,17 @@
 #include <fmt/printf.h>
 #include <glm/geometric.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"

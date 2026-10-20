@@ -10,6 +10,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/inventory.h"

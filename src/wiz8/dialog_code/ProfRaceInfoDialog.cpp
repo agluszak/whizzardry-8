@@ -10,7 +10,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "character_skills.h"
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
 #include "dialog_code/DialogTextArea.h"
@@ -19,6 +18,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -27,7 +27,6 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/rules/character.h"
 
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
     {{45, 45, 45, 45, 45, 45, 45}}, {{35, 50, 50, 35, 50, 45, 40}}, {{55, 30, 50, 60, 35, 35, 35}},

@@ -5,6 +5,8 @@
 #include <vector>
 
 #include "wiz8/chunk.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"

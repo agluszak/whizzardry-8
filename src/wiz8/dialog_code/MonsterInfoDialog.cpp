@@ -20,6 +20,7 @@
 #include "monster_actions.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"

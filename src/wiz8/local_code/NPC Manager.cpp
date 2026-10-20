@@ -5,6 +5,9 @@
 #include <cstring>
 #include <exception>
 
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/inventory.h"
 #include "wiz8/live_party.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -32,7 +35,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
@@ -40,6 +42,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"

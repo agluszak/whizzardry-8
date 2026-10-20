@@ -10,10 +10,11 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
