@@ -1,10 +1,12 @@
 #include "wiz8/entities/animation_mesh.h"
 
 #include <algorithm>
+#include <cassert>
 #include <exception>
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -12,7 +14,6 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "wiz8/filesystem.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
@@ -72,6 +73,7 @@ AnimationMesh::AnimationMesh(const AnimationMesh& other)
 namespace {
 bool ReadAnimatedFrames(wiz8::File& file, AnimationMesh& mesh);
 bool ReloadAnimatedMesh(AnimationMesh& mesh);
+void RequireAnimatedMesh(AnimationMesh& mesh);
 }
 
 std::unique_ptr<AnimationMesh>
@@ -170,6 +172,13 @@ try {
 } catch (const std::exception&) {
     return false;
 }
+
+// The frames read once already, so failing to read them again is an I/O error.
+void RequireAnimatedMesh(AnimationMesh& mesh)
+{
+    if (!ReloadAnimatedMesh(mesh))
+        throw std::runtime_error(fmt::format("cannot reload {}", mesh.source_file.string()));
+}
 } // namespace
 
 /* Hands back the mesh's cached bounding box, loading the mesh first if it has
@@ -206,20 +215,9 @@ bool UnloadAniMesh(AnimationMesh* mesh, bool force)
 
 MeshInstance* GetAniMeshFrame(AnimationMesh* mesh, unsigned char frame)
 {
-    if (!mesh) {
-        Fail("mesh");
-        return nullptr;
-    }
-    if (frame >= mesh->frame_count) {
-        const auto message =
-            fmt::format("AniMeshGetMeshForFrame error, frame {}, num {}", frame, mesh->frame_count);
-        Fail("frame < mesh->frame_count", message.c_str());
-        return nullptr;
-    }
-    if (!mesh->flags.loaded && !ReloadAnimatedMesh(*mesh)) {
-        Fail("0");
-        return 0;
-    }
+    assert(mesh);
+    assert(frame < mesh->frame_count);
+    if (!mesh->flags.loaded) RequireAnimatedMesh(*mesh);
     MeshInstance* instance;
     if (mesh->flags.single_instance) {
         instance = mesh->meshes[0].get();
@@ -234,31 +232,16 @@ MeshInstance* GetAniMeshFrame(AnimationMesh* mesh, unsigned char frame)
 
 unsigned char AniMeshValue(AnimationMesh* mesh)
 {
-    if (mesh == 0) {
-        Fail("pAniMesh");
-        return 0xff;
-    }
-    if (!mesh->flags.frame_count_loaded) {
-        if (!ReloadAnimatedMesh(*mesh)) {
-            Fail("0");
-            return 0xff;
-        }
-    }
+    assert(mesh != 0);
+    if (!mesh->flags.frame_count_loaded) RequireAnimatedMesh(*mesh);
     return mesh->frame_count;
 }
 
 bool AniMeshRadius(AnimationMesh* mesh, float* radius)
 {
-    if (mesh == 0 || radius == 0) {
-        Fail("pAniMesh&&pflRadius");
-    }
+    assert(mesh != 0 && radius != 0);
     if (mesh != 0 && radius != 0) {
-        if (!mesh->flags.radius_loaded) {
-            if (!ReloadAnimatedMesh(*mesh)) {
-                Fail("0");
-                return false;
-            }
-        }
+        if (!mesh->flags.radius_loaded) RequireAnimatedMesh(*mesh);
         *radius = mesh->radius;
         mesh->last_used = g_animesh_cache_stamp;
         ++g_animesh_cache_stamp;
@@ -269,9 +252,7 @@ bool AniMeshRadius(AnimationMesh* mesh, float* radius)
 
 void SetAniMeshCacheProtected(AnimationMesh* mesh, bool enabled)
 {
-    if (mesh == 0) {
-        Fail("pAniMesh");
-    }
+    assert(mesh != 0);
     if (enabled) {
         mesh->flags.cache_protected = true;
         return;

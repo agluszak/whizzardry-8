@@ -1,5 +1,6 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 
+#include <cassert>
 #include <cmath>
 #include <vector>
 
@@ -18,7 +19,6 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -105,9 +105,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                         break;
                     }
                 }
-                if (column == -1) {
-                    Fail("bQuadrantSlot != -1");
-                }
+                assert(column != -1);
             }
             SetFormationPosition(&working, slot, row, column, false, false, false);
             working.positions[slot].facing = live_position->facing;
@@ -132,9 +130,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                     }
                 }
             }
-            if (!placed) {
-                Fail("bQuadrantSlot != -1");
-            }
+            assert(placed);
         }
     }
     for (row = 0; row < 5; ++row) {
@@ -196,9 +192,7 @@ bool CanHoldFormationPlace(int party_slot)
 /* Remember the formation combat started with. */
 void SaveCombatFormation(void)
 {
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
     CurrentGame().combat->saved_formation = CurrentGame().party.formation;
 }
 
@@ -206,9 +200,7 @@ void SaveCombatFormation(void)
    whole block is what makes it one object rather than a set of tables. */
 void RestoreCombatFormation(void)
 {
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
 
     if (CurrentGame().combat->saved_formation != CurrentGame().party.formation) {
         CurrentGame().party.formation = CurrentGame().combat->saved_formation;
@@ -370,9 +362,7 @@ signed char DecideFacingForPosition(int position, int target_position)
     signed char source = CurrentGame().party.formation.positions[position].bQuadrant;
     signed char target = CurrentGame().party.formation.positions[target_position].bQuadrant;
 
-    if (source == -1) {
-        Fail("bSourceQuadrant != -1");
-    }
+    assert(source != -1);
     if (target == -1 || source == target) {
         return 4;
     }
@@ -398,7 +388,6 @@ signed char DecideFacingForPosition(int position, int target_position)
         }
         break;
     }
-    Fail("FALSE");
     return 4;
 }
 
@@ -429,16 +418,12 @@ static signed char MakeRoomInFormationRow(W8PartyFormationState* formation, int 
         return 0;
     case 1: {
         signed char leader = formation->bOccupantChar[row][0];
-        if (leader == -1) {
-            Fail("iChar != -1");
-        }
+        assert(leader != -1);
         SetFormationPosition(formation, leader, row, 1, false, false, true);
         return 2;
     }
     case 2:
-        if (formation->bOccupantChar[row][0] != -1) {
-            Fail("iChar == -1");
-        }
+        assert(formation->bOccupantChar[row][0] == -1);
         return 0;
     default:
         return -1;
@@ -570,9 +555,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
     W8PartyFormationPosition* position_a = &formation->positions[slot_a];
     W8PartyFormationPosition* position_b = &formation->positions[slot_b];
 
-    if (slot_a == slot_b) {
-        Fail("uiChar1 != uiChar2");
-    }
+    assert(slot_a != slot_b);
     if (position_b->bQuadrant != -1) {
         signed char row_a = position_a->bQuadrant;
         signed char column_a = position_a->bQuadrantSlot;
@@ -654,7 +637,6 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        Fail("FALSE");
         return true;
     }
     return side == CurrentGame().party.formation.positions[party_slot].facing;
@@ -680,7 +662,6 @@ void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info)
         side = 3;
         break;
     default:
-        Fail("FALSE");
         return;
     }
     if (CurrentGame().party.formation.positions[party_slot].facing != side) {
@@ -711,7 +692,6 @@ bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot)
         side = 3;
         break;
     default:
-        Fail("FALSE");
         return false;
     }
     difference = side - CurrentGame().party.formation.positions[party_slot].facing;
@@ -730,18 +710,14 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
     switch (target->iType) {
     case W8_TARGET_KIND_CHARACTER:
     case W8_TARGET_KIND_CHARACTER_INDIRECT:
-        if (target->iChar == -1) {
-            Fail("pTarget->iChar != BAD_INDEX");
-        }
+        assert(target->iChar != -1);
         facing = DecideFacingForPosition(party_slot, target->iChar);
         if (facing == W8_FACING_ANY) {
             return;
         }
         break;
     case W8_TARGET_KIND_MONSTER:
-        if (target->iMonsterID == -1) {
-            Fail("pTarget->iMonsterID != BAD_INDEX");
-        }
+        assert(target->iMonsterID != -1);
         if (auto* monster = GetMonsterByLocationID(target->iMonsterID))
             position = monster->nav.GetPosition();
         else
@@ -770,7 +746,6 @@ void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target)
             facing = 3;
             break;
         default:
-            Fail("FALSE");
             return;
         }
     }

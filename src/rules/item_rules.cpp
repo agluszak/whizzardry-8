@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <iterator>
 #include <stdexcept>
 #include <string>
@@ -287,15 +288,14 @@ bool GetItemMergeKind(const GameData& data, int item_id, short* related_kind)
 W8ItemInstance MakeItem(const GameData& data, Rng& rng, int item_id, bool maximum_quantity,
                         bool force_identified, bool mark_special)
 {
-    if (item_id < 0 || static_cast<unsigned int>(item_id) >= data.items.size())
-        throw std::invalid_argument(fmt::format("MakeItem: invalid item {}", item_id));
+    assert(item_id >= 0 && static_cast<unsigned int>(item_id) < data.items.size());
 
     W8ItemInstance item;
     item.iItemNo = item_id;
     const auto& record = data.items[item_id];
     if (record.quantity_kind != W8_ITEM_QUANTITY_NONE) {
         const int maximum = record.initial_quantity.Maximum();
-        if (maximum >= 256) throw std::logic_error("MakeItem: the quantity dice exceed a byte");
+        assert(maximum < 256);
         const auto quantity =
             maximum_quantity ? static_cast<unsigned char>(maximum)
                              : static_cast<unsigned char>(RollDice(rng, record.initial_quantity));
@@ -304,8 +304,7 @@ W8ItemInstance MakeItem(const GameData& data, Rng& rng, int item_id, bool maximu
         else if (record.quantity_kind >= W8_ITEM_QUANTITY_CHARGES &&
                  record.quantity_kind <= W8_ITEM_QUANTITY_SHOTS)
             item.uses_or_charges = quantity;
-        else
-            throw std::logic_error("MakeItem: invalid quantity kind");
+        // Other quantity kinds keep no count.
     }
     if (force_identified || (record.flags & W8_ITEM_FLAG_AUTO_IDENTIFY) != 0)
         item.identified = true;

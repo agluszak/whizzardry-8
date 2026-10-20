@@ -34,7 +34,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
 #include "wiz8/retail_save_records.h"

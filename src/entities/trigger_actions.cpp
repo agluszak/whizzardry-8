@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -9,7 +10,6 @@
 #include <memory>
 #include <optional>
 #include <ranges>
-#include <source_location>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -66,7 +66,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
@@ -125,13 +124,10 @@ Trigger* FindTriggerByName(std::string_view name)
     return nullptr;
 }
 
-Trigger* FindRequiredTriggerByName(std::string_view name, std::source_location caller)
+Trigger* FindRequiredTriggerByName(std::string_view name)
 {
     Trigger* trigger = FindTriggerByName(name);
-    if (trigger == nullptr) {
-        Fail("required trigger",
-             fmt::format("Missing trigger '{}'! It's not in the LVL file!", name), caller);
-    }
+    if (trigger == nullptr) throw std::runtime_error(fmt::format("missing trigger {}", name));
     return trigger;
 }
 
@@ -569,9 +565,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
     for (slot = 0; slot < static_cast<signed char>(trigger->m_pProp->slots.size()); ++slot) {
         char name[132];
 
-        if (trigger->m_bRepType != W8_TRIGGER_REP_PROP) {
-            Fail("m_bRepType == TRIGGER_REP_PROP");
-        }
+        assert(trigger->m_bRepType == W8_TRIGGER_REP_PROP);
         snprintf(name, sizeof(name), "%s%d", trigger->state_to_modify.c_str(), slot);
         CreateLocationVar(name, slot == 0);
     }
@@ -580,7 +574,7 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
 void SetTriggerVariableByName(std::string_view name, int value)
 {
     const int index = GetLocationVarIDByName(name);
-    if (index < 0) Fail("Unknown location variable", name);
+    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
     CurrentGame().story.location_variables[index].value = value;
 }
 
@@ -764,9 +758,7 @@ void Trigger::FinishAction()
             }
         } else if (action == 0x22) {
             const auto* env = std::get_if<W8EnvironmentTriggerActionData>(&action_payload);
-            if (!env) {
-                Fail("m_pActionData", "Trigger.cpp: Dark Area doesn't have action data");
-            }
+            assert(env);
             SetWorldEnvironmentIntensity(GetWorld(), env->previous_environment);
             action_payload = std::monostate{};
             goto finish_linked_triggers;
@@ -801,13 +793,11 @@ reactivate_linked_triggers:
     }
 }
 
-/* The location variable a state-changing action writes. A missing variable is a retail assert. */
+/* The location variable a state-changing action writes; the level must define it. */
 static int FindModifiedLocationVar(const char* name)
 {
     const int id = GetLocationVarIDByName(name);
-    if (id == -1) {
-        Fail("iVar != BAD_INDEX");
-    }
+    if (id == -1) throw std::out_of_range(fmt::format("unknown location variable {}", name));
     return id;
 }
 
@@ -1145,9 +1135,7 @@ void Trigger::Run(int source)
                 m_pEvent->action = static_cast<short>(action);
                 m_pEvent->timer.SetDuration(0.5f);
             } else {
-                if (std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                    Fail("glsTimedEvents.Find(m_pEvent) == -1");
-                }
+                assert(!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()));
             }
             m_pEvent->timer.Restart();
             if (m_pEvent->m_pCountdown.has_value()) {
@@ -1295,9 +1283,7 @@ void Trigger::Run(int source)
                 int count;
                 int index;
 
-                if (m_pProp == 0 || m_bRepType != W8_TRIGGER_REP_PROP) {
-                    Fail("m_pProp && m_bRepType == TRIGGER_REP_PROP");
-                }
+                assert(m_pProp != 0 && m_bRepType == W8_TRIGGER_REP_PROP);
                 animation = m_pProp->currentAnimation();
                 if (animation->path_lists == 1) {
                     count = AnimObjListCount(animation, 2);
@@ -1583,9 +1569,6 @@ void Trigger::Run(int source)
             m_pEvent = std::make_unique<TriggerEvent>();
             event = m_pEvent.get();
             if (!event->shake) event->shake.emplace();
-            if (m_pEvent == 0) {
-                Fail("m_pEvent");
-            }
             event->trigger = this;
             event->action = static_cast<short>(action);
             event->timer.SetDuration(m_lData2 == -1 ? 0.07f : m_lData2 * 0.001f);
@@ -1614,7 +1597,8 @@ void Trigger::Run(int source)
             if (trigger_kind == W8TriggerKind::prop) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
-                Fail("m_lData3!=-1", "Non-invisible triggers with shake camera must be timed");
+                throw std::runtime_error(
+                    fmt::format("trigger {}: a visible camera shake needs a duration", name));
             }
         }
         break;
@@ -1733,9 +1717,9 @@ void Trigger::Run(int source)
         } else if (m_pEvent == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
-            if (m_lData2 > 0 && trigger_kind != W8TriggerKind::prop) {
-                Fail("0", "Continous firing missile must be invisible trigger.");
-            }
+            if (m_lData2 > 0 && trigger_kind != W8TriggerKind::prop)
+                throw std::runtime_error(
+                    fmt::format("trigger {}: continuous missiles need an invisible trigger", name));
             m_pEvent = std::make_unique<TriggerEvent>();
             m_pEvent->action = static_cast<short>(action);
             m_pEvent->timer.SetDuration(duration);
@@ -1769,9 +1753,7 @@ void Trigger::Run(int source)
             m_pEvent->trigger = this;
             m_pEvent->repeat = true;
         } else {
-            if (std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                Fail("glsTimedEvents.Find(m_pEvent) == -1");
-            }
+            assert(!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()));
             m_pEvent->timer.Restart();
             if (m_pEvent->m_pCountdown.has_value()) {
                 m_pEvent->m_pCountdown->Restart();
@@ -2158,7 +2140,7 @@ void CreateLocationVar(std::string_view name, int value)
 int GetLocationVarValueByName(std::string_view name)
 {
     const int index = GetLocationVarIDByName(name);
-    if (index < 0) Fail("Unknown location variable", name);
+    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
     return CurrentGame().story.location_variables[index].value;
 }
 
@@ -2174,9 +2156,7 @@ bool AnyPropTriggerInView()
     std::size_t prop_count;
     int index;
 
-    if (GetWorld() == nullptr) {
-        Fail("pWorld");
-    }
+    assert(GetWorld() != nullptr);
     position = cameraLocation();
     prop_count = GetWorld()->plsProps.size();
     if (0 <= GetWorld()->last_visible_prop_index &&

@@ -39,7 +39,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -121,8 +120,7 @@ W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monste
     case W8_DISPOSITION_FRIENDLY:
         return W8_DISPOSITION_HOSTILE;
     default:
-        Fail("FALSE", "MonsterVsCharDisposition: ERROR - Invalid attack mode");
-        return W8_DISPOSITION_NEUTRAL;
+        return disposition;
     }
 }
 
@@ -253,9 +251,7 @@ bool CharacterActionTargetsEnemies(const W8Party& party, W8Character* character,
     case W8_ACTION_TURN_UNDEAD:
         return true;
     case W8_ACTION_CAST_SPELL:
-        if (action_detail > 0x95) {
-            Fail("iType < SPELL_COUNT");
-        }
+        if (action_detail > 0x95) return false; // Not a spell in the table.
         if (action_detail != 3 && action_detail != 0x29) {
             target_type = GetSpellTargetType(action_detail, false);
             if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
@@ -268,9 +264,7 @@ bool CharacterActionTargetsEnemies(const W8Party& party, W8Character* character,
         if (CanCharacterActivateItem(character, item)) {
             spell_id = Data().items[item->iItemNo].spell_id;
             if (spell_id != W8_SPELL_NONE) {
-                if (spell_id > 0x95) {
-                    Fail("iType < SPELL_COUNT");
-                }
+                if (spell_id > 0x95) return false;
                 if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
                     target_type = GetSpellTargetType(spell_id, false);
                     if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
@@ -296,9 +290,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
     case W8_MONSTER_ACTION_ATTACK:
         return true;
     case W8_MONSTER_ACTION_SPELL:
-        if (action_detail > 0x95) {
-            Fail("iType < SPELL_COUNT");
-        }
+        if (action_detail > 0x95) return false; // Not a spell in the table.
         if (action_detail != 3 && action_detail != 0x29) {
             target_type = GetSpellTargetType(action_detail, false);
             if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
@@ -317,9 +309,7 @@ bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_det
    one of the two self-only kinds, and carrying a middle target type. */
 bool MonsterCanAimSpell(int spell_id)
 {
-    if (spell_id > 0x95) {
-        Fail("iType < SPELL_COUNT");
-    }
+    if (spell_id > 0x95) return false;
     if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {

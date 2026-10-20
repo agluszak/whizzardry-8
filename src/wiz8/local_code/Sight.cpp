@@ -1,6 +1,7 @@
 #include "wiz8/local_code/Sight.h"
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <span>
 #include <unordered_map>
@@ -36,7 +37,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -189,9 +189,7 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     world = GetWorld();
     far_clip = WorldGetFarClip(world);
     viewing_distance = static_cast<float>(far_clip);
-    if (viewing_distance <= 0.0f) {
-        Fail("flViewingDistance > 0");
-    }
+    assert(viewing_distance > 0.0f);
     heading = GetHeadingAngle(&observer_position, &target_position);
     angle_delta = ShortestAngleDistance(observer_yaw, heading);
     if (blinded && !extended_sight_active) {
@@ -379,9 +377,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         return;
     }
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
-    if (viewing_distance <= 0.0f) {
-        Fail("flViewingDistance > 0");
-    }
+    assert(viewing_distance > 0.0f);
     record = GetMonsterDataForInfo(monster_info);
     monster = monster_info->p3D;
     own_position = monster->nav.movement.position;
@@ -443,8 +439,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             bool found = monster->GetProjectilePosition(&trace_position);
                             bool clear;
 
+                            // A model without the origin vertex cannot see past itself.
                             if (!found) {
-                                Fail("fFoundMissileVertex");
                                 clear = false;
                             } else {
                                 const auto hit = GetWorldSpatialIndex()->traceSight(
@@ -461,7 +457,6 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             bool found = monster->GetSpellPosition(&trace_position);
 
                             if (!found) {
-                                Fail("fFoundSpellVertex");
                                 entry->los_flags[3] = false;
                             } else {
                                 entry->los_flags[3] = !GetWorldSpatialIndex()->traceSight(
@@ -569,7 +564,6 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             bool clear;
 
             if (!found) {
-                Fail("fFoundMissileVertex");
                 clear = false;
             } else {
                 const auto hit = GetWorldSpatialIndex()->traceSight(
@@ -585,7 +579,6 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             bool found = monster->GetSpellPosition(&trace_position);
 
             if (!found) {
-                Fail("fFoundSpellVertex");
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
                 monster_info->player_visibility.los_flags[3] =
@@ -689,10 +682,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         } else {
                             W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
 
-                            if (npc == 0) {
-                                Fail("pNPC != NULL");
-                            } else if (!npc->party_noticed && npc->record->monster_bound == 0 &&
-                                       ShowMonsterTargetMarker(monster_info) != 0) {
+                            if (npc != 0 && !npc->party_noticed &&
+                                npc->record->monster_bound == 0 &&
+                                ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
                                 delta = own_position - PartyNavigator()->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
@@ -762,9 +754,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             if (record != 0 && (record->flags & W8_MONSTER_FLAG_NPC) != 0) {
                 W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
 
-                if (npc == 0) {
-                    Fail("pNPC != NULL");
-                } else if (npc->event_pending != 0) {
+                if (npc != 0 && npc->event_pending != 0) {
                     HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::arm_restore);
                 }
             }

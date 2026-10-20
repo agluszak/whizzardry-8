@@ -1,6 +1,8 @@
 #include "wiz8/level_specific_code/Camp.h"
 
+#include <cassert>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -11,7 +13,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/save_game.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
@@ -76,17 +77,11 @@ void LoadAwayCampChest(World& world)
     int index;
 
     pChest = FindPropByName(&world, "AwayCampChest");
-    if (pChest == 0) {
-        Fail("pChest");
-    }
+    if (pChest == 0) throw std::runtime_error("camp level lacks AwayCampChest");
     pTrigger = pChest->GetTrigger();
-    if (pTrigger == 0) {
-        Fail("pTrigger");
-    }
+    if (pTrigger == 0) throw std::runtime_error("AwayCampChest has no trigger");
     pContainer = pTrigger->GetOrCreateItemGroup(true);
-    if (pContainer == 0) {
-        Fail("pContainer");
-    }
+    assert(pContainer != 0);
     if (!LoadSavedLevelItems(0x26, items)) return;
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         auto item = std::move(items[index]);

@@ -1,6 +1,8 @@
 #include "wiz8/level_specific_code/Trynnie1.h"
 
+#include <cassert>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -18,7 +20,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
@@ -66,12 +67,8 @@ void KillTrynnieGroups(World& world)
     }
     iOldTable = FindEncounterTableByName("Trynnies");
     iNewTable = FindEncounterTableByName("Dead Trynnies");
-    if (iOldTable == -1) {
-        Fail("iOldTable!=(-1)", "Can't find monster table 'Trynnies'");
-    }
-    if (iNewTable == -1) {
-        Fail("iNewTable!=(-1)", "Can't find monster table 'Dead Trynnies'");
-    }
+    if (iOldTable == -1 || iNewTable == -1)
+        throw std::runtime_error("Trynnie encounter tables are missing");
     for (index = 0; index < static_cast<int>(world.encounters.generators.size()); ++index) {
         generator = world.encounters.generators[index].get();
         if (generator->encounter_table_index == iOldTable) {
@@ -99,20 +96,16 @@ void Trynnie1Script::enter()
 {
     glm::vec3 vPos;
     glm::vec3 vPos2;
-    W8MonsterGroup* group;
 
     bindTrigger("Fount_randomFX", &Trynnie1Script::fountRandomFX);
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups(world());
-            if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0)) {
-                Fail("WorldGetNamedPosition(\"VOC_SHAMAN_DYING\", vPos)");
-            }
+            if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))
+                throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
             vPos2 = vPos;
-            group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
-            if (group == 0) {
-                Fail("CreateGroup(205, 1, vPos2, TRUE, FALSE, TRUE)");
-            }
+            [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
+            assert(group != 0);
             CreateLocationVar("Trynnie1Killed", 1);
         }
     }

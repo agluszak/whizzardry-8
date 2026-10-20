@@ -215,7 +215,7 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     auto* sky = GetSecondaryWorld();
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
-                            Catch::Matchers::ContainsSubstring("Could not open level file."));
+                            Catch::Matchers::ContainsSubstring("Couldn't open"));
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetWorld() == primary);
         // Traversal must derive from the live owners after the failed load.
@@ -235,7 +235,7 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     CurrentGame().status.resume_level = 8; // A pending saved destination is not the active world.
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
-                            Catch::Matchers::ContainsSubstring("Problem loading level"));
+                            Catch::Matchers::ContainsSubstring("cannot read level"));
         REQUIRE(GetWorld() == primary);
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetLoadedLevelID() == 8);

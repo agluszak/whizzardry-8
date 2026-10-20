@@ -191,7 +191,7 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target);
 std::optional<InventoryEdit> MergeItemUses(const RuleContext& rules, unsigned actor,
                                            W8ItemLocation destination, W8ItemLocation source);
 // Add recharge uses to an item, never past what it can hold.
-void AddItemUses(const GameData& data, W8ItemInstance& item, char uses);
+void AddItemUses(const GameData& data, W8ItemInstance& item, signed char uses);
 // Pool order: by class, kind, identification, value, stack and uses, all descending.
 bool ItemPrecedesInPool(const GameData& data, const W8ItemInstance& first,
                         const W8ItemInstance& second);

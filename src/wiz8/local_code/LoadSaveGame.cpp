@@ -1,6 +1,7 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -72,13 +73,10 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
@@ -89,7 +87,6 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"

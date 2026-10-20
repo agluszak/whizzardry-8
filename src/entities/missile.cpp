@@ -1,5 +1,6 @@
 #include "wiz8/entities/missile.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -43,7 +44,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
@@ -266,9 +266,7 @@ Missile* NextMissile(bool restart)
    leaves the world collection and is destroyed. */
 void UpdateWorldMissiles(World* world)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     int index = 0;
     int count = static_cast<int>(world->missiles.size());
     while (index < count) {
@@ -544,17 +542,13 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
 {
     Animation* target = resources.cycles[emitter].animation.get();
 
-    if (target == 0) {
-        Fail("pao");
-    }
+    assert(target != 0);
     return AnimObjValue(target, visual.m_bLOD);
 }
 
 unsigned char Missile::ReadCycleData(LevelLoadContext* info, int cycle_index, int)
 {
-    if (info == 0 || info->hFile == 0) {
-        Fail("pInfo && pInfo->hFile");
-    }
+    assert(info != 0 && info->hFile != 0);
     return ReadEmitterCycle(visual, resources.cycles, info, cycle_index, true);
 }
 
@@ -685,9 +679,7 @@ AnimationMesh* Missile::GetCurrentAniMesh()
 {
     Animation* animation = resources.cycles[visual.current_cycle].animation.get();
 
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     return animation->entries[visual.m_bLOD].get();
 }
 
@@ -719,9 +711,7 @@ signed char Missile::GetNumSubCycles()
 
 bool Missile::IsCycleSupported(signed char cycle)
 {
-    if (cycle >= 2) {
-        Fail("bCycle<MISSILE_NUM_CYCLES");
-    }
+    assert(cycle < 2);
     return resources.cycles[cycle].animation != 0;
 }
 
@@ -734,9 +724,7 @@ void Missile::SetCycle(signed char cycle)
 {
     std::vector<std::unique_ptr<Light>>* lights;
 
-    if (cycle < 0 || cycle >= 2) {
-        Fail("bCycle >= MISSILE_CYCLE_FIRST && bCycle <= MISSILE_CYCLE_LAST");
-    }
+    assert(cycle >= 0 && cycle < 2);
 
     lights = resources.cycles[visual.current_cycle].lightView();
     visual.DetachCycleLights(lights);

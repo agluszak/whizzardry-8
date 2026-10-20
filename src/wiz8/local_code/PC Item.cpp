@@ -1,4 +1,5 @@
 #include <array>
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -15,8 +16,6 @@
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
-#include "wiz8/data/character_tables.h"
-#include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
@@ -49,7 +48,6 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/notices.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
@@ -320,8 +318,8 @@ bool IsItemBoundToWearer(const W8ItemInstance* item)
 
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
 {
-    if (party_slot == -1) Fail("iChar != -1");
-    if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT) Fail("uiSlot < SLOT_COUNT");
+    assert(party_slot != -1);
+    assert(static_cast<unsigned int>(equip_slot) < W8_EQUIP_SLOT_COUNT);
 
     W8EquipSlot paired_slot;
     switch (equip_slot) {
@@ -371,19 +369,10 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
 {
     const W8ItemDatabaseRecord* record;
 
-    if (character == 0) {
-        Fail("pPC");
-    }
-    if (item == 0) {
-        Fail("pPCItem");
-    }
-    if (item->iItemNo < -1) {
-        Fail("pPCItem->iItemNo >= -1");
-    }
-    if (item->iItemNo >= static_cast<int>(Data().items.size())) {
-        // c-style-cast-ok: verbatim retail assert string
-        Fail("pPCItem->iItemNo < (INT32) Data().items.size()");
-    }
+    assert(character != 0);
+    assert(item != 0);
+    assert(item->iItemNo >= -1);
+    assert(item->iItemNo < static_cast<int>(Data().items.size()));
     if (item->iItemNo == -1) {
         return false;
     }
@@ -549,12 +538,8 @@ int GetItemSpell(const W8ItemInstance* item)
     if (item == 0) {
         return 0;
     }
-    if (item->iItemNo == -1) {
-        Fail("pPCItem->iItemNo != -1");
-    }
-    if (item->iItemNo >= static_cast<int>(Data().items.size())) {
-        Fail("pPCItem->iItemNo < (INT32) Data().items.size()");
-    }
+    assert(item->iItemNo != -1);
+    assert(item->iItemNo < static_cast<int>(Data().items.size()));
     return Data().items[item->iItemNo].spell_id;
 }
 
@@ -592,9 +577,7 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
 
     AdjustIntegerByPercent(&score, percent);
     if (Data().items[item->iItemNo].identify_difficulty <= score) {
-        if (item == 0) {
-            Fail("pPCItem");
-        }
+        assert(item != 0);
         item->identified = true;
         item->spell_hint = true;
         item->unknown_08 = 1;
@@ -611,9 +594,7 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
     unsigned int candidate;
     unsigned int score;
 
-    if (item == 0) {
-        Fail("pPCItem");
-    }
+    assert(item != 0);
     if (item->iItemNo == -1) {
         return 1;
     }
@@ -683,9 +664,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     signed char strength;
     int margin;
 
-    if (item == 0) {
-        Fail("pPCItem");
-    }
+    assert(item != 0);
     if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_INSANE) {
         return false;
     }
@@ -695,9 +674,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
         return false;
     }
 
-    if (item == 0) {
-        Fail("pPCItem");
-    }
+    assert(item != 0);
     item->identified = true;
     item->spell_hint = true;
     item->unknown_08 = 1;

@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <memory>
 #include <ranges>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -28,7 +30,6 @@
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/light.h"
@@ -51,9 +52,7 @@ constexpr double kLightRangeAttenuationNumerator = 0.9980430528375734;
 
 void UpdateWorldMonsters(World* world)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
 
     glm::dvec3 camera_location = world->camera->transform.getLocation();
     glm::vec3 position;
@@ -76,9 +75,7 @@ void UpdateWorldMonsters(World* world)
    to the world's dynamic scene before the renderer transition. */
 void DetachWorldItemMeshes(World* world)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     auto count = world->plsItems.size();
     for (int index = 0; index < static_cast<int>(count); ++index) {
         WorldItemEntity* item = world->plsItems[index].get();
@@ -246,9 +243,7 @@ bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
    here; building ordinary VSG arrays does not require a graphics device. */
 std::unique_ptr<MeshInstance> CreateModelInstance(std::shared_ptr<Mesh> model)
 {
-    if (model == nullptr) {
-        Fail("pstMeshModel");
-    }
+    assert(model != nullptr);
     for (auto* part : meshParts(model.get())) part->renderAsset();
     auto instance = std::make_unique<MeshInstance>(nullptr);
     instance->setName("ST_CreateInstance");
@@ -288,9 +283,7 @@ Light* AddWorldLight(World* world, std::unique_ptr<Light> light)
 
 Light* CreateWorldLight(World* world, std::string_view name)
 {
-    if (name.empty()) {
-        Fail("name");
-    }
+    assert(!name.empty());
 
     auto light = std::make_unique<Light>(world->scene.get());
     ConfigureLightDefaults(*light, name);
@@ -299,12 +292,8 @@ Light* CreateWorldLight(World* world, std::string_view name)
 
 Light* CreateRangedWorldLight(World* world, std::string_view name)
 {
-    if (name.empty()) {
-        Fail("name");
-    }
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(!name.empty());
+    assert(world != 0);
 
     auto light = std::make_unique<Light>(world->scene.get());
     ConfigureLightDefaults(*light, name);
@@ -320,12 +309,8 @@ Light* CreateRangedWorldLight(World* world, std::string_view name)
 /* Take a light out of both world collections and release it. */
 void WorldRemoveLight(World* world, Light* light)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
-    if (light == 0) {
-        Fail("pLight");
-    }
+    assert(world != 0);
+    assert(light != 0);
     std::erase(world->environment.lights, light);
     // The world owns the light: erasing it from the list destroys it.
     std::erase_if(world->transient_lights,
@@ -350,9 +335,7 @@ void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed)
     int index;
     Prop* prop;
 
-    if (!world) {
-        Fail("pWorld");
-    }
+    assert(world);
     count = static_cast<int>(world->plsProps.size());
     for (index = 0; index < count; index++) {
         prop = GetWorldProp(world, index);
@@ -480,9 +463,7 @@ void SetModelInstanceExclusionMask(MeshInstance* instance, int value)
    receiver pWorld. */
 void WorldSetRenderRange(World* world, float value)
 {
-    if (!world) {
-        Fail("pWorld");
-    }
+    assert(world);
     if (value != 0.0f) {
         world->render_range = value;
     }
@@ -494,9 +475,7 @@ void WorldSetRenderRange(World* world, float value)
    collapsed leaves the camera as it was. */
 void WorldSetFarClip(World* world, float distance)
 {
-    if (!world) {
-        Fail("pWorld");
-    }
+    assert(world);
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
         RefreshFogRanges(*world);
@@ -514,9 +493,7 @@ double WorldGetFarClip(World* world)
 
 void SetSceneAmbientLightWhite(WorldScene* scene)
 {
-    if (scene == 0) {
-        Fail("psrScene");
-    }
+    assert(scene != 0);
     scene->setAmbientLight(1.0f, 1.0f, 1.0f);
 }
 

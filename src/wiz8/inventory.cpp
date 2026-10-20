@@ -1,6 +1,7 @@
 #include "wiz8/inventory.h"
 
 #include <bitset>
+#include <cassert>
 #include <expected>
 #include <initializer_list>
 #include <optional>
@@ -46,7 +47,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/notices.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
@@ -233,8 +233,8 @@ bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemSour
 bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource source,
                                 bool party_first)
 {
-    if (!game.status.game_started) Fail("gStatus.fGameStarted");
-    if (!game.party.members[party_slot].has_value()) Fail("fCHAR_OCCUPIED(uiChar)");
+    assert(game.status.game_started);
+    assert(game.party.members[party_slot].has_value());
 
     std::optional<ItemPlacement> destination;
     if (!IsPartySlotEligible(static_cast<int>(party_slot))) {
@@ -257,10 +257,10 @@ GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_f
 {
     auto& held = game.party.held.item;
     bool stored = party_first;
-    if (held.iItemNo == -1) Fail("gStatus.fItemInCursor");
+    assert(held.iItemNo != -1);
     if (!held.identified) PartyAttemptsToIdentifyItem(&held, 0);
-    if (!game.status.game_started) Fail("gStatus.fGameStarted");
-    if (!game.party.members[party_slot].has_value()) Fail("fCHAR_OCCUPIED(uiChar)");
+    assert(game.status.game_started);
+    assert(game.party.members[party_slot].has_value());
 
     const auto source = PartyItem(game.party, {W8ItemStorage::Hand});
     const bool eligible = IsPartySlotEligible(static_cast<int>(party_slot));
@@ -329,7 +329,7 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
 {
     auto& character = recipient.character;
     const auto notice = [&](unsigned int message, unsigned int pronoun_column) {
-        if (!recipient.slot) Fail("pPC->fInParty", "the class item notice names a member");
+        assert(recipient.slot);
         game.events.push(CharacterNotice{
             *recipient.slot,
             fmt::sprintf(
@@ -737,13 +737,9 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         /* The one item that is not used on anybody: it hands the level's NPC
            over to the fact that says the party has met them. */
         if (item->iItemNo == 0x29f) {
-            W8NpcState* npc = GetNpcState(game.party.npcIndex(party_slot));
-            if (npc == 0) {
-                Fail("pNPC");
-            }
-            if (npc->name_style != W8_NPC_RFS81_A) {
-                Fail("pNPC->ubNPCDBaseID == NPC_RFS81A");
-            }
+            [[maybe_unused]] W8NpcState* npc = GetNpcState(game.party.npcIndex(party_slot));
+            assert(npc != 0);
+            assert(npc->name_style == W8_NPC_RFS81_A);
             SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
             SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
             return {{1, std::nullopt}, ConsumeItemUse(game.rules(), location, true)};
@@ -810,9 +806,6 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         }
         target.name_known = true;
 
-        if (static_cast<int>(record->category) >= W8_ITEM_USE_TYPE_COUNT) {
-            Fail("pItemDB->ubUseType < USE_TYPE_COUNT");
-        }
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
         if (record->spell_id != W8_SPELL_NONE &&
@@ -824,27 +817,25 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             return {{0, 0}};
         }
 
-        if (TargetSourceIsCharacter(&target, 0)) {
+        // Items outside the use-message table are used without an announcement.
+        const bool announced = static_cast<int>(record->category) < W8_ITEM_USE_TYPE_COUNT;
+        if (announced && TargetSourceIsCharacter(&target, 0)) {
             game.events.push(CharacterNotice{
                 static_cast<unsigned int>(target.iChar),
                 fmt::format("{} {}", Data().strings[g_item_use_messages[record->category * 2]],
                             GetItemDisplayName(Data(), item))});
-        } else if (TargetSourceIsMonster(&target, 0)) {
+        } else if (announced && TargetSourceIsMonster(&target, 0)) {
             game.events.push(TextNotice{
                 9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
                                Data().strings[g_item_use_messages[record->category * 2]],
                                GetItemDisplayName(Data(), item))});
-        } else {
-            Fail("FALSE");
         }
 
         if (g_settings.verbose_combat_messages == 0) {
             game.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
+        // A usable item without a spell does nothing.
         if (record->spell_id == W8_SPELL_NONE) {
-            std::string message = fmt::format(
-                "UseItem: ERROR - Usable item {:d} doesn't do anything!", item->iItemNo);
-            Fail("FALSE", message);
             used = 0;
             fatigue_cost = 0;
         } else {

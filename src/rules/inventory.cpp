@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <expected>
 #include <functional>
 #include <iterator>
@@ -13,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include <fmt/format.h>
 #include <fmt/printf.h>
 
 #include "wiz8/data/character_tables.h"
@@ -144,9 +144,7 @@ static bool MergeStack(const GameData& data, W8Party& party, W8ItemInstance& des
     const auto& record = data.items[destination.iItemNo];
     if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return false;
     if (destination.stack_count > record.maximum_quantity)
-        throw std::logic_error(fmt::format("MergeStack: a stack of item {} holds {} of {}",
-                                           destination.iItemNo, destination.stack_count,
-                                           record.maximum_quantity));
+        destination.stack_count = record.maximum_quantity;
     if (destination.iItemNo != source.item.iItemNo ||
         destination.identified != source.item.identified)
         return false;
@@ -893,7 +891,7 @@ static bool MergeUses(const GameData& data, W8Party& party, W8ItemInstance& into
                                    : into.uses_or_charges;
     unsigned int moved = MaximumQuantity(data, into.iItemNo) - held;
     if (available <= moved) moved = available;
-    into.uses_or_charges += static_cast<char>(moved);
+    into.uses_or_charges += static_cast<signed char>(moved);
     bool emptied = false;
     for (; moved != 0 && !emptied; --moved) emptied = ConsumeUse(data, party, from, false);
     return emptied;
@@ -913,7 +911,7 @@ std::optional<InventoryEdit> MergeItemUses(const RuleContext& rules, unsigned ac
                               : W8ItemLocation{}}};
 }
 
-void AddItemUses(const GameData& data, W8ItemInstance& item, char uses)
+void AddItemUses(const GameData& data, W8ItemInstance& item, signed char uses)
 {
     const unsigned char total = item.uses_or_charges + uses;
     const int maximum = MaximumQuantity(data, item.iItemNo);

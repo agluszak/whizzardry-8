@@ -2,7 +2,6 @@ set(NATIVE_RENDER_SOURCES
     compositor.cpp
     camera.cpp
     clip_plane.cpp
-    ../platform/assertion.cpp
     effects/fog.cpp
     pipeline/draw_inputs.cpp
     renderer.cpp

@@ -1,5 +1,6 @@
 #include "wiz8/local_code/MonsterAI.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -42,7 +43,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -228,9 +228,7 @@ void UpdateMonsterGroups(bool staggered)
             }
         }
         if (g_out_of_combat_rtai_enabled && !CurrentGame().combat.has_value()) {
-            if (monster_group == 0) {
-                Fail("pMonsterGroup");
-            }
+            assert(monster_group != 0);
             if (monster_group->leader_group_id == 0) {
                 monster_info = FindMonster(monster_group->leader_location_id);
                 if (!monster_info->p3D->IsDying()) {
@@ -304,9 +302,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         if (monster_info->pCombat) {
             return;
         }
-        if (monster_info == 0) {
-            Fail("pMonsterInfo");
-        }
+        assert(monster_info != 0);
         record = GetMonsterDataForInfo(monster_info);
         best_range = 0;
         for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
@@ -375,7 +371,6 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                     }
                     break;
                 default:
-                    Fail("FALSE", "DoMonsterRTAI: ERROR - Invalid disposition");
                     return;
                 }
             }
@@ -399,9 +394,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE ||
         monster_info->p3D->script_wait != MONSCR_WALKTO || decision != W8_RT_AI_IDLE) {
         if (decision != monster_info->ai_mode || update) {
-            if (!engage && decision == W8_RT_AI_CHARGE_PARTY) {
-                Fail("ubAIDecision != RT_AI_MODE_CHARGE_PARTY");
-            }
+            assert(engage || decision != W8_RT_AI_CHARGE_PARTY);
             ApplyMonsterRTAIDecision(monster_info, decision);
         }
     }
@@ -637,9 +630,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     switch (decision & W8_MONSTER_AI_MODE_MASK) {
     case W8_RT_AI_CHARGE_PARTY:
         best_range = 0;
-        if (monster_info == 0) {
-            Fail("pMonsterInfo");
-        }
+        assert(monster_info != 0);
         record = GetMonsterDataForInfo(monster_info);
         for (attack = 0; attack < 3; ++attack) {
             if (RateMonsterAttack(monster_info, record, attack, 0, false) == 3 &&
@@ -664,9 +655,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         monster->LinkToStartupNavigator();
         break;
     case W8_RT_AI_APPROACH_PARTY:
-        if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            Fail("pMonsterInfo->ubDisposition != DISP_HOSTILE");
-        }
+        assert(monster_info->ubDisposition != W8_DISPOSITION_HOSTILE);
         monster->ApproachStartupNavigator(3000.0);
         break;
     case W8_RT_AI_INVESTIGATE_NOISE:
@@ -834,8 +823,10 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                     ResetCombatSlot(&monster_info->Target);
                     monster_info->Target.iType = W8_TARGET_KIND_PLACE;
                     monster_info->Target.point = position;
-                } else if (!AimMonsterAtSpellTarget(monster_info, W8_SPELL_SPECIAL_ATTACK_CONE)) {
-                    Fail("fSuccess");
+                } else {
+                    [[maybe_unused]] const bool aimed =
+                        AimMonsterAtSpellTarget(monster_info, W8_SPELL_SPECIAL_ATTACK_CONE);
+                    assert(aimed);
                 }
                 goto validate;
             }
@@ -859,10 +850,9 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                                 monster_info->action_kind = W8_MONSTER_ACTION_SPELL;
                                 monster_info->action_detail =
                                     ChooseMonsterSpell(monster_info, record);
-                                if (!AimMonsterAtSpellTarget(monster_info,
-                                                             monster_info->action_detail)) {
-                                    Fail("fSuccess");
-                                }
+                                [[maybe_unused]] const bool aimed = AimMonsterAtSpellTarget(
+                                    monster_info, monster_info->action_detail);
+                                assert(aimed);
                                 goto validate;
                             }
                             break;
@@ -915,9 +905,7 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
     glm::vec3 source;
     glm::vec3 destination;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(monster_group != 0);
     if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE) {
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
             member = GetGroupMemberInfo(monster_group, index);
@@ -996,9 +984,7 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRe
     float distance;
 
     hp_percent = monster_info->hp_current * 100 / monster_info->uiHPMax;
-    if (!monster_info->pCombat) {
-        Fail("pMonsterInfo->pCombat");
-    }
+    assert(monster_info->pCombat);
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
         monster_info->ubDisposition != W8_DISPOSITION_HOSTILE && hp_percent <= 33) {
         return 100;
@@ -1112,16 +1098,12 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
             return;
         }
         if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
-            if (monster_info->Target.iChar == -1) {
-                Fail("pTarget->iChar != BAD_INDEX");
-            }
+            assert(monster_info->Target.iChar != -1);
             char_lo = monster_info->Target.iChar;
             char_hi = char_lo + 1;
             scan_chars = true;
         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-            if (monster_info->Target.iMonsterID == -1) {
-                Fail("pTarget->iMonsterID != BAD_INDEX");
-            }
+            assert(monster_info->Target.iMonsterID != -1);
             scan_monsters = true;
             locked_monster = FindMonster(monster_info->Target.iMonsterID);
             monster_lo = 0;
@@ -1783,9 +1765,7 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* recor
             ++count;
         }
     }
-    if (count == 0) {
-        Fail("uiCastableSpellCnt > 0");
-    }
+    assert(count != 0);
     roll = CurrentGame().rng.below(total);
     index = 0;
     while (index < count && roll >= weights[index]) {
@@ -2030,9 +2010,7 @@ void CheckMonsterGroupsLeaveCombat(void)
             }
             continue;
         }
-        if (group == 0) {
-            Fail("pMonsterGroup");
-        }
+        assert(group != 0);
         for (index = 0; index < group->MemberIds().size(); ++index) {
             member = FindMonster(group->MemberLocationId(index));
             if (!member->fActive || member->hp_current == 0 ||
@@ -2057,9 +2035,7 @@ void CheckMonsterGroupsLeaveCombat(void)
                     break;
                 }
             }
-            if (group == 0) {
-                Fail("pMonsterGroup");
-            }
+            assert(group != 0);
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
                 other = FindMonster(group->MemberLocationId(member_index));
                 if (other->fActive && other->hp_current != 0 &&
@@ -2130,9 +2106,7 @@ bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only
     unsigned int index;
     W8MonsterInfo* member;
 
-    if (monster_group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(monster_group != 0);
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         member = GetGroupMemberInfo(monster_group, index);
         if (member->fActive && member->hp_current > 0 &&
@@ -2328,9 +2302,7 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     float furthest = 999999.0f;
     float distance;
 
-    if (group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(group != 0);
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
         location_id = group->MemberLocationId(index);
@@ -2385,9 +2357,7 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
     W8MonsterInfo* member;
     W8CombatSlot slot;
 
-    if (target_group == 0) {
-        Fail("pTargetMonsterGroup");
-    }
+    assert(target_group != 0);
     for (index = 0; index < target_group->MemberIds().size(); ++index) {
         int location_id = target_group->MemberLocationId(index);
         member = FindMonster(location_id);
@@ -2483,9 +2453,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
    in the original file. */
 static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index)
 {
-    if (group == 0) {
-        Fail("pMonsterGroup");
-    }
+    assert(group != 0);
     return FindMonster(group->MemberLocationId(index));
 }
 

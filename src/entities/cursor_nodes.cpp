@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -27,7 +28,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
@@ -116,9 +116,6 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
 
     auto surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(0x20UL, 0x20UL, SDL_PIXELFORMAT_ARGB1555).release(), SDL_DestroySurface);
-    if (surface == 0) {
-        Fail("psrSurface");
-    }
 
     std::uint32_t pixel;
     unsigned char* bytes =
@@ -155,26 +152,18 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
 static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
 {
     MeshInstance* instance = entry.node.get();
-    if (instance == 0) {
-        Fail("pstModelInstance");
-    }
+    assert(instance != 0);
     Mesh* mesh = static_cast<Mesh*>(instance->getModel());
-    if (mesh == 0) {
-        Fail("pstMeshModel");
-    }
+    assert(mesh != 0);
     Texture* texture = static_cast<Texture*>(mesh->getTexture(0, 0));
-    if (texture == 0) {
-        Fail("psrTexture");
-    }
+    assert(texture != 0);
     SDL_Surface* surface = texture->getSurfacePtr();
     SDL_FillSurfaceRect(surface, nullptr,
                         SDL_MapSurfaceRGBA(surface, (entry.color >> 16) & 255,
                                            (entry.color >> 8) & 255, entry.color & 255,
                                            entry.color >> 24));
     unsigned char* data = static_cast<unsigned char*>(surface->pixels);
-    if (data == 0) {
-        Fail("pBuffer");
-    }
+    assert(data != 0);
     {
         g_smfnt_font.resetPalette();
         SDLSurfaceOwner text_surface{SDL_CreateSurfaceFrom(surface->w, surface->h,

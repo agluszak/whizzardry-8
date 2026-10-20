@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <initializer_list>
 #include <iterator>
@@ -67,7 +68,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
@@ -99,9 +99,7 @@ int GetProfessionCasterLevel(const W8Character* character, W8Profession professi
 
     if (profession_id == W8_PROFESSION_NONE) {
         profession_id = character->iProfession;
-        if (profession_id == W8_PROFESSION_NONE) {
-            Fail("iProfession != -1");
-        }
+        assert(profession_id != W8_PROFESSION_NONE);
     }
 
     magic_level_offset = g_profession_magic_level_offsets[profession_id];
@@ -197,11 +195,7 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
     W8CombatSlot* combat_slot;
     unsigned char kind;
 
-    if (Data().spells[spell_id].monster_castable == 0) {
-        Fail("FALSE", fmt::format("MonsterOKToCastSpell: ERROR - spell not monster castable: {}",
-                                  Data().spells[spell_id].display_name));
-        return false;
-    }
+    assert(Data().spells[spell_id].monster_castable != 0);
 
     if (monster_info->uiCondition[W8_CONDITION_SILENCED] != 0) {
         if (Data().spells[spell_id].alchemy_spell == 0) {
@@ -244,13 +238,9 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
     W8SpellUsage usable_when;
     bool lock_or_trap;
 
-    if (spell_id >= W8_SPELL_COUNT) {
-        Fail("uiSpell < SPELL_COUNT");
-    }
+    assert(spell_id < W8_SPELL_COUNT);
     usable_when = Data().spells[spell_id].usable_when;
-    if (usable_when >= W8_SPELL_USAGE_COUNT) {
-        Fail("uiSpellUsableWhen < SPELL_USAGE_COUNT");
-    }
+    assert(usable_when < W8_SPELL_USAGE_COUNT);
 
     if (CurrentGame().activity.in_camp() && !CurrentGame().combat.has_value() &&
         CurrentGame().activity.conversation_aside &&
@@ -287,8 +277,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         }
         return TrapInteractionSuspended();
     default:
-        Fail("FALSE", "SpellUsableNow: ERROR - Invalid uiSpellUsableWhen");
-        return allow_out_of_combat;
+        std::unreachable();
     }
 
     if (!CurrentGame().activity.conversation_aside) {
@@ -324,15 +313,7 @@ W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool 
                 return W8_TARGET_NEED_ITEM;
             }
             break;
-        case W8_TARGET_TYPE_PARTY:
-        case W8_TARGET_TYPE_ALL_ENEMIES:
-        case W8_TARGET_TYPE_LOCK_OR_TRAP:
-            break;
         default:
-            Fail("FALSE",
-                 fmt::format(
-                     "GetTargetNeededForSpellFriendly: ERROR - Invalid spell target for {:d}",
-                     spell_id));
             break;
         }
     }
@@ -353,16 +334,7 @@ W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
         return W8_TARGET_NEED_CASTER;
     case W8_TARGET_TYPE_ENEMY_GROUP:
         return W8_TARGET_NEED_GROUP;
-    case W8_TARGET_TYPE_PARTY:
-    case W8_TARGET_TYPE_CONE:
-    case W8_TARGET_TYPE_RADIUS:
-    case W8_TARGET_TYPE_ALL_ENEMIES:
-    case W8_TARGET_TYPE_POINT:
-        break;
     default:
-        Fail("FALSE",
-             fmt::format("GetTargetNeededForSpellHostile: ERROR - Invalid spell target for {:d}",
-                         spell_id));
         break;
     }
     return W8_TARGET_NEED_NONE;
@@ -492,9 +464,7 @@ void StartCharacterBreathAttack(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    if (!CanCharReBreathe(party_slot)) {
-        Fail("CanCharReBreathe(uiChar)");
-    }
+    assert(CanCharReBreathe(party_slot));
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
     AimAtTarget(party_slot, &row->remembered.breath_target, GetEditedActionContext(party_slot));
     if (IsSpellTargetStillValid(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
@@ -616,9 +586,7 @@ void UpdateSpellEffects(void)
                 }
                 ProcessSpellEffectTargets(&effect);
                 if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
-                    if (effect.OrigSource.iMonsterID == -1) {
-                        Fail("pOrigSource->iMonsterID != -1");
-                    }
+                    assert(effect.OrigSource.iMonsterID != -1);
                     /* The casting monster's turn finishes with its spell. */
                     if (CurrentGame().combat.has_value()) {
                         CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
@@ -800,8 +768,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
         pace = 0x28;
         break;
     default:
-        Fail("FALSE");
-        return;
+        std::unreachable();
     }
 
     phase_clock = CurrentGame().combat->characters[party_slot].phase_clock_stamp;
@@ -1064,9 +1031,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
     int usage_points;
     unsigned int skill_id;
 
-    if (Data().items[item->iItemNo].spell_id == W8_SPELL_NONE) {
-        Fail("gpItemDB[pPCItem->iItemNo].ubSpellNumber != SPELL_NONE");
-    }
+    assert(Data().items[item->iItemNo].spell_id != W8_SPELL_NONE);
     spell_id = Data().items[item->iItemNo].spell_id;
 
     if (!CanCharacterLearnSpell(character, spell_id)) {
@@ -1314,9 +1279,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8M
         break;
     }
 
-    if (power_level == 0 || power_level > W8_SPELL_POWER_MAX) {
-        Fail("( uiPowerLevel >= 1 ) && ( uiPowerLevel <= 7 )");
-    }
+    assert(power_level != 0 && power_level <= W8_SPELL_POWER_MAX);
     return power_level;
 }
 
@@ -1373,9 +1336,7 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         target.iType = W8_TARGET_KIND_PARTY;
         break;
     default:
-        Fail("FALSE",
-             fmt::format("PointCastSpell: ERROR - Invalid spell target for {:d}", spell_id));
-        break;
+        return 0;
     }
 
     CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
@@ -1451,10 +1412,7 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
         }
     }
 
-    if (best_skill == W8_SKILL_NONE) {
-        Fail("(iHighestSkill != SKILL_NONE)",
-             fmt::format("Failed on spell {:d}, usability byte {:d}", spell_id, book));
-    }
+    assert(best_skill != W8_SKILL_NONE);
     return best_skill;
 }
 
@@ -1773,9 +1731,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 {
     unsigned short name_prefix;
 
-    if (target == 0) {
-        Fail("pTarget != NULL");
-    }
+    assert(target != 0);
 
     switch (target->iType) {
     case 0:
@@ -1784,9 +1740,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 
     case 1:
     case 9:
-        if (target->iChar == -1) {
-            Fail("pTarget->iChar != BAD_INDEX");
-        }
+        assert(target->iChar != -1);
         if (!TargetSourceIsCharacter(source, 0) || source->name_known ||
             source->iChar != target->iChar) {
             return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4],
@@ -1803,9 +1757,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         W8MonsterInfo* monster_info;
         const W8MonsterRecord* record;
 
-        if (target->iMonsterID == -1) {
-            Fail("pTarget->iMonsterID != BAD_INDEX");
-        }
+        assert(target->iMonsterID != -1);
         monster_info = FindMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         if (!TargetSourceIsMonster(source, 0) || source->iMonsterID != target->iMonsterID) {
@@ -1832,9 +1784,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         return Data().strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
-        Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
-                                  fmt::underlying(target->iType)));
-        return Data().strings[W8_MESSAGE_TARGET_UNKNOWN / 4];
+        return {};
     }
 
     return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4], Data().strings[name_prefix]);
@@ -2437,7 +2387,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     case W8_SPELL_POWER_CLASS_NONE:
         return 0;
     default:
-        Fail("Unsupported spell power class");
+        std::unreachable();
     }
     if (clamp_power) {
         sp_needed = sp_cost * power_level;
@@ -2540,7 +2490,6 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             morale = 0x3c;
         } else {
             if (g_settings.difficulty != W8_DIFFICULTY_EXPERT) {
-                Fail("FALSE");
                 goto finish_difficulty_adjustment;
             }
             morale = 0x28;
@@ -2588,9 +2537,7 @@ finish_difficulty_adjustment:
     if (cast_result != 0) {
         if (affected) {
             index = record->spell_level + cast_result;
-            if (index < 2) {
-                Fail("uiUsagePoints >= 2");
-            }
+            assert(index >= 2);
             PracticeCharacterSkill(CurrentGame(), character, best_skill, (index + 2) >> 2, false);
             PracticeCharacterSkill(CurrentGame(), character, realm_skill, index, false);
             if (character->skills[W8_SKILL_POWER_CAST].active) {
@@ -2769,9 +2716,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             record_data = GetMonsterDataForInfo(monster_info);
             caster_figure = GetSpellDifficulty(record_data->effective_level, spell_id, power_level);
         } else {
-            if (source->iType != W8_TARGET_SOURCE_INDIRECT) {
-                Fail("pSource->iType == SOURCE_TYPE_3D_POINT");
-            }
+            assert(source->iType == W8_TARGET_SOURCE_INDIRECT);
             caster_figure = (Data().spells[spell_id].spell_point_cost / 2 +
                              Data().spells[spell_id].spell_level) /
                                 2 +
@@ -3066,15 +3011,11 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         message = 0;
         switch (cast_kind) {
         case W8SpellCastKind::MusicItemUse:
-            if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-                Fail("pSource->iType == SOURCE_TYPE_CHAR");
-            }
+            assert(source->iType == W8_TARGET_SOURCE_CHARACTER);
             message = 0x1aa;
             [[fallthrough]];
         case W8SpellCastKind::EngineeringItemUse:
-            if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-                Fail("pSource->iType == SOURCE_TYPE_CHAR");
-            }
+            assert(source->iType == W8_TARGET_SOURCE_CHARACTER);
             if (cast_kind == W8SpellCastKind::EngineeringItemUse) {
                 message = 0x1ab;
             }
@@ -3099,9 +3040,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     }
     if (fizzled) {
         if (TargetSourceIsMonster(&owner.Source, 0)) {
-            if (owner.Source.iMonsterID == -1) {
-                Fail("pOrigSource->iMonsterID != -1");
-            }
+            assert(owner.Source.iMonsterID != -1);
             if (CurrentGame().combat.has_value()) {
                 CurrentGame().combat->setStepOf(MonsterActor{owner.Source.iMonsterID},
                                                 ActionStep::finishing);
@@ -3127,9 +3066,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     W8MonsterGroup* group;
     int slot;
 
-    if (source->fBackfire) {
-        Fail("!pSource->fBackfire");
-    }
+    assert(!source->fBackfire);
     source_copy = *source;
     target_copy = *target;
     switch (target_copy.iType) {
@@ -3147,10 +3084,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
                 break;
             }
         }
-        if (slot >= 8) {
-            Fail("FALSE");
-            return;
-        }
+        assert(slot < 8);
         SetTargetSourceToCharacter(slot, source);
         ResetCombatSlot(target);
         if (source_copy.iType == W8_TARGET_SOURCE_CHARACTER) {
@@ -3159,8 +3093,6 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             target->iType = W8_TARGET_KIND_GROUP;
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
-        } else {
-            Fail("FALSE");
         }
         source->point_source = true;
         return;
@@ -3175,13 +3107,10 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             target->iType = W8_TARGET_KIND_GROUP;
             monster_info = FindMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
-        } else {
-            Fail("FALSE");
         }
         source->point_source = true;
         return;
     default:
-        Fail("FALSE");
         return;
     }
     if (TargetSourceIsCharacter(&source_copy, 0)) {
@@ -3190,8 +3119,6 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
     } else if (TargetSourceIsMonster(&source_copy, 0)) {
         target->iType = W8_TARGET_KIND_MONSTER;
         target->iMonsterID = source_copy.iMonsterID;
-    } else {
-        Fail("FALSE");
     }
     source->point_source = true;
 }
@@ -3209,15 +3136,9 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     Navigator* navigator;
     W8SpellTargetType target_type;
 
-    if (source->iType <= W8_TARGET_SOURCE_NONE || source->iType >= W8_TARGET_SOURCE_COUNT) {
-        Fail("(pSource->iType > SOURCE_TYPE_NONE) && (pSource->iType < SOURCE_TYPE_COUNT)");
-    }
-    if (target->iType <= W8_TARGET_KIND_NONE || target->iType >= W8_TARGET_KIND_COUNT) {
-        Fail("(pTarget->iType > TARGET_TYPE_NONE) && (pTarget->iType < TARGET_TYPE_COUNT)");
-    }
-    if (source->fBackfire) {
-        Fail("!pSource->fBackfire");
-    }
+    assert(source->iType > W8_TARGET_SOURCE_NONE && source->iType < W8_TARGET_SOURCE_COUNT);
+    assert(target->iType > W8_TARGET_KIND_NONE && target->iType < W8_TARGET_KIND_COUNT);
+    assert(!source->fBackfire);
     const bool monster_source = TargetSourceIsMonster(source, 0);
     monster_info = 0;
     if (monster_source) {
@@ -3271,9 +3192,6 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     case 6:
         break;
     default:
-        Fail("FALSE",
-             fmt::format("SpellBackfires: ERROR - Invalid spell target type for spell {:d}",
-                         spell_id));
         return;
     }
     saved = source->point;
@@ -3374,9 +3292,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     range = CalcRangeDistance(Data().spells[spell_id].range_category);
     navigator = PartyNavigator();
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
-        if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            Fail("pSource->iType == SOURCE_TYPE_MONSTER");
-        }
+        assert(source->iType == W8_TARGET_SOURCE_MONSTER);
         monster_info = FindMonster(source->iMonsterID);
         navigator = &(monster_info->p3D)->nav;
     }
@@ -3554,9 +3470,6 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         if (!source->point_source && spell_id != W8_SPELL_SPECIAL_ATTACK_CONE &&
             monster_info->has_spell_origin) {
             fVertextAvail = monster->GetSpellPosition(&eye);
-            if (!fVertextAvail) {
-                Fail("fVertextAvail");
-            }
         }
         if (fVertextAvail) {
             sight_flag = 3;

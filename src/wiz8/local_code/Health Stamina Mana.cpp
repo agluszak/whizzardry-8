@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <string>
@@ -46,7 +47,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -71,9 +71,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     unsigned int absorbed;
     unsigned int applied;
 
-    if (!CurrentGame().party.members[party_slot].has_value()) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(CurrentGame().party.members[party_slot].has_value());
     if (character->hp_current == 0) {
         return 0;
     }
@@ -218,9 +216,7 @@ void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount)
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
     if (amount != 0) {
-        if (character->iSPLeft[realm] < amount) {
-            Fail("pPC->iSPLeft[uiRealm] >= (INT32) uiSPs");
-        }
+        assert(character->iSPLeft[realm] >= amount);
         character->iSPLeft[realm] -= amount;
         CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     }
@@ -448,10 +444,6 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:
     case W8_MONSTER_ACTION_PROTECT:
         break;
-    default:
-        Fail("FALSE", fmt::format("MonsterActionFatigueCost: ERROR - Invalid action {:d}",
-                                  fmt::underlying(monster_info->action_kind)));
-        break;
     }
 
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] == 0) {
@@ -487,9 +479,7 @@ void HealCharacter(int party_slot, int amount, bool announce)
     unsigned int hp_max;
     unsigned int fraction;
 
-    if (!CurrentGame().party.members[party_slot].has_value()) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(CurrentGame().party.members[party_slot].has_value());
 
     if (character->hp_current == 0) {
         return;
@@ -669,9 +659,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    if (!CurrentGame().party.members[party_slot].has_value()) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(CurrentGame().party.members[party_slot].has_value());
 
     if (character->uiHPMax != 0 && character->hp_current != 0) {
         FatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
@@ -827,11 +815,6 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
         return;
     }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored                                                                   \
-    "-Wsometimes-uninitialized" // uninit-ok: retail's invalid-load assertion continues without
-                                // assigning a percentage; that unresolved value still affects
-                                // stamina
     if (scale_by_load) {
         switch (character->load_category) {
         case 0:
@@ -850,7 +833,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
             load_percent = 200;
             break;
         default:
-            Fail("FALSE", "FatigueCharacter: ERROR - Invalid load category");
+            load_percent = 0;
             break;
         }
         if (character->uiCondition[W8_CONDITION_SLOWED] == 0) {
@@ -862,7 +845,6 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
         }
         amount += (load_percent * amount) / 100;
     }
-#pragma clang diagnostic pop
 
     if (amount < 0) {
         amount = 0;
@@ -1016,9 +998,7 @@ void CharacterDies(int party_slot)
     unsigned int condition;
     int animation;
 
-    if (!CurrentGame().party.members[party_slot].has_value()) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(CurrentGame().party.members[party_slot].has_value());
 
     ++character->death_count;
     for (condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {

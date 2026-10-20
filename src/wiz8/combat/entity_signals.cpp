@@ -1,6 +1,7 @@
 #include "wiz8/combat/entity_signals.h"
 
 #include <algorithm>
+#include <cassert>
 
 #include <fmt/format.h>
 
@@ -22,7 +23,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/monster_actions.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/targeting.h"
@@ -140,9 +140,7 @@ void DetonateStoredSpell(Missile& missile)
     W8TargetSource source;
     W8CombatSlot target;
 
-    if (missile.m_Source.iType != W8_TARGET_SOURCE_CHARACTER) {
-        Fail("m_Source.iType == SOURCE_TYPE_CHAR");
-    }
+    assert(missile.m_Source.iType == W8_TARGET_SOURCE_CHARACTER);
     const glm::vec3 position = missile.nav.GetPosition();
     ResetTargetSource(&source);
     source.iChar = missile.m_Source.iChar;
@@ -219,9 +217,7 @@ void CombatSignals::missileReleased(Monster& monster)
     goto fire_missile;
 
 prepare_attack:
-    if (attack_index >= W8_MAX_MONSTER_ATTACKS) {
-        Fail("uiAttack < MAX_MONSTER_ATTACKS");
-    }
+    assert(attack_index < W8_MAX_MONSTER_ATTACKS);
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
     if (static_cast<unsigned int>(missile_type) >= Data().missiles.size()) {

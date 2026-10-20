@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 
+#include <cassert>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -20,7 +21,6 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/platform/assertion.h"
 
 /* Dialog Code\StatInfoDialogs.cpp. Two attribute-info dialogs whose
    constructors are the same body twice over: the canonical pair differs only
@@ -99,9 +99,7 @@ bool W8StatInfoDialogBase::PopulateText()
 
 W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 {
-    if (static_cast<unsigned int>(uiIndex) >= ATTR_COUNT) {
-        Fail("uiIndex < ATTR_COUNT");
-    }
+    assert(static_cast<unsigned int>(uiIndex) < ATTR_COUNT);
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[uiIndex];
     m_detail_id = g_attr_table0[uiIndex];
@@ -110,9 +108,7 @@ W8AttributeInfoDialog::W8AttributeInfoDialog(W8Attribute uiIndex)
 
 W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, bool bonus)
 {
-    if (static_cast<unsigned int>(skill) >= SKILL_COUNT) {
-        Fail("uiIndex < SKILL_COUNT");
-    }
+    assert(static_cast<unsigned int>(skill) < SKILL_COUNT);
     m_skill = skill;
     m_title_id = g_character_skill_name_ids[skill];
     m_detail_id = g_character_skill_name_ids[skill + 0x2a];
@@ -150,9 +146,7 @@ bool W8SkillInfoDialog::PopulateText()
 
 W8SecondaryAttributeInfoDialog::W8SecondaryAttributeInfoDialog(unsigned int uiIndex)
 {
-    if (uiIndex >= ATTR_COUNT) {
-        Fail("uiIndex < ATTR_COUNT");
-    }
+    assert(uiIndex < ATTR_COUNT);
     m_uiIndex = uiIndex;
     m_title_id = g_character_description_first_ids[16 + uiIndex];
     m_detail_id = g_attr_table1[uiIndex];

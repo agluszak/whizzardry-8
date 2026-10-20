@@ -45,7 +45,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
@@ -506,9 +505,7 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
     int level = NormalizeMasterFunctionValue(requested_level);
     W8LevelInfo level_info;
 
-    if (level >= 57) {
-        Fail("iLevel < TEST_LEVEL_COUNT");
-    }
+    if (level >= 57) return false; // A saved level number outside the level table.
     if (!LevelBuildInfoByID(level, &level_info)) {
         return false;
     }

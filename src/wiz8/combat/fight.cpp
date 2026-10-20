@@ -1,7 +1,9 @@
 #include "wiz8/combat/fight.h"
 
 #include <algorithm>
+#include <cassert>
 #include <chrono>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -22,8 +24,6 @@
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/party_movement.h"
 #include "wiz8/combat/range.h"
-#include "wiz8/data/attack_modes.h"
-#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
@@ -69,10 +69,8 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/monster_cycles.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -575,8 +573,6 @@ void BeginCombatExecution(void)
                     CurrentGame().events.push(CharacterNotice{
                         static_cast<unsigned int>(slot),
                         fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0))});
-                } else {
-                    Fail("FALSE");
                 }
             }
         }
@@ -600,8 +596,6 @@ void BeginCombatExecution(void)
                     monster,
                     fmt::sprintf(Data().strings[0x229],
                                  CurrentGame().party.characters[monster->Target.iChar].name));
-            } else {
-                Fail("FALSE");
             }
         }
     }
@@ -951,9 +945,7 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
    combat row's attack flag unless the row is already on that action. */
 void SwitchCharacterTo(int party_slot, W8ActionKind action)
 {
-    if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
-        Fail("(iCharAction == CHAR_ACTION_DEFEND) || (iCharAction == CHAR_ACTION_PROTECT)");
-    }
+    assert(action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT);
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
     row->executing.start(action, -1);
@@ -1152,9 +1144,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     W8TargetSource source;
     W8CombatCharacterRow* row = &CurrentGame().combat->characters[party_slot];
     SetTargetSourceToCharacter(party_slot, &source);
-    if (action_kind > W8_ACTION_RUN) {
-        Fail("iAction < CHAR_ACTION_COUNT");
-    }
+    assert(action_kind <= W8_ACTION_RUN);
     committed = next;
     if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
         action_kind != W8_ACTION_DEFEND && action_kind != W8_ACTION_PROTECT &&
@@ -1381,9 +1371,7 @@ void AutoAdvanceSelectedCharacter(void)
         IsPartySlotEligible(selected)) {
         return;
     }
-    if (selected == -1) {
-        Fail("gStatus.iSelectedCharacter != BAD_INDEX");
-    }
+    assert(selected != -1);
     int party_slot = selected + 1;
     if (party_slot > 7) {
         party_slot = 0;
@@ -1728,9 +1716,7 @@ void RollCombatSurprise(signed char party_cannot_be_surprised)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
     if (party_cannot_be_surprised == 0) {
         if (CurrentGame().party.modifiers.sight_override == 0) {
             /* The party is surprised unless a hostile monster in the fight
@@ -1824,9 +1810,7 @@ int GetConditionInterrupt(W8TargetSource* source)
     character = 0;
     can_attack = false;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        if (source->iChar == -1) {
-            Fail("pSource->iChar != BAD_INDEX");
-        }
+        assert(source->iChar != -1);
         party_slot = source->iChar;
         character = &CurrentGame().party.characters[party_slot];
         condition_turns = character->uiCondition;
@@ -1839,12 +1823,8 @@ int GetConditionInterrupt(W8TargetSource* source)
         attribute = character->attributes[W8_ATTRIBUTE_STRENGTH].effective;
         controlled = false;
     } else {
-        if (source->iType != W8_TARGET_SOURCE_MONSTER) {
-            Fail("pSource->iType == SOURCE_TYPE_MONSTER");
-        }
-        if (source->iMonsterID == -1) {
-            Fail("pSource->iMonsterID != BAD_INDEX");
-        }
+        assert(source->iType == W8_TARGET_SOURCE_MONSTER);
+        assert(source->iMonsterID != -1);
         monster_info = FindMonster(source->iMonsterID);
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
         condition_turns = monster_info->uiCondition;
@@ -1944,14 +1924,10 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
         }
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
-        if (target->iMonsterID == -1) {
-            Fail("pTarget->iMonsterID != -1");
-        }
+        assert(target->iMonsterID != -1);
         location_id = target->iMonsterID;
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
-        if (target->iGroupID == -1) {
-            Fail("pTarget->iGroupID != -1");
-        }
+        assert(target->iGroupID != -1);
         group = FindMonsterGroup(target->iGroupID);
         location_id = group->leader_location_id;
     } else {
@@ -1970,9 +1946,7 @@ short GetCombatActionProgress(int* out_total)
 {
     int total = 0;
     int completed = 0;
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
         CurrentGame().combat->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
         for (int party_slot = 0; party_slot < 8; ++party_slot) {

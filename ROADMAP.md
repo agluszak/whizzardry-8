@@ -116,7 +116,7 @@ the licensed runtime scenarios after every step.
      `NpcDialogueUi`; its transcript and staged notice are game state),
      `npc_presentation` and `npc_speech`, and the portrait animation in
      `monster_manager_entries`. Move them to the screen with step 5.
-   - The main game's first entry starts the world running, restarts the gameplay timer,
+   - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the
      portraits are the screen's.
@@ -301,10 +301,6 @@ Substantial but contained work.
 - **Named strings.** About 770 `g_localized_strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
-- **Errors instead of decomp assertions.** About 720 `Fail(...)` calls keep retail
-  assertion strings. Classify each one: an invariant (assert), a recoverable
-  data error (an error value or exception at the boundary that read the data), or
-  dead. Remove the retail message text.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

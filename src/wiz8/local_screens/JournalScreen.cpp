@@ -18,7 +18,6 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"

@@ -1,21 +1,15 @@
-#include <cassert>
 #include <cfenv>
 #include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <memory>
-#include <source_location>
-#include <stdexcept>
-#include <string>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
-#include <fmt/format.h>
 
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
 #include "glm/ext/vector_float4.hpp"
@@ -160,16 +154,5 @@ TEST_CASE("imports_test")
         material_copy.Material::operator=(material);
         REQUIRE(material_copy.getEmissive().z == 0.75f);
     }
-    const auto location = std::source_location::current();
-    try {
-        Fail("native probe", fmt::format("value {}", 7));
-        FAIL("assertion must throw");
-    } catch (const std::runtime_error& error) {
-        const std::string diagnostic = error.what();
-        REQUIRE(diagnostic.find(location.file_name()) != std::string::npos);
-        REQUIRE(diagnostic.find(std::to_string(location.line() + 2)) != std::string::npos);
-        REQUIRE(diagnostic.find("native probe\nvalue 7") != std::string::npos);
-    }
-    puts("ok: native renderer consumer imports, generated special members and assertion "
-         "diagnostics");
+    puts("ok: native renderer consumer imports and generated special members");
 }

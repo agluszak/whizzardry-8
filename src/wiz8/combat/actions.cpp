@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <optional>
 #include <vector>
@@ -28,7 +29,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -42,10 +42,8 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSButtons.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -466,7 +464,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
 {
     W8MonsterInfo* monster_info = &monster;
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    char tried[11] = {0};
+    bool tried[11] = {};
     unsigned char result = 0;
     unsigned char move_flag = 0;
     bool berserked = false;
@@ -875,9 +873,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
         outcome = ContinueMonsterAttack(monster_info, record);
         break;
     case W8_MONSTER_ACTION_SPELL:
-        if (!monster_info->fSpellReleased) {
-            Fail("pMonsterInfo->fSpellReleased");
-        }
+        assert(monster_info->fSpellReleased);
         outcome = ActionStep::resolving;
         break;
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:

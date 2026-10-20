@@ -1,3 +1,4 @@
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <variant>
@@ -10,7 +11,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
@@ -23,7 +23,6 @@
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -251,15 +250,12 @@ void Combat::step(Game& game)
 
 void Combat::scheduleNextActor(Game& game)
 {
-    if (actor()) {
-        Fail("!actor()");
-    }
+    assert(!actor());
     bool free_turn = false;
     for (;;) {
         if (uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
             uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
             for (int slot = 0; slot < 8; ++slot) {
-                W8PartySlotRow* row = &game.party.rows[slot];
                 if (!game.party.members[slot].has_value()) {
                     continue;
                 }
@@ -273,7 +269,7 @@ void Combat::scheduleNextActor(Game& game)
                     schedule(PartyActor{slot});
                     break;
                 }
-                row->executing.kind = W8_ACTION_NONE;
+                game.party.rows[slot].executing.kind = W8_ACTION_NONE;
                 combat_row->phase = 0;
                 if (!combat_row->dead) {
                     combat_row->dead = true;
