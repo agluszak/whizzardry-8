@@ -257,13 +257,6 @@ Small, local and low-risk.
 - `CreateItemIntoHandOrPool` always replaces the hand; rename it to say so.
 - `MergeItems`, `DropItemInHand` and `GiveHeldItemToCharacterOrParty` report refusals
   as `NoticeDialog` events; return the refusal to the screen instead.
-- #365 dropped more of the main-game frame's per-frame steps than the camp resume and
-  the skill-notice flush. These now have no callers: the screen fade and review/death
-  transition pump (`UpdateScreenFade`, `PumpReviewTransition`), party death when no
-  member can act (`BeginPartyDeath`), the deferred NPC party-member refresh
-  (`UpdateNpcPartyMember`), portrait vitals bars (`SyncPartyPortraitVitalsBars`) and
-  the world pause around a modal. Restore each at the frame's start, as retail did
-  (`git show d249f403 -- src/wiz8/local_screens/MainGameScreen.cpp`).
 - Add regression tests with a light combat fixture: a weapon-set swap toggles
   `alternate_hand` once, and spending one charge keeps a committed item use.
 - Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep
