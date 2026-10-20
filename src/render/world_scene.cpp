@@ -4,6 +4,7 @@
 #include <memory>
 #include <span>
 #include <utility>
+#include <vector>
 
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -11,6 +12,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/ground_shadow.h"

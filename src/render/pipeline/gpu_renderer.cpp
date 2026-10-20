@@ -30,11 +30,9 @@
 #include "glm/fwd.hpp"
 #include "glm/vector_relational.hpp"
 #include "wiz8/compat/native.h"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/picking_math.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_stream.h"
 #include "wiz8/surface_storage.h"
 
 class MeshInstance;

@@ -17,6 +17,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "wiz8/render/bounding_radius.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/texture.h"

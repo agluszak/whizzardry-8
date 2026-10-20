@@ -34,6 +34,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/mesh.h"

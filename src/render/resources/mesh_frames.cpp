@@ -25,6 +25,7 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"

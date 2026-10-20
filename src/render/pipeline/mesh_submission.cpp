@@ -4,9 +4,12 @@
 #include <stdexcept>
 
 #include "compat/compiler.h"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_culling.h"
