@@ -1,10 +1,12 @@
 #pragma once
 
 #include <array>
+#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -93,13 +95,13 @@ enum W8CampItemFilter {
     W8_CAMP_ITEM_FILTER_COUNT = 6
 };
 
-struct W8CampScreenState;
+class CampScreen;
 
 class W8CampCharacterInfo {
-    W8CampScreenState& screen;
+    CampScreen& screen;
 
 public:
-    explicit W8CampCharacterInfo(W8CampScreenState& screen);
+    explicit W8CampCharacterInfo(CampScreen& screen);
     void SetActive(bool enabled);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void SetCombatView(bool enabled);
@@ -115,22 +117,7 @@ public:
     std::array<std::string, 4> m_help;
 };
 
-/* W8CampScreenState::redraw_flags. Party-slot bits are shifted by the slot
-   and realm-spell bits by the realm. */
-enum W8CampRedrawFlag {
-    W8_CAMP_REDRAW_PARTY_SLOT_FIRST = 0x00000001,
-    W8_CAMP_REDRAW_PORTRAIT = 0x00000100,
-    W8_CAMP_REDRAW_ITEM_ACTIONS = 0x00001000,
-    W8_CAMP_REDRAW_CHARACTER_INFO = 0x00002000,
-    W8_CAMP_REDRAW_EFFECT_LIST = 0x00020000,
-    W8_CAMP_REDRAW_RESISTANCES = 0x00100000,
-    W8_CAMP_REDRAW_REALM_SPELLS_FIRST = 0x00200000,
-    W8_CAMP_REDRAW_ACTION_PANEL = 0x08000000,
-    W8_CAMP_REDRAW_ALL = 0x0fffffff,
-    W8_CAMP_REDRAW_REALM_TABS = 0x10000000
-};
-
-/* W8CampScreenState::item_redraw_flags. Cell bits are shifted by the cell. */
+/* W8CampItemsPage::item_redraw_flags. Cell bits are shifted by the cell. */
 enum W8CampItemRedrawFlag {
     W8_CAMP_ITEM_REDRAW_BACKPACK_HEADER = 0x00000001,
     W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST = 0x00000002,
@@ -144,17 +131,16 @@ enum W8CampItemRedrawFlag {
     W8_CAMP_ITEM_REDRAW_POOL = 0x7fc00000
 };
 
-// Suspension destroys these controls; routing retains the screen arguments.
 struct CampHeaderButtons {
     UiLayer input{UiLayerOrder::GameplayOverlays};
     std::unique_ptr<W8ButtonWidget> level_up;
     std::unique_ptr<W8ButtonWidget> dismiss;
 };
-struct CampButtons {
+// The page buttons and the exit button, on the bottom panel beside the items
+// page's action buttons.
+struct CampPageButtons {
     UiLayer input{UiLayerOrder::CampButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, 5> pages;
-    std::array<std::unique_ptr<W8ButtonWidget>, W8_CAMP_ACTION_BUTTON_COUNT> actions;
-    bool dirty = true;
 };
 
 struct CampItemControls {
@@ -175,7 +161,7 @@ struct CampItemControls {
    them. The camp screen owns it and routes input and drawing to it. */
 class W8CampItemsPage {
 public:
-    explicit W8CampItemsPage(W8CampScreenState& screen) : screen(screen) {}
+    explicit W8CampItemsPage(CampScreen& screen) : screen(screen) {}
     W8CampItemsPage(const W8CampItemsPage&) = delete;
     W8CampItemsPage& operator=(const W8CampItemsPage&) = delete;
 
@@ -186,11 +172,14 @@ public:
     void Deactivate();
     void ReviewedCharacterChanged();
     void Tick();
-    // Cells whose items changed repaint with the next camp draw.
+    /* Cells whose items changed, and the panels invalidated since the last
+       draw, repaint with the next camp draw; a full camp repaint repaints them
+       all. */
     void BeginRedraw();
-    bool RedrawPending() const { return item_redraw_flags != 0; }
-    void InvalidateAll() { item_redraw_flags = 0xffffffff; }
-    void EndRedraw() { item_redraw_flags = 0; }
+    bool RedrawPending() const;
+    void InvalidateCells() { item_redraw_flags = 0xffffffff; }
+    void InvalidateCharacterInfo() { character_info_dirty = true; }
+    void EndRedraw();
     void DrawControls(bool dialog_open);
     void InvalidateControls() { item_controls.dirty = true; }
     W8CampItemAction action() const { return item_action; }
@@ -199,8 +188,15 @@ public:
         return std::span{item_list}.first(item_list_count);
     }
 
-    void RefreshCampItemActions(bool invalidate);
-    void RedrawCampItemsPage();
+    /* The item-action buttons along the bottom panel: enabled only while the
+       page is shown; the camp repaints them with its page buttons. */
+    void CreateActionButtons();
+    void UpdateActionButtons(bool shown);
+    bool ActionButtonsDirty() const;
+    // The next draw repaints the whole bottom panel, as after an action change.
+    bool ActionButtonsInvalidated() const { return action_buttons_invalidated; }
+    void RefreshActionButtons();
+    void RedrawCampItemsPage(bool full);
     unsigned int ChangedItemCells();
     void RebuildCampItemList();
     bool ResolvePendingCampCharacter(bool force);
@@ -224,8 +220,10 @@ public:
     void CreateCampItemControls();
 
 private:
-    W8CampScreenState& screen;
+    CampScreen& screen;
     CampItemControls item_controls;
+    UiLayer action_input{UiLayerOrder::CampButtons};
+    std::array<std::unique_ptr<W8ButtonWidget>, W8_CAMP_ACTION_BUTTON_COUNT> action_buttons;
     // What the item cells last showed. Any inventory change, whatever its source,
     // repaints the cells that show it.
     struct ShownInventory {
@@ -242,23 +240,28 @@ private:
     UiLayer pool_input{UiLayerOrder::CampPool};
     std::array<HitTarget*, 20> inventory_targets{};
     std::array<HitTarget*, 8> pool_targets{};
-    unsigned int item_redraw_flags;
-    unsigned char item_filters[W8_CAMP_ITEM_FILTER_COUNT];
-    unsigned int item_scroll;
+    unsigned int item_redraw_flags = 0;
+    // Panels the next draw repaints besides the cells.
+    bool character_info_dirty = false;
+    bool action_buttons_invalidated = false;
+    bool hand_buttons_dirty = false;
+    bool filter_buttons_dirty = false;
+    unsigned char item_filters[W8_CAMP_ITEM_FILTER_COUNT] = {};
+    unsigned int item_scroll = 0;
     /* The displayed item-pool indices - the count and the list of pool
        slots RCSItemsPage.cpp renders. RebuildCampItemList rebuilds it; the pool
        handler reads it through item_scroll. */
-    unsigned int item_list_count;
-    int item_list[500];
+    unsigned int item_list_count = 0;
+    int item_list[500] = {};
     std::unique_ptr<W8RangeControl> item_range;
-    uint64_t item_timer;
-    bool item_timer_active;
-    bool item_timer_expired;
-    W8CampItemAction item_action;
-    W8CampInfoPage info_page;
+    uint64_t item_timer = 0;
+    bool item_timer_active = false;
+    bool item_timer_expired = false;
+    W8CampItemAction item_action = W8_CAMP_ITEM_ACTION_NONE;
+    W8CampInfoPage info_page = W8_CAMP_INFO_PAGE_ITEMS;
     /* The camp item icons were drawn while the monster/combat
        timer was enabled; its stop forces a full redraw to drop them. */
-    bool item_icons_drawn;
+    bool item_icons_drawn = false;
 
     void DrawCampCharacterInfo();
     void DrawCampBackpackItems();
@@ -292,7 +295,7 @@ private:
 /* The stats page: the attribute summary and the scrolling list of effects from conditions and worn items. */
 class W8CampStatsPage {
 public:
-    explicit W8CampStatsPage(W8CampScreenState& screen) : screen(screen) {}
+    explicit W8CampStatsPage(CampScreen& screen) : screen(screen) {}
     W8CampStatsPage(const W8CampStatsPage&) = delete;
     W8CampStatsPage& operator=(const W8CampStatsPage&) = delete;
 
@@ -304,7 +307,11 @@ public:
 
     void RebuildCampEffectList();
     void FilterCampEffectList();
-    void DrawCampStatsPage();
+    // The effect list repaints with the next draw.
+    void InvalidateEffectList() { effect_list_dirty = true; }
+    bool RedrawPending() const { return effect_list_dirty; }
+    void EndRedraw() { effect_list_dirty = false; }
+    void DrawCampStatsPage(bool full);
     unsigned int CountEquipItemBenefits(int slot);
     unsigned int CountEquipItemPenalties(int slot);
     void DrawCampEffectList();
@@ -315,43 +322,44 @@ public:
     /* The stats page's condition/equipment effect list, rebuilt
        by RebuildCampEffectList and refiltered by
        FilterCampEffectList. */
-    bool effect_items_only; /* true lists equipped items, false conditions/enchantments */
-    W8CampEffectFilter effect_filter; /* 0 all, 1 beneficial only, 2 detrimental only */
-    int effect_beneficial_count;
-    int effect_detrimental_count;
-    int effect_first_visible;
-    int effect_last_visible;
-    int effect_visible_lines;
-    int effect_scroll;
+    bool effect_items_only = false; /* true lists equipped items, false conditions/enchantments */
+    W8CampEffectFilter effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+    int effect_beneficial_count = 0;
+    int effect_detrimental_count = 0;
+    int effect_first_visible = 0;
+    int effect_last_visible = 0;
+    int effect_visible_lines = 0;
+    int effect_scroll = 0;
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
 
 private:
-    W8CampScreenState& screen;
+    CampScreen& screen;
+    bool effect_list_dirty = false;
 };
 
 /* The skills page: one hover region per skill row, grouped into five categories. */
 class W8CampSkillsPage {
 public:
-    explicit W8CampSkillsPage(W8CampScreenState& screen) : screen(screen) {}
+    explicit W8CampSkillsPage(CampScreen& screen) : screen(screen) {}
     W8CampSkillsPage(const W8CampSkillsPage&) = delete;
     W8CampSkillsPage& operator=(const W8CampSkillsPage&) = delete;
 
     void CreateCampSkillRegions();
     void DisableCampSkillRegions();
-    void DrawCampSkillsPage();
+    void DrawCampSkillsPage(bool full);
 
     std::unique_ptr<UiLayer> skill_input;
     int skill_hover_row = -1;
 
 private:
-    W8CampScreenState& screen;
+    CampScreen& screen;
     UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category);
 };
 
 /* The spells page: the six realm lists with their scrollbars and animations, and the resistance bars. */
 class W8CampSpellsPage {
 public:
-    explicit W8CampSpellsPage(W8CampScreenState& screen) : screen(screen) {}
+    explicit W8CampSpellsPage(CampScreen& screen) : screen(screen) {}
     W8CampSpellsPage(const W8CampSpellsPage&) = delete;
     W8CampSpellsPage& operator=(const W8CampSpellsPage&) = delete;
 
@@ -363,18 +371,28 @@ public:
     void Tick();
     void DrawControls();
 
-    void DrawCampSpellPages();
+    bool RedrawPending() const { return realms_dirty.any() || animation_dirty; }
+    void EndRedraw()
+    {
+        realms_dirty.reset();
+        animation_dirty = false;
+    }
+    // Only the realms on the left keep animating under an open dialog.
+    void DrawCampSpellPages(bool full, bool dialog_open);
 
     UiLayer spell_input{UiLayerOrder::CampSpells};
     std::array<HitTarget*, 6> spell_targets{};
     W8LearnedSpellState learned_spells;
     std::array<std::unique_ptr<W8RangeControl>, 6> spell_ranges;
-    uint64_t animation_timer;
-    unsigned int animation_frames[6];
-    int selected_spell_row;
+    uint64_t animation_timer = 0;
+    unsigned int animation_frames[6] = {};
+    int selected_spell_row = 0;
 
 private:
-    W8CampScreenState& screen;
+    CampScreen& screen;
+    // Realm lists, and the realm animations, the next draw repaints.
+    std::bitset<6> realms_dirty;
+    bool animation_dirty = false;
     void SetCampSpellRangesEnabled(bool enable);
     void RefreshCampSpellRanges();
     void DrawCampResistances();
@@ -382,62 +400,92 @@ private:
     void OpenSpellInfoDialog(unsigned int spell_id);
 };
 
-struct W8CampScreenState {
-    /* Build the pages for `reviewed_character` (null when no character is
+/* The camp: the reviewed character's items, stats, skills and spells pages
+   over the party strip. The camp is rebuilt on every visit; after a suspension
+   it reviews the character it showed. */
+class CampScreen final : public Screen {
+public:
+    static constexpr W8ScreenId id = W8_SCREEN_CAMP;
+
+    CampScreen() = default;
+    ~CampScreen() override;
+
+    /* Build the pages for `request.character` (null when no character is
        selected); `request.parameter_4` names an identifying character. */
-    bool Enter(const ScreenRequest& request, W8Character* reviewed_character);
-    void Frame();
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+    std::optional<ScreenRequest> rebuildRequest(const ScreenRequest& entered) const override;
+
+    // The next draw repaints the whole screen.
+    void InvalidateAll() { full_redraw = true; }
+    // The next draw repaints the reviewed character's portrait, vitals and hands.
+    void InvalidatePortrait() { header_redraw.portrait = true; }
+    // A party member's presentation changed; the camp shows only the reviewed one's.
+    void RefreshPartySlot(int party_slot);
+    // The party's load changed: the weights and the reviewed portrait.
+    void RefreshPartyLoad();
+
     void ShowNotice(std::string_view text, std::function<void(bool)> callback, bool confirmation,
                     bool cancel);
-
-    void DeactivateCampPage();
-    void RedrawRcsLevelUpPanel();
-    void RedrawRcsDismissPanel();
-
     void DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog);
     void DismissSelectedPartyCharacter();
     void SelectCampCharacter(int slot);
+    int ReviewedPartySlot() const;
 
+    // All camp scrollbars share this foreground layer; each control owns its
+    // registrations, but cannot disable input belonging to another scrollbar.
+    // It outlives the pages' scrollbars.
+    UiLayer scroll_input;
     W8CampItemsPage items{*this};
     W8CampStatsPage stats{*this};
     W8CampSkillsPage skills{*this};
     W8CampSpellsPage spells{*this};
     // Shared by the items and stats pages.
     std::unique_ptr<W8CampCharacterInfo> character_info;
-    CampHeaderButtons header_buttons;
-    CampButtons camp_buttons;
     W8Character* reviewed = nullptr;
-    int ReviewedPartySlot() const;
-    W8CampPage page;
+    W8CampPage page = W8_CAMP_PAGE_ITEMS;
+    std::unique_ptr<W8DialogBase> dialog;
+
+private:
+    CampHeaderButtons header_buttons;
+    CampPageButtons page_buttons;
     UiLayer main_input{UiLayerOrder::CampMain};
-    // All camp scrollbars share this foreground layer; each control owns its
-    // registrations, but cannot disable input belonging to another scrollbar.
-    UiLayer scroll_input;
     std::array<HitTarget*, 11> main_targets{};
-    unsigned int redraw_flags;
-    W8CampHeaderMode header_mode;
+    W8CampHeaderMode header_mode = W8_CAMP_HEADER_SUMMARY;
     /* 0xd40[0]: mouse is over the reviewed portrait; drives the highlight
        frame and a redraw. */
     bool portrait_hovered = false;
-    std::unique_ptr<W8DialogBase> dialog;
 
-    W8CampScreenState() = default;
-    ~W8CampScreenState();
-    W8CampScreenState(const W8CampScreenState&) = delete;
-    W8CampScreenState& operator=(const W8CampScreenState&) = delete;
+    // The header's parts the next draw repaints.
+    struct HeaderRedraw {
+        bool background = false;
+        bool caption = false;
+        bool portrait = false;
+        std::bitset<8> party_slots;
+        bool any() const { return background || caption || portrait || party_slots.any(); }
+    };
+    void InvalidateHeader();
 
-private:
+    bool full_redraw = false;
+    HeaderRedraw header_redraw;
+    bool button_panel_dirty = true;
+
     void CreateCampInput();
     void DrawCampScreen();
+    void DrawButtonPanel(bool invalidate);
     void SyncReviewCharInputRegion();
     void SwitchCampPage(W8CampPage page);
     void ActivateCampPage();
+    void DeactivateCampPage();
     void DrawCampRegenStats();
     void SetCampHeaderMode(W8CampHeaderMode mode);
     UiResult HandleCampDismissPortrait(const UiPointerEvent& event);
     UiResult HandleCampPortrait(const UiPointerEvent& event, int target_slot);
     UiResult HandleCampCharacterHeader(const UiPointerEvent& event);
     UiResult HandleCampProfessionHistory(const UiPointerEvent& event);
+    void RedrawRcsLevelUpPanel();
+    void RedrawRcsDismissPanel();
     void UpdateRcsLevelUpPanel();
     void UpdateRcsDismissPanel();
     void DrawCampHeader();
@@ -451,27 +499,6 @@ private:
     void CreateCampHeaderButtons();
     void CreateCampButtonPanel();
 };
-
-/* The camp: the reviewed character's items, stats, skills and spells pages
-   over the party strip. Its pages are rebuilt on every entry; a resumed camp
-   reviews the character it showed when it was suspended. */
-class CampScreen final : public Screen {
-public:
-    static constexpr W8ScreenId id = W8_SCREEN_CAMP;
-
-    bool enter(const ScreenRequest& request) override;
-    bool resume(const ScreenRequest& request) override;
-    void frame() override;
-    bool leave(ScreenDeparture departure) override;
-
-    std::unique_ptr<W8CampScreenState> state;
-
-private:
-    bool open(const ScreenRequest& request, W8Character* reviewed);
-    W8Character* reviewed_ = nullptr;
-};
-/* The open camp's state, or null. */
-W8CampScreenState* CampScreenState();
 
 /* One Data().strings id per primary attribute row; defined in
    ReviewCharacterScreen.cpp, drawn by RCSStatsPage.cpp's stats page. */
@@ -520,6 +547,6 @@ void EndReviewTransition(void);
 /* Ending sequence picker run when that fade completes. */
 void ShowEndingScreen(void);
 void BeginEndgameSequence(void);
-/* Camp and main-game notice dialogs ShowNoticeLine forwards into. */
+/* A notice in the open camp's dialog. */
 void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
                         bool confirmation, bool cancel);

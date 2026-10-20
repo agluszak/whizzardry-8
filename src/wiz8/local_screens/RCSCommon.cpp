@@ -67,7 +67,7 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 
-int W8CampScreenState::ReviewedPartySlot() const
+int CampScreen::ReviewedPartySlot() const
 {
     if (reviewed)
         if (const auto slot = CurrentGame().party.slotOf(*reviewed)) return *slot;
@@ -75,7 +75,7 @@ int W8CampScreenState::ReviewedPartySlot() const
 }
 
 /* Select a party member and rebuild the active page for that character. */
-void W8CampScreenState::SelectCampCharacter(int slot)
+void CampScreen::SelectCampCharacter(int slot)
 {
     reviewed = &CurrentGame().party.characters[slot];
     SyncReviewCharInputRegion();
@@ -92,7 +92,7 @@ void W8CampScreenState::SelectCampCharacter(int slot)
     default:
         break;
     }
-    redraw_flags |= W8_CAMP_REDRAW_ALL;
+    InvalidateAll();
 }
 
 /* Give the held item to a camp portrait on right-click: refuse dead/insane/
@@ -197,7 +197,7 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 }
 
 // FUNCTION: WIZ8 0x005b6630
-void W8CampScreenState::OpenLevelUpCharacterScreen()
+void CampScreen::OpenLevelUpCharacterScreen()
 {
     if (!CurrentGame().party.rows[ReviewedPartySlot()].fOccupied) {
         Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
@@ -207,13 +207,13 @@ void W8CampScreenState::OpenLevelUpCharacterScreen()
                    .character = &CurrentGame().party.characters[ReviewedPartySlot()]});
 }
 
-UiResult W8CampScreenState::HandleCampDismissPortrait(const UiPointerEvent& event)
+UiResult CampScreen::HandleCampDismissPortrait(const UiPointerEvent& event)
 {
     if (event.action != UiPointerAction::Up || event.captured_buttons)
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
         portrait_hovered = event.action == UiPointerAction::Enter;
-        redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+        header_redraw.portrait = true;
     }
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
@@ -221,12 +221,12 @@ UiResult W8CampScreenState::HandleCampDismissPortrait(const UiPointerEvent& even
     return UiResult::Handled;
 }
 
-UiResult W8CampScreenState::HandleCampPortrait(const UiPointerEvent& event, int target_slot)
+UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_slot)
 {
     if (event.action != UiPointerAction::Up || event.captured_buttons)
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
-        redraw_flags |= 1u << target_slot;
+        header_redraw.party_slots.set(target_slot);
         if ((items.action() == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
             CurrentGame().party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
@@ -285,12 +285,12 @@ UiResult W8CampScreenState::HandleCampPortrait(const UiPointerEvent& event, int 
     return UiResult::Handled;
 }
 
-UiResult W8CampScreenState::HandleCampCharacterHeader(const UiPointerEvent& event)
+UiResult CampScreen::HandleCampCharacterHeader(const UiPointerEvent& event)
 {
     if (event.action != UiPointerAction::Up || event.captured_buttons)
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
-        redraw_flags |= 0x200;
+        header_redraw.caption = true;
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
         AfterUiDispatch([this] {
@@ -301,23 +301,23 @@ UiResult W8CampScreenState::HandleCampCharacterHeader(const UiPointerEvent& even
     return UiResult::Handled;
 }
 
-UiResult W8CampScreenState::HandleCampProfessionHistory(const UiPointerEvent& event)
+UiResult CampScreen::HandleCampProfessionHistory(const UiPointerEvent& event)
 {
     if (event.action != UiPointerAction::Up || event.captured_buttons)
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)
-        redraw_flags |= 0x200;
+        header_redraw.caption = true;
     if (event.button == UiPointerButton::Left) {
         if (event.action == UiPointerAction::Down)
             SetCampHeaderMode(W8_CAMP_HEADER_PROFESSION_HISTORY);
         else if (event.action == UiPointerAction::Up && (event.captured_buttons & SDL_BUTTON_LMASK))
             SetCampHeaderMode(W8_CAMP_HEADER_SUMMARY);
-        redraw_flags |= 0x7ff;
+        InvalidateHeader();
     }
     return UiResult::Handled;
 }
 
-void W8CampScreenState::CreateCampHeaderButtons()
+void CampScreen::CreateCampHeaderButtons()
 {
     const auto button = [this](int art, SDL_Rect bounds, int pressed_hover, int help,
                                std::function<void()> action) {
@@ -341,17 +341,17 @@ void W8CampScreenState::CreateCampHeaderButtons()
         button(0x113, {0xa7, 0x41, 23, 16}, 2, 2387, [this] { ShowDismissCharacterDialog(); });
 }
 
-void W8CampScreenState::RedrawRcsLevelUpPanel()
+void CampScreen::RedrawRcsLevelUpPanel()
 {
     header_buttons.level_up->m_dirty = true;
 }
-void W8CampScreenState::RedrawRcsDismissPanel()
+void CampScreen::RedrawRcsDismissPanel()
 {
     header_buttons.dismiss->m_dirty = true;
 }
 
 // FUNCTION: WIZ8 0x005b65a0
-void W8CampScreenState::UpdateRcsLevelUpPanel(void)
+void CampScreen::UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(ReviewedPartySlot());
     if (!enabled || CurrentGame().combat.active() ||
@@ -368,7 +368,7 @@ void W8CampScreenState::UpdateRcsLevelUpPanel(void)
 }
 
 // FUNCTION: WIZ8 0x005b6950
-void W8CampScreenState::ShowDismissCharacterDialog()
+void CampScreen::ShowDismissCharacterDialog()
 {
     if (!CurrentGame().party.rows[ReviewedPartySlot()].fOccupied) {
         Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
@@ -395,7 +395,7 @@ void W8CampScreenState::ShowDismissCharacterDialog()
 }
 
 // FUNCTION: WIZ8 0x005b6a60
-void W8CampScreenState::OnDismissCharacterDialogClosed(bool accepted)
+void CampScreen::OnDismissCharacterDialogClosed(bool accepted)
 {
     if (accepted && CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
         if (auto* main_game = MainGame()) main_game->dismissed_npc_slot = ReviewedPartySlot();
@@ -407,7 +407,7 @@ void W8CampScreenState::OnDismissCharacterDialogClosed(bool accepted)
    two party slots, out of combat and out of camp; enabling it also invalidates the
    panel, disabling it does not. Either way the panel is then updated. */
 // FUNCTION: WIZ8 0x005b68e0
-void W8CampScreenState::UpdateRcsDismissPanel(void)
+void CampScreen::UpdateRcsDismissPanel(void)
 {
     if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) && !CurrentGame().combat.active() &&
         !CurrentGame().activity.conversation_aside) {
@@ -443,7 +443,7 @@ void ReleaseFormationBoard(void)
    otherwise it repaints the portrait and vitals, the name/gender/profession
    caption, and the eight-slot party strip. */
 // FUNCTION: WIZ8 0x005b4000
-void W8CampScreenState::DrawCampHeader(void)
+void CampScreen::DrawCampHeader(void)
 {
     std::string text;
     W8Character* character = reviewed;
@@ -461,7 +461,7 @@ void W8CampScreenState::DrawCampHeader(void)
     int sub_image;
 
     if (header_mode != W8_CAMP_HEADER_SUMMARY) {
-        if ((redraw_flags & 0x7ff) != 0) {
+        if (full_redraw || header_redraw.any()) {
             InvalidateRegion(0, 0, 0x136, 0xa5);
             const SDL_Rect bounds{0, 0, 0x136, 0xa5};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
@@ -492,13 +492,13 @@ void W8CampScreenState::DrawCampHeader(void)
         return;
     }
 
-    if ((redraw_flags & 0x400) != 0) {
+    if (full_redraw || header_redraw.background) {
         InvalidateRegion(0, 0, 0x136, 0xa5);
         const SDL_Rect bounds{0, 0, 0x136, 0xa5};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
         CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     }
-    if ((redraw_flags & W8_CAMP_REDRAW_PORTRAIT) != 0) {
+    if (full_redraw || header_redraw.portrait) {
         if (character->hp_current == 0) {
             CatalogArtwork::Load(g_dead_portrait_catalog_ids[character->iRace][1], 0)
                 .draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
@@ -532,7 +532,7 @@ void W8CampScreenState::DrawCampHeader(void)
         DrawCampVitals();
         DrawCampHands();
     }
-    if ((redraw_flags & 0x200) != 0) {
+    if (full_redraw || header_redraw.caption) {
         g_wiz_text_bold_font.setShade(Font::kNormalShade);
         if (main_targets[kCampCharacterHeaderRegionOffset]->hovered()) {
             g_wiz_text_bold_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
@@ -567,7 +567,7 @@ void W8CampScreenState::DrawCampHeader(void)
                               text);
     }
     for (slot = 0; slot < 8; ++slot) {
-        if ((redraw_flags & (1 << (slot & 0x1f))) != 0) {
+        if (full_redraw || header_redraw.party_slots[slot]) {
             band_y = (slot >> 1) * 0x27;
             band_x = (slot & 1) * 0x30;
             left = band_x + 6;
@@ -606,7 +606,7 @@ void W8CampScreenState::DrawCampHeader(void)
    the shaded depletion on each, the current-profession label and, under the
    numeric-hit-points option, the raw hit-point value. */
 // FUNCTION: WIZ8 0x005b4790
-void W8CampScreenState::DrawCampVitals(void)
+void CampScreen::DrawCampVitals(void)
 {
     int image;
     int numeric;
@@ -724,7 +724,7 @@ void W8CampScreenState::DrawCampVitals(void)
 
 /* Each hand uses the same equipment icon and stack-count rendering. The
    caller supplies the two layouts and decides whether the off-hand is visible. */
-void W8CampScreenState::DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_center)
+void CampScreen::DrawCampHand(W8EquipSlot slot, int hand_index, int top, int count_center)
 {
     int item_id = reviewed->EquippedItem[slot].iItemNo;
     if (item_id == -1) {
@@ -749,7 +749,7 @@ void W8CampScreenState::DrawCampHand(W8EquipSlot slot, int hand_index, int top, 
    armor-class line under the left hand in the load-category palette. The
    off-hand is skipped while a two-handed item fills the primary slot. */
 // FUNCTION: WIZ8 0x005b4bd0
-void W8CampScreenState::DrawCampHands(void)
+void CampScreen::DrawCampHands(void)
 {
     bool two_handed;
     int item_id;
@@ -781,13 +781,13 @@ void W8CampScreenState::DrawCampHands(void)
     InvalidateRegion(0x81, 0xb, 0x95, 0x53);
 }
 
-/* The bottom panel owns the page buttons and item-action controls for this screen. */
+/* The page buttons and the exit button on the bottom panel. */
 // FUNCTION: WIZ8 0x005b4eb0
-void W8CampScreenState::CreateCampButtonPanel()
+void CampScreen::CreateCampButtonPanel()
 {
     const auto button = [this](int artwork, int frame, int x, int help, bool page,
                                std::function<void()> action) {
-        auto result = std::make_unique<W8ButtonWidget>(camp_buttons.input);
+        auto result = std::make_unique<W8ButtonWidget>(page_buttons.input);
         result->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
                                                frame + 3, frame, frame + 1,
                                                page ? frame + 4 : frame + 2,
@@ -808,36 +808,72 @@ void W8CampScreenState::CreateCampButtonPanel()
     constexpr int frames[] = {0, 10, 15, 5};
     constexpr int help[] = {2364, 2367, 2366, 2365};
     for (int index = 0; index < 4; ++index)
-        camp_buttons.pages[index] =
+        page_buttons.pages[index] =
             button(0x111, frames[index], 0x1a4 + index * 44, help[index], true,
                    [this, index, page = pages[index]] { SelectCampPageButton(index, page); });
-    auto& exit = camp_buttons.pages[4];
+    auto& exit = page_buttons.pages[4];
     exit = button(0x106, 16, 0x254, 2368, false, [this] { DismissSelectedPartyCharacter(); });
     exit->Policy().primary_toggle = ButtonToggle::None;
     exit->SetImage(
         ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17, -1, 18));
-    constexpr int action_frames[] = {0, 10, 5, 15, 20, 25, 30, 35};
-    constexpr int action_x[] = {0, 44, 88, 132, 176, 308, 220, 264};
-    for (int index = 0; index < W8_CAMP_ACTION_BUTTON_COUNT; ++index)
-        camp_buttons.actions[index] = button(
-            0x112, action_frames[index], action_x[index], 2369 + index, false, [this, index] {
-                items.SelectCampItemAction(static_cast<W8CampItemActionButton>(index));
-            });
-    camp_buttons.pages[0]->SetPressed(true);
+    page_buttons.pages[0]->SetPressed(true);
+}
+
+/* The bottom panel: its backdrop under the page buttons and the items page's
+   action buttons, repainted whole when any of them changed. */
+// FUNCTION: WIZ8 0x005b5670
+void CampScreen::DrawButtonPanel(bool invalidate)
+{
+    items.UpdateActionButtons(page == W8_CAMP_PAGE_ITEMS);
+    button_panel_dirty |= invalidate;
+    for (const auto& button : page_buttons.pages) button_panel_dirty |= button->m_dirty;
+    button_panel_dirty |= items.ActionButtonsDirty();
+    if (!button_panel_dirty) return;
+    CatalogArtwork::Load(0x110, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0x1c2);
+    for (const auto& button : page_buttons.pages) {
+        button->m_dirty = true;
+        button->Refresh();
+    }
+    items.RefreshActionButtons();
+    button_panel_dirty = false;
+}
+
+void CampScreen::InvalidateHeader()
+{
+    header_redraw.background = true;
+    header_redraw.caption = true;
+    header_redraw.portrait = true;
+    header_redraw.party_slots.set();
+}
+
+void CampScreen::RefreshPartySlot(int party_slot)
+{
+    if (ReviewedPartySlot() != party_slot || header_mode != W8_CAMP_HEADER_SUMMARY) return;
+    InvalidatePortrait();
+    if (!portrait_hovered) {
+        RedrawRcsLevelUpPanel();
+        RedrawRcsDismissPanel();
+    }
+}
+
+void CampScreen::RefreshPartyLoad()
+{
+    items.InvalidateCharacterInfo();
+    InvalidatePortrait();
 }
 
 /* A page button's click: while its secondary state is up, clear it on every
    page button and switch to the button's page; then raise the pressed
    button's secondary state. */
-void W8CampScreenState::SelectCampPageButton(int button, W8CampPage page)
+void CampScreen::SelectCampPageButton(int button, W8CampPage page)
 {
-    if (camp_buttons.pages[button]->IsPressed()) {
+    if (page_buttons.pages[button]->IsPressed()) {
         for (int index = 0; index < 5; ++index) {
-            if (camp_buttons.pages[index]->IsPressed()) {
-                camp_buttons.pages[index]->SetPressed(false);
+            if (page_buttons.pages[index]->IsPressed()) {
+                page_buttons.pages[index]->SetPressed(false);
             }
         }
         SwitchCampPage(page);
     }
-    camp_buttons.pages[button]->SetPressed(true);
+    page_buttons.pages[button]->SetPressed(true);
 }

@@ -22,7 +22,7 @@
 #include "wiz8/ui_layer.h"
 
 class W8DialogBase;
-class W8CharacterScreenState;
+class CharacterScreen;
 class W8CharacterPageEntry;
 
 enum class W8CharacterPortraitAction : int {
@@ -92,7 +92,7 @@ public:
     virtual void Refresh();
     virtual void Prepare();
     std::vector<std::unique_ptr<W8CharacterPageEntry>> m_entries;
-    W8CharacterScreenState* m_screen;
+    CharacterScreen* m_screen;
     W8Character* m_character;
     W8CharacterCreationState* m_creation_state;
     W8CharacterScreenMode m_mode;
@@ -297,15 +297,25 @@ extern unsigned short g_character_trait_name_ids[0x20];
    keeps its ten-entry extent. */
 extern unsigned short g_personality_message_ids[10];
 
-/* A skill became available or unavailable while the character screen is open:
-   adjust the named page-2 entry and refresh that page. */
-void ResetCharacterScreenSkill(W8Skill skill_id);
-void RefundCharacterScreenSkill(W8Skill skill_id);
-
-class W8CharacterScreenState final {
+/* Creation, editing and level-up of one character, page by page. The working
+   copy and pages are rebuilt on every visit. */
+class CharacterScreen final : public Screen {
 public:
-    W8CharacterScreenState(W8CharacterScreenMode mode, W8Character* character);
-    ~W8CharacterScreenState();
+    static constexpr W8ScreenId id = W8_SCREEN_CHARACTER;
+
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+    std::optional<ScreenRequest> rebuildRequest(const ScreenRequest& entered) const override
+    {
+        return entered;
+    }
+
+    /* A skill became available or unavailable while the screen is current
+       (SkillAvailabilityChanged): adjust its allocation and refresh the skills
+       page. */
+    void SkillAvailabilityChanged(W8Skill skill, bool available);
+
     void BuildControls();
     void UpdateDialog();
     void AdvancePage(bool forward);
@@ -330,18 +340,15 @@ public:
     W8Character* GetOriginalCharacter();
     void DrawNavigation(SDL_Surface& target);
 
-    W8CharacterScreenMode m_mode;
+    W8CharacterScreenMode m_mode = W8_CHARACTER_CREATE;
     int m_page_index = -1;
-    bool m_header_dirty;
-    unsigned char pad_011[3];
-    W8Character* m_original;
+    bool m_header_dirty = false;
+    W8Character* m_original = nullptr;
     W8Character m_character;
-    unsigned char pad_187a[2];
     W8CharacterCreationState m_creation_state;
-    bool m_block_advance;
-    bool m_confirm_profession;
-    bool m_force_transition;
-    unsigned char pad_1aef;
+    bool m_block_advance = false;
+    bool m_confirm_profession = false;
+    bool m_force_transition = false;
     UiLayer m_input;
     bool m_navigation_dirty = true;
     std::unique_ptr<W8ButtonWidget> m_previous;
@@ -349,28 +356,12 @@ public:
     std::unique_ptr<W8ButtonWidget> m_exit;
     std::unique_ptr<W8ButtonWidget> m_accept;
     std::unique_ptr<W8ButtonWidget> m_reset;
-    bool m_page_enabled[4];
+    bool m_page_enabled[4] = {};
     std::unique_ptr<W8CharacterPage> m_pages[4];
-    W8DialogBase* m_dialog;
-    unsigned int m_dialog_response;
-    bool m_capture_dialog_result;
-    unsigned char pad_1b25[3];
+    W8DialogBase* m_dialog = nullptr;
+    unsigned int m_dialog_response = 0;
+    bool m_capture_dialog_result = false;
 };
-
-/* Creation, editing and level-up of one character, page by page. The working
-   copy and pages are rebuilt on every entry. */
-class CharacterScreen final : public Screen {
-public:
-    static constexpr W8ScreenId id = W8_SCREEN_CHARACTER;
-
-    bool enter(const ScreenRequest& request) override;
-    void frame() override;
-    bool leave(ScreenDeparture departure) override;
-
-    std::unique_ptr<W8CharacterScreenState> state;
-};
-/* The open character screen's state, or null. */
-W8CharacterScreenState* CharacterScreenState();
 
 /* Per-profession message indexes. */
 extern unsigned short g_profession_name_message_ids[32];

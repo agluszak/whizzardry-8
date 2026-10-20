@@ -90,8 +90,9 @@ enum class ScreenDeparture { Suspend, Discard };
 
 /* One screen of the game. The router creates a screen when it is first
    requested, keeps it while it is suspended under other screens, and destroys
-   it when it is discarded. Entering and leaving report failure, which stops
-   the program. */
+   it when it is discarded. A screen rebuilt on every visit is destroyed when it
+   is suspended too, and a new one is entered in its place when it would be
+   resumed. Entering and leaving report failure, which stops the program. */
 class Screen {
 public:
     virtual ~Screen() = default;
@@ -109,6 +110,13 @@ public:
     /* The screen stops being current. A suspended screen is resumed later; a
        discarded one is destroyed afterwards. */
     virtual bool leave(ScreenDeparture departure) = 0;
+    /* For a screen rebuilt on every visit, the request that rebuilds it after a
+       suspension, given the one it was entered with; screens kept while
+       suspended return nothing. */
+    virtual std::optional<ScreenRequest> rebuildRequest(const ScreenRequest&) const
+    {
+        return std::nullopt;
+    }
 };
 
 using ScreenFactory = std::unique_ptr<Screen> (*)(W8ScreenId id);
@@ -127,7 +135,8 @@ void ReturnToPreviousScreen();
 /* The request the current screen was entered with. */
 const ScreenRequest& CurrentScreenState();
 Screen* CurrentScreen();
-/* The current or a suspended screen with this id, or null. */
+/* The current or a suspended screen with this id, or null. Screens rebuilt on
+   every visit exist only while they are current. */
 Screen* FindScreen(W8ScreenId id);
 template<class T> T* FindScreen()
 {

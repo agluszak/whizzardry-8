@@ -885,9 +885,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             record->portrait_event_active = false;
             return;
         }
-        if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-            CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
-        }
+        if (auto* camp = FindScreen<CampScreen>()) camp->InvalidateAll();
         record->portrait_event_active = active;
         return;
     }
@@ -945,15 +943,15 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
             quote->height =
                 static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
-            if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-                if (static_cast<int>(party_slot) == CampScreenState()->ReviewedPartySlot()) {
+            if (auto* camp = FindScreen<CampScreen>()) {
+                if (static_cast<int>(party_slot) == camp->ReviewedPartySlot()) {
                     quote->x = 10;
                     quote->y = 8;
                 } else {
                     quote->x = static_cast<unsigned short>(((party_slot & 1) * 0x30) + 0x36);
                     quote->y = static_cast<unsigned short>((party_slot >> 1) * 0x27 + 5);
                 }
-                CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
+                camp->InvalidateAll();
             } else {
                 unsigned short base_x = g_portrait_quote_x[party_slot];
                 quote->x = base_x;

@@ -99,12 +99,12 @@ bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
     return false;
 }
 
-/* Route one redraw bit to the active camp or main-game screen state. The slot
-   travels as an int: the body only ever reads its low byte for the shift. */
+/* Route one redraw bit to the open camp or the main game. The slot travels as
+   an int: the body only ever reads its low byte for the shift. */
 void RequestPartySlotRedraw(int bit)
 {
-    if (auto* camp = CampScreenState()) {
-        camp->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
+    if (auto* camp = FindScreen<CampScreen>()) {
+        camp->InvalidatePortrait();
     } else if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RequestRedraw(1 << (bit & 31));
     }
@@ -127,19 +127,9 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     case W8_SCREEN_PARTY_SELECTION:
         RefreshPartySelectionPortrait(party_slot);
         break;
-    case W8_SCREEN_CAMP: {
-        auto* camp = CampScreenState();
-        if (camp->ReviewedPartySlot() == static_cast<int>(party_slot) &&
-            camp->header_mode == W8_CAMP_HEADER_SUMMARY) {
-            camp->redraw_flags |= W8_CAMP_REDRAW_PORTRAIT;
-            if (!camp->portrait_hovered) {
-                camp->RedrawRcsLevelUpPanel();
-                camp->RedrawRcsDismissPanel();
-            }
-            return;
-        }
-        break;
-    }
+    case W8_SCREEN_CAMP:
+        FindScreen<CampScreen>()->RefreshPartySlot(static_cast<int>(party_slot));
+        return;
     case W8_SCREEN_MAIN_GAME:
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
@@ -326,9 +316,8 @@ struct GameEventPresentation {
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
             !CurrentGame().activity.conversation) {
             RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
-        } else if (auto* camp = CampScreenState();
-                   camp && CurrentScreenState().id == W8_SCREEN_CAMP) {
-            camp->redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO | W8_CAMP_REDRAW_PORTRAIT;
+        } else if (auto* camp = FindScreen<CampScreen>()) {
+            camp->RefreshPartyLoad();
         }
     }
     void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
@@ -345,11 +334,8 @@ struct GameEventPresentation {
     void operator()(const HeldItemChanged&) const { UpdateHeldItemCursor(); }
     void operator()(const SkillAvailabilityChanged& change) const
     {
-        if (CurrentScreenState().id != W8_SCREEN_CHARACTER) return;
-        if (change.available)
-            ResetCharacterScreenSkill(change.skill);
-        else
-            RefundCharacterScreenSkill(change.skill);
+        if (auto* screen = FindScreen<CharacterScreen>())
+            screen->SkillAvailabilityChanged(change.skill, change.available);
     }
     void operator()(const SkillImproved& improved) const
     {
