@@ -98,7 +98,8 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
 void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
 {
     if (!IsCharacterDefined(character)) return;
-    if (character.fInParty) {
+    // Character creation edits a party storage slot before the slot has a member.
+    if (const auto slot = game.party.slotOf(character); slot && game.party.members[*slot]) {
         SettleActiveParty(game);
         return;
     }

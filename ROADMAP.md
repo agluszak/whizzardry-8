@@ -121,10 +121,12 @@ the licensed runtime scenarios after every step.
      and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
      members once conditions (step 6) and facts (step 7) take explicit state.
    - Unmigrated code still finds a member's slot from its address:
-     `CharacterPointerToPartySlot` (35 uses in 16 files) and the camp's reviewed
-     character (`CampPartySlot` through `W8Party::slotOf`, since the camp also shows
-     characters outside the party). Pass party slots, and give the camp a slot or an
-     outsider value instead of a `W8Character*`.
+     `CharacterPointerToPartySlot` (35 uses in 16 files), the camp's reviewed
+     character (`CampPartySlot`, since the camp also shows characters outside the
+     party) and `RecalculateCharacterDerivedStats` (character creation edits a party
+     storage slot that has no member yet), the last two through `W8Party::slotOf`.
+     Pass party slots, and give the camp and the creation editor a slot or an outsider
+     value instead of a `W8Character*`.
    - Presentation is synchronous: the observer shows each event as it is pushed, to keep
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
