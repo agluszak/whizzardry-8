@@ -43,6 +43,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/script.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
@@ -698,6 +699,8 @@ struct W8LoadedLevelStatus::Data {
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
     std::vector<W8LightState> lights;
+    // The trigger, prop, lock and action sections, in the order they were read.
+    std::vector<SavedWorldSection> world_sections;
     std::shared_ptr<Script> default_script;
     W8PreparedNpcBindings npc_bindings;
     std::vector<int> pending_deaths;
@@ -707,8 +710,9 @@ W8LoadedLevelStatus::W8LoadedLevelStatus() : data(std::make_unique<Data>()) {}
 W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 
 namespace {
-/* Build the replacement's local state; decode gameplay records without registering them. */
-void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
+/* Decode one section of a level group into the group's values. The replacement world is
+   only read, for how many triggers and automap keys its level has. */
+void ReadLevelSection(const World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
                       unsigned int chunk_id, bool from_assets, bool baseline = false)
 {
     switch (chunk_id) {
@@ -751,19 +755,20 @@ void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& ch
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
     case W8_CHUNK_TRIGGER_STATES:
-        RequireSection(LoadTriggerRuntimeStates(world, chunk), "trigger runtime state");
+        data.world_sections.emplace_back(DecodeSavedTriggerLocks(chunk));
         break;
     case W8_CHUNK_TRIGGER_ACTIONS:
-        RequireSection(LoadTriggerActionData(world, chunk), "trigger action data");
+        data.world_sections.emplace_back(DecodeSavedTriggerActions(chunk));
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
         data.automap = ReadAutomapNotes(chunk, world.automap.keys.size());
         break;
     case W8_CHUNK_TRIGGERS:
-        RequireSection(LoadWorldTriggers(&world, chunk, from_assets), "trigger state");
+        data.world_sections.emplace_back(
+            DecodeSavedTriggers(chunk, world.triggers.size(), from_assets));
         break;
     case W8_CHUNK_PROPS:
-        LoadWorldProps(&world, chunk);
+        data.world_sections.emplace_back(DecodeSavedProps(chunk));
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
         if (!data.cursors) data.cursors.emplace();
@@ -1186,6 +1191,7 @@ ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool
         });
     });
     if (!found) return nullptr;
+    for (auto& section : data.world_sections) ApplySavedSection(world, section);
     std::unordered_set<int> group_ids, monster_ids;
     for (const auto& group : data.groups) {
         if (!group_ids.insert(group.group->group_id).second)

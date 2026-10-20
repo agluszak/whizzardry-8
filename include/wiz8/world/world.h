@@ -193,5 +193,4 @@ void SaveWorldProps(wiz8::File& handle);
    selects the name-keyed format; older saves carry a bare count plus the
    object's id key. Unmatched records are decoded and ignored. */
 struct W8Chunk;
-void LoadWorldProps(World* world, W8Chunk& chunk);
 void UpdateCameraPathStateByName(World* world, std::string_view name, int active);

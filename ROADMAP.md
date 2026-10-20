@@ -308,12 +308,13 @@ the licensed runtime scenarios after every step.
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
    ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) is still captured from and applied to its world: `SaveStatusHeader` writes the
-     sections from live objects, and `ReadLevelStatus` decodes MONS, ITEM, CUBE, MONG,
-     AUTO, AMBS, PART and LGHT into `W8LoadedLevelStatus::Data` but reads TRIG, APST,
-     LCKS/LOCK and TRES straight into the replacement world. Give those four sections
-     value records, turn `Data` into a `LevelState` value with `encode` and `decode`, and
-     build the world from it.
+     LGHT) is still captured from its world: `SaveStatusHeader` writes the sections from
+     live objects. `ReadLevelStatus` decodes every section into `W8LoadedLevelStatus::Data`
+     before applying any (the trigger, prop, lock and action sections as
+     `SavedWorldSection`s), but `Data` also holds prepared resources (monster
+     representations, the default script, NPC bindings) and decoding still reads the
+     replacement world's trigger and automap counts. Turn the decoded part into a
+     `LevelState` value with `encode` and `decode`, and build the world from it.
    - `CurrentGame.SAV` is still the store for levels the party has left: departure
      rewrites the departing level's group into it, arrival reads the group back, and a
      save copies the other levels' groups from it as bytes. Once level states are values,
@@ -323,8 +324,7 @@ the licensed runtime scenarios after every step.
      then decodes and installs sections one at a time, so a failure in a later section
      leaves the earlier ones installed. Decode the whole save, level states included,
      before replacing the current game.
-   - In order: value records for TRIG, APST, LCKS/LOCK and TRES; a `LevelState` that
-     exists without a live `World`; visited-level states owned by the game, with
+   - In order: a `LevelState` that exists without a live `World`; visited-level states owned by the game, with
      undecoded groups kept as opaque bytes; replacement worlds built from those values;
      a complete staged load; then `CurrentGame.SAV` removed as working storage.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
