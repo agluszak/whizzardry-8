@@ -717,7 +717,10 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     g_cursor_image_width = properties.width;
     g_cursor_image_height = properties.height;
     ClearMouseSurface();
-    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
+    // A standalone cursor image has no baked sprite-canvas offset. Its placement
+    // comes exclusively from the explicit hotspot.
+    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, -properties.offset.x,
+                                         -properties.offset.y);
 }
 
 void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
@@ -1247,7 +1250,9 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
                              use_argb1555 ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555);
         if (!surface) continue;
         SDL_FillSurfaceRect(surface.get(), nullptr, 0);
-        if (!BlitVideoObjectToColorSurface(sprites, frame, *surface, 0, 0)) continue;
+        if (!BlitVideoObjectToColorSurface(sprites, frame, *surface, -properties.offset.x,
+                                           -properties.offset.y))
+            continue;
         auto texture = std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(surface)));
         texture->setName("VideoVObjecttoTextureAnim");
         auto dimensions = texture->getDimensions();
