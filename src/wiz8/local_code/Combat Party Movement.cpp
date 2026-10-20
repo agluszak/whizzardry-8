@@ -145,30 +145,33 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
    the gauge completes the action and synchronizes every combatant/UI owner. */
 void UpdateActivePartyMovement(void)
 {
+    auto& combat = *CurrentGame().combat.state();
+    bool moved = true;
     if (const auto elapsed = AccumulateMovementFatigue(CurrentGame())) {
         party_move_distance += elapsed->real + elapsed->frame;
     } else if (g_settings.continuous_combat != 0 &&
-               TimeUntilDeadline(CurrentGame().combat.state()->party_movement_clock) == 0) {
+               TimeUntilDeadline(combat.party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         step_count = std::clamp(step_count, 10u, 60u);
         party_move_distance += party_move_limit / step_count;
     } else {
-        goto check_completion;
+        moved = false;
     }
 
-    if (party_move_limit <= 0.0f) {
-        Fail("party_move_limit > 0.0f");
-    }
-    auto& percent = CurrentGame().combat.state()->party_move_percent;
-    percent = static_cast<int>(100.0f - party_move_distance * 100.0f / party_move_limit + 0.5);
-    percent = std::clamp(percent, 0, 100);
-    ShowPartyMovementGauge(false);
-    if (g_settings.continuous_combat != 0) {
-        CurrentGame().combat.state()->party_movement_clock = w8_get_ticks() + (1000);
+    if (moved) {
+        if (party_move_limit <= 0.0f) {
+            Fail("party_move_limit > 0.0f");
+        }
+        const int percent =
+            static_cast<int>(100.0f - party_move_distance * 100.0f / party_move_limit + 0.5);
+        combat.party_move_percent = std::clamp(percent, 0, 100);
+        ShowPartyMovementGauge(false);
+        if (g_settings.continuous_combat != 0) {
+            combat.party_movement_clock = w8_get_ticks() + (1000);
+        }
     }
 
-check_completion:
-    if (CurrentGame().combat.state()->party_move_percent < 1) {
+    if (combat.party_move_percent < 1) {
         BeginFreeTurnPhase();
     }
 }
