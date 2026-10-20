@@ -254,10 +254,10 @@ Substantial but contained work.
 - **Named strings.** About 770 `g_localized_strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
-- **Errors instead of decomp assertions.** About 720 `Fail(...)` calls keep retail
-  assertion strings. Classify each one: an invariant (assert), a recoverable
-  data error (an error value or exception at the boundary that read the data), or
-  dead. Remove the retail message text.
+- **Validate retail database enums at load.** Gameplay switches over spell target
+  types, monster attack modes, item quantity kinds and similar database fields end in
+  `std::unreachable()` or `assert`, trusting the shipped tables. Range-check those
+  fields in the database readers so modified data fails there with an error.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including fourteen files with spaces (`PC Item.cpp`,
   `Combat Attack.cpp`, …). Move the remaining code into named modules, as

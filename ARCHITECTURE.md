@@ -60,7 +60,7 @@ Unlayered code may use the layers.
 
 | Module | Owns |
 | :--- | :--- |
-| `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the presentation random stream, assertions. |
+| `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the presentation random stream. |
 | `canvas/` | CPU drawing on `SDL_Surface&`: images, STI sprite sheets, fonts, shading tables. Knows nothing about the GPU or the framebuffer. |
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
 | `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState`/`ScenePass` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
