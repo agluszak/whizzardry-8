@@ -3,6 +3,8 @@
 #include <bitset>
 #include <cassert>
 #include <optional>
+#include <string>
+#include <utility>
 
 #include <fmt/format.h>
 #include <fmt/printf.h>
@@ -16,6 +18,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/inventory.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
