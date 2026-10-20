@@ -1,6 +1,5 @@
 #include <chrono>
 
-#include "wiz8/combat/combat.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"

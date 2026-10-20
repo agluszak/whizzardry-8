@@ -2029,7 +2029,7 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
     const auto& row = CurrentGame().party.rows[party_slot];
     const auto& character = CurrentGame().party.characters[party_slot];
     if (!g_settings.autoswap_weapons || row.item_action_pending ||
-        (CurrentGame().combat->execution_active &&
+        (CurrentGame().combat && CurrentGame().combat->execution_active &&
          CurrentGame().combat->characters[party_slot].dead &&
          CurrentGame().combat->characters[party_slot].phase != 0) ||
         IsItemBoundToWearer(&character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON]) ||
