@@ -1484,6 +1484,17 @@ void ResourceLifecycleScenario()
     REQUIRE(SDL_SetWindowSize(ghWindow, original_width, original_height));
     REQUIRE(SDL_SyncWindow(ghWindow));
     REQUIRE(VideoResizeWindow());
+    // Native cursor textures keep rectangular artwork, including images larger
+    // than the former 256-pixel limit, without changing the explicit hotspot.
+    const auto hotspot = SDL_Point{g_cursor_hotspot_x, g_cursor_hotspot_y};
+    REQUIRE(ResizeMouseCursorSurface(301, 37));
+    REQUIRE(g_mouse_surface->w == 301);
+    REQUIRE(g_mouse_surface->h == 37);
+    REQUIRE(g_cursor_hotspot_x == hotspot.x);
+    REQUIRE(g_cursor_hotspot_y == hotspot.y);
+    REQUIRE(ResizeMouseCursorSurface(23, 41));
+    REQUIRE(g_mouse_surface->w == 23);
+    REQUIRE(g_mouse_surface->h == 41);
     // Rendering must retain the world graph when presentation is reopened.
     CheckWorldRender(game);
     CheckTwoWorldViews(game);
