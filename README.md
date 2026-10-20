@@ -82,8 +82,8 @@ Debug and RelWithDebInfo enable `_GLIBCXX_ASSERTIONS`; ordinary assertions follo
 the build configuration. Signed overflow and strict aliasing follow the
 language rules (no `-fwrapv` or `-fno-strict-aliasing`), so UBSan's
 signed-overflow check guards gameplay arithmetic; retail wraparound is written
-as explicit unsigned arithmetic. `-fsigned-char` remains because game code still
-keeps small signed values in plain `char`.
+as explicit unsigned arithmetic. Plain `char` holds only text; small signed
+numbers use `signed char` or `std::int8_t`, so no build sets `-fsigned-char`.
 
 The normal tidy allowlist includes assignment-in-condition, string-view C API
 misuse, allocation ownership, dangling string buffers and last-use moves.
