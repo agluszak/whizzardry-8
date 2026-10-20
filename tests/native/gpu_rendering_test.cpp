@@ -12,7 +12,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "compat/compiler.h"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/vertex_stream.h"

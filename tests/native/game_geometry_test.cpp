@@ -56,6 +56,7 @@
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/ground_shadow.h"

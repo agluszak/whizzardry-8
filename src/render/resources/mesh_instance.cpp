@@ -20,6 +20,7 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 #include "wiz8/math.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/gpu_renderer.h"

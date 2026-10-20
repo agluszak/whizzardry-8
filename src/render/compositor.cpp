@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <utility>
 
@@ -11,7 +12,6 @@
 
 #include "compat/native.h"
 #include "glm/ext/matrix_clip_space.hpp"
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/texture.h"
@@ -106,8 +106,8 @@ void GpuRenderer::drawOverlayQuad(const OverlayQuad& quad)
         {quad.uv_min, {quad.uv_max.x, quad.uv_min.y}, {quad.uv_min.x, quad.uv_max.y}, quad.uv_max}};
     const std::array<glm::vec4, 4> colors{quad.color, quad.color, quad.color, quad.color};
     vertexStream::VertexArrayInfo vertices{};
-    const auto stream = [&](vertexStream::e_vertexArray slot, w8_long components, w8_ulong stride,
-                            const void* values) {
+    const auto stream = [&](vertexStream::e_vertexArray slot, std::int32_t components,
+                            std::uint32_t stride, const void* values) {
         vertices.components[slot] = components;
         vertices.strides[slot] = stride;
         vertices.arrays[slot] = values;
