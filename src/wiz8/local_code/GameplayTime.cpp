@@ -163,7 +163,7 @@ void UpdateGameClock(int elapsed)
     if (hours != 0) {
         CurrentGame().status.item_recharge_ms %= 3600000;
         for (unsigned int slot = 0; slot < 8; ++slot) {
-            char uses = static_cast<char>(hours);
+            signed char uses = static_cast<signed char>(hours);
             if (!CurrentGame().party.members[slot].has_value()) {
                 continue;
             }
@@ -183,7 +183,7 @@ void UpdateGameClock(int elapsed)
         for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
             W8ItemInstance* item = &CurrentGame().party.item_pool[index];
             if (item->iItemNo == 0x266) {
-                AddItemUses(Data(), *item, static_cast<char>(hours));
+                AddItemUses(Data(), *item, static_cast<signed char>(hours));
             }
         }
     }

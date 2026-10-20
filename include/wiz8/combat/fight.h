@@ -32,7 +32,7 @@ void AdvanceCombatRound(void);
 /* While the auto-advance option is on and nothing else captures input, move the
    selection to the next live member without a combat action. */
 void AutoAdvanceSelectedCharacter(void);
-void RollCombatSurprise(char party_cannot_be_surprised);
+void RollCombatSurprise(signed char party_cannot_be_surprised);
 struct W8Character;
 struct W8MonsterInfo;
 struct W8CombatCharacterRow;

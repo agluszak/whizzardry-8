@@ -70,9 +70,9 @@ char* TitleCaseString(char* string)
 
     while (*cursor != '\0') {
         if (capitalize) {
-            *cursor = static_cast<char>(toupper(*cursor));
+            *cursor = static_cast<char>(toupper(static_cast<unsigned char>(*cursor)));
         } else {
-            *cursor = static_cast<char>(tolower(*cursor));
+            *cursor = static_cast<char>(tolower(static_cast<unsigned char>(*cursor)));
         }
 
         switch (*cursor) {

@@ -206,19 +206,19 @@ void W8CampStatsPage::DrawCampStatsPage(const W8Character& character, bool full)
             Data().strings[0x8c5]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, formatted);
         int trait_count = 0;
-        char traits[0x20];
+        bool traits[0x20];
         for (index = 0; index < 0x20; ++index) {
             if (CharacterHasTrait(&character, static_cast<W8Trait>(index))) {
-                traits[index] = 1;
+                traits[index] = true;
                 ++trait_count;
             } else {
-                traits[index] = 0;
+                traits[index] = false;
             }
         }
         int step = (trait_count < 8) ? 2 : 0;
         int trait_y = step + 0x14e;
         for (index = 0; index < 0x20; ++index) {
-            if (traits[index] != 0) {
+            if (traits[index]) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, trait_y},
                          Data().strings[g_character_trait_name_ids[index]]);
                 trait_y += step + 0xc;

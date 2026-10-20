@@ -75,7 +75,7 @@ void RecomputeCharacterHighestCondition(int party_slot);
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info);
 
 bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, int poison_strength,
-                           char alternate_missing_notice, char announce);
+                           signed char alternate_missing_notice, signed char announce);
 
 void RemoveConditionFromEveryone(W8Condition condition);
 void RemoveConditionFromParty(W8Condition condition);

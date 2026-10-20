@@ -2811,7 +2811,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             SetDice(&block.magnitude, 0, 0, 0);
         } else {
             block.magnitude = Data().spells[spell_id].effect_dice;
-            block.magnitude.count = static_cast<char>(power_level) * block.magnitude.count;
+            block.magnitude.count = static_cast<signed char>(power_level) * block.magnitude.count;
         }
         block.duration_scale = power_level;
         block.percent = power_cast_bonus;
@@ -3628,8 +3628,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 marked = true;
             }
         }
-        CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
-                                    sight_rule);
+        CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius,
+                                    static_cast<signed char>(side), sight_rule);
         break;
     case W8_TARGET_TYPE_ENEMY_GROUP:
         if (target->iType == W8_TARGET_KIND_GROUP) {
@@ -3697,7 +3697,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                                   static_cast<unsigned char>(side), sight_flag, cone_range);
         if (monster_markers.empty() &&
             (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
-            TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
+            TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
                                       sight_flag, cone_range);
@@ -3730,10 +3730,10 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
-                                    static_cast<char>(side), sight_rule);
+                                    static_cast<signed char>(side), sight_rule);
         if (monster_markers.empty() &&
             (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
-            TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
+            TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
                                         sight_rule);
@@ -3758,11 +3758,11 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 marked = true;
             }
         }
-        CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, static_cast<char>(side),
-                                    sight_rule);
+        CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius,
+                                    static_cast<signed char>(side), sight_rule);
         if (monster_markers.empty() &&
             (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
-            TargetSourceIsCharacter(source, 0) && static_cast<char>(side) == 1 &&
+            TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3, sight_rule);
         }
@@ -3774,7 +3774,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         for (slot = 0; slot < 8; ++slot) {
             if (CanPartySlotParticipate(slot) &&
                 (CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
-                 !MonsterCanAimSpell(spell_id) || static_cast<char>(side) == 3)) {
+                 !MonsterCanAimSpell(spell_id) || static_cast<signed char>(side) == 3)) {
                 party_markers.push_back(slot);
             }
         }

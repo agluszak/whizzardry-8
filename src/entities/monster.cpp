@@ -995,7 +995,7 @@ bool Monster::IsFacingPlayer()
    representation: on set it hangs the slot's colored Tri*.tga object on
    attachment index `party_slot`, on clear it detaches and deletes it. The
    rep's object count tracks the live markers. */
-void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
+void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on)
 {
     Monster* rep;
     W8MonsterInfo* info;
@@ -2363,7 +2363,7 @@ unsigned short Monster::ConfigureMovementToMonster(Monster* target, float separa
    value falls through. The position is fetched before the flag is read, so it
    is read even on the path that turns out not to need one sink over the other,
    and the flag decides only which sink receives it. */
-void Monster::ForwardReferencePosition(char alternate)
+void Monster::ForwardReferencePosition(signed char alternate)
 {
     W8MonsterInfo* monster_info;
     glm::vec3 position;

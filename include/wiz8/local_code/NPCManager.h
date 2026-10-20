@@ -131,7 +131,7 @@ void ReleaseNpcBinding(int value);
 /* The NPC binding selected by a monster-list index, or null. */
 W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 unsigned char GetNpcDispositionBand(W8NpcState* npc);
-void SetNpcDispositionBand(W8NpcState* npc, char band);
+void SetNpcDispositionBand(W8NpcState* npc, signed char band);
 bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item);
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
                          unsigned int gold);
@@ -151,8 +151,8 @@ void ClearNpcItemId(W8NpcState* npc, int item_id);
 W8NpcState* FindNpcStateByName(std::string_view name);
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
 std::string GetNpcDisplayName(W8NpcState* npc);
-void ReleaseNpcMonsterBinding(W8NpcState* npc, char level);
-void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name);
+void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level);
+void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name);
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
@@ -161,7 +161,7 @@ void TellNpcFact(W8NpcState* npc, short fact);
    Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
    unflagged records no loaded state claims. */
 void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs);
-char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
+signed char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
 

@@ -201,7 +201,7 @@ public:
     void SetPendingCycle(int cycle);
     void SetRuntimeBehaviour(W8AnimationBehaviour behaviour);
     void SetLocationId(int value);
-    void ForwardReferencePosition(char alternate);
+    void ForwardReferencePosition(signed char alternate);
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
     bool IsCycleInterruptable(signed char cycle);
@@ -388,7 +388,7 @@ void RefreshMonsterStandingHeight(Monster* monster);
    representation; it stays free because its callers pass the object on the
    stack. */
 
-void SetMonsterPartySlotMarker(int party_slot, int location_id, char on);
+void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on);
 
 std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string_view path);
 /* A Monster script by name, shared through the script cache; null when missing. */

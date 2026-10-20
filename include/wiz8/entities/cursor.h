@@ -19,7 +19,7 @@ void UpdateWorldCursorPlacement(void);
 /* 0x004919E0: march the requested cursor target from the stored position,
    ground-lifting and sight-checking each step; returns 1 when the march is
    cut short by a blocked sight ray. */
-char MarchWorldCursorTarget(glm::vec3* target);
+signed char MarchWorldCursorTarget(glm::vec3* target);
 /* 0x004921E0: resolve the world cursor's target position into the out
    vector: copy the cursor position, ground-probe its candidate offsets and
    keep the settled height. */

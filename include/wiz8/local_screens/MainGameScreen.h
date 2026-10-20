@@ -115,7 +115,7 @@ public:
     W8MainGameTextKeyHandler();
     void Redraw(SDL_Surface& target, bool full_redraw);
     void SetSelectedLine(int line);
-    char HandleKey(SDL_Keycode key);
+    signed char HandleKey(SDL_Keycode key);
     UiLayer input;
     W8RangeControl m_range{input, 0x1d0, 0x16b, 0x1e2, 0x1bf};
     int m_line_count = 15, m_visible_lines = 6;
@@ -195,7 +195,7 @@ public:
     /* Add one keyword line to the transcript unless the text is already
        present; a nonzero mark puts the new entry in state 0x60, and any
        leftover "[No Keywords]" placeholder is removed afterwards. */
-    bool AddTranscriptEntry(std::string_view text, W8DialogueCategory category, char mark);
+    bool AddTranscriptEntry(std::string_view text, W8DialogueCategory category, signed char mark);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -304,7 +304,7 @@ public:
     /* Knock-knock resolution: rolls the per-level chance over a shuffled pin
        order, raising (or on backfire dropping) them, then re-derives the
        control enables and enters state 7. The flag parameter is unused. */
-    void ApplyKnockKnock(int level, int flag, char backfire);
+    void ApplyKnockKnock(int level, int flag, signed char backfire);
 
     UiLayer input;
     std::array<std::unique_ptr<W8ButtonWidget>, 4> buttons;
@@ -557,9 +557,9 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
    chosen count to the editor slot and refreshes the trade selection. */
 void NpcTradeSplitDialogResult(int count);
 void RefreshFormationPanel(bool show_portraits);
-void EndLockInteractMode(char suspend);
+void EndLockInteractMode(signed char suspend);
 void UpdateTrapInteraction(void);
-void EndTrapInteractMode(char suspend);
+void EndTrapInteractMode(signed char suspend);
 int GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);

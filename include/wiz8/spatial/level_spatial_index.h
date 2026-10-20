@@ -322,7 +322,7 @@ public:
     /* Selects a switch interface's state: the matching state group's
        conditional polygons clear surface flag 0x10 while every other state's
        polygons set it. */
-    char SetInterfaceState(int interface_id, int state); /* 0x0041C680 */
+    signed char SetInterfaceState(int interface_id, int state); /* 0x0041C680 */
     /* Apply one surface the mover's trace crossed, nearest first: an
        environment boundary (flag 0x1000) swaps the active environment record,
        carrying the live blend fields across; a trigger surface runs its

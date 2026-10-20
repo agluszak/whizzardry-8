@@ -98,7 +98,7 @@ void UpdateSpellRealmPointDisplays(void);
 static void UpdateSpellPowerPips(void);
 static void RefreshSpellPowerPip(int pip);
 static void RebuildSpellCastingList(int spell_id);
-static void SetSpellListLineColor(int index, char color);
+static void SetSpellListLineColor(int index, signed char color);
 static void SelectSpellCastingRow(int index);
 static void SelectSpellCastingRealm(W8SpellRealm realm);
 static void SelectSpellCastingListRow(int index);
@@ -528,7 +528,7 @@ static void RebuildSpellCastingList(int spell_id)
 
 /* Recolours one spell-list line; -1 keeps the row's own color, or the
    selected-row color when the row is the selected spell. */
-static void SetSpellListLineColor(int index, char color)
+static void SetSpellListLineColor(int index, signed char color)
 {
     W8MessageStorageRecord* line;
     size_t length;
@@ -905,7 +905,7 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
    either prices its power levels or reports why it cannot be cast. */
 static void SelectSpellCastingListRow(int index)
 {
-    char color;
+    signed char color;
     int cost;
     W8SpellPowerClass power_class;
     int previous;

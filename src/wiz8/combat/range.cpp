@@ -69,7 +69,7 @@ enum { W8_FORMATION_ROW_WIDTH = 3 };
    strike. */
 bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
 {
-    char side;
+    signed char side;
     int first = party_slot;
 
     if (!CurrentGame().combat.has_value() ||
@@ -106,7 +106,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
                     if (!CanHandReachTarget(first, reach_hand)) {
                         continue;
                     }
-                    if (static_cast<char>(first) == slot) {
+                    if (static_cast<signed char>(first) == slot) {
                         return true;
                     }
                     const auto range = GetCharAttackRange(character, reach_hand);
@@ -146,7 +146,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         int target_slot = target->iChar;
-        if (static_cast<char>(party_slot) != target_slot) {
+        if (static_cast<signed char>(party_slot) != target_slot) {
             W8RangeCategory range = GetCharActionRange(party_slot, hand, selected);
             if (range == W8_RANGE_NONE) {
                 return false;
@@ -248,7 +248,7 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
    past the front rank. */
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, const W8Action& selected)
 {
-    if (static_cast<char>(party_slot) == target_slot) {
+    if (static_cast<signed char>(party_slot) == target_slot) {
         return true;
     }
     if (selected.kind == W8_ACTION_BREATHE) return true;
@@ -695,7 +695,7 @@ float CalcRangeDistanceFromParty(W8RangeCategory range_category)
    unreachable (-1). */
 void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range_category)
 {
-    char crossable;
+    signed char crossable;
 
     if (!CurrentGame().combat.has_value()) {
         return;
@@ -737,15 +737,15 @@ bool AnyoneStandsAhead(unsigned char position)
    reach. Same row answers zero; otherwise one when the monster's row is
    occupied, plus one more when the gap is exactly two rows and either that
    row or the front rank screens. */
-char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
+signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 {
     unsigned char monster_quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
     signed char party_quadrant = CurrentGame().party.formation.positions[party_slot].bQuadrant;
-    char rows = 0;
+    signed char rows = 0;
     unsigned int index;
     signed char slot;
     int gap;
-    char found_front;
+    signed char found_front;
 
     if (monster_quadrant == static_cast<unsigned char>(party_quadrant)) {
         return 0;
@@ -776,7 +776,7 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
         return rows;
     }
     if (rows != 0) {
-        return static_cast<char>(rows + 1);
+        return static_cast<signed char>(rows + 1);
     }
 
     found_front = 0;
@@ -787,7 +787,7 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
         }
     }
     if (found_front != 0) {
-        return static_cast<char>(rows + 1);
+        return static_cast<signed char>(rows + 1);
     }
     return rows;
 }

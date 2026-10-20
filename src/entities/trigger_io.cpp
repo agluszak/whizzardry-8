@@ -216,7 +216,7 @@ static bool readDoorFlag(W8Chunk& file)
 /* Read one trigger back from the save file. The version byte selects how much
    of the trailing block is present; a type-10 action payload rebuilds its
    action data and re-queues the delayed timed event from the saved progress. */
-bool Trigger::Load(W8Chunk& hFile, char version, bool from_assets)
+bool Trigger::Load(W8Chunk& hFile, std::uint8_t version, bool from_assets)
 try {
     unsigned char has_action_data;
     unsigned char action_type;
@@ -317,7 +317,7 @@ try {
 bool LoadWorldTriggers(World* world, W8Chunk& file, bool from_assets)
 try {
     for (std::size_t index = 0; index < world->triggers.size(); ++index) {
-        char tag;
+        std::uint8_t tag;
         file.ReadBytes(&tag, 1);
         if (tag < 1 || tag > 5) {
             // The dispatcher skips the remainder of this completed section.

@@ -1044,11 +1044,11 @@ int FindStoppedTextLine(void)
 
 /* Hand one key to the text box's own handler. A key that moved the selection
    is followed by the two calls that settle it; a key that did not is not. */
-char TextBoxHandleKey(const InputEvent* event)
+signed char TextBoxHandleKey(const InputEvent* event)
 {
     W8MainGameTextPanel* panel = TrapInteraction()->m_text_panel.get();
     int before = panel->m_selection;
-    char handled;
+    signed char handled;
 
     handled = panel->m_key_handler->HandleKey(event->key);
 
@@ -1068,7 +1068,7 @@ char TextBoxHandleKey(const InputEvent* event)
    backfire the disarm chance is `level * 5 + 0x32 - m_difficulty * 6`, a
    success parks the screen in state 7 (8 on a miss), and either way the text
    and action panels go quiet for a 1.5 second timer. */
-void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
+void AttemptTrapDisarm(int level, int /*flag*/, signed char backfire)
 {
     W8TrapInteraction* screen = TrapInteraction();
     int chance;
