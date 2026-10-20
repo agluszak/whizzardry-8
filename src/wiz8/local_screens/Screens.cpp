@@ -1,9 +1,11 @@
 #include "wiz8/local_screens/Screens.h"
 
+#include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <variant>
 
 #include "wiz8/canvas/Font.h"
@@ -35,7 +37,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
@@ -75,7 +76,7 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id)
     case W8_SCREEN_COUNT:
         break;
     }
-    Fail("unknown screen");
+    std::unreachable();
 }
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */
@@ -255,9 +256,7 @@ void UpdateHeldItemCursor(void)
    hotspot. Multi-frame cursors also arm the animation countdown. */
 void ApplyCurrentCursor(void)
 {
-    if (shown_pointer.cursor == W8_CURSOR_NONE) {
-        Fail("ShownCursor() != -1");
-    }
+    assert(shown_pointer.cursor != W8_CURSOR_NONE);
     auto& slot = g_main_game_resource_slots[shown_pointer.cursor];
     if (slot.object != 0) {
         ResizeMouseCursorSurface(slot.size_x, slot.size_y);

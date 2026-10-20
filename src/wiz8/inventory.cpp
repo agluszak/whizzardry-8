@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <cassert>
 #include <expected>
 #include <functional>
 #include <initializer_list>
@@ -54,7 +55,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/notices.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -188,12 +188,8 @@ static bool MergeStack(W8Party& party, W8ItemInstance* destination, W8ItemInstan
     if (record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
         return false;
     }
+    // An overfull stack read from a save is clamped to the database maximum.
     if (destination->stack_count > record->maximum_quantity) {
-        Fail("FALSE",
-             fmt::format(
-                 "StackItemsIfPossible: ERROR - slot holds {:d} when max is {:d}, item {:d}({})",
-                 destination->stack_count, record->maximum_quantity, destination->iItemNo,
-                 FormatItemDisplayName(destination, true)));
         destination->stack_count = record->maximum_quantity;
     }
     if (destination->iItemNo != source->iItemNo || destination->identified != source->identified) {
@@ -700,12 +696,8 @@ bool StoreItemWithCharacterOrParty(Game& game, W8Character* character, W8ItemIns
    slot has nobody in it, only the pool. */
 bool GiveItemToCharacterOrParty(Game& game, int uiChar, W8ItemInstance* item, bool party_first)
 {
-    if (!game.status.game_started) {
-        Fail("gStatus.fGameStarted");
-    }
-    if (!game.party.rows[uiChar].fOccupied) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(game.status.game_started);
+    assert(game.party.rows[uiChar].fOccupied);
 
     const auto source = game.party.locateItem(item);
     std::optional<W8ItemLocation> destination;
@@ -732,18 +724,12 @@ std::expected<void, InventoryRefusal> GiveHeldItemToCharacterOrParty(Game& game,
 {
     W8ItemInstance* item = &game.party.held.item;
     bool stored = party_first;
-    if (!(game.party.held.item.iItemNo != -1)) {
-        Fail("gStatus.fItemInCursor");
-    }
+    assert(game.party.held.item.iItemNo != -1);
 
     if (!item->identified) PartyAttemptsToIdentifyItem(item, 0);
 
-    if (!game.status.game_started) {
-        Fail("gStatus.fGameStarted");
-    }
-    if (!game.party.rows[uiChar].fOccupied) {
-        Fail("fCHAR_OCCUPIED(uiChar)");
-    }
+    assert(game.status.game_started);
+    assert(game.party.rows[uiChar].fOccupied);
 
     std::optional<W8ItemLocation> destination;
     if (IsPartySlotEligible(uiChar)) {
@@ -1419,12 +1405,8 @@ bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& secon
     const W8ItemDatabaseRecord* ra;
     const W8ItemDatabaseRecord* rb;
 
-    if (a->iItemNo == -1) {
-        Fail("pPCItem1->iItemNo != BAD_INDEX");
-    }
-    if (b->iItemNo == -1) {
-        Fail("pPCItem2->iItemNo != BAD_INDEX");
-    }
+    assert(a->iItemNo != -1);
+    assert(b->iItemNo != -1);
     ra = &Data().items[a->iItemNo];
     rb = &Data().items[b->iItemNo];
 
@@ -1470,9 +1452,7 @@ bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& secon
 /* Put the party pool back in order; a pool of one is left alone. */
 void SortPartyItemPool(Game& game)
 {
-    if (!game.status.game_started) {
-        Fail("gStatus.fGameStarted");
-    }
+    assert(game.status.game_started);
     if (game.party.item_count > 1) {
         std::sort(game.party.item_pool, game.party.item_pool + game.party.item_count,
                   ItemPrecedesInPool);
@@ -1633,9 +1613,7 @@ static W8ItemLocation EquipPartner(Game& game, W8Character* character, W8ItemIns
     if (!ItemHasSingledOutGenericName(Data(), item->iItemNo)) {
         return {};
     }
-    if (item->iItemNo == -1) {
-        Fail("pPCItem->iItemNo != -1");
-    }
+    assert(item->iItemNo != -1);
 
     if (character->EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo != -1 &&
         CompatiblePartnerItems(
@@ -1868,12 +1846,8 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
         if (item->iItemNo == 0x29f) {
             W8NpcState* npc =
                 GetNpcState(game.party.rows[CharacterPointerToPartySlot(character)].npc_index);
-            if (npc == 0) {
-                Fail("pNPC");
-            }
-            if (npc->name_style != W8_NPC_RFS81_A) {
-                Fail("pNPC->ubNPCDBaseID == NPC_RFS81A");
-            }
+            assert(npc != 0);
+            assert(npc->name_style == W8_NPC_RFS81_A);
             SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
             SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
             return {{1, std::nullopt}, ConsumeItemUse(game.party, item, true)};
@@ -1939,9 +1913,7 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
         }
         target.name_known = true;
 
-        if (static_cast<int>(record->category) >= W8_ITEM_USE_TYPE_COUNT) {
-            Fail("pItemDB->ubUseType < USE_TYPE_COUNT");
-        }
+        assert(static_cast<int>(record->category) < W8_ITEM_USE_TYPE_COUNT);
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
         if (record->spell_id != W8_SPELL_NONE &&
@@ -1964,16 +1936,14 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
                                Data().strings[g_item_use_messages[record->category * 2]],
                                GetItemDisplayName(item))});
         } else {
-            Fail("FALSE");
+            std::unreachable();
         }
 
         if (g_settings.verbose_combat_messages == 0) {
             game.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
+        // A usable item without a spell does nothing.
         if (record->spell_id == W8_SPELL_NONE) {
-            std::string message = fmt::format(
-                "UseItem: ERROR - Usable item {:d} doesn't do anything!", item->iItemNo);
-            Fail("FALSE", message);
             used = 0;
             fatigue_cost = 0;
         } else {

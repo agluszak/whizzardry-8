@@ -1,6 +1,7 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -82,7 +83,6 @@
 #include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
@@ -1549,7 +1549,7 @@ void ProcessMainGameAutoSave(void)
 void SaveMonsterControlSpellEffect(W8Chunk* chunks)
 {
     W8SpellEffectEntry* lure = FindMonsterControlSpellEffect();
-    if (!lure) Fail("pLure");
+    assert(lure);
     ForEachMonsterControlField(*lure, [&]<class Field>(const Field& field) {
         if constexpr (std::is_same_v<Field, W8CombatSlot> || std::is_same_v<Field, W8TargetSource>)
             wiz8::retail::write(*chunks, field);

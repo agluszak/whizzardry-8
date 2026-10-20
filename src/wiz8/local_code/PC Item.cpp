@@ -1,4 +1,5 @@
 #include <array>
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -50,7 +51,6 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/notices.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
@@ -555,8 +555,8 @@ bool CanHoldItemsTogether(int first_item_id, int second_item_id)
 
 bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
 {
-    if (party_slot == -1) Fail("iChar != -1");
-    if (static_cast<unsigned int>(equip_slot) >= W8_EQUIP_SLOT_COUNT) Fail("uiSlot < SLOT_COUNT");
+    assert(party_slot != -1);
+    assert(static_cast<unsigned int>(equip_slot) < W8_EQUIP_SLOT_COUNT);
 
     W8EquipSlot paired_slot;
     switch (equip_slot) {
@@ -636,18 +636,14 @@ bool CanCharacterUseItem(const W8Character* character, int item_id)
 
     if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE) {
         spell_id = record->spell_id;
-        if (spell_id == W8_SPELL_NONE) {
-            Fail("uiSpell != SPELL_NONE");
-        }
+        assert(spell_id != W8_SPELL_NONE);
         if (character->spell_learned[spell_id] == 1) {
             return false;
         }
     } else if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
                record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
         spell_id = record->spell_id;
-        if (spell_id == W8_SPELL_NONE) {
-            Fail("uiSpell != SPELL_NONE");
-        }
+        assert(spell_id != W8_SPELL_NONE);
         minimum_caster_level = GetMinimumCasterLevelForSpell(spell_id);
         const int profession = record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6
                                    ? W8_PROFESSION_BARD
@@ -686,19 +682,10 @@ bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item
 {
     const W8ItemDatabaseRecord* record;
 
-    if (character == 0) {
-        Fail("pPC");
-    }
-    if (item == 0) {
-        Fail("pPCItem");
-    }
-    if (item->iItemNo < -1) {
-        Fail("pPCItem->iItemNo >= -1");
-    }
-    if (item->iItemNo >= static_cast<int>(Data().items.size())) {
-        // c-style-cast-ok: verbatim retail assert string
-        Fail("pPCItem->iItemNo < (INT32) Data().items.size()");
-    }
+    assert(character != 0);
+    assert(item != 0);
+    assert(item->iItemNo >= -1);
+    assert(item->iItemNo < static_cast<int>(Data().items.size()));
     if (item->iItemNo == -1) {
         return false;
     }
@@ -888,10 +875,7 @@ bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item
 W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identified,
                         bool mark_special)
 {
-    if (static_cast<unsigned int>(item_id) >= Data().items.size()) {
-        Fail("uiItemNo < Data().items.size()",
-             fmt::format("InitNewItem: error, invalid item # {:d} specified", item_id));
-    }
+    assert(static_cast<unsigned int>(item_id) < Data().items.size());
 
     W8ItemInstance result;
     auto* item = &result;
@@ -900,9 +884,7 @@ W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identifie
     const W8ItemDatabaseRecord* record = &Data().items[item_id];
     if (record->quantity_kind != W8_ITEM_QUANTITY_NONE) {
         int maximum = record->initial_quantity.Maximum();
-        if (maximum >= 256) {
-            Fail("uiMAX_DICE(pMulti) < 256");
-        }
+        assert(maximum < 256);
         unsigned char quantity =
             maximum_quantity ? static_cast<unsigned char>(maximum)
                              : static_cast<unsigned char>(RollDice(&record->initial_quantity));
@@ -912,7 +894,7 @@ W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identifie
                    record->quantity_kind <= W8_ITEM_QUANTITY_SHOTS) {
             item->uses_or_charges = quantity;
         } else {
-            Fail("FALSE", "InitNewItem: ERROR - Invalid multi code");
+            assert(false && "unknown item quantity kind");
         }
     }
     if (force_identified || (record->flags & W8_ITEM_FLAG_AUTO_IDENTIFY) != 0) {
@@ -954,12 +936,8 @@ int GetItemSpell(const W8ItemInstance* item)
     if (item == 0) {
         return 0;
     }
-    if (item->iItemNo == -1) {
-        Fail("pPCItem->iItemNo != -1");
-    }
-    if (item->iItemNo >= static_cast<int>(Data().items.size())) {
-        Fail("pPCItem->iItemNo < (INT32) Data().items.size()");
-    }
+    assert(item->iItemNo != -1);
+    assert(item->iItemNo < static_cast<int>(Data().items.size()));
     return Data().items[item->iItemNo].spell_id;
 }
 
@@ -997,9 +975,7 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
 
     AdjustIntegerByPercent(&score, percent);
     if (Data().items[item->iItemNo].identify_difficulty <= score) {
-        if (item == 0) {
-            Fail("pPCItem");
-        }
+        assert(item != 0);
         item->identified = true;
         item->spell_hint = true;
         item->unknown_08 = 1;
@@ -1016,9 +992,7 @@ unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int perc
     unsigned int candidate;
     unsigned int score;
 
-    if (item == 0) {
-        Fail("pPCItem");
-    }
+    assert(item != 0);
     if (item->iItemNo == -1) {
         return 1;
     }
@@ -1116,9 +1090,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
     char strength;
     int margin;
 
-    if (item == 0) {
-        Fail("pPCItem");
-    }
+    assert(item != 0);
     if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_INSANE) {
         return false;
     }
@@ -1128,9 +1100,7 @@ bool TryIdentifyItemFor(W8Character* character, W8ItemInstance* item)
         return false;
     }
 
-    if (item == 0) {
-        Fail("pPCItem");
-    }
+    assert(item != 0);
     item->identified = true;
     item->spell_hint = true;
     item->unknown_08 = 1;
