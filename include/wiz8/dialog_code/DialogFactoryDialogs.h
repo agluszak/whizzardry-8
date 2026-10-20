@@ -58,55 +58,6 @@ public:
     std::function<void(int)> m_on_change;
 };
 
-class W8ListBoxDialog : public W8DialogBase {
-public:
-    bool TakeDirty() override;
-    W8ListBoxDialog();
-    void Configure();
-    virtual void Draw(SDL_Surface& target) override;
-
-    virtual bool ProcessInput() override;
-
-private:
-    void UpdateLayout();
-    /* Text-area button height divided by the dialog font height. */
-    int GetVisibleLineCount();
-    /* Select a text line and scroll it into the visible range. */
-    void SetCurrentLine(int line);
-    void SetFirstVisibleLine(int line);
-    void ClearLines();
-    /* Keyboard handling for the visible text list. */
-    bool HandleInputEvent(const InputEvent* input);
-
-    /* Owner-local activation callbacks for the text area, scroll arrows and
-       the confirmation buttons. */
-    void OnTextAreaClick();
-    void OnUp();
-    void OnDown();
-    void OnOk();
-    void OnCancel();
-    void OnSliderTrackClick();
-
-public:
-    std::vector<std::string> m_lines;
-    SDL_Color m_fill_colour; /* highlight fill colour */
-    SDL_Rect m_heading_bounds{}, m_footer_bounds{};
-    GenericButtonImage area_inlay;  /* DialogInlay inlay for m_area_button */
-    W8ButtonWidget m_area_button{InputLayer()}; /* scrolling text area */
-    W8ButtonWidget m_up_button{InputLayer()};
-    W8ButtonWidget m_down_button{InputLayer()};
-    W8ButtonWidget m_slider_button{InputLayer()};
-    GenericButtonImage third_btn_inlay; /* DialogInlay inlay for m_third_text_button */
-    W8ButtonWidget m_third_text_button{InputLayer()};
-    W8ButtonWidget m_ok_button{InputLayer()};
-    W8ButtonWidget m_cancel_button{InputLayer()};
-    bool m_scrollable; /* scrolling area is scrollable */
-    int m_first_visible_line;
-    int m_selected_line;
-    GenericButtonImage edge_inlay; /* DialogEdge inlay for the text buttons */
-    short flags;
-};
-
 class W8SplitAmountDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;

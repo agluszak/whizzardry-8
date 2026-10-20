@@ -2,10 +2,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iterator>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -19,31 +15,23 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/platform/sdl_io.h"
-/* Actual SDL_image decoding and byte-exact transfer. */
 #include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 
 using Bytes = std::vector<Uint8>;
 using OwnedSurface = SDLSurfaceOwner;
-static Bytes fixture(const char* name)
-{
-    std::ifstream input(std::filesystem::path(WIZ8_IMAGE_IMPORT_FIXTURE_DIR) / name,
-                        std::ios::binary);
-    REQUIRE(input.good());
-    return {std::istreambuf_iterator<char>(input), {}};
-}
 static void checkFormat(const SDL_Surface& surface, SDL_PixelFormat type)
 {
     const auto expected = type;
     REQUIRE(surface.format == expected);
 }
-static OwnedSurface loadJpeg(const Bytes& data)
+// Production only writes JPEG screenshots; decode them with SDL_image to check the output.
+static OwnedSurface decodeJpeg(const Bytes& data)
 {
-    if (data.empty()) return {nullptr, SDL_DestroySurface};
     auto input = sdlIO::own(SDL_IOFromConstMem(data.data(), data.size()));
-    auto result = imageIO::load("sample.jpg", input.get());
-    REQUIRE(SDL_GetIOSize(input.get()) == Sint64(data.size()));
-    return result;
+    OwnedSurface decoded(IMG_LoadJPG_IO(input.get()), SDL_DestroySurface);
+    if (!decoded) return decoded;
+    return {SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32), SDL_DestroySurface};
 }
 static Bytes encode(SDL_Surface& surface, int quality = 100)
 {
@@ -57,7 +45,6 @@ static Bytes encode(SDL_Surface& surface, int quality = 100)
 }
 static void jpegTests()
 {
-    const auto gray = fixture("gray.jpg"), cmyk = fixture("cmyk.jpg");
     Bytes pixels(2 * 16, 0xee);
     for (unsigned y = 0; y < 2; ++y)
         for (unsigned x = 0; x < 3; ++x) {
@@ -74,34 +61,16 @@ static void jpegTests()
     REQUIRE(encode(*source, -1) == encode(*source, 0));
     REQUIRE(rgb != encode(*source, 20));
     REQUIRE((pixels[12] == 0xee && pixels[28] == 0xee));
-    for (const auto* data : {&gray, &rgb, &cmyk}) {
-        auto surface = loadJpeg(*data);
-        REQUIRE((surface && surface->w == 3 && surface->h == 2));
-        checkFormat(*surface, SDL_PIXELFORMAT_BGRA32);
-        auto io = sdlIO::own(SDL_IOFromConstMem(data->data(), data->size()));
-        SDLSurfaceOwner decoded(IMG_LoadJPG_IO(io.get()), SDL_DestroySurface);
-        REQUIRE(decoded);
-        SDLSurfaceOwner reference(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
-                                  SDL_DestroySurface);
-        REQUIRE(reference);
-        for (unsigned y = 0; y < 2; ++y) {
-            const auto* expected =
-                static_cast<const Uint8*>(reference->pixels) + y * reference->pitch;
-            const auto* row = static_cast<const Uint8*>(surface->pixels) + y * surface->pitch;
-            for (unsigned x = 0; x < 3; ++x) {
-                REQUIRE(memcmp(row + x * 4, expected + x * 4, 4) == 0);
-                if (data == &rgb) {
-                    const auto* original = pixels.data() + y * 16 + x * 4;
-                    for (unsigned component = 0; component < 3; ++component)
-                        REQUIRE(abs(int(row[x * 4 + component]) - int(original[component])) <= 3);
-                }
-            }
+    auto surface = decodeJpeg(rgb);
+    REQUIRE((surface && surface->w == 3 && surface->h == 2));
+    for (unsigned y = 0; y < 2; ++y) {
+        const auto* row = static_cast<const Uint8*>(surface->pixels) + y * surface->pitch;
+        for (unsigned x = 0; x < 3; ++x) {
+            const auto* original = pixels.data() + y * 16 + x * 4;
+            for (unsigned component = 0; component < 3; ++component)
+                REQUIRE(abs(int(row[x * 4 + component]) - int(original[component])) <= 3);
         }
-        REQUIRE(!encode(*surface).empty());
     }
-    auto invalid = rgb;
-    invalid[0] = 0;
-    REQUIRE(!loadJpeg(invalid));
 }
 
 struct TgaFixture {
@@ -325,17 +294,11 @@ static void streamTests()
     REQUIRE(SDL_SeekIO(source.get(), 0, SDL_IO_SEEK_SET) == 0);
     // SDL's const-memory backend clamps out-of-range seeks. Archive entry
     // backends reject them; those bounds are tested in virtual_transfer_test.
-    const auto jpeg = fixture("gray.jpg");
-    for (int fault : {0, 1, 2, 3}) {
-        FaultIO backend{jpeg, fault};
-        auto input = backend.open();
-        REQUIRE(!imageIO::load("sample.jpg", input.get()));
-        REQUIRE(SDL_TellIO(input.get()) <= Sint64(jpeg.size()));
-    }
-    auto surface = loadJpeg(jpeg);
+    const Bytes backing(16);
+    auto surface = CreateCpuStorage(3, 2, SDL_PIXELFORMAT_BGRA32);
     REQUIRE(surface);
     for (int fault : {4, 5}) {
-        FaultIO backend{jpeg, fault};
+        FaultIO backend{backing, fault};
         auto output = backend.open();
         bool rejected = false;
         try {
@@ -346,7 +309,7 @@ static void streamTests()
         REQUIRE(rejected);
     }
 }
-TEST_CASE("JPEG decoding and transfer", "[image][transfer]")
+TEST_CASE("JPEG encoding and transfer", "[image][transfer]")
 {
     jpegTests();
 }

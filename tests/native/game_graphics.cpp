@@ -4,6 +4,7 @@
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
+#include <SDL3_image/SDL_image.h>
 #include <catch2/catch_test_macros.hpp>
 #include <wiz8/filesystem.h>
 
@@ -34,6 +35,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/surface_storage.h"
 
 class WorldScene;
 
@@ -77,7 +79,8 @@ TEST_CASE("game graphics")
     g_renderer->setCaptureEnabled(true);
     REQUIRE(g_renderer->isOpen());
     REQUIRE(InitializeRendererSceneObjects());
-    auto targa = imageIO::load("data\\automap\\map_monsterfriendly_a.tga");
+    auto targa_file = wiz8::open_file(wiz8::asset_path("data\\automap\\map_monsterfriendly_a.tga"));
+    auto targa = imageIO::loadTga(*targa_file);
     REQUIRE((targa && targa->w > 0 && targa->h > 0));
     const char* image_path = SDL_getenv("WIZ8_GRAPHICS_IMAGE");
     auto image_object =
@@ -198,7 +201,7 @@ TEST_CASE("game graphics")
     g_screenshot_index = 0;
     SaveJpegScreenshot();
     auto screenshot_file = wiz8::open_file(wiz8::user_path("Wiz800000.JPG"));
-    auto screenshot = imageIO::load("screenshot.jpg", *screenshot_file);
+    SDLSurfaceOwner screenshot(IMG_LoadJPG_IO(screenshot_file->io()), SDL_DestroySurface);
     REQUIRE((screenshot && screenshot->w == 640 && screenshot->h == 480));
     puts("retail Targa import and game JPEG screenshot round-trip");
 

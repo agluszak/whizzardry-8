@@ -351,12 +351,6 @@ static void linked_mesh_bounds()
     mesh.calculateCompoundBounds();
     REQUIRE(mesh.bounds_minimum == glm::vec3(-8, -9, -10));
     REQUIRE(mesh.bounds_maximum == glm::vec3(-2, -3, -4));
-    REQUIRE(mesh.findClosestVertex({-3, -4, -5}) == 0); // Equal distances choose the first vertex.
-    Mesh zero(0, 2);
-    zero.scaleToMaxRadius(10);
-    zero.scaleToAverageRadius(10);
-    REQUIRE(zero.getVertexLoc()[0] == glm::vec3(0, 0, 0));
-    REQUIRE(zero.getMaxRadius() == 0);
 }
 
 static void baked_lighting()

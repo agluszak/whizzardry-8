@@ -269,7 +269,7 @@ int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
     auto& field = *fields_.emplace_back(
         std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
     field.input_type = input_type;
-    field.capacity = input_type == 0x1002 ? 6 : capacity;
+    field.capacity = capacity;
     field.text.assign(text);
     field.use_inactive_color = use_inactive_color;
     if (fields_.size() == 1) field.SelectAll();
@@ -388,64 +388,6 @@ void TextFieldGroup::InsertCharacter(char32_t character)
     field.text.insert(field.cursor, bytes);
     field.cursor += bytes.size();
     field.Relayout();
-}
-
-/* Input types above 0x0fff accept one fixed format each: identifiers, a
-   lowercase letter followed by digits, and HH:MM. */
-void TextFieldGroup::InsertRestricted(char32_t character)
-{
-    auto& field = *focused_;
-    const auto is_digit = [](char32_t c) { return c >= '0' && c <= '9'; };
-    if (field.input_type == 0x1000) {
-        if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
-            !is_digit(character) && character != '_' && character != '.')
-            return;
-        if (field.cursor == 0 && is_digit(character)) return;
-        InsertCharacter(character);
-        return;
-    }
-    if (field.input_type == 0x1001) {
-        if (field.cursor == 0) {
-            if (IsLowercaseCharacter(character) != 0)
-                InsertCharacter(character);
-            else if (IsUppercaseCharacter(character) != 0)
-                InsertCharacter(ToLowercaseCharacter(character));
-            return;
-        }
-        if (is_digit(character)) InsertCharacter(character);
-        return;
-    }
-    if (field.input_type != 0x1002) return;
-    switch (field.cursor) {
-    case 0:
-        if (character >= '0' && character <= '2') InsertCharacter(character);
-        return;
-    case 1:
-        if (is_digit(character) && (field.text[0] != '2' || character <= '3'))
-            InsertCharacter(character);
-        if (field.text.size() <= 2) {
-            InsertCharacter(':');
-            return;
-        }
-        field.SetCursor(wiz8::text::next_grapheme(field.text, field.cursor));
-        return;
-    case 2:
-        if (character == ':') {
-            InsertCharacter(':');
-        } else if (is_digit(character)) {
-            InsertCharacter(':');
-            InsertCharacter(character);
-        }
-        return;
-    case 3:
-        if (character >= '0' && character <= '5') InsertCharacter(character);
-        return;
-    case 4:
-        if (is_digit(character)) InsertCharacter(character);
-        return;
-    default:
-        return;
-    }
 }
 
 bool TextFieldGroup::HandleInput(const InputEvent& event)
@@ -570,10 +512,6 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
             DeleteSelection(field.selection_start, field.selection_end);
     }
     const auto input_type = static_cast<unsigned short>(field.input_type);
-    if (input_type > 0x0fff) {
-        InsertRestricted(character);
-        return true;
-    }
     const bool space = character == ' ' && (input_type & 4) != 0;
     const bool sign = character == '-' && (input_type & 2) != 0 && field.cursor == 0;
     const bool digit = character >= '0' && character <= '9' && (input_type & 1) != 0;

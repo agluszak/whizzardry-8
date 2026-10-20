@@ -25,8 +25,6 @@
 
 /* D:\srsdk1x\sources\corelib\Mesh.cpp */
 
-#include <limits>
-
 #include "wiz8/math.h"
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/mesh_resources.h"
@@ -424,51 +422,6 @@ void Mesh::relocateVertices(const glm::vec3& offset)
         vertices[index] += offset;
     }
     setDirtyAll();
-}
-
-double Mesh::getAverageRadius()
-{
-    if (vertex_location_count == 0) {
-        return 0.0;
-    }
-    double radius = 0;
-    for (const auto& vertex : std::span(getVertexLoc(), vertex_location_count))
-        radius += glm::length(vertex);
-    return radius / vertex_location_count;
-}
-
-double Mesh::getMaxRadius()
-{
-    return boundingRadius(std::span(getVertexLoc(), vertex_location_count), glm::vec3(0));
-}
-
-void Mesh::scaleToAverageRadius(double radius)
-{
-    const double current_radius = getAverageRadius();
-    if (current_radius > 0) scale(glm::vec3(static_cast<float>(radius / current_radius)));
-}
-
-void Mesh::scaleToMaxRadius(double radius)
-{
-    const double current_radius = getMaxRadius();
-    if (current_radius > 0) scale(glm::vec3(static_cast<float>(radius / current_radius)));
-}
-
-std::int32_t Mesh::findClosestVertex(const glm::vec3& position)
-{
-    const auto target = position;
-    float minimum = std::numeric_limits<float>::infinity();
-    std::int32_t closest = 0;
-    const auto* vertices = getVertexLoc();
-    for (std::int32_t i = 0; i < vertex_location_count; ++i) {
-        const auto offset = vertices[i] - target;
-        const float distance = glm::dot(offset, offset);
-        if (distance < minimum) {
-            minimum = distance;
-            closest = i;
-        }
-    }
-    return closest;
 }
 
 Mesh::TriMesh Mesh::getTriMesh()
