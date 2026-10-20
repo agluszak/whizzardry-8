@@ -3,9 +3,9 @@
 #include <functional>
 #include <optional>
 
-#include "wiz8/equipment_slots.h"
-#include "wiz8/item_location.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 
 struct W8Character;
 

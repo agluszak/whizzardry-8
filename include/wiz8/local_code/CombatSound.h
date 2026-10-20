@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-#include "wiz8/attack_modes.h"
+#include "wiz8/data/attack_modes.h"
 
 unsigned char LoadHitSoundDatabase(void);
 void ReleaseHitSoundDatabase(void);

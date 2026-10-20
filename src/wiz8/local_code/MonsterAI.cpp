@@ -9,12 +9,7 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "conditions.h"
-#include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/character.h"
-#include "layouts/gameplay_databases.h"
-#include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
@@ -22,18 +17,20 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/unaligned.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -46,10 +43,14 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/spell_ids.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
@@ -95,7 +96,7 @@ int g_special_attack_table[32][2] = {
    MonsterSpellTargetOK to tell whether a buff is already running; the
    monster side indexes effect_slots, the party side the matching rows
    in g_status. */
-int g_being_effect_slot_spells[12] = {
+const int g_being_effect_slot_spells[12] = {
     W8_SPELL_ARMORPLATE, W8_SPELL_CHAMELEON,    W8_SPELL_DETECT_SECRETS, W8_SPELL_ENCHANTED_BLADE,
     W8_SPELL_LIGHT,      W8_SPELL_MAGIC_SCREEN, W8_SPELL_MISSILE_SHIELD, W8_SPELL_SHADOW_HOUND,
     W8_SPELL_X_RAY,      W8_SPELL_NONE,         W8_SPELL_NONE,           W8_SPELL_NONE,
@@ -103,7 +104,7 @@ int g_being_effect_slot_spells[12] = {
 
 /* The combat-state spell per effect slot, walked against
    W8CombatState::effect_slots and the monster's combat_effects. */
-int g_combat_effect_slot_spells[9] = {
+const int g_combat_effect_slot_spells[9] = {
     W8_SPELL_ARMORMELT, W8_SPELL_ACID_BOMB,   W8_SPELL_TOXIC_CLOUD,
     W8_SPELL_FIRESTORM, W8_SPELL_DEATH_CLOUD, W8_SPELL_DRAINING_CLOUD,
     W8_SPELL_NONE,      W8_SPELL_NONE,        W8_SPELL_NONE,
@@ -114,7 +115,7 @@ int g_combat_effect_slot_spells[9] = {
    retail array: [0..6) are spell ids, [6..23) — the retail sub-table at
    0x00616DF0 — is the spell-point budget/failure percentage indexed by cost
    band that Magic.cpp's failure and power-level readers consume. */
-int g_combat_effect_slot_spells_and_cast_success[23] = {
+const int g_combat_effect_slot_spells_and_cast_success[23] = {
     W8_SPELL_BLESS,
     W8_SPELL_ELEMENT_SHIELD,
     W8_SPELL_SOUL_SHIELD,

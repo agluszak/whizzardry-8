@@ -20,7 +20,6 @@
 
 #include "compat/compiler.h"
 #include "compat/native.h"
-#include "layouts/character.h"
 #include "layouts/main_game_screen.h"
 #include "local_code/MonsterManager.h"
 #include "local_code/RangeControl.h"
@@ -53,6 +52,7 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/ui_layer.h"

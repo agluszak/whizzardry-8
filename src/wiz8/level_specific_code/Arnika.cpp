@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
 #include "monster_actions.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
@@ -15,7 +14,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_location.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -29,6 +27,8 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"

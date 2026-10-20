@@ -6,14 +6,10 @@
 
 #include <fmt/printf.h>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
-#include "layouts/party_formation.h"
-#include "layouts/targeting.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
@@ -24,6 +20,10 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"

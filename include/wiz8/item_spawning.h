@@ -5,8 +5,8 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/rules/item_instance.h"
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {

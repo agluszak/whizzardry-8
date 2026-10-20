@@ -14,14 +14,13 @@
 #include "npc_trade_price.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -34,6 +33,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */

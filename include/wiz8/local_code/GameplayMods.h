@@ -1,6 +1,6 @@
 #pragma once
 
-#include "wiz8/gameplay_modifiers.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 
 /* Local Code\Gameplay Mods.cpp. */
 

@@ -4,7 +4,7 @@
 #include <cstdint>
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/item_location.h"
+#include "wiz8/rules/item_location.h"
 
 struct W8ItemInstance;
 struct W8MonsterInfo;

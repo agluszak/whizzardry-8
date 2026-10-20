@@ -7,14 +7,11 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/gameplay_databases.h"
-#include "layouts/targeting.h"
 #include "local_code/Factions.h"
 #include "sight_state.h"
+#include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -31,6 +28,9 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
 
 /* The per-special-attack condition each attack slot tries to inflict, indexing the same

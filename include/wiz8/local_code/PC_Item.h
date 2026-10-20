@@ -12,15 +12,15 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/npc_trade_price.h"
+#include "wiz8/rules/item_instance.h"
 
 struct W8ItemDatabaseRecord;
 struct W8NpcState;
 struct W8CombatSlot;
 struct W8Action;
 
-#include "wiz8/equipment_slots.h"
+#include "wiz8/rules/equipment_slots.h"
 
 bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item);
 

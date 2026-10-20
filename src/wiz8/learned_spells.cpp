@@ -1,9 +1,10 @@
 #include "wiz8/learned_spells.h"
 
 #include "layouts/learned_spells.h"
-#include "spell_ids.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/rules/character.h"
 
 /* Original translation unit is not established by the ItemManager/Magic source anchors. */
 void BuildLearnedSpellState(W8LearnedSpellState* scratch, W8Character* character)

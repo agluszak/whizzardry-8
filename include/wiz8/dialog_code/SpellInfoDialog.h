@@ -5,6 +5,7 @@
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/platform/game_timer.h"
 
 /* The constructor stores the spell id; Draw and DrawLabels index

@@ -12,24 +12,24 @@
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "attack_modes.h"
 #include "audio_resources.h"
-#include "equipment_slots.h"
-#include "layouts/character.h"
-#include "layouts/item_instance.h"
-#include "layouts/targeting.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/targeting.h"
 
 static std::array<std::string, 38> g_weapon_attack_sounds;
 static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;

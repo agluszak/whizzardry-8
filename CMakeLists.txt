@@ -220,7 +220,26 @@ target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
 add_library(wiz8_platform STATIC src/platform/random.cpp)
 target_link_libraries(wiz8_platform PUBLIC wiz8_native_settings)
 
+# The architecture's lower layers: game data and rules. They build without the
+# compatibility layer, SDL or the engine, so the linker enforces what
+# tools/check_layers.py checks in their includes.
+add_library(wiz8_rules STATIC
+    src/data/character_tables.cpp
+    src/rules/party.cpp
+    src/rules/party_formation.cpp
+)
+target_include_directories(wiz8_rules PUBLIC "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(wiz8_rules PUBLIC glm::glm-header-only fmt::fmt)
+if(WIZ8_WARNINGS_AS_ERRORS)
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        target_compile_options(wiz8_rules PRIVATE /WX)
+    else()
+        target_compile_options(wiz8_rules PRIVATE -Werror)
+    endif()
+endif()
+
 add_library(wiz8_engine STATIC)
+target_link_libraries(wiz8_engine PUBLIC wiz8_rules)
 add_subdirectory(src/render)
 add_subdirectory(src/wiz8)
 

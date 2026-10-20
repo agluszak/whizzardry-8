@@ -6,9 +6,7 @@
 #include <string_view>
 
 #include "compat/native.h"
-#include "layouts/item_instance.h"
 #include "layouts/main_game_screen.h"
-#include "layouts/targeting.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
@@ -32,6 +30,8 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/xstatus.h"
 

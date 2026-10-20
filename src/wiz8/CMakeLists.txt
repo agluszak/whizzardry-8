@@ -172,8 +172,6 @@ target_sources(wiz8_engine PRIVATE
     ../entities/cursor.cpp
     ../render/effects/light_animation.cpp
     version.cpp
-    party_formation.cpp
-    party.cpp
     party_stats.cpp
     inventory.cpp
     character_stats.cpp

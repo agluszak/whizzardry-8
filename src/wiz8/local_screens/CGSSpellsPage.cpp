@@ -7,7 +7,6 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "layouts/character.h"
 #include "local_code/CharGeneration.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/HealthStaminaMana.h"
@@ -15,15 +14,17 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
 

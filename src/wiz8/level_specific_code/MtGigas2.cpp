@@ -6,7 +6,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/dice.h"
+#include "wiz8/data/dice.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"

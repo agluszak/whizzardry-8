@@ -2,18 +2,18 @@
 
 #include <span>
 
-#include "conditions.h"
-#include "gameplay_modifiers.h"
-#include "load_category.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/character_stats.h"
 #include "wiz8/item_rules.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/party_slot.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/party.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/load_category.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/rules/party_slot.h"
 
 /* Derived statistics and shared load. The retail code at 0x004ED9D0 sits in a gap
    between Local Code\Combat.cpp (upper 0x004ED390) and Local Code\GameplayCode.cpp
@@ -180,12 +180,12 @@ static bool AssignPartyLoad(W8Party& party, const PartyStatRules& rules)
     return true;
 }
 
-bool W8Party::refreshLoad(const PartyStatRules& rules)
+bool RefreshPartyLoad(W8Party& party, const PartyStatRules& rules)
 {
-    if (!AssignPartyLoad(*this, rules)) return false;
+    if (!AssignPartyLoad(party, rules)) return false;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (rows[slot].fOccupied && UpdateCharacterLoad(characters[slot]))
-            RecalculateLoadModifiers(characters[slot], rules.characters[slot]);
+        if (party.rows[slot].fOccupied && UpdateCharacterLoad(party.characters[slot]))
+            RecalculateLoadModifiers(party.characters[slot], rules.characters[slot]);
     return true;
 }
 
@@ -200,18 +200,20 @@ CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
     return update;
 }
 
-W8PartyStats W8Party::updateStats(const PartyStatRules& rules)
+W8PartyStats UpdatePartyStats(W8Party& party, const PartyStatRules& rules)
 {
     W8PartyStats result;
+    auto& characters = party.characters;
     // Establish every capacity and inventory weight before allocating the shared pool.
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!rows[slot].fOccupied || !IsCharacterDefined(characters[slot])) continue;
-        EvaluateCharacterInputs(characters[slot], characters[slot].fInParty ? &modifiers : nullptr);
+        if (!party.rows[slot].fOccupied || !IsCharacterDefined(characters[slot])) continue;
+        EvaluateCharacterInputs(characters[slot],
+                                characters[slot].fInParty ? &party.modifiers : nullptr);
         result.characters[slot] =
             RecalculateCharacterStatsFromAttributes(characters[slot], rules.characters[slot]);
         if (rules.load_timing == PartyLoadTiming::Disabled) characters[slot].party_weight_share = 0;
     }
-    result.load_redistributed = AssignPartyLoad(*this, rules);
+    result.load_redistributed = AssignPartyLoad(party, rules);
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (result.characters[slot].valid)
             RecalculateCharacterLoadStats(characters[slot], rules.characters[slot]);

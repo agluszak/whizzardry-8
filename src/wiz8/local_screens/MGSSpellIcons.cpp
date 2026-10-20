@@ -9,10 +9,11 @@
 #include <fmt/printf.h>
 
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MainGameScreen.h"

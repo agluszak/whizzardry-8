@@ -2,13 +2,14 @@
 
 #include <array>
 
-#include "wiz8/layouts/party_slot.h"
+#include "wiz8/rules/party_slot.h"
 
 /* Derived character statistics and the party's shared load. The calculations take
    the inputs that come from combat and NPC story state explicitly; live_party.h
    supplies the active session's. */
 
 struct W8Character;
+struct W8Party;
 
 struct CharacterStatRules {
     bool defensive_action = false;
@@ -34,6 +35,17 @@ struct CharacterStatsUpdate {
 };
 InventoryWeightChange RecalculateInventoryWeight(W8Character& character);
 bool RecalculateCarryingCapacity(W8Character* character);
+// Derived values written by a party recalculation, and the transitions they imply.
+// Applying those transitions (death, notices) belongs to the caller.
+struct W8PartyStats {
+    std::array<CharacterStatsUpdate, W8_PARTY_SLOT_COUNT> characters{};
+    bool load_redistributed = false;
+};
+// Recalculate every occupied member from its equipment, attributes and conditions,
+// then the shared load.
+W8PartyStats UpdatePartyStats(W8Party& party, const PartyStatRules& rules);
+// Redistribute the shared load; false when nothing was redistributed.
+bool RefreshPartyLoad(W8Party& party, const PartyStatRules& rules);
 // A character outside any party: no party modifiers and no shared load.
 CharacterStatsUpdate UpdateStandaloneCharacterStats(W8Character& character,
                                                     CharacterStatRules rules);

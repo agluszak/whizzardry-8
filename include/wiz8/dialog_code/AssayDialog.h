@@ -8,7 +8,7 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/rules/item_instance.h"
 
 struct W8Character;
 class W8ButtonWidget;

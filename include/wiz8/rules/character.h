@@ -1,17 +1,15 @@
-#ifndef WIZ8_LAYOUTS_CHARACTER_H
-#define WIZ8_LAYOUTS_CHARACTER_H
+#pragma once
 
 #include <string>
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/character_skills.h"
-#include "wiz8/conditions.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/load_category.h"
-#include "wiz8/math.h"
-#include "wiz8/world/world.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/load_category.h"
+#include "wiz8/world/camera_pose.h"
 
 /* One enchantment slot. Both a character and a monster carry eight of them,
    and both clear a slot by zeroing all three dwords at once. */
@@ -309,53 +307,3 @@ struct W8Character {
     /* Retail offset 0x1861: the anchor above has been set. Recall does nothing without it. */
     bool has_saved_location;
 };
-
-enum W8SkillImportPolicy {
-    W8_SKILL_IMPORT_POLICY_0 = 0,
-    W8_SKILL_IMPORT_POLICY_1 = 1,
-    W8_SKILL_IMPORT_PROFESSION = 2,
-    W8_SKILL_IMPORT_DISABLED = 3,
-};
-
-struct W8SkillAttributes {
-    W8SkillCategory category;
-    W8SkillImportPolicy import_policy;
-    /* Retail offset 0x08/0x0c: governing attributes averaged into base_level and
-       listed in the stat-info dialog. */
-    W8Attribute attribute_1;
-    W8Attribute attribute_2;
-};
-
-extern W8RaceResistanceProfile g_race_resistance_profiles[];
-extern int g_profession_skill_availability[0x29][W8_PROFESSION_COUNT];
-extern W8Skill g_profession_bonus_skills[W8_PROFESSION_COUNT];
-extern W8SkillAttributes g_skill_attributes[0x29];
-
-/* Profession and race trait sets consulted by CharacterHasTrait. Each entry is
-   only its id list: three profession abilities, five race abilities. */
-struct W8ProfessionAbilitySet {
-    W8Trait ability_ids[3];
-};
-
-struct W8RaceAbilitySet {
-    W8Trait ability_ids[5];
-};
-
-extern W8ProfessionAbilitySet g_profession_abilities[W8_PROFESSION_COUNT];
-extern W8RaceAbilitySet g_race_abilities[W8_RACE_COUNT];
-extern W8Skill g_profession_skills[W8_PROFESSION_COUNT][4];
-extern int g_profession_magic_level_offsets[W8_PROFESSION_COUNT];
-extern float g_profession_hit_point_factors[W8_PROFESSION_COUNT];
-
-enum class W8PortraitMirrorSide : unsigned char { none, left, right };
-
-struct W8PortraitDescriptor {
-    int group;
-    int unknown_004;
-    int unknown_008;
-    W8PortraitMirrorSide mirror_side;
-};
-
-extern W8PortraitDescriptor g_portrait_descriptors[80];
-
-#endif

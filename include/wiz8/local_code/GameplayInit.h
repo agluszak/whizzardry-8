@@ -1,7 +1,7 @@
 #pragma once
 
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 
 void ResetGameStatus(bool release);
 void InitializeGameplayRuntimeObjects(void);

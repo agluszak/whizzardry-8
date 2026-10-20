@@ -9,13 +9,13 @@
 #include <vector>
 
 #include "wiz8/character_skills.h"
-#include "wiz8/equipment_slots.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/party_formation.h"
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/targeting.h"
 
 struct W8Character;
 

@@ -9,16 +9,16 @@
 #include <vector>
 
 #include "wiz8/character_event_queue.h"
-#include "wiz8/item_location.h"
+#include "wiz8/data/records.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/party_formation.h"
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/targeting.h"
 
 struct W8MonsterGroup;
 struct W8MonsterInfo;

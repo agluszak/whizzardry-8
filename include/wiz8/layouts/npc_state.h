@@ -9,10 +9,10 @@ struct W8NpcItemEntry;
 
 #include <algorithm>
 
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/data/records.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/item_instance.h"
 
 /* One entry in an NPC's stock list. */
 struct W8NpcItemEntry {

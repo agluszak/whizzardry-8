@@ -6,10 +6,10 @@
 #include <fmt/format.h>
 
 #include "wiz8/character_skills.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/item_instance.h"
 
 static const short g_compatible_partner_pairs[6][2] = {
     {114, 113}, {110, 132}, {104, 132}, {144, 143}, {145, 146}, {0, 0},

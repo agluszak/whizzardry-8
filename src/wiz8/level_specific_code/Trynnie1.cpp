@@ -2,15 +2,12 @@
 
 #include <vector>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/gameplay_databases.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
@@ -21,6 +18,9 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"

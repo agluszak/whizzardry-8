@@ -7,11 +7,12 @@
 void ResetSpellCooldowns(void);
 
 #include "glm/ext/vector_float3.hpp"
-#include "spell_ids.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/targeting.h"
 
 enum class W8SpellCastKind : unsigned char {
     Standard = 0,

@@ -21,7 +21,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -30,6 +29,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "compat/compiler.h"
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/targeting.h"
 
 extern char s_general_magic_sound[];
 

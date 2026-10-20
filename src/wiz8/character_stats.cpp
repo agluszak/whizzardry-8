@@ -2,20 +2,21 @@
 
 #include <cstring>
 
-#include "wiz8/attack_modes.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/conditions.h"
-#include "wiz8/dice.h"
-#include "wiz8/equipment_slots.h"
-#include "wiz8/gameplay_modifiers.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/data/records.h"
 #include "wiz8/item_rules.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/item_tables.h"
-#include "wiz8/load_category.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/load_category.h"
 
 enum {
     W8_PHYS_COMBAT_WEIGHT_FIGHTER = 4,

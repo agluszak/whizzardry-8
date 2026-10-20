@@ -1,21 +1,17 @@
-#ifndef WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
-#define WIZ8_LAYOUTS_GAMEPLAY_DATABASES_H
+#pragma once
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
-#include "wiz8/retail_opaque_records.h"
-struct W8NpcItemStockRule;
-
-#include <algorithm>
-
 #include <stddef.h>
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/local_code/Factions.h"
-#include "wiz8/spell_ids.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/retail_opaque_records.h"
 
 /*
  * Runtime views of gameplay database records. Text is decoded UTF-8.
@@ -568,13 +564,3 @@ struct W8RaceResistanceAdjustment {
 struct W8RaceResistanceProfile {
     W8RaceResistanceAdjustment adjustments[6];
 };
-
-/* Borrowed views of database records. Loaders retain the owning storage;
-   replacing or releasing a database invalidates its borrowed pointers. */
-// The loaded retail databases; each vector owns its records.
-extern std::vector<W8FactDatabaseRecord> g_fact_records;
-extern std::vector<W8LevelDatabaseRecord> g_level_records;
-extern std::vector<W8NpcDatabaseRecord> g_npc_records;
-extern std::vector<W8SpellRuntimeRecord> g_spell_records;
-
-#endif

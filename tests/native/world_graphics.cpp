@@ -15,17 +15,15 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
-#include "wiz8/layouts/party_slot.h"
 #include "wiz8/level_population.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/world/camera_pose.h"
 
 /* Installed character and level assets through the recovered game loop. */
 #include <SDL3/SDL_surface.h>
 
-#include "layouts/targeting.h"
 #include "temporary_directory.h"
 #include "wiz8/application.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -46,6 +44,8 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/party_camera.h"

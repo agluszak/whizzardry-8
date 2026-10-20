@@ -17,6 +17,30 @@ codecs, including malformed-input replacement and fixed field limits.
 The game only reads compiled OCT/WPT/PVL geometry; there is no level compiler or
 editor. Shipped `.rlk` region links remain readable.
 
+## Layers
+
+The target layering is described in [ROADMAP.md](ROADMAP.md). The layers that exist
+are enforced:
+
+- **`data`** (`include/wiz8/data/`, `src/data/`): content ids, database record types
+  and the constant profession, race, skill and portrait tables.
+- **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model and
+  party storage (`W8Party`, formation).
+
+A layer file includes only its own layer, the layers below it, the standard library,
+glm, fmt and three stateless foundation headers (`math.h`, `world/camera_pose.h`,
+`retail_opaque_records.h`). It declares no mutable globals.
+
+- `tools/check_layers.py` checks includes and `extern` declarations, and runs as the
+  `layer_boundaries` test.
+- The CI tidy job also runs it with clang-tidy's non-const-global check over the layers'
+  sources.
+- `wiz8_rules` builds without the compatibility layer, SDL or the engine, and
+  `native_party_storage_test` links only `wiz8_rules`, so an engine dependency fails to
+  link.
+
+Unlayered code may use the layers.
+
 ## Modules
 
 | Module | Owns |
@@ -29,7 +53,7 @@ editor. Shipped `.rlk` region links remain readable.
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
-| `wiz8/` | Gameplay rules, screens, dialogs and level scripts. |
+| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. |
 
 ## Runtime contracts
 

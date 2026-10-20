@@ -80,23 +80,20 @@ The decisions behind it:
    - `W8GlobalStatus` and the other retail records exist only inside the codec.
    - A save snapshot is a copy of `GameState`.
 7. **The boundaries are enforced.**
-   - `rules` and `game` are separate CMake targets that do not link `ui`, render or SDL.
-   - CI checks their includes and applies `cppcoreguidelines-avoid-non-const-global-variables`
-     to them.
+   - `data` and `rules` build as a library without the engine or SDL, and `game` does
+     not link `ui`.
+   - A checker limits each layer's includes. CI applies
+     `cppcoreguidelines-avoid-non-const-global-variables` to the layers.
 
 ## Migration
 
 Each step lands one subsystem in its final shape and moves its code behind the enforced
-boundary, so a step cannot regress. Code not yet migrated reaches the game through
-`CurrentGame()`. That accessor returns null while no game exists, `rules` and `game` may
-not call it, and it is deleted with its last caller. Run the licensed runtime scenarios
-after every step.
+boundary (ARCHITECTURE.md, "Layers"), so a step cannot regress. Code not yet migrated
+reaches the game through `CurrentGame()`. That accessor returns null while no game
+exists, `rules` and `game` may not call it, and it is deleted with its last caller. Run
+the licensed runtime scenarios after every step.
 
-1. **Layers and enforcement.**
-   - Create the `data`, `rules` and `game` targets, the include check and the lint.
-   - Seed `rules` with the pure modules: `party`, `party_stats`, `item_rules`,
-     `character_stats`.
-2. **The game object.**
+1. **The game object.**
    - The Application holds `std::optional<Game>`, created by a new game or a load and
      destroyed on quit.
    - The game owns the party, the status, combat, `Rng`, the speech queue, the gameplay
@@ -104,6 +101,13 @@ after every step.
    - `g_status`, `g_combat`, the random state and the gameplay half of `gXStatus` are
      deleted, along with the reset functions.
    - Party selection, import and character creation edit a `PartyDraft`.
+2. **`GameData`.**
+   - The databases, string table and rule tables become one immutable object that the
+     Application loads and rules receive.
+   - Tests build small `GameData` fixtures instead of swapping globals (`ScopedRecords`).
+   - Message ids get names here.
+   - This lets `item_rules`, `character_stats` and `party_stats` move into `rules`,
+     which reading the item and profession databases prevents today.
 3. **Inventory and party in `rules`.**
    - Inventory commands, settlement, encumbrance and equipment rules take a
      `RuleContext` and emit events, and the camp and main game screens present them.
@@ -127,22 +131,17 @@ after every step.
      the item-action buttons belong to the items page.
    - The held-item cursor is derived every frame from the hand and the interaction
      mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
-7. **`GameData`.**
-   - The databases, string table and rule tables become one immutable object that the
-     Application loads and rules receive.
-   - Tests build small `GameData` fixtures instead of swapping globals (`ScopedRecords`).
-   - Message ids get names here.
-8. **Conditions, magic and combat in `rules`.**
+7. **Conditions, magic and combat in `rules`.**
    - Conditions, spells and attack resolution return results and emit events.
    - `Combat` becomes an owned turn system, signalled by animation and missile events.
-9. **Story state.**
+8. **Story state.**
    - Facts, factions, the journal, NPC states, location variables and the message log
      move into `GameState`.
    - NPC scripting and level scripts take a context (the world, the party, story state,
      events) instead of reaching globals, and level-script statics become per-level
      script objects.
-10. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
-    `decode(...)`. Then delete `W8GlobalStatus` as a runtime type.
+9. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
+   `decode(...)`. Then delete `W8GlobalStatus` as a runtime type.
 
 ## Within the layers
 
@@ -162,8 +161,8 @@ each.
     they happen inside the statistics calculation.
   - Make the retail previous-pass damage bonus used by swings an explicit history
     input, so that a different number of passes cannot change combat results.
-- **The party and actions model.** (After step 2; choices move with `Combat` in
-  step 8.) `W8PartySlotRow` mixes several unrelated kinds of state:
+- **The party and actions model.** (After step 1; choices move with `Combat` in
+  step 7.) `W8PartySlotRow` mixes several unrelated kinds of state:
   - persistent membership, NPC binding and marching order;
   - combat choices (pending, committed, remembered and spell actions, targets);
   - UI flags (`item_action_pending`, `portrait_advance`) and accumulators
@@ -185,7 +184,7 @@ each.
   trade rows do, and abandon on mismatch, because pool compaction can silently
   retarget a location.
 - **Runtime types with semantic shape; retail layout only in codecs.** (Finished
-  by step 10.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
+  by step 9.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
   state still carry retail field names and sizes: about 1,230 uses of Hungarian
   names such as `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size
   `static_assert`s. Twenty-eight `wiz8::retail::Record` codecs already exist.

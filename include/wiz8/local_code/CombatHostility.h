@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
+#include "wiz8/rules/targeting.h"
 
 struct W8Party;
 struct W8MonsterInfo;

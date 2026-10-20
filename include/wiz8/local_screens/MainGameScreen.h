@@ -7,13 +7,13 @@
 #include <SDL3/SDL_keycode.h>
 
 #include "compat/compiler.h"
-#include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 

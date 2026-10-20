@@ -6,10 +6,10 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"

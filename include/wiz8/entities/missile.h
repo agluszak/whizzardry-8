@@ -10,11 +10,11 @@
 unsigned char LoadMissileDatabase(void);
 
 #include "compat/compiler.h"
-#include "layouts/targeting.h"
-#include "wiz8/attack_modes.h"
+#include "wiz8/data/attack_modes.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/rules/targeting.h"
 
 struct LevelLoadContext;
 struct World;

@@ -4,8 +4,8 @@
 #include <array>
 #include <string>
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/dice.h"
 #include "wiz8/retail_item_payloads.h"
 
 #pragma pack(push, 1)

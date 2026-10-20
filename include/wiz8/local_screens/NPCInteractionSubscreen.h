@@ -18,13 +18,13 @@ void HideNpcQuoteBubbleRegion();
 
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/xstatus.h"
 

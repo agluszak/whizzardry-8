@@ -13,9 +13,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/item_location.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_records.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/unicode.h"
 
 namespace wiz8::retail {

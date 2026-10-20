@@ -1,10 +1,11 @@
-#include "layouts/gameplay_databases.h"
-#include "wiz8/layouts/character.h"
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/targeting.h"
 #include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/targeting.h"
 
 /* The combat-strip portrait catalog index for one slot's chosen action and
    status. Most actions map to a fixed base; attacks pick per weapon skill and

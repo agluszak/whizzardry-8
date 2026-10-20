@@ -10,12 +10,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "attack_modes.h"
-#include "layouts/character.h"
-#include "layouts/gameplay_databases.h"
 #include "retail_records.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/unicode.h"
 
 static_assert(wiz8::retail::kMonsterRecordBytes == 0x297);

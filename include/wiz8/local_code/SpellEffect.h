@@ -9,11 +9,11 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/targeting.h"
-#include "wiz8/spell_ids.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/targeting.h"
 
 class SpellVisual;
 class Missile;
