@@ -29,6 +29,7 @@
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
+#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/message_log.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
@@ -97,7 +98,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
-#include "wiz8/xstatus.h"
 
 static std::vector<W8NpcState*> NpcStatePointers()
 {

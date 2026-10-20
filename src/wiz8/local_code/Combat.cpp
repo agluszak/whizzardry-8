@@ -116,7 +116,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr unsigned int kFleeChance = 15;
 
@@ -219,7 +218,7 @@ bool W8CombatLifecycle::Start(int surprise)
     state_->combat_ready = false;
     phase_ = Phase::Active;
     SyncWorldAdvancement();
-    gXStatus.fPartyMovementUi = false;
+    if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
     CurrentGame().party_movement_mode = false;
     DisablePortraitControls();
     MainGame()->combat.setEnabled(true);
@@ -277,7 +276,7 @@ bool W8CombatLifecycle::Start(int surprise)
     ResetPartyCombatRows();
     DetectMonsterGroups();
     RequestRedrawParty();
-    gXStatus.edited_formation = CurrentGame().party.formation;
+    CurrentGame().planned_formation = CurrentGame().party.formation;
     SaveCombatFormation();
     state_->search_mode_saved = CurrentGame().status.search_mode;
     if (CurrentGame().status.search_mode != 0) {
@@ -533,7 +532,7 @@ void BeginCombatExecution(void)
             ReopenSubMenuPanel();
         }
     }
-    if (g_settings.continuous_combat == 0 && gXStatus.iTargetingMode != W8_TARGET_NEED_NONE) {
+    if (g_settings.continuous_combat == 0 && TargetingMode() != W8_TARGET_NEED_NONE) {
         SetTargetingMode(W8_TARGET_NEED_NONE);
     }
     CurrentGame().combat.state()->execution_active = 1;
@@ -1042,7 +1041,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     if (CurrentGame().party_movement_mode) {
         BeginFreeTurnPhase();
     }
-    if (gXStatus.fPartyMovementUi) {
+    if (PartyMovementPanelShown()) {
         ReleasePartyMovement();
     }
     RequestRedrawCombatBar();
@@ -1226,7 +1225,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                                                               : W8_PARTY_ACTION_RUN);
         }
     }
-    if (!gXStatus.fPartyMovementUi) {
+    if (!PartyMovementPanelShown()) {
         CreatePartyMovementPanel();
         SetTargetingMode(W8_TARGET_NEED_NONE);
         return;
@@ -1359,7 +1358,7 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    if (gXStatus.iTargetingMode == W8_TARGET_NEED_NONE && IsScreenIdle()) {
+    if (TargetingMode() == W8_TARGET_NEED_NONE && IsScreenIdle()) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
             if (IsPartySlotEligible(slot)) {
                 return true;
@@ -1553,8 +1552,8 @@ bool AnyCombatMonsterBusy(void)
 void AutoAdvanceSelectedCharacter(void)
 {
     if (g_settings.auto_advance_character == 0 || g_level_block->pick_changed ||
-        !CurrentGame().combat.state()->round_active ||
-        gXStatus.iTargetingMode != W8_TARGET_NEED_NONE || gpSCSV || ItemUseDraft()) {
+        !CurrentGame().combat.state()->round_active || TargetingMode() != W8_TARGET_NEED_NONE ||
+        gpSCSV || ItemUseDraft()) {
         return;
     }
     int selected = CurrentGame().status.selected_character;
@@ -1712,7 +1711,7 @@ void AdvanceCombatRound(void)
         CurrentGame().combat.state()->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    ReconcilePartyFormation(&gXStatus.edited_formation, &CurrentGame().party.formation);
+    ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(Data().strings[0x22b], CurrentGame().combat.state()->round_count));

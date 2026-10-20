@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <functional>
 #include <memory>
@@ -43,7 +44,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 void W8ListBoxDialog::ClearLines()
 {

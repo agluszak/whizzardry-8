@@ -61,7 +61,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kGroupEngagementProbeScale = 333.33333f;
 constexpr float kMonsterEngagementRangeFloor = 7500.0f;

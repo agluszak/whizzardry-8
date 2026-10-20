@@ -25,7 +25,6 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 class Trigger;
 

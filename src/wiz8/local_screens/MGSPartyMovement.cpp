@@ -31,7 +31,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 struct PartyMovementPanel {
@@ -74,7 +73,7 @@ unsigned char CreatePartyMovementPanel(void)
         button->Resize(20, 20);
         button->SetVisible(index == 1);
     }
-    gXStatus.fPartyMovementUi = true;
+    MainGame()->party_movement_panel = true;
     g_level_block->move_percent = g_level_block->move_percent_shown = 100;
     return 1;
 }
@@ -86,7 +85,7 @@ void ReleasePartyMovement(void)
     }
     RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     movement.reset();
-    gXStatus.fPartyMovementUi = false;
+    if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
 }
 
 void UpdatePartyMovementPanel(void)

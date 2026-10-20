@@ -38,7 +38,6 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_stats.h"
-#include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

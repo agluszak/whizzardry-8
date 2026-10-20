@@ -55,7 +55,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 /* One entry per sex, race and profession together. */
 static int g_character_table[480] = {
@@ -210,7 +209,7 @@ void RefreshLevelUpReadyNotices(void)
         return;
     }
 
-    gXStatus.level_up_notice = false;
+    CurrentGame().level_up_check_due = false;
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         bool* ready_flag = &CurrentGame().monster_manager_entries[party_slot].level_up_ready;
@@ -235,7 +234,7 @@ void RefreshLevelUpReadyNotices(void)
                     row->portrait_advance = 0;
                 }
             } else {
-                gXStatus.level_up_notice = true;
+                CurrentGame().level_up_check_due = true;
                 if (*ready_flag == 0) {
                     if (row->portrait_advance == 0) {
                         std::string text = " ";
@@ -496,7 +495,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
     CurrentGame().party.formation.positions[slot].bOldQuadrant = 0xff;
 
     if (GameStarted()) {
-        gXStatus.edited_formation.positions[slot].bOldQuadrant = 0xff;
+        CurrentGame().planned_formation.positions[slot].bOldQuadrant = 0xff;
         PostCharacterNotice(slot, Data().strings[0x250]);
     }
 
@@ -522,7 +521,8 @@ void RemoveCharacterFromParty(int party_slot)
     character->enchantment_top = W8_ENCHANTMENT_NONE;
     SetFormationPosition(&CurrentGame().party.formation, party_slot, -1, -1, false, true, true);
     if (CurrentGame().combat.active()) {
-        SetFormationPosition(&gXStatus.edited_formation, party_slot, -1, -1, false, true, true);
+        SetFormationPosition(&CurrentGame().planned_formation, party_slot, -1, -1, false, true,
+                             true);
         SetFormationPosition(&CurrentGame().combat.state()->saved_formation, party_slot, -1, -1,
                              false, true, true);
     }
@@ -611,7 +611,7 @@ void AwardPartyExperience(int amount, bool alternate_message)
                     progress.experience_gained = total;
                 }
             }
-            gXStatus.level_up_notice = true;
+            CurrentGame().level_up_check_due = true;
         }
     }
     auto text = fmt::sprintf(Data().strings[alternate_message ? 0x231 : 0x232], amount);

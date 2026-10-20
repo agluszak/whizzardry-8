@@ -92,7 +92,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 const float g_monster_record_float_scale = 20.0f;
 

@@ -50,7 +50,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kMonsterScatterHeadingBias = 0.8f;
 constexpr float kMonsterScatterHeadingRandomScale = 0.001600000075995922f;

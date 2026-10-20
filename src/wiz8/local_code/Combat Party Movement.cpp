@@ -35,7 +35,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 /* PHASES_PER_ROUND, named by the assertion that bounds the phase. */
 enum { W8_PHASES_PER_ROUND = 100 };

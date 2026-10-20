@@ -75,7 +75,6 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
 

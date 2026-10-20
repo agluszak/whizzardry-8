@@ -60,7 +60,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kDropItemPitchScale = 71.0f;
 constexpr float kDropItemYawScale = 85.0f;

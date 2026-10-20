@@ -21,6 +21,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -36,7 +37,6 @@
 #include "wiz8/npc_speech.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 static void FinishNpcVoicePlayback(bool resume_script);
 
@@ -97,7 +97,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
         }
         if (g_presentation != W8NpcPresentation::quote) {
             if (!g_npc_dialogue.has_queued_actions()) {
-                if (gXStatus.iCurrentCursor != W8_CURSOR_TEXT_INPUT) {
+                if (ShownCursor() != W8_CURSOR_TEXT_INPUT) {
                     SetTargetCursor(W8_CURSOR_NONE);
                     return;
                 }

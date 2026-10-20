@@ -55,6 +55,8 @@ bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selec
 
 void SetTargetToCharacter(int character_slot, bool in_combat);
 
+/* What the player is asked to pick a target for, if anything; the cursor follows it. */
+W8TargetNeed TargetingMode();
 void SetTargetingMode(W8TargetNeed state);
 
 /* Location id of the nearest hovered live monster, or -1. */

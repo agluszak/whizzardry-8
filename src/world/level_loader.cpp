@@ -61,6 +61,7 @@
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
+#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -104,7 +105,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 class Texture;
 

@@ -60,7 +60,6 @@
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kCameraRadiansToDegrees = 57.295784f;
 constexpr float kCollisionCeilingNormalThreshold = -0.8f;

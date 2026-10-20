@@ -54,7 +54,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -201,7 +200,7 @@ void CloseUseItemSelectView(void)
         RequestRedrawCombatBar();
         RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
         SyncWorldAdvancement();
-        gXStatus.item_drag.reset();
+        MainGame()->item_drag.reset();
         CurrentGame().aging_held = false;
         if (LockInteractionSuspended() && !IsScreenTransitionPending()) {
             OpenLockInteraction(0);
@@ -227,10 +226,10 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         return;
     }
     use_item->owner = party_slot;
-    if (gXStatus.item_drag && gXStatus.item_drag->pending) {
-        gXStatus.item_drag->pending = false;
+    if (MainGame()->item_drag && MainGame()->item_drag->pending) {
+        MainGame()->item_drag->pending = false;
         CurrentGame().aging_held = false;
-        const auto dragged = gXStatus.item_drag->item;
+        const auto dragged = MainGame()->item_drag->item;
         if (CurrentGame().party.held.item.iItemNo == -1) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;
             if (party_pool && CurrentGame().combat.active()) Fail("!CurrentGame().combat.active()");
@@ -246,7 +245,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         return;
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
-        gXStatus.item_drag.reset();
+        MainGame()->item_drag.reset();
         item = CurrentGame().party.itemAt(
             CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item);
         if (CanUseItemForAction(use_item->owner, item)) {
@@ -264,7 +263,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             return;
         }
     }
-    gXStatus.item_drag.reset();
+    MainGame()->item_drag.reset();
     RebuildUseItemSelectList(use_item->pool, nullptr);
 }
 
@@ -491,7 +490,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
                                {kInfoDialogX, 0x48});
     dialog->SetText("");
 
-    dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
+    dialog->cleanup = [cursor = ShownCursor()] {
         SetTargetCursor(cursor);
         RequestRedraw(W8_MAIN_REDRAW_ALL);
     };

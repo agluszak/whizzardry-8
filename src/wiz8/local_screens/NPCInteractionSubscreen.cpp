@@ -107,7 +107,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
-#include "wiz8/xstatus.h"
 
 constexpr int kSplitDialogOriginX = 0x9f;
 constexpr int kSplitDialogOriginY = 0xb8;

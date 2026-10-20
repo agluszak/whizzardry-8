@@ -30,6 +30,7 @@
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/party_formation.h"
@@ -37,7 +38,6 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */
@@ -177,7 +177,7 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
-        !gXStatus.fReviewCharacterMode)
+        !FormationPanelOpen())
         AfterUiDispatch(OpenFormationPanel);
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter &&
         event.action != UiPointerAction::Leave)
@@ -271,7 +271,7 @@ void RefreshFormationPanel(bool force)
         if (slot == -1) continue;
         const auto position = g_formation_cell_positions[cell];
         const bool disabled = !CanHoldFormationPlace(slot);
-        const int arrow = gXStatus.edited_formation.positions[slot].facing * 3 +
+        const int arrow = CurrentGame().planned_formation.positions[slot].facing * 3 +
                           (disabled                         ? 2
                            : formation->cells[cell].pressed ? 1
                                                             : 0);
@@ -287,7 +287,7 @@ void RefreshFormationPanel(bool force)
 }
 
 /* Open the formation panel: build the controls, snapshot the live formation
-   into gXStatus.edited_formation and pause the world. */
+   into the game's planned formation and pause the world. */
 void OpenFormationPanel(void)
 {
     DestroyFormationPanel();
@@ -296,9 +296,9 @@ void OpenFormationPanel(void)
     g_formation_drag_cell = -1;
     g_formation_drag_slot = -1;
     g_formation_drag_clock = w8_get_ticks() + (0);
-    gXStatus.fReviewCharacterMode = true;
+    MainGame()->formation_panel_open = true;
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    gXStatus.edited_formation = CurrentGame().party.formation;
+    CurrentGame().planned_formation = CurrentGame().party.formation;
     SyncWorldAdvancement();
     UpdateFormationCells();
 }
@@ -309,7 +309,7 @@ static void UpdateFormationCells(void)
 {
     for (auto& slot : g_formation_cell_slots) slot = -1;
     for (int slot = 0; slot < 8; ++slot) {
-        const auto& position = gXStatus.edited_formation.positions[slot];
+        const auto& position = CurrentGame().planned_formation.positions[slot];
         if (CurrentGame().party.rows[slot].fOccupied && position.bQuadrant != -1)
             g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
     }
@@ -336,14 +336,14 @@ static void AcceptFormationChanges(void)
 
     for (slot = 0; slot < 8; ++slot) {
         if (CurrentGame().party.rows[slot].fOccupied && CanHoldFormationPlace(slot) &&
-            gXStatus.edited_formation.positions[slot].bQuadrant !=
+            CurrentGame().planned_formation.positions[slot].bQuadrant !=
                 CurrentGame().party.formation.positions[slot].bQuadrant) {
             StartBreathCycle(slot, false);
         }
     }
     if (!CurrentGame().combat.active()) {
-        ReconcilePartyFormation(&gXStatus.edited_formation, &CurrentGame().party.formation);
-    } else if (memcmp(&CurrentGame().party.formation, &gXStatus.edited_formation,
+        ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
+    } else if (memcmp(&CurrentGame().party.formation, &CurrentGame().planned_formation,
                       sizeof(W8PartyFormationState)) != 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
@@ -355,7 +355,7 @@ static void AcceptFormationChanges(void)
 /* The reset button: throw the staged edits away and rebuild the cells. */
 static void ResetFormationPanel(void)
 {
-    gXStatus.edited_formation = CurrentGame().party.formation;
+    CurrentGame().planned_formation = CurrentGame().party.formation;
     UpdateFormationCells();
 }
 
@@ -371,7 +371,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
     if ((g_formation_cell_slots[id] != -1) &&
         (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
-    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
+    if (!FormationPanelOpen()) return UiResult::Pass;
     if (g_formation_cell_slots[id] == -1) {
 
         if (event.action != UiPointerAction::Up || event.button != UiPointerButton::Left ||
@@ -437,7 +437,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 
 static UiResult HandleFormationBackground(const UiPointerEvent& event)
 {
-    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
+    if (!FormationPanelOpen()) return UiResult::Pass;
 
     if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left) {
         if (g_formation_drag_cell != -1) DropFormationSlot(-1);
@@ -470,7 +470,7 @@ static void BeginFormationDrag()
     g_formation_cell_slots[g_formation_active_cell] = -1;
     point = CursorPosition();
     ClearMouseSurface();
-    sprite = gXStatus.edited_formation.positions[g_formation_drag_slot].facing * 3 + 1;
+    sprite = CurrentGame().planned_formation.positions[g_formation_drag_slot].facing * 3 + 1;
     const auto artwork = CatalogArtwork::Load(0x9f);
     region = artwork.imageOffset() + static_cast<short>(sprite);
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
@@ -481,7 +481,7 @@ static void BeginFormationDrag()
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
-    gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+    ShowCustomCursor();
     formation->dirty = true;
 }
 
@@ -491,13 +491,14 @@ static void DropFormationSlot(int cell)
 {
     if (cell != -1 && cell != g_formation_drag_cell) {
         if (g_formation_cell_slots[cell] == -1) {
-            SetFormationPosition(&gXStatus.edited_formation, g_formation_drag_slot, -1, -1, false,
-                                 true, true);
-            SeatFormationSlotInRow(&gXStatus.edited_formation, g_formation_drag_slot, cell / 3);
+            SetFormationPosition(&CurrentGame().planned_formation, g_formation_drag_slot, -1, -1,
+                                 false, true, true);
+            SeatFormationSlotInRow(&CurrentGame().planned_formation, g_formation_drag_slot,
+                                   cell / 3);
         } else if (!CanHoldFormationPlace(g_formation_cell_slots[cell])) {
             cell = -1;
         } else {
-            SwapFormationSlots(&gXStatus.edited_formation, g_formation_drag_slot,
+            SwapFormationSlots(&CurrentGame().planned_formation, g_formation_drag_slot,
                                g_formation_cell_slots[cell]);
         }
     }
@@ -526,7 +527,7 @@ void SelectFormationSlotCell(int party_slot)
 void CloseFormationPanel(void)
 {
     DestroyFormationPanel();
-    gXStatus.fReviewCharacterMode = false;
+    MainGame()->formation_panel_open = false;
     UpdateHeldItemCursor();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);

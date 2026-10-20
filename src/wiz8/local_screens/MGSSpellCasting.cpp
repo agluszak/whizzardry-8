@@ -65,7 +65,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -890,7 +889,7 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
             AfterUiDispatch([spell] {
                 auto dialog = std::make_unique<W8SpellInfoDialog>(spell);
                 dialog->SetText("");
-                dialog->cleanup = [cursor = gXStatus.iCurrentCursor] {
+                dialog->cleanup = [cursor = ShownCursor()] {
                     SetTargetCursor(cursor);
                     RequestRedraw(W8_MAIN_REDRAW_ALL);
                 };

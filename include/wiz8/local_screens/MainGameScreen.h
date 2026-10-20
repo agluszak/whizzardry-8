@@ -13,6 +13,7 @@
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -44,6 +45,18 @@ struct MainGameScreen final : Screen {
     /* The slot whose NPC the camp just dismissed; its portrait ignores input
        until the screen state is reset. */
     int dismissed_npc_slot = -1;
+    /* An item the camp's Use action handed to the use-item picker, and the member who
+       uses it. Until the picker opens on it, the game's aging is held. */
+    struct ItemDrag {
+        W8ItemLocation item;
+        int actor = -1;
+        bool pending = true;
+    };
+    std::optional<ItemDrag> item_drag;
+    // The formation panel is open.
+    bool formation_panel_open = false;
+    // The combat party-movement panel is shown.
+    bool party_movement_panel = false;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
@@ -59,6 +72,10 @@ inline MainGameScreen* MainGame()
 {
     return FindScreen<MainGameScreen>();
 }
+// The main game exists with its formation panel open.
+bool FormationPanelOpen();
+// The main game exists with its combat party-movement panel shown.
+bool PartyMovementPanelShown();
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 

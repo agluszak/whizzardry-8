@@ -14,7 +14,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 

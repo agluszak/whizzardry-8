@@ -28,6 +28,7 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -56,7 +57,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 /* Notice string ids for each condition row: the status label, the singular
    and plural "inflicted" verb phrases and the noun used by resistance and
@@ -330,7 +330,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
     }
     UpdateFormationSlotState(&CurrentGame().party.formation, party_slot);
     if (CurrentGame().combat.active()) {
-        UpdateFormationSlotState(&gXStatus.edited_formation, party_slot);
+        UpdateFormationSlotState(&CurrentGame().planned_formation, party_slot);
         UpdateFormationSlotState(&CurrentGame().combat.state()->saved_formation, party_slot);
     }
     if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {

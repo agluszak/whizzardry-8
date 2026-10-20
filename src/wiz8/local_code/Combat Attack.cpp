@@ -84,7 +84,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/party_camera.h"
-#include "wiz8/xstatus.h"
 
 /* Shared combat attribute differential used by pre-hit and hit-location rolls. */
 static int SumCharacterCombatAttributes(const W8Character& character)

@@ -22,7 +22,7 @@ void CreateFormationBoardOverlay(void);
    markers for tooltips, and switches board art on hover transitions. */
 UiResult HandleFormationBoard(const UiPointerEvent& event);
 /* Open the formation panel: build the controls, snapshot the live formation
-   into gXStatus.edited_formation and pause the world. */
+   into the game's planned formation and pause the world. */
 void OpenFormationPanel(void);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
 void SelectFormationSlotCell(int party_slot);

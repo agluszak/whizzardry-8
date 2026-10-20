@@ -65,6 +65,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -73,7 +74,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 /* The party slot whose keyboard menu is open. */
 int g_selected_party_slot = -1;
@@ -244,9 +244,9 @@ void DispatchMGSCommand(W8MGSCommand command)
             EndLockInteractMode(0);
         } else if (ItemUseDraft()) {
             CloseUseItemSelection();
-        } else if (gXStatus.iTargetingMode != W8_TARGET_NEED_NONE) {
+        } else if (TargetingMode() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
-        } else if (gXStatus.fReviewCharacterMode) {
+        } else if (FormationPanelOpen()) {
             CloseFormationPanel();
         } else if (IsNpcScriptSessionActive()) {
             TryFinishNpcVoicePlayback(true);
@@ -555,7 +555,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         if (CurrentGame().combat.state()->execution_active == 0) {
             BeginCombatExecution();
-        } else if (gXStatus.fPartyMovementUi && !CanPartyMove() && !IsLevelMovementStopped()) {
+        } else if (PartyMovementPanelShown() && !CanPartyMove() && !IsLevelMovementStopped()) {
             BeginFreeTurnPhase();
         }
         break;
