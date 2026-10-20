@@ -3890,8 +3890,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-    } else if (CurrentScreenState().id == W8_SCREEN_CAMP) {
-        CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
+    } else if (auto* camp = FindScreen<CampScreen>()) {
+        camp->InvalidateAll();
     }
 }
 

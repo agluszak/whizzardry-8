@@ -15,7 +15,8 @@
 #include "wiz8/ui_input.h"
 
 namespace {
-/* A screen waiting under the current one, with the request it resumes with. */
+/* A screen waiting under the current one, with the request it resumes with. A
+   screen rebuilt on every visit leaves only its request. */
 struct SuspendedEntry {
     ScreenRequest request;
     std::unique_ptr<Screen> screen;
@@ -122,7 +123,12 @@ bool ApplyRequest()
         router.previous = router.current.id;
         if (!router.screen->leave(ScreenDeparture::Suspend)) return false;
         router.last_suspended = router.current.id;
-        router.suspended.push_back({std::move(router.current), std::move(router.screen)});
+        if (auto rebuild = router.screen->rebuildRequest(router.current)) {
+            router.screen.reset();
+            router.suspended.push_back({std::move(*rebuild), nullptr});
+        } else {
+            router.suspended.push_back({std::move(router.current), std::move(router.screen)});
+        }
     }
     router.show(std::exchange(router.pending, {}));
     return EnterScreen();
@@ -160,7 +166,7 @@ Screen* FindScreen(W8ScreenId id)
 {
     if (router.current.id == id) return router.screen.get();
     for (const auto& entry : router.suspended) {
-        if (entry.request.id == id) return entry.screen.get();
+        if (entry.request.id == id && entry.screen) return entry.screen.get();
     }
     return nullptr;
 }
@@ -228,6 +234,7 @@ void GameloopExit()
         auto entry = std::move(router.suspended.back());
         router.suspended.pop_back();
         // Teardown reads the current screen id, as it does for the one on top.
+        if (!entry.screen) continue;
         router.show(std::move(entry.request));
         entry.screen->leave(ScreenDeparture::Discard);
     }

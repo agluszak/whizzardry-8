@@ -108,7 +108,7 @@ struct W8NpcState;
    fFoundEquipChar assertion. This is state 6, reached both from the party
    selector and from the running game. */
 
-W8CampScreenState::~W8CampScreenState()
+CampScreen::~CampScreen()
 {
     RetireModal(std::move(dialog), false);
 }
@@ -206,7 +206,7 @@ void W8CampSpellsPage::RefreshCampSpellRanges(void)
    skill level, the spell-point pool and up to eight learned spell rows; the
    row under the cursor gets the highlight palette and unaffordable or
    unusable spells dim. */
-void W8CampSpellsPage::DrawCampSpellPages(void)
+void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
 {
     W8Character* character = screen.reviewed;
     const W8SpellRealmAnimation* animation;
@@ -220,14 +220,14 @@ void W8CampSpellsPage::DrawCampSpellPages(void)
     unsigned int visible;
     Palette16 palette;
 
-    if ((screen.redraw_flags & W8_CAMP_REDRAW_RESISTANCES) != 0 && !gpSCSV) {
+    if (full && !gpSCSV) {
         DrawCampResistances();
     }
-    if (screen.redraw_flags == W8_CAMP_REDRAW_ALL) {
+    if (full) {
         CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0xa5);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        if ((screen.redraw_flags & (W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm)) == 0) {
+        if (!full && !realms_dirty[realm]) {
             continue;
         }
         left = (realm % 3) * 0xd5 + 3;
@@ -287,10 +287,10 @@ void W8CampSpellsPage::DrawCampSpellPages(void)
         spell_ranges[realm]->Redraw(GetFrameBufferSurface(), true);
     }
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        if (screen.dialog != 0 && realm != 0 && realm != 3) {
+        if (dialog_open && realm != 0 && realm != 3) {
             continue;
         }
-        if ((screen.redraw_flags & ((W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm) | 0x10000)) == 0) {
+        if (!full && !realms_dirty[realm] && !animation_dirty) {
             continue;
         }
         animation = &g_spell_realm_animations[realm];
@@ -353,7 +353,7 @@ UiResult W8CampSpellsPage::HandleCampSpellList(const UiPointerEvent& event, int 
     if (row != selected_spell_row || event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave) {
         selected_spell_row = row;
-        screen.redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << realm;
+        realms_dirty.set(realm);
     }
     if (event.action == UiPointerAction::Wheel) {
         spell_ranges[realm]->AdjustValue(event.wheel);
@@ -373,7 +373,7 @@ void W8CampSpellsPage::OpenSpellInfoDialog(unsigned int spell_id)
     screen.DisplayCampDialog(std::move(dialog));
 }
 
-W8CampCharacterInfo::W8CampCharacterInfo(W8CampScreenState& screen) : screen(screen)
+W8CampCharacterInfo::W8CampCharacterInfo(CampScreen& screen) : screen(screen)
 {
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
@@ -589,7 +589,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-void W8CampScreenState::CreateCampInput()
+void CampScreen::CreateCampInput()
 {
     items.CreateInput();
     spells.CreateInput();
@@ -615,34 +615,12 @@ void W8CampScreenState::CreateCampInput()
     }
 }
 
-W8CampScreenState* CampScreenState()
-{
-    auto* screen = FindScreen<CampScreen>();
-    return screen ? screen->state.get() : nullptr;
-}
-
 bool CampScreen::enter(const ScreenRequest& request)
-{
-    return open(request, request.character);
-}
-
-bool CampScreen::resume(const ScreenRequest& request)
-{
-    return open(request, reviewed_);
-}
-
-bool CampScreen::open(const ScreenRequest& request, W8Character* reviewed)
-{
-    state = std::make_unique<W8CampScreenState>();
-    return state->Enter(request, reviewed);
-}
-
-bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewed_character)
 {
     std::string text;
 
     ClearPrimarySurface();
-    reviewed = reviewed_character;
+    reviewed = request.character;
     if (request.parameter_4) {
         wiz8::sound::play(s_general_magic_sound);
         SetTargetingMode(W8_TARGET_NEED_ITEM);
@@ -652,6 +630,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
     CreateCampInput();
     items.Reset(request.parameter_4);
     CreateCampButtonPanel();
+    items.CreateActionButtons();
     items.CreateCampItemControls();
     CreateCampHeaderButtons();
     page = W8_CAMP_PAGE_ITEMS;
@@ -695,7 +674,7 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
     show_equip_message:
         ShowNotice(text, 0, true, false);
     }
-    redraw_flags |= W8_CAMP_REDRAW_ALL;
+    InvalidateAll();
     ResetTransientRenderScenes();
     SetPrimarySurfaceTextureHint2Enabled(false);
     if (!GameStarted()) {
@@ -704,12 +683,14 @@ bool W8CampScreenState::Enter(const ScreenRequest& request, W8Character* reviewe
     return 1;
 }
 
-void CampScreen::frame()
+std::optional<ScreenRequest> CampScreen::rebuildRequest(const ScreenRequest& entered) const
 {
-    state->Frame();
+    auto request = entered;
+    request.character = reviewed;
+    return request;
 }
 
-void W8CampScreenState::Frame()
+void CampScreen::frame()
 {
     if (g_dev_mode) {
         RequestExitScreen();
@@ -720,7 +701,7 @@ void W8CampScreenState::Frame()
         auto* running = dialog.get();
         if (!running->ProcessInput() && dialog.get() == running) {
             RetireModal(std::move(dialog), true);
-            redraw_flags |= W8_CAMP_REDRAW_ALL;
+            InvalidateAll();
         }
     }
     if (gXStatus.level_up_notice && SuspendedScreen() != W8_SCREEN_CHARACTER &&
@@ -759,14 +740,11 @@ void W8CampScreenState::Frame()
 
 bool CampScreen::leave(ScreenDeparture)
 {
-    if (!state) return true; // Already released when it was suspended.
-    reviewed_ = state->reviewed;
-    state->DeactivateCampPage();
+    DeactivateCampPage();
     g_smfnt_font.resetPalette();
     g_calligraphy_font.resetPalette();
     g_calligraphy_shadow_font.resetPalette();
     g_wiz_text_font.resetPalette();
-    state.reset();
     return true;
 }
 
@@ -774,20 +752,23 @@ bool CampScreen::leave(ScreenDeparture)
    that character if the selected slot can carry it and the refusal dialog
    opens otherwise; with no pending character the camp simply closes into a
    fresh combat round. */
-void W8CampScreenState::DismissSelectedPartyCharacter()
+void CampScreen::DismissSelectedPartyCharacter()
 {
     if (!items.ResolvePendingCampCharacter(true)) return;
     BeginCombatRound();
     ReturnToPreviousScreen();
 }
 
-void W8CampScreenState::DrawCampScreen(void)
+/* Each draw repaints what was invalidated since the previous one: everything
+   after InvalidateAll, otherwise the header parts and the parts each page
+   tracks. A held item repaints the page under the cursor every frame. */
+void CampScreen::DrawCampScreen(void)
 {
     items.BeginRedraw();
-    if (redraw_flags != 0 || items.RedrawPending() ||
-        (CurrentGame().party.held.item.iItemNo != -1)) {
-        if (redraw_flags == W8_CAMP_REDRAW_ALL) {
-            items.InvalidateAll();
+    if (full_redraw || header_redraw.any() || items.RedrawPending() || stats.RedrawPending() ||
+        spells.RedrawPending() || (CurrentGame().party.held.item.iItemNo != -1)) {
+        if (full_redraw) {
+            items.InvalidateCells();
             if (dialog != 0) {
                 dialog->m_dirty = true;
             }
@@ -795,25 +776,28 @@ void W8CampScreenState::DrawCampScreen(void)
         DrawCampHeader();
         switch (page) {
         case W8_CAMP_PAGE_ITEMS:
-            items.RedrawCampItemsPage();
+            items.RedrawCampItemsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_STATS:
-            stats.DrawCampStatsPage();
+            stats.DrawCampStatsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_SKILLS:
-            skills.DrawCampSkillsPage();
+            skills.DrawCampSkillsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_SPELLS:
-            spells.DrawCampSpellPages();
+            spells.DrawCampSpellPages(full_redraw, dialog != nullptr);
             break;
         case W8_CAMP_PAGE_REGENERATION:
             DrawCampRegenStats();
             break;
         }
-        items.RefreshCampItemActions((redraw_flags & W8_CAMP_REDRAW_ITEM_ACTIONS) != 0);
+        DrawButtonPanel(full_redraw || items.ActionButtonsInvalidated());
         g_calligraphy_font.setShade(Font::kNormalShade);
+        full_redraw = false;
+        header_redraw = {};
         items.EndRedraw();
-        redraw_flags = 0;
+        stats.EndRedraw();
+        spells.EndRedraw();
     }
     character_info->Redraw(GetFrameBufferSurface(), false);
     if (page == W8_CAMP_PAGE_ITEMS) {
@@ -823,7 +807,7 @@ void W8CampScreenState::DrawCampScreen(void)
     } else if (page == W8_CAMP_PAGE_SPELLS) {
         spells.DrawControls();
     }
-    items.RefreshCampItemActions(false);
+    DrawButtonPanel(false);
     if (!CurrentGame().combat.active()) {
         if (ReviewedPartySlot() != -1) {
             if (GameStarted() ||
@@ -846,7 +830,7 @@ done:
     RenderFrame();
 }
 
-void W8CampScreenState::SyncReviewCharInputRegion(void)
+void CampScreen::SyncReviewCharInputRegion(void)
 {
     if (ReviewedPartySlot() != -1 &&
         CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
@@ -858,18 +842,18 @@ void W8CampScreenState::SyncReviewCharInputRegion(void)
 
 /* Switch the active camp page: tear the old page down, record the new index,
    bring it up and repaint the whole character block. */
-void W8CampScreenState::SwitchCampPage(W8CampPage page)
+void CampScreen::SwitchCampPage(W8CampPage page)
 {
     DeactivateCampPage();
     this->page = page;
     ActivateCampPage();
-    redraw_flags |= W8_CAMP_REDRAW_ALL;
+    InvalidateAll();
 }
 
 /* Enter the active camp page: resets the item action mode when leaving the
    items page, gates the party-portrait regions on whether a character is being
    reviewed, then enables the page's own region sets and controls. */
-void W8CampScreenState::ActivateCampPage(void)
+void CampScreen::ActivateCampPage(void)
 {
     unsigned int index;
 
@@ -887,7 +871,7 @@ void W8CampScreenState::ActivateCampPage(void)
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
     }
     header_mode = W8_CAMP_HEADER_SUMMARY;
-    redraw_flags |= 0x7ff;
+    InvalidateHeader();
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
         items.Activate();
@@ -910,7 +894,7 @@ void W8CampScreenState::ActivateCampPage(void)
 /* Leave the active camp page: disables the page's region sets and controls and
    releases the page's rebuilt state - the effect list on the stats page, the
    skill-improvement flags on the skills page. */
-void W8CampScreenState::DeactivateCampPage(void)
+void CampScreen::DeactivateCampPage(void)
 {
     unsigned int index;
 
@@ -938,7 +922,7 @@ void W8CampScreenState::DeactivateCampPage(void)
 
 /* Camp page 4: the reviewed character's health, stamina and per-realm spell
    point regeneration rates. */
-void W8CampScreenState::DrawCampRegenStats(void)
+void CampScreen::DrawCampRegenStats(void)
 {
     unsigned int index;
 
@@ -966,13 +950,13 @@ void W8CampScreenState::DrawCampRegenStats(void)
     }
 }
 
-void W8CampScreenState::SetCampHeaderMode(W8CampHeaderMode mode)
+void CampScreen::SetCampHeaderMode(W8CampHeaderMode mode)
 {
     header_mode = mode;
-    redraw_flags |= 0x7ff;
+    InvalidateHeader();
 }
 
-void W8CampScreenState::DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
+void CampScreen::DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 {
     RetireModal(std::exchange(this->dialog, std::move(dialog)), false);
     if (this->dialog) this->dialog->InputLayer().setModal(true);
@@ -981,11 +965,11 @@ void W8CampScreenState::DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
 void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
                         bool confirmation, bool cancel)
 {
-    CampScreenState()->ShowNotice(text, std::move(callback), confirmation, cancel);
+    FindScreen<CampScreen>()->ShowNotice(text, std::move(callback), confirmation, cancel);
 }
 
-void W8CampScreenState::ShowNotice(std::string_view text, std::function<void(bool)> callback,
-                                   bool confirmation, bool cancel)
+void CampScreen::ShowNotice(std::string_view text, std::function<void(bool)> callback,
+                            bool confirmation, bool cancel)
 {
     W8MessageDialogBase* dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
@@ -1432,7 +1416,7 @@ void W8CampSpellsPage::CreateControls()
                                                  y + 0x129);
         range->on_change = [this, range_index](auto* scroll) {
             learned_spells.scroll[range_index] = scroll->m_value;
-            screen.redraw_flags |= W8_CAMP_REDRAW_REALM_SPELLS_FIRST << range_index;
+            realms_dirty.set(range_index);
         };
     }
     animation_timer = w8_get_ticks() + (50);
@@ -1470,7 +1454,7 @@ void W8CampSpellsPage::Tick()
         }
     }
     animation_timer = w8_get_ticks() + (50);
-    screen.redraw_flags |= 0x10000;
+    animation_dirty = true;
 }
 
 void W8CampSpellsPage::DrawControls()

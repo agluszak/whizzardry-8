@@ -569,8 +569,8 @@ void MainMenuUiScenario()
 
 W8CharacterStatsPage* StatsPage()
 {
-    return CharacterScreenState()
-               ? static_cast<W8CharacterStatsPage*>(CharacterScreenState()->m_pages[0].get())
+    return FindScreen<CharacterScreen>()
+               ? static_cast<W8CharacterStatsPage*>(FindScreen<CharacterScreen>()->m_pages[0].get())
                : nullptr;
 }
 
@@ -578,7 +578,7 @@ W8CharacterStatsPage* StatsPage()
    page reports the allocation complete. */
 void SpendPool(GameHarness& game, const char* step, int page_index, const bool& complete)
 {
-    W8CharacterPage* page = CharacterScreenState()->m_pages[page_index].get();
+    W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[page_index].get();
     REQUIRE((page && !page->m_entries.empty()));
     for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
         W8CharacterPageEntry* entry = page->m_entries[index].get();
@@ -640,7 +640,7 @@ std::string CreateCharacter(GameHarness& game)
     game.click("create-character", kCreateCharacterButton);
     game.wait("character-screen", [&] {
         return CurrentScreenState().id == W8_SCREEN_CHARACTER && game.settled() && StatsPage() &&
-               CharacterScreenState()->m_page_index == 0;
+               FindScreen<CharacterScreen>()->m_page_index == 0;
     });
 
     W8CharacterStatsPage* stats = StatsPage();
@@ -663,26 +663,27 @@ std::string CreateCharacter(GameHarness& game)
     REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
     REQUIRE((game.within_frames(
         2, [&] { return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled; })));
-    SpendPool(game, "attributes", 0, CharacterScreenState()->m_creation_state.attributes_complete);
+    SpendPool(game, "attributes", 0,
+              FindScreen<CharacterScreen>()->m_creation_state.attributes_complete);
 
     // The first profession is a non-caster, so Next skips the spell page.
     game.click_at(616, 464);
     game.wait("skills", [&] {
-        W8CharacterPage* page = CharacterScreenState()->m_pages[2].get();
-        return CharacterScreenState()->m_page_index == 2 && page && !page->m_entries.empty();
+        W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[2].get();
+        return FindScreen<CharacterScreen>()->m_page_index == 2 && page && !page->m_entries.empty();
     });
-    SpendPool(game, "skills", 2, CharacterScreenState()->m_creation_state.skills_complete);
+    SpendPool(game, "skills", 2, FindScreen<CharacterScreen>()->m_creation_state.skills_complete);
 
     game.click_at(616, 464);
     game.wait("personality", [&] {
-        W8CharacterPage* page = CharacterScreenState()->m_pages[3].get();
-        return CharacterScreenState()->m_page_index == 3 && page && !page->m_prepared;
+        W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[3].get();
+        return FindScreen<CharacterScreen>()->m_page_index == 3 && page && !page->m_prepared;
     });
     // The page focuses its first (full name) field; Tab moves to the short
     // name, which names the saved file.
     for (SDL_Keycode key : {SDLK_P, SDLK_R, SDLK_O, SDLK_B, SDLK_E, SDLK_TAB, SDLK_V, SDLK_I})
         game.key(key);
-    const W8Character& typed = CharacterScreenState()->m_character;
+    const W8Character& typed = FindScreen<CharacterScreen>()->m_character;
     const std::string name = typed.name;
     REQUIRE(!name.empty());
 
@@ -1085,7 +1086,7 @@ void InventoryChestScenario()
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     REQUIRE(g_pending_main_menu_message.empty());
     int potion_cell = -1;
-    const auto listed = CampScreenState()->items.ListedPoolEntries();
+    const auto listed = FindScreen<CampScreen>()->items.ListedPoolEntries();
     for (unsigned i = 0; i < std::min<std::size_t>(8, listed.size()); ++i)
         if (listed[i] == potion_slot) potion_cell = i;
     REQUIRE(potion_cell >= 0);
@@ -1114,10 +1115,10 @@ void InventoryChestScenario()
     // Right-clicking the wielded longsword opens its item information dialog.
     game.right_click_at(175, 360);
     REQUIRE(game.within_frames(4, [] {
-        return dynamic_cast<W8AssayDialog*>(CampScreenState()->dialog.get()) != nullptr;
+        return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialog.get()) != nullptr;
     }));
     game.key(SDLK_ESCAPE);
-    REQUIRE(game.within_frames(4, [] { return CampScreenState()->dialog == nullptr; }));
+    REQUIRE(game.within_frames(4, [] { return FindScreen<CampScreen>()->dialog == nullptr; }));
 
     const auto slot = PremadeSlot();
     auto& caster = CurrentGame().party.characters[slot];
@@ -1137,10 +1138,10 @@ void InventoryChestScenario()
     potion = MakeItem(healing_potion, true, true, false);
     potion.stack_count = 2;
     caster.hp_current = 1;
-    CampScreenState()->redraw_flags |= W8_CAMP_REDRAW_ALL;
+    FindScreen<CampScreen>()->InvalidateAll();
     game.frame();
     game.click_at(145, 466);
-    REQUIRE(CampScreenState()->items.action() == W8_CAMP_ITEM_ACTION_USE);
+    REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE);
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
@@ -1191,10 +1192,10 @@ void CampSpellsScenario()
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     REQUIRE(sword.iItemNo >= 0);
     sword.identified = false;
-    CampScreenState()->items.RefreshCampItemActions(true);
+    FindScreen<CampScreen>()->InvalidateAll();
     game.frame();
     game.click_at(240, 466); // Identify spell, not the artifacts-skill button.
-    REQUIRE(CampScreenState()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
+    REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
     game.click_at(175, 360);
     CAPTURE(caster.profession_levels[W8_PROFESSION_BISHOP],
             caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level,
@@ -1203,10 +1204,10 @@ void CampSpellsScenario()
     REQUIRE(sword.identified);
     REQUIRE(caster.iSPLeft[realm] < 100);
     REQUIRE(game.within_frames(4, [] {
-        return dynamic_cast<W8AssayDialog*>(CampScreenState()->dialog.get()) != nullptr;
+        return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialog.get()) != nullptr;
     }));
     game.key(SDLK_ESCAPE);
-    REQUIRE(game.within_frames(4, [] { return CampScreenState()->dialog == nullptr; }));
+    REQUIRE(game.within_frames(4, [] { return FindScreen<CampScreen>()->dialog == nullptr; }));
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
@@ -1216,17 +1217,17 @@ void CampSpellsScenario()
     const auto curse_realm = MutableData().spells[W8_SPELL_REMOVE_CURSE].realm;
     caster.sp_max[curse_realm] = caster.iSPLeft[curse_realm] = 100;
     caster.uiCondition[W8_CONDITION_HEXED] = 20;
-    CampScreenState()->items.RefreshCampItemActions(true);
+    FindScreen<CampScreen>()->InvalidateAll();
     game.frame();
     // Fix the roll sequence so successful but insufficient attempts repeat.
     SeedRandom(1);
     game.click_at(286, 466);
-    REQUIRE(CampScreenState()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
+    REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
     const auto slot = PremadeSlot();
     game.click_at((slot & 1) * 48 + 28, (slot / 2) * 39 + 23);
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
-    REQUIRE(CampScreenState()->items.action() == W8_CAMP_ITEM_ACTION_NONE);
+    REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_NONE);
     REQUIRE(CurrentGame().party.rows[slot].spell.target.iType == W8_TARGET_KIND_CHARACTER);
     REQUIRE(CurrentGame().party.rows[slot].spell.target.iChar == slot);
     caster.uiCondition[W8_CONDITION_HEXED] = 0;
@@ -1370,8 +1371,8 @@ void CheckGameplayUi(GameHarness& game)
     UpdatePortraitAdvanceButtons();
     game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
-    REQUIRE(CharacterScreenState()->m_mode == W8_CHARACTER_LEVEL_UP);
-    REQUIRE(CharacterScreenState()->m_original == &CurrentGame().party.characters[slot]);
+    REQUIRE(FindScreen<CharacterScreen>()->m_mode == W8_CHARACTER_LEVEL_UP);
+    REQUIRE(FindScreen<CharacterScreen>()->m_original == &CurrentGame().party.characters[slot]);
     game.key(SDLK_ESCAPE);
     game.key(SDLK_RETURN); // Confirm abandoning the level-up edit.
     game.wait_screen("cancel-level-up", W8_SCREEN_MAIN_GAME);
@@ -1416,31 +1417,31 @@ void ResourceLifecycleScenario()
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
     game.click_at(30, 250);
-    REQUIRE(OptionsScreenState()->m_selected_panel == 2);
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
     game.click_at(580, 430);
-    REQUIRE(OptionsScreenState()->m_panel[2]->m_current == 1);
+    REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 1);
     game.click_at(290, 430);
-    REQUIRE(OptionsScreenState()->m_panel[2]->m_current == 0);
+    REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 0);
     game.press_at(30, 60);
     game.release_at(200, 190);
-    REQUIRE(OptionsScreenState()->m_selected_panel == 2);
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
     game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
-    REQUIRE(OptionsScreenState()->m_selected_panel == 0);
-    const float combat_speed = OptionsScreenState()->values.combat_speed;
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 0);
+    const float combat_speed = FindScreen<OptionsScreen>()->values.combat_speed;
     game.click_at(480, 50);
-    const float clicked_speed = OptionsScreenState()->values.combat_speed;
+    const float clicked_speed = FindScreen<OptionsScreen>()->values.combat_speed;
     REQUIRE(clicked_speed < 0.5f);
     game.press_at(480, 50);
     game.move_pointer(520, 50);
-    REQUIRE(OptionsScreenState()->values.combat_speed > clicked_speed);
+    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed > clicked_speed);
     game.release_at(200, 190); // Captured release outside ends the drag.
-    const float released_speed = OptionsScreenState()->values.combat_speed;
+    const float released_speed = FindScreen<OptionsScreen>()->values.combat_speed;
     game.move_pointer(490, 50);
-    REQUIRE(OptionsScreenState()->values.combat_speed == released_speed);
+    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
     game.click_at(30, 250); // An inactive panel must not retain slider input.
     game.click_at(480, 50);
-    REQUIRE(OptionsScreenState()->values.combat_speed == released_speed);
-    OptionsScreenState()->values.combat_speed = combat_speed;
+    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
+    FindScreen<OptionsScreen>()->values.combat_speed = combat_speed;
     game.click_at(20, 445);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
@@ -1603,10 +1604,10 @@ void LoadFromMenu(GameHarness& game, const fs::path& save)
     W8OptionsSaveLoadPanel* panel = nullptr;
     game.wait("load-panel", [&] {
         if (CurrentScreenState().id != W8_SCREEN_OPTIONS || !game.settled() ||
-            !OptionsScreenState() || OptionsScreenState()->m_selected_panel != 4)
+            !FindScreen<OptionsScreen>() || FindScreen<OptionsScreen>()->m_selected_panel != 4)
             return false;
         // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
-        W8OptionsPanelSet* set = OptionsScreenState()->m_panel[4].get();
+        W8OptionsPanelSet* set = FindScreen<OptionsScreen>()->m_panel[4].get();
         if (!set || set->m_current < 0 ||
             static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
             return false;
@@ -1662,18 +1663,18 @@ void MenuSaveScenario()
             game.command(W8_MGS_COMMAND_OPTIONS);
             game.wait_screen("save-options", W8_SCREEN_OPTIONS);
         }
-        REQUIRE(OptionsScreenState());
-        click(*OptionsScreenState()->m_menu_buttons[save ? 5 : 4]);
-        REQUIRE(OptionsScreenState()->m_selected_panel == (save ? 5 : 4));
+        REQUIRE(FindScreen<OptionsScreen>());
+        click(*FindScreen<OptionsScreen>()->m_menu_buttons[save ? 5 : 4]);
+        REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == (save ? 5 : 4));
         return static_cast<W8OptionsSaveLoadPanel&>(
-            *OptionsScreenState()->m_panel[save ? 5 : 4]->m_panels.front());
+            *FindScreen<OptionsScreen>()->m_panel[save ? 5 : 4]->m_panels.front());
     };
 
     auto& create = open(true);
-    REQUIRE(OptionsScreenState()->m_text_editor);
+    REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
     game.enter_text("MenuOne");
     click(*create.m_action_button);
-    REQUIRE((!OptionsScreenState() || !OptionsScreenState()->m_active_modal));
+    REQUIRE((!FindScreen<OptionsScreen>() || !FindScreen<OptionsScreen>()->m_active_modal));
     WaitMainGame(game, "menu-save-created");
     auto saves = SaveFiles(game.user_root());
     REQUIRE(saves.size() == 1);
@@ -1688,12 +1689,12 @@ void MenuSaveScenario()
     click(overwrite.m_rows[1]->button);
     REQUIRE(overwrite.m_selected == 1);
     click(*overwrite.m_action_button);
-    REQUIRE(OptionsScreenState()->m_active_modal);
+    REQUIRE(FindScreen<OptionsScreen>()->m_active_modal);
     game.key(SDLK_ESCAPE);
-    REQUIRE_FALSE(OptionsScreenState()->m_active_modal);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_active_modal);
     REQUIRE(wiz8::open_file(save)->read_text() == original_bytes);
     click(*overwrite.m_action_button);
-    REQUIRE(OptionsScreenState()->m_active_modal);
+    REQUIRE(FindScreen<OptionsScreen>()->m_active_modal);
     game.key(SDLK_RETURN);
     WaitMainGame(game, "menu-save-overwritten");
     REQUIRE(SaveFiles(game.user_root()).size() == 1);
@@ -1706,13 +1707,13 @@ void MenuSaveScenario()
     const auto edit_name = [&](std::string_view name) {
         const auto bounds = rename.m_rows[1]->button.Bounds();
         game.click_at(bounds.x + 120, bounds.y + 55);
-        REQUIRE(OptionsScreenState()->m_text_editor);
-        const auto length = OptionsScreenState()->m_text_editor->m_fields.Text(0).size();
+        REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
+        const auto length = FindScreen<OptionsScreen>()->m_text_editor->m_fields.Text(0).size();
         game.key(SDLK_END);
         for (std::size_t i = 0; i < length; ++i) game.key(SDLK_BACKSPACE);
         game.enter_text(name);
         click(*rename.m_action_button);
-        REQUIRE(OptionsScreenState()->m_active_modal);
+        REQUIRE(FindScreen<OptionsScreen>()->m_active_modal);
     };
     edit_name("MenuRenamed");
     game.key(SDLK_ESCAPE);
@@ -1741,9 +1742,9 @@ void MenuSaveScenario()
     click(remove.m_rows[0]->button);
     const auto overwritten_bytes = wiz8::open_file(save)->read_text();
     click(*remove.m_delete_button);
-    REQUIRE(OptionsScreenState()->m_active_modal);
+    REQUIRE(FindScreen<OptionsScreen>()->m_active_modal);
     game.key(SDLK_ESCAPE);
-    REQUIRE_FALSE(OptionsScreenState()->m_active_modal);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_active_modal);
     REQUIRE(wiz8::open_file(save)->read_text() == overwritten_bytes);
     // A save can change after enumeration, for example during cloud sync.
     // A failed delete must report an error and retain the displayed row.
@@ -1752,15 +1753,15 @@ void MenuSaveScenario()
     fs::create_directory(save);
     click(*remove.m_delete_button);
     game.key(SDLK_RETURN);
-    REQUIRE(OptionsScreenState()->m_active_modal);
+    REQUIRE(FindScreen<OptionsScreen>()->m_active_modal);
     REQUIRE(remove.m_rows[0]->button.IsEnabled());
     fs::remove(save);
     fs::rename(backup, save);
     game.key(SDLK_RETURN); // Dismiss the delete error, then retry.
-    REQUIRE_FALSE(OptionsScreenState()->m_active_modal);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_active_modal);
     click(*remove.m_delete_button);
     game.key(SDLK_RETURN);
-    REQUIRE_FALSE(OptionsScreenState()->m_active_modal);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_active_modal);
     REQUIRE(SaveFiles(game.user_root()).empty());
     REQUIRE_FALSE(remove.m_delete_button->IsEnabled());
     REQUIRE_FALSE(remove.m_action_button->IsEnabled());
@@ -2115,11 +2116,10 @@ void PrintState(GameHarness& game)
     if (CurrentGame().combat.state())
         std::printf(" round=%u executing=%d", CurrentGame().combat.state()->round_count,
                     int(CurrentGame().combat.state()->execution_active));
-    if (CurrentScreenState().id == W8_SCREEN_CAMP && CampScreenState())
+    if (const auto* camp = FindScreen<CampScreen>())
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
-                    CampScreenState()->ReviewedPartySlot(), int(CampScreenState()->page),
-                    int(CampScreenState()->items.action()), CampScreenState()->dialog != nullptr,
-                    int(gXStatus.iTargetingMode));
+                    camp->ReviewedPartySlot(), int(camp->page), int(camp->items.action()),
+                    camp->dialog != nullptr, int(gXStatus.iTargetingMode));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.rows[slot].fOccupied) {
@@ -2295,7 +2295,7 @@ bool RunScriptCommand(GameHarness& game, const std::string& line)
                             entry.level, int(entry.fact), entry.alternate_text);
     } else if (op == "items" || op == "spells") {
         const int slot = CurrentScreenState().id == W8_SCREEN_CAMP
-                             ? CampScreenState()->ReviewedPartySlot()
+                             ? FindScreen<CampScreen>()->ReviewedPartySlot()
                              : CurrentGame().status.selected_character;
         if (op == "items") {
             PrintItems(slot);

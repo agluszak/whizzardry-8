@@ -105,6 +105,29 @@ std::unique_ptr<Screen> stub_factory(W8ScreenId)
 {
     return std::make_unique<StubScreen>();
 }
+// Rebuilt on every visit, with the request a suspension leaves behind.
+struct RebuiltScreen final : Screen {
+    static constexpr W8ScreenId id = W8_SCREEN_CAMP;
+    bool enter(const ScreenRequest& request) override
+    {
+        entered_with = request.parameter;
+        return true;
+    }
+    void frame() override {}
+    bool leave(ScreenDeparture) override { return true; }
+    std::optional<ScreenRequest> rebuildRequest(const ScreenRequest& entered) const override
+    {
+        auto request = entered;
+        request.parameter = entered_with + 1;
+        return request;
+    }
+    int entered_with = 0;
+};
+std::unique_ptr<Screen> rebuilding_factory(W8ScreenId id)
+{
+    if (id == RebuiltScreen::id) return std::make_unique<RebuiltScreen>();
+    return std::make_unique<StubScreen>();
+}
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
                           bool app_data = false, unsigned width = 1, unsigned height = 1,
@@ -173,6 +196,25 @@ void screen_stack()
     REQUIRE(activity.in_camp());
     GameloopExit();
     REQUIRE(activity.place == Activity::Place::Menu);
+
+    // A rebuilt screen exists only while current; a return enters a new one.
+    ResetScreenRouting(rebuilding_factory);
+    gfProgramIsRunning = true;
+    RequestScreen({.id = W8_SCREEN_CAMP, .parameter = 1});
+    GameLoop();
+    const auto* first = FindScreen<RebuiltScreen>();
+    REQUIRE((first && first->entered_with == 1));
+    RequestScreen({.id = W8_SCREEN_OPTIONS});
+    GameLoop();
+    REQUIRE((FindScreen<RebuiltScreen>() == nullptr && SuspendedScreenCount() == 1));
+    ReturnToPreviousScreen();
+    GameLoop();
+    REQUIRE(CurrentScreenState().parameter == 2);
+    REQUIRE(FindScreen<RebuiltScreen>()->entered_with == 2);
+    RequestScreen({.id = W8_SCREEN_OPTIONS});
+    GameLoop();
+    GameloopExit();
+    REQUIRE(CurrentScreenState().id == W8_SCREEN_NONE);
     ResetScreenRouting();
 }
 
@@ -194,7 +236,7 @@ void camp_effects()
         }
     } restore{previous_roots};
     {
-        W8CampScreenState independent{};
+        CampScreen independent;
         auto* state = &independent;
         REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
@@ -239,9 +281,10 @@ void camp_effects()
         REQUIRE(state->ReviewedPartySlot() == -1);
         state->reviewed = &CurrentGame().party.characters[3];
         REQUIRE(state->ReviewedPartySlot() == 3);
-        ScreenRequest suspended{.id = W8_SCREEN_CAMP, .character = state->reviewed};
+        // A camp rebuilt after a suspension reviews the character it showed.
+        const auto rebuilt = state->rebuildRequest({.id = W8_SCREEN_CAMP, .character = &character});
+        REQUIRE((rebuilt && rebuilt->character == &CurrentGame().party.characters[3]));
         state->reviewed = &character;
-        REQUIRE(suspended.character == &CurrentGame().party.characters[3]);
         state->stats.effect_items_only = false;
         state->stats.RebuildCampEffectList();
         REQUIRE(state->stats.effect_list.size() == 28);

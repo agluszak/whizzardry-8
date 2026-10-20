@@ -3,6 +3,7 @@
 #include <array>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,7 +24,7 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
-class W8OptionsScreenState;
+class OptionsScreen;
 class W8OptionsPanel;
 struct W8OptionsSaveRow;
 class W8MessageDialogBase;
@@ -236,10 +237,10 @@ struct W8OptionsKeyButton {
 };
 
 class W8OptionsKeyboardPanel : public W8OptionsPanel {
-    W8OptionsScreenState& screen;
+    OptionsScreen& screen;
 
 public:
-    W8OptionsKeyboardPanel(W8OptionsScreenState& screen, int panel);
+    W8OptionsKeyboardPanel(OptionsScreen& screen, int panel);
     void Populate() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
@@ -261,10 +262,10 @@ public:
 };
 
 class W8OptionsSaveLoadPanel : public W8OptionsPanel {
-    W8OptionsScreenState& screen;
+    OptionsScreen& screen;
 
 public:
-    W8OptionsSaveLoadPanel(W8OptionsScreenState& screen, int panel);
+    W8OptionsSaveLoadPanel(OptionsScreen& screen, int panel);
     void Populate() override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
@@ -302,12 +303,24 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-class W8OptionsScreenState final {
+/* Settings, key bindings and the save and load lists. The panels are rebuilt
+   from the live settings on every visit and applied when the screen leaves. */
+class OptionsScreen final : public Screen {
     UiLayer m_menu_input;
 
 public:
-    W8OptionsScreenState();
-    ~W8OptionsScreenState();
+    static constexpr W8ScreenId id = W8_SCREEN_OPTIONS;
+
+    OptionsScreen();
+    ~OptionsScreen() override;
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+    std::optional<ScreenRequest> rebuildRequest(const ScreenRequest& entered) const override
+    {
+        return entered;
+    }
+
     void SelectPanel(int selected);
     void ActivateMenu(int item);
     void UpdateNavigation();
@@ -316,13 +329,14 @@ public:
     void Redraw();
     void ShowNotification(bool allow_cancel, int message, std::function<void(bool)> closed);
     void BeginSaveNameEdit(W8OptionsSaveLoadPanel* owner, int row, std::string_view text);
+    void FinishTextEdit(bool cancelled);
     void OnDialogClosed(bool accepted, int value);
 
     W8OptionsValues values{};
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
-    bool m_redraw_pending;
+    bool m_redraw_pending = true;
     std::function<void(bool)> m_notification_closed;
-    int m_selected_panel;
+    int m_selected_panel = -1;
     std::array<std::unique_ptr<W8ButtonWidget>, 8> m_menu_buttons;
     std::array<std::unique_ptr<W8ButtonWidget>, 2> m_navigation;
     std::unique_ptr<W8TextBuffer> m_page_text;
@@ -332,27 +346,12 @@ public:
     std::unique_ptr<W8OptionsPanelSet> m_panel[8];
     std::unique_ptr<W8MessageDialogBase> m_active_modal;
     std::unique_ptr<W8OptionsTextEditor> m_text_editor;
-    W8OptionsKeyboardPanel* m_key_capture;
-};
-
-/* Settings, key bindings and the save and load lists. The panels are rebuilt
-   from the live settings on every entry and applied when the screen leaves. */
-class OptionsScreen final : public Screen {
-public:
-    static constexpr W8ScreenId id = W8_SCREEN_OPTIONS;
-
-    bool enter(const ScreenRequest& request) override;
-    void frame() override;
-    bool leave(ScreenDeparture departure) override;
-
-    std::unique_ptr<W8OptionsScreenState> state;
+    W8OptionsKeyboardPanel* m_key_capture = nullptr;
 
 private:
     /* The first frame of a visit presents without the automatic flip. */
     bool first_frame_ = false;
 };
-/* The open options screen's state, or null. */
-W8OptionsScreenState* OptionsScreenState();
 
 extern std::string g_options_last_save_name;
 std::string_view GetLastSaveName(void);
