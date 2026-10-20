@@ -3,13 +3,13 @@
 #include <bitset>
 
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/loaded_game_data.h"
@@ -38,7 +38,7 @@ static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game,
     CharacterStatRules rules;
     const auto slot = game.party.slotOf(character);
     if (!slot) return rules;
-    if (game.combat.active())
+    if (game.combat.has_value())
         rules.defensive_action = TryCharacterAction(*slot, W8_ACTION_DEFEND, false) ||
                                  TryCharacterAction(*slot, W8_ACTION_PROTECT, false);
     if (character.fInParty && character.iRace == W8_RACE_ANDROID) {
@@ -54,7 +54,7 @@ static PartyStatRules CaptureLivePartyStatRules(const Game& game)
     PartyStatRules rules;
     if (!game.status.game_started)
         rules.load_timing = PartyLoadTiming::Disabled;
-    else if (game.combat.active())
+    else if (game.combat.has_value())
         rules.load_timing = PartyLoadTiming::AfterCombat;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (game.party.rows[slot].fOccupied)

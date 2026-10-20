@@ -18,6 +18,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -30,7 +31,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
@@ -646,12 +646,12 @@ void W8NpcDialogue::RunNextAction()
                 BeginScriptedWorldAction();
                 break;
             case W8NpcCommand::reset_level_data_vectors:
-                if (!CurrentGame().combat.active() || CurrentGame().party_movement_mode) {
+                if (!CurrentGame().combat.has_value() || CurrentGame().party_movement_mode) {
                     ResetLevelDataVectors();
                 }
                 break;
             case W8NpcCommand::clear_level_movement_stopped:
-                if (!CurrentGame().combat.active() || CurrentGame().party_movement_mode) {
+                if (!CurrentGame().combat.has_value() || CurrentGame().party_movement_mode) {
                     ClearLevelMovementStopped();
                 }
                 break;
@@ -719,15 +719,15 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcLeaveCombat leave) const
         {
-            if (CurrentGame().combat.state() == 0) {
+            if (!CurrentGame().combat.has_value()) {
                 return;
             }
             const int party_slot = leave.party_slot;
-            CurrentGame().combat.state()->endTurnOf(PartyActor{party_slot});
+            CurrentGame().combat->endTurnOf(PartyActor{party_slot});
             ClearMainGameTargetState();
             DismissNpcFromParty(party_slot, 0, false, true);
             SetTargetToCharacter(party_slot, false);
-            CurrentGame().combat.state()->npc_combat_script_pending[party_slot] = false;
+            CurrentGame().combat->npc_combat_script_pending[party_slot] = false;
         }
         void operator()(W8NpcTravelConfirm travel) const
         {

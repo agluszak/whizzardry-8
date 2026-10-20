@@ -23,6 +23,7 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
@@ -37,7 +38,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
@@ -131,7 +131,7 @@ void CharacterScreen::BuildControls()
     if (m_mode == W8_CHARACTER_EDIT && GameStarted() &&
         CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetVisible(true);
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             m_reset->SetEnabled(false);
         }
     }

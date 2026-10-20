@@ -15,12 +15,12 @@
 #include "asset_paths.h"
 #include "audio_resources.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
@@ -63,9 +63,9 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     } else {
         handle = wiz8::sound::play(zSoundFileName);
     }
-    if (handle != nullptr && CurrentGame().combat.state() != 0 && store_handle) {
-        CurrentGame().combat.state()->hit_sound = handle;
-        CurrentGame().combat.state()->hit_sound_active = true;
+    if (handle != nullptr && CurrentGame().combat.has_value() && store_handle) {
+        CurrentGame().combat->hit_sound = handle;
+        CurrentGame().combat->hit_sound_active = true;
     }
 }
 
@@ -192,9 +192,8 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
     if (hand_attack->uiHolds == HOLDS_NOTHING) {
         weapon_class = 9;
     } else {
-        weapon_class = Data()
-                           .items[CurrentGame().combat.state()->characters[iChar].paired_item_id]
-                           .weapon_sound_class;
+        weapon_class =
+            Data().items[CurrentGame().combat->characters[iChar].paired_item_id].weapon_sound_class;
     }
     int target_material = GetCombatTargetMaterial(target, hit_location, 415);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);

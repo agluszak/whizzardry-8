@@ -25,7 +25,7 @@
 
 #include "temporary_directory.h"
 #include "wiz8/application.h"
-#include "wiz8/layouts/combat_state.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -161,9 +161,9 @@ TEST_CASE("world graphics")
             REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
         REQUIRE(portrait.portrait.rendered_pose == 1);
-        if (!CurrentGame().combat.active()) CurrentGame().combat.Start(0);
+        if (!CurrentGame().combat.has_value()) CurrentGame().beginCombat(0);
         GameLoop();
-        REQUIRE(CurrentGame().combat.active());
+        REQUIRE(CurrentGame().combat.has_value());
         DrawSubMenuCharacterAction();
         const auto& framebuffer = GetFrameBufferSurface();
         const auto caption = [&] {
@@ -254,13 +254,13 @@ TEST_CASE("world graphics")
         REQUIRE(monster);
         fprintf(stderr, "regression: kill monster %d species %u HP %u\n", monster->location_id,
                 monster->monster_species, monster->hp_current);
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             for (int frame = 0; frame < 90; ++frame) {
                 SDL_Delay(16);
                 GameLoop();
             }
         }
-        if (!CurrentGame().combat.active()) REQUIRE(CurrentGame().combat.Start(0));
+        if (!CurrentGame().combat.has_value()) REQUIRE(CurrentGame().beginCombat(0));
         if (!monster->pCombat) MonsterInfoEnterCombat(monster);
         W8TargetSource attacker{};
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;

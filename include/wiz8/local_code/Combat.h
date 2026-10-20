@@ -23,8 +23,6 @@ enum class CombatWait : unsigned char {
    is retired as it is checked. */
 CombatWait CombatWaitFor(Game& game);
 
-/* A friendly NPC's combat-entry script notice is still owed. */
-
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
 
@@ -51,9 +49,6 @@ void ScheduleCombatActor(void);
 int CheckCombatEnd(unsigned int end_if_no_hostiles);
 void AdvanceCombatRound(void);
 void RollCombatSurprise(char party_cannot_be_surprised);
-/* Enter combat mode; queues a friendly NPC's combat-entry script
-   notice when one is still owed and declines while dialogue or a script event
-   defers it. */
 struct W8Character;
 struct W8MonsterInfo;
 struct W8CombatCharacterRow;

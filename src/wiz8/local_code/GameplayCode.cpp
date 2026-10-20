@@ -13,13 +13,13 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
@@ -517,11 +517,11 @@ void RemoveCharacterFromParty(int party_slot)
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
     SetFormationPosition(&CurrentGame().party.formation, party_slot, -1, -1, false, true, true);
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         SetFormationPosition(&CurrentGame().planned_formation, party_slot, -1, -1, false, true,
                              true);
-        SetFormationPosition(&CurrentGame().combat.state()->saved_formation, party_slot, -1, -1,
-                             false, true, true);
+        SetFormationPosition(&CurrentGame().combat->saved_formation, party_slot, -1, -1, false,
+                             true, true);
     }
     if (GameStarted()) {
         PostCharacterNotice(party_slot, Data().strings[0x251]);

@@ -251,7 +251,12 @@ Unlayered code may use the layers.
   under other screens, and while a transition or the review transition holds the world,
   never reaches the step. A navigator that moved during a fight is reported as
   `CombatantsMoved`, and the screen recounts its monster target panel.
-- **The combat turn.** `W8CombatState::turn()` is a `CombatTurn` value: idle, or a
+- **A fight.** `Game::combat` is a `std::optional<Combat>` (`combat/combat.h`): engaged
+  exactly while the party fights, so "in combat" means the optional holds a value.
+  `Game::beginCombat` creates it after the entry checks and bookkeeping; `Game::endCombat`
+  settles the fight, destroys it, and then restores the world around it. Nothing of a
+  fight survives into the next one.
+- **The combat turn.** `Combat::turn()` is a `CombatTurn` value: idle, or a
   `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when
   used) that is scheduled, resolving or finishing. `UpdateCombat` steps it once per
   frame after `CombatWaitFor` reports nothing to wait on (camera, monster animation,

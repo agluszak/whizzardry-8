@@ -30,6 +30,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
@@ -45,7 +46,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/learned_spells.h"
 #include "wiz8/live_party.h"
@@ -644,9 +644,9 @@ bool CampScreen::enter(const ScreenRequest& request)
     stats.CreateControls(scroll_input);
     character_info.CreateControls();
     ActivateCampPage();
-    if (CurrentGame().combat.active() &&
-        CurrentGame().combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
-        if (CurrentGame().combat.state()->equip_pending == 1) {
+    if (CurrentGame().combat.has_value() &&
+        CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (CurrentGame().combat->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
                 if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
                     CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
@@ -664,7 +664,7 @@ bool CampScreen::enter(const ScreenRequest& request)
                     if (count == 1) {
                         text = fmt::format("{}", CurrentGame().party.characters[slot].name);
                     } else {
-                        if (count == CurrentGame().combat.state()->equip_pending) {
+                        if (count == CurrentGame().combat->equip_pending) {
                             text += " ";
                             text += fmt::sprintf(Data().strings[0x918],
                                                  CurrentGame().party.characters[slot].name);
@@ -704,7 +704,7 @@ void CampScreen::frame()
     ServiceMusicPlaylist();
     if (dialogs.ProcessInput()) InvalidateAll();
     if (CurrentGame().level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
-        !CurrentGame().combat.active() && !IsScreenTransitionPending()) {
+        !CurrentGame().combat.has_value() && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
     if (!dialogs.open())
@@ -817,13 +817,13 @@ void CampScreen::DrawCampScreen(void)
         spells.DrawControls();
     }
     DrawButtonPanel(false);
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         if (ReviewedPartySlot() != -1) {
             if (GameStarted() ||
                 (PreviousScreen() == W8_SCREEN_PARTY_SELECTION && PartySelectionInReviewMode())) {
                 UpdateRcsLevelUpPanel();
             }
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 goto done;
             }
         }
@@ -973,7 +973,7 @@ bool IsCampActionAllowed(int party_slot)
     W8PartySlotRow* row;
     W8Character* character;
 
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         return true;
     }
     character = &CurrentGame().party.characters[party_slot];
@@ -981,14 +981,14 @@ bool IsCampActionAllowed(int party_slot)
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] != 0 ||
         character->uiCondition[W8_CONDITION_PARALYZED] != 0 ||
         character->uiCondition[W8_CONDITION_ASLEEP] != 0) {
-        if (CurrentGame().combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection) {
             return true;
         }
         message = Data().strings[0x90a];
     } else {
         row = &CurrentGame().party.rows[party_slot];
-        if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
-            if (CurrentGame().combat.state()->characters[party_slot].dead) {
+        if (CurrentGame().combat->equip_phase == W8CombatEquipPhase::action_selection) {
+            if (CurrentGame().combat->characters[party_slot].dead) {
                 if (row->executing.kind == W8_ACTION_EQUIP) {
                     message = Data().strings[0x903];
                 } else if (row->committed.kind == W8_ACTION_EQUIP) {

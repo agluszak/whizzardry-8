@@ -36,6 +36,7 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
@@ -57,7 +58,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
@@ -458,7 +458,7 @@ void TriggerEvent::Update()
     if (action == 2) {
         W8GameTimer::Flags flags = timer.m_flags;
 
-        if (CurrentGame().combat.engineActive()) {
+        if (CurrentGame().combat.has_value()) {
             if (flags.paused || (g_shared_timer_paused && !flags.raw_time) ||
                 g_shared_timer_flag0) {
                 return;
@@ -2006,7 +2006,7 @@ bool Trigger::SelectAction()
     bool fallback_selected = false;
     bool result = true;
 
-    if (CurrentGame().combat.engineActive() && doorData() != nullptr && doorData()->open) {
+    if (CurrentGame().combat.has_value() && doorData() != nullptr && doorData()->open) {
         return false;
     }
 

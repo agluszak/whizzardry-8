@@ -7,10 +7,10 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
@@ -196,22 +196,22 @@ bool CanHoldFormationPlace(int party_slot)
 /* Remember the formation combat started with. */
 void SaveCombatFormation(void)
 {
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
-    CurrentGame().combat.state()->saved_formation = CurrentGame().party.formation;
+    CurrentGame().combat->saved_formation = CurrentGame().party.formation;
 }
 
 /* Put the formation combat started with back, if anything moved. Comparing the
    whole block is what makes it one object rather than a set of tables. */
 void RestoreCombatFormation(void)
 {
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
 
-    if (CurrentGame().combat.state()->saved_formation != CurrentGame().party.formation) {
-        CurrentGame().party.formation = CurrentGame().combat.state()->saved_formation;
+    if (CurrentGame().combat->saved_formation != CurrentGame().party.formation) {
+        CurrentGame().party.formation = CurrentGame().combat->saved_formation;
         RefreshFormationBoard();
         RefreshRadarMap();
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x24b], 0);
@@ -231,7 +231,8 @@ void SyncPartyFacingFromCamera(void)
 
     yaw = static_cast<unsigned int>(GetCameraYawDegrees()) % W8_DEGREES_PER_TURN;
     movement_stopped = IsLevelMovementStopped();
-    if ((!CurrentGame().combat.active() || !g_combat_preserve_party_facing) && !movement_stopped) {
+    if ((!CurrentGame().combat.has_value() || !g_combat_preserve_party_facing) &&
+        !movement_stopped) {
         CurrentGame().status.party_facing = static_cast<int>(yaw);
         if (yaw != CurrentGame().status.party_heading) {
             CurrentGame().status.party_heading = yaw;

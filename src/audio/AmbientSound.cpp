@@ -31,7 +31,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
@@ -301,7 +300,7 @@ void W8AmbientSound::Service(bool entered)
             } else {
                 should_play = PresentationRng().below(3);
             }
-            if (!CurrentGame().combat.active() && should_play != 0 &&
+            if (!CurrentGame().combat.has_value() && should_play != 0 &&
                 CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
                 float angle = -GetCameraYawRadians();
                 glm::vec3 camera;

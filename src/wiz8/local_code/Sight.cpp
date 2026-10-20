@@ -12,6 +12,7 @@
 #include "sight_state.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -20,7 +21,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -86,7 +86,7 @@ void RefreshOutwardSightForAllMonsters(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
@@ -344,7 +344,7 @@ void ResetAndRefreshAllSight(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
@@ -389,7 +389,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     if (!direction) {
         unsigned int index;
 
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             return;
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -507,7 +507,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 unsigned char fade_flag;
                 float player_distance;
 
-                if (!CurrentGame().combat.active()) {
+                if (!CurrentGame().combat.has_value()) {
                     sight_override = CurrentGame().party.modifiers.sight_override;
                 } else {
                     sight_override = 0;

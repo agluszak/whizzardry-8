@@ -13,6 +13,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
@@ -21,7 +22,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -307,7 +307,7 @@ void ToggleSearchMode(void)
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         CurrentGame().status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
         CurrentGame().search_sweep_due = std::chrono::milliseconds{500};

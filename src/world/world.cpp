@@ -19,6 +19,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "named_position.h"
 #include "wiz8/audio/AmbientSound.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
@@ -31,7 +32,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/spell_database.h"
@@ -118,8 +118,8 @@ static void UpdateWorld(World& world)
 void UpdateWorlds(void)
 {
     g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.state() != 0 &&
-          (CurrentGame().combat.state()->round_active || CurrentGame().party_movement_mode));
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
+          (CurrentGame().combat->round_active || CurrentGame().party_movement_mode));
 
     // Loading registered the sky first; preserve that update order.
     for (World* world : {GetSecondaryWorld(), GetWorld()}) {

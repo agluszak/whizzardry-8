@@ -10,6 +10,7 @@
 #include "local_code/FormationAndFacing.h"
 #include "monster_spell_icons.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -19,7 +20,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
@@ -181,8 +181,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             character->fatigue_penalty = 0;
             break;
         case W8_CONDITION_INSANE:
-            if (CurrentGame().combat.active() &&
-                CurrentGame().combat.state()->characters[party_slot].berserk) {
+            if (CurrentGame().combat.has_value() &&
+                CurrentGame().combat->characters[party_slot].berserk) {
                 row->executing.target = row->committed.target;
             }
             break;
@@ -326,9 +326,9 @@ void RecomputeCharacterHighestCondition(int party_slot)
         }
     }
     UpdateFormationSlotState(&CurrentGame().party.formation, party_slot);
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         UpdateFormationSlotState(&CurrentGame().planned_formation, party_slot);
-        UpdateFormationSlotState(&CurrentGame().combat.state()->saved_formation, party_slot);
+        UpdateFormationSlotState(&CurrentGame().combat->saved_formation, party_slot);
     }
     if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {
         SettleActiveParty(CurrentGame());
@@ -550,7 +550,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
         return;
     }
     if (announce &&
-        (CurrentGame().combat.active() || monster_info->party_threat.visible_to_player)) {
+        (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player)) {
         auto name = GetMonsterName(monster_info, 0, 0);
         ShowNotice(
             W8_FONT_PALETTE_RUST,
@@ -577,7 +577,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             monster_group = FindMonsterGroup(monster_info->monster_group_id);
             SetMonsterHostility(monster_info, monster_group->ubDisposition);
         }
-        if (CurrentGame().combat.active() || monster_info->party_threat.visible_to_player) {
+        if (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player) {
             ShowNotice(W8_FONT_PALETTE_RUST,
                        fmt::sprintf(Data().strings[0x244], GetMonsterName(monster_info, 0, 0),
                                     Data().strings[g_condition_notices[condition].name]));

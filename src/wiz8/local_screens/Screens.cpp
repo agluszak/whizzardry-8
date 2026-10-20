@@ -402,7 +402,7 @@ struct GameEventPresentation {
 
 bool SkillIncreasesShownNow(const Game& game)
 {
-    return !game.combat.active() && !IsModalOpen() && !game.item_pick_pending &&
+    return !game.combat.has_value() && !IsModalOpen() && !game.item_pick_pending &&
            CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle();
 }
 

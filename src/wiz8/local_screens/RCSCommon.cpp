@@ -22,6 +22,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -32,7 +33,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/learned_spells.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -147,8 +147,8 @@ bool CanSelectRcsPartySlot(int ui_slot)
     if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
         return false;
     }
-    if (CurrentGame().combat.active()) {
-        if (CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
+    if (CurrentGame().combat.has_value()) {
+        if (CurrentGame().combat->equip_phase == W8CombatEquipPhase::action_selection) {
             return false;
         }
         if (CurrentGame().party.rows[ui_slot].executing.kind != W8_ACTION_EQUIP) {
@@ -353,7 +353,7 @@ void CampScreen::RedrawRcsDismissPanel()
 void CampScreen::UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(ReviewedPartySlot());
-    if (!enabled || CurrentGame().combat.active() ||
+    if (!enabled || CurrentGame().combat.has_value() ||
         (!CurrentGame().party.rows[ReviewedPartySlot()].portrait_advance && GameStarted()) ||
         CurrentGame().activity.conversation_aside) {
         if (header_buttons.level_up->IsVisible()) {
@@ -408,8 +408,8 @@ void CampScreen::OnDismissCharacterDialogClosed(bool accepted)
 // FUNCTION: WIZ8 0x005b68e0
 void CampScreen::UpdateRcsDismissPanel(void)
 {
-    if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) && !CurrentGame().combat.active() &&
-        !CurrentGame().activity.conversation_aside) {
+    if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) &&
+        !CurrentGame().combat.has_value() && !CurrentGame().activity.conversation_aside) {
         if (!header_buttons.dismiss->IsVisible()) {
             header_buttons.dismiss->SetVisible(true);
             RedrawRcsDismissPanel();
@@ -509,7 +509,7 @@ void CampScreen::DrawCampHeader(void)
         if (portrait_hovered != 0) {
             CatalogArtwork::Load(0x116, 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         }
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             RedrawRcsLevelUpPanel();
             RedrawRcsDismissPanel();
         }

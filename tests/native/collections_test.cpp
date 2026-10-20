@@ -28,6 +28,7 @@
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -36,7 +37,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -1048,7 +1048,7 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     REQUIRE_FALSE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
-    REQUIRE(CurrentGame().combat.active());
+    REQUIRE(CurrentGame().combat.has_value());
     REQUIRE(CurrentGame().party.characters[0].party_weight_share == 123);
 }
 

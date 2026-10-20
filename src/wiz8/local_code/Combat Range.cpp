@@ -10,12 +10,12 @@
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "sight_state.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -71,8 +71,8 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
     char side;
     int first = party_slot;
 
-    if (!CurrentGame().combat.active() ||
-        !CurrentGame().combat.state()->characters[party_slot].berserk) {
+    if (!CurrentGame().combat.has_value() ||
+        !CurrentGame().combat->characters[party_slot].berserk) {
         side = hand;
     } else {
         side = 1;
@@ -228,7 +228,7 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
         if (range == W8_RANGE_NONE) return {W8TargetFailure::Unavailable};
         spell_sight = selected.kind == W8_ACTION_TURN_UNDEAD ||
                       (selected.kind > W8_ACTION_PROTECT && selected.kind < W8_ACTION_EQUIP);
-        if (CurrentGame().combat.active() && range >= 0 && range < 2) {
+        if (CurrentGame().combat.has_value() && range >= 0 && range < 2) {
             int rows = CountRowsBetween(party_slot, monster_info);
             while (rows-- > 0 && range != W8_RANGE_NONE)
                 range = range == W8_RANGE_TOUCH ? W8_RANGE_NONE
@@ -696,7 +696,7 @@ void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCateg
 {
     char crossable;
 
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         return;
     }
     if (*range_category < W8_RANGE_TOUCH || *range_category >= W8_RANGE_LONG) {

@@ -36,6 +36,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -55,7 +56,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -487,7 +487,7 @@ void ResetMainScreenStateBlock(void)
    busy or this NPC kind suppresses it. */
 void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress)
 {
-    if (!CurrentGame().activity.conversation && !CurrentGame().combat.active() &&
+    if (!CurrentGame().activity.conversation && !CurrentGame().combat.has_value() &&
         (npc->record->kind != 7 || GetFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
         QueueNpcScriptNotice(npc, item, line, suppress, 0);
     }

@@ -22,6 +22,7 @@
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -29,7 +30,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -269,7 +269,7 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
             splat_text.RenderString(fmt::format("{:d}", entry->damage_splat_amount),
                                     g_wiz_text_bold_font, false, GetFrameBufferSurface());
         }
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             entry->combat_portrait_dirty = true;
         }
     }
@@ -394,7 +394,7 @@ void RedrawCombatPortraits(void)
     for (slot = 0; slot < 8; ++slot) {
         W8PartySlotRow* party_row = &CurrentGame().party.rows[slot];
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
-        W8CombatCharacterRow* combat_row = &CurrentGame().combat.state()->characters[slot];
+        W8CombatCharacterRow* combat_row = &CurrentGame().combat->characters[slot];
 
         if (!CanPartySlotParticipate(slot) || combat_row->portrait_image == -1 ||
             !entry->combat_portrait_dirty || slot == MainGameHud()->combat_slot) {
@@ -701,8 +701,8 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
             }
             if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw,
                                            party_slot, false) &&
-                ((CurrentGame().combat.active() &&
-                  CurrentGame().combat.state()->characters[party_slot].dead) ||
+                ((CurrentGame().combat.has_value() &&
+                  CurrentGame().combat->characters[party_slot].dead) ||
                  CurrentGame().surprise_possible ||
                  character->highest_condition == W8_CONDITION_MISSING)) {
                 return true;
@@ -895,7 +895,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                      {(0x54 - text_width) / 2 + 0x15 + menu_x, menu_y + 0x49}, character->name);
             g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 entry->combat_portrait_dirty = true;
             }
             condition_icons->icons[party_slot].dirty = true;
@@ -1049,7 +1049,7 @@ portrait_fx:
             .draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
     }
 
-    if (!CurrentGame().combat.active() && party_slot < 8 && party_row->fOccupied) {
+    if (!CurrentGame().combat.has_value() && party_slot < 8 && party_row->fOccupied) {
         portrait_buttons->buttons[party_slot]->m_dirty = true;
     }
 

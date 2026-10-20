@@ -35,7 +35,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/loaded_game_data.h"
@@ -910,7 +909,7 @@ static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(OptionsScreen& screen,
                 *hide_navigation = 1;
                 return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
             }
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 *hide_navigation = 1;
                 return std::make_unique<W8OptionsUnavailablePanel>(0x82b);
             }
@@ -1696,7 +1695,7 @@ void OptionsScreen::UpdateNavigation()
 void OptionsScreen::OnDialogClosed(bool accepted, int)
 {
     if (accepted) {
-        if (GameStarted() && !CurrentGame().combat.active() && AnyCharacterActive()) {
+        if (GameStarted() && !CurrentGame().combat.has_value() && AnyCharacterActive()) {
             AutoSaveIfAllowed(true);
         }
         RequestExitScreen();
@@ -1746,7 +1745,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
         } else {
             selected = g_last_options_panel;
             if (g_last_options_panel == 5) {
-                if (CurrentGame().combat.active()) {
+                if (CurrentGame().combat.has_value()) {
                     selected = 4;
                 }
                 if (CurrentGame().status.iron_man) {

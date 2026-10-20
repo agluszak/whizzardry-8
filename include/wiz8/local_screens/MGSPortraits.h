@@ -1,6 +1,6 @@
 #pragma once
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/targeting.h"
 

@@ -4,13 +4,13 @@
 
 #include <fmt/format.h>
 
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -60,7 +60,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
             missile.combat_slot.iType = W8_TARGET_KIND_CHARACTER;
             missile.combat_slot.iChar = GetRandomCharacter(1, 1, -1, -1);
             missile.combat_slot.iMonsterID = -1;
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 missile.AnnounceCollisionTarget();
             }
         }
@@ -90,7 +90,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
             missile.combat_slot.iType = W8_TARGET_KIND_MONSTER;
             missile.combat_slot.iChar = -1;
             missile.combat_slot.iMonsterID = location_id;
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 missile.AnnounceCollisionTarget();
             }
         }
@@ -112,11 +112,10 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
     }
 
     if (missile.missile_table_index == 0x23) {
-        CurrentGame().combat.state()->missile_hit_result = hit_result;
-    } else if (CurrentGame().combat.state() != 0 &&
-               CurrentGame().combat.state()->engaged_missile != 0) {
-        CurrentGame().combat.state()->missile_hit_result = hit_result;
-        CurrentGame().combat.state()->TargetHit = missile.combat_slot;
+        CurrentGame().combat->missile_hit_result = hit_result;
+    } else if (CurrentGame().combat.has_value() && CurrentGame().combat->engaged_missile != 0) {
+        CurrentGame().combat->missile_hit_result = hit_result;
+        CurrentGame().combat->TargetHit = missile.combat_slot;
     } else if (Data().missiles[missile.missile_table_index].spell_missile) {
         ResolveSpellMissileHit(&missile);
     } else {
@@ -147,8 +146,8 @@ void CombatSignals::missileReleased(Monster& monster)
     record = GetMonsterDataForInfo(monster_info);
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (CurrentGame().combat.active() &&
-        CurrentGame().combat.state()->resolvingTurnOf(MonsterActor{monster_info->location_id})) {
+    if (CurrentGame().combat.has_value() &&
+        CurrentGame().combat->resolvingTurnOf(MonsterActor{monster_info->location_id})) {
         attack_index = monster_info->pCombat->attack_index;
         selected_attack = true;
         goto prepare_attack;

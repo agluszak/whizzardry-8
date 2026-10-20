@@ -1,8 +1,8 @@
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/combat/combat.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/CosmicCircle.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -37,8 +37,8 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
 {
     W8NpcState* pNPC;
 
-    if (CurrentGame().combat.active()) {
-        CurrentGame().combat.End(true);
+    if (CurrentGame().combat.has_value()) {
+        CurrentGame().endCombat(true);
     }
     BeginScriptedWorldAction();
     pNPC = GetNpcStateByKind(0x85);

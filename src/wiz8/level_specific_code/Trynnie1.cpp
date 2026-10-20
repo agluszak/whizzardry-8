@@ -4,12 +4,12 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"

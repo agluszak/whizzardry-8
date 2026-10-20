@@ -33,6 +33,7 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/Font.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
@@ -49,7 +50,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -576,7 +576,7 @@ void Monster::Update()
                              monster_info->uiCondition[W8_CONDITION_SLOWED] != 0, player);
     }
 
-    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !CurrentGame().combat.active()) {
+    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !CurrentGame().combat.has_value()) {
         ProcessScript();
         cycle = Query(W8_MONSTER_QUERY_CYCLE);
     }
@@ -707,11 +707,11 @@ void Monster::Update()
 
     UpdateAttachedObjects();
     cycle = Query(W8_MONSTER_QUERY_CYCLE);
-    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.state() != 0 &&
-        (CurrentGame().combat.state()->round_active || CurrentGame().party_movement_mode) &&
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
+        (CurrentGame().combat->round_active || CurrentGame().party_movement_mode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (visual.pending_cycle == -1 || visual.pending_cycle == 1 || visual.pending_cycle == 2) &&
-        !CurrentGame().combat.state()->resolvingTurnOf(MonsterActor{location_id})) {
+        !CurrentGame().combat->resolvingTurnOf(MonsterActor{location_id})) {
         visual.timer = GameClockMilliseconds();
     }
 
@@ -1270,7 +1270,7 @@ unsigned char Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    if (CurrentGame().combat.active() && partyCamera().m_transition_active) {
+    if (CurrentGame().combat.has_value() && partyCamera().m_transition_active) {
         return 0;
     }
     if (visual.animation_playing == 0) {

@@ -37,6 +37,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
@@ -50,7 +51,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/save_screenshot.h"
@@ -770,7 +770,7 @@ void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
 bool CanAutoSaveNow()
 {
     return CurrentGame().status.world_cursor_gate == 0 && !AnyMonsterDying() &&
-           !CurrentGame().combat.active() && !IsSightRangeOverridden() &&
+           !CurrentGame().combat.has_value() && !IsSightRangeOverridden() &&
            CanInterruptLevelMovement() && !CurrentGame().activity.conversation &&
            !CurrentGame().activity.conversation_aside;
 }

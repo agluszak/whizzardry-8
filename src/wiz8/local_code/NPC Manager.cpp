@@ -45,6 +45,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -57,7 +58,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -871,7 +871,7 @@ void ProcessNpcPendingEvents(void)
 {
     bool all_clear = true;
 
-    if (!CurrentGame().combat.active() && !CurrentGame().surprise_possible) {
+    if (!CurrentGame().combat.has_value() && !CurrentGame().surprise_possible) {
         if (CurrentGame().status.infatuation_pending) {
             bool flagged = false;
             for (const auto& state_owner : CurrentGame().story.npcs) {
@@ -2013,7 +2013,7 @@ void UpdateNpcEvents(void)
         }
     }
 
-    if (!CurrentGame().combat.active() && CurrentGame().status.vi_event_stage > 1) {
+    if (!CurrentGame().combat.has_value() && CurrentGame().status.vi_event_stage > 1) {
         bool run_event = GetFact(W8_FACT_VI_IS_DEAD) != 0;
 
         if (!run_event) {

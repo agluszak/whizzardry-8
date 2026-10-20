@@ -25,6 +25,7 @@
 #include "retail_records.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_types.h"
@@ -37,7 +38,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -142,8 +142,8 @@ unsigned char UpdateMissileAI(MissileFlight* record)
     }
     missile->flight_done = true;
     if (missile->missile_table_index == 0x23 &&
-        (CurrentGame().combat.state() == 0 ||
-         CurrentGame().combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+        (!CurrentGame().combat.has_value() ||
+         CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
         missile->DetonateMissileSpell();
     }
     if (Data().missiles[missile->missile_table_index].spell_missile != 0) {
@@ -332,8 +332,8 @@ Missile* AllocateMissile(int missile_table_index)
     missile->flight_done = false;
     if (missile->flight_done) {
         if (missile->missile_table_index == 0x23 &&
-            (CurrentGame().combat.state() == 0 ||
-             CurrentGame().combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+            (!CurrentGame().combat.has_value() ||
+             CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
             missile->DetonateMissileSpell();
         }
         if (Data().missiles[missile->missile_table_index].spell_missile != 0) {
@@ -680,8 +680,8 @@ void Missile::StartIfHostActive()
     } else {
         flight_done = true;
         if (missile_table_index == 0x23 &&
-            (CurrentGame().combat.state() == 0 ||
-             CurrentGame().combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+            (!CurrentGame().combat.has_value() ||
+             CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
             DetonateMissileSpell();
         }
         if (Data().missiles[missile_table_index].spell_missile) {
@@ -824,7 +824,7 @@ void Missile::AnnounceCollisionTarget()
     unsigned char source_color;
     unsigned char target_color;
 
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         return;
     }
     text = fmt::format("{} ", Data().strings[0x1bf]);
@@ -861,8 +861,8 @@ void Missile::EnterImpactCycle()
     } else {
         flight_done = true;
         if (missile_table_index == 0x23 &&
-            (CurrentGame().combat.state() == 0 ||
-             CurrentGame().combat.state()->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+            (!CurrentGame().combat.has_value() ||
+             CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
             DetonateMissileSpell();
         }
         if (Data().missiles[missile_table_index].spell_missile) {

@@ -5,9 +5,9 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/entities/missile.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/rules/character.h"

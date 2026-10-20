@@ -12,6 +12,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
@@ -26,7 +27,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
@@ -1152,7 +1152,7 @@ void BindEveryPartyItem(void)
 {
     unsigned int party_slot;
 
-    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active &&
+    if (CurrentGame().combat.has_value() && !CurrentGame().combat->round_active &&
         !CurrentGame().party_movement_mode) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]);
         return;
@@ -1326,7 +1326,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        return !CurrentGame().combat.active() && !CurrentGame().activity.conversation_aside &&
+        return !CurrentGame().combat.has_value() && !CurrentGame().activity.conversation_aside &&
                !LockInteractionSuspended() && !TrapInteractionSuspended();
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
@@ -1349,7 +1349,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        if (CurrentGame().combat.active() || CurrentGame().activity.conversation_aside ||
+        if (CurrentGame().combat.has_value() || CurrentGame().activity.conversation_aside ||
             LockInteractionSuspended() || TrapInteractionSuspended()) {
             ShowNoticeLine(Data().strings[0x7a6], callback, true, false);
             return true;
@@ -1466,7 +1466,7 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
     auto detail = action.detail_block;
     detail.item_use.kind = -1;
     auto& row = CurrentGame().party.rows[party_slot];
-    if (CurrentGame().combat.active())
+    if (CurrentGame().combat.has_value())
         row.committed.target = action.target;
     else
         row.executing.target = action.target;

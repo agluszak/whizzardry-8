@@ -16,6 +16,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
@@ -23,7 +24,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
@@ -363,7 +363,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
     }
     if (monster_group->leader_group_id == 0) {
         leader = GetMonsterByLocationID(monster_group->leader_location_id);
-        if (leader) leader->nav.LinkGroupNavigator(nullptr, CurrentGame().combat.engineActive());
+        if (leader) leader->nav.LinkGroupNavigator(nullptr, CurrentGame().combat.has_value());
     } else {
         W8MonsterGroup* leader_group = FindMonsterGroup(monster_group->leader_group_id);
         leader = GetMonsterByLocationID(leader_group->leader_location_id);
@@ -373,7 +373,7 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
         Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index));
 
         if (member && member != leader) {
-            member->nav.LinkGroupNavigator(&leader->nav, CurrentGame().combat.engineActive());
+            member->nav.LinkGroupNavigator(&leader->nav, CurrentGame().combat.has_value());
         }
     }
 }
@@ -530,8 +530,8 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
     unsigned int index;
     W8MonsterInfo* lead;
 
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
     if (!monster_group->fInCombat) {
         Fail("pMonsterGroup->fInCombat");
@@ -971,7 +971,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
     while (true) {
         if (CurrentGame().status.world_suspended &&
             monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !CurrentGame().combat.active()) {
+            !CurrentGame().combat.has_value()) {
             return;
         }
 
@@ -1040,7 +1040,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             }
             monster_group->fInCombat = true;
             if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
-                CurrentGame().combat.active() && CurrentGame().combat.state()->round_count != 0) {
+                CurrentGame().combat.has_value() && CurrentGame().combat->round_count != 0) {
                 unsigned int live_groups = 0;
                 unsigned int group_list_index = 0;
                 while (group_list_index < CurrentLevelPopulation().monster_groups.size()) {

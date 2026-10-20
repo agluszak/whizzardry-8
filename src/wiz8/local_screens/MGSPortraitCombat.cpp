@@ -3,9 +3,9 @@
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
@@ -119,10 +119,10 @@ void UpdateSubMenuButton(int index)
     case 5:
     case 6:
     case 8:
-        MainGame()->hud_buttons.submenu[index].SetVisible(CurrentGame().combat.active());
+        MainGame()->hud_buttons.submenu[index].SetVisible(CurrentGame().combat.has_value());
         break;
     case 7:
-        MainGame()->hud_buttons.submenu[index].SetVisible(!CurrentGame().combat.active());
+        MainGame()->hud_buttons.submenu[index].SetVisible(!CurrentGame().combat.has_value());
         break;
     }
     if (CurrentGame().activity.conversation &&
@@ -147,7 +147,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active) {
+    if (CurrentGame().combat.has_value() && !CurrentGame().combat->round_active) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -157,21 +157,21 @@ void UpdateSubMenuButton(int index)
     }
     switch (index) {
     case 0:
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             MainGame()->hud_buttons.submenu[0].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[0].SetEnabled(true);
         }
         break;
     case 1:
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             MainGame()->hud_buttons.submenu[1].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[1].SetEnabled(true);
         }
         break;
     case 2:
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             MainGame()->hud_buttons.submenu[2].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[2].SetEnabled(true);
@@ -229,20 +229,20 @@ void UpdateSubMenuButton(int index)
         break;
     case 5:
     case 6:
-        MainGame()->hud_buttons.submenu[index].SetEnabled(CurrentGame().combat.active());
+        MainGame()->hud_buttons.submenu[index].SetEnabled(CurrentGame().combat.has_value());
         if (!IsPartySlotEligible(CurrentGame().status.selected_character)) {
             MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         }
         break;
     case 7:
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             MainGame()->hud_buttons.submenu[7].SetEnabled(false);
         } else {
             MainGame()->hud_buttons.submenu[7].SetEnabled(true);
         }
         break;
     case 8:
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             MainGame()->hud_buttons.submenu[8].SetEnabled(true);
         } else {
             MainGame()->hud_buttons.submenu[8].SetEnabled(false);
@@ -282,7 +282,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
         CloseUseItemSelectView();
         return;
     }
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         OpenSubMenuPanel(3);
         ReleaseUiCapture();
         return;

@@ -24,6 +24,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -33,7 +34,6 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/key_bindings.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -252,9 +252,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         } else if (CurrentGame().speech.HasActiveEvents()) {
             CurrentGame().speech.CompleteFirstActiveEvent();
         } else {
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 ToggleCombatMode();
-                if (!CurrentGame().combat.active()) {
+                if (!CurrentGame().combat.has_value()) {
                     InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
                     return;
                 }
@@ -445,9 +445,9 @@ void DispatchMGSCommand(W8MGSCommand command)
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             if (g_dev_mode) {
-                CurrentGame().combat.End(false);
+                CurrentGame().endCombat(false);
             } else {
                 ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
                 break;
@@ -549,10 +549,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!CurrentGame().combat.active() || gpSCSV || ItemUseDraft()) {
+        if (!CurrentGame().combat.has_value() || gpSCSV || ItemUseDraft()) {
             break;
         }
-        if (CurrentGame().combat.state()->execution_active == 0) {
+        if (CurrentGame().combat->execution_active == 0) {
             BeginCombatExecution();
         } else if (PartyMovementPanelShown() && !CanPartyMove() && !IsLevelMovementStopped()) {
             BeginFreeTurnPhase();
@@ -704,7 +704,7 @@ void CloseKeyboardMenu(void)
     MainGameHud()->hover_combat_slot = g_selected_party_slot;
     MainGameHud()->cursor_grace = 0;
     RefreshPartySlotRegions();
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         MainGame()->combat.setEnabled(true);
     } else {
         MainGame()->combat.setEnabled(false);

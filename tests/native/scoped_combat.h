@@ -1,19 +1,19 @@
 #pragma once
-#include <memory>
+#include <optional>
 #include <utility>
 
+#include "wiz8/combat/combat.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 
-// A combat state for the current game, restored afterwards.
+// The current game's fight replaced for a test, and restored afterwards.
 struct ScopedCombat {
-    W8CombatLifecycle saved = std::move(CurrentGame().combat);
-    explicit ScopedCombat(bool active = false)
+    std::optional<Combat> saved = std::exchange(CurrentGame().combat, std::nullopt);
+    // A fight in progress, or none.
+    explicit ScopedCombat(bool fighting = false)
     {
-        auto& combat = CurrentGame().combat;
-        combat.state_ = std::make_unique<W8CombatState>();
-        combat.phase_ = active ? W8CombatLifecycle::Phase::Active : W8CombatLifecycle::Phase::Idle;
+        if (fighting) CurrentGame().combat.emplace();
     }
     ~ScopedCombat() { CurrentGame().combat = std::move(saved); }
-    void BeginRestoration() { CurrentGame().combat.phase_ = W8CombatLifecycle::Phase::Restoring; }
+    ScopedCombat(const ScopedCombat&) = delete;
+    ScopedCombat& operator=(const ScopedCombat&) = delete;
 };

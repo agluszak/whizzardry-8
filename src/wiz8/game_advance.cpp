@@ -1,8 +1,8 @@
 #include <chrono>
 
+#include "wiz8/combat/combat.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
@@ -33,7 +33,7 @@ constexpr milliseconds kWorldItemsInterval{50};
 // A fight starts when a living party meets a monster hostile enough to fight.
 bool HostilesEngage(const Game& game)
 {
-    return !game.combat.active() && AnyCharacterActive() &&
+    return !game.combat.has_value() && AnyCharacterActive() &&
            CurrentLevelPopulation().monster_roster.hostileCombatCount();
 }
 
@@ -69,20 +69,20 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     if (level.sky) WorldUpdateProps(level.sky.get());
 
     ProcessMonsterManagerFrame();
-    if (!combat.active()) {
+    if (!combat.has_value()) {
         AccumulateMovementFatigue(*this);
         if (Due(search_sweep_due, kSearchSweepInterval)) RunSearchPulse();
     } else if (!hold.combat && !activity.conversation) {
         UpdateCombat();
     }
-    if (IsSightRangeOverridden() && HostilesEngage(*this)) combat.Start(0);
+    if (IsSightRangeOverridden() && HostilesEngage(*this)) beginCombat(0);
     if (Due(sight_due, kSightInterval)) UpdateMonsterSight();
     if (!advancement.held) {
         UpdateMonsterGroups(true);
-        if (HostilesEngage(*this) && !activity.conversation) combat.Start(0);
+        if (HostilesEngage(*this) && !activity.conversation) beginCombat(0);
         if (g_navigator_position_changed) {
             g_navigator_position_changed = false;
-            if (combat.active()) events.push(CombatantsMoved{});
+            if (combat.has_value()) events.push(CombatantsMoved{});
             sight_refresh_pending = true;
         }
     }
@@ -90,5 +90,5 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         UpdateNearbyWorldItems();
         DetachAllWorldItems();
     }
-    if (!advancement.paused || combat.active()) UpdateWorlds();
+    if (!advancement.paused || combat.has_value()) UpdateWorlds();
 }
