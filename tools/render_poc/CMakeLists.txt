@@ -18,3 +18,5 @@ target_link_libraries(wiz8_render_poc PUBLIC
 set_property(SOURCE common/shading_block.cpp APPEND PROPERTY OBJECT_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/common/shaders/wizardry_vertex.glsl"
     "${CMAKE_CURRENT_SOURCE_DIR}/common/shaders/wizardry_fragment.glsl")
+
+add_subdirectory(ogre)
