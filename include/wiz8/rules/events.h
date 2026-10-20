@@ -14,6 +14,8 @@
 // A notice's defaults: the active mode's text box and its available line width.
 constexpr short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 constexpr unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
+// Wrap at the text box's full width.
+constexpr unsigned int W8_NOTICE_WRAP_TEXT_BOX = ~0U - 1;
 
 enum W8TextBoxMode : unsigned char {
     W8_TEXT_BOX_MODE_NOTICE = 0,
@@ -66,8 +68,6 @@ struct CombatPanelChanged {};
 struct CharacterActionChanged {};
 // The party's equipment settled after an inventory edit.
 struct EquipmentSettled {};
-// The hand holds something else.
-struct HeldItemChanged {};
 /* A skill became available or unavailable to a character; a character screen editing
    that character adjusts its draft. */
 struct SkillAvailabilityChanged {
@@ -95,12 +95,39 @@ struct CombatantsMoved {};
 struct CombatExecutionBegan {};
 // The party ended a fight that nothing kept going.
 struct CombatCalledOff {};
+// A fight began.
+struct CombatBegan {};
+// A fight ended and the world is restored around it.
+struct CombatEnded {};
+/* Who has acted in the round changed; with `whole_party`, every member's combat state
+   changed with it. */
+struct CombatProgressChanged {
+    bool whole_party = false;
+};
+// The party's combat stance, or whether it may change, changed.
+struct CombatStanceChanged {};
+// The monsters about the party, their groups or their dispositions changed.
+struct MonstersChanged {};
+// The party's spell effects changed, or a round passed them by.
+struct PartyEffectsChanged {};
+// The spell effects on the party in a fight changed.
+struct CombatEffectsChanged {};
+// What the world view's frame shows about the party changed: conditions, quotes.
+struct PartyPanelChanged {};
+// A member joined or left; everything the party is shown in changes.
+struct PartyMembershipChanged {};
+// An item left the world.
+struct WorldItemRemoved {
+    int runtime_id = -1;
+};
 
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, PartySlotChanged,
                  PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
-                 HeldItemChanged, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff>;
+                 SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged, CombatantsMoved,
+                 CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
+                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
+                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

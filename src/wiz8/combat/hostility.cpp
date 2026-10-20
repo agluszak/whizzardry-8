@@ -389,7 +389,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
     if (recurse) {
         AlertSameFactionGroups(group);
     }
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
 }
 
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)

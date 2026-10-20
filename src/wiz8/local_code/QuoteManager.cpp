@@ -62,6 +62,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
@@ -855,13 +856,11 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
             std::string formatted;
             std::string character_name = CurrentGame().party.characters[party_slot].name;
             formatted = character_name;
-            int scroll_range = (MainGameHud()->text_box_right - MainGameHud()->text_box_left);
-            ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
+            ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, W8_NOTICE_WRAP_TEXT_BOX);
             /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
                speaker's name into the dialogue box (3) with the same scroll
                width, not the mode-selected box. */
-            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3,
-                       (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+            ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, W8_NOTICE_WRAP_TEXT_BOX);
         } else {
             if (kFirstRemappedEvent <= mapped_event) {
                 mapped_event = g_normal_event_count - kFirstRemappedEvent + mapped_event;
@@ -880,8 +879,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         }
         DisablePartyPortraitEvent(party_slot);
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-            RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
-            RequestRedrawParty();
+            CurrentGame().events.push(PartyPanelChanged{});
+            CurrentGame().events.push(MonstersChanged{});
             record->portrait_event_active = false;
             return;
         }

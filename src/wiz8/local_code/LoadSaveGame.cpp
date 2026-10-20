@@ -37,7 +37,6 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/entities/cursor_nodes.h"
@@ -95,7 +94,6 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
@@ -1284,7 +1282,6 @@ void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
         CurrentGame().status.next_world_item_id = 1;
     CurrentGame().status.next_trigger_id = world.next_trigger_id;
     CurrentGame().item_manager_pending = 0;
-    if (MainGameHud()) MainGameHud()->highlighted_item = MainGameHud()->selected_item = -1;
     if (!status) return;
     auto& data = *status->data;
     if (data.header) ApplyStatusHeader(*data.header, CurrentGame().status);
@@ -1667,11 +1664,6 @@ try {
     });
     CurrentGame().gameplay_timer.Restart();
     ResetMainGameScreenState();
-    if (CurrentGame().party.held.item.iItemNo == -1) {
-        ClearHeldItemDisplay();
-    } else {
-        SetItemCursor(0);
-    }
     SanitizeLoadedItems();
     return true;
 } catch (const std::exception&) {

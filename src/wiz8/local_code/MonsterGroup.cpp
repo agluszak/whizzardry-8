@@ -36,12 +36,12 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -540,7 +540,7 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
         MonsterInfoLeaveCombat(FindMonster(monster_group->MemberLocationId(index)));
     }
     monster_group->fInCombat = false;
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
     lead = FindMonster(monster_group->leader_location_id);
     lead->ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
 }
@@ -1073,7 +1073,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     }
                 }
             }
-            RequestRedrawParty();
+            CurrentGame().events.push(MonstersChanged{});
             SetMonsterGroupEngagementState(monster_group->group_id, false);
             return;
         }

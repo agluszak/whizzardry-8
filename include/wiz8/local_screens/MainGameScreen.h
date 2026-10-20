@@ -87,7 +87,6 @@ bool PartyMovementPanelShown();
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 
-void RequestRedrawParty(void);
 void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
@@ -426,10 +425,9 @@ void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
 bool IsModalOpen(void);
 
-void RequestRedraw(unsigned int mask);
 struct W8TargetingPresentation;
-void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation);
-void DrawMainGameScreen(void);
+void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
+void DrawMainGameScreen(W8LevelRuntimeBlock& hud);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 bool IsScreenInputBlocked(void);
@@ -576,7 +574,6 @@ void SetCombatAction(int value);
 void SetCombatSelection(int value);
 void SetCombatTarget(int value);
 
-void RequestRedrawCombatBar(void);
 void UpdateScreenOverlays(int frame);
 bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);

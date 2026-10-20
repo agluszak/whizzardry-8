@@ -10,7 +10,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/entities/monster.h"
@@ -1006,7 +1005,6 @@ int ArnikaScript::pedestalItem(int* previous_item)
             ReplaceHeldItem(ctx.game, MakeItem(previous, false, false, false));
         }
     }
-    SetItemCursor(0);
     npc = GetNpcStateByKind(0x69);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);

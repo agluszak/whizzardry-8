@@ -8,6 +8,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -188,6 +189,7 @@ void GameLoop()
         return;
     }
     router.screen->frame();
+    PresentPointer();
 }
 
 void GameloopExit()

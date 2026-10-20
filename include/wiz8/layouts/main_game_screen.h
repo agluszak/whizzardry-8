@@ -1,3 +1,5 @@
+#include <bitset>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -29,7 +31,7 @@ static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 /* One animated cursor resource the main-game / camp screens can install. The
    object is an Texture; size and hotspot are the unsigned shorts
-   ApplyCurrentCursor feeds to the mouse-cursor surface helpers. */
+   the pointer feeds to the mouse-cursor surface helpers. */
 struct W8MainGameResourceSlot {
     int image_id;
     std::shared_ptr<Texture> object;
@@ -61,36 +63,48 @@ enum W8ViewportMode : unsigned char {
     W8_VIEWPORT_MODE_UNINITIALIZED = 7
 };
 
-/* RequestRedraw requests main-game repaints with this mask. The low
-   eight bits select party portraits; combinations remain unsigned mask words. */
-enum W8MainGameRedrawFlag {
-    W8_MAIN_REDRAW_PORTRAIT_0 = 0x1,
-    W8_MAIN_REDRAW_PORTRAIT_1 = 0x2,
-    W8_MAIN_REDRAW_PORTRAIT_2 = 0x4,
-    W8_MAIN_REDRAW_PORTRAIT_3 = 0x8,
-    W8_MAIN_REDRAW_PORTRAIT_4 = 0x10,
-    W8_MAIN_REDRAW_PORTRAIT_5 = 0x20,
-    W8_MAIN_REDRAW_PORTRAIT_6 = 0x40,
-    W8_MAIN_REDRAW_PORTRAIT_7 = 0x80,
-    W8_MAIN_REDRAW_PORTRAITS = 0xff,
-    W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS = 0x100,
-    W8_MAIN_REDRAW_LAYOUT = 0x200,
-    W8_MAIN_REDRAW_RADAR = 0x400,
-    W8_MAIN_REDRAW_TEXT_BOX = 0x800,
-    W8_MAIN_REDRAW_SUBMENU_BUTTONS = 0x1000,
-    W8_MAIN_REDRAW_SUBMENU_PANEL = 0x2000,
-    W8_MAIN_REDRAW_FORMATION = 0x4000,
-    W8_MAIN_REDRAW_PORTRAIT_PANEL = 0x8000,
-    W8_MAIN_REDRAW_MONSTER_LIST = 0x20000,
-    W8_MAIN_REDRAW_OPTIONS_BUTTON = 0x40000,
-    W8_MAIN_REDRAW_COMBAT_STANCE = 0x80000,
-    W8_MAIN_REDRAW_COMBAT_PROGRESS = 0x100000,
-    W8_MAIN_REDRAW_CHARACTER_ACTION = 0x200000,
-    W8_MAIN_REDRAW_COMBAT_EFFECTS = 0x800000,
-    W8_MAIN_REDRAW_CHROME = W8_MAIN_REDRAW_RADAR | W8_MAIN_REDRAW_TEXT_BOX |
-        W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_SUBMENU_PANEL | W8_MAIN_REDRAW_FORMATION |
-        W8_MAIN_REDRAW_OPTIONS_BUTTON | W8_MAIN_REDRAW_COMBAT_STANCE |
-        W8_MAIN_REDRAW_CHARACTER_ACTION
+/* What the main game's next draw repaints, part by part, as the camp's header and pages
+   record theirs. Each draw repaints the recorded parts and clears the record. */
+struct MainGameRepaint {
+    // Clear the screen and repaint every part.
+    bool everything = false;
+    /* Run the repaint pass even with no part recorded, for the panels that track their own
+       state: the spell page, the portrait bars and the keyboard menu. */
+    bool panels = false;
+    std::bitset<8> portraits;
+    bool roof_and_spell_icons = false;
+    // The chrome's layout changed: the bottom panels and the buttons around them repaint.
+    bool layout = false;
+    bool radar = false;
+    bool text_box = false;
+    bool submenu_buttons = false;
+    bool submenu_panel = false;
+    bool formation = false;
+    // The world view's frame: the prompt, the movement panel or the combat effects.
+    bool portrait_panel = false;
+    bool monster_list = false;
+    bool options_button = false;
+    bool combat_stance = false;
+    bool combat_progress = false;
+    bool character_action = false;
+    bool combat_effects = false;
+
+    /* A party slot's portrait. Without a slot (-1) only the repaint pass runs, as the
+       retail mask shifted by the slot asked. */
+    void portrait(int slot)
+    {
+        if (slot >= 0 && slot < 8)
+            portraits.set(static_cast<std::size_t>(slot));
+        else
+            panels = true;
+    }
+    bool any() const
+    {
+        return everything || panels || portraits.any() || roof_and_spell_icons || layout || radar ||
+               text_box || submenu_buttons || submenu_panel || formation || portrait_panel ||
+               monster_list || options_button || combat_stance || combat_progress ||
+               character_action || combat_effects;
+    }
 };
 
 /* What a delayed portrait hover highlights. The value also indexes the
@@ -126,9 +140,6 @@ struct W8PortraitHighlight {
     }
 };
 
-static const unsigned int W8_MAIN_REDRAW_FRAME = 0x80000000U;
-static const unsigned int W8_MAIN_REDRAW_ALL = 0xffffffffU;
-
 enum W8PortraitAssayHoverMode : unsigned char {
     W8_PORTRAIT_ASSAY_HOVER_NONE = 0,
     W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON = 1,
@@ -139,7 +150,7 @@ enum W8PortraitAssayHoverMode : unsigned char {
 struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
-    unsigned int redraw_flags;
+    MainGameRepaint repaint;
     W8ViewportMode camera_mode;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];

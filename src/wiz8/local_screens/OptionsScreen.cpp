@@ -1725,7 +1725,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     g_wiz_text_font_secondary.resetPalette();
     values.TransferSettings();
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());

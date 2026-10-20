@@ -309,15 +309,19 @@ Unlayered code may use the layers.
 - **Events.** `Events` is the game's ordered log of what happened: notices
   (`TextNotice`, a member's `CharacterNotice`, a `NoticeDialog`), text-box mode changes,
   display changes (`PartySlotChanged`, `PartyLoadChanged`, `CombatPanelChanged`,
-  `CharacterActionChanged`, `EquipmentSettled`, `HeldItemChanged`) and skill changes
-  (`SkillAvailabilityChanged`, `SkillImproved`). Rules push them; they never call
-  screens. An installed observer receives each event as it is pushed, so presentation
-  keeps its place among the screen calls that unmigrated code still makes; a game
-  without one keeps them pending, which is how tests inspect them.
+  `CharacterActionChanged`, `EquipmentSettled`, `PartyPanelChanged`,
+  `PartyEffectsChanged`, `PartyMembershipChanged`, `MonstersChanged`,
+  `WorldItemRemoved`), a fight's course (`CombatBegan`, `CombatEnded`,
+  `CombatProgressChanged`, `CombatStanceChanged`, `CombatEffectsChanged`) and skill
+  changes (`SkillAvailabilityChanged`, `SkillImproved`). Rules push them; they never
+  ask for repaints. An installed observer receives each event as it is pushed, so
+  presentation keeps its place among the screen calls that unmigrated code still
+  makes; a game without one keeps them pending, which is how tests inspect them.
   `SetGameEventObserver` (called once by `InitializeGame`) gives every game begun by
   `BeginGame` the UI's presenter, `PresentGameEvent` in `Screens.cpp`, which maps each
-  event to the active screen's notice, redraw, cursor or character-screen call and
-  decides there whether a skill increase is shown at once.
+  event to the active screen's notice, repaint or character-screen call (the main game's
+  repaints only while it is shown) and decides there whether a skill increase is shown
+  at once.
 - **Voices.** A voice that finishes after its game has ended is dropped.
 - **Saves.** `save_codec.h` holds the save sections that are pure functions between bytes
   and values: `wiz8::save::GameState`, the game's `GameStatus` and party that the GSTA
@@ -394,11 +398,11 @@ widget tree.
   current screen and resumes the top of the stack; returning with nothing
   suspended ends the program. `CreateScreen` builds a screen when it is first
   requested and the router destroys it when it is discarded, so a suspended
-  main game keeps its HUD (`MainGameScreen::hud`, reached elsewhere through
-  `MainGameHud()`). The camp, character and options
-  screens are rebuilt on every visit: their `rebuildRequest` makes the router
-  destroy them when they are suspended and enter a new one with that request
-  in place of resuming them (a rebuilt camp reviews the character it showed).
+  main game keeps its HUD (`MainGameScreen::hud`; its draw path receives it, and the
+  main game's other free functions reach it through `MainGameHud()`). The camp,
+  character and options screens are rebuilt on every visit: their `rebuildRequest`
+  makes the router destroy them when they are suspended and enter a new one with that
+  request in place of resuming them (a rebuilt camp reviews the character it showed).
   They hold their per-visit state as members and exist only while current.
 - Other modules reach a screen through `FindScreen<T>()` (or `MainGame()`),
   never through a global slot: `PresentGameEvent` hands an event to the screen
@@ -483,6 +487,21 @@ widget tree.
   full or portrait repaint through `TakeCampRepaint`, which the camp reads
   before drawing. Each draw receives whether it is a full repaint, and
   everything recorded is cleared after the draw.
+- The main game's invalidation is per part too: its HUD's `MainGameRepaint` records
+  each portrait and HUD part the next draw repaints, `everything` for a full repaint
+  (which entering the main game asks for) and `panels` for the pass that refreshes the
+  panels tracking their own state. `DrawMainGameScreen` paints the recorded parts
+  (`ApplyMainGameRepaint`, where painting one part may record others), invalidates the
+  rectangles of the parts it was asked for, and clears the record. Screen code marks the
+  parts it changed; game events mark the shown main game's parts through the presenter.
+- The pointer shows what a screen last asked for (`SetTargetCursor`, a cursor-table
+  slot; `ShowHeldItemCursor`, the held item under the camp's move overlays;
+  `ShowCustomCursor`, an image the screen drew) together with the hand it asked with. A
+  request lapses when the hand changes, and without one the main game and the camp show
+  the held item and other screens the arrow. `PresentPointer` applies this every frame
+  and after every request, so commands that change the hand never touch the cursor;
+  screens drop their request on entry with `ResetPointerCursor`, and dialogs restore the
+  request they opened over.
 
 ## Tests
 

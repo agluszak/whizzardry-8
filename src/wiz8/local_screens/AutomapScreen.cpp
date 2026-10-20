@@ -814,7 +814,7 @@ bool AutomapScreen::leave(ScreenDeparture)
     ClearAutomapMarkers();
     g_automap_party_marker->detach();
     g_automap_buttons.reset();
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     EnableCursorScene();
     for (unsigned int mesh = 0; mesh < GetWorld()->compiledIndex()->m_meshCount; ++mesh) {
         for (Mesh* model : meshParts(static_cast<Mesh*>(GetWorld()->psrMeshes[mesh]->getModel()))) {

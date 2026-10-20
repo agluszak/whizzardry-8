@@ -30,7 +30,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -203,7 +202,6 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
                 dialogs.ShowNotice(Data().strings[0x915], 0, true, false);
                 return;
             }
-            SetItemCursor(0);
             RebuildCampItemList();
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
             camp_repaint.all = true;
@@ -442,16 +440,14 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
                 SetTargetCursor(3);
                 return;
             }
-            SetTargetCursor(0xf);
-            SetItemCursor(0xe);
+            ShowHeldItemCursor(0xe);
             return;
         }
         if (!(CurrentGame().party.held.item.iItemNo != -1)) {
             SetTargetCursor(4);
             return;
         }
-        SetTargetCursor(0xe);
-        SetItemCursor(0xf);
+        ShowHeldItemCursor(0xf);
         return;
     case W8_TARGET_NEED_CHARACTER_INDIRECT:
         if (IsDeadCharacterTargetable(slot)) {
@@ -467,8 +463,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
 void SetHandCursors()
 {
     if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        SetTargetCursor(0xf);
-        SetItemCursor(0xe);
+        ShowHeldItemCursor(0xe);
         return;
     }
     SetTargetCursor(3);
@@ -2271,9 +2266,6 @@ void W8CampItemsPage::SetCampItemActionMode(W8CampItemAction mode)
         break;
     }
     SetTargetingMode(targeting);
-    if (mode == W8_CAMP_ITEM_ACTION_NONE && (CurrentGame().party.held.item.iItemNo != -1)) {
-        SetItemCursor(0);
-    }
     if (selected != W8_CAMP_ACTION_BUTTON_NONE && action_buttons[selected]->IsPressed() == 0) {
         action_buttons[selected]->SetPressed(true);
     }
