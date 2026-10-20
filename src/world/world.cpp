@@ -1,5 +1,6 @@
 #include "wiz8/world/world.h"
 
+#include <cassert>
 #include <cmath>
 #include <filesystem>
 #include <initializer_list>
@@ -36,7 +37,6 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
@@ -292,9 +292,7 @@ void SetWorldScenePosition(World* world, const glm::vec3* location)
     glm::vec3 position;
     glm::dvec3 render_position;
 
-    if (!world) {
-        Fail("pWorld");
-    }
+    assert(world);
 
     position = *location;
     if (world->camera != 0) {
@@ -326,9 +324,7 @@ void RefreshWorldView()
    the camera at 0x44 rather than anywhere else. */
 glm::mat3 cameraRotation(const World& world)
 {
-    if (!world.camera) {
-        Fail("pWorld->psrCamera");
-    }
+    assert(world.camera);
     return world.camera->transform.getRotation<glm::mat3>();
 }
 
@@ -338,9 +334,7 @@ void WorldSetCameraLocation(const glm::vec3* location)
 {
     glm::dvec3 position;
 
-    if (!GetWorld()) {
-        Fail("pWorld");
-    }
+    assert(GetWorld());
     if (GetWorld()->camera != 0) {
         position = glm::dvec3((*location));
         GetWorld()->camera->transform.setLocation(position);
@@ -356,15 +350,9 @@ void WorldSetCameraLocation(const glm::vec3* location)
    opaque retail fields for its next save snapshot. */
 void SetWorldCameraState(World* world, CameraPose* state)
 {
-    if (world == nullptr) {
-        Fail("pWorld");
-    }
-    if (state == nullptr) {
-        Fail("CamPos");
-    }
-    if (world->camera == nullptr) {
-        Fail("pWorld->pCamera");
-    }
+    assert(world != nullptr);
+    assert(state != nullptr);
+    assert(world->camera != nullptr);
 
     glm::vec3 location = state->position;
     world->camera->transform.setLocation(glm::dvec3(location));
@@ -387,9 +375,7 @@ void RestoreWorldCameraState(CameraPose* state)
 {
     glm::vec3 navigator_position;
 
-    if (GetWorld() == nullptr) {
-        Fail("pWorld");
-    }
+    assert(GetWorld() != nullptr);
     SetWorldCameraState(GetWorld(), state);
     navigator_position = glm::vec3(GetWorld()->camera->transform.getLocation());
     PartyNavigator()->SetAngles(GetCameraYawInDegrees());
@@ -422,9 +408,7 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
 {
     float scale;
 
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     if ((flags & W8_WORLD_INCREASE_FAR_CLIP) != 0) {
         WorldSetFarClip(world,
                         static_cast<float>(WorldGetFarClip(world)) + g_position_height_epsilon);

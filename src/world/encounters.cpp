@@ -1,6 +1,7 @@
 #include "wiz8/world/encounters.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -39,7 +40,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
@@ -228,9 +228,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     script = selected->script.c_str();
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
-    if (record == 0) {
-        Fail("pMonsterDB", fmt::format("MonsterDBFromSpecies failed for species {:d}", species));
-    }
+    assert(record != 0);
     if (record->deleted != 0) {
         DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                     "species {:d} has been DELETED!",
@@ -260,10 +258,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     int count = RollEncounterGroupSize(record);
-    if (count == 0) {
-        Fail("ulNumMonsters",
-             fmt::format("Error in Monster DB: zero group size ({})", record->name0));
-    }
+    assert(count != 0);
 
     group = CreateGroup(species, count, &spawn_position, false, false, true);
     group->encounter_registered = true;
@@ -282,10 +277,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         unsigned int companion_species =
             static_cast<unsigned short>(companion_records[index].species);
         const W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
-        if (companion_record == 0) {
-            Fail("pMonsterDB",
-                 fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
-        }
+        assert(companion_record != 0);
         if (companion_record->deleted != 0) {
             DebugMessage(1,
                          fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
