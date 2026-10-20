@@ -1,4 +1,4 @@
-link_libraries(Catch2::Catch2WithMain wiz8_asset_preparation)
+link_libraries(Catch2::Catch2WithMain)
 
 # The architecture's layers include only what they may depend on (tools/check_layers.py).
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -29,7 +29,7 @@ target_link_libraries(native_bit_array_io_test PRIVATE wiz8_engine)
 add_test(NAME native_bit_array_io COMMAND native_bit_array_io_test)
 
 add_executable(native_images_test native/images_test.cpp)
-target_link_libraries(native_images_test PRIVATE wiz8_engine)
+target_link_libraries(native_images_test PRIVATE wiz8_engine wiz8_asset_preparation)
 catch_discover_tests(native_images_test TEST_PREFIX "native_images/")
 
 add_executable(native_files_test "${PROJECT_SOURCE_DIR}/tests/native/files_test.cpp")
@@ -177,7 +177,7 @@ endif()
 # Uses installed retail assets, supplied through WIZ8_ASSET_ROOT; run explicitly.
 
 add_executable(native_audio_test "${PROJECT_SOURCE_DIR}/tests/native/audio_test.cpp")
-target_link_libraries(native_audio_test PRIVATE wiz8_engine)
+target_link_libraries(native_audio_test PRIVATE wiz8_engine wiz8_asset_preparation)
 target_compile_definitions(native_audio_test PRIVATE WIZ8_AUDIO_TEST_MP3="${PROJECT_SOURCE_DIR}/tests/native/tone.mp3")
 catch_discover_tests(native_audio_test
     TEST_PREFIX "native_audio/"
@@ -211,7 +211,7 @@ add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.
 target_compile_definitions(native_movie_test PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv"
     WIZ8_MOVIE_GOLDEN="${PROJECT_SOURCE_DIR}/tests/native/movie.rgb555")
-target_link_libraries(native_movie_test PRIVATE wiz8_engine SDL3::SDL3)
+target_link_libraries(native_movie_test PRIVATE wiz8_engine wiz8_asset_preparation SDL3::SDL3)
 if(APPLE)
     target_link_options(native_movie_test PRIVATE -Wl,-dead_strip)
 elseif(UNIX)
