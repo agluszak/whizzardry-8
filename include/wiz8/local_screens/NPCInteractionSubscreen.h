@@ -25,7 +25,6 @@ void HideNpcQuoteBubbleRegion();
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_layer.h"
 
-
 class W8DialogBase;
 struct W8ControlsRect;
 struct W8NpcQuoteEntry;

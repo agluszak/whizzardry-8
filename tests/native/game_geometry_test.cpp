@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -69,7 +70,6 @@
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -1466,6 +1466,7 @@ TEST_CASE("Attached particle orientation follows rotations independently of mode
 
 TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
 {
+    const ScopedGame game;
     ParticleSystem particles(nullptr, 2);
     particles.emission_gap = 0;
     particles.emission_mode = W8_PARTICLE_EMISSION_SINGLE;
@@ -1531,8 +1532,8 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     REQUIRE(draws.index_count == 6);
 
     particles.release_when_done = true;
-    particles.birth_ticks[1] = GameClockMilliseconds() - 1;
     particles.lifetime_ms = 0;
+    game.game.time += std::chrono::milliseconds{1};
     particles.AdvanceSimulation();
     REQUIRE(particles.active_particle_count == 0);
     REQUIRE(particles.finished);

@@ -3319,7 +3319,6 @@ static bool IsDialoguePlaceKeyword(std::string_view name)
     return false;
 }
 
-
 /* Restate the five transcript category buttons so only the active
    dialogue_category_filter's button shows its secondary state. */
 void SyncDialogueCategoryButtons(void)
