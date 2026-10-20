@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <span>
@@ -63,7 +64,6 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
@@ -101,9 +101,6 @@ void W8CampItemsPage::SetCampInfoPageMode(W8CampInfoPage mode)
     int index;
 
     switch (mode) {
-    default:
-        Fail("FALSE", "Info toggle error");
-        break;
     case W8_CAMP_INFO_PAGE_CHARACTER:
         item_controls.tabs[0]->SetPressed(false);
         item_controls.tabs[1]->SetPressed(true);
@@ -291,15 +288,9 @@ void W8CampItemsPage::UseHeldItemOnItem(W8ItemInstance* item)
 {
     W8CombatSlot target;
 
-    if (pending_item_action.caster_slot < 0) {
-        Fail("pending_item_action.caster_slot >= 0");
-    }
-    if (pending_item_action.caster_slot > 7) {
-        Fail("pending_item_action.caster_slot < MAX_CHARS");
-    }
-    if (!CurrentGame().party.rows[pending_item_action.caster_slot].fOccupied) {
-        Fail("fCHAR_OCCUPIED(pending_item_action.caster_slot)");
-    }
+    assert(pending_item_action.caster_slot >= 0);
+    assert(pending_item_action.caster_slot <= 7);
+    assert(CurrentGame().party.rows[pending_item_action.caster_slot].fOccupied);
     if (item->iItemNo != -1) {
         if (CanItemLeaveItsSlot(item)) {
             ResetCombatSlot(&target);
@@ -330,21 +321,11 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 {
     W8CombatSlot target;
 
-    if (uiTargetChar > 7) {
-        Fail("uiTargetChar < MAX_CHARS");
-    }
-    if (!CurrentGame().party.rows[uiTargetChar].fOccupied) {
-        Fail("fCHAR_OCCUPIED(uiTargetChar)");
-    }
-    if (pending_item_action.caster_slot < 0) {
-        Fail("pending_item_action.caster_slot >= 0");
-    }
-    if (pending_item_action.caster_slot > 7) {
-        Fail("pending_item_action.caster_slot < MAX_CHARS");
-    }
-    if (!CurrentGame().party.rows[pending_item_action.caster_slot].fOccupied) {
-        Fail("fCHAR_OCCUPIED(pending_item_action.caster_slot)");
-    }
+    assert(uiTargetChar <= 7);
+    assert(CurrentGame().party.rows[uiTargetChar].fOccupied);
+    assert(pending_item_action.caster_slot >= 0);
+    assert(pending_item_action.caster_slot <= 7);
+    assert(CurrentGame().party.rows[pending_item_action.caster_slot].fOccupied);
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = uiTargetChar;
@@ -396,9 +377,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
         }
         return;
     case W8_TARGET_NEED_ITEM:
-        if (item == 0) {
-            Fail("pItem");
-        }
+        assert(item != 0);
         if (item->iItemNo == -1) {
             return;
         }
@@ -1681,9 +1660,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     W8ItemInstance* paired;
     std::string text;
 
-    if (item == 0) {
-        Fail("pPCItem != NULL");
-    }
+    assert(item != 0);
 
     /* A held stackable whose name kind the clicked item merges with counts as
        the same item for the use-merge path below. */
@@ -1777,9 +1754,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                                 kCharacterEventFullVolume);
             return;
         }
-        if (pending_item_action.identifying_character == 0) {
-            Fail("gpIdentifyingPC != NULL");
-        }
+        assert(pending_item_action.identifying_character != 0);
         old_pool_count = CurrentGame().party.item_count;
         reidentify = false;
         ResetCombatSlot(&target);

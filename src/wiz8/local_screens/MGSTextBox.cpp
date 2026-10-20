@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -44,7 +45,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_log.h"
 #include "wiz8/modal_content.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
@@ -323,9 +323,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                                      (CurrentScreenState().id == W8_SCREEN_CAMP && !force_dialog) ||
                                      CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT ||
                                      CurrentScreenState().id == W8_SCREEN_CHARACTER)) {
-        if (font_palette >= W8_FONT_PALETTE_COUNT) {
-            Fail("uiFontPaletteIndex <= FONT_PALETTE_COUNT");
-        }
+        assert(font_palette < W8_FONT_PALETTE_COUNT);
         if (wrap_width == W8_NOTICE_WRAP_AUTOMATIC) {
             wrap_width = MainGameHud()->text_box_right - MainGameHud()->text_box_left - 10;
         }
@@ -570,16 +568,12 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     W8MessageStorageRecord* line;
     W8MessageStorageRecord* previous;
 
-    if (!(stop >= start)) {
-        Fail("ubStopChar >= ubStartChar");
-    }
+    assert(stop >= start);
     if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
-    if (!(CurrentGame().status.text_box_lines_used[text_box] > 0)) {
-        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
-    }
+    assert(CurrentGame().status.text_box_lines_used[text_box] > 0);
     line = &CurrentGame()
                 .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
     if (MainGameHud()->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
@@ -591,9 +585,7 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
         line->highlight_color = color;
         return;
     }
-    if (!(CurrentGame().status.text_box_lines_used[text_box] >= 2)) {
-        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2");
-    }
+    assert(CurrentGame().status.text_box_lines_used[text_box] >= 2);
     previous = &CurrentGame()
                     .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 2];
     if (start >= MainGameHud()->text_lines[8 + text_box]) {
@@ -629,9 +621,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     }
     text_box = ResolveNoticeTextBox(text_box);
     unsigned int* lines_used = &CurrentGame().status.text_box_lines_used[text_box];
-    if (!(*lines_used > 0)) {
-        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
-    }
+    assert(*lines_used > 0);
     W8MessageStorageRecord* line = &CurrentGame().message_log[text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
     unsigned char channel = line->font_palette;
@@ -642,9 +632,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     line->text.clear();
     line->entries.clear();
     if (CurrentGame().status.text_box_lines_shown[text_box] == *lines_used) {
-        if (!(CurrentGame().status.text_box_lines_shown[text_box] > 0)) {
-            Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] > 0");
-        }
+        assert(CurrentGame().status.text_box_lines_shown[text_box] > 0);
         --CurrentGame().status.text_box_lines_shown[text_box];
     }
     --*lines_used;
@@ -714,9 +702,7 @@ void AdvanceNoticeLine(short text_box)
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
         text_box = CurrentGame().status.text_line_cursor;
     }
-    if (CurrentGame().status.text_box_lines_shown[text_box] >= 350) {
-        Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES");
-    }
+    assert(CurrentGame().status.text_box_lines_shown[text_box] < 350);
     W8MessageStorageRecord* record =
         &CurrentGame().message_log[text_box][CurrentGame().status.text_box_lines_shown[text_box]];
     auto delay = g_settings.text_display_delay_ms *
@@ -1470,14 +1456,10 @@ void RefreshTextBoxMode(unsigned short mode)
         }
     }
     int text_box = static_cast<short>(mode);
-    if (CurrentGame().status.text_box_lines_used[text_box] == 0) {
-        Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
-    }
+    assert(CurrentGame().status.text_box_lines_used[text_box] != 0);
     last_line = CurrentGame().status.text_box_lines_used[text_box] - 1;
     group_lines = CurrentGame().message_log[text_box][last_line].link;
-    if (last_line < group_lines) {
-        Fail("uiLastLineIndex >= uiGroupLine");
-    }
+    assert(last_line >= group_lines);
     first_line = last_line - group_lines;
     line = &CurrentGame().message_log[text_box][first_line];
     length = 0;

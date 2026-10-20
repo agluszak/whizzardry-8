@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -78,7 +79,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -676,7 +676,7 @@ bool CampScreen::enter(const ScreenRequest& request)
                 }
             }
         }
-        Fail("fFoundEquipChar");
+        assert(false && "equip_pending counts an equipping character");
     show_equip_message:
         dialogs.ShowNotice(text, 0, true, false);
     }

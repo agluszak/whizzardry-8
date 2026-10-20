@@ -1,4 +1,5 @@
 #include <array>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <vector>
@@ -21,7 +22,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -350,9 +350,7 @@ void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_en
    (page + 0x70): the slot is only ever dispatched through that base. */
 void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
 {
-    if (!m_SpellData[uiSelected].fSelectable) {
-        Fail("m_SpellData[uiSelected].fSelectable");
-    }
+    assert(m_SpellData[uiSelected].fSelectable);
     if (m_SpellData[uiSelected].selected) {
         m_SpellData[uiSelected].selected = false;
         DeselectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
