@@ -13,7 +13,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 /* A screen waiting under the current one, with the request it resumes with. */

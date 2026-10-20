@@ -32,7 +32,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 unsigned char PartyMotion::ClampCameraToBounds(LevelEnvironment& environ, const glm::vec3* minimum,
                                                const glm::vec3* maximum)

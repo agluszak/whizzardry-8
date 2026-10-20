@@ -39,7 +39,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"

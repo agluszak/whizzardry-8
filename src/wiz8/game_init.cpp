@@ -6,13 +6,11 @@
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -33,7 +31,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/version.h"
-#include "wiz8/xstatus.h"
 
 /* The data bring-up gate the native application initializes last. It stamps
    the version string, opens the string data, then walks every database loader

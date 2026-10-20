@@ -14,7 +14,6 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"

@@ -16,7 +16,6 @@
 #include "retail_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/retail_text_records.h"

@@ -18,7 +18,6 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"

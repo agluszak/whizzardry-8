@@ -14,7 +14,6 @@
 #include "difficulty.h"
 #include "layouts/main_game_screen.h"
 #include "retail_records.h"
-#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
@@ -51,7 +50,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/environment.h"
-#include "wiz8/xstatus.h"
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {

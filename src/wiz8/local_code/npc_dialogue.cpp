@@ -12,7 +12,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/NPCManager.h"

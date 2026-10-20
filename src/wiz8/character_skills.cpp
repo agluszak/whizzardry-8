@@ -42,7 +42,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/screen.h"
 #include "wiz8/unicode.h"
-#include "wiz8/xstatus.h"
 
 /* A skill-increase notice waits in a slot's skill_notice_pending flags. */
 static bool g_deferred_skill_notices;

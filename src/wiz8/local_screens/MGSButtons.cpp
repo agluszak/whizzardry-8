@@ -969,11 +969,11 @@ void ScrollSubMenuCharacter(char direction)
     short selected;
     short slot;
 
-    if (CurrentGame().status.selected_character < 0 ||
-        CurrentGame().status.selected_character >= 8) {
+    const int selected_character = CurrentGame().status.selected_character;
+    if (selected_character < 0 || selected_character >= 8) {
         throw std::logic_error("ScrollSubMenuCharacter: selected character is not a party slot");
     }
-    current = static_cast<short>(CurrentGame().status.selected_character);
+    current = static_cast<short>(selected_character);
     selected = current;
     switch (direction) {
     case 1:

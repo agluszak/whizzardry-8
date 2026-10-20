@@ -21,7 +21,6 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"

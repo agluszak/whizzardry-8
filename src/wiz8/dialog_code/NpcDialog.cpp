@@ -19,7 +19,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
