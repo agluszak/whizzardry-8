@@ -2,17 +2,18 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <fmt/format.h>
 #include <glm/ext/vector_float3.hpp>
 
-#include "mutable_game_data.h"
 #include "scoped_game.h"
-#include "scoped_records.h"
+#include "scoped_game_data.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/attack_modes.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
@@ -95,7 +96,11 @@ TEST_CASE("A new game continues the previous game's stream", "[random]")
 TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
 {
     ScopedGame scope;
-    ScopedRecords<W8ItemDatabaseRecord> items{MutableData().items, 1};
+    GameData data;
+    data.items.resize(1);
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].initial_quantity = {.base = 0, .count = 2, .sides = 6};
+    const ScopedGameData installed(std::move(data));
     auto& game = CurrentGame();
     game.rng.seed(1);
     ScopedTrace trace(game.rng);
@@ -109,8 +114,6 @@ TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
     REQUIRE(created->voice == 1);
 
     // Loot: a new stack rolls its quantity.
-    MutableData().items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
-    MutableData().items[0].initial_quantity = {.base = 0, .count = 2, .sides = 6};
     REQUIRE(MakeItem(0, false, false, false).stack_count == 7);
 
     // Practice rolls every usage point.
