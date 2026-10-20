@@ -156,7 +156,7 @@ void PleaseWaitScreen::frame()
 
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        ResetLiveSessionForLoad();
+        LeaveGameSession();
         int level;
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);

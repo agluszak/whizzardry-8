@@ -119,7 +119,8 @@ Unlayered code may use the layers.
   - the gameplay flags.
 - **Its lifetime.** A game begins when the player chooses a new game, before party
   selection, or when a save is loaded; either replaces any game in progress. It ends when
-  the main menu is entered and at shutdown. Nothing is reset field by field.
+  the main menu is entered and at shutdown. Ending or replacing a game first leaves its level
+  and clears the session state it does not own yet (`LeaveGameSession`). Nothing is reset field by field.
 - **Before the opening sequence.** Party selection, import and character creation edit
   the new game's party. `GameStarted()` tells play apart from that party creation.
 - **Transitional access.** Code that does not yet receive the game reaches it through

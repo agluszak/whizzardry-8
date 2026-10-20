@@ -1320,8 +1320,9 @@ void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
         if (auto* info = FindMonster(id, false)) MonsterStartsDying(info, true);
 }
 
-/* Tear down the live session before a new game or a save load replaces it. */
-void ResetLiveSessionForLoad(void)
+/* Leave the game's level and clear the session state the game does not own yet,
+   while the game still exists. */
+void LeaveGameSession(void)
 {
     if (GetLoadedLevelID() != -1) {
         LeaveLevel();
@@ -1708,7 +1709,7 @@ try {
    gameplay timer and the held-item cursor and normalize the loaded items. */
 bool LoadGame(std::string_view slot_name)
 try {
-    ResetLiveSessionForLoad();
+    if (GameInProgress()) LeaveGameSession();
     auto& game = BeginGame();
     wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath));
     W8Chunk chunks;

@@ -89,7 +89,7 @@ bool SaveMonsterStatus(W8Chunk* chunks);
 void SaveMonsterControlSpellEffect(W8Chunk* chunks);
 void LoadMonsterControlSpellEffect(W8Chunk* chunks);
 
-void ResetLiveSessionForLoad(void);
+void LeaveGameSession(void);
 
 std::optional<std::string> SelectQuickSaveSlotForWrite();
 std::optional<std::string> FindFreeEndingSaveName();

@@ -24,7 +24,7 @@ Today the architecture is the decompiled program's:
   redraws, cursor, screen ids), and 32 of the 57 `local_code` files include screen
   headers.
 - **Games are reset by hand.** New game and load clear globals one by one
-  (`ResetForNewGame`, `ResetLiveSessionForLoad`, `ResetGameplayStatusBlock`,
+  (`ResetForNewGame`, `LeaveGameSession`, `ResetGameplayStatusBlock`,
   `DestroyGameplayObjects`, `ResetMainGameScreenState`).
 - **Combat is driven by animation.** Combat polls animation state, and missile and
   monster entities resolve attacks themselves.
@@ -99,7 +99,7 @@ the licensed runtime scenarios after every step.
    - Move the random stream into the game. Party creation draws from the same stream
      today, so settle the random-stream research item first.
    - Fold in the reset functions that still clear per-game state:
-     `ResetLiveSessionForLoad`, `ResetMainScreenStateBlock`, `ResetNpcStates`,
+     `LeaveGameSession`, `ResetMainScreenStateBlock`, `ResetNpcStates`,
      `InitializeFactJournal`, `ResetFactions`, `ClearLocationVariables` and the
      spell-effect list. Each goes when its state moves into the game.
 2. **`GameData`.**
