@@ -18,13 +18,14 @@ of it:
 
 - **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
   reaches the game through `CurrentGame()` (about 3,500 uses). The game's state has moved
-  into `Game`; the main game's HUD is `MainGameScreen::hud`, reached through
-  `MainGameHud()`, and `g_localized_strings` (about 1,080 uses) is now `Data().strings`.
+  into `Game`; the main game's HUD is `MainGameScreen::hud`, which the main game's own
+  free functions reach through `MainGameHud()`, and `g_localized_strings` (about 1,080
+  uses) is now `Data().strings`.
 - **The step still reads the clock.** `Game::advance(elapsed)` is the one step, but the
   code it calls still keeps its own deadlines on the monotonic clock.
 - **Rules drive presentation directly.** Inventory and party report events, but other
-  rules still call presentation (notices, redraws, cursor, screen ids), and 33 of the 57
-  `local_code` files include screen headers.
+  rules still call presentation (notices, targeting, the combat panel, screen ids), and
+  33 of the 56 `local_code` files include screen headers.
 - **Some resets remain.** A game is an object, but leaving one still clears session
   state it does not own yet (`LeaveGameSession`, `ResetForNewGame`,
   `ResetMainGameScreenState`).
@@ -128,23 +129,33 @@ the licensed runtime scenarios after every step.
    clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
    Move each onto the elapsed time the step passes down so that a test can step a game
    deterministically; then add a test that steps a small game with explicit times.
-5. **Presentation owned by screens.**
-   - Combat no longer touches `MainGameScreen::hud` (`W8LevelRuntimeBlock`, formerly
-     `g_level_block`) except to skip repainting during a review transition, and it
-     reports the submenu's reactions as events (`CombatExecutionBegan`,
-     `CombatCalledOff`). Pass the HUD to the code that draws it instead of reaching it
-     through `MainGameHud()`. `SelectCombatAction` still reads the spell, item and
-     submenu drafts that the screens own, so combat's attack and spell code depends on
-     them through it.
-   - The shown cursor (`Screens.cpp`) and
-     the targeting mode (`TargetingMode()`) are module state of the UI code that sets
-     them; they become members of the screens that show them once camp and main game
-     share a pointer owner.
-   - The HUD panels receive explicit inputs.
-   - The main game's redraw bitmask gives way to invalidation by events, as the camp's
-     per-page invalidation already does.
-   - The held-item cursor is derived every frame from the hand and the interaction
-     mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
+5. **Presentation owned by screens.** The main game repaints what its HUD's record
+   (`MainGameRepaint`) holds, game code reports changes as events, the draw path
+   receives the HUD, and the pointer derives the held-item cursor every frame
+   (ARCHITECTURE.md, "Controls and painting" and "Input and ownership"). What remains:
+   - The main game's own free functions in `local_screens` (17 files, about 850 uses,
+     most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
+     `MainGameHud()`, including to mark repaint parts; they should receive it from the
+     screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
+     the screens three readers remain: `Targeting.cpp` reads the submenu draft
+     (`selection_kind`, `selection_settled`) and whether a main game exists, because
+     `SelectCombatAction` reads the spell, item and submenu drafts the screens own;
+     `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
+     portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
+     viewport mode, which the screen should hand the camera when it changes (after the
+     VulkanSceneGraph renderer migration, which rewrites the world code).
+   - The pointer (the shown cursor and its request, in `Screens.cpp`) and the targeting
+     mode (`TargetingMode()`, in `MainGameScreen.cpp`) are module state. The camp shares
+     both with a main game suspended under it, and a camp opened from party creation
+     has no main game, so they become members of one pointer owner that both screens
+     borrow, not of either screen.
+   - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
+     submenu, formation board, monster list, radar) still read the HUD, the game and
+     module state themselves; give each the values it draws.
+   - Game code still calls presentation for targeting (`SetTargetingMode`) and the
+     combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
+     `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
+     `CombatPanelChanged` event already presents).
 6. **Conditions, magic and combat in `rules`.**
    - Conditions, spells and attack resolution return results and emit events.
    - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
