@@ -107,6 +107,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
             add_targets(actor, SelectCombatAction(actor, context));
     }
     result.subject_valid = CurrentCombatSubjectIsValid(hud);
+    result.hovered_item = hud.selected_item;
     const glm::vec4 tint = result.subject_valid ? glm::vec4{0, 1, 0, 1} : glm::vec4{1, 0, 0, 1};
     if (auto* info = FindMonster(hud.highlighted_item, false)) {
         result.monsters[info->location_id].hovered = true;
@@ -156,7 +157,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
         if (item->fActive && item->p3D) {
-            const bool hovered = hud.selected_item == item->runtime_id;
+            const bool hovered = presentation.hovered_item == item->runtime_id;
             item->p3D->SetHighlight(true, hovered);
         }
     }

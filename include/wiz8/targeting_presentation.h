@@ -16,6 +16,8 @@ struct W8TargetingPresentation {
     std::unordered_map<int, W8MonsterPresentation> monsters;
     std::vector<int> area_targets;
     bool subject_valid = false;
+    // The world item under the pointer, by runtime id.
+    int hovered_item = -1;
 };
 
 struct W8LevelRuntimeBlock;
