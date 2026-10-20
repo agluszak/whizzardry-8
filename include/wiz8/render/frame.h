@@ -147,8 +147,6 @@ extern std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern MeshInstance* g_current_model_instance;
 extern float g_texture_inset_pixels;
-extern int g_surface_opaque_shader_bits;
-extern int g_surface_alpha_blend_shader_bits;
 extern DesignRect g_viewport;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;

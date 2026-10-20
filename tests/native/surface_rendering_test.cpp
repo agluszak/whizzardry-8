@@ -14,6 +14,7 @@
 #include <vsg/app/ProjectionMatrix.h>
 #include <vsg/app/View.h>
 #include <vsg/app/ViewMatrix.h>
+#include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
 #include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
@@ -146,6 +147,9 @@ TEST_CASE("VSG presentation and offscreen targets cover resized windows")
         };
         draw(false, false);
         draw(false, true);
+        // A cached camera still needs resizing when another view supplied
+        // the most recent frame (for example, a menu or movie overlay).
+        draw(false, false);
         REQUIRE(SDL_SetWindowSize(window.get(), 800, 600));
         REQUIRE(SDL_SyncWindow(window.get()));
         REQUIRE(renderer.reopen());
@@ -155,7 +159,6 @@ TEST_CASE("VSG presentation and offscreen targets cover resized windows")
         draw(true, true);
         draw(false, false);
         draw(true, false);
-        draw(true, true);
 
         // Changing present mode can consume a pending resize before the SDL
         // event handler calls reopen. Both targets must follow that extent.
@@ -168,7 +171,6 @@ TEST_CASE("VSG presentation and offscreen targets cover resized windows")
         draw(true, true);
         draw(false, false);
         draw(true, false);
-        draw(true, true);
         renderer.close();
         REQUIRE(SDL_SetWindowSize(window.get(), 640, 480));
         REQUIRE(SDL_SyncWindow(window.get()));
@@ -178,6 +180,14 @@ TEST_CASE("VSG presentation and offscreen targets cover resized windows")
         draw(true, true);
         draw(false, false);
         draw(true, false);
+        const vsg::observer_ptr<vsg::View> weak_view(view);
+        view = {};
+        REQUIRE_FALSE(weak_view.valid());
+        // A later resize safely prunes expired camera observers.
+        REQUIRE(SDL_SetWindowSize(window.get(), 800, 600));
+        REQUIRE(SDL_SyncWindow(window.get()));
+        REQUIRE(renderer.reopen());
+        draw(false, false);
     }
     SDL_Quit();
 }

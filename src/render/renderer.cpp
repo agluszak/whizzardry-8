@@ -35,6 +35,7 @@
 #include <vsg/core/Data.h>
 #include <vsg/core/Exception.h>
 #include <vsg/core/Value.h>
+#include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
 #include <vsg/maths/vec4.h>
 #include <vsg/nodes/Group.h>
@@ -152,6 +153,7 @@ struct Renderer::Impl {
     vsg::ref_ptr<vsg::PipelineLayout> overlay_layout;
     std::map<std::uint32_t, vsg::ref_ptr<vsg::BindGraphicsPipeline>> overlay_pipelines;
     std::vector<vsg::ref_ptr<vsg::View>> overlay_views;
+    std::vector<vsg::observer_ptr<vsg::View>> submitted_views;
     vsg::ref_ptr<vsg::View> current_overlay;
     std::size_t overlay_count = 0;
     vsg::ref_ptr<vsg::ImageInfo> white;
@@ -264,6 +266,15 @@ void Renderer::Impl::syncTargets()
     // Acquisition and present-mode changes can rebuild the swapchain as well
     // as explicit resize events. Keep every target on its actual WSI extent.
     render_graph->resized();
+    // A retained camera can be absent from the current frame (menus and movie
+    // overlays do this). Visit it once with VSG's same resize traversal, without
+    // extending its lifetime or scaling active views twice.
+    std::erase_if(submitted_views, [&](const auto& weak) {
+        const auto view = weak.ref_ptr();
+        if (!view) return true;
+        view->accept(*render_graph->windowResizeHandler);
+        return false;
+    });
     render_graph->renderArea = {{0, 0}, extent};
     createOffscreen();
     for (auto& view : overlay_views)
@@ -427,6 +438,9 @@ void Renderer::beginFrame(const glm::vec4& clear)
 }
 void Renderer::addView(vsg::ref_ptr<vsg::View> view)
 {
+    std::erase_if(impl->submitted_views, [](const auto& weak) { return !weak.valid(); });
+    if (std::ranges::none_of(impl->submitted_views, [&](const auto& weak) { return weak == view; }))
+        impl->submitted_views.emplace_back(view);
     impl->current_overlay = {};
     impl->frame_root->addChild(view);
 }

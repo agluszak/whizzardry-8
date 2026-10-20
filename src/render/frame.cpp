@@ -79,13 +79,7 @@ static void FlushUiUpload();
    published image before composing it with the world and other overlays. */
 static SDL_Rect g_ui_upload{};
 
-/*
- * The renderer window and extension loading gate the native application initializes after the
- * input manager.
- */
-
-/* The released SGP video unit owns this platform handle.  Wiz8 replaces the
-   released video manager but keeps the same source-defined interface. */
+/* SDL owns the platform window used by VSG presentation. */
 SDL_Window* ghWindow;
 
 bool g_world_pick_enabled = true;
@@ -99,8 +93,6 @@ int g_screen_height = 480;
 MeshInstance* g_current_model_instance;
 int g_fps_frame_count;
 uint64_t g_fps_window_tick;
-/* Per-page counters reset as each overlay page is retired; retail stores
-   through g_active_page as an index, so this is one two-entry array. */
 bool g_video_active;
 bool g_world_blacked_out;
 bool g_screenshot_pending;
@@ -114,8 +106,6 @@ std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 float g_texture_inset_pixels;
 std::shared_ptr<SDL_Surface> g_mouse_surface;
 
-int g_surface_opaque_shader_bits;
-int g_surface_alpha_blend_shader_bits;
 DesignRect g_viewport;
 bool g_camera_sway_active;
 extern const float g_viewport_x_scale = 1.0f / 640.0f;
@@ -1115,8 +1105,6 @@ unsigned char InitializeRendererSceneObjects(void)
     InitializeMouseSurface();
     g_ui_canvas = std::make_unique<UiCanvasTexture>(primarySurface);
     g_viewport = {};
-    g_surface_opaque_shader_bits = 0x100a017;
-    g_surface_alpha_blend_shader_bits = 0x100c0b7;
     return 1;
 }
 
