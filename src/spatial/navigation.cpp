@@ -1,10 +1,10 @@
 #include "wiz8/spatial/navigation.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -15,6 +15,7 @@
 #include <ranges>
 #include <span>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -56,7 +57,6 @@
 #include "wiz8/math.h"
 #include "wiz8/navigation_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/spatial/bounding_box.h"
@@ -579,10 +579,7 @@ unsigned int NavigationMesh::FindConditionalPathValue(unsigned int key, unsigned
 void NavigationMesh::CheckConditionalWayPtStatus(std::span<const unsigned short> waypoints)
 {
     for (const auto waypoint : waypoints) {
-        if (waypoint >= static_cast<unsigned short>(m_waypoints.size())) {
-            Fail("pusWayPts[i] < (UINT16)m_waypoints.size()",
-                 "Pathing::CheckConditionalWayPtStatus: WayPt Index out of range.");
-        }
+        assert(waypoint < m_waypoints.size());
 
         W8PathSurface* surface = &m_waypoints[waypoint];
         if ((ClassifyWaypoint(&surface->position) & W8_PATH_CELL_INACTIVE) == 0) {
@@ -599,10 +596,7 @@ void NavigationMesh::CheckConditionalWayPtStatus(std::span<const unsigned short>
 void NavigationMesh::CheckConditionalLinkStatus(std::span<const unsigned short> edges)
 {
     for (const auto edge_index : edges) {
-        if (edge_index >= static_cast<unsigned short>(m_pEdges.size())) {
-            Fail("pusLinks[i] < (UINT16)m_pEdges.size()",
-                 "Pathing::CheckConditionalLinkStatus: Link Index out of range.");
-        }
+        assert(edge_index < m_pEdges.size());
 
         W8PathEdge* edge = &m_pEdges[edge_index];
         if ((edge->flags & W8_PATH_EDGE_CONDITIONAL) != 0) {
@@ -793,13 +787,9 @@ unsigned short NavigationMesh::FindPath(PathSearchScratch& path_search, Navigato
     }
     unsigned int start = usStartNode;
     unsigned short usEndNode = FindWaypoint(path_search, attachment->path_destination, false);
-    if (m_waypoints.size() <= start) {
-        Fail("usStartNode < m_waypoints.size()", "Starting index out of range");
-    }
+    assert(m_waypoints.size() > start);
     unsigned int end = usEndNode;
-    if (m_waypoints.size() <= end) {
-        Fail("usEndNode < m_waypoints.size()", "Last index out of range");
-    }
+    assert(m_waypoints.size() > end);
     if (usEndNode == 0) {
         return 0;
     }
@@ -810,20 +800,14 @@ unsigned short NavigationMesh::FindPath(PathSearchScratch& path_search, Navigato
     if (usStartNode != usEndNode) {
         do {
             unsigned int current = usWayPt;
-            if (m_waypoints.size() <= current) {
-                Fail("usWayPt < m_waypoints.size()", "Waypoint index out of range (1)");
-            }
+            assert(m_waypoints.size() > current);
             unsigned short usLink = m_waypoints[current].first_edge;
             unsigned int link = usLink;
-            if (m_pEdges.size() <= link) {
-                Fail("usLink < m_pEdges.size()", "Link index out of range (1)");
-            }
+            assert(m_pEdges.size() > link);
             bool settled = true;
             if (usLink != 0) {
                 do {
-                    if (m_pEdges.size() <= link) {
-                        Fail("usLink < m_pEdges.size()", "Link index out of range (2)");
-                    }
+                    assert(m_pEdges.size() > link);
                     unsigned int edge_flags = m_pEdges[link].flags;
                     unsigned int usNextNode = m_pEdges[link].destination;
                     if (((m_waypoints[usNextNode].flags & W8_WAYPOINT_DISABLED) != 0) ||
@@ -841,9 +825,7 @@ unsigned short NavigationMesh::FindPath(PathSearchScratch& path_search, Navigato
                     }
                     unsigned short usNext = static_cast<unsigned short>(usNextNode);
                     unsigned short usCurrent = usWayPt;
-                    if (m_waypoints.size() <= usNextNode) {
-                        Fail("usNextNode < m_waypoints.size()", "Waypoint index out of range (2)");
-                    }
+                    assert(m_waypoints.size() > usNextNode);
                     if ((usNext != 0) && (usNext != usCurrent) && (!TestBit(visited, usNextNode))) {
                         if (!SetBit(marked, usNextNode)) {
                             path_search.graph[usNextNode].path_cost =
@@ -899,9 +881,7 @@ unsigned short NavigationMesh::FindPath(PathSearchScratch& path_search, Navigato
                     }
                     usLink = m_pEdges[link].next;
                     link = usLink;
-                    if (m_pEdges.size() <= link) {
-                        Fail("usLink < m_pEdges.size()", "Link index out of range (3)");
-                    }
+                    assert(m_pEdges.size() > link);
                 } while (usLink != 0);
             }
             if (settled) {
@@ -916,9 +896,7 @@ unsigned short NavigationMesh::FindPath(PathSearchScratch& path_search, Navigato
             }
             usWayPt = path_heap.root_node;
             current = usWayPt;
-            if (m_waypoints.size() <= current) {
-                Fail("usWayPt < m_waypoints.size()", "Waypoint index out of range (3)");
-            }
+            assert(m_waypoints.size() > current);
             if (usWayPt == 0) {
                 return 0;
             }
@@ -961,9 +939,7 @@ bool NavigationMesh::BuildAttachmentPath(PathSearchScratch& path_search, Navigat
                 if (SetBit(marked, node)) {
                     break;
                 }
-                if (m_waypoints.size() <= count) {
-                    Fail("i < m_waypoints.size()");
-                }
+                assert(m_waypoints.size() > count);
                 path_search.route[count] = node;
                 node = path_search.graph[node].search_parent;
                 ++count;
@@ -1058,9 +1034,7 @@ bool NavigationMesh::LinkAttachmentTarget(PathSearchScratch& path_search,
         if (SetBit(marked, current)) {
             break;
         }
-        if (m_waypoints.size() <= count) {
-            Fail("i < m_waypoints.size()");
-        }
+        assert(m_waypoints.size() > count);
         path_search.route[count] = current;
         current = path_search.graph[current].search_parent;
         ++count;
@@ -1225,9 +1199,7 @@ bool NavigationMesh::BuildPatrolPath(PathSearchScratch& path_search, NavigatorRo
         if (static_cast<unsigned short>(current) == 0) {
             break;
         }
-        if (m_waypoints.size() <= count) {
-            Fail("i < m_waypoints.size()");
-        }
+        assert(m_waypoints.size() > count);
         previous = static_cast<unsigned short>(current);
         path_search.route[count] = previous;
         current = path_search.graph[current & 0xffff].search_parent;
@@ -1263,9 +1235,7 @@ unsigned short NavigationMesh::RecursePatrolLinks(PathSearchScratch& path_search
     unsigned short link = m_waypoints[waypoint].first_edge;
     if (link != 0) {
         do {
-            if (m_pEdges.size() <= static_cast<unsigned int>(link)) {
-                Fail("usLink < m_pEdges.size()", "Link index out of range");
-            }
+            assert(link < m_pEdges.size());
             unsigned int edge_flags = m_pEdges[link].flags;
             unsigned short next = m_pEdges[link].destination;
             if ((((edge_flags & W8_PATH_EDGE_TELEPORTAL) == 0) && (next != waypoint)) &&
@@ -1282,9 +1252,7 @@ unsigned short NavigationMesh::RecursePatrolLinks(PathSearchScratch& path_search
                    ((edge_flags & path_search.filter & W8_NAV_SIZE_FILTER_MASK) != 0)))) &&
                 (next != 0)) {
                 if (!TestBit(visited, next)) {
-                    if (m_waypoints.size() <= static_cast<unsigned int>(next)) {
-                        Fail("usNextNode < m_waypoints.size()", "Waypoint index out of range");
-                    }
+                    assert(next < m_waypoints.size());
                     const W8PathSurface* next_surface = &m_waypoints[next];
                     distance = glm::length((next_surface->position - patrol.destination));
                     if (distance < patrol.max) {
@@ -1313,10 +1281,8 @@ unsigned short NavigationMesh::RecursePatrolLinks(PathSearchScratch& path_search
                                 path_search.best_key = next;
                             }
                         }
-                        if (0x13 < count) {
-                            Fail("ulLinkNum < 20",
-                                 "Too many links for waypoint in RecursePatrolLinks");
-                        }
+                        if (count == std::size(links))
+                            throw std::runtime_error("waypoint has too many patrol links");
                     }
                 }
             }
@@ -1330,9 +1296,7 @@ unsigned short NavigationMesh::RecursePatrolLinks(PathSearchScratch& path_search
     SetBit(visited, waypoint);
     for (unsigned int index = 0; index < count; ++index) {
         unsigned short next = m_pEdges[links[index]].destination;
-        if (m_waypoints.size() <= static_cast<unsigned int>(next)) {
-            Fail("usNextNode < m_waypoints.size()", "Waypoint index out of range (2)");
-        }
+        assert(next < m_waypoints.size());
         if (((patrol.distance < costs[index]) || (g_patrol_cost_limit < costs[index])) &&
             (patrol.min < distance)) {
             return next;
@@ -1909,11 +1873,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
 
         path_heap.DeleteRoot(&nodes[best_node]);
         best_node = path_heap.root_node;
-        if (best_node > (nodes.size() - 1)) {
-            char message[80];
-            sprintf(message, "A*, Invalid node index %d from Queue", best_node);
-            Fail("(ulBestNode <= m_ulSearchNodesUsed)", message);
-        }
+        assert(best_node < nodes.size());
     }
 
     if ((attachment->flags & W8_NAV_ATTACHMENT_SEARCH_RESULT_ONLY) != 0) {
