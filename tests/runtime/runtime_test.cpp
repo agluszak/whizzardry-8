@@ -39,6 +39,7 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_get_random_seed.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
@@ -149,6 +150,7 @@
 #include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"

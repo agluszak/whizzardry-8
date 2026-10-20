@@ -37,6 +37,7 @@
 #include "wiz8/render/native_content.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"

@@ -9,6 +9,7 @@
 
 #include <glm/common.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
 #include <glm/geometric.hpp>
 #include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
