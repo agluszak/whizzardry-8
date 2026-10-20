@@ -2048,6 +2048,9 @@ void CombatScenario()
     for (int id : crab_ids) {
         // Resolve by ID after death/cleanup rather than relying on a retained pointer.
         const W8MonsterInfo* dead = FindMonster(id, false);
+        CAPTURE(id, dead != nullptr, dead ? int(dead->fActive) : -1,
+                dead ? int(dead->hp_current) : -1,
+                dead ? int(dead->uiCondition[W8_CONDITION_DEAD]) : -1);
         REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
                  dead->uiCondition[W8_CONDITION_DEAD] != 0));
     }
