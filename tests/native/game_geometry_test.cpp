@@ -1515,6 +1515,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
 TEST_CASE("Particle simulation resolves nested animation before views consume it",
           "[geometry][particles]")
 {
+    ScopedGame game;
     auto first = std::make_shared<Texture>();
     auto last = std::make_shared<Texture>();
     auto inner = std::make_shared<Texture>(TexturePlayback{});
@@ -1533,15 +1534,15 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     REQUIRE(particles.activateParticle(false));
     auto& prepared = *particles.texture_frames.front()->playback->textures.front();
     REQUIRE(&prepared != inner.get());
-    prepared.playback->elapsed = std::chrono::milliseconds{1000};
     REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
     REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
     REQUIRE(inner->currentFrame() == first.get());
     prepared.SetFrame(0);
-    prepared.playback->elapsed = std::chrono::milliseconds{1000};
+    game.game.time += std::chrono::milliseconds{1000};
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);
@@ -2350,4 +2351,28 @@ TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offs
         REQUIRE(row[0] == 0xffff);
         REQUIRE(row[300] == 0xffff);
     }
+}
+
+TEST_CASE("Recycled particles restart texture playback at their new birth", "[geometry][particles]")
+{
+    ScopedGame game;
+    TexturePlayback playback;
+    playback.animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    playback.frame_rate = 1;
+    playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
+                         std::make_shared<Texture>()};
+    ParticleSystem particles(nullptr, 1);
+    particles.emitting = false;
+    particles.initial_speed = 0;
+    particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
+    particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
+    REQUIRE(particles.activateParticle(false));
+    particles.AdvanceSimulation(game.game.time);
+    particles.DeactivateParticle(0);
+    game.game.time = std::chrono::milliseconds{10000};
+    REQUIRE(particles.activateParticle(false));
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
+    REQUIRE(particles.active_particle_count == 1);
+    REQUIRE(particles.texture_frames.front()->playback->frame == 1);
 }

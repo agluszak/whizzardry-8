@@ -38,6 +38,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
@@ -360,7 +361,16 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
         flutter_angles[index] = PresentationRng().next() * kParticleFlutterAngleRandomScale;
     }
     if (!texture_frames.empty()) {
-        texture_frames[index].get()->SetFrame(0);
+        // A pool slot may have been inactive for a long time. Restart its
+        // selected animation chain at this birth, including nested IFL frames.
+        const auto now = GameInProgress() ? CurrentGame().time : std::chrono::milliseconds{};
+        auto* animation = texture_frames[index].get();
+        while (animation && animation->playback) {
+            animation->SetFrame(0);
+            auto& playback = animation->playback.value();
+            playback.last_update = now;
+            animation = playback.textures.empty() ? nullptr : playback.textures.front().get();
+        }
     }
 
     alphas[index] = 1.0f;
