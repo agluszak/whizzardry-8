@@ -15,9 +15,9 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
@@ -390,7 +390,7 @@ bool ArnikaMookholo(Trigger* pTrigger)
     W8MonsterInfo* info;
     int location_id;
 
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         return false;
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&
@@ -785,7 +785,7 @@ void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
    flag is raised. */
 bool ArnikaChaosMolori(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script && (g_status.party.held.item.iItemNo != -1)) {
+    if (!g_running_trigger_from_script && (CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
     return true;
@@ -811,7 +811,7 @@ bool ArnikaMaddmook(Trigger* pTrigger)
    activation to the CMBox trigger. */
 bool ArnikaAstralDominae(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script && (g_status.party.held.item.iItemNo != -1)) {
+    if (!g_running_trigger_from_script && (CurrentGame().party.held.item.iItemNo != -1)) {
         return false;
     }
     pTrigger = FindRequiredTriggerByName("CMBox");
@@ -860,7 +860,7 @@ int ArnikaPedestalItem(int* previous_item)
     int item = -1;
     int previous;
 
-    if ((g_status.party.held.item.iItemNo != -1)) {
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
         item = GetItemInHand();
         if (item != 0x244 && item != 0x242 && item != 0x264) {
             return -2;
@@ -951,8 +951,8 @@ bool ArnikaFlightRecorder(Trigger* pTrigger)
     g_trigger_feedback = true;
     npc = GetNpcStateByKind(0x14);
     item = 0;
-    if ((g_status.party.held.item.iItemNo != -1)) {
-        item = &g_status.party.held.item;
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
+        item = &CurrentGame().party.held.item;
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
     return false;

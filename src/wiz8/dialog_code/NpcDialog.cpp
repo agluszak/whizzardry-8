@@ -18,7 +18,7 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Strings.h"
@@ -163,7 +163,7 @@ bool W8NpcDialog::Configure()
         m_text_buffers[0] = std::make_unique<W8TextBuffer>(
             &bounds, line, g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], g_status.party.gold);
+        line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], CurrentGame().party.gold);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 0x37;
         bounds.right = m_bounds.x + m_bounds.w - 10;

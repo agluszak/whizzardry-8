@@ -1,4 +1,5 @@
 #include "wiz8/data/records.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -17,8 +18,8 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
 
     switch (action) {
     case W8_ACTION_ATTACK:
-        image =
-            14 * GetAttackMenuWeaponOffset(g_status.party.characters[slot].Hand[0].weapon_skill);
+        image = 14 * GetAttackMenuWeaponOffset(
+                         CurrentGame().party.characters[slot].Hand[0].weapon_skill);
         break;
     case W8_ACTION_BERSERK:
         image = 0x7e;

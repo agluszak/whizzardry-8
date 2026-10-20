@@ -20,6 +20,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -90,7 +91,7 @@ void RefreshOutwardSightForAllMonsters(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
@@ -305,8 +306,8 @@ void AgeAllMonsterSight(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    elapsed = g_status.world_clock * 1000 -
-              g_status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
+    elapsed = CurrentGame().status.world_clock * 1000 -
+              CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock * 1000;
     steps = elapsed / 120000;
     if (steps == 0) {
         return;
@@ -345,7 +346,7 @@ void ResetAndRefreshAllSight(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
     }
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         RefreshFlaggedMainGameState();
         RefreshAllPartyTargets();
     }
@@ -390,7 +391,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     if (!direction) {
         unsigned int index;
 
-        if (!g_combat.active()) {
+        if (!CurrentGame().combat.active()) {
             return;
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -422,14 +423,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     }
                     if (can_see) {
                         entry->sight_state = W8_SIGHT_SEEN;
-                        entry->last_seen_clock = g_status.world_clock;
+                        entry->last_seen_clock = CurrentGame().status.world_clock;
                         entry->subject_position = own_position;
                         entry->target_position = other_position;
                     } else if (entry->last_seen_clock == 0) {
                         entry->sight_state = W8_SIGHT_UNSEEN;
                     } else {
                         entry->sight_state = static_cast<W8SightState>(
-                            (0xf0U < static_cast<unsigned int>(g_status.world_clock -
+                            (0xf0U < static_cast<unsigned int>(CurrentGame().status.world_clock -
                                                                entry->last_seen_clock))
                                 ? W8_SIGHT_UNSEEN
                                 : W8_SIGHT_RECENT);
@@ -489,7 +490,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             } else {
                 monster_info->player_visibility.sight_state = static_cast<W8SightState>(
                     (0xf0U <
-                     static_cast<unsigned int>(g_status.world_clock -
+                     static_cast<unsigned int>(CurrentGame().status.world_clock -
                                                monster_info->player_visibility.last_seen_clock))
                         ? W8_SIGHT_UNSEEN
                         : W8_SIGHT_RECENT);
@@ -508,14 +509,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 unsigned char fade_flag;
                 float player_distance;
 
-                if (!g_combat.active()) {
-                    sight_override = g_status.party.modifiers.sight_override;
+                if (!CurrentGame().combat.active()) {
+                    sight_override = CurrentGame().party.modifiers.sight_override;
                 } else {
                     sight_override = 0;
                 }
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8PartySlotRow* row = &g_status.party.rows[slot];
-                    W8Character* character = &g_status.party.characters[slot];
+                    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
+                    W8Character* character = &CurrentGame().party.characters[slot];
 
                     if (row->fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP &&
@@ -549,7 +550,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             monster_info->player_visibility.can_see = visible_to_player;
             if (visible_to_player) {
                 monster_info->player_visibility.sight_state = W8_SIGHT_SEEN;
-                monster_info->player_visibility.last_seen_clock = g_status.world_clock;
+                monster_info->player_visibility.last_seen_clock = CurrentGame().status.world_clock;
                 monster_info->player_visibility.target_position = own_position;
                 monster_info->player_visibility.subject_position = camera_position;
             }
@@ -624,8 +625,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 }
                 seen_by_party = false;
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8PartySlotRow* row = &g_status.party.rows[slot];
-                    W8Character* character = &g_status.party.characters[slot];
+                    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
+                    W8Character* character = &CurrentGame().party.characters[slot];
 
                     if (row->fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
@@ -641,9 +642,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             character->uiCondition[W8_CONDITION_BLIND] != 0,
                             character->iProfession == W8_PROFESSION_MONK, record->effective_level,
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
-                            g_status.party.modifiers.sight_override, distance);
+                            CurrentGame().party.modifiers.sight_override, distance);
 
-                        if (g_status.search_mode) {
+                        if (CurrentGame().status.search_mode) {
                             threshold *= g_sight_threat_scale;
                         }
                         if (threshold >= distance) {
@@ -663,7 +664,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
                             if ((((monster_info->party_threat.last_seen_clock == 0) ||
                                   (0x78U < static_cast<unsigned int>(
-                                               g_status.world_clock -
+                                               CurrentGame().status.world_clock -
                                                monster_info->party_threat.last_seen_clock))) &&
                                  (ShowMonsterTargetMarker(monster_info) == 0)) &&
                                 (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE ||
@@ -678,9 +679,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                     if (Random(2) == 0) {
                                         effect = 0x44;
                                     }
-                                    W8CharacterEvent* notice =
-                                        QueueCharacterEvent(&g_status.party.characters[party_slot],
-                                                            effect, 0, kCharacterEventFullVolume);
+                                    W8CharacterEvent* notice = QueueCharacterEvent(
+                                        &CurrentGame().party.characters[party_slot], effect, 0,
+                                        kCharacterEventFullVolume);
 
                                     if (notice != 0) {
                                         notice->DelayDispatch(0x5dc);
@@ -697,7 +698,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 glm::vec3 delta;
                                 delta = own_position - PartyNavigator()->GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
-                                    (npc->party_noticed = true, !gXStatus.fSurprisePossible) &&
+                                    (npc->party_noticed = true, !CurrentGame().surprise_possible) &&
                                     GetLoadedLevelID() != 4) {
                                     int party_slot = GetRandomCharacter(0, 0, -1, -1);
 
@@ -709,7 +710,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                             effect = 0x39;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
-                                            &g_status.party.characters[party_slot], effect, 0,
+                                            &CurrentGame().party.characters[party_slot], effect, 0,
                                             kCharacterEventFullVolume);
 
                                         if (notice != 0) {
@@ -726,14 +727,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
                         monster->BeginFadeIn(5.0f);
-                        if (!gXStatus.fSurprisePossible &&
+                        if (!CurrentGame().surprise_possible &&
                             (g_sight_fade_in_tick == 0 || now - g_sight_fade_in_tick > 199)) {
                             g_sight_fade_in_tick = now;
                             ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1dd]);
                         }
                     }
                     monster_info->party_threat.sight_state = W8_SIGHT_SEEN;
-                    monster_info->party_threat.last_seen_clock = g_status.world_clock;
+                    monster_info->party_threat.last_seen_clock = CurrentGame().status.world_clock;
                     monster_info->party_threat.camera_position = camera_position;
                     monster_info->party_threat.own_position = own_position;
                 }
@@ -745,7 +746,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 unsigned int now = static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
                 monster->BeginFadeOut(5.0f);
-                if (!gXStatus.fSurprisePossible &&
+                if (!CurrentGame().surprise_possible &&
                     (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
                     g_sight_fade_out_tick = now;
                     ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1de]);
@@ -755,7 +756,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 monster_info->party_threat.sight_state = W8_SIGHT_UNSEEN;
             } else {
                 monster_info->party_threat.sight_state = static_cast<W8SightState>(
-                    (0x78U < static_cast<unsigned int>(g_status.world_clock -
+                    (0x78U < static_cast<unsigned int>(CurrentGame().status.world_clock -
                                                        monster_info->party_threat.last_seen_clock))
                         ? W8_SIGHT_UNSEEN
                         : W8_SIGHT_RECENT);

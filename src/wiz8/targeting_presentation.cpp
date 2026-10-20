@@ -5,6 +5,7 @@
 #include "wiz8/entities/cursor.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -37,7 +38,7 @@ int PreviewPower(const W8Action& action)
 bool CurrentCombatSubjectIsValid()
 {
     if (!g_level_block) return false;
-    const int actor = g_status.selected_character;
+    const int actor = CurrentGame().status.selected_character;
     if (actor == -1) return true;
     const auto context = GetEditedActionContext(actor);
     const auto action = SelectCombatAction(actor, context);
@@ -53,7 +54,7 @@ W8TargetingPresentation BuildTargetingPresentation()
 {
     W8TargetingPresentation result;
     if (!GetWorld() || !g_level_block) return result;
-    const int selected = g_status.selected_character;
+    const int selected = CurrentGame().status.selected_character;
     int tint_owner = g_level_block->highlight.SlotFor(W8_HIGHLIGHT_TARGET);
     if (tint_owner == -1) tint_owner = selected;
     bool area_preview = false;
@@ -61,7 +62,7 @@ W8TargetingPresentation BuildTargetingPresentation()
         (gXStatus.iTargetingMode == W8_TARGET_NEED_CONE ||
          (gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()))) {
         const auto action = SelectCombatAction(selected, GetEditedActionContext(selected));
-        const auto spell = GetActionSpellLikeId(g_status.party, action);
+        const auto spell = GetActionSpellLikeId(CurrentGame().party, action);
         if (spell != 0) {
             area_preview = true;
             W8CombatSlot target{W8_TARGET_KIND_PLACE, -1, -1, -1, {}, {}};
@@ -79,7 +80,7 @@ W8TargetingPresentation BuildTargetingPresentation()
     }
     const auto add_targets = [&](int actor, W8Action action) {
         std::vector<int> targets;
-        const auto spell = GetActionSpellLikeId(g_status.party, action);
+        const auto spell = GetActionSpellLikeId(CurrentGame().party, action);
         if (actor == selected && area_preview) {
             targets = result.area_targets;
         } else if (spell != 0) {
@@ -117,7 +118,7 @@ W8TargetingPresentation BuildTargetingPresentation()
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
         if (selected != -1 &&
-            GetTargetNeededForAction(g_status.party, action) == W8_TARGET_NEED_GROUP) {
+            GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_GROUP) {
             if (auto* group = FindMonsterGroup(info->monster_group_id, false))
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else
@@ -127,7 +128,7 @@ W8TargetingPresentation BuildTargetingPresentation()
                                 ? W8Action{}
                                 : SelectCombatAction(selected, GetEditedActionContext(selected));
         if (selected != -1 &&
-            GetTargetNeededForAction(g_status.party, action) == W8_TARGET_NEED_GROUP) {
+            GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_GROUP) {
             for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else if (selected != -1) {
             const auto id = PickNextTargetableGroupMember(selected, group, action,

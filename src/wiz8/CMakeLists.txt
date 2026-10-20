@@ -164,6 +164,7 @@ target_sources(wiz8_engine PRIVATE
     startup_ui_state.cpp
     ../render/frame.cpp
     character_skills.cpp
+    game.cpp
     fact_state.cpp
     ../world/party_camera.cpp
     ../world/party_motion.cpp

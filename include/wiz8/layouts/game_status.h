@@ -42,8 +42,8 @@ struct W8CharacterSpellUsageRecord {
     unsigned char unknown_0c[4];
 };
 
+/* The status record the GSTA save section stores beside the party. */
 struct W8GlobalStatus {
-    W8Party party;
     float save_version = 0;
     bool game_started;
     /* Retail offset 0x000d..0x0018: the three join counters the party-add entry advances:
@@ -195,6 +195,10 @@ struct W8GlobalStatus {
     bool dev_flagged;
 };
 
-extern W8GlobalStatus g_status;
+/* A decoded GSTA section: the status record and the party it stores. */
+struct W8SavedGameStatus {
+    W8GlobalStatus status{};
+    W8Party party{};
+};
 
 #endif

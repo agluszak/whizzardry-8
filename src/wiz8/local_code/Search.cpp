@@ -19,6 +19,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
@@ -157,10 +158,10 @@ void RunSearchPulse(void)
     if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
         g_search_pulse_clock = w8_get_ticks() + (500);
         if (g_environment_time_enabled != 0 && !gXStatus.world_update_blocked &&
-            !gXStatus.fSurprisePossible && !IsLockInteractionActive() &&
+            !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
             !LockInteractionSuspended() && !IsTrapInteractionActive() &&
             !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() && g_status.search_mode) {
+            if (IsLevelFastMovement() && CurrentGame().status.search_mode) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE,
                            g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
@@ -171,7 +172,7 @@ void RunSearchPulse(void)
                     auto* searchable = &candidate;
                     int slot = searchable->PickBestSearcher();
                     if (slot != -1) {
-                        W8Character* character = &g_status.party.characters[slot];
+                        W8Character* character = &CurrentGame().party.characters[slot];
                         if (searchable->world_item == 0) {
                             if (searchable->trigger == 0) {
                                 QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
@@ -205,7 +206,7 @@ void RunSearchPulse(void)
                             if (searchable->world_item != 0) {
                                 event->item = searchable->world_item->item;
                             }
-                            gXStatus.character_event_queue->QueueEntry(std::move(event));
+                            CurrentGame().speech.QueueEntry(std::move(event));
                         }
                         glm::vec3 position;
                         searchable->GetPosition(&position);
@@ -215,19 +216,20 @@ void RunSearchPulse(void)
                     }
                 }
             }
-            if (!g_status.search_mode || IsLevelFastMovement()) {
+            if (!CurrentGame().status.search_mode || IsLevelFastMovement()) {
                 /* Retail scans the party for a live member carrying the
                    Scouting skill and then discards the result. */
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8Character* character = &g_status.party.characters[slot];
-                    if (g_status.party.rows[slot].fOccupied && character->hp_current != 0 &&
+                    W8Character* character = &CurrentGame().party.characters[slot];
+                    if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_TURNCOAT &&
                         character->skills[W8_SKILL_SCOUTING].level != 0) {
                         break;
                     }
                 }
             }
-            if (g_status.search_mode && !IsLevelFastMovement() && !found && Random(100) == 0) {
+            if (CurrentGame().status.search_mode && !IsLevelFastMovement() && !found &&
+                Random(100) == 0) {
                 ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
             }
         }
@@ -245,19 +247,19 @@ int W8Searchable::PickBestSearcher()
     int best_slot = -1;
     bool earned = false;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        W8Character* character = &g_status.party.characters[slot];
-        if (!g_status.party.rows[slot].fOccupied || character->hp_current == 0 ||
+        W8Character* character = &CurrentGame().party.characters[slot];
+        if (!CurrentGame().party.rows[slot].fOccupied || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || CurrentGame().status.search_mode) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode && !IsLevelFastMovement())) {
+            if (base != 0 || (CurrentGame().status.search_mode && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -282,7 +284,7 @@ int W8Searchable::PickBestSearcher()
                 best_slot = slot;
             }
         }
-        if (g_status.party.modifiers.detect_secrets != 0) {
+        if (CurrentGame().party.modifiers.detect_secrets != 0) {
             if (best_slot != -1 && Random(2) == 0) {
                 continue;
             }
@@ -298,7 +300,7 @@ int W8Searchable::PickBestSearcher()
     glm::vec3 delta = camera - position;
     if (glm::length(delta) < range) {
         if (earned) {
-            PracticeCharacterSkill(&g_status.party.characters[best_slot], W8_SKILL_SCOUTING, 5,
+            PracticeCharacterSkill(&CurrentGame().party.characters[best_slot], W8_SKILL_SCOUTING, 5,
                                    false);
         }
         return best_slot;
@@ -311,13 +313,13 @@ int W8Searchable::PickBestSearcher()
    registry; combat blocks the toggle outright. */
 void ToggleSearchMode(void)
 {
-    if (g_status.search_mode) {
-        g_status.search_mode = false;
+    if (CurrentGame().status.search_mode) {
+        CurrentGame().status.search_mode = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
-    if (!g_combat.active()) {
-        g_status.search_mode = true;
+    if (!CurrentGame().combat.active()) {
+        CurrentGame().status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();

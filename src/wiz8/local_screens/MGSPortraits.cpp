@@ -28,6 +28,7 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -109,17 +110,17 @@ void SyncPartyPortraitVitalsBars(void)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
         unsigned int hp_bar = 0;
         unsigned int stamina_bar = 0;
         unsigned int spell_bar = 0;
         W8Character* character;
 
-        if (!g_status.party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.rows[slot].fOccupied) {
             continue;
         }
 
-        character = &g_status.party.characters[slot];
+        character = &CurrentGame().party.characters[slot];
         if (character->hp_current == 0) {
             hp_bar = 0;
             stamina_bar = 0;
@@ -183,10 +184,10 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
 {
     bool splat_started = false;
 
-    if (gXStatus.fSurprisePossible) {
+    if (CurrentGame().surprise_possible) {
         return;
     }
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
     if (!entry->damage_splat_active) {
         entry->damage_splat_amount = amount;
         entry->damage_splat_active = true;
@@ -195,7 +196,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
         } else {
             entry->damage_splat_catalog = 0x91;
         }
-        if (g_status.party.characters[party_slot].hp_current == 0) {
+        if (CurrentGame().party.characters[party_slot].hp_current == 0) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         } else {
@@ -213,7 +214,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
     } else {
         entry->damage_splat_amount += amount;
         entry->damage_splat_frame = 0;
-        if (g_status.party.characters[party_slot].hp_current == 0 &&
+        if (CurrentGame().party.characters[party_slot].hp_current == 0 &&
             !entry->damage_splat_death_variant) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
@@ -236,7 +237,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
    icon. */
 static void DrawDamageSplatOverlay(unsigned int party_slot)
 {
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
     int frame = entry->damage_splat_frame;
     int top = 0;
 
@@ -270,7 +271,7 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
             splat_text.RenderString(fmt::format("{:d}", entry->damage_splat_amount),
                                     g_wiz_text_bold_font, false, GetFrameBufferSurface());
         }
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             entry->combat_portrait_dirty = true;
         }
     }
@@ -282,7 +283,7 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
    mode parked off PORTRAITS with the slot's refresh flag set). */
 void DrawPortraitEffectIcon(unsigned int party_slot)
 {
-    int image = gXStatus.monster_manager_entries[party_slot].effect_icon_frame;
+    int image = CurrentGame().monster_manager_entries[party_slot].effect_icon_frame;
     int top = 0;
     if (image != -1) {
         switch (party_slot >> 1) {
@@ -300,8 +301,8 @@ void DrawPortraitEffectIcon(unsigned int party_slot)
         }
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
             g_level_block->portrait_refresh_pending[party_slot] != 0) {
-            CatalogArtwork::Load(gXStatus.monster_manager_entries[party_slot].effect_icon_catalog,
-                                 0)
+            CatalogArtwork::Load(
+                CurrentGame().monster_manager_entries[party_slot].effect_icon_catalog, 0)
                 .drawAndInvalidate(GetFrameBufferSurface(), image, (party_slot & 1) << 9 | 0x17,
                                    top);
         }
@@ -315,11 +316,11 @@ void TickPartyPortraitFx(void)
     unsigned char slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
         bool clock_expired;
         bool dirty = false;
 
-        if (!g_status.party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.rows[slot].fOccupied) {
             continue;
         }
 
@@ -363,9 +364,9 @@ void ResetPartyPortraitFx(void)
     unsigned char slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
 
-        if (!g_status.party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.rows[slot].fOccupied) {
             continue;
         }
         entry->effect_icon_active = false;
@@ -393,9 +394,9 @@ void RedrawCombatPortraits(void)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* party_row = &g_status.party.rows[slot];
-        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
-        W8CombatCharacterRow* combat_row = &g_combat.state()->characters[slot];
+        W8PartySlotRow* party_row = &CurrentGame().party.rows[slot];
+        W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
+        W8CombatCharacterRow* combat_row = &CurrentGame().combat.state()->characters[slot];
 
         if (!CanPartySlotParticipate(slot) || combat_row->portrait_image == -1 ||
             !entry->combat_portrait_dirty || slot == g_level_block->combat_slot) {
@@ -427,7 +428,9 @@ void RedrawCombatPortraits(void)
         } else if (party_row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
             CatalogArtwork::Load(0x8c, 0).drawAndInvalidate(
                 GetFrameBufferSurface(),
-                g_status.party.rows[party_row->committed_action.target.iChar].party_order_index,
+                CurrentGame()
+                    .party.rows[party_row->committed_action.target.iChar]
+                    .party_order_index,
                 badge_x, row_y + 0x38);
         }
         entry->combat_portrait_dirty = false;
@@ -542,8 +545,8 @@ void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_
    the portrait, including numeric HP text when that option is enabled. */
 void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
 {
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     int menu_x;
     int menu_y;
     int band_menu_edge;
@@ -629,7 +632,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
         return;
     }
-    W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[party_slot];
+    W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
     entry->effect_icon_active = true;
     entry->effect_icon_frame = 0;
     int catalog;
@@ -689,8 +692,8 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
          (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_FORMATION &&
           GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_RADAR) ||
          g_level_block->portrait_refresh_pending[party_slot] != 0) &&
-        g_status.party.rows[party_slot].fOccupied) {
-        W8Character* character = &g_status.party.characters[party_slot];
+        CurrentGame().party.rows[party_slot].fOccupied) {
+        W8Character* character = &CurrentGame().party.characters[party_slot];
         if (character->hp_current != 0) {
             int portrait = character->portrait_index;
             SpriteDraw draw{};
@@ -702,8 +705,9 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
             }
             if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw,
                                            party_slot, false) &&
-                ((g_combat.active() && g_combat.state()->characters[party_slot].dead) ||
-                 gXStatus.fSurprisePossible ||
+                ((CurrentGame().combat.active() &&
+                  CurrentGame().combat.state()->characters[party_slot].dead) ||
+                 CurrentGame().surprise_possible ||
                  character->highest_condition == W8_CONDITION_MISSING)) {
                 return true;
             }
@@ -748,9 +752,9 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
     GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
                            &grid_row, &column_x, slot_enabled);
 
-    party_row = &g_status.party.rows[party_slot];
-    character = &g_status.party.characters[party_slot];
-    entry = &gXStatus.monster_manager_entries[party_slot];
+    party_row = &CurrentGame().party.rows[party_slot];
+    character = &CurrentGame().party.characters[party_slot];
+    entry = &CurrentGame().monster_manager_entries[party_slot];
 
     if (!party_row->fOccupied) {
         CatalogArtwork::Load(0x31, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x14, menu_y);
@@ -895,7 +899,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                      {(0x54 - text_width) / 2 + 0x15 + menu_x, menu_y + 0x49}, character->name);
             g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
-            if (g_combat.active()) {
+            if (CurrentGame().combat.active()) {
                 entry->combat_portrait_dirty = true;
             }
             condition_icons->icons[party_slot].dirty = true;
@@ -910,7 +914,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             int highlight_catalog;
 
             if (!highlighted || IsLeftButtonHeld() || g_level_block->portrait_flash != 0) {
-                if (g_status.selected_character != static_cast<int>(party_slot)) {
+                if (CurrentGame().status.selected_character != static_cast<int>(party_slot)) {
                     goto draw_condition_icons;
                 }
                 highlight_x = band_portrait_edge + 1;
@@ -932,7 +936,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             if (!highlighted || (IsLeftButtonHeld() && !gXStatus.fReviewCharacterMode) ||
                 (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
                  g_level_block->portrait_flash != 0)) {
-                if (g_status.selected_character != static_cast<int>(party_slot)) {
+                if (CurrentGame().status.selected_character != static_cast<int>(party_slot)) {
                     goto draw_condition_icons;
                 }
                 highlight_x = menu_x + 0x17;
@@ -1049,7 +1053,7 @@ portrait_fx:
             .draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
     }
 
-    if (!g_combat.active() && party_slot < 8 && party_row->fOccupied) {
+    if (!CurrentGame().combat.active() && party_slot < 8 && party_row->fOccupied) {
         portrait_buttons->buttons[party_slot]->m_dirty = true;
     }
 
@@ -1144,13 +1148,13 @@ void EnablePortraitAdvanceRegions()
 {
     portrait_buttons->input.setEnabled(true);
     for (int slot = 0; slot < 8; ++slot)
-        portrait_buttons->buttons[slot]->SetEnabled(IsCharacterReadyToAdvance(slot) &&
-                                                    g_status.party.rows[slot].portrait_advance);
+        portrait_buttons->buttons[slot]->SetEnabled(
+            IsCharacterReadyToAdvance(slot) && CurrentGame().party.rows[slot].portrait_advance);
 }
 
 void InvalidatePortraitControl(unsigned int party_slot)
 {
-    if (party_slot < 8 && g_status.party.rows[party_slot].fOccupied)
+    if (party_slot < 8 && CurrentGame().party.rows[party_slot].fOccupied)
         portrait_buttons->buttons[party_slot]->m_dirty = true;
 }
 
@@ -1164,7 +1168,7 @@ void UpdatePortraitAdvanceButtons()
     for (int slot = 0; slot < 8; ++slot) {
         auto& button = *portrait_buttons->buttons[slot];
         button.SetVisible(IsCharacterReadyToAdvance(slot) && !gXStatus.fNpcDialogueMode &&
-                          g_status.party.rows[slot].portrait_advance);
+                          CurrentGame().party.rows[slot].portrait_advance);
         button.Refresh();
     }
 }
@@ -1182,7 +1186,7 @@ void CreateLevelButtons()
                      AfterUiDispatch([slot] {
                          RequestScreen({.id = W8_SCREEN_CHARACTER,
                                         .mode = W8_CHARACTER_LEVEL_UP,
-                                        .character = &g_status.party.characters[slot]});
+                                        .character = &CurrentGame().party.characters[slot]});
                      });
                  },
              .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
@@ -1229,11 +1233,11 @@ void UpdateConditionButtons()
 {
     for (int slot = 0; slot < 8; ++slot) {
         auto& icon = condition_icons->icons[slot];
-        const auto& entry = gXStatus.monster_manager_entries[slot];
+        const auto& entry = CurrentGame().monster_manager_entries[slot];
         int catalog = 0;
-        if (g_status.party.rows[slot].fOccupied &&
+        if (CurrentGame().party.rows[slot].fOccupied &&
             g_level_block->portrait_refresh_pending[slot] == 0 && !entry.keyboard_menu_open) {
-            const auto& character = g_status.party.characters[slot];
+            const auto& character = CurrentGame().party.characters[slot];
             if (character.highest_condition)
                 catalog = character.highest_condition + 0xb6;
             else if (character.enchantment_top)

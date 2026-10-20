@@ -6,12 +6,11 @@
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -32,7 +31,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/version.h"
-#include "wiz8/xstatus.h"
 
 /* The data bring-up gate the native application initializes last. It stamps
    the version string, opens the string data, then walks every database loader
@@ -53,8 +51,6 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     }
     InitializeButtonImageManager();
     InitializeUiHelp();
-    ResetGameStatus(false);
-    InitializeGameplayRuntimeObjects();
     UpdateHeldItemCursor();
     if (!VerifyDataSubdirs()) {
         return 0;
@@ -105,7 +101,7 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
 
 void ShutdownGame(bool save_configuration)
 {
-    if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
+    EndGame();
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
     ReleaseNpcStates();
@@ -119,11 +115,9 @@ void ShutdownGame(bool save_configuration)
     g_font_state_palettes = {};
     ResetScreenRouting();
     ClearLocationVariables();
-    DestroyGameplayObjects();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
     ReleaseMessageStorage();
     FreeStringTable();
-    g_status.party = {};
     if (save_configuration) SaveGameConfiguration();
 }

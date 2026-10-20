@@ -37,6 +37,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_rules.h"
@@ -188,7 +189,7 @@ void W8CampItemsPage::DropHeldCampItem(void)
 // FUNCTION: WIZ8 0x005BA400
 void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
 {
-    auto* item = g_status.party.itemAt(location);
+    auto* item = CurrentGame().party.itemAt(location);
     if (item->iItemNo != -1 && item->stack_count > 1 &&
         (g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
         g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
@@ -217,7 +218,7 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
 // FUNCTION: WIZ8 0x005BA4F0
 void W8CampItemsPage::UseCampItem(W8ItemLocation location)
 {
-    auto* item = g_status.party.itemAt(location);
+    auto* item = CurrentGame().party.itemAt(location);
     if (ValidateItemSpellUse(screen.ReviewedPartySlot(), item, 0)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
@@ -228,10 +229,11 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
             gXStatus.item_drag = W8ItemDrag{location, screen.ReviewedPartySlot()};
         } else {
-            if (!(g_status.party.held.item.iItemNo != -1)) {
+            if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                 MarkCampCharacterPending(item);
-                ExchangeInventoryItems(location, {W8ItemStorage::Hand},
-                                       static_cast<unsigned>(g_status.selected_character));
+                ExchangeInventoryItems(
+                    location, {W8ItemStorage::Hand},
+                    static_cast<unsigned>(CurrentGame().status.selected_character));
             }
         }
         screen.DismissSelectedPartyCharacter();
@@ -244,7 +246,7 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
 // FUNCTION: WIZ8 0x005BA5D0
 void W8CampItemsPage::MergeItemStacksWithHeld(W8ItemLocation location)
 {
-    if (g_status.party.itemAt(location)->iItemNo != -1) {
+    if (CurrentGame().party.itemAt(location)->iItemNo != -1) {
         if (MergeItems(screen.ReviewedPartySlot(), location)) {
             RebuildCampItemList();
             screen.redraw_flags |= W8_CAMP_REDRAW_ALL;
@@ -262,7 +264,7 @@ void W8CampItemsPage::ReportCastResult(int party_slot)
 
     StartBreathCycle(screen.ReviewedPartySlot(), false);
     result = RevealCharacterItemBindingsByProfession(screen.ReviewedPartySlot(), party_slot);
-    character = g_status.party.characters + party_slot;
+    character = CurrentGame().party.characters + party_slot;
     if (result == 0) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         text = fmt::sprintf(g_localized_strings[0x1be], character->name, 0, 1, 0);
@@ -291,19 +293,20 @@ void W8CampItemsPage::UseHeldItemOnItem(W8ItemInstance* item)
     if (pending_item_action.caster_slot > 7) {
         Fail("pending_item_action.caster_slot < MAX_CHARS");
     }
-    if (!g_status.party.rows[pending_item_action.caster_slot].fOccupied) {
+    if (!CurrentGame().party.rows[pending_item_action.caster_slot].fOccupied) {
         Fail("fCHAR_OCCUPIED(pending_item_action.caster_slot)");
     }
     if (item->iItemNo != -1) {
         if (CanItemLeaveItsSlot(item)) {
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_ITEM;
-            target.item = g_status.party.locateItem(item);
+            target.item = CurrentGame().party.locateItem(item);
             if (CommitPartySlotSpell(pending_item_action.caster_slot, W8_SPELL_IDENTIFY_ITEM, 8,
                                      &target) == 1) {
                 OpenItemInfoDialog(item);
                 if (!item->identified) {
-                    QueueCharacterEvent(g_status.party.characters + pending_item_action.caster_slot,
+                    QueueCharacterEvent(CurrentGame().party.characters +
+                                            pending_item_action.caster_slot,
                                         0x35, 0, kCharacterEventFullVolume);
                 }
             }
@@ -313,8 +316,8 @@ void W8CampItemsPage::UseHeldItemOnItem(W8ItemInstance* item)
             pending_item_action.caster_slot = -1;
             return;
         }
-        QueueCharacterEvent(g_status.party.characters + pending_item_action.caster_slot, 0x35, 0,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(CurrentGame().party.characters + pending_item_action.caster_slot, 0x35,
+                            0, kCharacterEventFullVolume);
     }
 }
 
@@ -326,7 +329,7 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
     if (uiTargetChar > 7) {
         Fail("uiTargetChar < MAX_CHARS");
     }
-    if (!g_status.party.rows[uiTargetChar].fOccupied) {
+    if (!CurrentGame().party.rows[uiTargetChar].fOccupied) {
         Fail("fCHAR_OCCUPIED(uiTargetChar)");
     }
     if (pending_item_action.caster_slot < 0) {
@@ -335,7 +338,7 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
     if (pending_item_action.caster_slot > 7) {
         Fail("pending_item_action.caster_slot < MAX_CHARS");
     }
-    if (!g_status.party.rows[pending_item_action.caster_slot].fOccupied) {
+    if (!CurrentGame().party.rows[pending_item_action.caster_slot].fOccupied) {
         Fail("fCHAR_OCCUPIED(pending_item_action.caster_slot)");
     }
     ResetCombatSlot(&target);
@@ -379,8 +382,8 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
     case W8_TARGET_NEED_ALLY:
         if ((item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
-            g_status.party.rows[slot].fOccupied &&
-            g_status.party.characters[slot].uiCondition[W8_CONDITION_MISSING] == 0) {
+            CurrentGame().party.rows[slot].fOccupied &&
+            CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_MISSING] == 0) {
             SetTargetCursor(GetTargetingCursorForState(alternate));
             return;
         }
@@ -412,9 +415,10 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
                 record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
                 return;
             }
-            if (g_combat.active() && !IsEquippableItemClass(item) &&
-                (g_combat.state()->equip_phase == W8CombatEquipPhase::action_selection ||
-                 g_status.party.rows[screen.ReviewedPartySlot()].pending_action !=
+            if (CurrentGame().combat.active() && !IsEquippableItemClass(item) &&
+                (CurrentGame().combat.state()->equip_phase ==
+                     W8CombatEquipPhase::action_selection ||
+                 CurrentGame().party.rows[screen.ReviewedPartySlot()].pending_action !=
                      W8_ACTION_EQUIP)) {
                 return;
             }
@@ -432,7 +436,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
             return;
         }
         if (!alternate) {
-            if (!(g_status.party.held.item.iItemNo != -1)) {
+            if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                 SetTargetCursor(3);
                 return;
             }
@@ -440,7 +444,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
             SetItemCursor(0xe);
             return;
         }
-        if (!(g_status.party.held.item.iItemNo != -1)) {
+        if (!(CurrentGame().party.held.item.iItemNo != -1)) {
             SetTargetCursor(4);
             return;
         }
@@ -460,7 +464,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
 // FUNCTION: WIZ8 0x005BAFC0
 void SetHandCursors()
 {
-    if ((g_status.party.held.item.iItemNo != -1)) {
+    if ((CurrentGame().party.held.item.iItemNo != -1)) {
         SetTargetCursor(0xf);
         SetItemCursor(0xe);
         return;
@@ -476,8 +480,9 @@ void W8CampItemsPage::UnequipBothHands(void)
 {
     W8Character* character;
 
-    if (g_combat.active() && !g_combat.state()->round_active && !gXStatus.fPartyMovementMode &&
-        g_combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
+    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active &&
+        !CurrentGame().party_movement_mode &&
+        CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
         screen.ShowNotice(g_localized_strings[0x903], 0, true, false);
         return;
     }
@@ -485,7 +490,7 @@ void W8CampItemsPage::UnequipBothHands(void)
         screen.ShowNotice(g_localized_strings[0x917], 0, true, false);
         return;
     }
-    character = g_status.party.characters + screen.ReviewedPartySlot();
+    character = CurrentGame().party.characters + screen.ReviewedPartySlot();
     BindEquippedItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
     BindEquippedItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     if (CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
@@ -503,12 +508,12 @@ void W8CampItemsPage::UnequipBothHands(void)
 void W8CampItemsPage::TogglePartyRowFlag(void)
 {
     if (item_controls.actions[1]->IsPressed()) {
-        g_status.party.rows[screen.ReviewedPartySlot()].item_action_pending = true;
+        CurrentGame().party.rows[screen.ReviewedPartySlot()].item_action_pending = true;
         item_controls.actions[0]->SetEnabled(false);
         item_controls.actions[0]->m_dirty = true;
         return;
     }
-    g_status.party.rows[screen.ReviewedPartySlot()].item_action_pending = false;
+    CurrentGame().party.rows[screen.ReviewedPartySlot()].item_action_pending = false;
     item_controls.actions[0]->SetEnabled(true);
     item_controls.actions[0]->m_dirty = true;
 }
@@ -599,15 +604,15 @@ W8ItemLocation W8CampItemsPage::CampItemAt(int slot, W8ItemStorage storage) cons
         return {storage, static_cast<unsigned int>(screen.ReviewedPartySlot()), cell};
     const auto visible = item_scroll + cell;
     const auto index =
-        visible < item_list_count && g_status.party.item_pool[item_list[visible]].iItemNo != -1
+        visible < item_list_count && CurrentGame().party.item_pool[item_list[visible]].iItemNo != -1
             ? item_list[visible]
-            : g_status.party.item_count;
+            : CurrentGame().party.item_count;
     return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(index)};
 }
 
 std::string W8CampItemsPage::CampItemTooltip(int slot, W8ItemStorage storage)
 {
-    const auto* item = g_status.party.itemAt(CampItemAt(slot, storage));
+    const auto* item = CurrentGame().party.itemAt(CampItemAt(slot, storage));
     if (!item) return {};
     std::string text = item->iItemNo == -1 ? std::string{} : FormatItemDisplayName(item, false);
     if (storage == W8ItemStorage::Equipment) {
@@ -628,23 +633,24 @@ UiResult W8CampItemsPage::HandleCampItem(const UiPointerEvent& event, int slot,
                                          W8ItemStorage storage)
 {
     const auto location = CampItemAt(slot, storage);
-    auto* item = g_status.party.itemAt(location);
+    auto* item = CurrentGame().party.itemAt(location);
     // A full pool has no free row to show past the end of its list.
     if (!item) return UiResult::Handled;
     const bool equipped = storage == W8ItemStorage::Equipment;
     const bool pool = storage == W8ItemStorage::Pool;
     auto& target = *(pool ? pool_targets[slot] : inventory_targets[slot + (equipped ? 8 : 0)]);
-    const bool interactive = !(
-        item->iItemNo == -1 &&
-        (!(g_status.party.held.item.iItemNo != -1) ||
-         (equipped && (item_action == W8_CAMP_ITEM_ACTION_MOVE ||
-                       !CanEquipItemInSlot(screen.reviewed, g_status.party.held.item.iItemNo,
-                                           static_cast<unsigned char>(slot), true) ||
-                       !CanCharacterUseItem(screen.reviewed, g_status.party.held.item.iItemNo)))));
+    const bool interactive =
+        !(item->iItemNo == -1 &&
+          (!(CurrentGame().party.held.item.iItemNo != -1) ||
+           (equipped &&
+            (item_action == W8_CAMP_ITEM_ACTION_MOVE ||
+             !CanEquipItemInSlot(screen.reviewed, CurrentGame().party.held.item.iItemNo,
+                                 static_cast<unsigned char>(slot), true) ||
+             !CanCharacterUseItem(screen.reviewed, CurrentGame().party.held.item.iItemNo)))));
     if (interactive && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave) {
-        if (item->iItemNo != -1 || (g_status.party.held.item.iItemNo != -1))
+        if (item->iItemNo != -1 || (CurrentGame().party.held.item.iItemNo != -1))
             item_redraw_flags |= (pool       ? W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST
                                   : equipped ? W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST
                                              : W8_CAMP_ITEM_REDRAW_BACKPACK_CELL_FIRST)
@@ -707,7 +713,7 @@ void W8CampItemsPage::DrawCampItemIcons(void)
         if ((index & 1) == 0) {
             y = (index >> 1) * 0x39 + 0xd2;
         }
-        DrawCampItemLabel(&g_status.party.item_pool[item_list[item_scroll + index]],
+        DrawCampItemLabel(&CurrentGame().party.item_pool[item_list[item_scroll + index]],
                           (index & 1) * 0x31 + 0x22c, y, 1);
         ++index;
     }
@@ -861,9 +867,9 @@ void W8CampItemsPage::EnableCampActionButtons(void)
 {
     item_controls.actions[0]->SetVisible(true);
     item_controls.actions[1]->SetVisible(true);
-    if (g_status.game_started) {
+    if (GameStarted()) {
         item_controls.actions[1]->SetEnabled(true);
-        if (g_status.party.rows[screen.ReviewedPartySlot()].item_action_pending) {
+        if (CurrentGame().party.rows[screen.ReviewedPartySlot()].item_action_pending) {
             item_controls.actions[1]->SetPressed(true);
             item_controls.actions[0]->SetEnabled(false);
         } else {
@@ -905,7 +911,7 @@ void W8CampItemsPage::UpdateCampItemFilters(void)
     for (index = 0; index < 7; ++index) {
         item_controls.filters[index]->SetVisible(true);
     }
-    if (!g_status.game_started) {
+    if (!GameStarted()) {
         for (index = 0; index < 7; ++index) {
             item_controls.filters[index]->SetEnabled(false);
         }
@@ -1051,7 +1057,7 @@ void W8CampItemsPage::Activate()
     EnableCampSecondaryPanel();
     SetCampInfoPageMode(info_page);
     item_range->SetActive(true);
-    if (g_status.game_started) {
+    if (GameStarted()) {
         pool_input.setEnabled(true);
         item_scroll = 0;
         RebuildCampItemList();
@@ -1066,7 +1072,7 @@ void W8CampItemsPage::Deactivate()
     DisableCampSecondaryPanel();
     screen.character_info->SetActive(false);
     item_range->SetActive(false);
-    if (g_status.game_started) pool_input.setEnabled(false);
+    if (GameStarted()) pool_input.setEnabled(false);
 }
 
 void W8CampItemsPage::ReviewedCharacterChanged()
@@ -1289,7 +1295,7 @@ void W8CampItemsPage::DrawCampBackpackItems(void)
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x32, left, top);
         }
         if (inventory_targets[slot]->hovered() &&
-            (item_id != -1 || ((g_status.party.held.item.iItemNo != -1) &&
+            (item_id != -1 || ((CurrentGame().party.held.item.iItemNo != -1) &&
                                item_action != W8_CAMP_ITEM_ACTION_MOVE))) {
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
         }
@@ -1381,15 +1387,15 @@ void W8CampItemsPage::DrawCampEquipmentItems(void)
                 GetFrameBufferSurface(), region->frame + 2, region->x - 2, region->y - 2);
         }
         if (inventory_targets[kCampEquipmentRegionOffset + slot]->hovered()) {
-            if (!(g_status.party.held.item.iItemNo != -1)) {
+            if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                 if (character->EquippedItem[slot].iItemNo == -1) {
                     continue;
                 }
             } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE ||
-                       !CanEquipItemInSlot(character, g_status.party.held.item.iItemNo,
+                       !CanEquipItemInSlot(character, CurrentGame().party.held.item.iItemNo,
                                            static_cast<unsigned char>(slot), true) ||
-                       !CanCharacterUseItem(character, g_status.party.held.item.iItemNo)) {
-                if (!(g_status.party.held.item.iItemNo != -1) ||
+                       !CanCharacterUseItem(character, CurrentGame().party.held.item.iItemNo)) {
+                if (!(CurrentGame().party.held.item.iItemNo != -1) ||
                     item_action != W8_CAMP_ITEM_ACTION_MOVE) {
                     continue;
                 }
@@ -1399,12 +1405,12 @@ void W8CampItemsPage::DrawCampEquipmentItems(void)
             }
             frame = region->frame;
         } else {
-            if (!(g_status.party.held.item.iItemNo != -1) ||
+            if (!(CurrentGame().party.held.item.iItemNo != -1) ||
                 item_action == W8_CAMP_ITEM_ACTION_MOVE ||
                 !IsPartySlotEligible(screen.ReviewedPartySlot()) ||
-                !CanEquipItemInSlot(character, g_status.party.held.item.iItemNo,
+                !CanEquipItemInSlot(character, CurrentGame().party.held.item.iItemNo,
                                     static_cast<unsigned char>(slot), true) ||
-                !CanCharacterUseItem(character, g_status.party.held.item.iItemNo)) {
+                !CanCharacterUseItem(character, CurrentGame().party.held.item.iItemNo)) {
                 continue;
             }
             frame = region->frame + 1;
@@ -1433,13 +1439,13 @@ void W8CampItemsPage::DrawCampItemPool(void)
         CatalogArtwork::Load(0x118, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x202, 0x1a6);
         screen.redraw_flags |= W8_CAMP_REDRAW_REALM_TABS;
     }
-    if (!g_status.game_started) {
+    if (!GameStarted()) {
         return;
     }
     if ((item_redraw_flags & W8_CAMP_ITEM_REDRAW_POOL_HEADER) != 0) {
         DrawRcsBoldText(g_localized_strings[0x92c], 0x1e6, 0xae, 0x8d,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-        text = FormatUnsignedIntegerWithCommas(g_status.party.gold);
+        text = FormatUnsignedIntegerWithCommas(CurrentGame().party.gold);
         DrawRcsText(text, 0x229, 0x1a9, 0x30,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     }
@@ -1455,7 +1461,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
         top = (i >> 1) * 0x39 + 0xc0;
         right = left + 0x2e;
         bottom = top + 0x36;
-        item = &g_status.party.item_pool[item_list[item_scroll + i]];
+        item = &CurrentGame().party.item_pool[item_list[item_scroll + i]];
         if ((item_redraw_flags & (W8_CAMP_ITEM_REDRAW_POOL_CELL_FIRST << i)) == 0) {
             continue;
         }
@@ -1489,7 +1495,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
             CatalogArtwork::Load(0x1b6, 0).drawRect(
                 GetFrameBufferSurface(), SDL_Rect{0, 0, (right) - (left), (bottom) - (top)}, left,
                 top);
-            if (pool_targets[i]->hovered() && (g_status.party.held.item.iItemNo != -1) &&
+            if (pool_targets[i]->hovered() && (CurrentGame().party.held.item.iItemNo != -1) &&
                 item_action != W8_CAMP_ITEM_ACTION_MOVE) {
                 CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
             }
@@ -1553,7 +1559,8 @@ unsigned int W8CampItemsPage::ChangedItemCells()
     for (unsigned int slot = 0; slot < 12; ++slot)
         if (!same_character || shown.equipment[slot] != screen.reviewed->EquippedItem[slot])
             flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT_CELL_FIRST << slot;
-    const auto pool = std::span{g_status.party.item_pool}.first(g_status.party.item_count);
+    const auto pool =
+        std::span{CurrentGame().party.item_pool}.first(CurrentGame().party.item_count);
     if (!std::ranges::equal(shown.pool, pool)) flags |= W8_CAMP_ITEM_REDRAW_POOL;
     shown.character = screen.reviewed;
     std::ranges::copy(screen.reviewed->backpack, shown.backpack.begin());
@@ -1594,8 +1601,8 @@ void W8CampItemsPage::RebuildCampItemList(void)
             filter |= 1 << index;
         }
     }
-    pool = g_status.party.item_pool;
-    for (index = 0; index < g_status.party.item_count; ++index, ++pool) {
+    pool = CurrentGame().party.item_pool;
+    for (index = 0; index < CurrentGame().party.item_count; ++index, ++pool) {
         if (pool->iItemNo != -1 &&
             (item_filters[W8_CAMP_ITEM_FILTER_USABLE] == 0 ||
              CanCharacterUseItem(screen.reviewed, pool->iItemNo)) &&
@@ -1631,21 +1638,22 @@ void W8CampItemsPage::RebuildCampItemList(void)
    merge onto the clicked stack, swap with it, or drop into the pool. */
 void W8CampItemsPage::SelectPendingCampCharacter()
 {
-    screen.SelectCampCharacter(*g_status.party.companion_inventory);
+    screen.SelectCampCharacter(*CurrentGame().party.companion_inventory);
     if (IsPartySlotEligible(screen.ReviewedPartySlot())) {
-        QueueCharacterEvent((&g_status.party.characters[*g_status.party.companion_inventory]), 109,
-                            0, kCharacterEventFullVolume);
+        QueueCharacterEvent(
+            (&CurrentGame().party.characters[*CurrentGame().party.companion_inventory]), 109, 0,
+            kCharacterEventFullVolume);
     } else {
-        std::string text =
-            fmt::sprintf(g_localized_strings[0x931],
-                         g_status.party.characters[*g_status.party.companion_inventory].name);
+        std::string text = fmt::sprintf(
+            g_localized_strings[0x931],
+            CurrentGame().party.characters[*CurrentGame().party.companion_inventory].name);
         screen.ShowNotice(text, 0, true, false);
     }
 }
 
 void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
 {
-    W8ItemInstance* item = g_status.party.itemAt(location);
+    W8ItemInstance* item = CurrentGame().party.itemAt(location);
     const auto origin = location.storage;
     const unsigned int slot_index = location.slot;
     W8CombatSlot target;
@@ -1673,21 +1681,23 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
 
     /* A held stackable whose name kind the clicked item merges with counts as
        the same item for the use-merge path below. */
-    if ((g_status.party.held.item.iItemNo != -1) && item->iItemNo != -1 &&
+    if ((CurrentGame().party.held.item.iItemNo != -1) && item->iItemNo != -1 &&
         GetItemMergeKind(item->iItemNo, &related_kind) &&
-        g_item_records[g_status.party.held.item.iItemNo].unidentified_name_index == related_kind) {
+        g_item_records[CurrentGame().party.held.item.iItemNo].unidentified_name_index ==
+            related_kind) {
         same_kind = true;
     }
-    if (item->iItemNo == -1 && !(g_status.party.held.item.iItemNo != -1)) {
+    if (item->iItemNo == -1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
         return;
     }
-    if (origin == W8ItemStorage::Equipment && (g_status.party.held.item.iItemNo != -1) &&
+    if (origin == W8ItemStorage::Equipment && (CurrentGame().party.held.item.iItemNo != -1) &&
         item_action != W8_CAMP_ITEM_ACTION_MOVE) {
-        if (!same_kind && !CanEquipItemInSlot(screen.reviewed, g_status.party.held.item.iItemNo,
-                                              slot_index, true)) {
+        if (!same_kind &&
+            !CanEquipItemInSlot(screen.reviewed, CurrentGame().party.held.item.iItemNo, slot_index,
+                                true)) {
             return;
         }
-        if (!CanCharacterUseItem(screen.reviewed, g_status.party.held.item.iItemNo)) {
+        if (!CanCharacterUseItem(screen.reviewed, CurrentGame().party.held.item.iItemNo)) {
             return;
         }
     }
@@ -1695,12 +1705,12 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) {
         return;
     }
-    if (!g_status.game_started) {
+    if (!GameStarted()) {
         text = g_localized_strings[0x900];
         screen.ShowNotice(text, 0, true, false);
         return;
     }
-    character = &g_status.party.characters[screen.ReviewedPartySlot()];
+    character = &CurrentGame().party.characters[screen.ReviewedPartySlot()];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0 &&
         (origin == W8ItemStorage::Equipment || origin == W8ItemStorage::Backpack)) {
         text = g_localized_strings[0x907];
@@ -1720,8 +1730,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         return;
     }
     if (character->highest_condition >= W8_CONDITION_TURNCOAT && origin != W8ItemStorage::Pool &&
-        (g_status.party.held.item.iItemNo != -1) &&
-        g_status.party.held.actor != screen.ReviewedPartySlot()) {
+        (CurrentGame().party.held.item.iItemNo != -1) &&
+        CurrentGame().party.held.actor != screen.ReviewedPartySlot()) {
         text = g_localized_strings[0x901];
         screen.ShowNotice(text, 0, true, false);
         return;
@@ -1732,13 +1742,13 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
        A weapon or shield being moved onto a slot it cannot pair with stays
        gated as well. */
     bool gated = true;
-    if (g_combat.active() && origin != W8ItemStorage::Pool) {
-        if (!(g_status.party.held.item.iItemNo != -1) ||
-            ((g_item_records[g_status.party.held.item.iItemNo].equip_class ==
+    if (CurrentGame().combat.active() && origin != W8ItemStorage::Pool) {
+        if (!(CurrentGame().party.held.item.iItemNo != -1) ||
+            ((g_item_records[CurrentGame().party.held.item.iItemNo].equip_class ==
                   W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
-              g_item_records[g_status.party.held.item.iItemNo].equip_class ==
+              g_item_records[CurrentGame().party.held.item.iItemNo].equip_class ==
                   W8_ITEM_EQUIP_CLASS_AMMUNITION) &&
-             g_status.party.held.actor == screen.ReviewedPartySlot() &&
+             CurrentGame().party.held.actor == screen.ReviewedPartySlot() &&
              (origin != W8ItemStorage::Equipment ||
               HeldItemFitsPairedSlot(screen.ReviewedPartySlot(), equip_slot)))) {
             if (item->iItemNo == -1 ||
@@ -1759,34 +1769,36 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL) {
         party_slot = CharacterPointerToPartySlot(pending_item_action.identifying_character);
         if (!CanItemLeaveItsSlot(item)) {
-            QueueCharacterEvent(&g_status.party.characters[party_slot], 0x35, 0,
+            QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 0x35, 0,
                                 kCharacterEventFullVolume);
             return;
         }
         if (pending_item_action.identifying_character == 0) {
             Fail("gpIdentifyingPC != NULL");
         }
-        old_pool_count = g_status.party.item_count;
+        old_pool_count = CurrentGame().party.item_count;
         reidentify = false;
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_ITEM;
         target.item = location;
         StartBreathCycle(party_slot, false);
-        W8PartySlotRow* row = &g_status.party.rows[party_slot];
+        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         if (row->pending_action == W8_ACTION_USE_ITEM &&
-            g_item_records[g_status.party.itemAt(row->pending_action_detail.item_use.item)->iItemNo]
-                    .spell_id == W8_SPELL_IDENTIFY_ITEM) {
+            g_item_records
+                    [CurrentGame().party.itemAt(row->pending_action_detail.item_use.item)->iItemNo]
+                        .spell_id == W8_SPELL_IDENTIFY_ITEM) {
             reidentify = true;
             result = CommitPartySlotItemUse(
-                party_slot, g_status.party.itemAt(row->pending_action_detail.item_use.item),
+                party_slot, CurrentGame().party.itemAt(row->pending_action_detail.item_use.item),
                 &target);
         } else {
             result = CommitPartySlotSpell(party_slot, W8_SPELL_IDENTIFY_ITEM, 8, &target);
         }
         if (origin == W8ItemStorage::Pool && reidentify &&
-            old_pool_count != g_status.party.item_count) {
+            old_pool_count != CurrentGame().party.item_count) {
             item =
-                &g_status.party.item_pool[g_status.party.item_count - old_pool_count + slot_index];
+                &CurrentGame()
+                     .party.item_pool[CurrentGame().party.item_count - old_pool_count + slot_index];
             RebuildCampItemList();
 
             screen.redraw_flags |= W8_CAMP_REDRAW_CHARACTER_INFO;
@@ -1795,7 +1807,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         if (result == 1 && item->iItemNo != -1) {
             OpenItemInfoDialog(item);
             if (!item->identified) {
-                QueueCharacterEvent(&g_status.party.characters[party_slot], 0x35, 0,
+                QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 0x35, 0,
                                     kCharacterEventFullVolume);
             }
         }
@@ -1821,12 +1833,12 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         }
         return;
     } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE) {
-        if ((g_status.party.held.item.iItemNo != -1)) {
+        if ((CurrentGame().party.held.item.iItemNo != -1)) {
             if (item->iItemNo == -1) {
                 SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                 return;
             }
-            if (g_status.party.companion_inventory) {
+            if (CurrentGame().party.companion_inventory) {
                 SelectPendingCampCharacter();
                 return;
             }
@@ -1858,7 +1870,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     const auto cancel_queued_swap = [&] {
         if (origin == W8ItemStorage::Equipment &&
             GetPairedEquipSlot(equip_slot) != W8_EQUIP_SLOT_NONE)
-            g_status.party.rows[screen.ReviewedPartySlot()].weapon_swap_pending = false;
+            CurrentGame().party.rows[screen.ReviewedPartySlot()].weapon_swap_pending = false;
     };
     if (same_kind) {
         MergeItemUses(screen.ReviewedPartySlot(), location, {W8ItemStorage::Hand});
@@ -1869,17 +1881,17 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     } else {
         /* Fold the held stack onto a matching stack; for the pool the scan
            continues across every row until the held stack is consumed. */
-        if ((g_status.party.held.item.iItemNo != -1) &&
-            g_item_records[g_status.party.held.item.iItemNo].quantity_kind ==
+        if ((CurrentGame().party.held.item.iItemNo != -1) &&
+            g_item_records[CurrentGame().party.held.item.iItemNo].quantity_kind ==
                 W8_ITEM_QUANTITY_STACK) {
-            if (item->iItemNo != -1 && item->iItemNo == g_status.party.held.item.iItemNo) {
+            if (item->iItemNo != -1 && item->iItemNo == CurrentGame().party.held.item.iItemNo) {
                 const auto outcome = MergeInventoryStacks(location, {W8ItemStorage::Hand});
                 merged = outcome.complete;
                 partially_merged = outcome.changed && !outcome.complete;
                 merge_tried = true;
             }
             if (!merged && origin == W8ItemStorage::Pool) {
-                for (index = 0; index < g_status.party.item_count; ++index) {
+                for (index = 0; index < CurrentGame().party.item_count; ++index) {
                     const auto outcome = MergeInventoryStacks({W8ItemStorage::Pool, 0, index},
                                                               {W8ItemStorage::Hand});
                     partially_merged |= outcome.changed && !outcome.complete;
@@ -1892,8 +1904,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         }
         if (origin == W8ItemStorage::Pool) {
             if (!merged) {
-                if ((g_status.party.held.item.iItemNo != -1)) {
-                    if (g_status.party.companion_inventory) {
+                if ((CurrentGame().party.held.item.iItemNo != -1)) {
+                    if (CurrentGame().party.companion_inventory) {
                         SelectPendingCampCharacter();
                     } else if (InsertHeldItemInPool(slot_index)) {
                         changed = true;
@@ -1902,10 +1914,11 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                         text = g_localized_strings[0x90c];
                         screen.ShowNotice(text, 0, true, false);
                     }
-                } else if (slot_index < g_status.party.item_count) {
+                } else if (slot_index < CurrentGame().party.item_count) {
                     /* An empty hand picks the clicked pool row up. */
-                    ExchangeInventoryItems(location, {W8ItemStorage::Hand},
-                                           static_cast<unsigned>(g_status.selected_character));
+                    ExchangeInventoryItems(
+                        location, {W8ItemStorage::Hand},
+                        static_cast<unsigned>(CurrentGame().status.selected_character));
                     changed = true;
                     if (item_action == W8_CAMP_ITEM_ACTION_DROP) {
                         DropHeldCampItem();
@@ -1920,19 +1933,19 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             }
         } else {
             if (!merge_tried &&
-                ((!(g_status.party.held.item.iItemNo != -1) && item->iItemNo != -1) ||
-                 ((g_status.party.held.item.iItemNo != -1) && !merged))) {
-                if (!g_status.party.companion_inventory ||
-                    (&g_status.party.characters[*g_status.party.companion_inventory]) ==
+                ((!(CurrentGame().party.held.item.iItemNo != -1) && item->iItemNo != -1) ||
+                 ((CurrentGame().party.held.item.iItemNo != -1) && !merged))) {
+                if (!CurrentGame().party.companion_inventory ||
+                    (&CurrentGame().party.characters[*CurrentGame().party.companion_inventory]) ==
                         screen.reviewed) {
                     MarkCampCharacterPending(item);
-                    if ((g_status.party.held.item.iItemNo != -1)) {
-                        choose_character = g_status.party.held.actor == -1;
-                        DeliverExceptionalItemReaction(&g_status.party.held.item, choose_character,
-                                                       screen.reviewed);
+                    if ((CurrentGame().party.held.item.iItemNo != -1)) {
+                        choose_character = CurrentGame().party.held.actor == -1;
+                        DeliverExceptionalItemReaction(&CurrentGame().party.held.item,
+                                                       choose_character, screen.reviewed);
                     }
                     if (origin == W8ItemStorage::Equipment &&
-                        (g_status.party.held.item.iItemNo != -1) &&
+                        (CurrentGame().party.held.item.iItemNo != -1) &&
                         !HeldItemFitsPairedSlot(screen.ReviewedPartySlot(), equip_slot)) {
                         paired_slot = GetPairedEquipSlot(equip_slot);
                         paired = &screen.reviewed->EquippedItem[paired_slot];
@@ -1969,10 +1982,10 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                 }
             }
             if (item_action == W8_CAMP_ITEM_ACTION_DROP &&
-                (g_status.party.held.item.iItemNo != -1)) {
+                (CurrentGame().party.held.item.iItemNo != -1)) {
                 DropHeldCampItem();
             } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE &&
-                       (g_status.party.held.item.iItemNo != -1)) {
+                       (CurrentGame().party.held.item.iItemNo != -1)) {
                 SetHandCursors();
             }
             if (changed) {
@@ -2015,7 +2028,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
 
 void W8CampItemsPage::TakeItemUnitToHand(W8ItemLocation source)
 {
-    const auto* item = g_status.party.itemAt(source);
+    const auto* item = CurrentGame().party.itemAt(source);
     if (!item) return;
     if (item_action != W8_CAMP_ITEM_ACTION_NONE || !CanSplitItemStack(item)) return;
     if (!SplitItemStack(source, 1, screen.ReviewedPartySlot())) return;
@@ -2029,8 +2042,9 @@ void W8CampItemsPage::TakeItemUnitToHand(W8ItemLocation source)
    the caller may proceed. force ignores the same-character early out. */
 bool W8CampItemsPage::ResolvePendingCampCharacter(bool force)
 {
-    if (g_status.party.companion_inventory &&
-        ((&g_status.party.characters[*g_status.party.companion_inventory]) != screen.reviewed ||
+    if (CurrentGame().party.companion_inventory &&
+        ((&CurrentGame().party.characters[*CurrentGame().party.companion_inventory]) !=
+             screen.reviewed ||
          force)) {
         SelectPendingCampCharacter();
         return false;
@@ -2045,12 +2059,12 @@ void W8CampItemsPage::MarkCampCharacterPending(W8ItemInstance* item)
 {
     W8NpcState* npc;
 
-    g_status.party.companion_inventory.reset();
+    CurrentGame().party.companion_inventory.reset();
     if (item->iItemNo != -1 &&
         (screen.ReviewedPartySlot() == 0 || screen.ReviewedPartySlot() == 1)) {
-        npc = GetNpcState(g_status.party.rows[screen.ReviewedPartySlot()].npc_index);
+        npc = GetNpcState(CurrentGame().party.rows[screen.ReviewedPartySlot()].npc_index);
         if (npc != 0 && NpcWantsItem(npc, item)) {
-            g_status.party.companion_inventory = screen.ReviewedPartySlot();
+            CurrentGame().party.companion_inventory = screen.ReviewedPartySlot();
         }
     }
 }
@@ -2065,21 +2079,21 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
 {
     int index;
     W8SpellRuntimeRecord* spell;
-    W8ItemInstance* held = &g_status.party.held.item;
+    W8ItemInstance* held = &CurrentGame().party.held.item;
 
     for (index = 0; index < W8_CAMP_ACTION_BUTTON_COUNT; ++index) {
         auto& control = screen.camp_buttons.actions[index];
-        if (screen.page == W8_CAMP_PAGE_ITEMS && g_status.game_started) {
+        if (screen.page == W8_CAMP_PAGE_ITEMS && GameStarted()) {
             switch (index) {
             case W8_CAMP_ACTION_BUTTON_IDENTIFY:
                 control->SetEnabled(IsPartySlotEligible(screen.ReviewedPartySlot()));
                 continue;
             case W8_CAMP_ACTION_BUTTON_MOVE:
-                control->SetEnabled(!g_combat.active() &&
+                control->SetEnabled(!CurrentGame().combat.active() &&
                                     IsPartySlotEligible(screen.ReviewedPartySlot()));
                 continue;
             case W8_CAMP_ACTION_BUTTON_SPLIT_STACK:
-                if (!(g_status.party.held.item.iItemNo != -1)) {
+                if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                     control->SetEnabled(true);
                     continue;
                 }
@@ -2087,21 +2101,22 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                     control->SetEnabled(false);
                     continue;
                 }
-                if (!g_combat.active() ||
-                    (g_combat.state()->equip_phase != W8CombatEquipPhase::action_selection &&
-                     g_status.party.rows[screen.ReviewedPartySlot()].pending_action ==
+                if (!CurrentGame().combat.active() ||
+                    (CurrentGame().combat.state()->equip_phase !=
+                         W8CombatEquipPhase::action_selection &&
+                     CurrentGame().party.rows[screen.ReviewedPartySlot()].pending_action ==
                          W8_ACTION_EQUIP)) {
                     control->SetEnabled(true);
                     continue;
                 }
                 if (IsEquippableItemClass(held) &&
-                    g_status.party.held.actor == screen.ReviewedPartySlot()) {
+                    CurrentGame().party.held.actor == screen.ReviewedPartySlot()) {
                     control->SetEnabled(true);
                     continue;
                 }
                 break;
             case W8_CAMP_ACTION_BUTTON_USE:
-                if (g_combat.active()) {
+                if (CurrentGame().combat.active()) {
                     control->SetEnabled(false);
                     continue;
                 }
@@ -2114,7 +2129,7 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                     control->SetEnabled(false);
                     continue;
                 }
-                if (!(g_status.party.held.item.iItemNo != -1)) {
+                if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                     control->SetEnabled(true);
                     continue;
                 }
@@ -2132,7 +2147,8 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                 if (screen.reviewed->spell_learned[0x17] != 1) {
                     break;
                 }
-                if (!IsPartySlotEligible(screen.ReviewedPartySlot()) || g_combat.active()) {
+                if (!IsPartySlotEligible(screen.ReviewedPartySlot()) ||
+                    CurrentGame().combat.active()) {
                     break;
                 }
                 spell = &g_spell_records[W8_SPELL_IDENTIFY_ITEM];
@@ -2142,7 +2158,7 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                 if (!SpellUsableNow(W8_SPELL_IDENTIFY_ITEM, false)) {
                     break;
                 }
-                if (!(g_status.party.held.item.iItemNo != -1)) {
+                if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                     control->SetEnabled(true);
                     continue;
                 }
@@ -2152,7 +2168,8 @@ void W8CampItemsPage::RefreshCampItemActions(bool invalidate)
                 if (screen.reviewed->spell_learned[0x3a] != 1) {
                     break;
                 }
-                if (!IsPartySlotEligible(screen.ReviewedPartySlot()) || g_combat.active()) {
+                if (!IsPartySlotEligible(screen.ReviewedPartySlot()) ||
+                    CurrentGame().combat.active()) {
                     break;
                 }
                 spell = &g_spell_records[W8_SPELL_REMOVE_CURSE];
@@ -2236,7 +2253,7 @@ void W8CampItemsPage::SetCampItemActionMode(W8CampItemAction mode)
         break;
     }
     SetTargetingMode(targeting);
-    if (mode == W8_CAMP_ITEM_ACTION_NONE && (g_status.party.held.item.iItemNo != -1)) {
+    if (mode == W8_CAMP_ITEM_ACTION_NONE && (CurrentGame().party.held.item.iItemNo != -1)) {
         SetItemCursor(0);
     }
     if (selected != W8_CAMP_ACTION_BUTTON_NONE &&
@@ -2262,32 +2279,32 @@ void W8CampItemsPage::SelectCampItemAction(W8CampItemActionButton button)
     switch (button) {
     case W8_CAMP_ACTION_BUTTON_IDENTIFY:
         pending_item_action.identifying_character = screen.reviewed;
-        if ((g_status.party.held.item.iItemNo != -1))
-            return IdentifyAndOpenItemInfo(&g_status.party.held.item);
+        if ((CurrentGame().party.held.item.iItemNo != -1))
+            return IdentifyAndOpenItemInfo(&CurrentGame().party.held.item);
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_IDENTIFY);
     case W8_CAMP_ACTION_BUTTON_MOVE:
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_MOVE);
-        if ((g_status.party.held.item.iItemNo != -1)) {
+        if ((CurrentGame().party.held.item.iItemNo != -1)) {
             SetHandCursors();
             item_redraw_flags |= W8_CAMP_ITEM_REDRAW_EQUIPMENT;
         }
         return;
     case W8_CAMP_ACTION_BUTTON_SPLIT_STACK:
-        if ((g_status.party.held.item.iItemNo != -1))
+        if ((CurrentGame().party.held.item.iItemNo != -1))
             return OpenSplitStackDialog({W8ItemStorage::Hand});
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_SPLIT_STACK);
     case W8_CAMP_ACTION_BUTTON_USE:
-        if (g_status.party.held.item.iItemNo != -1) return UseCampItem({W8ItemStorage::Hand});
+        if (CurrentGame().party.held.item.iItemNo != -1) return UseCampItem({W8ItemStorage::Hand});
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_USE);
     case W8_CAMP_ACTION_BUTTON_DROP:
-        if ((g_status.party.held.item.iItemNo != -1)) return DropHeldCampItem();
+        if ((CurrentGame().party.held.item.iItemNo != -1)) return DropHeldCampItem();
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_DROP);
     case W8_CAMP_ACTION_BUTTON_CAST_SPELL:
         return SetCampItemActionMode(W8_CAMP_ITEM_ACTION_CAST_SPELL);
     case W8_CAMP_ACTION_BUTTON_USE_ON_ITEM:
         pending_item_action.caster_slot = screen.ReviewedPartySlot();
-        if ((g_status.party.held.item.iItemNo != -1)) {
-            UseHeldItemOnItem(&g_status.party.held.item);
+        if ((CurrentGame().party.held.item.iItemNo != -1)) {
+            UseHeldItemOnItem(&CurrentGame().party.held.item);
             control.SetPressed(false);
             control.m_dirty = true;
             return;

@@ -16,7 +16,6 @@
 #include "retail_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/retail_text_records.h"
@@ -43,9 +42,6 @@ unsigned int MonsterDatabaseCount()
     return monster_database_count;
 }
 
-/* 0x0054B300 resets one of eight slots. */
-/* The gStatus object owned by GameplayDatabase.cpp. */
-W8GlobalStatus g_status;
 /* Packed gXStatus named by the database and manager assertions. Record
    arrays remain separate roots at their own addresses. */
 W8XStatus gXStatus;

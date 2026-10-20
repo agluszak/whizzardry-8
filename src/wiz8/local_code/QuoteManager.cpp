@@ -33,6 +33,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -89,10 +90,10 @@ void RedrawPortraitQuoteBubbles(void)
 
     IsModalOpen();
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        slot = &gXStatus.monster_manager_entries[party_slot];
-        if (!g_status.party.rows[party_slot].fOccupied ||
-            g_status.party.characters[party_slot].hp_current <= 0 ||
-            g_status.party.characters[party_slot].highest_condition >= W8_CONDITION_ASLEEP ||
+        slot = &CurrentGame().monster_manager_entries[party_slot];
+        if (!CurrentGame().party.rows[party_slot].fOccupied ||
+            CurrentGame().party.characters[party_slot].hp_current <= 0 ||
+            CurrentGame().party.characters[party_slot].highest_condition >= W8_CONDITION_ASLEEP ||
             !slot->portrait_event_active) {
             continue;
         }
@@ -104,7 +105,7 @@ void RedrawPortraitQuoteBubbles(void)
 void StartBreathCycle(int party_slot, bool force)
 {
     if ((!gpSCSV && !ItemUseDraft()) || force) {
-        QueueCharacterEvent(&g_status.party.characters[party_slot], g_special_event2, 0,
+        QueueCharacterEvent(&CurrentGame().party.characters[party_slot], g_special_event2, 0,
                             kCharacterEventFullVolume);
     }
 }
@@ -117,8 +118,8 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
     unsigned int count = 0;
 
     for (int slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.party.characters[slot];
-        if (g_status.party.rows[slot].fOccupied && slot != excluded_slot &&
+        W8Character* character = &CurrentGame().party.characters[slot];
+        if (CurrentGame().party.rows[slot].fOccupied && slot != excluded_slot &&
             character->hp_current != 0 && character->highest_condition < W8_CONDITION_ASLEEP &&
             !GetPartyQuoteText(*character, event_type).empty()) {
             eligible[count++] = slot;
@@ -326,12 +327,8 @@ void SetVoiceMuted(unsigned char muted)
 
 static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
 {
-    W8CharacterEventQueue* queue = gXStatus.character_event_queue.get();
-
-    if (queue == 0) {
-        return;
-    }
-    queue->CompleteActiveEvent(entry);
+    // A voice can finish after its game has ended.
+    if (GameInProgress()) CurrentGame().speech.CompleteActiveEvent(entry);
 }
 
 W8CharacterEvent::W8CharacterEvent(W8Character* character, unsigned int event_type,
@@ -395,7 +392,7 @@ std::string GetPartyQuoteText(const W8Character& character, unsigned int event_t
     if (event_type >= 0x92) return {};
     if (character.fInParty && CurrentScreenState().id != W8_SCREEN_CHARACTER) {
         const int slot = CharacterPointerToPartySlot(&character);
-        const int npc_index = g_status.party.rows[slot].npc_index;
+        const int npc_index = CurrentGame().party.rows[slot].npc_index;
         if (npc_index != -1) {
             const auto text = GetNpcQuoteText(GetNpcState(npc_index), event_type);
             return text.empty() ? std::string{} : fmt::format("\"{}\"", text);
@@ -478,7 +475,7 @@ void W8CharacterEvent::Complete()
     bool sound_was_active;
 
     party_slot = CharacterPointerToPartySlot(character);
-    slot = &gXStatus.monster_manager_entries[party_slot];
+    slot = &CurrentGame().monster_manager_entries[party_slot];
     sound_was_active = slot->portrait_event_active;
     wiz8::sound::stop(voice_playback);
     slot->active_character_event = 0;
@@ -518,7 +515,7 @@ unsigned char W8CharacterEvent::IsConditionMet(unsigned int event_type)
         case 14:
         case 15:
         case 35:
-            return !g_combat.active();
+            return !CurrentGame().combat.active();
         case 43:
         case 44:
         case 45:
@@ -556,10 +553,10 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
             return false;
         }
     }
-    if (!g_status.party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.rows[party_slot].fOccupied) {
         return false;
     }
-    character = &g_status.party.characters[party_slot];
+    character = &CurrentGame().party.characters[party_slot];
     if (character->highest_condition > W8_CONDITION_WEBBED) {
         if (event_type == static_cast<unsigned int>(g_special_event9) ||
             event_type == static_cast<unsigned int>(g_special_event10) || g_special_event16 != 0) {
@@ -587,8 +584,7 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
         mapped_event_type += g_normal_event_count - kFirstRemappedEvent;
     }
     slot_mask = static_cast<unsigned char>(1 << (party_slot & 31));
-    return (gXStatus.character_event_queue->event_character_masks[mapped_event_type] & slot_mask) ==
-           0;
+    return (CurrentGame().speech.event_character_masks[mapped_event_type] & slot_mask) == 0;
 }
 
 std::string GetCharacterVoicePath(const W8Character& character, unsigned int event_type)
@@ -607,7 +603,7 @@ unsigned char W8CharacterEvent::PlayEventSound(std::string_view quote)
 {
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int sound_event = event_type;
-    int npc_index = g_status.party.rows[party_slot].npc_index;
+    int npc_index = CurrentGame().party.rows[party_slot].npc_index;
     std::string sound_path;
     std::string npc_sound_name;
     W8NpcState* npc;
@@ -615,8 +611,7 @@ unsigned char W8CharacterEvent::PlayEventSound(std::string_view quote)
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
         sound_event = g_special_event1;
     }
-    if (npc_index == -1 || !g_status.game_started ||
-        CurrentScreenState().id == W8_SCREEN_CHARACTER) {
+    if (npc_index == -1 || !GameStarted() || CurrentScreenState().id == W8_SCREEN_CHARACTER) {
         sound_path = GetCharacterVoicePath(*character, sound_event);
     } else {
         npc = GetNpcState(npc_index);
@@ -681,12 +676,12 @@ unsigned char W8CharacterEvent::Dispatch()
             }
         }
     }
-    slot = &gXStatus.monster_manager_entries[party_slot];
+    slot = &CurrentGame().monster_manager_entries[party_slot];
     if (!slot->portrait_event_active) {
         if (event_type == 0x33) {
             SetNpcDialoguePanelVisible(0);
         }
-        row = &g_status.party.rows[party_slot];
+        row = &CurrentGame().party.rows[party_slot];
         npc_index = row->npc_index;
         if (npc_index != -1 && event_type < 0x93) {
             npc = GetNpcState(npc_index);
@@ -709,12 +704,12 @@ unsigned char W8CharacterEvent::Dispatch()
                 ReloadNpcScriptResources(npc, GetNpcMonster(npc));
             }
             slot->active_character_event = this;
-            gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);
+            CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
             return 1;
         }
         quote = GetPartyQuoteText(*character, event_type);
         if (PlayEventSound(quote) != 0) {
-            gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);
+            CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
             if (event_type < 0x92) {
                 SetPartyPortraitEventState(party_slot, true, event_type, quote,
                                            1 - ((flags & kCharacterEventFlagsMask) != 0));
@@ -731,8 +726,8 @@ unsigned char W8CharacterEvent::Dispatch()
         if (quote.empty()) {
             return 0;
         }
-        gXStatus.character_event_queue->RecordDispatchedEvent(event_type, party_slot);
-        gXStatus.character_event_queue->RestartFollowUpClock(this);
+        CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
+        CurrentGame().speech.RestartFollowUpClock(this);
         return 0;
     }
 finish_without_dispatch:
@@ -755,9 +750,9 @@ struct PartyQuoteInput {
                     (event.captured_buttons & SDL_BUTTON_LMASK)) {
                     AfterUiDispatch([slot] {
                         auto* active =
-                            gXStatus.monster_manager_entries[slot].active_character_event;
+                            CurrentGame().monster_manager_entries[slot].active_character_event;
                         if (slot > 1 && active)
-                            gXStatus.character_event_queue->CompleteActiveEvent(active);
+                            CurrentGame().speech.CompleteActiveEvent(active);
                         else
                             TryFinishNpcVoicePlayback(true);
                     });
@@ -805,7 +800,7 @@ void DisablePartyPortraitEvent(unsigned int slot)
 void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
                         std::string_view voice_path, std::uint64_t unvoiced_ms)
 {
-    W8MonsterManagerEntry& record = gXStatus.monster_manager_entries[party_slot];
+    W8MonsterManagerEntry& record = CurrentGame().monster_manager_entries[party_slot];
     record.voice_sound_handle = voice;
     if (voice == nullptr) {
         record.portrait.voice_remaining_ms = unvoiced_ms;
@@ -818,11 +813,11 @@ void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& vo
 
 void FinishPortraitSpeech(unsigned int party_slot)
 {
-    W8MonsterManagerEntry& record = gXStatus.monster_manager_entries[party_slot];
+    W8MonsterManagerEntry& record = CurrentGame().monster_manager_entries[party_slot];
     if (record.active_character_event == 0) {
         SetPartyPortraitEventState(party_slot, false, -1, {}, 1);
     } else {
-        gXStatus.character_event_queue->CompleteActiveEvent(record.active_character_event);
+        CurrentGame().speech.CompleteActiveEvent(record.active_character_event);
     }
 }
 
@@ -831,7 +826,7 @@ void FinishPortraitSpeech(unsigned int party_slot)
 void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                 std::string_view quote_text, int show_quote)
 {
-    W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
+    W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[party_slot];
     W8PortraitQuoteState* quote = &record->quote;
 
     if (record->portrait_event_active == active) {
@@ -843,8 +838,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         record->portrait.frame_dirty = true;
         int pc_slot = RPCPtrToPCSlot(record);
         record->portrait.blink_closing = false;
-        W8Condition highest_condition = g_status.party.characters[pc_slot].highest_condition;
-        if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
+        W8Condition highest_condition = CurrentGame().party.characters[pc_slot].highest_condition;
+        if (highest_condition < W8_CONDITION_ASLEEP && !CurrentGame().surprise_possible) {
             if (record->portrait.target_pose != 1) {
                 record->portrait.target_pose = 1;
             }
@@ -860,7 +855,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
         if (static_cast<int>(g_normal_event_count) < static_cast<int>(mapped_event)) {
         show_deactivate_quote:
             std::string formatted;
-            std::string character_name = g_status.party.characters[party_slot].name;
+            std::string character_name = CurrentGame().party.characters[party_slot].name;
             formatted = character_name;
             int scroll_range = (g_level_block->text_box_right - g_level_block->text_box_left);
             ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, scroll_range);
@@ -915,8 +910,8 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     }
     int pc_slot = RPCPtrToPCSlot(record);
     record->portrait.blink_closing = false;
-    W8Condition highest_condition = g_status.party.characters[pc_slot].highest_condition;
-    if (highest_condition < W8_CONDITION_ASLEEP && !gXStatus.fSurprisePossible) {
+    W8Condition highest_condition = CurrentGame().party.characters[pc_slot].highest_condition;
+    if (highest_condition < W8_CONDITION_ASLEEP && !CurrentGame().surprise_possible) {
         if (record->portrait.target_pose != pose_category) {
             record->portrait.target_pose = pose_category;
         }
@@ -1012,7 +1007,8 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
 
     const int speaker = GetRandomCharacter(0, 0, follow_up->excluded_slot, -1);
     if (speaker == -1) return;
-    if (!QueueCharacterEvent(&g_status.party.characters[speaker], Random(2) + 0xe, 1, 0x7f)) return;
+    if (!QueueCharacterEvent(&CurrentGame().party.characters[speaker], Random(2) + 0xe, 1, 0x7f))
+        return;
     follow_up->excluded_slot = follow_up->excluded_slot == -1 ? speaker : -1;
 }
 
@@ -1022,11 +1018,11 @@ W8CharacterEvent* W8CharacterEventQueue::QueueEntry(std::unique_ptr<W8CharacterE
     if (HasEventCharacter(entry->event_type, party_slot)) {
         return nullptr;
     }
-    if (g_status.greeting_pending) {
+    if (CurrentGame().status.greeting_pending) {
         return nullptr;
     }
     if (entry->event_type > 0x91 && (entry->flags & W8_EVENT_NO_PREEMPT) == 0) {
-        W8MonsterManagerEntry* slot = &gXStatus.monster_manager_entries[party_slot];
+        W8MonsterManagerEntry* slot = &CurrentGame().monster_manager_entries[party_slot];
         if (slot->active_character_event != 0) {
             CompleteActiveEvent(slot->active_character_event);
         }
@@ -1121,7 +1117,7 @@ bool W8CharacterEventQueue::IsMainQueueEmpty() const
 
 void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
 {
-    if (gXStatus.fSurprisePossible) {
+    if (CurrentGame().surprise_possible) {
         return;
     }
 
@@ -1242,7 +1238,7 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
     if (attempts == 0x32) {
         return 0;
     }
-    return QueueCharacterEvent(&g_status.party.characters[character_slot], event_type, flags,
+    return QueueCharacterEvent(&CurrentGame().party.characters[character_slot], event_type, flags,
                                kCharacterEventFullVolume);
 }
 
@@ -1258,7 +1254,7 @@ W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, un
         event_type != g_special_event10 && event_type != g_special_event16) {
         volume = volume * 70 / 100;
     }
-    return gXStatus.character_event_queue->QueueEntry(
+    return CurrentGame().speech.QueueEntry(
         std::make_unique<W8CharacterEvent>(character, event_type, flags, volume));
 }
 
@@ -1271,8 +1267,8 @@ void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
     int party_slot = RPCPtrToPCSlot(slot);
 
     slot->portrait.blink_closing = false;
-    if (g_status.party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
-        !gXStatus.fSurprisePossible) {
+    if (CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
+        !CurrentGame().surprise_possible) {
         if (slot->portrait.target_pose != pose) {
             slot->portrait.target_pose = pose;
         }
@@ -1286,7 +1282,7 @@ void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
    flags; successfully queueing the event clears the matching held effect. */
 void MaybeStartIncapacitationEvent(unsigned int party_slot)
 {
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     int effect;
 
     if ((character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax) != 0) {
@@ -1300,7 +1296,7 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot)
         effect = Random(2) == 0 ? 2 : 28;
     }
     if (effect != -1 && QueueCharacterEvent(character, effect, 0, kCharacterEventFullVolume) != 0) {
-        gXStatus.character_event_queue->SetEventCharacterMask(effect, party_slot, true);
+        CurrentGame().speech.SetEventCharacterMask(effect, party_slot, true);
     }
 }
 
@@ -1321,13 +1317,13 @@ void QueuePartyDeathReaction(unsigned int party_slot)
         effect = 20;
     } else {
         effect = 18;
-        if (g_status.party.characters[party_slot].gender != W8_GENDER_MALE) {
+        if (CurrentGame().party.characters[party_slot].gender != W8_GENDER_MALE) {
             effect = 19;
         }
     }
     remaining = GetRandomPartySlots(0, 0, party_slot, selected, 1, skip_first_two);
     for (index = 0; index < remaining; ++index) {
-        entry = QueueCharacterEvent(&g_status.party.characters[selected[index]], effect, 0,
+        entry = QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], effect, 0,
                                     kCharacterEventFullVolume);
         if (entry != 0) {
             entry->DelayDispatch(3000);
@@ -1349,9 +1345,9 @@ void QueueDamageReactionEvents(W8Character* character)
 
     hp_percent = (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
     party_slot = CharacterPointerToPartySlot(character);
-    has_incapacitation_event = gXStatus.character_event_queue->HasEventCharacter(3, party_slot);
-    has_flee_event = gXStatus.character_event_queue->HasEventCharacter(2, party_slot);
-    gXStatus.character_event_queue->HasEventCharacter(28, party_slot);
+    has_incapacitation_event = CurrentGame().speech.HasEventCharacter(3, party_slot);
+    has_flee_event = CurrentGame().speech.HasEventCharacter(2, party_slot);
+    CurrentGame().speech.HasEventCharacter(28, party_slot);
     if (character->highest_condition != W8_CONDITION_ASLEEP &&
         character->highest_condition != W8_CONDITION_UNCONSCIOUS) {
         if (kPortraitLowHealthPercent <= hp_percent || has_incapacitation_event) {
@@ -1388,7 +1384,7 @@ void QueueTurnReactionEvent(void)
 
     remaining = GetRandomPartySlots(0, 0, -1, selected, 1, false);
     for (index = 0; index < remaining; ++index) {
-        QueueCharacterEvent(&g_status.party.characters[selected[index]], 0x15, 0,
+        QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], 0x15, 0,
                             kCharacterEventFullVolume);
     }
 }
@@ -1401,14 +1397,14 @@ void QueueLastSurvivorEvent(void)
     int last_alive = 0;
 
     for (int slot = 0; slot < 8; ++slot) {
-        if (g_status.party.rows[slot].fOccupied &&
-            g_status.party.characters[slot].uiCondition[W8_CONDITION_DEAD] == 0) {
+        if (CurrentGame().party.rows[slot].fOccupied &&
+            CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_DEAD] == 0) {
             ++alive_count;
             last_alive = slot;
         }
     }
     if (alive_count != 0) {
-        QueueCharacterEvent(&g_status.party.characters[last_alive], 0x16, 0,
+        QueueCharacterEvent(&CurrentGame().party.characters[last_alive], 0x16, 0,
                             kCharacterEventFullVolume);
     }
 }
@@ -1428,13 +1424,13 @@ void QueueConditionChangeReaction(W8Character* character)
     if (IsSedexusCaptureActive()) {
         return;
     }
-    if (g_status.skip_next_condition_reaction) {
-        g_status.skip_next_condition_reaction = false;
+    if (CurrentGame().status.skip_next_condition_reaction) {
+        CurrentGame().status.skip_next_condition_reaction = false;
         return;
     }
     switch (character->highest_condition) {
     case 0x12:
-        gXStatus.character_event_queue->RemoveCharacterEvents(character);
+        CurrentGame().speech.RemoveCharacterEvents(character);
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
@@ -1488,7 +1484,7 @@ void QueueConditionChangeReaction(W8Character* character)
                 slot = GetRandomCharacter(0, 0, excluded_slot, -1);
                 ++attempts;
             }
-            QueueCharacterEvent(&g_status.party.characters[slot], reaction, 0,
+            QueueCharacterEvent(&CurrentGame().party.characters[slot], reaction, 0,
                                 kCharacterEventFullVolume);
             return;
         }
@@ -1512,8 +1508,8 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     if (IsSedexusCaptureActive()) {
         return;
     }
-    if (g_status.skip_next_condition_reaction) {
-        g_status.skip_next_condition_reaction = false;
+    if (CurrentGame().status.skip_next_condition_reaction) {
+        CurrentGame().status.skip_next_condition_reaction = false;
         return;
     }
     switch (condition) {
@@ -1552,12 +1548,12 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
    argument of 4; the selection and the stored type are cleared elsewhere. */
 void RequeueSelectedPortraitEvent(void)
 {
-    int slot = g_status.selected_character;
+    int slot = CurrentGame().status.selected_character;
 
     if (slot != -1) {
-        unsigned int event_type = g_status.party.rows[slot].pending_event_type;
+        unsigned int event_type = CurrentGame().party.rows[slot].pending_event_type;
         if (event_type != 0) {
-            QueueCharacterEvent(&g_status.party.characters[slot], event_type, 4, 0x7f);
+            QueueCharacterEvent(&CurrentGame().party.characters[slot], event_type, 4, 0x7f);
         }
     }
 }
@@ -1566,11 +1562,11 @@ void RequeueSelectedPortraitEvent(void)
    flight; trap-trigger follow-up waits until none of those are active. */
 unsigned char PartyPortraitEventsIdle(void)
 {
-    W8PartySlotRow* row = g_status.party.rows;
+    W8PartySlotRow* row = CurrentGame().party.rows;
     const W8MonsterManagerEntry* current;
 
-    for (current = gXStatus.monster_manager_entries; current < &gXStatus.monster_manager_entries[8];
-         ++current, ++row) {
+    for (current = CurrentGame().monster_manager_entries;
+         current < &CurrentGame().monster_manager_entries[8]; ++current, ++row) {
         if (row->fOccupied && current->portrait_event_active) {
             return 0;
         }
@@ -1652,10 +1648,10 @@ bool UpdateCharacterEventState(void)
     bool any_active = false;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
+        W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[party_slot];
         bool sound_active = false;
 
-        if (!g_status.party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.rows[party_slot].fOccupied) {
             continue;
         }
         if (record->portrait_event_active) {
@@ -1674,11 +1670,11 @@ bool UpdateCharacterEventState(void)
                 MaybeStartIncapacitationEvent(party_slot);
             }
         } else {
-            W8Character* character = &g_status.party.characters[party_slot];
+            W8Character* character = &CurrentGame().party.characters[party_slot];
             if ((character->highest_condition > W8_CONDITION_WEBBED ||
                  character->hp_current == 0) &&
                 record->active_character_event != 0) {
-                gXStatus.character_event_queue->CompleteActiveEvent(record->active_character_event);
+                CurrentGame().speech.CompleteActiveEvent(record->active_character_event);
             }
             if (!record->portrait_event_active) {
                 if (PartyPortraitEventsIdle() != 0) {
@@ -1723,9 +1719,10 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
             BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
-    if ((((g_combat.active() && g_combat.state()->characters[party_slot].dead) ||
-          gXStatus.fSurprisePossible) ||
-         g_status.party.characters[party_slot].highest_condition == W8_CONDITION_MISSING) &&
+    if ((((CurrentGame().combat.active() &&
+           CurrentGame().combat.state()->characters[party_slot].dead) ||
+          CurrentGame().surprise_possible) ||
+         CurrentGame().party.characters[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
         ShadowRect(target, {left, top, 0x5a, 0x48});
     }
@@ -1738,14 +1735,16 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
 bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
                                 SpriteDraw options, int party_slot, bool animate)
 {
-    const bool dead = g_combat.active() && g_combat.state()->characters[party_slot].dead;
+    const bool dead =
+        CurrentGame().combat.active() && CurrentGame().combat.state()->characters[party_slot].dead;
     const bool drawn = BlitPortraitAnimation(
-        target, portrait, left, top, options, gXStatus.monster_manager_entries[party_slot].portrait,
-        animate,
+        target, portrait, left, top, options,
+        CurrentGame().monster_manager_entries[party_slot].portrait, animate,
         {.dead = dead,
-         .surprised = bool(gXStatus.fSurprisePossible),
-         .missing = g_status.party.characters[party_slot].highest_condition == W8_CONDITION_MISSING,
-         .zero_hp = g_status.party.characters[party_slot].hp_current == 0});
+         .surprised = bool(CurrentGame().surprise_possible),
+         .missing =
+             CurrentGame().party.characters[party_slot].highest_condition == W8_CONDITION_MISSING,
+         .zero_hp = CurrentGame().party.characters[party_slot].hp_current == 0});
     return drawn;
 }
 

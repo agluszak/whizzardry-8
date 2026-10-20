@@ -17,9 +17,11 @@
 #include "filesystem.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -202,6 +204,7 @@ TEST_CASE("world_lookup_test")
 TEST_CASE("Failed resource construction preserves the active worlds and allows retry",
           "[levels][lifetime]")
 {
+    const ScopedGame game;
     ScopedTemporaryDirectory directory("wiz8-failed-world-load");
     const auto assets = directory.path / "assets";
     const auto user = directory.path / "user";
@@ -233,14 +236,14 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     W8LevelInfo info;
     REQUIRE(LevelBuildInfoByID(47, &info));
     // A malformed level passes path preflight, then fails before publication.
-    g_status.resume_level = 8; // A pending saved destination is not the active world.
+    CurrentGame().status.resume_level = 8; // A pending saved destination is not the active world.
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
                             Catch::Matchers::ContainsSubstring("Problem loading level"));
         REQUIRE(GetWorld() == primary);
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetLoadedLevelID() == 8);
-        REQUIRE(g_status.resume_level == 8);
+        REQUIRE(CurrentGame().status.resume_level == 8);
         REQUIRE(GetWorld()->scene != nullptr);
         DetachAllWorldItems();
     }
@@ -251,12 +254,13 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
 TEST_CASE("Malformed level status cannot change the active level or session counters",
           "[levels][records]")
 {
+    const ScopedGame game;
     struct Restore {
         std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>(8));
-        int next_group = g_status.next_group_id;
+        int next_group = CurrentGame().status.next_group_id;
         ~Restore()
         {
-            g_status.next_group_id = next_group;
+            CurrentGame().status.next_group_id = next_group;
             ReplaceWorld(std::move(previous));
         }
     } restore;
@@ -276,10 +280,10 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
         output.WriteChunk(W8ChunkId("ITEM"), [&] { output.WriteValue(1u); });
     });
     output.Close();
-    g_status.next_group_id = 42;
+    CurrentGame().status.next_group_id = 42;
     auto pending = std::make_unique<World>(3);
     REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true));
-    REQUIRE(g_status.next_group_id == 42);
+    REQUIRE(CurrentGame().status.next_group_id == 42);
     REQUIRE(GetLoadedLevelID() == 8);
 }
 
@@ -314,41 +318,39 @@ TEST_CASE("Only published worlds schedule their trigger events", "[levels][event
 TEST_CASE("Reward accounting follows the owned world, not a pending save destination",
           "[levels][rewards]")
 {
+    const ScopedGame game;
     struct Restore {
-        W8GlobalStatus status = g_status;
         std::vector<std::string> strings = std::move(g_localized_strings);
         ~Restore()
         {
             ReplaceWorld(nullptr);
             ClearNpcMessageQueue();
-            g_status = std::move(status);
             g_localized_strings = std::move(strings);
         }
     } restore;
-    auto& characters = g_status.party.characters;
-    auto& rows = g_status.party.rows;
-    g_status = W8GlobalStatus{};
+    auto& characters = CurrentGame().party.characters;
+    auto& rows = CurrentGame().party.rows;
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
     g_localized_strings.resize(0x233);
     g_localized_strings[0x232] = "%d";
-    g_status.resume_level = 8;
+    CurrentGame().status.resume_level = 8;
     ReplaceWorld(std::make_unique<World>(3));
     AddPartyGold(1, false);
     AwardPartyExperience(1, 0);
-    REQUIRE(g_status.level_progress[3].gold_collected == 1);
-    REQUIRE(g_status.level_progress[3].experience_gained == 1);
-    REQUIRE(g_status.level_progress[8].gold_collected == 0);
-    REQUIRE(g_status.level_progress[8].experience_gained == 0);
+    REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
+    REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
+    REQUIRE(CurrentGame().status.level_progress[8].gold_collected == 0);
+    REQUIRE(CurrentGame().status.level_progress[8].experience_gained == 0);
     ReplaceWorld(nullptr);
-    const auto suffix = std::to_array(g_status.status_header_suffix);
+    const auto suffix = std::to_array(CurrentGame().status.status_header_suffix);
     AddPartyGold(1, false);
     AwardPartyExperience(1, 0);
-    REQUIRE(g_status.party.gold == 2);
+    REQUIRE(CurrentGame().party.gold == 2);
     REQUIRE(characters[0].experience == 2);
-    REQUIRE(g_status.level_progress[3].gold_collected == 1);
-    REQUIRE(g_status.level_progress[3].experience_gained == 1);
-    REQUIRE(std::to_array(g_status.status_header_suffix) == suffix);
+    REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
+    REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
+    REQUIRE(std::to_array(CurrentGame().status.status_header_suffix) == suffix);
 }
 
 TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")

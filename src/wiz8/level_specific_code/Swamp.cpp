@@ -11,9 +11,9 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -45,7 +45,7 @@ static Monster* g_swamp_spawned_monster;
    armed for another try. */
 bool SwampOilPool(Trigger* pTrigger)
 {
-    if ((g_status.party.held.item.iItemNo != -1) && GetItemInHand() == 0x2d0) {
+    if ((CurrentGame().party.held.item.iItemNo != -1) && GetItemInHand() == 0x2d0) {
         (void)TakeInventoryItem({W8ItemStorage::Hand});
         ReplaceHeldItem(MakeItem(0x15e, false, true, false));
         SetItemCursor(0);

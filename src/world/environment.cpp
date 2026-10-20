@@ -21,6 +21,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/assertion.h"
@@ -63,7 +64,8 @@ static void RefreshCloudMaterial(World& world)
 {
     if (!world.environment.cloud_material) return;
     auto& material = *world.environment.cloud_material;
-    const double brightness = 1.0 - std::abs(g_status.game_time_ms - 43200000.0) / 43200000.0;
+    const double brightness =
+        1.0 - std::abs(CurrentGame().status.game_time_ms - 43200000.0) / 43200000.0;
     material.parms.ambient = glm::vec4(static_cast<float>(brightness));
     material.parms.diffuse.w = static_cast<float>(brightness * 0.75 + 0.25);
     material.dirty = 1;
@@ -89,11 +91,11 @@ void ClearEnvironmentObjects(void)
    parallel timers. */
 void AdvanceEnvironmentTime(int elapsed)
 {
-    unsigned int time = g_status.game_time_ms + elapsed;
+    unsigned int time = CurrentGame().status.game_time_ms + elapsed;
     if (time > 86399999U) {
-        ++g_status.game_time_days;
+        ++CurrentGame().status.game_time_days;
     }
-    g_status.game_time_ms = time % 86400000U;
+    CurrentGame().status.game_time_ms = time % 86400000U;
 
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         UpdateGameClock(elapsed);
@@ -106,15 +108,15 @@ void AdvanceEnvironmentTime(int elapsed)
     const double arc = 3.141592653589793 * (1.0f / 180.0f) * 80.0;
     bool day;
     double angle;
-    if (g_status.game_time_ms < 18000001U) {
+    if (CurrentGame().status.game_time_ms < 18000001U) {
         day = false;
-        angle = (g_status.game_time_ms + 7200000) * arc * 3.9682539682539686e-08;
-    } else if (g_status.game_time_ms < 79200001U) {
+        angle = (CurrentGame().status.game_time_ms + 7200000) * arc * 3.9682539682539686e-08;
+    } else if (CurrentGame().status.game_time_ms < 79200001U) {
         day = true;
-        angle = (g_status.game_time_ms - 18000000) * arc * 1.633986928104575e-08;
+        angle = (CurrentGame().status.game_time_ms - 18000000) * arc * 1.633986928104575e-08;
     } else {
         day = false;
-        angle = (g_status.game_time_ms - 79200000) * arc * 3.9682539682539686e-08;
+        angle = (CurrentGame().status.game_time_ms - 79200000) * arc * 3.9682539682539686e-08;
     }
 
     glm::vec3 direction;
@@ -137,7 +139,7 @@ void AdvanceEnvironmentTime(int elapsed)
         opposite->SetLocation(&sky.celestial_origin);
     }
 
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
     for (const auto& sky_gradient_animation : sky.gradients) {
         if (auto animation = sky_gradient_animation.lock()) {
             animation->playback->frame = static_cast<int>(phase);
@@ -253,7 +255,7 @@ void UpdateEnvironmentLight(void)
 {
     if (!GetWorld()) return;
     AdvanceEnvironmentClock();
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
     if (phase != static_cast<unsigned int>(GetWorld()->environment.last_light_phase)) {
         GetWorld()->environment.light_direction = GetWorld()->environment.light_colours[phase];
         PublishLightDirection(&GetWorld()->environment.light_colours[phase]);
@@ -326,7 +328,7 @@ void RefreshEnvironment(void)
 {
     if (!GetWorld()) return;
     AdvanceEnvironmentClock();
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
     if (phase != static_cast<unsigned int>(GetWorld()->environment.last_colour_phase)) {
         glm::vec3 colour = GetWorld()->environment.colours[phase];
         SetWorldEnvironmentColour(colour);
@@ -664,7 +666,7 @@ void SetCameraLightMode(W8CameraLightMode mode)
 
 void SetGameTimeMilliseconds(int value)
 {
-    g_status.game_time_ms = value;
+    CurrentGame().status.game_time_ms = value;
     g_tick = w8_get_ticks();
 }
 
@@ -707,7 +709,7 @@ void InitializeLevelEnvironment(void)
         }
     }
     AdvanceEnvironmentClock();
-    unsigned int phase = ((g_status.game_time_ms / 1000U) << 8) / 86400U;
+    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
     SetWorldEnvironmentColour(GetWorld()->environment.colours[phase]);
     GetWorld()->environment.light_direction = GetWorld()->environment.light_colours[phase];
     PublishLightDirection(&GetWorld()->environment.light_colours[phase]);

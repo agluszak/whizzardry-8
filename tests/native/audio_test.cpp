@@ -25,6 +25,7 @@
 
 #include "asset_paths.h"
 #include "prepared_assets.h"
+#include "scoped_game.h"
 #include "wiz8/checked_integer.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
@@ -113,6 +114,7 @@ static bool near(double value, double expected, double tolerance = 0.02)
 }
 
 struct AudioFixture {
+    ScopedGame game;
     ScopedTemporaryDirectory directory{"wiz8-audio"};
     std::filesystem::path temporary = directory.path;
     std::filesystem::path asset = temporary / "assets";

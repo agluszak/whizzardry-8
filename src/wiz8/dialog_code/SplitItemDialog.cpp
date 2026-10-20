@@ -19,8 +19,8 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
@@ -304,14 +304,14 @@ void W8SplitItemDialog::UpdateAcceptButton()
     can_accept = split_count != 0;
     switch (m_mode) {
     case W8_ITEM_SPLIT_SELL:
-        if (g_status.party.gold <
+        if (CurrentGame().party.gold <
             static_cast<unsigned int>(CalculateTradeStackPrice(
                 g_npc_interaction_state->dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_SELLS))) {
             can_accept = false;
         }
         break;
     case W8_ITEM_SPLIT_BUY:
-        if (g_status.party.gold <
+        if (CurrentGame().party.gold <
             static_cast<unsigned int>(CalculateTradeStackPrice(
                 g_npc_interaction_state->dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_BUYS))) {
             can_accept = false;

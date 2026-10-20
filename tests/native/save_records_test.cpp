@@ -15,12 +15,14 @@
 #include "retail_records.h"
 #include "save_payload.h"
 #include "scoped_combat.h"
+#include "scoped_game.h"
 #include "unicode.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -111,6 +113,7 @@ template<class T> static void write(std::ofstream& out, const T& value)
 static void character_file_contracts(const std::filesystem::path& assets,
                                      const std::filesystem::path& user)
 {
+    const ScopedGame game;
     // The checked-in retail character supplies real nonzero gameplay and
     // unknown fields, independent of the synthetic Unicode fixtures.
     {
@@ -153,7 +156,7 @@ static void character_file_contracts(const std::filesystem::path& assets,
         const auto edited = wiz8::retail::encode(character);
         REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
     }
-    g_status.game_started = false;
+    CurrentGame().status.game_started = false;
     REQUIRE(VerifyDataSubdirs());
     for (const char* name : {"A", "Vi", "Sir Bob", "Ninechars", "é中😀", "中文名字测试"}) {
         W8Character character = {};
@@ -223,17 +226,17 @@ static void character_file_contracts(const std::filesystem::path& assets,
     REQUIRE(LoadCharacter("vi.CHR", &loaded, 0));
     REQUIRE(wiz8::retail::encode(loaded) == wiz8::retail::encode(npc));
 
-    g_status.game_started = true;
-    g_status.flags[0] = 0;
+    CurrentGame().status.game_started = true;
+    CurrentGame().status.flags[0] = 0;
     path = BuildCharacterPath(npc.name, 0);
 
-    g_status.flags[0] = 1;
+    CurrentGame().status.flags[0] = 1;
     path = BuildCharacterPath(npc.name, 0);
 
     path = BuildCharacterPath(npc.name, -1);
 
-    g_status.flags[0] = 0;
-    g_status.game_started = false;
+    CurrentGame().status.flags[0] = 0;
+    CurrentGame().status.game_started = false;
 }
 
 static void unicode_database_contracts()
@@ -281,6 +284,7 @@ static void unicode_database_contracts()
 
 static void unicode_file_contracts()
 {
+    const ScopedGame game;
     wiz8::create_directory(wiz8::asset_path("Data/Strings"));
     auto retail_bytes = [](std::string_view text, bool encrypted) {
         const auto units = wiz8::text::to_utf16(text);
@@ -344,12 +348,13 @@ static void unicode_file_contracts()
     REQUIRE((g_localized_strings.empty() && !giStringListLen));
 
     ReleaseMessageStorage();
-    memset(g_status.text_box_lines_used, 0, sizeof(g_status.text_box_lines_used));
-    g_status.text_box_lines_used[0] = 1;
+    memset(CurrentGame().status.text_box_lines_used, 0,
+           sizeof(CurrentGame().status.text_box_lines_used));
+    CurrentGame().status.text_box_lines_used[0] = 1;
     const std::string message = "é 中 😀";
     auto& line = g_message_storage[0][0];
     line.text = message;
-    g_status.text_box_lines_shown[0] = 1;
+    CurrentGame().status.text_box_lines_shown[0] = 1;
     line.clock = w8_get_ticks() + 600000;
     line.saved_remaining_ms = 87;
     line.entries.push_back({0, 1, 0, 5, W8_NOTICE_WORD_SELECTED, true});
@@ -361,7 +366,7 @@ static void unicode_file_contracts()
     REQUIRE(line.saved_remaining_ms == 87);
     file->close();
     ReleaseMessageStorage();
-    g_status.save_version = 9.0f;
+    CurrentGame().status.save_version = 9.0f;
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"));
     // The fixed record starts after format and region count; its obsolete
     // pointer word must never contain a live allocation address.
@@ -372,7 +377,7 @@ static void unicode_file_contracts()
     REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk); }));
     REQUIRE(std::string(g_message_storage[0][0].text) == message);
     REQUIRE(g_message_storage[0][0].saved_remaining_ms > 87);
-    g_status.text_box_lines_shown[0] = 0;
+    CurrentGame().status.text_box_lines_shown[0] = 0;
     REQUIRE(g_message_storage[0][0].entries.empty());
     REQUIRE(g_message_storage[0][0].length == 6);
     REQUIRE((g_message_storage[0][0].highlight_start == 3 &&
@@ -941,7 +946,7 @@ static void save_file_contracts(const std::filesystem::path& user)
 
     // SaveGame's unchanged masks apply independently to the packed dwords.
     constexpr unsigned masks[] = {0x6b24e9f0u, 0xe77c28c1u};
-    static_assert(sizeof(g_status.save_filetime_xor) == 8);
+    static_assert(sizeof(CurrentGame().status.save_filetime_xor) == 8);
     unsigned words[] = {created.low ^ masks[0], created.high ^ masks[1]};
     file->write(words, sizeof(words));
     REQUIRE(file->tell() == 8);
@@ -972,14 +977,14 @@ static void save_file_contracts(const std::filesystem::path& user)
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
     REQUIRE((epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu));
 
-    W8GlobalStatus status{};
+    const W8SavedGameStatus saved{};
     const auto now = std::filesystem::file_time_type::clock::from_sys(
         sys_days{year{2024} / January / 15} + hours{12});
     for (int slot = 1; slot <= 3; ++slot) {
         const auto name = "Quick " + std::to_string(slot) + ".SAV";
         W8Chunk save;
         REQUIRE(save.OpenWrite(user / "saves" / name));
-        SaveGlobalStatus(&save, &status);
+        SaveGlobalStatus(save, saved);
         save.Close();
         std::filesystem::last_write_time(user / "saves" / name, now - hours(slot == 1   ? 0
                                                                             : slot == 2 ? 4
@@ -1034,8 +1039,9 @@ static void save_file_contracts(const std::filesystem::path& user)
 
 static void global_status_record()
 {
-    W8GlobalStatus status{};
-    auto& rows = status.party.rows;
+    W8SavedGameStatus saved{};
+    auto& [status, party] = saved;
+    auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         rows[slot].fOccupied = true;
         rows[slot].npc_index = slot < 2 ? slot : -1;
@@ -1053,9 +1059,9 @@ static void global_status_record()
     rows[0].pending_action = W8_ACTION_USE_ITEM;
     rows[0].item_detail.item_use.item = {W8ItemStorage::Backpack, 0, 3};
     status.serialized = {0xa5, {0x5a, 0x17}};
-    status.party.gold = 0x12345678;
-    status.party.item_pool[0] = {.iItemNo = 12, .stack_count = 3};
-    status.party.item_count = 1;
+    party.gold = 0x12345678;
+    party.item_pool[0] = {.iItemNo = 12, .stack_count = 3};
+    party.item_count = 1;
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
     for (const int level : {0, W8_LEVEL_COUNT - 1}) {
@@ -1066,9 +1072,9 @@ static void global_status_record()
     const auto path = wiz8::user_path("gsta.bin");
     W8Chunk chunks;
     REQUIRE(chunks.OpenWrite(path));
-    SaveGlobalStatus(&chunks, &status);
+    SaveGlobalStatus(chunks, saved);
     chunks.Close();
-    const auto status_image = wiz8::retail::encode(status);
+    const auto status_image = wiz8::retail::encode(saved);
     // Visit the single GSTA chunk.
     const auto read_status_chunk = [&](const auto& visit) {
         REQUIRE(chunks.OpenRead(path));
@@ -1122,11 +1128,9 @@ static void global_status_record()
             REQUIRE(party_bytes[0x105] == std::byte(slot % 2));
         }
     });
-    W8GlobalStatus restored{};
+    W8SavedGameStatus restored{};
     auto& restored_rows = restored.party.rows;
-    const auto live_name = g_status.party.characters[0].name;
     read_status_chunk([&] { restored = DecodeGameStatus(chunks); });
-    REQUIRE(g_status.party.characters[0].name == live_name);
     auto independent = restored;
     independent.party.characters[0].name = "independent party";
     independent.party.rows[0].attack_mode[0] = -123;
@@ -1134,7 +1138,7 @@ static void global_status_record()
     independent.party.gold = 1;
     REQUIRE(restored.party.characters[0].name != independent.party.characters[0].name);
     REQUIRE(restored.party.rows[0].attack_mode[0] == 100);
-    REQUIRE(restored.party.gold == status.party.gold);
+    REQUIRE(restored.party.gold == party.gold);
     REQUIRE(restored.party.item_pool[0].stack_count == 3);
     REQUIRE(restored.party.item_count == 1);
     const auto restored_image = wiz8::retail::encode(restored);
@@ -1156,14 +1160,8 @@ static void global_status_record()
         REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
-    struct RestoreStatus {
-        W8GlobalStatus previous = g_status;
-        ~RestoreStatus() { g_status = std::move(previous); }
-    } restore;
     const auto location = restored.party.rows[0].pending_action_detail.item_use.item;
     REQUIRE(restored.party.itemAt(location) == &restored.party.characters[0].backpack[3]);
-    ActivateGameStatus(std::move(restored));
-    REQUIRE(g_status.party.itemAt(location) == &g_status.party.characters[0].backpack[3]);
 }
 
 static void camera_angles()
@@ -1213,12 +1211,12 @@ struct NpcGlobalGuard {
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct CombatRecordGuard {
     std::vector<W8SpellRuntimeRecord> previous_spells = std::exchange(g_spell_records, {});
-    W8Party previous_party = std::exchange(g_status.party, W8Party{});
+    W8Party previous_party = std::exchange(CurrentGame().party, W8Party{});
 
     ~CombatRecordGuard()
     {
         g_spell_records = std::move(previous_spells);
-        g_status.party = std::move(previous_party);
+        CurrentGame().party = std::move(previous_party);
     }
 };
 
@@ -1302,6 +1300,7 @@ TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
 
 TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effects]")
 {
+    const ScopedGame game;
     std::array<W8EffectSlot, 6> effects{};
     REQUIRE_NOTHROW(TickRadiusBlastEffectSlots({}));
     REQUIRE_NOTHROW(TickRadiusBlastEffectSlots(effects));
@@ -1309,17 +1308,18 @@ TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effect
 
 TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]")
 {
+    const ScopedGame game;
     ScopedCombat combat;
     REQUIRE_FALSE(CombatHasCondition(0x3e));
-    g_combat.state()->effect_slots[8].Activate(0x3e, 1, 1);
+    CurrentGame().combat.state()->effect_slots[8].Activate(0x3e, 1, 1);
     REQUIRE(CombatHasCondition(0x3e));
-    g_combat.state()->effect_slots[8].Reset();
-    g_combat.state()->effect_slots0[5].Activate(0x3e, 1, 1);
+    CurrentGame().combat.state()->effect_slots[8].Reset();
+    CurrentGame().combat.state()->effect_slots0[5].Activate(0x3e, 1, 1);
     REQUIRE(CombatHasCondition(0x3e));
-    g_combat.state()->effect_slots0[5].Reset();
+    CurrentGame().combat.state()->effect_slots0[5].Reset();
     // In-flight missile state next to the short array is not an effect slot.
-    g_combat.state()->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
-    g_combat.state()->TargetHit.iMonsterID = 2;
+    CurrentGame().combat.state()->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
+    CurrentGame().combat.state()->TargetHit.iMonsterID = 2;
     REQUIRE_FALSE(CombatHasCondition(0x3e));
 }
 
@@ -1456,6 +1456,7 @@ TEST_CASE_METHOD(SaveFixture, "Current-game character replacement", "[save][reco
 
 TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save][npc]")
 {
+    const ScopedGame game;
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const auto script_path = assets / "data" / "dialogue.nsf";
@@ -1532,9 +1533,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
 {
+    const ScopedGame game;
     CombatRecordGuard globals;
     // The AI used to decay the odd-offset condition array into unsigned int*.
-    auto& character = g_status.party.characters[0];
+    auto& character = CurrentGame().party.characters[0];
     character = {};
     g_spell_records.resize(W8_SPELL_COUNT);
     g_spell_records[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;

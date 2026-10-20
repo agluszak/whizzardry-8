@@ -15,6 +15,7 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
+#include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/world/camera_pose.h"
@@ -132,8 +133,8 @@ TEST_CASE("world graphics")
             GameLoop();
         }
         int slot = 0;
-        while (!g_status.party.rows[slot].fOccupied) ++slot;
-        auto& portrait = gXStatus.monster_manager_entries[slot];
+        while (!CurrentGame().party.rows[slot].fOccupied) ++slot;
+        auto& portrait = CurrentGame().monster_manager_entries[slot];
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
         portrait.keyboard_menu_open = false;
@@ -162,9 +163,9 @@ TEST_CASE("world graphics")
             REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
         REQUIRE(portrait.portrait.rendered_pose == 1);
-        if (!g_combat.active()) g_combat.Start(0);
+        if (!CurrentGame().combat.active()) CurrentGame().combat.Start(0);
         GameLoop();
-        REQUIRE(g_combat.active());
+        REQUIRE(CurrentGame().combat.active());
         DrawSubMenuCharacterAction();
         const auto& framebuffer = GetFrameBufferSurface();
         const auto caption = [&] {
@@ -255,19 +256,19 @@ TEST_CASE("world graphics")
         REQUIRE(monster);
         fprintf(stderr, "regression: kill monster %d species %u HP %u\n", monster->location_id,
                 monster->monster_species, monster->hp_current);
-        if (!g_combat.active()) {
+        if (!CurrentGame().combat.active()) {
             for (int frame = 0; frame < 90; ++frame) {
                 SDL_Delay(16);
                 GameLoop();
             }
         }
-        if (!g_combat.active()) REQUIRE(g_combat.Start(0));
+        if (!CurrentGame().combat.active()) REQUIRE(CurrentGame().combat.Start(0));
         if (!monster->pCombat) MonsterInfoEnterCombat(monster);
         W8TargetSource attacker{};
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;
         attacker.iChar = 0;
         while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
-               !g_status.party.rows[attacker.iChar].fOccupied)
+               !CurrentGame().party.rows[attacker.iChar].fOccupied)
             ++attacker.iChar;
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
         attacker.iMonsterID = -1;

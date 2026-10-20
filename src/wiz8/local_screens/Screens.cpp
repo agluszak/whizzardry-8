@@ -13,6 +13,7 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -168,7 +169,7 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
             }
             RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
                                        g_level_block->portrait_refresh_pending[party_slot] == 0);
-            gXStatus.monster_manager_entries[party_slot].combat_portrait_dirty = true;
+            CurrentGame().monster_manager_entries[party_slot].combat_portrait_dirty = true;
             InvalidatePortraitControl(party_slot);
             return;
         }
@@ -199,10 +200,10 @@ void UpdateHeldItemCursor(void)
 {
     if ((CurrentScreenState().id == W8_SCREEN_MAIN_GAME ||
          CurrentScreenState().id == W8_SCREEN_CAMP) &&
-        (g_status.party.held.item.iItemNo != -1)) {
-        if (g_status.party.held.item.iItemNo != -1) {
+        (CurrentGame().party.held.item.iItemNo != -1)) {
+        if (CurrentGame().party.held.item.iItemNo != -1) {
 
-            const auto sprites = ItemSprites(g_status.party.held.item.iItemNo);
+            const auto sprites = ItemSprites(CurrentGame().party.held.item.iItemNo);
             SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
             const auto cursor = CatalogArtwork::Load(0);
             BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
@@ -246,9 +247,9 @@ void ApplyCurrentCursor(void)
 /* Restore the normal cursor. Inventory operations own the held item. */
 void ClearHeldItemDisplay(void)
 {
-    memset(&g_status.party.held.item, 0, sizeof(g_status.party.held.item));
+    memset(&CurrentGame().party.held.item, 0, sizeof(CurrentGame().party.held.item));
 
-    g_status.party.held.item.iItemNo = -1;
+    CurrentGame().party.held.item.iItemNo = -1;
 
     if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
         const auto cursor = CatalogArtwork::Load(0);
@@ -273,9 +274,9 @@ unsigned char GetPartyOrderTextColor(signed char party_order)
    object over it. A negative held item id leaves the cursor unchanged. */
 void SetItemCursor(int overlay_video_object)
 {
-    if (g_status.party.held.item.iItemNo != -1) {
+    if (CurrentGame().party.held.item.iItemNo != -1) {
 
-        const auto sprites = ItemSprites(g_status.party.held.item.iItemNo);
+        const auto sprites = ItemSprites(CurrentGame().party.held.item.iItemNo);
         SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
         const auto overlay = CatalogArtwork::Load(overlay_video_object);
         BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
@@ -347,7 +348,7 @@ void InitializeMainGameLevelBlock(void)
     g_level_block->group_list_width = 0;
     MainGame()->monster_list->setEnabled(false);
     g_level_block->action_group = -1;
-    g_level_block->text_lines[4 + g_status.text_line_cursor] = FindStoppedTextLine();
+    g_level_block->text_lines[4 + CurrentGame().status.text_line_cursor] = FindStoppedTextLine();
     g_level_block->refresh_combat_panel = 1;
     g_level_block->combat_panel_timer = w8_get_ticks() + (0);
     g_level_block->text_scroll_drag_idle = 1;

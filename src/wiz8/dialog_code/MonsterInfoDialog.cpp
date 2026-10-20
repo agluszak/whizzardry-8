@@ -26,6 +26,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -172,7 +173,7 @@ bool W8MonsterInfoDialog::PopulateText()
     }
     m_text_area.AddEntry(prefix, entry_text, 10, 0xf, 0);
 
-    if (g_status.status_ints[monster_info->monster_species] == 2) {
+    if (CurrentGame().status.status_ints[monster_info->monster_species] == 2) {
         text = FormatUnsignedIntegerWithCommas(GetMonsterExperience(record));
     } else {
         text = g_localized_strings[0x13a];

@@ -48,16 +48,15 @@ bool AutoSaveIfAllowed(bool forced);
 bool TakePendingSaveFlag(void);
 
 struct W8Chunk;
-struct W8GlobalStatus;
+struct W8SavedGameStatus;
 
 unsigned char SaveSlotFileExists(std::string_view slot_name);
 bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
-W8GlobalStatus DecodeGameStatus(W8Chunk& chunks);
-void ActivateGameStatus(W8GlobalStatus saved);
-void SaveGlobalStatus(W8Chunk* chunks, const W8GlobalStatus* status);
+W8SavedGameStatus DecodeGameStatus(W8Chunk& chunks);
+void SaveGlobalStatus(W8Chunk& chunks, const W8SavedGameStatus& saved);
 /* Load a save slot by name; the Please Wait screen drives it. */
 bool LoadGame(std::string_view slot_name);
 
@@ -90,7 +89,7 @@ bool SaveMonsterStatus(W8Chunk* chunks);
 void SaveMonsterControlSpellEffect(W8Chunk* chunks);
 void LoadMonsterControlSpellEffect(W8Chunk* chunks);
 
-void ResetLiveSessionForLoad(void);
+void LeaveGameSession(void);
 
 std::optional<std::string> SelectQuickSaveSlotForWrite();
 std::optional<std::string> FindFreeEndingSaveName();

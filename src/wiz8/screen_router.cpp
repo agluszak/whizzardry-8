@@ -7,12 +7,12 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 /* A screen waiting under the current one, with the request it resumes with. */
@@ -82,8 +82,9 @@ bool ApplyReturn()
 bool ApplyRequest()
 {
     /* Retail tests only the low byte of the count. */
-    if (static_cast<unsigned char>(gXStatus.character_event_queue->active_events.size()) != 0) {
-        gXStatus.character_event_queue->CompleteFirstActiveEvent();
+    if (GameInProgress() &&
+        static_cast<unsigned char>(CurrentGame().speech.active_events.size()) != 0) {
+        CurrentGame().speech.CompleteFirstActiveEvent();
     }
     if (router.current.id != W8_SCREEN_NONE) {
         router.previous = router.current.id;
@@ -183,7 +184,7 @@ void GameLoop()
 void GameloopExit()
 {
     // Complete voice events before leaving gameplay unloads its UI.
-    if (gXStatus.character_event_queue) gXStatus.character_event_queue->DestroyAllEvents();
+    if (GameInProgress()) CurrentGame().speech.DestroyAllEvents();
 
     ResetMenuFontPalettes();
     // Discard the current screen, then every suspended one without

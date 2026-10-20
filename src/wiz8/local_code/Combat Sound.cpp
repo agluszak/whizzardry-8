@@ -18,6 +18,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -61,9 +62,9 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     } else {
         handle = wiz8::sound::play(zSoundFileName);
     }
-    if (handle != nullptr && g_combat.state() != 0 && store_handle) {
-        g_combat.state()->hit_sound = handle;
-        g_combat.state()->hit_sound_active = true;
+    if (handle != nullptr && CurrentGame().combat.state() != 0 && store_handle) {
+        CurrentGame().combat.state()->hit_sound = handle;
+        CurrentGame().combat.state()->hit_sound_active = true;
     }
 }
 
@@ -170,7 +171,7 @@ static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int a
 {
     int target_material = -1;
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        const W8Character* character = &g_status.party.characters[target->iChar];
+        const W8Character* character = &CurrentGame().party.characters[target->iChar];
         int item = PCItemInACSlot(character, hit_location);
         target_material = item == -1 ? 0 : g_item_records[item].material;
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
@@ -191,7 +192,8 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
         weapon_class = 9;
     } else {
         weapon_class =
-            g_item_records[g_combat.state()->characters[iChar].paired_item_id].weapon_sound_class;
+            g_item_records[CurrentGame().combat.state()->characters[iChar].paired_item_id]
+                .weapon_sound_class;
     }
     int target_material = GetCombatTargetMaterial(target, hit_location, 415);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);

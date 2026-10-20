@@ -108,6 +108,28 @@ Unlayered code may use the layers.
 - Level master callbacks return completion directly. Callbacks appended during a
   dispatch wait for the next frame.
 
+## The game
+
+- **What `Game` is.** `Game` (`game.h`) is one play-through. It owns:
+  - the party and the status record;
+  - combat;
+  - the speech queue;
+  - the gameplay timer;
+  - the monster-manager entries;
+  - the gameplay flags.
+- **Its lifetime.** A game begins when the player chooses a new game, before party
+  selection, or when a save is loaded; either replaces any game in progress. It ends when
+  the main menu is entered and at shutdown. Ending or replacing a game first leaves its level
+  and clears the session state it does not own yet (`LeaveGameSession`). Nothing is reset field by field.
+- **Before the opening sequence.** Party selection, import and character creation edit
+  the new game's party. `GameStarted()` tells play apart from that party creation.
+- **Transitional access.** Code that does not yet receive the game reaches it through
+  `CurrentGame()`, which throws when no game is in progress. Menus check
+  `GameInProgress()`.
+- **Voices.** A voice that finishes after its game has ended is dropped.
+- **Saves.** The GSTA section decodes to `W8SavedGameStatus`, the status record plus the
+  party it stores; a save writes a copy of the game's status and party.
+
 ## Gameplay operations
 
 - **Actions.** Spell and item pickers own an action draft while open; cancelling

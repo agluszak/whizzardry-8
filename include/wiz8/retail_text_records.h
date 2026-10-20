@@ -985,18 +985,18 @@ template<> struct Record<W8LevelProgressRow> {
               bytes.subspan(offsetof(Disk, unknown_11), sizeof(Disk::unknown_11)));
     }
 };
-template<> struct Record<W8GlobalStatus> {
+template<> struct Record<W8SavedGameStatus> {
     using Disk = GlobalStatus;
     template<class R, class B, class Value, class Text>
     static void fields(R& runtime, B bytes, Value value, Text text)
     {
-        value(&runtime.save_version, bytes.subspan(offsetof(Disk, buffers.save_version),
-                                                   sizeof(Disk::buffers.save_version)));
+        value(&runtime.status.save_version, bytes.subspan(offsetof(Disk, buffers.save_version),
+                                                          sizeof(Disk::buffers.save_version)));
         std::uint32_t party_present = 1;
         value(&party_present, bytes.subspan(offsetof(Disk, buffers.characters), 4));
         party_present = 1;
         value(&party_present, bytes.subspan(offsetof(Disk, buffers.party_rows), 4));
-        value(&runtime.game_started,
+        value(&runtime.status.game_started,
               bytes.subspan(offsetof(Disk, game_started), sizeof(Disk::game_started)));
         // Retail stores three counters; runtime membership has one source of truth.
         if constexpr (std::is_const_v<R>) {
@@ -1015,200 +1015,214 @@ template<> struct Record<W8GlobalStatus> {
         }
         value(&runtime.party.gold,
               bytes.subspan(offsetof(Disk, party_gold), sizeof(Disk::party_gold)));
-        value(&runtime.selected_character,
+        value(&runtime.status.selected_character,
               bytes.subspan(offsetof(Disk, selected_character), sizeof(Disk::selected_character)));
         value(&runtime.party.item_pool,
               bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool)));
         value(&runtime.party.item_count,
               bytes.subspan(offsetof(Disk, party_item_count), sizeof(Disk::party_item_count)));
-        value(&runtime.text_line_cursor,
+        value(&runtime.status.text_line_cursor,
               bytes.subspan(offsetof(Disk, text_line_cursor), sizeof(Disk::text_line_cursor)));
-        value(&runtime.legacy_text_box_lines, bytes.subspan(offsetof(Disk, legacy_text_box_lines),
-                                                            sizeof(Disk::legacy_text_box_lines)));
-        for (std::size_t index = 0; index < std::size(runtime.effect_slots); ++index)
+        value(&runtime.status.legacy_text_box_lines,
+              bytes.subspan(offsetof(Disk, legacy_text_box_lines),
+                            sizeof(Disk::legacy_text_box_lines)));
+        for (std::size_t index = 0; index < std::size(runtime.status.effect_slots); ++index)
             Record<W8EffectSlot>::fields(
-                runtime.effect_slots[index],
+                runtime.status.effect_slots[index],
                 bytes.subspan(offsetof(Disk, effect_slots) + index * sizeof(EffectSlot),
                               sizeof(EffectSlot)),
                 value, text);
-        value(&runtime.unknown_187b,
+        value(&runtime.status.unknown_187b,
               bytes.subspan(offsetof(Disk, unknown_187b), sizeof(Disk::unknown_187b)));
-        value(&runtime.party_facing,
+        value(&runtime.status.party_facing,
               bytes.subspan(offsetof(Disk, party_facing), sizeof(Disk::party_facing)));
-        value(&runtime.party_heading,
+        value(&runtime.status.party_heading,
               bytes.subspan(offsetof(Disk, party_heading), sizeof(Disk::party_heading)));
-        value(&runtime.world_clock,
+        value(&runtime.status.world_clock,
               bytes.subspan(offsetof(Disk, world_clock), sizeof(Disk::world_clock)));
-        value(&runtime.world_clock_ms,
+        value(&runtime.status.world_clock_ms,
               bytes.subspan(offsetof(Disk, world_clock_ms), sizeof(Disk::world_clock_ms)));
         value(&runtime.party.order_slots,
               bytes.subspan(offsetof(Disk, party_order_slots), sizeof(Disk::party_order_slots)));
-        value(&runtime.resume_level,
+        value(&runtime.status.resume_level,
               bytes.subspan(offsetof(Disk, current_level), sizeof(Disk::current_level)));
-        value(&runtime.status_header_prefix, bytes.subspan(offsetof(Disk, status_header_prefix),
-                                                           sizeof(Disk::status_header_prefix)));
-        value(&runtime.uiTurnsElapsed,
+        value(&runtime.status.status_header_prefix,
+              bytes.subspan(offsetof(Disk, status_header_prefix),
+                            sizeof(Disk::status_header_prefix)));
+        value(&runtime.status.uiTurnsElapsed,
               bytes.subspan(offsetof(Disk, uiTurnsElapsed), sizeof(Disk::uiTurnsElapsed)));
-        value(&runtime.status_header_suffix, bytes.subspan(offsetof(Disk, status_header_suffix),
-                                                           sizeof(Disk::status_header_suffix)));
+        value(&runtime.status.status_header_suffix,
+              bytes.subspan(offsetof(Disk, status_header_suffix),
+                            sizeof(Disk::status_header_suffix)));
         for (std::size_t level = 0; level < W8_LEVEL_COUNT; ++level)
-            nested(runtime.level_progress[level],
+            nested(runtime.status.level_progress[level],
                    bytes.subspan(offsetof(Disk, level_progress) + level * sizeof(LevelProgress),
                                  sizeof(LevelProgress)),
                    value, text);
-        value(&runtime.unknown_2013,
+        value(&runtime.status.unknown_2013,
               bytes.subspan(offsetof(Disk, unknown_2013), sizeof(Disk::unknown_2013)));
-        value(&runtime.pending_move_location, bytes.subspan(offsetof(Disk, pending_move_location),
-                                                            sizeof(Disk::pending_move_location)));
+        value(&runtime.status.pending_move_location,
+              bytes.subspan(offsetof(Disk, pending_move_location),
+                            sizeof(Disk::pending_move_location)));
         value(&runtime.party.modifiers,
               bytes.subspan(offsetof(Disk, party_modifiers), sizeof(Disk::party_modifiers)));
-        value(&runtime.next_group_id,
+        value(&runtime.status.next_group_id,
               bytes.subspan(offsetof(Disk, next_group_id), sizeof(Disk::next_group_id)));
-        value(&runtime.next_monster_location_id,
+        value(&runtime.status.next_monster_location_id,
               bytes.subspan(offsetof(Disk, next_monster_location_id),
                             sizeof(Disk::next_monster_location_id)));
-        value(&runtime.next_world_item_id,
+        value(&runtime.status.next_world_item_id,
               bytes.subspan(offsetof(Disk, next_world_item_id), sizeof(Disk::next_world_item_id)));
-        value(&runtime.next_trigger_id,
+        value(&runtime.status.next_trigger_id,
               bytes.subspan(offsetof(Disk, next_trigger_id), sizeof(Disk::next_trigger_id)));
         bool held_present = runtime.party.held.item.iItemNo != -1;
         value(&held_present,
               bytes.subspan(offsetof(Disk, item_in_cursor), sizeof(Disk::item_in_cursor)));
         value(&runtime.party.held.item,
               bytes.subspan(offsetof(Disk, item_in_hand), sizeof(Disk::item_in_hand)));
-        value(&runtime.flags, bytes.subspan(offsetof(Disk, flags), sizeof(Disk::flags)));
-        value(&runtime.game_time_ms,
+        value(&runtime.status.flags, bytes.subspan(offsetof(Disk, flags), sizeof(Disk::flags)));
+        value(&runtime.status.game_time_ms,
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
-        value(&runtime.aging_accumulator,
+        value(&runtime.status.aging_accumulator,
               bytes.subspan(offsetof(Disk, aging_accumulator), sizeof(Disk::aging_accumulator)));
-        byte_boolean(&runtime.search_mode,
+        byte_boolean(&runtime.status.search_mode,
                      bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
-        value(&runtime.world_suspended,
+        value(&runtime.status.world_suspended,
               bytes.subspan(offsetof(Disk, world_suspended), sizeof(Disk::world_suspended)));
-        value(&runtime.real_elapsed,
+        value(&runtime.status.real_elapsed,
               bytes.subspan(offsetof(Disk, real_elapsed), sizeof(Disk::real_elapsed)));
-        value(&runtime.frame_elapsed,
+        value(&runtime.status.frame_elapsed,
               bytes.subspan(offsetof(Disk, frame_elapsed), sizeof(Disk::frame_elapsed)));
-        enum_value<std::uint32_t>(&runtime.wait_state, bytes.subspan(offsetof(Disk, wait_state),
-                                                                     sizeof(Disk::wait_state)));
-        value(&runtime.item_recharge_ms,
+        enum_value<std::uint32_t>(
+            &runtime.status.wait_state,
+            bytes.subspan(offsetof(Disk, wait_state), sizeof(Disk::wait_state)));
+        value(&runtime.status.item_recharge_ms,
               bytes.subspan(offsetof(Disk, item_recharge_ms), sizeof(Disk::item_recharge_ms)));
         value(&runtime.party.formation,
               bytes.subspan(offsetof(Disk, formation), sizeof(Disk::formation)));
-        value(&runtime.game_time_days,
+        value(&runtime.status.game_time_days,
               bytes.subspan(offsetof(Disk, game_time_days), sizeof(Disk::game_time_days)));
-        value(&runtime.iron_man, bytes.subspan(offsetof(Disk, iron_man), sizeof(Disk::iron_man)));
-        value(&runtime.binding_reset_clock, bytes.subspan(offsetof(Disk, binding_reset_clock),
-                                                          sizeof(Disk::binding_reset_clock)));
-        value(&runtime.binding_reset_pending, bytes.subspan(offsetof(Disk, binding_reset_pending),
-                                                            sizeof(Disk::binding_reset_pending)));
-        value(&runtime.serialized.padding_242f,
+        value(&runtime.status.iron_man,
+              bytes.subspan(offsetof(Disk, iron_man), sizeof(Disk::iron_man)));
+        value(
+            &runtime.status.binding_reset_clock,
+            bytes.subspan(offsetof(Disk, binding_reset_clock), sizeof(Disk::binding_reset_clock)));
+        value(&runtime.status.binding_reset_pending,
+              bytes.subspan(offsetof(Disk, binding_reset_pending),
+                            sizeof(Disk::binding_reset_pending)));
+        value(&runtime.status.serialized.padding_242f,
               bytes.subspan(offsetof(Disk, padding_242f), sizeof(Disk::padding_242f)));
-        value(&runtime.npc_restore_pending, bytes.subspan(offsetof(Disk, npc_restore_pending),
-                                                          sizeof(Disk::npc_restore_pending)));
-        value(&runtime.quote_audit,
+        value(
+            &runtime.status.npc_restore_pending,
+            bytes.subspan(offsetof(Disk, npc_restore_pending), sizeof(Disk::npc_restore_pending)));
+        value(&runtime.status.quote_audit,
               bytes.subspan(offsetof(Disk, quote_audit), sizeof(Disk::quote_audit)));
-        value(&runtime.long_quote,
+        value(&runtime.status.long_quote,
               bytes.subspan(offsetof(Disk, long_quote), sizeof(Disk::long_quote)));
-        value(&runtime.party_fatigued,
+        value(&runtime.status.party_fatigued,
               bytes.subspan(offsetof(Disk, party_fatigued), sizeof(Disk::party_fatigued)));
-        value(&runtime.selected_party_member, bytes.subspan(offsetof(Disk, selected_party_member),
-                                                            sizeof(Disk::selected_party_member)));
-        value(&runtime.world_cursor_gate,
+        value(&runtime.status.selected_party_member,
+              bytes.subspan(offsetof(Disk, selected_party_member),
+                            sizeof(Disk::selected_party_member)));
+        value(&runtime.status.world_cursor_gate,
               bytes.subspan(offsetof(Disk, world_cursor_gate), sizeof(Disk::world_cursor_gate)));
-        value(&runtime.camp_tick_ms,
+        value(&runtime.status.camp_tick_ms,
               bytes.subspan(offsetof(Disk, camp_tick_ms), sizeof(Disk::camp_tick_ms)));
-        value(&runtime.rpc_races,
+        value(&runtime.status.rpc_races,
               bytes.subspan(offsetof(Disk, rpc_races), sizeof(Disk::rpc_races)));
-        value(&runtime.unknown_243f,
+        value(&runtime.status.unknown_243f,
               bytes.subspan(offsetof(Disk, unknown_243f), sizeof(Disk::unknown_243f)));
-        value(&runtime.skip_loose_character_check,
+        value(&runtime.status.skip_loose_character_check,
               bytes.subspan(offsetof(Disk, skip_loose_character_check),
                             sizeof(Disk::skip_loose_character_check)));
-        value(&runtime.use_item_latch,
+        value(&runtime.status.use_item_latch,
               bytes.subspan(offsetof(Disk, use_item_latch), sizeof(Disk::use_item_latch)));
-        value(&runtime.infatuation_pending, bytes.subspan(offsetof(Disk, infatuation_pending),
-                                                          sizeof(Disk::infatuation_pending)));
-        value(&runtime.difficulty,
+        value(
+            &runtime.status.infatuation_pending,
+            bytes.subspan(offsetof(Disk, infatuation_pending), sizeof(Disk::infatuation_pending)));
+        value(&runtime.status.difficulty,
               bytes.subspan(offsetof(Disk, difficulty), sizeof(Disk::difficulty)));
-        value(&runtime.save_filetime_xor,
+        value(&runtime.status.save_filetime_xor,
               bytes.subspan(offsetof(Disk, save_filetime_xor), sizeof(Disk::save_filetime_xor)));
-        text(runtime.monster_name_buffer,
+        text(runtime.status.monster_name_buffer,
              bytes.subspan(offsetof(Disk, monster_name_buffer), sizeof(Disk::monster_name_buffer)),
              Encoding::utf16);
-        value(&runtime.sedexus_party_slot,
+        value(&runtime.status.sedexus_party_slot,
               bytes.subspan(offsetof(Disk, sedexus_party_slot), sizeof(Disk::sedexus_party_slot)));
-        value(&runtime.stamina_tick_ms,
+        value(&runtime.status.stamina_tick_ms,
               bytes.subspan(offsetof(Disk, stamina_tick_ms), sizeof(Disk::stamina_tick_ms)));
-        value(&runtime.condition13_clock,
+        value(&runtime.status.condition13_clock,
               bytes.subspan(offsetof(Disk, condition13_clock), sizeof(Disk::condition13_clock)));
-        byte_boolean(&runtime.skip_next_condition_reaction,
+        byte_boolean(&runtime.status.skip_next_condition_reaction,
                      bytes.subspan(offsetof(Disk, skip_next_condition_reaction),
                                    sizeof(Disk::skip_next_condition_reaction)));
-        value(&runtime.rpc_active,
+        value(&runtime.status.rpc_active,
               bytes.subspan(offsetof(Disk, rpc_active), sizeof(Disk::rpc_active)));
-        value(&runtime.fact_b8_pending,
+        value(&runtime.status.fact_b8_pending,
               bytes.subspan(offsetof(Disk, fact_b8_pending), sizeof(Disk::fact_b8_pending)));
-        value(&runtime.condition13_stamp,
+        value(&runtime.status.condition13_stamp,
               bytes.subspan(offsetof(Disk, condition13_stamp), sizeof(Disk::condition13_stamp)));
-        value(&runtime.pending_condition_party_slot,
+        value(&runtime.status.pending_condition_party_slot,
               bytes.subspan(offsetof(Disk, pending_condition_party_slot),
                             sizeof(Disk::pending_condition_party_slot)));
-        value(&runtime.fact_b8_clock,
+        value(&runtime.status.fact_b8_clock,
               bytes.subspan(offsetof(Disk, fact_b8_clock), sizeof(Disk::fact_b8_clock)));
-        value(&runtime.greeting_pending,
+        value(&runtime.status.greeting_pending,
               bytes.subspan(offsetof(Disk, greeting_pending), sizeof(Disk::greeting_pending)));
-        value(&runtime.camp_fatigue_count,
+        value(&runtime.status.camp_fatigue_count,
               bytes.subspan(offsetof(Disk, camp_fatigue_count), sizeof(Disk::camp_fatigue_count)));
-        value(&runtime.party_slot,
+        value(&runtime.status.party_slot,
               bytes.subspan(offsetof(Disk, party_slot), sizeof(Disk::party_slot)));
-        value(&runtime.item_spell_usage,
+        value(&runtime.status.item_spell_usage,
               bytes.subspan(offsetof(Disk, item_spell_usage), sizeof(Disk::item_spell_usage)));
-        value(&runtime.log_fact_checks,
+        value(&runtime.status.log_fact_checks,
               bytes.subspan(offsetof(Disk, log_fact_checks), sizeof(Disk::log_fact_checks)));
-        value(&runtime.status_ints,
+        value(&runtime.status.status_ints,
               bytes.subspan(offsetof(Disk, status_ints), sizeof(Disk::status_ints)));
-        value(&runtime.fact_88_latch,
+        value(&runtime.status.fact_88_latch,
               bytes.subspan(offsetof(Disk, fact_88_latch), sizeof(Disk::fact_88_latch)));
-        value(&runtime.unknown_40c2,
+        value(&runtime.status.unknown_40c2,
               bytes.subspan(offsetof(Disk, unknown_40c2), sizeof(Disk::unknown_40c2)));
-        value(&runtime.spell_usage,
+        value(&runtime.status.spell_usage,
               bytes.subspan(offsetof(Disk, spell_usage), sizeof(Disk::spell_usage)));
-        value(&runtime.unknown_47de,
+        value(&runtime.status.unknown_47de,
               bytes.subspan(offsetof(Disk, unknown_47de), sizeof(Disk::unknown_47de)));
-        value(&runtime.cc_arena_spawned,
+        value(&runtime.status.cc_arena_spawned,
               bytes.subspan(offsetof(Disk, cc_arena_spawned), sizeof(Disk::cc_arena_spawned)));
-        value(&runtime.savant_hack_tick,
+        value(&runtime.status.savant_hack_tick,
               bytes.subspan(offsetof(Disk, savant_hack_tick), sizeof(Disk::savant_hack_tick)));
-        value(&runtime.bela_cycle_tick,
+        value(&runtime.status.bela_cycle_tick,
               bytes.subspan(offsetof(Disk, bela_cycle_tick), sizeof(Disk::bela_cycle_tick)));
-        value(&runtime.unknown_497b,
+        value(&runtime.status.unknown_497b,
               bytes.subspan(offsetof(Disk, unknown_497b), sizeof(Disk::unknown_497b)));
-        value(&runtime.combat_difficulty_counts,
+        value(&runtime.status.combat_difficulty_counts,
               bytes.subspan(offsetof(Disk, combat_difficulty_counts),
                             sizeof(Disk::combat_difficulty_counts)));
-        value(&runtime.vi_event_stage,
+        value(&runtime.status.vi_event_stage,
               bytes.subspan(offsetof(Disk, vi_event_stage), sizeof(Disk::vi_event_stage)));
-        value(&runtime.endgame2_queued,
+        value(&runtime.status.endgame2_queued,
               bytes.subspan(offsetof(Disk, endgame2_queued), sizeof(Disk::endgame2_queued)));
-        value(&runtime.endgame3_queued,
+        value(&runtime.status.endgame3_queued,
               bytes.subspan(offsetof(Disk, endgame3_queued), sizeof(Disk::endgame3_queued)));
-        value(&runtime.text_box_lines_used, bytes.subspan(offsetof(Disk, text_box_lines_used),
-                                                          sizeof(Disk::text_box_lines_used)));
-        value(&runtime.text_box_lines_shown, bytes.subspan(offsetof(Disk, text_box_lines_shown),
-                                                           sizeof(Disk::text_box_lines_shown)));
-        value(&runtime.trang_check_clock,
+        value(
+            &runtime.status.text_box_lines_used,
+            bytes.subspan(offsetof(Disk, text_box_lines_used), sizeof(Disk::text_box_lines_used)));
+        value(&runtime.status.text_box_lines_shown,
+              bytes.subspan(offsetof(Disk, text_box_lines_shown),
+                            sizeof(Disk::text_box_lines_shown)));
+        value(&runtime.status.trang_check_clock,
               bytes.subspan(offsetof(Disk, trang_check_clock), sizeof(Disk::trang_check_clock)));
-        value(&runtime.trang_check_pending, bytes.subspan(offsetof(Disk, trang_check_pending),
-                                                          sizeof(Disk::trang_check_pending)));
-        value(&runtime.intro_shown,
+        value(
+            &runtime.status.trang_check_pending,
+            bytes.subspan(offsetof(Disk, trang_check_pending), sizeof(Disk::trang_check_pending)));
+        value(&runtime.status.intro_shown,
               bytes.subspan(offsetof(Disk, intro_shown), sizeof(Disk::intro_shown)));
-        value(&runtime.flag, bytes.subspan(offsetof(Disk, flag), sizeof(Disk::flag)));
-        value(&runtime.serialized.padding_49be,
+        value(&runtime.status.flag, bytes.subspan(offsetof(Disk, flag), sizeof(Disk::flag)));
+        value(&runtime.status.serialized.padding_49be,
               bytes.subspan(offsetof(Disk, padding_49be), sizeof(Disk::padding_49be)));
-        value(&runtime.endgame_started,
+        value(&runtime.status.endgame_started,
               bytes.subspan(offsetof(Disk, endgame_started), sizeof(Disk::endgame_started)));
-        value(&runtime.dev_flagged,
+        value(&runtime.status.dev_flagged,
               bytes.subspan(offsetof(Disk, dev_flagged), sizeof(Disk::dev_flagged)));
     }
 };

@@ -263,6 +263,5 @@ private:
     Phase phase_ = Phase::Idle;
     std::unique_ptr<W8CombatState> state_;
 };
-extern W8CombatLifecycle g_combat;
 
 #endif

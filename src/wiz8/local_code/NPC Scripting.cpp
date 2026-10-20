@@ -30,6 +30,7 @@
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
@@ -263,23 +264,23 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
     W8ItemInstance* slot_item;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (!g_status.party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.rows[slot].fOccupied) {
             continue;
         }
         for (index = 0; index < 8; ++index) {
-            slot_item = &g_status.party.characters[slot].backpack[index];
+            slot_item = &CurrentGame().party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
                 RemoveInventoryQuantity({W8ItemStorage::Backpack, slot, index}, 1);
-                text =
-                    fmt::sprintf(g_localized_strings[0x7ec], g_status.party.characters[slot].name);
+                text = fmt::sprintf(g_localized_strings[0x7ec],
+                                    CurrentGame().party.characters[slot].name);
                 ShowConsumedItemQuote(text);
                 return;
             }
         }
     }
-    for (slot = 0; slot < g_status.party.item_count; ++slot) {
-        slot_item = &g_status.party.item_pool[slot];
+    for (slot = 0; slot < CurrentGame().party.item_count; ++slot) {
+        slot_item = &CurrentGame().party.item_pool[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
             RemoveInventoryQuantity({W8ItemStorage::Pool, 0, slot}, 1);
@@ -355,13 +356,13 @@ void W8NpcDialogue::Advance()
         session_ = *suspended_;
         suspended_.reset();
     }
-    if (gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0 && !gXStatus.scripted_scene &&
-        reply_ == W8NpcReplyState::none &&
+    if (gXStatus.fNpcDialogueMode && CurrentGame().status.world_cursor_gate == 0 &&
+        !gXStatus.scripted_scene && reply_ == W8NpcReplyState::none &&
         (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) {
         EndNpcDialogueSession(false);
     }
     if (reply_ == W8NpcReplyState::none && g_npc_interaction_state->dialogue_panel_hidden &&
-        gXStatus.character_event_queue->IsMainQueueEmpty()) {
+        CurrentGame().speech.IsMainQueueEmpty()) {
         SetNpcDialoguePanelVisible(1);
     }
 }
@@ -419,7 +420,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
                 }
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
-                    if (GetLoadedLevelID() != 4 || g_status.world_cursor_gate == 0) {
+                    if (GetLoadedLevelID() != 4 || CurrentGame().status.world_cursor_gate == 0) {
                         LookAtDialogueNpc();
                     }
                 } else {
@@ -440,7 +441,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
             if (target != 0) {
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
-                    if (GetLoadedLevelID() != 4 || g_status.world_cursor_gate == 0) {
+                    if (GetLoadedLevelID() != 4 || CurrentGame().status.world_cursor_gate == 0) {
                         LookAtDialogueNpc();
                     }
                 } else {
@@ -467,7 +468,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         item = MakeItem(entry->operand0, true, true, false);
         notice_text = fmt::sprintf(g_localized_strings[0x7ea], GetItemDisplayName(&item));
         if (!gXStatus.fNpcDialogueMode) {
-            g_status.party.held.item = item;
+            CurrentGame().party.held.item = item;
             SetItemCursor(0);
         } else {
             AddItemToPartyOrDrop(&item, false);
@@ -494,7 +495,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         break;
     }
     if (session_.npc->character.has_value() && session_.npc->group_index != -1) {
-        g_status.party.rows[session_.npc->group_index].pending_event_type = 0;
+        CurrentGame().party.rows[session_.npc->group_index].pending_event_type = 0;
     }
 }
 
@@ -597,7 +598,7 @@ void W8NpcDialogue::RunNextAction()
                     return;
                 }
             } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {
-                g_status.party.rows[level_up->party_slot].portrait_advance = 1;
+                CurrentGame().party.rows[level_up->party_slot].portrait_advance = 1;
                 if (g_settings.skill_increase_messages == 0) {
                     wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
                     return;
@@ -645,12 +646,12 @@ void W8NpcDialogue::RunNextAction()
                 BeginScriptedWorldAction();
                 break;
             case W8NpcCommand::reset_level_data_vectors:
-                if (!g_combat.active() || gXStatus.fPartyMovementMode) {
+                if (!CurrentGame().combat.active() || CurrentGame().party_movement_mode) {
                     ResetLevelDataVectors();
                 }
                 break;
             case W8NpcCommand::clear_level_movement_stopped:
-                if (!g_combat.active() || gXStatus.fPartyMovementMode) {
+                if (!CurrentGame().combat.active() || CurrentGame().party_movement_mode) {
                     ClearLevelMovementStopped();
                 }
                 break;
@@ -672,7 +673,7 @@ void W8NpcDialogue::RunNextAction()
             DismissNpcFromParty(dismiss.party_slot, 0, false, false);
             if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
                 for (int party_slot = 0; party_slot < 8; ++party_slot) {
-                    if (g_status.party.rows[party_slot].fOccupied) {
+                    if (CurrentGame().party.rows[party_slot].fOccupied) {
                         DisableMainGamePortraitSlot(party_slot);
                     }
                 }
@@ -680,11 +681,11 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcPartySpeakerEvent event) const
         {
-            int party_slot =
-                PickRandomPartySpeaker(event.event_type, g_status.selected_party_member);
+            int party_slot = PickRandomPartySpeaker(event.event_type,
+                                                    CurrentGame().status.selected_party_member);
             if (party_slot != -1) {
-                g_status.selected_party_member = static_cast<unsigned char>(party_slot);
-                QueueCharacterEvent(&g_status.party.characters[party_slot], event.event_type,
+                CurrentGame().status.selected_party_member = static_cast<unsigned char>(party_slot);
+                QueueCharacterEvent(&CurrentGame().party.characters[party_slot], event.event_type,
                                     kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
                 SetNpcDialoguePanelVisible(0);
                 if (g_npc_interaction_state->modal_dialog_open) {
@@ -694,12 +695,12 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcLevelUpReaction reaction) const
         {
-            QueueCharacterEvent(&g_status.party.characters[reaction.party_slot], 1,
+            QueueCharacterEvent(&CurrentGame().party.characters[reaction.party_slot], 1,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
         void operator()(W8NpcPartyScriptLine line) const
         {
-            QueueCharacterEvent(&g_status.party.characters[line.party_slot], 0x18,
+            QueueCharacterEvent(&CurrentGame().party.characters[line.party_slot], 0x18,
                                 kCharacterEventNpcScript | kCharacterEventNoNpcDefer,
                                 kCharacterEventFullVolume);
         }
@@ -709,27 +710,27 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcMarkMissing missing) const
         {
-            g_status.skip_next_condition_reaction = true;
+            CurrentGame().status.skip_next_condition_reaction = true;
             SetCharacterCondition(missing.party_slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE,
                                   0, 0, 0);
-            g_status.condition13_clock = 1;
-            g_status.condition13_stamp = g_status.world_clock;
-            g_status.pending_condition_party_slot = missing.party_slot;
+            CurrentGame().status.condition13_clock = 1;
+            CurrentGame().status.condition13_stamp = CurrentGame().status.world_clock;
+            CurrentGame().status.pending_condition_party_slot = missing.party_slot;
         }
         void operator()(W8NpcLeaveCombat leave) const
         {
-            if (g_combat.state() == 0) {
+            if (CurrentGame().combat.state() == 0) {
                 return;
             }
             const int party_slot = leave.party_slot;
-            if (g_combat.state()->iActionChar == party_slot) {
-                g_combat.state()->action_status = W8CombatActionStatus::idle;
-                g_combat.state()->iActionChar = -1;
+            if (CurrentGame().combat.state()->iActionChar == party_slot) {
+                CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
+                CurrentGame().combat.state()->iActionChar = -1;
             }
             ClearMainGameTargetState();
             DismissNpcFromParty(party_slot, 0, false, true);
             SetTargetToCharacter(party_slot, false);
-            g_combat.state()->npc_combat_script_pending[party_slot] = false;
+            CurrentGame().combat.state()->npc_combat_script_pending[party_slot] = false;
         }
         void operator()(W8NpcTravelConfirm travel) const
         {
@@ -754,8 +755,8 @@ static void OnNpcTravelConfirmationClosed(bool accepted)
    every quote line that is not a placeholder sentinel through ShowNotice, log
    each notice that wraps past seven lines to data\longquotes.txt, and write
    per-script plus grand totals to data\quotereport.txt. Raising
-   g_status.quote_audit makes ShowNotice maintain
-   g_notice_line_count and g_status.long_quote. The
+   CurrentGame().status.quote_audit makes ShowNotice maintain
+   g_notice_line_count and CurrentGame().status.long_quote. The
    report streams are owned and failures leave quote-audit mode disabled. */
 void AuditNpcScriptQuotes(void)
 {
@@ -791,7 +792,7 @@ void AuditNpcScriptQuotes(void)
         const auto write_report = [&](const std::string& text) {
             file->write(text.data(), text.size());
         };
-        g_status.quote_audit = 1;
+        CurrentGame().status.quote_audit = 1;
         write_report(std::string("Script Report File: ") + date + "\n");
         write_report("-------------------------------------------------\n");
         for (const auto& name :
@@ -814,7 +815,7 @@ void AuditNpcScriptQuotes(void)
                             ShowNotice(
                                 W8_FONT_PALETTE_RED, display, 0,
                                 (g_level_block->text_box_right - g_level_block->text_box_left));
-                            if (g_status.long_quote != 0) {
+                            if (CurrentGame().status.long_quote != 0) {
                                 const std::string line =
                                     "Long Quote: #" + std::to_string(record_index) +
                                     ", subquote: #" + std::to_string(sub_index) +
@@ -847,7 +848,7 @@ void AuditNpcScriptQuotes(void)
                    W8_NOTICE_TEXT_BOX_AUTOMATIC,
                    (g_level_block->text_box_right - g_level_block->text_box_left));
     }
-    g_status.quote_audit = 0;
+    CurrentGame().status.quote_audit = 0;
 }
 /* Queue `text` as a floating portrait message: the string is copied so the
    queue owns it, and while the level-data flag is clear the message is

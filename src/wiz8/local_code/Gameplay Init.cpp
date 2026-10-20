@@ -14,12 +14,12 @@
 #include "difficulty.h"
 #include "layouts/main_game_screen.h"
 #include "retail_records.h"
-#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -50,7 +50,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/environment.h"
-#include "wiz8/xstatus.h"
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
@@ -131,48 +130,7 @@ void DestroyLevelDatabase(void)
     g_level_records = {};
 }
 
-/* Reset the status and its fixed eight-slot character banks. */
-void ResetGameStatus(bool /*release*/)
-{
-    g_status = {};
-}
-
-/* Reset transient gameplay state and create its runtime resources at startup. */
-void InitializeGameplayRuntimeObjects(void)
-{
-    gXStatus = {};
-    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
-    gXStatus.gameplay_timer = std::make_unique<W8GameTimer>(300.0f, false);
-}
-
-/* Loads Data\\Databases\\SpellTables.dbs, replacing whatever is already there.
-   The header is two dwords: an allocation count and the number of rows to read.
-   They are not the same number, and the allocation is sized from the first while
-   the loop runs over the second, which is what the original does.
-
-   Each row is preceded by 0x101 bytes the loader skips rather than reads. A
-   failure anywhere stops the loop and drops the whole table, but the file is
-   closed and the row count published either way - including on failure, where
-   the count then describes a table that is no longer there. Preserved as found.
-
-   The assertion at Spells.cpp:1908 names the table s_pSpellTable, which is why
-   this body treats the global as the table itself rather than as a cursor. */
-void ResetGameplayStatusBlock(void)
-{
-    ResetSpellCooldowns();
-    gXStatus.character_event_queue->DestroyAllEvents();
-    gXStatus.party_moving = false;
-    gXStatus.fSurprisePossible = false;
-}
-
-void DestroyGameplayObjects(void)
-{
-    gXStatus.character_event_queue.reset();
-    for (auto& slot : gXStatus.monster_manager_entries) slot.mouth_gap = {};
-    gXStatus.gameplay_timer.reset();
-}
-
-/* The new-game reset. ResetGameStatus replaces the status buffers, then this
+/* The new-game reset. Begin a new game, then
    clears the item in hand and the carried pool, and
    grants the starting items. The pool and the id list are both walked by
    address against the symbol that follows them, not by index. */
@@ -183,14 +141,14 @@ void ResetForNewGame(void)
     unsigned int* id;
     unsigned int index;
 
-    ResetGameStatus(true);
+    BeginGame();
     ReleaseMessageStorage();
-    *(&g_status.party.held.item) = W8ItemInstance{.iItemNo = -1};
-    slot = g_status.party.item_pool;
+    *(&CurrentGame().party.held.item) = W8ItemInstance{.iItemNo = -1};
+    slot = CurrentGame().party.item_pool;
     do {
         *(slot) = W8ItemInstance{.iItemNo = -1};
         ++slot;
-    } while (slot < g_status.party.item_pool + 500);
+    } while (slot < CurrentGame().party.item_pool + 500);
     id = g_starting_item_ids;
     do {
         if (*id != 0xffffffff) {
@@ -200,11 +158,11 @@ void ResetForNewGame(void)
         }
         ++id;
     } while (id < g_starting_item_ids + 6);
-    g_status.party.gold = 500;
-    g_status.selected_character = GetNextCharacter(1, 1, -1);
-    InitializePartyFormation(&g_status.party.formation);
+    CurrentGame().party.gold = 500;
+    CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);
+    InitializePartyFormation(&CurrentGame().party.formation);
     for (index = 0; index < 8; ++index) {
-        g_status.party.order_slots[index] = 0xffffffff;
+        CurrentGame().party.order_slots[index] = 0xffffffff;
     }
 }
 
@@ -213,15 +171,15 @@ void ResetForNewGame(void)
    share one stack cleanup, as consecutive cdecl calls do. */
 void RunNewGameOpeningSequence(bool notify, std::string_view target)
 {
-    g_status.game_started = true;
+    CurrentGame().status.game_started = true;
     if (!target.empty()) {
-        g_status.iron_man = true;
+        CurrentGame().status.iron_man = true;
         g_options_last_save_name = target;
     }
-    g_status.difficulty = g_settings.difficulty;
-    g_status.party.redistribution_pending = true;
+    CurrentGame().status.difficulty = g_settings.difficulty;
+    CurrentGame().party.redistribution_pending = true;
     SetGameTimeMilliseconds(0x2932e00);
-    g_status.game_time_days = 1;
+    CurrentGame().status.game_time_days = 1;
     if (notify) {
         ReturnToPreviousScreen();
     }
@@ -250,7 +208,7 @@ void ResetTargetingState(void)
    cleanup, as consecutive cdecl calls do. */
 void ResetGameplaySlot(unsigned int slot)
 {
-    W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[slot];
+    W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[slot];
     int tier;
 
     *record = {};
@@ -260,7 +218,7 @@ void ResetGameplaySlot(unsigned int slot)
     record->portrait.frame = 6;
     record->portrait.blink_closing = false;
     tier = 1;
-    if (g_status.party.characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
+    if (CurrentGame().party.characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
         tier = 2;
     }
     record->portrait.pose = tier;
@@ -307,7 +265,7 @@ void ResetGameplaySlot(unsigned int slot)
 
 void ResetPartySlotRow(int slot)
 {
-    W8PartySlotRow* row = &g_status.party.rows[slot];
+    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
 
     memset(row, 0, sizeof(W8PartySlotRow));
     row->fOccupied = true;

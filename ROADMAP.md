@@ -24,7 +24,7 @@ Today the architecture is the decompiled program's:
   redraws, cursor, screen ids), and 32 of the 57 `local_code` files include screen
   headers.
 - **Games are reset by hand.** New game and load clear globals one by one
-  (`ResetForNewGame`, `ResetLiveSessionForLoad`, `ResetGameplayStatusBlock`,
+  (`ResetForNewGame`, `LeaveGameSession`, `ResetGameplayStatusBlock`,
   `DestroyGameplayObjects`, `ResetMainGameScreenState`).
 - **Combat is driven by animation.** Combat polls animation state, and missile and
   monster entities resolve attacks themselves.
@@ -45,8 +45,8 @@ The decisions behind it:
    - A new game is `Game(data, PartyDraft)`, a load is `Game(data, SaveFile)`, and
      quitting to the menu destroys it.
    - The reset functions disappear, along with every `Clear*`/`Release*` they call.
-   - Party selection, import and character creation edit a `PartyDraft` they own, so
-     menus never touch live state.
+   - Party selection, import and character creation edit the party of a game still in
+     party creation, so menus outside a game never touch live state.
 2. **Rules emit events; the UI presents them.**
    - Rules append, in order:
      - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,
@@ -93,14 +93,15 @@ reaches the game through `CurrentGame()`. That accessor returns null while no ga
 exists, `rules` and `game` may not call it, and it is deleted with its last caller. Run
 the licensed runtime scenarios after every step.
 
-1. **The game object.**
-   - The Application holds `std::optional<Game>`, created by a new game or a load and
-     destroyed on quit.
-   - The game owns the party, the status, combat, `Rng`, the speech queue, the gameplay
-     timer and the monster-manager entries.
-   - `g_status`, `g_combat`, the random state and the gameplay half of `gXStatus` are
-     deleted, along with the reset functions.
-   - Party selection, import and character creation edit a `PartyDraft`.
+1. **Finish the game object.** `Game` exists (ARCHITECTURE.md, "The game").
+   - Its slot is a static in `game.cpp`. The Application should own it once screens
+     receive the game instead of calling `CurrentGame()`.
+   - Move the random stream into the game. Party creation draws from the same stream
+     today, so settle the random-stream research item first.
+   - Fold in the reset functions that still clear per-game state:
+     `LeaveGameSession`, `ResetMainScreenStateBlock`, `ResetNpcStates`,
+     `InitializeFactJournal`, `ResetFactions`, `ClearLocationVariables` and the
+     spell-effect list. Each goes when its state moves into the game.
 2. **`GameData`.**
    - The databases, string table and rule tables become one immutable object that the
      Application loads and rules receive.
@@ -240,7 +241,6 @@ Small, local and low-risk.
 - `CreateItemIntoHandOrPool` always replaces the hand; rename it to say so.
 - `MergeItems` and a few other inventory commands still show camp notices
   themselves; return the refusal to the screen.
-- `ActivateGameStatus` is a one-line wrapper around assignment; inline it.
 - Add regression tests with a light combat fixture: a weapon-set swap toggles
   `alternate_hand` once, and spending one charge keeps a committed item use.
 - Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep

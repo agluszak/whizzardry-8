@@ -17,6 +17,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
@@ -424,7 +425,7 @@ void UpdateWorldCursor(void)
                 box_max = resolved + cursor.extent_max;
                 if (!cursor.footprint_mode ||
                     GetWorldSpatialIndex()->TestBoxOccupied(&box_min, &box_max) == 0) {
-                    AimAtPlace(g_status.selected_character);
+                    AimAtPlace(CurrentGame().status.selected_character);
                     ToggleWorldCursor();
                     return;
                 }

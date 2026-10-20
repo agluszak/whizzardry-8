@@ -12,6 +12,7 @@
 #include "asset_paths.h"
 #include "wiz8/bink_video.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -48,7 +49,8 @@ public:
     {
         video_ = std::get<W8IntroVideo>(request.mode);
         ClearSurfaceRect(0, 0, 0x280, 0x1e0);
-        if (video_ == W8_INTRO_VIDEO_WIZARDRY && g_settings.intro_seen && !g_status.intro_shown) {
+        if (video_ == W8_INTRO_VIDEO_WIZARDRY && g_settings.intro_seen &&
+            !(GameInProgress() && CurrentGame().status.intro_shown)) {
             return true;
         }
         const std::string path = IntroVideoPath(video_);
@@ -121,10 +123,10 @@ private:
         case W8_INTRO_VIDEO_UMPANI:
         case W8_INTRO_VIDEO_TRANG:
         case W8_INTRO_VIDEO_VIRGIN:
-            if (!g_status.intro_shown) {
+            if (!CurrentGame().status.intro_shown) {
                 RequestScreen({.id = W8_SCREEN_PLEASE_WAIT, .mode = W8_PLEASE_WAIT_NEW_GAME});
             } else {
-                g_status.intro_shown = false;
+                CurrentGame().status.intro_shown = false;
                 if (PendingScreen() != W8_SCREEN_MAIN_GAME) {
                     RequestScreen({.id = W8_SCREEN_MAIN_GAME});
                 }

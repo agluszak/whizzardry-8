@@ -27,6 +27,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -339,7 +340,7 @@ void PartyCamera::Update(float elapsed)
 void PartyCamera::ApplyYawInput(float input)
 {
     if (input != 0.0f) {
-        if (!gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
+        if (!gXStatus.fNpcDialogueMode && CurrentGame().status.world_cursor_gate == 0) {
             m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
             m_manual_input_timer.Arm();
             m_transition_active = false;
@@ -385,7 +386,8 @@ void PartyCamera::ApplyYawInput(float input)
 
 void PartyCamera::ApplyPitchInput(float input)
 {
-    if (input != 0.0f && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
+    if (input != 0.0f && !gXStatus.fNpcDialogueMode &&
+        CurrentGame().status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
         m_manual_input_timer.Arm();
         m_transition_active = false;
@@ -517,7 +519,7 @@ void PartyCamera::GetForwardPoint(float distance, glm::vec3* output)
 
 void PartyCamera::SetManualControlActive(bool enabled)
 {
-    if (enabled && !gXStatus.fNpcDialogueMode && g_status.world_cursor_gate == 0) {
+    if (enabled && !gXStatus.fNpcDialogueMode && CurrentGame().status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
         m_manual_input_timer.Arm();
         m_transition_active = false;
@@ -847,7 +849,7 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
 
     if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
         monster_info->Target.iType == W8_TARGET_KIND_CHARACTER &&
-        monster_info->Target.iChar == g_status.selected_character) {
+        monster_info->Target.iChar == CurrentGame().status.selected_character) {
         track = true;
     } else {
         track = force;

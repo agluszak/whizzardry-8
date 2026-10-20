@@ -8,6 +8,7 @@
 #include "local_code/Factions.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
@@ -30,7 +31,7 @@ int NoiseHearingMargin(int radius, int range, int hops)
 
 void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 {
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return;
     }
     glm::vec3 noise_position = *position;
@@ -42,7 +43,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
             continue;
         }
         if (flag == 1) {
-            if (g_combat.active() && group->fInCombat) {
+            if (CurrentGame().combat.active() && group->fInCombat) {
                 continue;
             }
         } else if (flag == 0 && info->ubDisposition != W8_DISPOSITION_HOSTILE) {
@@ -65,7 +66,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
                 continue;
             }
         }
-        if (flag == 1 && g_combat.active()) {
+        if (flag == 1 && CurrentGame().combat.active()) {
             float range = static_cast<float>(radius);
             int hops;
             if (GetWorldSpatialIndex()->TestNoiseLineOfSight(&monster_position, &noise_position,
@@ -97,7 +98,7 @@ void AlertWorldNoise(void)
 
 void AlertCombatNoise(bool large_radius)
 {
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return;
     }
     glm::vec3 position = PartyNavigator()->GetPosition();

@@ -28,6 +28,7 @@
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
@@ -118,8 +119,8 @@ static void UpdateWorld(World& world)
 void UpdateWorlds(void)
 {
     g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat.state() != 0 &&
-          (g_combat.state()->round_active || gXStatus.fPartyMovementMode));
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.state() != 0 &&
+          (CurrentGame().combat.state()->round_active || CurrentGame().party_movement_mode));
 
     // Loading registered the sky first; preserve that update order.
     for (World* world : {GetSecondaryWorld(), GetWorld()}) {

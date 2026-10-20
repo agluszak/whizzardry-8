@@ -13,6 +13,7 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/item_tables.h"
 #include "wiz8/learned_spells.h"
@@ -164,8 +165,8 @@ unsigned char ImportWizardry7Party(std::string_view path)
         return 1;
     }
     ResetForNewGame();
-    g_status.party.gold = 2500;
-    g_status.skip_loose_character_check = 1;
+    CurrentGame().party.gold = 2500;
+    CurrentGame().status.skip_loose_character_check = 1;
     if (g_import_character_count < 7) {
         for (index = 0; index < g_import_character_count; ++index) {
             ImportWizardry7Character(&scratch, &g_imported_characters[index]);

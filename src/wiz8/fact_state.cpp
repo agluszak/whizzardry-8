@@ -8,6 +8,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -117,9 +118,9 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return CountLeadingPartySlots() == 2;
         case W8_FACT_MOOK_MOOK_IN_PARTY: {
             unsigned int slot = 0;
-            while (!g_status.party.rows[slot].fOccupied ||
-                   g_status.party.characters[slot].iRace != W8_RACE_MOOK ||
-                   g_status.party.characters[slot].highest_condition > W8_CONDITION_WEBBED) {
+            while (!CurrentGame().party.rows[slot].fOccupied ||
+                   CurrentGame().party.characters[slot].iRace != W8_RACE_MOOK ||
+                   CurrentGame().party.characters[slot].highest_condition > W8_CONDITION_WEBBED) {
                 if (slot >= 7) {
                     return 0;
                 }
@@ -155,11 +156,11 @@ unsigned char EvaluateFact(W8FactId fact_id)
             }
             return 0;
         case W8_FACT_UMISSION_TRAIN_COVERT_DONE:
-            if (!g_status.fact_88_latch) {
+            if (!CurrentGame().status.fact_88_latch) {
                 if (CountPartyItem(0x1c4) < 5) {
                     return 0;
                 }
-                g_status.fact_88_latch = true;
+                CurrentGame().status.fact_88_latch = true;
                 return 1;
             }
             break;
@@ -195,10 +196,11 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_MYLES_IN_PARTY:
             return NpcLeadHasNameStyle(W8_NPC_MYLES);
         case W8_FACT_FATHER_IN_PARTY:
-            if (g_status.rpc_active) {
+            if (CurrentGame().status.rpc_active) {
                 for (unsigned int slot = 0; slot < 8; ++slot) {
-                    if (g_status.party.rows[slot].fOccupied &&
-                        slot == static_cast<unsigned int>(g_status.sedexus_party_slot)) {
+                    if (CurrentGame().party.rows[slot].fOccupied &&
+                        slot ==
+                            static_cast<unsigned int>(CurrentGame().status.sedexus_party_slot)) {
                         return 1;
                     }
                 }
@@ -237,7 +239,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
                 return g_fact_values[fact_id];
             }
             W8NpcState* npc = GetNpcStateByKind(0x18);
-            if (npc != 0 && g_status.party.characters[npc->group_index].highest_condition >=
+            if (npc != 0 && CurrentGame().party.characters[npc->group_index].highest_condition >=
                                 W8_CONDITION_ASLEEP) {
                 return 1;
             }

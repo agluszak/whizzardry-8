@@ -35,6 +35,7 @@
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -176,10 +177,10 @@ void W8CharacterScreenState::BuildControls()
         SelectPage(0);
     });
     m_reset->SetVisible(false);
-    if (m_mode == W8_CHARACTER_EDIT && g_status.game_started &&
+    if (m_mode == W8_CHARACTER_EDIT && GameStarted() &&
         CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetVisible(true);
-        if (g_combat.active()) {
+        if (CurrentGame().combat.active()) {
             m_reset->SetEnabled(false);
         }
     }
@@ -490,7 +491,7 @@ bool W8CharacterScreenState::CommitCharacter()
     if (m_mode != W8_CHARACTER_EDIT) {
         FinalizeCreatedCharacter(&m_character, &m_creation_state, creating);
     }
-    if (!g_status.game_started && !g_status.skip_loose_character_check) {
+    if (!GameStarted() && !CurrentGame().status.skip_loose_character_check) {
         if (m_original != 0) {
             std::string path;
             path = BuildCharacterPath(m_original->name, -1);
@@ -604,7 +605,7 @@ bool W8CharacterScreenState::ValidateName()
     if (m_original != 0 && strcmp(m_original->name.c_str(), m_character.name.c_str()) == 0) {
         return true;
     }
-    if (!g_status.game_started && !g_status.skip_loose_character_check) {
+    if (!GameStarted() && !CurrentGame().status.skip_loose_character_check) {
         std::string path;
         path = BuildCharacterPath(m_character.name, -1);
         if ([&]() {
@@ -616,8 +617,9 @@ bool W8CharacterScreenState::ValidateName()
         }
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-        if (g_status.party.rows[index].fOccupied &&
-            strcmp(g_status.party.characters[index].name.c_str(), m_character.name.c_str()) == 0) {
+        if (CurrentGame().party.rows[index].fOccupied &&
+            strcmp(CurrentGame().party.characters[index].name.c_str(), m_character.name.c_str()) ==
+                0) {
             ShowMessage(g_localized_strings[0xd5], 0, 0);
             return false;
         }
@@ -645,7 +647,7 @@ bool CharacterScreen::enter(const ScreenRequest& request)
     g_wiz_text_bold_font.resetPalette();
     state = std::make_unique<W8CharacterScreenState>(mode, request.character);
     state->BuildControls();
-    if (!g_status.game_started && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
+    if (!GameStarted() && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
     return true;

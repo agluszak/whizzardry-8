@@ -52,6 +52,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
@@ -584,7 +585,7 @@ void Monster::Update()
                              monster_info->uiCondition[W8_CONDITION_SLOWED] != 0, player);
     }
 
-    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !g_combat.active()) {
+    if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !CurrentGame().combat.active()) {
         ProcessScript();
         cycle = Query(W8_MONSTER_QUERY_CYCLE);
     }
@@ -714,13 +715,13 @@ void Monster::Update()
 
     UpdateAttachedObjects();
     cycle = Query(W8_MONSTER_QUERY_CYCLE);
-    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && g_combat.state() != 0 &&
-        (g_combat.state()->round_active || gXStatus.fPartyMovementMode) &&
+    if (((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.state() != 0 &&
+        (CurrentGame().combat.state()->round_active || CurrentGame().party_movement_mode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (visual.pending_cycle == -1 || visual.pending_cycle == 1 || visual.pending_cycle == 2) &&
-        (g_combat.state()->action_status != W8CombatActionStatus::resolving ||
-         g_combat.state()->pActionMonsterInfo == 0 ||
-         g_combat.state()->pActionMonsterInfo->location_id != location_id)) {
+        (CurrentGame().combat.state()->action_status != W8CombatActionStatus::resolving ||
+         CurrentGame().combat.state()->pActionMonsterInfo == 0 ||
+         CurrentGame().combat.state()->pActionMonsterInfo->location_id != location_id)) {
         visual.timer = GameClockMilliseconds();
     }
 
@@ -1062,9 +1063,9 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         }
     } else {
         if (rep->objects[party_slot] == 0) {
-            path = fmt::format(
-                "Data\\Monsters\\Bitmaps\\{}",
-                g_party_target_marker_bitmaps[g_status.party.rows[party_slot].party_order_index]);
+            path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
+                               g_party_target_marker_bitmaps
+                                   [CurrentGame().party.rows[party_slot].party_order_index]);
             rep->objects[party_slot] = CreateMonsterIconItem(*info->p3D->owner_world, path.c_str());
             ++rep->icon_count;
         }
@@ -1318,7 +1319,7 @@ unsigned char Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    if (g_combat.active() && partyCamera().m_transition_active) {
+    if (CurrentGame().combat.active() && partyCamera().m_transition_active) {
         return 0;
     }
     if (visual.animation_playing == 0) {
@@ -2121,8 +2122,9 @@ void Monster::HandleAnimationThreshold()
     record = GetMonsterDataForInfo(monster_info);
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (g_combat.active() && g_combat.state()->action_status == W8CombatActionStatus::resolving &&
-        g_combat.state()->pActionMonsterInfo == monster_info) {
+    if (CurrentGame().combat.active() &&
+        CurrentGame().combat.state()->action_status == W8CombatActionStatus::resolving &&
+        CurrentGame().combat.state()->pActionMonsterInfo == monster_info) {
         attack_index = monster_info->pCombat->attack_index;
         selected_attack = true;
         goto prepare_attack;

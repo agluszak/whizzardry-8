@@ -8,13 +8,11 @@
 #include <utility>
 #include <vector>
 
-#include "wiz8/character_event_queue.h"
 #include "wiz8/data/records.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_formation.h"
@@ -33,17 +31,12 @@ struct W8ItemDrag {
 };
 
 struct W8XStatus {
-    W8MonsterManagerEntry monster_manager_entries[8];
     bool fNpcDialogueMode;
     bool fReviewCharacterMode;
     bool fCampMode;
     /* Re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
-    int item_manager_pending;
-    bool fSurprisePossible;
     bool fPartyMovementUi;
-    bool fPartyMovementMode;
-    std::unique_ptr<W8CharacterEventQueue> character_event_queue;
     int iCurrentCursor;
     int current_cursor_frame;
     uint64_t current_cursor_time;
@@ -52,22 +45,14 @@ struct W8XStatus {
        live formation here on open, edits the copy, and either reconciles it
        back or diffs it against live on accept. */
     W8PartyFormationState edited_formation;
-    /* One-shot latch set when the combat/party panels refresh; the next
-       UpdateMonsterSight pass consumes and clears it. */
-    bool sight_refresh_pending;
     bool world_update_blocked;
     /* Explicit user-pause choice; closing an interaction does not clear it. */
     bool world_paused;
-    std::unique_ptr<W8GameTimer> gameplay_timer;
-    /* A container offered more than one item, so the item-choice
-       dialog is pending; blocks the magic-effects tick until it opens. */
-    bool item_pick_pending;
     /* Raised by BeginNpcScriptedScene until EndScriptedPortraitPick;
        gates the dialogue-cursor and NPC-script input paths. */
     bool scripted_scene;
     /* An item the camp's Use action hands to the main game's use-item picker. */
     std::optional<W8ItemDrag> item_drag;
-    bool party_moving;
 };
 
 extern W8XStatus gXStatus;

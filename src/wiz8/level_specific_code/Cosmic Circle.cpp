@@ -1,6 +1,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/CosmicCircle.h"
@@ -37,8 +38,8 @@ bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger)
 {
     W8NpcState* pNPC;
 
-    if (g_combat.active()) {
-        g_combat.End(true);
+    if (CurrentGame().combat.active()) {
+        CurrentGame().combat.End(true);
     }
     BeginScriptedWorldAction();
     pNPC = GetNpcStateByKind(0x85);
@@ -69,7 +70,7 @@ void CosmicCircleSetup(void)
     Trigger* pTrigger;
     int uiMonsterID;
 
-    if (!g_status.world_suspended && !g_status.cc_arena_spawned) {
+    if (!CurrentGame().status.world_suspended && !CurrentGame().status.cc_arena_spawned) {
         if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {
             group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
@@ -94,7 +95,7 @@ void CosmicCircleSetup(void)
         if (FindEntityByName("NP_PHOONZANG1", &positionPhoonzang, 0, 0)) {
             SpawnMonsters(0x197, 1, &positionPhoonzang, 2, true, false, false);
         }
-        g_status.cc_arena_spawned = true;
+        CurrentGame().status.cc_arena_spawned = true;
         if (pMonsterInfoDs != nullptr) {
             pMonsterInfoDs->p3D->nav.AimAtPosition(&positionAltheides);
         }

@@ -9,6 +9,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -100,7 +101,7 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
     int item_id;
 
     group = FindFirstMonsterByID(0x1d4);
-    if (group == 0 || !(g_status.party.held.item.iItemNo != -1)) {
+    if (group == 0 || !(CurrentGame().party.held.item.iItemNo != -1)) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
         return true;
     }
@@ -152,8 +153,8 @@ bool Trynnie2UseItem(W8ItemInstance* item)
     } else {
         ShowString(g_localized_strings[0x967]);
     }
-    if (!g_status.use_item_latch) {
-        g_status.use_item_latch = true;
+    if (!CurrentGame().status.use_item_latch) {
+        CurrentGame().status.use_item_latch = true;
     } else {
         ShowString(g_localized_strings[0x969]);
         if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
@@ -161,7 +162,7 @@ bool Trynnie2UseItem(W8ItemInstance* item)
         }
     }
     destination.iItemNo = -1;
-    destination = TakeInventoryItem(g_status.party.locateItem(item));
+    destination = TakeInventoryItem(CurrentGame().party.locateItem(item));
     return true;
 }
 

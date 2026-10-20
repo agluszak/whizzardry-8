@@ -18,6 +18,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/compat/native.h"
@@ -33,11 +34,11 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -156,16 +157,14 @@ TEST_CASE("NPC script owns nested quotes until release", "[resources][lifecycle]
 
 TEST_CASE("NPC message queues release their contents", "[resources][lifecycle]")
 {
+    const ScopedGame game;
     queued_state_teardown();
 }
 
 TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]")
 {
-    struct RestoreParty {
-        W8Party saved = std::exchange(g_status.party, W8Party{});
-        ~RestoreParty() { g_status.party = std::move(saved); }
-    } restore;
-    auto& party = g_status.party.characters;
+    const ScopedGame game;
+    auto& party = CurrentGame().party.characters;
     party[0].fInParty = party[1].fInParty = true;
     // Declared last, so its remaining active event completes while the party is reachable.
     W8CharacterEventQueue queue;
@@ -174,35 +173,31 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
         for (auto* character : {&party[0], &party[1]})
             events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0));
     }
-    gXStatus.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
+    CurrentGame().monster_manager_entries[0].active_character_event =
+        queue.active_events.front().get();
 
     queue.RemoveCharacterEvents(&party[0]);
 
     for (const auto* events : queues)
         REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
     // Completion releases the portrait's borrowed pointer to the active event.
-    REQUIRE(gXStatus.monster_manager_entries[0].active_character_event == nullptr);
+    REQUIRE(CurrentGame().monster_manager_entries[0].active_character_event == nullptr);
 }
 
-TEST_CASE("Gameplay runtime reinitialization releases queued events", "[resources][lifecycle]")
+TEST_CASE("A new game releases the previous game's queued events", "[resources][lifecycle]")
 {
     W8Character character{};
-    const struct Cleanup {
-        ~Cleanup() { DestroyGameplayObjects(); }
-    } cleanup;
-    InitializeGameplayRuntimeObjects();
-    gXStatus.character_event_queue->pending_events.push_back(
+    const ScopedGame game;
+    CurrentGame().speech.pending_events.push_back(
         std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
-    gXStatus.gameplay_timer->SetDuration(1.0f);
+    CurrentGame().gameplay_timer.SetDuration(1.0f);
 
-    // Replacing the status must destroy the old owners, including their nested events.
-    InitializeGameplayRuntimeObjects();
-    REQUIRE(gXStatus.character_event_queue->IsMainQueueEmpty());
-    REQUIRE(gXStatus.gameplay_timer->m_duration_seconds == 300.0f);
-    DestroyGameplayObjects();
-    DestroyGameplayObjects();
-    REQUIRE_FALSE(gXStatus.character_event_queue);
-    REQUIRE_FALSE(gXStatus.gameplay_timer);
+    // Beginning a game destroys the old one, including its nested events.
+    BeginGame();
+    REQUIRE(CurrentGame().speech.IsMainQueueEmpty());
+    REQUIRE(CurrentGame().gameplay_timer.m_duration_seconds == 300.0f);
+    EndGame();
+    REQUIRE_FALSE(GameInProgress());
 }
 
 struct SpellVisualFixture {
@@ -545,26 +540,15 @@ TEST_CASE_METHOD(SpellVisualFixture,
 
 TEST_CASE("Ambient exchanges wait for completion and choose a different respondent", "[events]")
 {
-    auto& characters = g_status.party.characters;
-    auto& slots = g_status.party.rows;
+    const ScopedGame game;
+    auto& characters = CurrentGame().party.characters;
+    auto& slots = CurrentGame().party.rows;
     struct Restore {
-        W8Party party = std::exchange(g_status.party, W8Party{});
         bool environment = g_environment_time_enabled;
-        bool greeting = g_status.greeting_pending;
-        std::unique_ptr<W8CharacterEventQueue> queue = std::move(gXStatus.character_event_queue);
-        ~Restore()
-        {
-            gXStatus.character_event_queue.reset();
-            g_status.party = std::move(party);
-            g_environment_time_enabled = environment;
-            g_status.greeting_pending = greeting;
-            gXStatus.character_event_queue = std::move(queue);
-        }
+        ~Restore() { g_environment_time_enabled = environment; }
     } restore;
     g_environment_time_enabled = true;
-    g_status.greeting_pending = false;
-    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
-    auto& queue = *gXStatus.character_event_queue;
+    auto& queue = CurrentGame().speech;
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty()); // No eligible speaker: retry later.
     for (int i : {0, 1}) {
@@ -572,10 +556,10 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
         characters[i].fInParty = true;
         characters[i].hp_current = 10;
     }
-    g_status.greeting_pending = true;
+    CurrentGame().status.greeting_pending = true;
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty()); // Rejection must not disarm the exchange.
-    g_status.greeting_pending = false;
+    CurrentGame().status.greeting_pending = false;
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.size() == 1);
     const auto* first = queue.pending_events.front()->character;

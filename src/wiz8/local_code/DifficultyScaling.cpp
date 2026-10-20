@@ -1,3 +1,4 @@
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -25,7 +26,7 @@ static void ScaleValueForDifficulty(int* value, bool fights_for_monsters)
 void ScaleValueForCharacterDifficulty(int party_slot, int* value)
 {
     ScaleValueForDifficulty(
-        value, g_status.party.characters[party_slot].uiCondition[W8_CONDITION_TURNCOAT] > 0);
+        value, CurrentGame().party.characters[party_slot].uiCondition[W8_CONDITION_TURNCOAT] > 0);
 }
 
 void ScaleValueForMonsterDifficulty(W8MonsterInfo* monster_info, int* value)

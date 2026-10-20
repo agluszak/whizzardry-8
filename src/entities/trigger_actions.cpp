@@ -55,6 +55,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
@@ -270,7 +271,7 @@ void UpdateWorldTriggers(World* world)
                 dialog->on_complete = [trigger](W8WorldItem*) {
                     trigger->flags &= ~W8_TRIGGER_ITEM_PICKER;
                 };
-                gXStatus.item_pick_pending = false;
+                CurrentGame().item_pick_pending = false;
                 OpenModal(std::move(dialog));
             }
         }
@@ -470,7 +471,7 @@ void TriggerEvent::Update()
     if (action == 2) {
         W8GameTimer::Flags flags = timer.m_flags;
 
-        if (g_combat.engineActive()) {
+        if (CurrentGame().combat.engineActive()) {
             if (flags.paused || (g_shared_timer_paused && !flags.raw_time) ||
                 g_shared_timer_flag0) {
                 return;
@@ -1412,9 +1413,9 @@ void Trigger::Run(int source)
         was_active = m_pProp->animation_playing;
 
         if (inline_action_data[0] != '\0') {
-            if ((g_status.party.held.item.iItemNo != -1)) {
+            if ((CurrentGame().party.held.item.iItemNo != -1)) {
                 glm::vec3 item_position;
-                auto item = CreateWorldItem(&g_status.party.held.item, &item_position,
+                auto item = CreateWorldItem(&CurrentGame().party.held.item, &item_position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
@@ -1449,7 +1450,7 @@ void Trigger::Run(int source)
                     }
                 }
                 if (item_count > 1) {
-                    gXStatus.item_pick_pending = true;
+                    CurrentGame().item_pick_pending = true;
                 }
 
                 if (gold != 0) {
@@ -1462,7 +1463,7 @@ void Trigger::Run(int source)
                         ApplyItemEffectToRandomCharacter(
                             Random(2) != 0 ? g_container_event : g_container_event_alt, -1, 0);
                     }
-                } else if (item_count == 1 && !(g_status.party.held.item.iItemNo != -1)) {
+                } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
                     ReceiveItemInHand(item->item);
                     world_item_group->contents.clear();
@@ -2021,7 +2022,7 @@ bool Trigger::SelectAction()
     bool fallback_selected = false;
     bool result = true;
 
-    if (g_combat.engineActive() && doorData() != nullptr && doorData()->open) {
+    if (CurrentGame().combat.engineActive() && doorData() != nullptr && doorData()->open) {
         return false;
     }
 
@@ -2166,7 +2167,7 @@ Light* FindLightByName(std::string_view name)
 
 int ResetNextTriggerId(void)
 {
-    g_status.next_trigger_id = 1;
+    CurrentGame().status.next_trigger_id = 1;
     return 1;
 }
 

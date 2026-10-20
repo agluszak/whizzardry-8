@@ -29,6 +29,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
@@ -605,7 +606,9 @@ bool W8TriggerItemPickerDialog::CreateButtons()
         m_buttons[2]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\chest_confirmationbuttons.sti", 3, 0, 1, 2, 2),
             {.on_click =
-                 [this](W8ButtonWidget*) { TransferSelectedItems(g_status.selected_character); },
+                 [this](W8ButtonWidget*) {
+                     TransferSelectedItems(CurrentGame().status.selected_character);
+                 },
              .tooltip = 0x14}) &&
         configured;
     configured =
@@ -766,7 +769,7 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
             if (destination == -1) {
                 added = AddItemToParty(&instance, true, false);
             } else {
-                added = AddItemToCharacter(&g_status.party.characters[destination], &instance,
+                added = AddItemToCharacter(&CurrentGame().party.characters[destination], &instance,
                                            false, true, false);
             }
             if (added) {
@@ -1031,7 +1034,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
         visible_rows = count;
     }
 
-    if (g_combat.active()) {
+    if (CurrentGame().combat.active()) {
         m_buttons[2]->SetEnabled(false);
     }
     if (m_dirty) {

@@ -59,6 +59,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
@@ -549,7 +550,7 @@ void ResetMainScreenStateBlock(void)
     g_npc_interaction_state->pending_trade_toggle = false;
     g_npc_interaction_state->selected_trade_row = unset;
     g_npc_interaction_state->trade_pc_items = true;
-    g_status.selected_party_member = 0xff;
+    CurrentGame().status.selected_party_member = 0xff;
     g_pending_notice_queued = false;
     ReloadKeywordLists();
 }
@@ -558,7 +559,7 @@ void ResetMainScreenStateBlock(void)
    busy or this NPC kind suppresses it. */
 void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress)
 {
-    if (!gXStatus.fNpcDialogueMode && !g_combat.active() &&
+    if (!gXStatus.fNpcDialogueMode && !CurrentGame().combat.active() &&
         (npc->record->kind != 7 || GetFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
         QueueNpcScriptNotice(npc, item, line, suppress, 0);
     }
@@ -629,10 +630,10 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     g_pending_notice_queued = false;
     g_npc_interaction_state->transcript_open_count = 0;
     if (npc->name_style == 0xf || npc->name_style == 0x12) {
-        characters = g_status.party.characters;
+        characters = CurrentGame().party.characters;
         for (slot = 0; slot < 2; ++slot) {
-            if (g_status.party.rows[slot].fOccupied) {
-                bound = GetNpcState(g_status.party.rows[slot].npc_index);
+            if (CurrentGame().party.rows[slot].fOccupied) {
+                bound = GetNpcState(CurrentGame().party.rows[slot].npc_index);
                 if ((bound->name_style == W8_NPC_RODAN || bound->name_style == W8_NPC_DRAZIC) &&
                     characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
                     for (condition = 0; condition <= 0x12; ++condition) {
@@ -648,8 +649,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
             }
         }
     }
-    if (gXStatus.character_event_queue->HasActiveEvents()) {
-        gXStatus.character_event_queue->CompleteFirstActiveEvent();
+    if (CurrentGame().speech.HasActiveEvents()) {
+        CurrentGame().speech.CompleteFirstActiveEvent();
     }
     if (!gXStatus.fCampMode) {
         SelectNpcDialogueSpeaker(npc, flags);
@@ -672,7 +673,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
         if (item != 0) {
             state = g_npc_interaction_state;
             state->pending_item = *item;
-            if ((g_status.party.held.item.iItemNo != -1)) {
+            if ((CurrentGame().party.held.item.iItemNo != -1)) {
                 state->held_item_pending = true;
             }
             HandleNpcDialogueItem(&state->pending_item);
@@ -788,7 +789,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     if (item != 0) {
         state = g_npc_interaction_state;
         state->pending_item = *item;
-        if ((g_status.party.held.item.iItemNo != -1)) {
+        if ((CurrentGame().party.held.item.iItemNo != -1)) {
             state->held_item_pending = true;
             (void)TakeInventoryItem({W8ItemStorage::Hand});
         }
@@ -891,20 +892,20 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     }
     state->camera_redirected = false;
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.party.rows[slot].fOccupied) {
+        if (CurrentGame().party.rows[slot].fOccupied) {
             if (speaker == -1) {
                 speaker = slot;
             }
-            if (g_status.party.characters[slot].skills[W8_SKILL_COMMUNICATION].level > best) {
-                best = g_status.party.characters[slot].skills[W8_SKILL_COMMUNICATION].level;
+            if (CurrentGame().party.characters[slot].skills[W8_SKILL_COMMUNICATION].level > best) {
+                best = CurrentGame().party.characters[slot].skills[W8_SKILL_COMMUNICATION].level;
                 speaker = slot;
             }
         }
     }
     g_npc_interaction_state->dialogue_speaker = speaker;
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.party.rows[slot].fOccupied) {
-            SetPortraitTargetPose(&gXStatus.monster_manager_entries[slot], 1);
+        if (CurrentGame().party.rows[slot].fOccupied) {
+            SetPortraitTargetPose(&CurrentGame().monster_manager_entries[slot], 1);
         }
     }
     selected = g_npc_interaction_state->dialogue_npc;
@@ -1241,7 +1242,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         if (!g_npc_interaction_state->held_item_pending) {
             SetTargetCursor(W8_CURSOR_NONE);
         } else {
-            g_status.party.held.item = g_npc_interaction_state->pending_item;
+            CurrentGame().party.held.item = g_npc_interaction_state->pending_item;
             SetItemCursor(0);
             g_npc_interaction_state->held_item_pending = false;
         }
@@ -1251,7 +1252,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
             int slot = GetRandomCharacter(1, 1, -1, -1);
             if (slot != -1) {
                 W8CharacterEvent* event =
-                    QueueCharacterEvent(&g_status.party.characters[slot], g_special_event8,
+                    QueueCharacterEvent(&CurrentGame().party.characters[slot], g_special_event8,
                                         kCharacterEventNoPreempt, kCharacterEventFullVolume);
                 if (event != 0) {
                     event->DelayDispatch(1000);
@@ -1265,8 +1266,8 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     if (g_npc_interaction_state->dialogue_npc->name_style == 0xf &&
         GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0) {
-        g_status.trang_check_clock = g_status.world_clock;
-        g_status.trang_check_pending = true;
+        CurrentGame().status.trang_check_clock = CurrentGame().status.world_clock;
+        CurrentGame().status.trang_check_pending = true;
     }
 }
 
@@ -1331,14 +1332,14 @@ static void RefreshNpcServiceAvailability(int party_slot)
 {
     SetNpcActionEnabled(
         W8_NPC_CONTROL_TEXT_1,
-        CanCharacterCastSpell(&g_status.party.characters[party_slot], W8_SPELL_CHARM));
+        CanCharacterCastSpell(&CurrentGame().party.characters[party_slot], W8_SPELL_CHARM));
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_1].dirty = true;
     SetNpcActionEnabled(
         W8_NPC_CONTROL_TEXT_2,
-        CanCharacterCastSpell(&g_status.party.characters[party_slot], W8_SPELL_MINDREAD));
+        CanCharacterCastSpell(&CurrentGame().party.characters[party_slot], W8_SPELL_MINDREAD));
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_2].dirty = true;
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_4,
-                        CharacterHasServiceItem(&g_status.party.characters[party_slot]));
+                        CharacterHasServiceItem(&CurrentGame().party.characters[party_slot]));
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_4].dirty = true;
 }
 
@@ -1540,8 +1541,9 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         if (item == 0) {
             return;
         }
-        dialog = new W8AssayDialog(*item, &g_status.party.characters[g_status.selected_character],
-                                   {kInfoDialogX, 0x48});
+        dialog = new W8AssayDialog(
+            *item, &CurrentGame().party.characters[CurrentGame().status.selected_character],
+            {kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
@@ -1669,7 +1671,7 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
         switch (g_npc_interaction_state->trade_mode) {
         case W8_NPC_TRADE_BUY:
-            if (g_status.party.gold <
+            if (CurrentGame().party.gold <
                 static_cast<unsigned int>(CalculateNpcTradeStackPrice(
                     g_npc_interaction_state->dialogue_npc,
                     g_npc_interaction_state->trade_item->iItemNo, W8_TRADE_PRICE_PARTY_BUYS,
@@ -1983,10 +1985,10 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcDialogueInputEnabled(2, true);
     SetNpcDialogueInputEnabled(0, true);
     if (g_npc_interaction_state->dialogue_npc->name_style == 0x32) {
-        g_status.monster_name_buffer =
-            fmt::format("Al-{}", g_status.party.characters[g_status.sedexus_party_slot].name);
+        CurrentGame().status.monster_name_buffer = fmt::format(
+            "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
-            g_status.monster_name_buffer, g_wiz_text_bold_font);
+            CurrentGame().status.monster_name_buffer, g_wiz_text_bold_font);
     } else {
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
             g_npc_interaction_state->dialogue_npc->record->source_name, g_wiz_text_bold_font);
@@ -2028,7 +2030,7 @@ void OpenNpcDialogueTranscriptLayout(void)
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     for (index = 0; index < 8; ++index) {
-        if (g_status.party.rows[index].fOccupied) {
+        if (CurrentGame().party.rows[index].fOccupied) {
             DisableMainGamePortraitSlot(index);
 
             MainGame()->edge_targets[index]->setEnabled(false);
@@ -2065,7 +2067,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
     g_npc_interaction_state->ui->transcript->ClearBackground();
     EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
     for (index = 0; index < 8; ++index) {
-        if (g_status.party.rows[index].fOccupied) {
+        if (CurrentGame().party.rows[index].fOccupied) {
             EnableMainGamePortraitSlot(index);
 
             MainGame()->edge_targets[index]->setEnabled(true);
@@ -2291,7 +2293,7 @@ static void OpenNpcDialogueOptionLayout(void)
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].secondary = OpenNpcItemAssay;
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_31].primary = ConfirmNpcTradeSlot;
-    buffer = fmt::format("{:d}g", g_status.party.gold);
+    buffer = fmt::format("{:d}g", CurrentGame().party.gold);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_33].text.SetText(
         buffer, g_wiz_text_font_secondary);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, false);
@@ -2475,9 +2477,10 @@ static void OpenNpcItemAssay(void)
 
     if (g_npc_interaction_state->trade_item != 0 && image &&
         image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
-        dialog = new W8AssayDialog(*g_npc_interaction_state->trade_item,
-                                   &g_status.party.characters[g_status.selected_character],
-                                   {kInfoDialogX, 0x48});
+        dialog = new W8AssayDialog(
+            *g_npc_interaction_state->trade_item,
+            &CurrentGame().party.characters[CurrentGame().status.selected_character],
+            {kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] { RequestRedraw(W8_MAIN_REDRAW_ALL); };
@@ -2535,8 +2538,8 @@ static void OpenNpcGoldAmountDialog(void)
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
     g_npc_interaction_state->ui->panels[1].dirty = true;
-    dialog =
-        new W8SplitAmountDialog(g_status.party.gold, {kSplitDialogOriginX, kSplitDialogOriginY});
+    dialog = new W8SplitAmountDialog(CurrentGame().party.gold,
+                                     {kSplitDialogOriginX, kSplitDialogOriginY});
     dialog->SetText("");
 
     dialog->on_complete = [](int amount) {
@@ -2608,7 +2611,7 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, 
     const auto selection = state.trade_rows[index];
     if (pick) state.trade_selection = selection;
     if (selection.source == W8TradeSource::Gold) {
-        state.trade_gold = g_status.party.gold;
+        state.trade_gold = CurrentGame().party.gold;
         return nullptr;
     }
     auto* item = ResolveTradeSelection(state.dialogue_npc, selection);
@@ -2652,8 +2655,9 @@ bool NpcTradeItemAllowed(W8ItemInstance* item)
                 return true;
             }
         } else {
-            if (!CanCharacterUseItem(&g_status.party.characters[g_status.selected_character],
-                                     item->iItemNo)) {
+            if (!CanCharacterUseItem(
+                    &CurrentGame().party.characters[CurrentGame().status.selected_character],
+                    item->iItemNo)) {
                 return true;
             }
         }
@@ -2699,7 +2703,7 @@ static void OpenNpcDialogueMode5Layout(void)
     ConfigureNpcTradeCommands();
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_31].primary = ConfirmNpcTradeSlot;
-    buffer = fmt::format("{:d}g", g_status.party.gold);
+    buffer = fmt::format("{:d}g", CurrentGame().party.gold);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_33].text.SetText(
         buffer, g_wiz_text_font_secondary);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, false);
@@ -2868,7 +2872,7 @@ static void OpenNpcDialogueMode1Layout(void)
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_5, false);
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_6, false);
     if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_SERVICES) {
-        RefreshNpcServiceAvailability(g_status.selected_character);
+        RefreshNpcServiceAvailability(CurrentGame().status.selected_character);
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     SelectTextBox(2);
@@ -2925,7 +2929,7 @@ static void RequestNpcCharacterService(void)
     gXStatus.fCampMode = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    OpenUseItemSelectView(g_status.selected_character);
+    OpenUseItemSelectView(CurrentGame().status.selected_character);
 }
 
 /* Pick the index-th activatable item on the dialogue character: the twelve
@@ -2939,7 +2943,7 @@ static W8ItemInstance* GetNpcTradeSlotItem(int index)
     int hit;
     int slot;
 
-    character = &g_status.party.characters[g_status.selected_character];
+    character = &CurrentGame().party.characters[CurrentGame().status.selected_character];
     hit = 0;
     if (g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_4].interaction.selected == 0) {
         return 0;
@@ -3548,7 +3552,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 
     result = true;
     if (g_npc_interaction_state->trade_gold != 0 && item == 0) {
-        if (g_npc_interaction_state->trade_gold != static_cast<int>(g_status.party.gold)) {
+        if (g_npc_interaction_state->trade_gold != static_cast<int>(CurrentGame().party.gold)) {
             ConfirmNpcTradePurchase();
             return 1;
         }
@@ -3666,7 +3670,7 @@ void RefreshNpcTradePartyGold(void)
 {
     std::string text;
 
-    text = fmt::format("{:d}g", g_status.party.gold);
+    text = fmt::format("{:d}g", CurrentGame().party.gold);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_33].text.SetText(
         text, g_wiz_text_font_secondary);
 }
@@ -3953,7 +3957,7 @@ static void SetNpcDialogueHidden(char value)
         g_npc_interaction_state->ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
         for (index = 0; index < 8; ++index) {
-            if (g_status.party.rows[index].fOccupied) {
+            if (CurrentGame().party.rows[index].fOccupied) {
                 EnableMainGamePortraitSlot(index);
             }
         }
@@ -3971,7 +3975,7 @@ static void SetNpcDialogueHidden(char value)
     } else {
         RefreshMainGameLayout();
         for (index = 0; index < 8; ++index) {
-            if (g_status.party.rows[index].fOccupied) {
+            if (CurrentGame().party.rows[index].fOccupied) {
                 DisableMainGamePortraitSlot(index);
             }
         }
@@ -4004,7 +4008,7 @@ static void SetNpcDialogueHidden(char value)
    submitted to the script line queue directly. */
 static void ResolveNpcPickpocket(int party_slot)
 {
-    W8Character* character = &g_status.party.characters[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     unsigned int gold;
     W8ItemInstance item;
     std::string text;
@@ -4138,7 +4142,7 @@ void CloseNpcDialogueForCamp(void)
     SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
     EndNpcDialogueSession(false);
     if (g_npc_interaction_state->held_item_pending) {
-        g_status.party.held.item = g_npc_interaction_state->pending_item;
+        CurrentGame().party.held.item = g_npc_interaction_state->pending_item;
         SetItemCursor(0);
         return;
     }
@@ -4185,8 +4189,8 @@ static void HandleNpcDialogueDeparture(unsigned char value)
                 g_npc_interaction_state->dialogue_npc->record->voice_script == 0 &&
                 g_npc_interaction_state->dialogue_npc->record->merchant == 0) {
                 for (index = 0; index < 8; ++index) {
-                    character = &g_status.party.characters[index];
-                    if (g_status.party.rows[index].fOccupied && character->hp_current != 0 &&
+                    character = &CurrentGame().party.characters[index];
+                    if (CurrentGame().party.rows[index].fOccupied && character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
                         PracticeCharacterSkill(character, W8_SKILL_COMMUNICATION, 0xf, false);
                     }
@@ -4224,14 +4228,14 @@ std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& 
 
 void BeginScriptedWorldAction(void)
 {
-    g_status.world_cursor_gate = 1;
+    CurrentGame().status.world_cursor_gate = 1;
     ResetLevelDataVectors();
     SetTargetCursor(W8_CURSOR_MAP_LOAD);
 }
 
 void ClearMainGameTargetState(void)
 {
-    g_status.world_cursor_gate = 0;
+    CurrentGame().status.world_cursor_gate = 0;
     ClearLevelMovementStopped();
     SetTargetCursor(W8_CURSOR_NONE);
 }
@@ -4243,7 +4247,7 @@ void FlushInputWhileWorldCursorGate(void)
     SDL_Point mouse;
     InputEvent input;
 
-    if (g_status.world_cursor_gate == 0) {
+    if (CurrentGame().status.world_cursor_gate == 0) {
         return;
     }
     mouse = CursorPosition();
@@ -4376,8 +4380,8 @@ bool ProcessPendingEvent(void)
         TryFinishNpcVoicePlayback(true);
         return true;
     }
-    if (gXStatus.character_event_queue->HasActiveEvents()) {
-        gXStatus.character_event_queue->CompleteFirstActiveEvent();
+    if (CurrentGame().speech.HasActiveEvents()) {
+        CurrentGame().speech.CompleteFirstActiveEvent();
         return true;
     }
     return false;

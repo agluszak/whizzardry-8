@@ -21,6 +21,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
@@ -173,9 +174,10 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         }
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:
-        if (value != 0 &&
-            g_status.party.characters[g_status.party_slot].uiCondition[W8_CONDITION_MISSING] != 0) {
-            RemoveCharacterCondition(g_status.party_slot, W8_CONDITION_MISSING, true);
+        if (value != 0 && CurrentGame()
+                                  .party.characters[CurrentGame().status.party_slot]
+                                  .uiCondition[W8_CONDITION_MISSING] != 0) {
+            RemoveCharacterCondition(CurrentGame().status.party_slot, W8_CONDITION_MISSING, true);
         }
         return;
     case W8_FACT_ALIGNMENT_TRANG:
@@ -208,8 +210,8 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
     case W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN:
         if (value != 0) {
             for (slot = 0; slot < 8; ++slot) {
-                character = &g_status.party.characters[slot];
-                if (g_status.party.rows[slot].fOccupied &&
+                character = &CurrentGame().party.characters[slot];
+                if (CurrentGame().party.rows[slot].fOccupied &&
                     character->highest_condition < W8_CONDITION_DEAD &&
                     g_profession_skill_availability[7][character->iProfession] != 0 &&
                     character->skills[W8_SKILL_MODERN_WEAPONS].points < 10) {
@@ -450,7 +452,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
             return;
         }
         for (slot = 0; slot < 8; ++slot) {
-            character = &g_status.party.characters[slot];
+            character = &CurrentGame().party.characters[slot];
             if (CanPartySlotParticipate(slot)) {
                 added = 100 - character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base;
                 if (added > 5) {
@@ -631,13 +633,13 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         g_npc_dialogue.Queue(W8NpcStoryAction::savant_appears);
         return;
     case W8_FACT_QUE_ENDGAME2:
-        g_status.endgame2_queued = 1;
+        CurrentGame().status.endgame2_queued = 1;
         return;
     case W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT:
         g_npc_dialogue.Queue(W8NpcStoryAction::phoonzang_split);
         return;
     case W8_FACT_QUE_ENDGAME3:
-        g_status.endgame3_queued = 1;
+        CurrentGame().status.endgame3_queued = 1;
         return;
     case W8_FACT_UMISSION_MOVE_RUBBLE_COVERT:
         if (value == 0) {
@@ -784,7 +786,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
         if (value == 0) {
             return;
         }
-        g_status.vi_event_stage = 1;
+        CurrentGame().status.vi_event_stage = 1;
         group = FindFirstMonsterByID(0x234);
         if (group != 0) {
             SetMonsterGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
@@ -873,8 +875,8 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     unsigned int index;
     int pick;
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.party.characters[slot];
-        if (g_status.party.rows[slot].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &CurrentGame().party.characters[slot];
+        if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             eligible_slots[eligible_count] = slot;
             ++eligible_count;
@@ -882,7 +884,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     for (index = 0; index < eligible_count; ++index) {
         if (eligible_slots[index] == lead_index) {
-            QueueCharacterEvent(&g_status.party.characters[eligible_slots[index]], 36,
+            QueueCharacterEvent(&CurrentGame().party.characters[eligible_slots[index]], 36,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
     }
@@ -890,21 +892,21 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
         do {
             pick = Random(eligible_count);
         } while (eligible_slots[pick] == lead_index);
-        QueueCharacterEvent(&g_status.party.characters[eligible_slots[pick]], 36,
+        QueueCharacterEvent(&CurrentGame().party.characters[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.party.characters[slot];
-        if (g_status.party.rows[slot].fOccupied && character->hp_current != 0 &&
+        W8Character* character = &CurrentGame().party.characters[slot];
+        if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             QueueCharacterEvent(character, 42, kCharacterEventNoNpcDefer,
                                 kCharacterEventFullVolume);
         }
     }
-    if (g_status.endgame2_queued != 0 ||
-        (g_status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
+    if (CurrentGame().status.endgame2_queued != 0 ||
+        (CurrentGame().status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG) != 0)) {
         g_npc_dialogue.Queue(W8NpcStoryAction::turn_to_book);
-    } else if (g_status.endgame3_queued != 0) {
+    } else if (CurrentGame().status.endgame3_queued != 0) {
         g_npc_dialogue.Queue(W8NpcStoryAction::phoonzang_notice);
     }
     for (unsigned int entry_index = 0;
@@ -949,14 +951,16 @@ void MonsterKilled(int record_id, int killer_party_slot)
             if (value != 0) {
                 SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
             }
-            if (g_status.rpc_active) {
-                if (g_status.party.characters[g_status.sedexus_party_slot]
+            if (CurrentGame().status.rpc_active) {
+                if (CurrentGame()
+                        .party.characters[CurrentGame().status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    RemoveCharacterCondition(g_status.sedexus_party_slot, W8_CONDITION_INFATUATED,
-                                             false);
+                    RemoveCharacterCondition(CurrentGame().status.sedexus_party_slot,
+                                             W8_CONDITION_INFATUATED, false);
                 }
-                QueueCharacterEvent(&g_status.party.characters[g_status.sedexus_party_slot], 131, 0,
-                                    kCharacterEventFullVolume);
+                QueueCharacterEvent(
+                    &CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot], 131,
+                    0, kCharacterEventFullVolume);
             }
             SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);
             return;
@@ -986,7 +990,8 @@ unsigned char GetFact(W8FactId fact_id)
     }
 
     value = EvaluateFact(fact_id);
-    if (g_status.log_fact_checks && static_cast<unsigned>(fact_id) < g_fact_records.size()) {
+    if (CurrentGame().status.log_fact_checks &&
+        static_cast<unsigned>(fact_id) < g_fact_records.size()) {
         if (value) {
             display_value = "TRUE";
         } else {
@@ -1025,7 +1030,8 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
         }
         HandleFactChange(fact_id, value);
 
-        if (g_status.log_fact_checks && static_cast<unsigned>(fact_id) < g_fact_records.size()) {
+        if (CurrentGame().status.log_fact_checks &&
+            static_cast<unsigned>(fact_id) < g_fact_records.size()) {
             if (value) {
                 display_value = "TRUE";
             } else {
@@ -1053,7 +1059,7 @@ void InitializeFactState(void)
     /* Retail memsets 1000 of the 1001 bytes - index 1000 stays BSS-zeroed. */
     memset(g_fact_values, 0, 1000);
     g_fact_notifications_suppressed = true;
-    if (g_status.skip_loose_character_check) {
+    if (CurrentGame().status.skip_loose_character_check) {
         SetFact(W8_FACT_IMPORT, 1, false);
         switch (g_wiz7_ending) {
         case 1:

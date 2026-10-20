@@ -5,6 +5,7 @@
 
 #include "wiz8/chunk.h"
 #include "wiz8/compat/native.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 
@@ -181,7 +182,9 @@ int W8GameTimer::ReadClock() const
 {
     switch (m_clock_mode) {
     case W8_TIMER_CLOCK_GAME:
-        return (g_status.game_time_days * 86400000 + g_status.game_time_ms) * 10;
+        return (CurrentGame().status.game_time_days * 86400000 +
+                CurrentGame().status.game_time_ms) *
+               10;
     default:
         break;
     }

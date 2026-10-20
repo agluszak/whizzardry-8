@@ -15,6 +15,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
@@ -31,7 +32,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 unsigned char PartyMotion::ClampCameraToBounds(LevelEnvironment& environ, const glm::vec3* minimum,
                                                const glm::vec3* maximum)
@@ -40,7 +40,7 @@ unsigned char PartyMotion::ClampCameraToBounds(LevelEnvironment& environ, const 
     bool below_min_y = false;
 
     if (camera_position.y < minimum->y) {
-        if (g_status.world_suspended) {
+        if (CurrentGame().status.world_suspended) {
             motion_displacement.y = maximum->y - minimum->y;
         }
         clamped = true;
@@ -69,7 +69,7 @@ unsigned char PartyMotion::ClampCameraToBounds(LevelEnvironment& environ, const 
 
     environ.vector = glm::vec3(0);
     if (below_min_y) {
-        if (g_status.world_suspended) {
+        if (CurrentGame().status.world_suspended) {
             movement_override = false;
             return clamped;
         }
@@ -227,7 +227,7 @@ bool PartyMotion::UpdateFootstepFromMotion()
     distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
     if (2e+03f < distance) {
-        if (!g_status.search_mode && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
+        if (!CurrentGame().status.search_mode && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
             large_radius = false;
         } else {
             large_radius = true;
@@ -337,7 +337,7 @@ void PartyMotion::UpdateMotionProgress(LevelEnvironment& environ, unsigned char 
             camera_motion_displacement = glm::vec3(0);
             footstep_accumulator = 2000.0f;
             flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
-            if (gXStatus.fPartyMovementMode) {
+            if (CurrentGame().party_movement_mode) {
                 UpdateActivePartyMovement();
             }
         }

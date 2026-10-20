@@ -28,6 +28,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/item_tables.h"
@@ -696,8 +697,8 @@ void W8CampSkillsPage::DisableCampSkillRegions(void)
 static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 {
     for (int slot = 0; slot < 8; ++slot) {
-        if (g_status.party.rows[slot].fOccupied &&
-            level < g_status.party.characters[slot].skills[skill].level) {
+        if (CurrentGame().party.rows[slot].fOccupied &&
+            level < CurrentGame().party.characters[slot].skills[skill].level) {
             return false;
         }
     }
@@ -793,7 +794,7 @@ void W8CampSkillsPage::DrawCampSkillsPage(void)
                                                         top + 2);
                 }
                 Palette16 palette;
-                if (!g_status.game_started || value->level == 0) {
+                if (!GameStarted() || value->level == 0) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
                     if (value->active) {
                         palette = g_wiz_text_font_secondary.glyphs->colors;
@@ -871,7 +872,7 @@ UiResult W8CampSkillsPage::HandleCampSkillList(const UiPointerEvent& event,
         skill != -1) {
         AfterUiDispatch([this, skill] {
             bool best = false;
-            if (g_status.game_started && screen.reviewed->skills[skill].level != 0) {
+            if (GameStarted() && screen.reviewed->skills[skill].level != 0) {
                 best = IsBestCampSkillLevel(static_cast<W8Skill>(skill),
                                             screen.reviewed->skills[skill].level);
             }
