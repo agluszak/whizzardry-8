@@ -429,7 +429,7 @@ void ParticleSystem::Update()
                 const glm::vec3 from(particle_positions[index]);
                 glm::vec3 to(candidate);
                 if (GetWorld()->compiledIndex() == nullptr ||
-                    !GetWorld()->compiledIndex()->HasLineOfSight(&from, &to, true)) {
+                    !GetWorld()->compiledIndex()->hasLineOfSight(from, to)) {
                     DeactivateParticle(index);
                     continue;
                 }

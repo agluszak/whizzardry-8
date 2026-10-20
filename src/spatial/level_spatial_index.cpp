@@ -649,11 +649,11 @@ w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double gre
     return color;
 }
 
-unsigned char LevelSpatialIndex::TestNoiseLineOfSight(const glm::vec3* from, glm::vec3* to,
-                                                      float* range, int* hops) const
+std::optional<MeasuredPath>
+LevelSpatialIndex::measureNoisePath(const glm::vec3& from, const glm::vec3& to, float budget) const
 {
     PathSearchScratch path_search;
-    return pathing->MeasureAttachmentPath(path_search, from, to, range, hops);
+    return pathing->MeasureAttachmentPath(path_search, from, to, budget);
 }
 
 unsigned char LevelSpatialIndex::PrepareNavigatorTarget(NavigatorMovement* movement, float radius,
@@ -862,189 +862,98 @@ unsigned int LevelSpatialIndex::LeafIndexForCell(const glm::ivec3& cell) const
 
 /* Settle a point onto the geometry below it: seed a downward trace from the
    point raised by `limit` and march the cell column downward, optionally
-   testing the cell's props first (a prop hit is remembered in the probe's prop;
-   a level-surface hit clears it) and always testing the level surfaces.
-   The point's y drops to the contact on a hit and keeps its input value on a
-   miss, after clamping to the ceiling. Both values are returned together. */
+   testing the cell's props first and always testing the walkable level
+   surfaces. A prop hit shortens the cell's surface trace, so a level surface
+   reported in the same cell lies nearer and takes the contact. The point's y
+   drops to the contact on a hit and keeps its input value on a miss, after
+   clamping to the ceiling. Props and level surfaces share the scratch object
+   set, as retail does. */
 GroundProbe LevelSpatialIndex::settleToGround(const glm::vec3& input, bool test_props,
                                               float limit) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
     glm::vec3 position = input;
-    W8OctreeTrace trace;
-    glm::ivec3 cell;
-    glm::vec3 start;
-    glm::vec3 end;
-    bool prop_hit = false;
-    bool hit = false;
-
-    int prop_id = -1;
-    scratch.keys.clear();
-    std::ranges::fill(scratch.visited_objects, false);
     if (m_spatial.m_clipped_bounds.maximum.y < position.y) {
         position.y = m_spatial.m_clipped_bounds.maximum.y;
     }
-    end = position;
-    start = position;
+    glm::vec3 end = position;
+    glm::vec3 start = position;
     start.y = position.y + limit;
-    cell = cellAt(start);
+    glm::ivec3 cell = cellAt(start);
     end.y = ((cell.y - 1)) * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
-    trace.reset(start, end);
-    if (-1 < cell.y) {
-        do {
-            if (hit) {
-                goto done;
-            }
-            if (test_props != 0) {
-                scratch.keys.clear();
-                CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP, scratch);
-                if (!scratch.keys.empty()) {
-                    int prop = this->TestPropSurfaces(scratch.keys, &trace, 0, 0);
-                    prop_id = prop;
-                    if (prop >= 0) {
-                        prop_hit = true;
-                    }
-                }
-            }
-            if (ProbeCellForTrace(cell, scratch) == 0) {
-                goto descend;
-            }
-            if (!scratch.keys.empty()) {
-                const auto contact = traceGeometry(
-                    {trace.start, trace.end, trace.step, trace.length, trace.hit_limit},
-                    {.walkable_only = true}, {scratch.keys.data(), scratch.keys.size()});
-                hit = contact.has_value();
-                trace.hit_surface = contact ? contact->surface_index : 0;
-                if (contact) {
-                    trace.end = contact->point;
-                    trace.hit_limit = trace.length = contact->distance;
-                }
-            } else {
-                hit = false;
-                trace.hit_surface = 0;
-            }
-            if (!hit) {
-            descend:
-                if (prop_hit) {
-                    hit = true;
-                } else {
-                    float level = static_cast<float>(cell.y);
-                    --cell.y;
-                    start.y = level * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
-                    end.y -= m_spatial.m_node_extent;
-                    trace.reset(start, end);
-                }
-            } else if (prop_hit) {
-                prop_id = -1;
-            }
-        } while (-1 < cell.y);
-        if (hit) {
-        done:
-            position.y = trace.end.y;
-            goto out;
+    auto trace = planeSegment(start, end);
+    while (-1 < cell.y) {
+        std::optional<PropTraceHit> prop;
+        if (test_props) {
+            scratch.keys.clear();
+            CollectObjectsInCell(cell, W8_OCTREE_KIND_PROP, scratch);
+            prop = tracePropList(scratch.keys, trace, {});
+            if (prop) trace = planeSegment(trace.start, prop->position);
         }
+        if (ProbeCellForTrace(cell, scratch) != 0) {
+            if (const auto contact = traceGeometry(trace, {.walkable_only = true}, scratch.keys)) {
+                position.y = contact->point.y;
+                return {position, GroundSurfaceContact{contact->surface_index}};
+            }
+        }
+        if (prop) {
+            position.y = trace.end.y;
+            return {position, GroundPropContact{prop->prop_id}};
+        }
+        const float level = static_cast<float>(cell.y);
+        --cell.y;
+        start.y = level * m_spatial.m_node_extent + m_spatial.m_bounds.minimum.y;
+        end.y -= m_spatial.m_node_extent;
+        trace = planeSegment(start, end);
     }
-    trace.end.y = position.y;
-out:
-    return {position, hit, trace.hit_surface, prop_id};
+    return {position, std::nullopt};
 }
 
-bool LevelSpatialIndex::HasLineOfSight(const glm::vec3* from, glm::vec3* to,
-                                       bool allow_fallback) const
+bool LevelSpatialIndex::hasLineOfSight(const glm::vec3& from, const glm::vec3& to) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
-    glm::ivec3 cell;
-    glm::ivec3 end_cell;
-    unsigned char blocked = 0;
-
-    W8OctreeTrace trace((*from), (*to));
-
-    scratch.keys.clear();
-    std::ranges::fill(scratch.visited_polygons, false);
-    cell = cellAt((*from));
-    end_cell = cellAt((*to));
-
+    const auto segment = planeSegment(from, to);
+    bool blocked = false;
     visitOctreeSegment(
-        cell, end_cell, [&] { return cellWalk((*from), (*to)); },
+        cellAt(from), cellAt(to), [&] { return cellWalk(from, to); },
         [&](const glm::ivec3& current, bool adjacent) {
             if (ProbeCellForBlockers(current, scratch) != 0 || adjacent)
-                blocked = TestProbeResult(&trace, scratch);
-            return blocked == 0;
+                blocked = meshPolygonsBlock(segment, scratch.keys);
+            return !blocked;
         });
-    if (blocked != 0) {
-        *to = trace.end;
-    } else if (allow_fallback) {
-        if (const auto hit = traceProps((*from), (*to), 1, 1)) {
-            *to = hit->position;
-            blocked = 1;
-        }
-    }
-    return blocked == 0;
+    return !blocked && !traceProps(from, to, {.skip_filtered = true, .attached_only = true});
 }
 
-short LevelSpatialIndex::TraceLineOfSight(const glm::vec3* from, glm::vec3* to, bool trace_world,
-                                          int from_location_id, int to_location_id,
-                                          bool visit_octree, int trace_mode) const
+/* The walk stops in the first cell whose level surfaces meet the segment;
+   props are then traced only up to that contact, so a nearer prop wins. */
+std::optional<SightHit> LevelSpatialIndex::traceSight(const glm::vec3& from, const glm::vec3& to,
+                                                      SightQuery query) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
-    glm::ivec3 cell;
-    glm::ivec3 end_cell;
-
-    bool blocked = false;
-    int result;
-
-    W8OctreeTrace trace((*from), (*to));
-    result = 0;
-
-    if (visit_octree) {
-        scratch.keys.clear();
-        std::ranges::fill(scratch.visited_objects, false);
-        cell = cellAt((*from));
-        end_cell = cellAt((*to));
-
-        visitOctreeSegment(
-            cell, end_cell, [&] { return cellWalk((*from), (*to)); },
-            [&](const glm::ivec3& current, bool adjacent) {
-                if (ProbeCellForTrace(current, scratch) != 0 || adjacent) {
-                    const auto contact =
-                        !scratch.keys.empty()
-                            ? traceGeometry({trace.start, trace.end, trace.step, trace.length,
-                                             trace.hit_limit},
-                                            {}, {scratch.keys.data(), scratch.keys.size()})
-                            : std::nullopt;
-                    blocked = contact.has_value();
-                    trace.hit_surface = contact ? contact->surface_index : 0;
-                    if (contact) {
-                        trace.end = contact->point;
-                        trace.hit_limit = trace.length = contact->distance;
-                    }
-                }
-                return !blocked;
-            });
-        const auto prop_hit = trace_world ? traceProps((*from), trace.end, 0, 0) : std::nullopt;
-        if (!prop_hit) {
-            if (!blocked) {
-                goto resolve;
+    const auto segment = planeSegment(from, to);
+    std::optional<SurfaceRayHit> surface;
+    visitOctreeSegment(
+        cellAt(from), cellAt(to), [&] { return cellWalk(from, to); },
+        [&](const glm::ivec3& current, bool adjacent) {
+            if (ProbeCellForTrace(current, scratch) != 0 || adjacent) {
+                surface =
+                    !scratch.keys.empty() ? traceGeometry(segment, {}, scratch.keys) : std::nullopt;
             }
-        } else {
-            trace.end = prop_hit->position;
-            blocked = true;
-        }
-        result = 1;
-        if (blocked) {
-            *to = trace.end;
-            return 1;
-        }
+            return !surface;
+        });
+    const glm::vec3 end = surface ? surface->point : to;
+    if (query.props) {
+        if (const auto prop = traceProps(from, end, {}))
+            return SightHit{prop->position, SightBlocker::Obstacle};
     }
-resolve:
-    if (from_location_id > -3) {
-        if (const auto hit = traceSphereHit(trace.start, trace.end, from_location_id,
-                                            to_location_id, to_location_id, 0, trace_mode)) {
-            *to = hit->position;
-            return -1;
-        }
+    if (surface) return SightHit{end, SightBlocker::Obstacle};
+    if (query.locations) {
+        const auto& locations = *query.locations;
+        if (const auto hit = traceSphereHit(from, to, locations.source, locations.target,
+                                            locations.target, 0, locations.noise_adjust))
+            return SightHit{hit->position, SightBlocker::Location};
     }
-    return static_cast<short>(result);
+    return std::nullopt;
 }
 
 /* Trace location spheres and then the camera. The winning location id
@@ -1326,34 +1235,19 @@ W8OctreeWalk LevelSpatialIndex::cellWalk(const glm::vec3& from, const glm::vec3&
 }
 
 /* Walk the segment's cells collecting every kind-8 (collidable prop) registry
-   entry into the shared buffer, then hand the accumulated id list to the
-   GameData prop trace. The hit returns its prop id and contact together;
-   the prop id is returned on the probe for existing registry consumers. */
-std::optional<LevelSpatialIndex::PropTraceHit> LevelSpatialIndex::traceProps(const glm::vec3& from,
-                                                                             const glm::vec3& to,
-                                                                             int skip_flag,
-                                                                             int gate) const
+   entry, then trace the collected props in collection order. */
+std::optional<LevelSpatialIndex::PropTraceHit>
+LevelSpatialIndex::traceProps(const glm::vec3& from, const glm::vec3& to,
+                              PropTraceFilter filter) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
-    glm::ivec3 cell;
-    glm::ivec3 end_cell;
-
-    W8OctreeTrace trace(from, to);
-    scratch.keys.clear();
-    std::ranges::fill(scratch.visited_objects, false);
-    cell = cellAt(from);
-    end_cell = cellAt(to);
     visitOctreeSegment(
-        cell, end_cell, [&] { return cellWalk(from, to); },
+        cellAt(from), cellAt(to), [&] { return cellWalk(from, to); },
         [&](const glm::ivec3& current, bool) {
             CollectObjectsInCell(current, W8_OCTREE_KIND_PROP, scratch);
             return true;
         });
-    const int prop = this->TestPropSurfaces(scratch.keys, &trace, skip_flag, gate);
-    if (prop < 0) {
-        return std::nullopt;
-    }
-    return PropTraceHit{trace.end, prop};
+    return tracePropList(scratch.keys, planeSegment(from, to), filter);
 }
 
 /* The cell probes share one lookup: bounds-check the cell against the grid,
@@ -1421,44 +1315,28 @@ std::size_t LevelSpatialIndex::ProbeCellForBlockersAppend(const glm::ivec3& cell
     return scratch.keys.size();
 }
 
-/* March the buffered (mesh<<16)|polygon keys, ray-test each live mesh
-   instance's triangle against the record and keep the nearest contact: the
-   record's end returns the hit position and hit_limit the distance. */
-unsigned char LevelSpatialIndex::TestProbeResult(W8OctreeTrace* trace, OctreeScratch& scratch) const
+/* Ray-test each live, opaque mesh instance's triangle for the buffered
+   (mesh<<16)|polygon keys against the segment. */
+bool LevelSpatialIndex::meshPolygonsBlock(const PlaneSegment& segment,
+                                          std::span<const w8_ulong> keys) const
 {
-    bool hit = false;
-    glm::vec3 best_contact;
-
-    for (unsigned int index = 0; index < scratch.keys.size(); ++index) {
-        unsigned int mesh_index = scratch.keys[index] >> 0x10;
-        if (mesh_index < m_meshCount && owner_world->psrMeshes[mesh_index] != 0 &&
-            !TestBit(m_alpha_bits, mesh_index)) {
-            Mesh* model = static_cast<Mesh*>(owner_world->psrMeshes[mesh_index]->getModel());
-            const glm::vec4* planes = model->getPolyEq();
-            unsigned int polygon = scratch.keys[index] & 0xffff;
-            const glm::vec4* plane = planes + polygon;
-            const auto contact = planeContact(
-                *plane, {trace->start, trace->end, trace->step, trace->length, trace->hit_limit},
-                PlaneContactMode::Collision);
-            if (contact) {
-                const auto axis = dominantPlaneAxis(glm::vec3(*plane));
-                const glm::ivec3* poly_vertex = model->getPolyVertex() + polygon;
-                const glm::vec3* vertices = model->getVertexLoc();
-                const RuntimeTriangle triangle{vertices[poly_vertex->x], vertices[poly_vertex->y],
-                                               vertices[poly_vertex->z]};
-                if (PointInsideTriangle(triangle, axis, contact->point) &&
-                    contact->distance < trace->hit_limit) {
-                    trace->hit_limit = contact->distance;
-                    hit = true;
-                    best_contact = contact->point;
-                }
-            }
-        }
-    }
-    if (hit) {
-        trace->end = best_contact;
-    }
-    return hit;
+    return std::ranges::any_of(keys, [&](w8_ulong key) {
+        const unsigned int mesh_index = key >> 0x10;
+        if (mesh_index >= m_meshCount || owner_world->psrMeshes[mesh_index] == 0 ||
+            TestBit(m_alpha_bits, mesh_index))
+            return false;
+        Mesh* model = static_cast<Mesh*>(owner_world->psrMeshes[mesh_index]->getModel());
+        const unsigned int polygon = key & 0xffff;
+        const glm::vec4& plane = model->getPolyEq()[polygon];
+        const auto contact = planeContact(plane, segment, PlaneContactMode::Collision);
+        if (!contact) return false;
+        const glm::ivec3& poly_vertex = model->getPolyVertex()[polygon];
+        const glm::vec3* vertices = model->getVertexLoc();
+        const RuntimeTriangle triangle{vertices[poly_vertex.x], vertices[poly_vertex.y],
+                                       vertices[poly_vertex.z]};
+        return PointInsideTriangle(triangle, dominantPlaneAxis(glm::vec3(plane)), contact->point) &&
+               contact->distance < segment.limit;
+    });
 }
 
 /* Collect the (mesh<<16)|polygon keys whose triangles touch the box

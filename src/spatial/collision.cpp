@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <variant>
 #include <vector>
 
 #include <glm/common.hpp>
@@ -78,18 +79,20 @@ class Texture;
 GroundProbe probeGround(const glm::vec3& position)
 {
     if (GetWorldSpatialIndex()) return GetWorldSpatialIndex()->settleToGround(position, true, 500);
-    return {position, false};
+    return {position, std::nullopt};
 }
 
 /* The ground height under `position` plus the footstep surface/material of
-   the surface the last trace selected; both outputs stay zero when no
-   surface was recorded. */
+   the level surface the probe settled on; both stay none when the probe
+   missed or a prop stopped it. */
 GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 {
     const auto probe = probeGround(position);
     GroundSurfaceInfo result{probe.position.y, W8_FOOTSTEP_SURFACE_NONE, W8_FOOTSTEP_MATERIAL_NONE};
-    if (GetWorldCollision() && probe.surface != 0) {
-        const auto& hit = GetWorldCollision()->m_pSurfaces[probe.surface];
+    const auto* contact =
+        probe.contact ? std::get_if<GroundSurfaceContact>(&*probe.contact) : nullptr;
+    if (GetWorldCollision() && contact) {
+        const auto& hit = GetWorldCollision()->m_pSurfaces[contact->surface];
         result.surface = hit.footstep_surface;
         result.material = hit.footstep_material;
     }
@@ -683,45 +686,28 @@ unsigned char LevelSpatialIndex::AdvanceEnvironmentMotion(PartyMotion& motion,
 /* 0x005EBB34: one float constant with two independent readings - the level
    vector's "no value" here, and Controls.cpp's own range start. Neither is
    proven, so it keeps its address. */
-/* Run the buffered prop id list through TestProp and report the id of the
-   last prop that hit; an empty list reports -1. */
-int LevelSpatialIndex::TestPropSurfaces(std::span<const w8_ulong> ids, W8OctreeTrace* trace,
-                                        char skip_flag, char gate) const
+/* Each collidable prop's surfaces are traced in prop space through the
+   prop's position delta. Only the segment's end moves into prop space; the
+   start stays in world space, as in retail. */
+std::optional<LevelSpatialIndex::PropTraceHit>
+LevelSpatialIndex::tracePropList(std::span<const w8_ulong> ids, const PlaneSegment& segment,
+                                 PropTraceFilter filter) const
 {
-    int last_hit = -1;
-    for (const auto id : ids)
-        if (TestProp(id, trace, skip_flag, gate)) last_hit = id;
-    return last_hit;
-}
-
-/* Point the shared surface/vertex arrays at one collidable prop's Prop
-   tables and ray-test them. The prop comes from the world's collidable list,
-   its pathing representation is built on demand, and the ray is moved into
-   prop space through the prop's
-   position delta; on a hit the caller's record is reseeded from the start to
-   the world-space contact. `gate` skips flag-4 props when set. */
-bool LevelSpatialIndex::TestProp(int prop_id, W8OctreeTrace* trace, char skip_flag, char gate) const
-{
-    const auto* prop = this->owner_world->collidable_props[prop_id];
-    if (!prop->collision_ready) return false;
-    auto* gd_prop = (prop->collision_ready ? prop : nullptr);
-    if (gate != 0 && gd_prop->collision_unattached) return false;
-
-    const auto start = trace->start;
-    auto end = trace->end;
-    const auto delta = prop->GetDelta();
-    end -= delta;
-    W8OctreeTrace prop_trace(start, end);
-    const auto hit = traceSurfaces(gd_prop->m_pGDSurfaces, gd_prop->m_pVertices,
-                                   {prop_trace.start, prop_trace.end, prop_trace.step,
-                                    prop_trace.length, prop_trace.hit_limit},
-                                   {.skip_filtered = skip_flag != 0});
-    trace->hit_surface = hit ? hit->surface_index : 0;
-    if (hit) {
-        end = hit->point + delta;
-        trace->reset(start, end);
+    std::optional<PropTraceHit> nearest;
+    auto remaining = segment;
+    for (const auto id : ids) {
+        const auto* prop = owner_world->collidable_props[id];
+        if (!prop->collision_ready || (filter.attached_only && prop->collision_unattached))
+            continue;
+        const auto delta = prop->GetDelta();
+        const auto hit = traceSurfaces(prop->m_pGDSurfaces, prop->m_pVertices,
+                                       planeSegment(remaining.start, remaining.end - delta),
+                                       {.skip_filtered = filter.skip_filtered});
+        if (!hit) continue;
+        nearest = PropTraceHit{hit->point + delta, static_cast<int>(id)};
+        remaining = planeSegment(remaining.start, nearest->position);
     }
-    return hit.has_value();
+    return nearest;
 }
 
 std::optional<SurfaceRayHit>
@@ -1643,15 +1629,13 @@ int GetCameraYawDegrees(void)
 /* Point-visibility query: returns whether the camera has line of sight to the
    given position through the world octree. Fails with no world loaded; with a
    world but no octree there is nothing to occlude, so it returns true. */
-bool HasCameraLineOfSight(const glm::vec3* position)
+bool hasCameraLineOfSight(const glm::vec3& position)
 {
-    glm::vec3 to = *position;
     if (GetWorld() == 0) {
         return false;
     }
-    glm::vec3 from = cameraLocation();
     if (auto* spatial = GetWorld()->compiledIndex()) {
-        return spatial->HasLineOfSight(&from, &to, true);
+        return spatial->hasLineOfSight(cameraLocation(), position);
     }
     return true;
 }

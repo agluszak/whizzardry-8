@@ -391,7 +391,7 @@ bool MonGen::CanGenerateEncounter(bool force)
             return false;
         }
         if (GetWorldSpatialIndex() != 0 &&
-            GetWorldSpatialIndex()->HasLineOfSight(&camera, &spawn_position, true)) {
+            GetWorldSpatialIndex()->hasLineOfSight(camera, spawn_position)) {
             return false;
         }
     }

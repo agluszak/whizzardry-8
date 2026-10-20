@@ -196,8 +196,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             return false;
         }
         if (trace) {
-            return GetWorldSpatialIndex()->TraceLineOfSight(&camera_top, &point, true, -3, -3, true,
-                                                            0) == 0;
+            return !GetWorldSpatialIndex()->traceSight(camera_top, point);
         }
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8MonsterGroup* group = FindMonsterGroup(target->iGroupID, false);

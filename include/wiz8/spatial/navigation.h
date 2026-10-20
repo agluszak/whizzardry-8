@@ -220,6 +220,13 @@ struct PathSpanResult {
     glm::vec3 endpoint;
 };
 
+// A route the navigation mesh found between two points.
+struct MeasuredPath {
+    float length;
+    // Hops whose link runs through a closed door.
+    int door_hops;
+};
+
 struct PathGraphSearchNode {
     unsigned short search_parent = 0;
     float heuristic = 0, path_cost = 0, estimated_total_cost = 0;
@@ -294,9 +301,9 @@ public:
                                                float radius, float separation,
                                                std::vector<W8PathSearchNode>& nodes,
                                                bool explicit_target) const;
-    short TraceSearchNodeToTarget(unsigned short node, NavigatorMovement* movement,
-                                  std::vector<W8PathSearchNode>& nodes,
-                                  const W8MovementTrace& trace) const;
+    bool SearchNodeSeesTarget(unsigned short node, NavigatorMovement* movement,
+                              std::vector<W8PathSearchNode>& nodes,
+                              const W8MovementTrace& trace) const;
     bool TestSearchPositionVisibility(const glm::vec3* position, NavigatorMovement* movement,
                                       const W8MovementTrace& trace) const;
     unsigned short ConfigureMovementSearch(PathSearchScratch& path_search,
@@ -364,10 +371,11 @@ public:
                                       float distance) const;
     PathSpanResult tracePathSpan(const glm::vec3& source, const glm::vec3& destination,
                                  bool adjust_destination, bool diagonal_steps) const;
-    /* `range` carries the walk budget in and the path cost back out; `hops`
-       returns the reached-waypoint count. */
-    bool MeasureAttachmentPath(PathSearchScratch& path_search, const glm::vec3* from, glm::vec3* to,
-                               float* range, int* hops) const; /* 0x004604B0 */
+    /* The route from `from` to `to`, searched within `budget` when it is
+       positive; no value when no route exists. */
+    std::optional<MeasuredPath> MeasureAttachmentPath(PathSearchScratch& path_search,
+                                                      const glm::vec3& from, const glm::vec3& to,
+                                                      float budget) const; /* 0x004604B0 */
     /* Whether the hop at the attachment's current index crosses a disabled
        conditional edge whose segment box holds a door prop - and that prop's
        door-trigger action data is a type-10 record with flag bit0 clear. */

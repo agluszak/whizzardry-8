@@ -67,14 +67,13 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
             }
         }
         if (flag == 1 && CurrentGame().combat.active()) {
-            float range = static_cast<float>(radius);
-            int hops;
-            if (GetWorldSpatialIndex()->TestNoiseLineOfSight(&monster_position, &noise_position,
-                                                             &range, &hops) == 0) {
+            const auto path = GetWorldSpatialIndex()->measureNoisePath(
+                monster_position, noise_position, static_cast<float>(radius));
+            if (!path) {
                 continue;
             }
             // Truncate the float move-range to int before scaling, matching retail.
-            if (static_cast<int>(GetMonsterCombatMoveRange(info)) * 1000 < range) {
+            if (static_cast<int>(GetMonsterCombatMoveRange(info)) * 1000 < path->length) {
                 continue;
             }
         }

@@ -490,21 +490,19 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             } else {
                 glm::vec3 noise_position;
                 glm::vec3 position;
-                float range;
                 int radius;
-                int hops;
 
                 noise_position = monster_info->heard_noise_position;
                 radius = monster_info->heard_noise_radius * 3 / 2;
                 if (radius >= g_noise_investigate_radius_cap) {
                     radius = g_noise_investigate_radius_cap;
                 }
-                range = static_cast<float>(radius);
                 position = monster->nav.GetPosition();
-                if (GetWorldSpatialIndex()->TestNoiseLineOfSight(&position, &noise_position, &range,
-                                                                 &hops) != 0 &&
-                    NoiseHearingMargin(monster_info->heard_noise_radius, static_cast<int>(range),
-                                       hops) > 0) {
+                const auto path = GetWorldSpatialIndex()->measureNoisePath(
+                    position, noise_position, static_cast<float>(radius));
+                if (path &&
+                    NoiseHearingMargin(monster_info->heard_noise_radius,
+                                       static_cast<int>(path->length), path->door_hops) > 0) {
                     mode = W8_RT_AI_INVESTIGATE_NOISE;
                     changed = true;
                 } else {

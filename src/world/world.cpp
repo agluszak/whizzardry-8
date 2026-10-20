@@ -509,8 +509,10 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                            glm::dvec3(second));
         second += *position;
 
-        GetWorldSpatialIndex()->TraceLineOfSight(position, &first, true, -3, -3, true, 0);
-        GetWorldSpatialIndex()->TraceLineOfSight(position, &second, true, -3, -3, true, 0);
+        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, first))
+            first = hit->point;
+        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, second))
+            second = hit->point;
 
         first -= *position;
         second -= *position;
@@ -587,7 +589,8 @@ unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool che
         candidate = offset + *position;
         glm::vec3 unblocked = candidate;
 
-        GetWorldSpatialIndex()->TraceLineOfSight(position, &candidate, true, -3, -3, true, 0);
+        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, candidate))
+            candidate = hit->point;
         if (candidate == unblocked &&
             AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
             *position = candidate;

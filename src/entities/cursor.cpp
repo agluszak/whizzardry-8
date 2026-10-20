@@ -419,8 +419,7 @@ void UpdateWorldCursor(void)
         if (cursor.left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
-                GetWorldSpatialIndex()->TraceLineOfSight(&camera, &resolved, true, -3, -3, true,
-                                                         0) == 0) {
+                !GetWorldSpatialIndex()->traceSight(camera, resolved)) {
                 box_min = resolved + cursor.extent_min;
                 box_max = resolved + cursor.extent_max;
                 if (!cursor.footprint_mode ||
@@ -522,8 +521,7 @@ char MarchWorldCursorTarget(glm::vec3* target)
             trace_from = end_pos + cursor.probe_center;
             for (i = 0; i < 8; i++) {
                 probe = end_pos + cursor.probe_offsets[i];
-                if (GetWorldSpatialIndex()->TraceLineOfSight(&trace_from, &probe, true, -3, -3,
-                                                             true, 0) != 0) {
+                if (GetWorldSpatialIndex()->traceSight(trace_from, probe).has_value()) {
                     *target = last_valid;
                     return 1;
                 }

@@ -663,21 +663,22 @@ unsigned char NavigationMesh::HandlePathEdgeTransition(NavigatorMovement* moveme
 }
 
 /* Measure the route between two points for the noise line-of-sight query. A
-   throwaway attachment is built over (from, to); a positive `range` budget is
-   held in path_search.cost_limit while the path builds, and both
-   exits restore the 1.0e10f limit. On success `range` receives the
-   measured path length and `hops` the count of hop segments whose link is
-   gated by a door. */
-bool NavigationMesh::MeasureAttachmentPath(PathSearchScratch& path_search, const glm::vec3* from,
-                                           glm::vec3* to, float* range, int* hops) const
+   throwaway attachment is built over (from, to); a positive `budget` is held
+   in path_search.cost_limit while the path builds, and both exits restore the
+   1.0e10f limit. The result carries the measured path length and the count of
+   hop segments whose link is gated by a door. */
+std::optional<MeasuredPath> NavigationMesh::MeasureAttachmentPath(PathSearchScratch& path_search,
+                                                                  const glm::vec3& from,
+                                                                  const glm::vec3& to,
+                                                                  float budget) const
 {
-    NavigatorRoute attachment(from, to);
-    if (*range > 0.0f) {
-        path_search.cost_limit = *range;
+    NavigatorRoute attachment(&from, &to);
+    if (budget > 0.0f) {
+        path_search.cost_limit = budget;
     }
     if (!BuildAttachmentPath(path_search, &attachment, 0)) {
         path_search.cost_limit = 1.0e10f;
-        return false;
+        return std::nullopt;
     }
 
     unsigned short cursor = attachment.path_cursor;
@@ -687,16 +688,15 @@ bool NavigationMesh::MeasureAttachmentPath(PathSearchScratch& path_search, const
     attachment.position_cursor = cursor;
     ++attachment.position_cursor;
 
-    *range = attachment.MeasurePathLength();
-    *hops = 0;
+    MeasuredPath result{attachment.MeasurePathLength(), 0};
     while (attachment.path_cursor < attachment.path_position_index) {
         if (TestAttachmentHopDoor(&attachment)) {
-            ++*hops;
+            ++result.door_hops;
         }
         ++attachment.path_cursor;
     }
     path_search.cost_limit = 1.0e10f;
-    return true;
+    return result;
 }
 
 /* Whether the hop at the attachment's current index runs over a disabled
@@ -1654,16 +1654,16 @@ static glm::vec3 GetSearchTraceOffset(float bearing, const W8MovementTrace& trac
     return glm::vec3{rotation * trace.offset};
 }
 
-short NavigationMesh::TraceSearchNodeToTarget(unsigned short node, NavigatorMovement* movement,
-                                              std::vector<W8PathSearchNode>& nodes,
-                                              const W8MovementTrace& trace) const
+bool NavigationMesh::SearchNodeSeesTarget(unsigned short node, NavigatorMovement* movement,
+                                          std::vector<W8PathSearchNode>& nodes,
+                                          const W8MovementTrace& trace) const
 {
     glm::vec3 trace_target = movement->target_position;
     trace_target.y += trace.target_height_offset;
     float bearing = NormalizeAngle(GetHeadingAngle(&nodes[node].position, &trace_target));
     glm::vec3 transformed = GetSearchTraceOffset(bearing, trace);
     glm::vec3 trace_source = nodes[node].position + transformed;
-    return owner_octree->TraceLineOfSight(&trace_source, &trace_target, true, -3, -3, true, 0);
+    return !owner_octree->traceSight(trace_source, trace_target);
 }
 
 /* Build a bounded grid route from the navigator's current position to its
@@ -1927,8 +1927,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
         unsigned short walk_parent = nodes[walk].parent_node;
         while (walk_parent != 0) {
             if (!explicit_target && direct_visibility_node == 0) {
-                short hit = TraceSearchNodeToTarget(walk, movement, nodes, trace);
-                if (hit != 0) {
+                if (!SearchNodeSeesTarget(walk, movement, nodes, trace)) {
                     nodes[walk].flags |= W8_PATH_SEARCH_EXPANDED;
                 } else {
                     direct_visibility_node = walk;
@@ -1938,8 +1937,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
             walk_parent = nodes[walk].parent_node;
         }
         if (!explicit_target && direct_visibility_node == 0) {
-            short hit = TraceSearchNodeToTarget(walk, movement, nodes, trace);
-            if (hit == 0) {
+            if (SearchNodeSeesTarget(walk, movement, nodes, trace)) {
                 direct_path = true;
             } else {
                 nodes[walk].flags |= W8_PATH_SEARCH_EXPANDED;
@@ -2245,10 +2243,12 @@ bool NavigationMesh::TestSearchPositionVisibility(const glm::vec3* position,
     if (CalcRangeDistance(W8_RANGE_TOUCH) < distance && trace.mode == 1) {
         range_mode = 1;
     }
-    short hit =
-        owner_octree->TraceLineOfSight(&trace_source, &trace_target, true, movement->location_id,
-                                       trace.target_location, true, range_mode);
-    if (hit != 1 && (hit != -1 || TraceModeRejectsNoHit(trace.mode) != 0)) {
+    const auto hit = owner_octree->traceSight(
+        trace_source, trace_target,
+        {.locations =
+             SightLocations{movement->location_id, trace.target_location, range_mode != 0}});
+    if (!hit ||
+        (hit->blocker == SightBlocker::Location && TraceModeRejectsNoHit(trace.mode) != 0)) {
         return true;
     }
     return false;

@@ -271,7 +271,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                 party = PartyNavigator()->GetPosition();
                 delta = position - party;
                 if ((detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
-                     HasCameraLineOfSight(&position)) &&
+                     hasCameraLineOfSight(position)) &&
                     glm::length(delta) <= g_radar_outer_radius) {
                     if (PlaceRadarBlip(&delta, 4, item->IsRadarBlipLit()) != 0) {
                         item->flags |= W8_ITEM_ENTITY_RADAR_SEEN;

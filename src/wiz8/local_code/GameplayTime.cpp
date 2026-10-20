@@ -957,7 +957,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
             probe.y += 1e+03f;
             camera = cameraLocation();
             if (projectsToCamera(probe) == 0 &&
-                !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
+                !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                 glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
@@ -1011,7 +1011,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 
                             camera = cameraLocation();
                             if (projectsToCamera(probe) == 0 &&
-                                !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
+                                !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                                 glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
@@ -1036,7 +1036,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
                 if (projectsToCamera(location) == 0 &&
-                    !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
+                    !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                     if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                         monster->formation.z == 0.0f) {
                         monster->formation = monster->nav.GetPosition();
@@ -1044,7 +1044,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                     probe = monster->formation;
                     probe.y += 1e+03f;
                     if (projectsToCamera(location) == 0 &&
-                        !GetWorldSpatialIndex()->HasLineOfSight(&camera, &probe, true)) {
+                        !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                             monster->formation.z == 0.0f) {
                             monster->formation = monster->nav.GetPosition();

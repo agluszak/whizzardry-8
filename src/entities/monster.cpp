@@ -492,7 +492,7 @@ void Monster::Update()
 
                 GetMappedPosition(&mapped_position);
                 sun_position = glm::vec3(sun_location);
-                if (GetWorldSpatialIndex()->HasLineOfSight(&mapped_position, &sun_position, true)) {
+                if (GetWorldSpatialIndex()->hasLineOfSight(mapped_position, sun_position)) {
                     if (sunlit_state == W8_MONSTER_SUNLIGHT_SHADOWED) {
                         target_scale = 0.75f;
                         light_scale_timer.SetDuration(0.025f);
@@ -888,33 +888,25 @@ bool Monster::CheckLineOfSightToPlayer()
     monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
     player_position = cameraLocation();
-    return GetWorldSpatialIndex()->HasLineOfSight(&monster_position, &player_position, true);
+    return GetWorldSpatialIndex()->hasLineOfSight(monster_position, player_position);
 }
 
-/* The sight code keeps the engine trace's three outcomes as two independent
-   flags. A clear trace sets both false, the special -1 result sets only the
-   secondary flag, and every other obstructed result sets both. */
+/* The sight code keeps a sight trace's three outcomes as two flags: a clear
+   line sets both, a location sphere in the way sets only the secondary flag,
+   and an obstacle sets neither. */
+static void applySightFlags(const std::optional<SightHit>& hit, bool& primary, bool& secondary)
+{
+    secondary = !hit || hit->blocker == SightBlocker::Location;
+    primary = !hit;
+}
+
 void Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
 {
-    glm::vec3 monster_position;
-    glm::vec3 player_position;
-    short result;
-
-    monster_position = nav.movement.position;
+    glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    player_position = cameraLocation();
-    result = GetWorldSpatialIndex()->TraceLineOfSight(&monster_position, &player_position, true,
-                                                      location_id, -1, true, 0);
-    if (result == -1) {
-        *secondary = true;
-        *primary = false;
-    } else if (result != 1) {
-        *secondary = true;
-        *primary = true;
-    } else {
-        *secondary = false;
-        *primary = false;
-    }
+    const auto hit = GetWorldSpatialIndex()->traceSight(
+        monster_position, cameraLocation(), {.locations = SightLocations{location_id, -1}});
+    applySightFlags(hit, *primary, *secondary);
 }
 
 /* The inexpensive visibility path tests the Monster's elevated origin. The
@@ -930,34 +922,17 @@ bool Monster::IsVisibleToPlayer(bool use_bounds)
 
     glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    return GetWorldSpatialIndex()->HasLineOfSight(&player_position, &monster_position, true);
+    return GetWorldSpatialIndex()->hasLineOfSight(player_position, monster_position);
 }
 
 void Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const glm::vec3* source)
 {
-    glm::vec3 monster_position;
-    glm::vec3 player_position;
-    short result;
-
-    monster_position = nav.movement.position;
+    glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    if (source == 0) {
-        player_position = cameraLocation();
-    } else {
-        player_position = *source;
-    }
-    result = GetWorldSpatialIndex()->TraceLineOfSight(&player_position, &monster_position, true, -1,
-                                                      location_id, true, 0);
-    if (result == -1) {
-        *secondary = true;
-        *primary = false;
-    } else if (result != 1) {
-        *secondary = true;
-        *primary = true;
-    } else {
-        *secondary = false;
-        *primary = false;
-    }
+    const glm::vec3 player_position = source == 0 ? cameraLocation() : *source;
+    const auto hit = GetWorldSpatialIndex()->traceSight(
+        player_position, monster_position, {.locations = SightLocations{-1, location_id}});
+    applySightFlags(hit, *primary, *secondary);
 }
 
 bool Monster::HasLineOfSightToMonster(Monster* monster)
@@ -969,31 +944,18 @@ bool Monster::HasLineOfSightToMonster(Monster* monster)
     from.y += nav.movement.height_offset;
     to = monster->nav.movement.position;
     to.y += monster->nav.movement.height_offset;
-    return GetWorldSpatialIndex()->HasLineOfSight(&from, &to, true);
+    return GetWorldSpatialIndex()->hasLineOfSight(from, to);
 }
 
 void Monster::GetMonsterSightFlags(Monster* monster, bool* primary, bool* secondary)
 {
-    glm::vec3 from;
-    glm::vec3 to;
-    short result;
-
-    from = nav.movement.position;
+    glm::vec3 from = nav.movement.position;
     from.y += nav.movement.height_offset;
-    to = monster->nav.movement.position;
+    glm::vec3 to = monster->nav.movement.position;
     to.y += monster->nav.movement.height_offset;
-    result = GetWorldSpatialIndex()->TraceLineOfSight(&from, &to, true, location_id,
-                                                      monster->location_id, true, 0);
-    if (result == -1) {
-        *secondary = true;
-        *primary = false;
-    } else if (result != 1) {
-        *secondary = true;
-        *primary = true;
-    } else {
-        *secondary = false;
-        *primary = false;
-    }
+    const auto hit = GetWorldSpatialIndex()->traceSight(
+        from, to, {.locations = SightLocations{location_id, monster->location_id}});
+    applySightFlags(hit, *primary, *secondary);
 }
 
 bool Monster::HasLineOfSightFromPoint(glm::vec3 point)
@@ -1002,8 +964,7 @@ bool Monster::HasLineOfSightFromPoint(glm::vec3 point)
 
     monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    return GetWorldSpatialIndex()->TraceLineOfSight(&point, &monster_position, true, -3, -3, true,
-                                                    0) != 1;
+    return !GetWorldSpatialIndex()->traceSight(point, monster_position);
 }
 
 int Monster::IsFacingMonster(Monster* monster)

@@ -447,11 +447,13 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 Fail("fFoundMissileVertex");
                                 clear = false;
                             } else {
-                                short line = GetWorldSpatialIndex()->TraceLineOfSight(
-                                    &trace_position, &other_position, true,
-                                    monster_info->location_id, other->location_id, true, 1);
-
-                                clear = line == 0;
+                                const auto hit = GetWorldSpatialIndex()->traceSight(
+                                    trace_position, other_position,
+                                    {.locations = SightLocations{monster_info->location_id,
+                                                                 other->location_id, true}});
+                                // The spell-origin trace ends where this one stopped.
+                                if (hit) other_position = hit->point;
+                                clear = !hit;
                             }
                             entry->los_flags[1] = clear;
                         }
@@ -462,10 +464,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 Fail("fFoundSpellVertex");
                                 entry->los_flags[3] = false;
                             } else {
-                                short line = GetWorldSpatialIndex()->TraceLineOfSight(
-                                    &trace_position, &other_position, true, -3, -3, true, 0);
-
-                                entry->los_flags[3] = line != 1;
+                                entry->los_flags[3] = !GetWorldSpatialIndex()->traceSight(
+                                    trace_position, other_position);
                             }
                         }
                     }
@@ -572,11 +572,12 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 Fail("fFoundMissileVertex");
                 clear = false;
             } else {
-                short line = GetWorldSpatialIndex()->TraceLineOfSight(
-                    &trace_position, &camera_position, true, monster_info->location_id, -1, true,
-                    1);
-
-                clear = line == 0;
+                const auto hit = GetWorldSpatialIndex()->traceSight(
+                    trace_position, camera_position,
+                    {.locations = SightLocations{monster_info->location_id, -1, true}});
+                // The spell-origin trace ends where this one stopped.
+                if (hit) camera_position = hit->point;
+                clear = !hit;
             }
             monster_info->player_visibility.los_flags[1] = clear;
         }
@@ -587,10 +588,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 Fail("fFoundSpellVertex");
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
-                short line = GetWorldSpatialIndex()->TraceLineOfSight(
-                    &trace_position, &camera_position, true, -3, -3, true, 0);
-
-                monster_info->player_visibility.los_flags[3] = line != 1;
+                monster_info->player_visibility.los_flags[3] =
+                    !GetWorldSpatialIndex()->traceSight(trace_position, camera_position);
             }
         }
     }

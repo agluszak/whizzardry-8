@@ -6,6 +6,7 @@
 #include <span>
 
 #include "glm/common.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
@@ -162,6 +163,16 @@ struct PlaneSegment {
     float length;
     float limit;
 };
+
+// The whole segment from `from` to `to`. The direction is normalized in double
+// precision; traces depend on that rounding.
+inline PlaneSegment planeSegment(const glm::vec3& from, const glm::vec3& to)
+{
+    const glm::vec3 delta = to - from;
+    const float length = glm::length(delta);
+    return {from, to, glm::vec3(glm::dvec3(delta) * (1.0 / static_cast<double>(length))), length,
+            length};
+}
 
 enum class PlaneContactMode : unsigned char { Collision, SurfaceCollision, Occlusion };
 

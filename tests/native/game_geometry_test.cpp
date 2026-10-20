@@ -142,7 +142,7 @@ static void planes_and_segments()
 {
     const glm::vec3 a(0, 2, 0), b(0, 2, 3), c(4, 2, 0);
     const auto ground = probeGround(a);
-    REQUIRE((ground.position == a && !ground.hit));
+    REQUIRE((ground.position == a && !ground.contact));
     const auto surface = groundSurfaceInfo(a);
     REQUIRE(surface.height == 2);
     REQUIRE((surface.surface == 0 && surface.material == 0));
@@ -1792,27 +1792,6 @@ TEST_CASE("Matrix value scopes restore nested transforms without a depth cap",
     }
 }
 
-TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state",
-          "[geometry][octree]")
-{
-    W8OctreeTrace trace;
-    REQUIRE(trace.start == glm::vec3(0));
-    REQUIRE(trace.step == glm::vec3(0));
-    REQUIRE(trace.hit_limit == 1.0e20f);
-    trace.reset({1, 2, 3}, {4, 6, 3});
-    REQUIRE(trace.length == 5);
-    REQUIRE(trace.hit_limit == 5);
-    REQUIRE(trace.step == glm::vec3(0.6f, 0.8f, 0));
-    trace.state = 7;
-    trace.hit_limit = 2;
-    trace.reset(trace.end, trace.start);
-    REQUIRE(trace.start == glm::vec3(4, 6, 3));
-    REQUIRE(trace.end == glm::vec3(1, 2, 3));
-    REQUIRE(trace.step == glm::vec3(-0.6f, -0.8f, 0));
-    REQUIRE(trace.hit_limit == 5);
-    REQUIRE(trace.state == 0);
-}
-
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",
           "[geometry]")
 {
@@ -2194,10 +2173,45 @@ TEST_CASE("Movement traces use each search's source and target heights", "[geome
     nodes[0].position = {900, 100, 100};
     const W8MovementTrace low{.offset = glm::vec3(0), .target_height_offset = 0};
     const W8MovementTrace eye;
-    REQUIRE(pathing.TraceSearchNodeToTarget(0, &movement, nodes, low) == 1);
-    REQUIRE(pathing.TraceSearchNodeToTarget(0, &movement, nodes, eye) == 0);
-    REQUIRE(pathing.TraceSearchNodeToTarget(0, &movement, nodes, low) == 1);
+    REQUIRE_FALSE(pathing.SearchNodeSeesTarget(0, &movement, nodes, low));
+    REQUIRE(pathing.SearchNodeSeesTarget(0, &movement, nodes, eye));
+    REQUIRE_FALSE(pathing.SearchNodeSeesTarget(0, &movement, nodes, low));
     REQUIRE(movement.target_position == glm::vec3(100, 100, 100));
+}
+
+TEST_CASE("Ground probes report the level surface they settle on, including surface zero",
+          "[geometry][octree]")
+{
+    World world;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->collision_available = true;
+    auto& data = *world.collisionIndex();
+    data.m_pVertices = {{0, 0, 0}, {0, 0, 1000}, {1000, 0, 0}};
+    data.m_pSurfaces.resize(1);
+    auto& floor = data.m_pSurfaces[0];
+    for (int index = 0; index < 3; ++index) floor.vertex_indices[index] = index;
+    surfaceGeometry::initializePropSurface(floor, data.m_pVertices);
+    floor.index = 0;
+    auto& tree = *world.spatial;
+    tree.m_object_bit_count = 1;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
+    tree.m_spatial.m_clipped_bounds.maximum = glm::vec3(1000);
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = {1};
+    tree.m_leaves.resize(2);
+    tree.m_leaves[1].gd_polygon_offset = 1;
+    tree.m_gd_surface_index_stream = {0, 1, 0};
+
+    const auto ground = tree.settleToGround({500, 100, 200}, false, 500);
+    REQUIRE(ground.position == glm::vec3(500, 0, 200));
+    REQUIRE(ground.contact);
+    REQUIRE(std::get<GroundSurfaceContact>(*ground.contact).surface == 0);
+    REQUIRE_FALSE(ground.prop());
+
+    const auto miss = tree.settleToGround({900, 100, 900}, false, 500);
+    REQUIRE(miss.position == glm::vec3(900, 100, 900));
+    REQUIRE_FALSE(miss.contact);
 }
 
 TEST_CASE("Surface ray queries keep chance and skip filters local", "[geometry]")
