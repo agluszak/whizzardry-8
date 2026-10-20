@@ -85,9 +85,9 @@
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
-struct LevelWorldFixture {
-    std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
-    ~LevelWorldFixture() { ReplaceWorld(std::move(previous)); }
+// A game in progress with an empty level world.
+struct LevelWorldFixture : ScopedGame {
+    LevelWorldFixture() { game.level.replacePrimary(std::make_unique<World>()); }
 };
 
 static std::vector<int> masterCalls;
@@ -422,7 +422,6 @@ static bool visibilityRecordLifetime()
 
 TEST_CASE_METHOD(LevelWorldFixture, "collections_test")
 {
-    const ScopedGame game;
     REQUIRE(gameplayCollectionLifetime());
     REQUIRE(masterFunctionMutation());
     REQUIRE(groupMemberLookup());
@@ -585,7 +584,6 @@ TEST_CASE_METHOD(LevelWorldFixture,
                  "A failed alternate-weapon search leaves equipment and binding state untouched",
                  "[equipment]")
 {
-    const ScopedGame game;
     auto& characters = CurrentGame().party.characters;
     auto& rows = CurrentGame().party.rows;
     const ScopedRecords items(MutableData().items, 2);
@@ -755,11 +753,8 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
           "[groups]")
 {
     const ScopedGame game;
-    struct Restore {
-        std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
-        ScopedCombat combat{true};
-        ~Restore() { ReplaceWorld(std::move(world)); }
-    } restore;
+    game.game.level.replacePrimary(std::make_unique<World>(0));
+    const ScopedCombat combat{true};
     const ScopedRecords levels(MutableData().levels, 1);
     MutableData().levels[0].minimum_encounter_budget = 1;
     MutableData().levels[0].maximum_encounter_budget = 20;
@@ -797,10 +792,8 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
 TEST_CASE("Encounter state prepares independently and retains the retail save fields",
           "[groups][save]")
 {
-    struct Restore {
-        std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
-        ~Restore() { ReplaceWorld(std::move(world)); }
-    } restore;
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(0));
     const ScopedRecords levels(MutableData().levels, 2);
     MutableData().levels[1].minimum_encounter_budget = 2;
     MutableData().levels[1].maximum_encounter_budget = 9;
@@ -842,7 +835,6 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
 TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detaching its source",
                  "[groups]")
 {
-    const ScopedGame game;
     W8MonsterGroup destination{}, source{};
     destination.group_id = 1;
     std::ranges::fill(destination.allied_group_ids, 99);
@@ -856,11 +848,8 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
 TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
 {
     const ScopedGame game;
-    struct Restore {
-        std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
-        ScopedCombat combat{true};
-        ~Restore() { ReplaceWorld(std::move(world)); }
-    } restore;
+    game.game.level.replacePrimary(std::make_unique<World>(0));
+    const ScopedCombat combat{true};
     const ScopedRecords levels(MutableData().levels, 1);
     MutableData().levels[0].minimum_encounter_budget = 1;
     MutableData().levels[0].maximum_encounter_budget = 20;

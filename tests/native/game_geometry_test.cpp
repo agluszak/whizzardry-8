@@ -31,6 +31,7 @@
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
+#include "scoped_game.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/audio/sound3d.h"
@@ -702,10 +703,8 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
 TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
           "[geometry][octree]")
 {
-    struct RestoreWorld {
-        std::unique_ptr<World> previous;
-        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
-    } restore{ReplaceWorld(std::make_unique<World>())};
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
     auto& world = *GetWorld();
     constexpr unsigned faces = 42;
     auto mesh = std::make_shared<Mesh>(faces, 3);

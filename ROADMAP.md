@@ -121,8 +121,7 @@ the licensed runtime scenarios after every step.
      the UI drains the log after each command and step instead.
    - This absorbs "characters by slot, items by location" below.
 4. **One step.**
-   - Move the frame's simulation order into `Game::advance`, and move the primary and sky
-     worlds into the game's `Level`.
+   - Move the frame's simulation order into `Game::advance`.
    - Game time follows the activity, not the screen: camp commands set `Activity::place`
      instead of the screen router, and `Place::Menu` goes because a covered screen does
      not step.
@@ -198,7 +197,7 @@ each.
   - codecs own every byte, including unknown fields;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
-- **Actor references.** (After step 4, when the game owns the level.) About 500
+- **Actor references.** About 500
   uses of raw `p3D` actor pointers survive. The location-ID review fixed some
   unloaded-actor cases. Replace borrowed pointers with world-owned handles or
   explicit lookups resolved at use, including trigger-driven reactivation, and add

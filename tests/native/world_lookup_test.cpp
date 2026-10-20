@@ -57,8 +57,8 @@ Trigger* AddTrigger(World& world, const char* name)
 
 bool triggers()
 {
-    ReplaceWorld(std::make_unique<World>());
-    ReplaceSkyWorld(std::make_unique<World>());
+    CurrentGame().level.replacePrimary(std::make_unique<World>());
+    CurrentGame().level.replaceSky(std::make_unique<World>());
     auto& level = *GetWorld();
     auto& sky = *GetSecondaryWorld();
     Trigger* first = AddTrigger(level, "DOOR");
@@ -86,15 +86,13 @@ bool triggers()
     REQUIRE(FindTriggerByName("SKYDOOR") == in_sky);
     Trigger* replacement = AddTrigger(level, "DOOR");
     REQUIRE(FindTriggerByName("DOOR") == replacement);
-    ReplaceWorld(nullptr);
-    ReplaceSkyWorld(nullptr);
     return true;
 }
 
 bool nodes(const std::filesystem::path& directory)
 {
-    ReplaceWorld(std::make_unique<World>());
-    ReplaceSkyWorld(std::make_unique<World>());
+    CurrentGame().level.replacePrimary(std::make_unique<World>());
+    CurrentGame().level.replaceSky(std::make_unique<World>());
     auto& level = *GetWorld();
     auto& sky = *GetSecondaryWorld();
 
@@ -176,15 +174,13 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE((!gas->emitting && idle->emitting));
     // Particles are owned by the world list, not the scene.
     level.particles.clear();
-
-    ReplaceWorld(nullptr);
-    ReplaceSkyWorld(nullptr);
     return true;
 }
 } // namespace
 
 TEST_CASE("world_lookup_test")
 {
+    const ScopedGame game;
     const std::filesystem::path directory = make_temporary_directory("wiz8-world-lookup");
     const bool passed = triggers() && nodes(directory);
     // Empty worlds need no collection initialization and can be torn down
@@ -213,9 +209,9 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
 
     // Both owners remain usable while replacements are constructed locally.
-    ReplaceWorld(std::make_unique<World>(8));
+    game.game.level.replacePrimary(std::make_unique<World>(8));
     auto* primary = GetWorld();
-    ReplaceSkyWorld(std::make_unique<World>(-1, "ExistingSky.LVL"));
+    game.game.level.replaceSky(std::make_unique<World>(-1, "ExistingSky.LVL"));
     auto* sky = GetSecondaryWorld();
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
@@ -247,23 +243,13 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
         REQUIRE(GetWorld()->scene != nullptr);
         DetachAllWorldItems();
     }
-    ReplaceWorld(nullptr);
-    ReplaceSkyWorld(nullptr);
 }
 
 TEST_CASE("Malformed level status cannot change the active level or session counters",
           "[levels][records]")
 {
     const ScopedGame game;
-    struct Restore {
-        std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>(8));
-        int next_group = CurrentGame().status.next_group_id;
-        ~Restore()
-        {
-            CurrentGame().status.next_group_id = next_group;
-            ReplaceWorld(std::move(previous));
-        }
-    } restore;
+    game.game.level.replacePrimary(std::make_unique<World>(8));
     ScopedTemporaryDirectory directory("wiz8-unpublished-status");
     const auto path = directory.path / "level.sts";
     std::array<std::byte, 0x314> header{};
@@ -289,10 +275,8 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
 
 TEST_CASE("Only published worlds schedule their trigger events", "[levels][events]")
 {
-    struct RestoreWorld {
-        std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>(8));
-        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
-    } restore;
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(8));
     auto pending = std::make_unique<World>(3);
     const auto schedule = [](World& world) {
         auto trigger = std::make_unique<Trigger>(&world);
@@ -323,7 +307,6 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
         std::vector<std::string> strings = std::move(MutableData().strings);
         ~Restore()
         {
-            ReplaceWorld(nullptr);
             ClearNpcMessageQueue();
             MutableData().strings = std::move(strings);
         }
@@ -335,14 +318,14 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     MutableData().strings.resize(0x233);
     MutableData().strings[0x232] = "%d";
     CurrentGame().status.resume_level = 8;
-    ReplaceWorld(std::make_unique<World>(3));
+    game.game.level.replacePrimary(std::make_unique<World>(3));
     AddPartyGold(CurrentGame(), 1, false);
     AwardPartyExperience(1, 0);
     REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
     REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
     REQUIRE(CurrentGame().status.level_progress[8].gold_collected == 0);
     REQUIRE(CurrentGame().status.level_progress[8].experience_gained == 0);
-    ReplaceWorld(nullptr);
+    game.game.level.replacePrimary(nullptr);
     const auto suffix = std::to_array(CurrentGame().status.status_header_suffix);
     AddPartyGold(CurrentGame(), 1, false);
     AwardPartyExperience(1, 0);
@@ -355,10 +338,8 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
 
 TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
 {
-    struct RestoreWorld {
-        std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>(8));
-        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
-    } restore;
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(8));
     W8CombatSlot target{};
     target.iType = W8_TARGET_KIND_MONSTER;
     target.iMonsterID = 42;

@@ -16,6 +16,24 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/story.h"
 
+struct World;
+
+/* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
+   owns its world; queries borrow it. Replacing a slot hands back the previous owner,
+   so a world is never reachable from its slot while it is destroyed. */
+struct Level {
+    Level();
+    ~Level();
+    Level(const Level&) = delete;
+    Level& operator=(const Level&) = delete;
+
+    std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
+    std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
+
+    std::unique_ptr<World> primary;
+    std::unique_ptr<World> sky;
+};
+
 /* One play-through, from choosing a new game or loading one until the player quits to
    the menu. Starting or loading a game replaces the whole object, so nothing is reset
    field by field. Its members keep their retail-era types for now; it moves into the
@@ -56,6 +74,10 @@ public:
     int item_manager_pending = 0;
     // What happened, in order, for the UI to present.
     Events events;
+    /* Last, so its worlds are destroyed first, while combat and speech still exist.
+       Leaving the level (`LeaveGameSession`) has already emptied it when a game ends
+       in play; destroying a world does no departure bookkeeping. */
+    Level level;
 };
 
 /* The game in progress. Transitional: code that does not receive the game yet reaches
