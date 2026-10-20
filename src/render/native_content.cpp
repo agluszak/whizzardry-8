@@ -8,8 +8,8 @@
 #include <glm/geometric.hpp>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/io/read.h>
-#include <vsg/state/BindViewDescriptorSets.h>
 #include <vsg/state/BufferInfo.h>
+#include <vsg/state/ViewDependentState.h>
 
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
@@ -53,11 +53,11 @@ NativeContent::NativeContent(vsg::ref_ptr<vsg::Node> source, std::shared_ptr<Mat
             if (uv && uv->size() != positions->size())
                 throw std::runtime_error("Native texture coordinates must match positions");
             const auto count = positions->size();
-            auto texcoords = vsg::vec4Array::create(count, vsg::vec4(0));
+            auto texcoords = vsg::vec4Array::create(count, vsg::vec4(0, 0, 0, 0));
             for (std::size_t i = 0; uv && i < count; ++i)
-                texcoords->at(i) = {uv->at(i).x, uv->at(i).y, 0, 0};
-            auto zero = vsg::vec4Array::create(count, vsg::vec4(0));
-            auto one = vsg::vec4Array::create(count, vsg::vec4(1));
+                texcoords->at(i) = vsg::vec4(uv->at(i).x, uv->at(i).y, 0, 0);
+            auto zero = vsg::vec4Array::create(count, vsg::vec4(0, 0, 0, 0));
+            auto one = vsg::vec4Array::create(count, vsg::vec4(1, 1, 1, 1));
             auto metadata = vsg::vec4Array::create(count, vsg::vec4(0, 0, 1, 0));
             auto draw = vsg::VertexIndexDraw::create();
             draw->assignArrays({positions, normals, texcoords, zero, one, one, metadata});
@@ -88,7 +88,7 @@ NativeContent::NativeContent(vsg::ref_ptr<vsg::Node> source, std::shared_ptr<Mat
 void NativeContent::prepare(RenderContext& context, const ScenePass& pass)
 {
     DrawShader shader;
-    shader.value |= DrawShader::MASK_FOG;
+    shader.value |= DrawShader::FOG_ENABLE << DrawShader::FOG_SHIFT;
     if (texture) shader.value |= DrawShader::MASK_TEXTURING;
     const auto image = context.texture(texture.get(), pass.frame.texture_reduction);
     const auto values =
