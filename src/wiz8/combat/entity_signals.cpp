@@ -4,8 +4,8 @@
 
 #include <fmt/format.h>
 
+#include "wiz8/data/attack_modes.h"
 #include "wiz8/data/game_data.h"
-#include "wiz8/data/missile_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
