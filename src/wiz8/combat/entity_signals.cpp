@@ -4,10 +4,12 @@
 
 #include <fmt/format.h>
 
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
@@ -30,9 +32,13 @@
 #include "wiz8/world/simulation_sink.h"
 
 namespace {
+// The missile table row of a stored-spell missile, which casts its spell where it lands.
+constexpr int kStoredSpellMissile = 0x23;
+
 class CombatSignals final : public SimulationSink {
 public:
     bool missileReached(Missile& missile, Navigator& struck) override;
+    void missileLanded(Missile& missile) override;
     void missileReleased(Monster& monster) override;
     void spellReleased(Monster& monster) override;
 };
@@ -111,7 +117,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         }
     }
 
-    if (missile.missile_table_index == 0x23) {
+    if (missile.missile_table_index == kStoredSpellMissile) {
         CurrentGame().combat->missile_hit_result = hit_result;
     } else if (CurrentGame().combat.has_value() && CurrentGame().combat->engaged_missile != 0) {
         CurrentGame().combat->missile_hit_result = hit_result;
@@ -122,6 +128,43 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         ResolveMissileHit(&missile, hit_result == W8_MISSILE_HIT_DEFLECTED);
     }
     return true;
+}
+
+/* Cast Rocket Blast where a stored-spell missile landed, on behalf of the character
+   that fired it. */
+void DetonateStoredSpell(Missile& missile)
+{
+    W8TargetSource source;
+    W8CombatSlot target;
+
+    if (missile.m_Source.iType != W8_TARGET_SOURCE_CHARACTER) {
+        Fail("m_Source.iType == SOURCE_TYPE_CHAR");
+    }
+    const glm::vec3 position = missile.nav.GetPosition();
+    ResetTargetSource(&source);
+    source.iChar = missile.m_Source.iChar;
+    source.iType = W8_TARGET_SOURCE_CHARACTER;
+    source.point = position;
+    source.aim_resolved = true;
+    ResetCombatSlot(&target);
+    target.iType = W8_TARGET_KIND_PLACE;
+    target.point = position;
+    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
+                        W8SpellCastKind::Standard, 0, 0);
+}
+
+/* A stored-spell missile releases its spell unless the fight recorded it as deflected,
+   and a spell missile hands what it did to the spell that cast it. */
+void CombatSignals::missileLanded(Missile& missile)
+{
+    if (missile.missile_table_index == kStoredSpellMissile &&
+        (!CurrentGame().combat.has_value() ||
+         CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+        DetonateStoredSpell(missile);
+    }
+    if (Data().missiles[missile.missile_table_index].spell_missile != 0) {
+        AbsorbMissileDamage(&missile);
+    }
 }
 
 /* Launch the missile at the frame shared by attack cycles 7, 13 and 17. In

@@ -25,8 +25,6 @@
 #include "retail_records.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
-#include "wiz8/combat/combat.h"
-#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
@@ -140,15 +138,7 @@ unsigned char UpdateMissileAI(MissileFlight* record)
         }
         return 1;
     }
-    missile->flight_done = true;
-    if (missile->missile_table_index == 0x23 &&
-        (!CurrentGame().combat.has_value() ||
-         CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
-        missile->DetonateMissileSpell();
-    }
-    if (Data().missiles[missile->missile_table_index].spell_missile != 0) {
-        AbsorbMissileDamage(missile);
-    }
+    missile->Land();
     return 1;
 }
 
@@ -330,16 +320,6 @@ Missile* AllocateMissile(int missile_table_index)
     missile->missile_table_index = missile_table_index;
     missile->visual.pending_cycle = 0;
     missile->flight_done = false;
-    if (missile->flight_done) {
-        if (missile->missile_table_index == 0x23 &&
-            (!CurrentGame().combat.has_value() ||
-             CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
-            missile->DetonateMissileSpell();
-        }
-        if (Data().missiles[missile->missile_table_index].spell_missile != 0) {
-            AbsorbMissileDamage(missile);
-        }
-    }
     missile->impacting = false;
     GetWorld()->missiles.push_back(std::move(owner));
     missile->nav.SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
@@ -678,15 +658,7 @@ void Missile::StartIfHostActive()
         }
         TickAnimation(1.0f);
     } else {
-        flight_done = true;
-        if (missile_table_index == 0x23 &&
-            (!CurrentGame().combat.has_value() ||
-             CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
-            DetonateMissileSpell();
-        }
-        if (Data().missiles[missile_table_index].spell_missile) {
-            AbsorbMissileDamage(this);
-        }
+        Land();
     }
 }
 
@@ -785,35 +757,6 @@ void Missile::SetCycle(signed char cycle)
     }
 }
 
-/* Reset the launcher's two counters at 0x94 and 0x95. The second is one less
-   than the missile's own virtual answer, and the launcher pointer is taken
-   before the virtual call rather than after. */
-
-/* Cast spell 0x83 at the missile's own position on behalf of the character
-   that fired it - the detonation a stored-spell missile (table index 0x23)
-   releases once its flight ends. */
-void Missile::DetonateMissileSpell()
-{
-    W8TargetSource source;
-    W8CombatSlot target;
-    glm::vec3 position;
-
-    if (m_Source.iType != W8_TARGET_SOURCE_CHARACTER) {
-        Fail("m_Source.iType == SOURCE_TYPE_CHAR");
-    }
-    position = nav.GetPosition();
-    ResetTargetSource(&source);
-    source.iChar = m_Source.iChar;
-    source.iType = W8_TARGET_SOURCE_CHARACTER;
-    source.point = position;
-    source.aim_resolved = true;
-    ResetCombatSlot(&target);
-    target.iType = W8_TARGET_KIND_PLACE;
-    target.point = position;
-    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
-                        W8SpellCastKind::Standard, 0, 0);
-}
-
 /* Post "<source> hits <target>" to the notice box and colour the target's
    name with the target side's colour when it differs from the source's. */
 void Missile::AnnounceCollisionTarget()
@@ -859,16 +802,14 @@ void Missile::EnterImpactCycle()
             }
         }
     } else {
-        flight_done = true;
-        if (missile_table_index == 0x23 &&
-            (!CurrentGame().combat.has_value() ||
-             CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
-            DetonateMissileSpell();
-        }
-        if (Data().missiles[missile_table_index].spell_missile) {
-            AbsorbMissileDamage(this);
-        }
+        Land();
     }
+}
+
+void Missile::Land()
+{
+    flight_done = true;
+    if (owner_world && owner_world->simulation) owner_world->simulation->missileLanded(*this);
 }
 
 bool Missile::OnCollision(Navigator* other)
