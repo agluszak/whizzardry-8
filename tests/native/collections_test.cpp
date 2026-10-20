@@ -1160,6 +1160,26 @@ TEST_CASE("Using up an offered item drains the offer and leaves the hand alone",
     REQUIRE(CurrentGame().party.held.item.iItemNo == 9);
 }
 
+TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
+{
+    const ScopedGame game;
+    auto& story = CurrentGame().story;
+    story.npcs.push_back(std::make_unique<W8NpcState>());
+    W8NpcState* npc = story.npcs[0].get();
+    npc->gold = 120;
+    npc->binding_unavailable = 1;
+    W8PreparedNpcBindings pending;
+    pending.records.push_back({.slot = 0, .location_id = 42, .level_band = 3, .bound_level = 7});
+    InstallNpcBindings(std::move(pending));
+    REQUIRE(story.npcs[0].get() == npc);
+    REQUIRE(story.retired_npcs.empty());
+    REQUIRE(npc->gold == 120);
+    REQUIRE(npc->location_id == 42);
+    REQUIRE(npc->bound_level == 7);
+    REQUIRE(npc->is_present);
+    REQUIRE(npc->binding_unavailable == 0);
+}
+
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")
 {
     const ScopedGame game;
