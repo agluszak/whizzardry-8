@@ -1,7 +1,6 @@
 #include "wiz8/local_code/Sight.h"
 
 #include <algorithm>
-#include <cstring>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -338,8 +337,8 @@ void ResetAndRefreshAllSight(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
-        memset(&monster_info->party_threat, 0, sizeof(monster_info->party_threat));
-        memset(&monster_info->player_visibility, 0, sizeof(monster_info->player_visibility));
+        monster_info->party_threat = {};
+        monster_info->player_visibility = {};
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         UpdateMonsterSight(GetMonsterListEntry(index), true, false);
@@ -434,7 +433,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 : W8_SIGHT_RECENT);
                     }
                     if (!entry->line_of_sight) {
-                        memset(entry->los_flags, 0, 4);
+                        std::ranges::fill(entry->los_flags, false);
                     } else {
                         monster->GetMonsterSightFlags(other->p3D, entry->los_flags,
                                                       entry->los_flags + 2);
@@ -803,7 +802,7 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
         world = GetWorld();
         far_clip = WorldGetFarClip(world);
         if (distance <= far_clip) {
-            memset(&record, 0, sizeof(record));
+            record = {};
             record.sight_state = W8_SIGHT_SEEN;
             if (CanMonsterSeeMonster(source_info, target_info, &record) &&
                 source_monster->HasLineOfSightToMonster(target_monster)) {

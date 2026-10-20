@@ -4,7 +4,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <span>
@@ -429,8 +428,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
                               .size());
             // Runtime word ranges are rebuilt after loading; disk pointer bits are unused.
             disk_record.serialized_entries_18_bits = 0;
-            memcpy(disk_record.trailing_bytes, live_record->unknown_1c,
-                   sizeof(disk_record.trailing_bytes));
+            std::ranges::copy(live_record->unknown_1c, disk_record.trailing_bytes);
             file.write(&disk_record, sizeof(disk_record));
             if (disk_record.character_count) {
                 std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) *
@@ -477,8 +475,7 @@ try {
             live_record->saved_remaining_ms = disk_record.saved_remaining_ms;
             live_record->link = disk_record.link;
             live_record->length = disk_record.length;
-            memcpy(live_record->unknown_1c, disk_record.trailing_bytes,
-                   sizeof(live_record->unknown_1c));
+            std::ranges::copy(disk_record.trailing_bytes, live_record->unknown_1c);
             if (disk_record.character_count > 100000) return 0;
             std::vector<std::byte> bytes(static_cast<std::size_t>(disk_record.character_count) * 2);
             file.ReadBytes(bytes.data(), bytes.size());

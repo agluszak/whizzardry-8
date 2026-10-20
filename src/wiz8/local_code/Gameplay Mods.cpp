@@ -1,5 +1,3 @@
-#include <cstring>
-
 #include "wiz8/character_skills.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -163,7 +161,7 @@ void RebuildConditionsAndDerivedStats(int party_slot)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    memset(&character->condition_modifiers, 0, sizeof(W8GameplayModifierBlock));
+    character->condition_modifiers = {};
     ApplyConditionModifiers(character, character->uiCondition, character->condition_argument,
                             &character->condition_modifiers);
     ApplyEnchantmentModifiers(character->enchantments, &character->condition_modifiers);
@@ -187,7 +185,7 @@ void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
     auto* monster_info = &monster;
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
 
-    memset(modifiers, 0, sizeof(W8GameplayModifierBlock));
+    *modifiers = {};
     ApplyConditionModifiers(0, monster_info->uiCondition, monster_info->condition_argument,
                             modifiers);
     ApplyEnchantmentModifiers(monster_info->enchantments, modifiers);
@@ -213,11 +211,6 @@ void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
 void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
                              int condition_argument, W8GameplayModifierBlock* target)
 {
-    // Monster and character condition banks are embedded in packed records.
-    unsigned int aligned_turns[W8_CONDITION_COUNT];
-    memcpy(aligned_turns, reinterpret_cast<const unsigned char*>(condition_turns),
-           sizeof(aligned_turns)); // reinterpret-ok: packed condition bytes
-    condition_turns = aligned_turns;
     unsigned int i;
 
     for (unsigned int index = 0; index < W8_CONDITION_COUNT; ++index) {

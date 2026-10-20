@@ -20,7 +20,7 @@ struct MonGen {
     glm::vec3 spawn_position;
     int encounter_table_index; /* index into g_encounter_tables, -1 means none */
     W8IntervalGate timer;
-    char name[32];
+    char name[32]{};
     bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
     MonGen();

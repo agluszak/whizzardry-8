@@ -595,7 +595,6 @@ Missile::Missile(World* owner)
     nav.collision = [this](Navigator* other) { return OnCollision(other); };
     AllocateLegacyPropSaveId();
 
-    memset(&definition, 0, sizeof(definition));
     result = {};
     ResetCombatSlot(&combat_slot);
 }
@@ -622,7 +621,6 @@ Missile::Missile(const Missile& other, World* owner)
     flight_ai = other.flight_ai;
     if (flight_ai) flight_ai->missile = this;
 
-    memset(&definition, 0, sizeof(definition));
     result = {};
     ResetCombatSlot(&combat_slot);
 }
@@ -697,7 +695,7 @@ void Missile::StartIfHostActive()
    0x1e5-byte missile database row. */
 void Missile::SetEffectDefinition(const W8SpellEffectDefinition* definition)
 {
-    memcpy(&this->definition, definition, sizeof(this->definition));
+    this->definition = *definition;
     this->definition.radius = Data().missiles[missile_table_index].radius;
 }
 

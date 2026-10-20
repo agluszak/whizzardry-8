@@ -4,7 +4,6 @@
 #include <cctype>
 #include <cmath>
 #include <cstddef>
-#include <cstring>
 #include <string>
 #include <string_view>
 
@@ -251,7 +250,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
             return returned;
         }
     }
-    memcpy(selected, eligible, found * 4);
+    std::copy_n(eligible, found, selected);
     return found;
 }
 

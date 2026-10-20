@@ -1,6 +1,5 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 
-#include <cstring>
 #include <vector>
 
 #include <fmt/format.h>
@@ -819,8 +818,7 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
     W8Character* character;
     int scan;
 
-    memset(&CurrentGame().party.characters[party_slot].enchantments[slot], 0,
-           sizeof(W8Enchantment));
+    CurrentGame().party.characters[party_slot].enchantments[slot] = {};
 
     character = &CurrentGame().party.characters[party_slot];
     for (scan = 7; scan >= 0; --scan) {
@@ -895,7 +893,7 @@ void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    memset(&monster_info->enchantments[slot], 0, sizeof(W8Enchantment));
+    monster_info->enchantments[slot] = {};
     SetMonsterSpellIcon(monster_info->p3D, static_cast<W8MonsterSpellIconId>(slot + 0x10), false);
     RebuildMonsterDerivedStats(location_id);
     if (slot == W8_ENCHANTMENT_SUPERMAN) {

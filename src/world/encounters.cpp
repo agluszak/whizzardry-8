@@ -61,7 +61,6 @@ MonGen::MonGen()
     encounter_table_index = -1;
     timer.m_flags.one_shot = false;
     generation_enabled = true;
-    memset(name, 0, sizeof(name));
 }
 
 MonGen* FindMonGenByName(const char* name)
@@ -101,7 +100,7 @@ try {
         W8EncounterTableDiskHeader header;
         handle->read_exact(&header, sizeof(header));
         auto& table = tables.emplace_back();
-        memcpy(table.name, header.name, sizeof(table.name));
+        std::ranges::copy(header.name, table.name);
         table.name[sizeof(table.name) - 1] = '\0';
         table.category = header.unknown_101;
         table.entries.resize(header.entry_count);

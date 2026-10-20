@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -166,12 +165,6 @@ int GetCharacterHandDamageBonus(const W8Character* character, int hand)
 }
 
 /* Nine attack modes, one bit each, held in the low half of a word. */
-
-/* Clear a forty-eight byte attack block. */
-void ClearAttackBlock(W8SpellEffectDefinition* block)
-{
-    memset(block, 0, 0x30);
-}
 
 /* Fold specific melee animation cycles onto ATTACK_CLOSE, and the throw
    and shoot cycles onto ATTACK_RANGED. Other cycles retain their identity. */
@@ -1865,8 +1858,8 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* r
                                                        verbose, verbose ? nullptr : report, false);
                     }
                     if (applied != 0) {
-                        memset(&effect, 0, sizeof(effect));
-                        memcpy(effect.condition_chances, attack->missile_values, 0x10);
+                        effect = {};
+                        std::ranges::copy(attack->missile_values, effect.condition_chances);
                         effect.power_level =
                             record->effective_level +
                             (record->effective_level > 0xe ? 0xf : record->effective_level);
@@ -3146,8 +3139,8 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     bool primary = false;
     bool secondary = false;
     unsigned char position_ok;
-    glm::vec3 source_position;
-    glm::vec3 target_position;
+    glm::vec3 source_position{};
+    glm::vec3 target_position{};
     W8MonsterInfo* monster_info;
     Monster* monster;
     Missile* missile;
@@ -3295,7 +3288,7 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
         missile_type = 0;
     }
     SetTargetSourceToCharacter(party_slot, &source);
-    ClearAttackBlock(&attack_block);
+    attack_block = {};
     level = pc->uiExpLevel;
     capped_level = level;
     if (0xe < level) {
@@ -3315,7 +3308,7 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
         modifiers = item_modifiers;
         missile_value += paired->missile_magnitude;
     }
-    memcpy(attack_block.condition_chances, modifiers, 0x10);
+    std::copy_n(modifiers, W8_ATTACK_EFFECT_COUNT, attack_block.condition_chances);
     attack_block.magnitude_base = missile_value;
     accuracy = GetTargetAttackAttributes(
         party_slot, row->current_hand,
@@ -3908,22 +3901,22 @@ ActionStep ResolveCharacterAttack(int party_slot)
                         if (fumbled) {
                             QueueFumbleReaction(party_slot);
                         }
-                        memset(&effect, 0, sizeof(effect));
+                        effect = {};
                         effect.power_level =
                             character->uiExpLevel +
                             (character->uiExpLevel > 0xe ? 0xf : character->uiExpLevel);
                         if (applied != 0) {
                             if (hand_attack->uiHolds == HOLDS_NOTHING) {
-                                memcpy(effect.condition_chances, hand_attack->condition_chances,
-                                       0x10);
+                                std::ranges::copy(hand_attack->condition_chances,
+                                                  effect.condition_chances);
                                 effect.magnitude_base = 0;
                             } else {
-                                memcpy(effect.condition_chances,
-                                       Data()
-                                           .items[character->EquippedItem[row->current_equip_slot]
-                                                      .iItemNo]
-                                           .missile_values,
-                                       0x10);
+                                std::ranges::copy(
+                                    Data()
+                                        .items[character->EquippedItem[row->current_equip_slot]
+                                                   .iItemNo]
+                                        .missile_values,
+                                    effect.condition_chances);
                                 effect.magnitude_base =
                                     Data()
                                         .items[character->EquippedItem[row->current_equip_slot]

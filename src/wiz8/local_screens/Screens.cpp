@@ -1,7 +1,6 @@
 #include "wiz8/local_screens/Screens.h"
 
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <memory>
 #include <string_view>
@@ -274,9 +273,7 @@ void ApplyCurrentCursor(void)
 /* Restore the normal cursor. Inventory operations own the held item. */
 void ClearHeldItemDisplay(void)
 {
-    memset(&CurrentGame().party.held.item, 0, sizeof(CurrentGame().party.held.item));
-
-    CurrentGame().party.held.item.iItemNo = -1;
+    CurrentGame().party.held.item = {};
 
     if (shown_pointer.cursor != W8_CURSOR_NONE) {
         ShowDefaultCursor();

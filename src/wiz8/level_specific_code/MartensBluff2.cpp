@@ -30,7 +30,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -193,7 +192,7 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     float angle;
     Missile* missile;
 
-    ClearAttackBlock(&effect);
+    effect = {};
     effect.magnitude.base = 0;
     effect.magnitude.count = 2;
     effect.magnitude.sides = 6;
@@ -262,7 +261,7 @@ bool MartensBluff2Spikeball(int command)
         if (g_spikeball_count == 0 || g_spikeball_gate->PollFinished()) {
             g_spikeball_gate->Arm();
             ++g_spikeball_count;
-            ClearAttackBlock(&effect);
+            effect = {};
             effect.magnitude.base = 0;
             effect.magnitude.count = 2;
             effect.magnitude.sides = 6;

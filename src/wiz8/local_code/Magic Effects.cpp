@@ -2,7 +2,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
-#include <cstring>
 #include <iterator>
 #include <span>
 #include <string>
@@ -794,7 +793,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         source_monster->elemental_summon = summon->location_id;
     }
     if (effect->definition.percent != 0 && Random(100) < effect->definition.percent) {
-        ClearAttackBlock(&attack_block);
+        attack_block = {};
         attack_block.duration_scale = effect->definition.duration_scale;
         switch (tier) {
         case 2:
@@ -2607,7 +2606,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
     verbose = g_settings.verbose_combat_messages != 0;
     ResetTargetSource(&source);
     local_result = {};
-    memset(&target, 0, sizeof(target));
+    target = {};
     for (const auto& slot : effect_slots) {
         if (slot.active && slot.effect_id == 0x3e) {
             ShowNotice(W8_FONT_PALETTE_WHITE,

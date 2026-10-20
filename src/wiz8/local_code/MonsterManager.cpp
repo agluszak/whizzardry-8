@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <new>
 #include <source_location>
@@ -132,12 +131,12 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
     monster_info->stamina = value;
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
 
-    memset(monster_info->uiCondition, 0, sizeof(monster_info->uiCondition));
-    memset(monster_info->enchantments, 0, sizeof(monster_info->enchantments));
+    std::ranges::fill(monster_info->uiCondition, 0u);
+    std::ranges::fill(monster_info->enchantments, W8Enchantment{});
     monster_info->highest_condition = W8_CONDITION_NONE;
     monster_info->condition_argument = 0;
     monster_info->charm_strength = 0;
-    memset(&monster_info->modifiers, 0, sizeof(monster_info->modifiers));
+    monster_info->modifiers = {};
     monster_info->fMotionless = false;
     monster_info->ai_mode = W8_RT_AI_IDLE;
     monster_info->summoned = W8_MONSTER_SUMMON_NONE;

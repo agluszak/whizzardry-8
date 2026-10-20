@@ -1,4 +1,3 @@
-#include <cstring>
 #include <memory>
 #include <string_view>
 
@@ -173,11 +172,15 @@ void ResetPartySlotRow(int slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[slot];
 
-    memset(row, 0, sizeof(W8PartySlotRow));
+    *row = {};
     row->fOccupied = true;
     row->remembered.spell = {W8_ACTION_CAST_SPELL, W8_SPELL_NONE};
-    row->remembered.repeat_action = W8_ACTION_NONE;
     row->remembered.chooseBasic(W8_ACTION_ATTACK, -1);
+    /* Retail cleared the row to zeros, which leaves a new member's committed
+       action a detail-zero attack at an empty target and the remembered item
+       use empty, rather than W8Action's "no action" default. */
+    row->committed = {.kind = W8_ACTION_ATTACK, .detail = 0, .target = {}, .detail_block = {}};
+    row->remembered.item_detail = {};
 }
 
 /* Both buffers are cleared only after both allocations succeed, so a failed
@@ -187,7 +190,7 @@ void ResetPartySlotRow(int slot)
    registers rather than spelling out immediates. */
 void ResetGameplaySettings(void)
 {
-    memset(&g_settings, 0, sizeof(g_settings));
+    g_settings = {};
     g_settings.sound_effects_volume = 0x40;
     g_settings.voice_volume = 0x40;
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_FORMATION;

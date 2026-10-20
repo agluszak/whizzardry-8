@@ -2,7 +2,6 @@
 
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 
 #include <SDL3/SDL_mouse.h>
@@ -343,8 +342,7 @@ static void AcceptFormationChanges(void)
     }
     if (!CurrentGame().combat.active()) {
         ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
-    } else if (memcmp(&CurrentGame().party.formation, &CurrentGame().planned_formation,
-                      sizeof(W8PartyFormationState)) != 0) {
+    } else if (CurrentGame().party.formation != CurrentGame().planned_formation) {
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
     RefreshFormationBoard();

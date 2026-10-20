@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <exception>
 #include <memory>
 
@@ -219,9 +218,8 @@ static void ClampEnvironmentComponent(float& component)
 /* The two binary colour tables differ only in their destination array. */
 bool ReadEnvironmentColours(wiz8::File* file, std::array<glm::vec3, 256>& colours)
 try {
-    unsigned char components[256 * 3];
-    memset(components, 0xff, sizeof(components));
-    if (!file || file->read(components, sizeof(components)).bytes != sizeof(components))
+    std::array<unsigned char, 256 * 3> components{};
+    if (!file || file->read(components.data(), components.size()).bytes != components.size())
         return false;
 
     for (int index = 0; index < 256; ++index) {

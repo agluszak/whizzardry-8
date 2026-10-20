@@ -121,7 +121,7 @@ public:
     float lifetime;
     int flags0;
     float duration;
-    W8SpellEffectDefinition definition;
+    W8SpellEffectDefinition definition{};
     W8TargetSource m_Source;
     W8CombatSlot combat_slot;
     /* 0x280: the damage and condition results this missile has accumulated,
