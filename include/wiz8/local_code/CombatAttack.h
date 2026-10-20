@@ -4,7 +4,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 struct W8CombatSlot;
-enum class W8CombatActionStatus : unsigned char;
+enum class ActionStep : unsigned char;
 
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
@@ -166,7 +166,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
    hit and fumble-redirect chances, resolves guardian interception, picks the
    hit location, rolls penetration, applies damage and the struck target's
    retaliation enchantment, then decides whether the monster keeps swinging. */
-W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* Start one of the character's attacks for the round: validates the hand and
    target, rolls the swings, announces the attack and dispatches the missile or
    melee event. */
@@ -176,7 +176,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode);
    interception, picks the hit location, rolls penetration, applies damage
    and enchantments, consumes the item, and answers whether the attack
    continues. */
-W8CombatActionStatus ResolveCharacterAttack(int party_slot);
+ActionStep ResolveCharacterAttack(int party_slot);
 /* A fumbled swing queues its reaction event - half the time the
    attacker himself, otherwise the fumbled victim or a random party member
    answers. */

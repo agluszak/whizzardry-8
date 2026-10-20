@@ -2168,9 +2168,9 @@ void Trace(GameHarness& game, int location_id, int frames)
             int(body.nav.movement_stopped), int(body.nav.halted), unsigned(body.nav.flags),
             body.nav.movement.callback_progress, body.nav.movement.callback_threshold,
             body.nav.movement.movement_speed,
-            CurrentGame().combat.state() ? int(CurrentGame().combat.state()->action_status) : -1,
-            CurrentGame().combat.state() && CurrentGame().combat.state()->pActionMonsterInfo
-                ? CurrentGame().combat.state()->pActionMonsterInfo->location_id
+            CurrentGame().combat.state() ? int(CurrentGame().combat.state()->turn().index()) : -1,
+            CurrentGame().combat.state()
+                ? CurrentGame().combat.state()->actingMonster().value_or(-1)
                 : -1,
             monster->p3D->Query(W8_MONSTER_QUERY_CYCLE),
             monster->p3D->Query(W8_MONSTER_QUERY_FRAME),

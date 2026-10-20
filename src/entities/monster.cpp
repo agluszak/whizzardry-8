@@ -720,9 +720,7 @@ void Monster::Update()
         (CurrentGame().combat.state()->round_active || CurrentGame().party_movement_mode) &&
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (visual.pending_cycle == -1 || visual.pending_cycle == 1 || visual.pending_cycle == 2) &&
-        (CurrentGame().combat.state()->action_status != W8CombatActionStatus::resolving ||
-         CurrentGame().combat.state()->pActionMonsterInfo == 0 ||
-         CurrentGame().combat.state()->pActionMonsterInfo->location_id != location_id)) {
+        !CurrentGame().combat.state()->resolvingTurnOf(MonsterActor{location_id})) {
         visual.timer = GameClockMilliseconds();
     }
 
@@ -2124,8 +2122,7 @@ void Monster::HandleAnimationThreshold()
     SetTargetSourceToMonster(monster_info, &source);
 
     if (CurrentGame().combat.active() &&
-        CurrentGame().combat.state()->action_status == W8CombatActionStatus::resolving &&
-        CurrentGame().combat.state()->pActionMonsterInfo == monster_info) {
+        CurrentGame().combat.state()->resolvingTurnOf(MonsterActor{monster_info->location_id})) {
         attack_index = monster_info->pCombat->attack_index;
         selected_attack = true;
         goto prepare_attack;

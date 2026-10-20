@@ -722,10 +722,7 @@ void W8NpcDialogue::RunNextAction()
                 return;
             }
             const int party_slot = leave.party_slot;
-            if (CurrentGame().combat.state()->iActionChar == party_slot) {
-                CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-                CurrentGame().combat.state()->iActionChar = -1;
-            }
+            CurrentGame().combat.state()->endTurnOf(PartyActor{party_slot});
             ClearMainGameTargetState();
             DismissNpcFromParty(party_slot, 0, false, true);
             SetTargetToCharacter(party_slot, false);

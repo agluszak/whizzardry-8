@@ -4,8 +4,24 @@
 
 #include "wiz8/rules/targeting.h"
 
+class Game;
 struct W8MonsterRecord;
-enum class W8CombatActionStatus : unsigned char;
+enum class ActionStep : unsigned char;
+
+/* What combat waits on before its turn may advance, checked in this order. */
+enum class CombatWait : unsigned char {
+    none,
+    camera,       // the party camera is still turning
+    monster,      // a monster's cycle, animation or turn toward its target is unfinished
+    hit_sound,    // the last hit sound is still playing
+    spell_effect, // a spell effect has run out and is being retired
+    missile,      // an engaged or spell missile is still in flight
+    npc_script,   // a conscious NPC party slot's combat script is still queued
+};
+
+/* The first thing combat waits on this frame. A hit sound that has finished
+   is retired as it is checked. */
+CombatWait CombatWaitFor(Game& game);
 
 /* A friendly NPC's combat-entry script notice is still owed. */
 
@@ -64,13 +80,12 @@ int GetConditionInterrupt(W8TargetSource* source);
 bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* Run the monster's committed special attack against its marker
    lists and every monster hostile to it; returns the action outcome code. */
-W8CombatActionStatus ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info,
-                                                 W8MonsterRecord* record);
+ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
 /* The character's breathe/special-attack action step. */
 bool CreateCharacterBreathEffect(int party_slot);
 /* The character's committed breath attack against the marker
    lists plus every hostile monster; returns the action outcome code. */
-W8CombatActionStatus ExecuteCharacterSpecialAttack(int party_slot);
+ActionStep ExecuteCharacterSpecialAttack(int party_slot);
 void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify);
 int IsPartyEngaged(void);

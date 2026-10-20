@@ -1073,10 +1073,7 @@ void CharacterDies(int party_slot)
     wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
 
     if (CurrentGame().combat.active()) {
-        if (CurrentGame().combat.state()->iActionChar == party_slot) {
-            CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-            CurrentGame().combat.state()->iActionChar = -1;
-        }
+        CurrentGame().combat.state()->endTurnOf(PartyActor{party_slot});
         row->pending_action = W8_ACTION_NONE;
         CurrentGame().combat.state()->characters[party_slot].phase = 0;
         CurrentGame().combat.state()->characters[party_slot].dead = true;

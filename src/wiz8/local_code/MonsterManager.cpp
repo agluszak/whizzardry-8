@@ -869,8 +869,8 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
 
                 if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
                     (CurrentGame().combat.active() &&
-                     CurrentGame().combat.state()->action_status != W8CombatActionStatus::idle &&
-                     CurrentGame().combat.state()->pActionMonsterInfo == monster_info)) {
+                     CurrentGame().combat.state()->holdsTurn(
+                         MonsterActor{monster_info->location_id}))) {
                     return;
                 }
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
@@ -975,10 +975,8 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         monster_info->monster_group_id = 0;
     }
     DeactivateMonster(monster_info);
-    if (CurrentGame().combat.state() &&
-        CurrentGame().combat.state()->pActionMonsterInfo == monster_info) {
-        CurrentGame().combat.state()->pActionMonsterInfo = nullptr;
-        CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
+    if (CurrentGame().combat.state()) {
+        CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->p3D) {
@@ -1030,10 +1028,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
             SetTargetToMonster(monster_info->location_id, false);
             RefreshFlaggedMainGameState();
             RefreshCombatEngagement();
-            if (CurrentGame().combat.state()->pActionMonsterInfo == monster_info) {
-                CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-                CurrentGame().combat.state()->pActionMonsterInfo = 0;
-            }
+            CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
         }
     }
 }
@@ -1078,10 +1073,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
     if (!monster_info->pCombat) {
         Fail("pMonsterInfo->pCombat");
     }
-    if (CurrentGame().combat.state()->pActionMonsterInfo == monster_info) {
-        CurrentGame().combat.state()->action_status = W8CombatActionStatus::idle;
-        CurrentGame().combat.state()->pActionMonsterInfo = 0;
-    }
+    CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
     for (index = 0; index < 9; ++index) {
         entry = &monster_info->pCombat->combat_effects[index];
         if (entry->active) {

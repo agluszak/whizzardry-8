@@ -1612,8 +1612,7 @@ void BindCharacterItems(Game& game, int party_slot, bool announce)
                                         Data().strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]});
             return;
         }
-        if (game.combat.state()->iActionChar == party_slot &&
-            game.combat.state()->action_status == W8CombatActionStatus::resolving &&
+        if (game.combat.state()->resolvingTurnOf(PartyActor{party_slot}) &&
             (game.party.rows[party_slot].pending_action == W8_ACTION_ATTACK ||
              game.party.rows[party_slot].pending_action == W8_ACTION_BERSERK)) {
             game.events.push(TextNotice{
