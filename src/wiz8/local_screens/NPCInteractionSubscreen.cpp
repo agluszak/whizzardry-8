@@ -558,7 +558,7 @@ void ResetMainScreenStateBlock(void)
    busy or this NPC kind suppresses it. */
 void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress)
 {
-    if (!gXStatus.fNpcDialogueMode && !CurrentGame().combat.active() &&
+    if (!CurrentGame().activity.conversation && !CurrentGame().combat.active() &&
         (npc->record->kind != 7 || GetFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
         QueueNpcScriptNotice(npc, item, line, suppress, 0);
     }
@@ -610,7 +610,7 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
    rows bound to RPC NPCs (name styles 0x10 and 0x11) whose condition set has
    reached 0x0f; clearing condition 0x12 - death - leaves them on ten hit
    points. A completed character event is finished off, the dialogue NPC is
-   staged outside camp mode, and then the record's 0x054/0x2ea flags choose
+   staged unless a set-aside conversation resumes, and then the record's 0x054/0x2ea flags choose
    between the item/quote branch and the plain quote branch; both end by
    pausing the world, raising the dialogue flags and pointing the camera at
    the NPC's monster. */
@@ -651,7 +651,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (CurrentGame().speech.HasActiveEvents()) {
         CurrentGame().speech.CompleteFirstActiveEvent();
     }
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         SelectNpcDialogueSpeaker(npc, flags);
     }
     if (force != 0) {
@@ -696,7 +696,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     }
     state = g_npc_interaction_state;
     state->scripted_dialogue = true;
-    gXStatus.fNpcDialogueMode = true;
+    CurrentGame().activity.conversation = true;
     SyncWorldAdvancement();
     state->transcript_open_count = 0;
     info = GetNpcMonsterInfo(state->dialogue_npc);
@@ -747,14 +747,14 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     glm::vec3 position;
 
     UpdateScreenOverlays(0);
-    gXStatus.fNpcDialogueMode = true;
+    CurrentGame().activity.conversation = true;
     CloseMainGameOverlays();
     if (npc->record->owns_stock != 0) {
         RestockNpcInventory(npc);
     }
     state = g_npc_interaction_state;
     state->dialogue_layout = W8_DIALOGUE_LAYOUT_NONE;
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         state->previous_dialogue_layout = W8_DIALOGUE_LAYOUT_NONE;
         state->trade_mode = W8_NPC_TRADE_NONE;
     }
@@ -783,7 +783,7 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
     EnableDialogueTextBoxRegions();
     SetTextBoxScrollInput(true);
     g_level_block->action_panel_visible = 1;
-    gXStatus.fCampMode = false;
+    CurrentGame().activity.conversation_aside = false;
     greet = !force;
     if (item != 0) {
         state = g_npc_interaction_state;
@@ -884,7 +884,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     g_npc_dialogue.Begin(state->dialogue_npc, false);
     if ((state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT ||
          state->dialogue_layout == W8_DIALOGUE_LAYOUT_TOPIC_MENU) &&
-        gXStatus.fNpcDialogueMode) {
+        CurrentGame().activity.conversation) {
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
             state->dialogue_npc->record->source_name, g_wiz_text_bold_font);
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].dirty = true;
@@ -1197,15 +1197,15 @@ static void CloseActiveNpcDialogueLayout()
 
 void EndNpcDialogueSession(bool skip_exit_actions)
 {
-    if (!gXStatus.fNpcDialogueMode) {
+    if (!CurrentGame().activity.conversation) {
         return;
     }
     if (g_npc_interaction_state->scripted_dialogue) {
-        gXStatus.fNpcDialogueMode = false;
+        CurrentGame().activity.conversation = false;
         SyncWorldAdvancement();
         return;
     }
-    if (gXStatus.fCampMode) {
+    if (CurrentGame().activity.conversation_aside) {
         skip_exit_actions = true;
     }
     if (g_npc_interaction_state->dialogue_hidden != 0) {
@@ -1218,7 +1218,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         W8NpcState* npc = g_npc_interaction_state->dialogue_npc;
         npc->dismissed_timer = 0;
     }
-    gXStatus.fNpcDialogueMode = false;
+    CurrentGame().activity.conversation = false;
     g_level_block->action_panel_visible = 0;
     DisableDialogueTextBoxRegions();
     SetTextBoxScrollInput(false);
@@ -1276,7 +1276,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
    character-update paths skip the covered rows through this. */
 bool IsPortraitObscuredByNpcDialogue(unsigned int party_slot)
 {
-    if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue &&
+    if (CurrentGame().activity.conversation && !g_npc_interaction_state->scripted_dialogue &&
         g_npc_interaction_state->ui->panels[2].active) {
         return g_npc_interaction_state->ui->transcript->IsSlotPortraitTranscriptCovered(party_slot);
     }
@@ -1350,7 +1350,7 @@ static void RefreshNpcServiceAvailability(int party_slot)
    re-arms the trade prompt. */
 void SyncNpcServiceButtons(int party_slot)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_SERVICES) {
             RefreshNpcServiceAvailability(party_slot);
         } else if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
@@ -1362,7 +1362,7 @@ void SyncNpcServiceButtons(int party_slot)
 
 unsigned char IsNpcDialogueCursorActive(void)
 {
-    if (!gXStatus.fNpcDialogueMode) {
+    if (!CurrentGame().activity.conversation) {
         return 0;
     }
     return g_npc_interaction_state->dialogue_hidden;
@@ -1372,7 +1372,7 @@ unsigned char IsNpcDialogueCursorActive(void)
    box (mode 4) rather than to the dialogue's own pane. */
 bool IsNpcDialogueTextBoxActive(void)
 {
-    if (!gXStatus.fNpcDialogueMode) {
+    if (!CurrentGame().activity.conversation) {
         return false;
     }
     return g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
@@ -1380,7 +1380,7 @@ bool IsNpcDialogueTextBoxActive(void)
 
 void TryNpcDialoguePickpocket(int party_slot)
 {
-    if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->dialogue_hidden != 0) {
+    if (CurrentGame().activity.conversation && g_npc_interaction_state->dialogue_hidden != 0) {
         SetNpcDialogueHidden(0);
         ResolveNpcPickpocket(party_slot);
     }
@@ -2328,7 +2328,7 @@ static void OpenNpcDialogueOptionLayout(void)
     }
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_3, true);
     SelectTextBox(2);
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(2);
     }
     g_npc_interaction_state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
@@ -2423,7 +2423,7 @@ void CloseNpcDialogueOptionLayout(void)
     W8TextBuffer* text;
 
     ResetNpcDialogueItemEditor();
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         g_npc_interaction_state->trade_mode = W8_NPC_TRADE_NONE;
     }
     SetNpcDialogueInputEnabled(2, false);
@@ -2719,7 +2719,7 @@ static void OpenNpcDialogueMode5Layout(void)
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_3, true);
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     SelectTextBox(2);
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(2);
     }
 }
@@ -2874,13 +2874,13 @@ static void OpenNpcDialogueMode1Layout(void)
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     SelectTextBox(2);
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(2);
     }
 }
 
-/* Tear down the mode-1 dialogue layout; outside camp the mode is retired as
-   well. */
+/* Tear down the mode-1 dialogue layout; unless the conversation is being set
+   aside, the mode is retired as well. */
 static void CloseNpcDialogueMode1Layout(void)
 {
     SetNpcDialogueInputEnabled(2, false);
@@ -2895,7 +2895,7 @@ static void CloseNpcDialogueMode1Layout(void)
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2, true);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_3, true);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_4, true);
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
     }
 }
@@ -2905,7 +2905,7 @@ static void RequestNpcSpellService3(void)
     int location = g_npc_interaction_state->target_location_id;
     W8NpcDialogueLayout mode = g_npc_interaction_state->dialogue_layout;
 
-    gXStatus.fCampMode = true;
+    CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
     BeginSpellCast(W8_SPELL_CHARM, location, mode);
@@ -2916,7 +2916,7 @@ static void RequestNpcSpellService41(void)
     int location = g_npc_interaction_state->target_location_id;
     W8NpcDialogueLayout mode = g_npc_interaction_state->dialogue_layout;
 
-    gXStatus.fCampMode = true;
+    CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
     BeginSpellCast(W8_SPELL_MINDREAD, location, mode);
@@ -2924,7 +2924,7 @@ static void RequestNpcSpellService41(void)
 
 static void RequestNpcCharacterService(void)
 {
-    gXStatus.fCampMode = true;
+    CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
     OpenUseItemSelectView(CurrentGame().status.selected_character);
@@ -3689,7 +3689,7 @@ void DrainNpcDialogueDeferralInput(void)
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
 
-    if (!ShouldDeferCharacterEventForNpcScript(true) || !gXStatus.fNpcDialogueMode) {
+    if (!ShouldDeferCharacterEventForNpcScript(true) || !CurrentGame().activity.conversation) {
         return;
     }
     mouse = CursorPosition();
@@ -3752,7 +3752,7 @@ void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data)
 {
     W8MonsterInfo* monster_info;
 
-    if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue) {
+    if (CurrentGame().activity.conversation && !g_npc_interaction_state->scripted_dialogue) {
         SetNpcDialoguePanelVisible(0);
     }
     std::optional<W8NpcPriceCheck> price_check;
@@ -4087,7 +4087,8 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         for (index = 0; index < request->sub_entry_count; ++index) {
             if (index == npc_dialog->m_selected_option) {
                 entry_text = request->sub_entries[index].text.c_str();
-                if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
+                if (!CurrentGame().activity.conversation ||
+                    g_npc_interaction_state->scripted_dialogue) {
                     HandleNpcDialogueReply(entry_text, false);
                 } else {
                     field_text = NpcFieldText();
@@ -4106,7 +4107,7 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         } else {
             entry_text = Data().strings[0x7e0];
         }
-        if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
+        if (!CurrentGame().activity.conversation || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(entry_text, false);
         } else {
             field_text = NpcFieldText();
@@ -4116,7 +4117,7 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
             HandleNpcDialogueInput();
         }
     } else if (request->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-        if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
+        if (!CurrentGame().activity.conversation || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(npc_dialog->m_input_text, false);
         } else {
             field_text = NpcFieldText();
@@ -4129,12 +4130,12 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
     g_npc_dialogue.ReplyDialogClosed();
 }
 
-/* The camp-side mirror of SwitchNpcDialogueLayout: camp mode is raised, the current
+/* The camp-side mirror of SwitchNpcDialogueLayout: the conversation is set aside, the current
    dialogue layout is retired, and a still-pending item goes back onto the
    item cursor. */
 void CloseNpcDialogueForCamp(void)
 {
-    gXStatus.fCampMode = true;
+    CurrentGame().activity.conversation_aside = true;
     SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
     EndNpcDialogueSession(false);
     if (g_npc_interaction_state->held_item_pending) {
@@ -4193,7 +4194,8 @@ static void HandleNpcDialogueDeparture(unsigned char value)
                     }
                 }
             }
-            if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue) {
+            if (CurrentGame().activity.conversation &&
+                !g_npc_interaction_state->scripted_dialogue) {
                 AddNpcDialogueKeyword(g_npc_interaction_state->dialogue_npc->record->source_name,
                                       W8_DIALOGUE_CATEGORY_ALL, 1);
                 return;
@@ -4321,14 +4323,14 @@ void RecordLevelEntryDialogueState(void)
    emitted as a second copy for the dialogue text input callers. */
 bool IsNpcDialogueTextInputActive(void)
 {
-    return gXStatus.fNpcDialogueMode &&
+    return CurrentGame().activity.conversation &&
            g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX;
 }
 unsigned char SetNpcDialoguePanelVisible(unsigned char value)
 {
     W8NpcDialogueTextController* controller;
 
-    if (gXStatus.fNpcDialogueMode && !g_npc_interaction_state->scripted_dialogue &&
+    if (CurrentGame().activity.conversation && !g_npc_interaction_state->scripted_dialogue &&
         g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
         if (value == 0) {
             controller = g_npc_interaction_state->ui->transcript.get();

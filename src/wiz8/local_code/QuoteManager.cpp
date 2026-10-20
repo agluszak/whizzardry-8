@@ -73,7 +73,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 constexpr unsigned int kPortraitLowHealthPercent = 20;
 constexpr unsigned int kRemappedEventCount = 31;
@@ -1688,7 +1687,7 @@ bool UpdateCharacterEventState(void)
             }
         }
 
-        if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
+        if (CurrentGame().activity.conversation && (party_slot & 1) != 0 &&
             IsPortraitObscuredByNpcDialogue(party_slot)) {
             continue;
         }

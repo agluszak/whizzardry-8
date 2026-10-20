@@ -63,7 +63,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
 /* Cursor-table index for SetTargetCursor, including slots 10..12. Not a
    W8TargetingContext. */
 int GetTargetingCursorForState(bool alternate);
-bool ActionNeedsExplicitTarget(const W8Action& action, bool camping);
+bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside);
 unsigned int GetActionSpellLikeId(const W8Party& party, const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source);

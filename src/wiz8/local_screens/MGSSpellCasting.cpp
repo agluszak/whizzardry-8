@@ -207,7 +207,7 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->cancel->Policy().primary_toggle = ButtonToggle::None;
     gpSCSV->dirty.fill(true);
 
-    if (gXStatus.fCampMode) {
+    if (CurrentGame().activity.conversation_aside) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (MainGame()) {
                 DisableMainGamePortraitSlot(index);
@@ -266,7 +266,7 @@ void CloseSpellCastingView(void)
     SetTextBoxScrollInput(false);
     g_level_block->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
     g_level_block->text_box_visible = true;
@@ -496,7 +496,8 @@ static void RebuildSpellCastingList(int spell_id)
         const signed char color =
             castable ? (IsSpellBlockedForCharacter(gpSCSV->caster, id) ? 4 : 15) : 0;
         if (color != 15 &&
-            (gXStatus.fCampMode || LockInteractionSuspended() || TrapInteractionSuspended()) &&
+            (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
+             TrapInteractionSuspended()) &&
             !usable)
             continue;
         rows.push_back({id, color});
@@ -576,7 +577,7 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
 {
     W8SpellRealm realm;
 
-    if (!gXStatus.fNpcDialogueMode) {
+    if (!CurrentGame().activity.conversation) {
         if (IsLockInteractionActive()) {
             EndLockInteractMode(0);
         }
@@ -847,7 +848,7 @@ static void SpellCastingDialogResult(bool accepted)
 
 void ResetSpellCastingSelection(void)
 {
-    if (gXStatus.fCampMode) {
+    if (CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
     CloseSpellCastingView();
@@ -981,7 +982,7 @@ void TryCommitSpellCast(void)
     }
     if (ready && !IsModalOpen()) {
         if (gpSCSV->draft.detail != 0x17) {
-            if (gXStatus.fCampMode) {
+            if (CurrentGame().activity.conversation_aside) {
                 ResetEditorStatusLine(-1);
             }
             SetCharacterSpell(gpSCSV->caster, gpSCSV->draft);

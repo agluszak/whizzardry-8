@@ -58,7 +58,6 @@
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 extern const double g_camera_view_factor1 = 3.141592653589793;
 extern const double g_camera_view_factor2 = 90.0;
@@ -160,7 +159,7 @@ void PartyCamera::ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context)
 
 bool PartyCamera::CanTrackTarget()
 {
-    return gXStatus.fNpcDialogueMode ||
+    return CurrentGame().activity.conversation ||
            (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) && m_manual_input_timer.PollFinished());
 }
 
@@ -340,7 +339,7 @@ void PartyCamera::Update(float elapsed)
 void PartyCamera::ApplyYawInput(float input)
 {
     if (input != 0.0f) {
-        if (!gXStatus.fNpcDialogueMode && CurrentGame().status.world_cursor_gate == 0) {
+        if (!CurrentGame().activity.conversation && CurrentGame().status.world_cursor_gate == 0) {
             m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
             m_manual_input_timer.Arm();
             m_transition_active = false;
@@ -386,7 +385,7 @@ void PartyCamera::ApplyYawInput(float input)
 
 void PartyCamera::ApplyPitchInput(float input)
 {
-    if (input != 0.0f && !gXStatus.fNpcDialogueMode &&
+    if (input != 0.0f && !CurrentGame().activity.conversation &&
         CurrentGame().status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
         m_manual_input_timer.Arm();
@@ -519,7 +518,8 @@ void PartyCamera::GetForwardPoint(float distance, glm::vec3* output)
 
 void PartyCamera::SetManualControlActive(bool enabled)
 {
-    if (enabled && !gXStatus.fNpcDialogueMode && CurrentGame().status.world_cursor_gate == 0) {
+    if (enabled && !CurrentGame().activity.conversation &&
+        CurrentGame().status.world_cursor_gate == 0) {
         m_orientation_flags |= W8_CAMERA_MANUAL_INPUT;
         m_manual_input_timer.Arm();
         m_transition_active = false;

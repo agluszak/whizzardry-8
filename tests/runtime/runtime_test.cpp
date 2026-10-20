@@ -1773,7 +1773,7 @@ void MenuSaveScenario()
 /* The conversation waits for the player: nothing spoken, queued or asked. */
 bool DialogueAwaitingPlayer()
 {
-    return gXStatus.fNpcDialogueMode && !IsNpcScriptSessionActive() &&
+    return CurrentGame().activity.conversation && !IsNpcScriptSessionActive() &&
            !g_npc_dialogue.has_queued_actions() &&
            g_npc_dialogue.reply() == W8NpcReplyState::none && g_modal_owner == nullptr;
 }
@@ -1792,7 +1792,7 @@ void WaitDialogue(GameHarness& game, const char* step, const std::function<bool(
 
 void StartConversation(GameHarness& game, const char* step, W8NpcState* npc)
 {
-    REQUIRE(!gXStatus.fNpcDialogueMode);
+    REQUIRE(!CurrentGame().activity.conversation);
     ForwardNpcScriptNotice(npc, nullptr, -1, false);
     WaitDialogue(game, step, [&] {
         return g_npc_interaction_state->dialogue_npc == npc && DialogueAwaitingPlayer();
@@ -1852,7 +1852,7 @@ void SayFarewell(GameHarness& game, const char* step)
     REQUIRE(DialogueAwaitingPlayer());
     game.key(SDLK_ESCAPE);
     game.wait(step, [&] {
-        if (!gXStatus.fNpcDialogueMode) return true;
+        if (!CurrentGame().activity.conversation) return true;
         if (IsNpcScriptSessionActive()) game.key(SDLK_ESCAPE);
         return false;
     });

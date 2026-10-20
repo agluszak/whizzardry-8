@@ -311,8 +311,9 @@ void RedrawOptionsDiskButton(void)
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
     MainGame()->hud_buttons.options_disk.m_dirty = true;
-    if (!gXStatus.fNpcDialogueMode && !IsLockInteractionActive() && !IsTrapInteractionActive() &&
-        !gXStatus.fCampMode && !LockInteractionSuspended() && !TrapInteractionSuspended()) {
+    if (!CurrentGame().activity.conversation && !IsLockInteractionActive() &&
+        !IsTrapInteractionActive() && !CurrentGame().activity.conversation_aside &&
+        !LockInteractionSuspended() && !TrapInteractionSuspended()) {
         enabled = true;
     } else {
         enabled = false;
@@ -499,14 +500,14 @@ void UpdateRoofButtons(void)
     bool visible;
     bool enabled;
 
-    if (!gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() && !IsLockInteractionActive() &&
-        !IsTrapInteractionActive()) {
+    if (!CurrentGame().activity.conversation && !gpSCSV && !ItemUseDraft() &&
+        !IsLockInteractionActive() && !IsTrapInteractionActive()) {
         visible = true;
     } else {
         visible = false;
     }
     MainGame()->hud_buttons.roof[2].SetVisible(visible);
-    if (!gXStatus.fNpcDialogueMode && !gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation && !CurrentGame().activity.conversation_aside) {
         MainGame()->hud_buttons.roof[0].SetEnabled(true);
         enabled = true;
     } else {
@@ -644,8 +645,8 @@ void RedrawLayoutArrowButtons(void)
     for (auto& button : MainGame()->hud_buttons.layout_arrows) {
         button.m_dirty = true;
     }
-    if (gXStatus.fNpcDialogueMode || gpSCSV || ItemUseDraft() || IsLockInteractionActive() ||
-        IsTrapInteractionActive()) {
+    if (CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
+        IsLockInteractionActive() || IsTrapInteractionActive()) {
         for (auto& button : MainGame()->hud_buttons.layout_arrows) {
             button.SetVisible(false);
         }
@@ -877,7 +878,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!CurrentGame().combat.active() || !CurrentGame().combat.state()->round_active ||
         CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
-        gXStatus.fNpcDialogueMode || gpSCSV || ItemUseDraft() ||
+        CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
         g_level_block->combat_end_notification != -1) {
         enabled = false;
     } else {
@@ -886,8 +887,8 @@ void UpdateSubMenuPanelButtons(void)
     MainGame()->hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
     if (!CurrentGame().surprise_possible && !IsLockInteractionActive() &&
-        !IsTrapInteractionActive() && !gXStatus.fNpcDialogueMode && !gpSCSV && !ItemUseDraft() &&
-        g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
+        !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !gpSCSV &&
+        !ItemUseDraft() && g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!gXStatus.fReviewCharacterMode) {
             if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {
@@ -909,7 +910,8 @@ static void UpdateSubMenuScrollButtons()
 {
 
     const bool enabled = g_level_block->combat_end_notification == -1 &&
-                         !gXStatus.fNpcDialogueMode && !gXStatus.fCampMode;
+                         !CurrentGame().activity.conversation &&
+                         !CurrentGame().activity.conversation_aside;
     for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);
     }
@@ -1047,9 +1049,9 @@ void UpdateMainGameButtons(void)
     }
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
-    enabled = !gXStatus.fNpcDialogueMode && !IsLockInteractionActive() &&
-              !IsTrapInteractionActive() && !gXStatus.fCampMode && !LockInteractionSuspended() &&
-              !TrapInteractionSuspended();
+    enabled = !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
+              !IsTrapInteractionActive() && !CurrentGame().activity.conversation_aside &&
+              !LockInteractionSuspended() && !TrapInteractionSuspended();
     MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
     MainGame()->hud_buttons.options_disk.Refresh();
     UpdateCombatStanceButtons();

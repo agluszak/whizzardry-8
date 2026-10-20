@@ -209,7 +209,7 @@ unsigned char HandleMainGameInputEvent(const InputEvent* input)
         return 1;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        gXStatus.fNpcDialogueMode) {
+        CurrentGame().activity.conversation) {
         HandleNpcDialogueKeyEvent(input);
         return 1;
     }
@@ -366,7 +366,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         ToggleMainGamePause();
         break;
     case W8_MGS_COMMAND_NEXT_LAYOUT:
-        if (gXStatus.fNpcDialogueMode || gXStatus.fCampMode) {
+        if (CurrentGame().activity.conversation || CurrentGame().activity.conversation_aside) {
             break;
         }
         if (IsScreenInputBlocked() != 0) {
@@ -388,10 +388,11 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_OPTIONS:
-        if (gXStatus.fNpcDialogueMode ||
-            (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
-            IsLockInteractionActive() || IsTrapInteractionActive() || gXStatus.fCampMode ||
-            LockInteractionSuspended() || TrapInteractionSuspended()) {
+        if (CurrentGame().activity.conversation ||
+            (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue) ||
+            IsLockInteractionActive() || IsTrapInteractionActive() ||
+            CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
+            TrapInteractionSuspended()) {
             break;
         }
         if (!CanInterruptLevelMovement()) {
@@ -403,9 +404,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_JOURNAL);
         break;
     case W8_MGS_COMMAND_INVENTORY:
-        if ((gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
-            gXStatus.fCampMode || CurrentGame().status.selected_character == -1 ||
-            (gXStatus.fNpcDialogueMode &&
+        if ((CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue) ||
+            CurrentGame().activity.conversation_aside ||
+            CurrentGame().status.selected_character == -1 ||
+            (CurrentGame().activity.conversation &&
              g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
         }
@@ -970,7 +972,7 @@ static void KeyboardMenuUseRecordedItem(void)
 
 void HandleManualCameraHotkeys(void)
 {
-    if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
+    if (g_modal_owner == 0 && !CurrentGame().activity.conversation) {
         if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
             BeginManualCameraControl();
         }

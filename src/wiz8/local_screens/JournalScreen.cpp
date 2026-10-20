@@ -29,6 +29,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -45,7 +46,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 enum JournalAction { Previous, Next, Mode, Close };
@@ -126,7 +126,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     if (description.empty() || g_level_block == 0) {
         return;
     }
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         g_npc_dialogue.Queue(W8NpcCommand::journal_quote);
         return;
     }
@@ -424,7 +424,7 @@ bool JournalScreen::enter(const ScreenRequest&)
 bool JournalScreen::leave(ScreenDeparture)
 {
     g_journal_entries.clear();
-    if (gXStatus.fCampMode) {
+    if (CurrentGame().activity.conversation_aside) {
         SyncDialogueNpcState();
     }
     return true;

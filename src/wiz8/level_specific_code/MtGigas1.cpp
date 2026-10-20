@@ -6,12 +6,12 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 struct W8ItemInstance;
 struct W8NpcState;
@@ -68,7 +68,7 @@ void MtGigas1Setup(void)
    the held item, if any. */
 bool MtGigas1Lift1(Trigger* pTrigger)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     QueueNpcHeldItemNotice(0x5d);
@@ -80,7 +80,7 @@ bool MtGigas1Lift1(Trigger* pTrigger)
    the held item, if any. */
 bool MtGigas1Lift2(Trigger* pTrigger)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     QueueNpcHeldItemNotice(0x5e);

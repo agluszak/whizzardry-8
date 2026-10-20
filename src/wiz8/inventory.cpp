@@ -68,7 +68,6 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
 
@@ -1563,7 +1562,7 @@ void CommitWeaponSetSwap(Game& game, int party_slot, W8WeaponSwap choice)
 bool SwapWeaponSetSlots(Game& game, int party_slot, bool announce)
 {
     W8Character* character = &game.party.characters[party_slot];
-    const short notice_context = gXStatus.fNpcDialogueMode ? 0 : -1;
+    const short notice_context = game.activity.conversation ? 0 : -1;
 
     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
         character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1 &&

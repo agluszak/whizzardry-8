@@ -64,7 +64,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 const double g_monster_script_direction_step = 0.8975978857142857;
 const char* g_monster_script_commands[MONSCR_COUNT] = {"GOTO",
@@ -799,7 +798,7 @@ bool Monster::CanContinueScript()
         runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
         return true;
     case MONSCR_NPCINTERACTION:
-        if (gXStatus.fNpcDialogueMode) {
+        if (CurrentGame().activity.conversation) {
             return false;
         }
         break;

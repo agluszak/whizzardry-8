@@ -356,7 +356,7 @@ void W8CampScreenState::UpdateRcsLevelUpPanel(void)
     bool enabled = IsCharacterReadyToAdvance(ReviewedPartySlot());
     if (!enabled || CurrentGame().combat.active() ||
         (!CurrentGame().party.rows[ReviewedPartySlot()].portrait_advance && GameStarted()) ||
-        gXStatus.fCampMode) {
+        CurrentGame().activity.conversation_aside) {
         if (header_buttons.level_up->IsVisible()) {
             header_buttons.level_up->SetVisible(false);
         }
@@ -410,7 +410,7 @@ void W8CampScreenState::OnDismissCharacterDialogClosed(bool accepted)
 void W8CampScreenState::UpdateRcsDismissPanel(void)
 {
     if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) && !CurrentGame().combat.active() &&
-        !gXStatus.fCampMode) {
+        !CurrentGame().activity.conversation_aside) {
         if (!header_buttons.dismiss->IsVisible()) {
             header_buttons.dismiss->SetVisible(true);
             RedrawRcsDismissPanel();

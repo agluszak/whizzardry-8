@@ -67,7 +67,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 constexpr unsigned int kCharacterEventNpcScript = 0x40;
 
@@ -119,7 +118,7 @@ void ApplyScriptedDialogueKeyword(W8NpcQuoteEntryKind kind, const char* text)
     if (g_settings.simplified_npc_interaction != 0) {
         std::string keyword_text;
         keyword_text = text;
-        if (!gXStatus.fNpcDialogueMode || !g_npc_interaction_state->scripted_dialogue) {
+        if (!CurrentGame().activity.conversation || !g_npc_interaction_state->scripted_dialogue) {
             AddNpcDialogueKeyword(keyword_text, category, 1);
         } else {
             AddDialogueTranscriptKeyword(keyword_text, category);
@@ -297,7 +296,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         }
         if (item->stack_count == 0) {
             g_npc_interaction_state->held_item_pending = false;
-            if (!gXStatus.fNpcDialogueMode) {
+            if (!CurrentGame().activity.conversation) {
                 (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
             }
         }
@@ -357,9 +356,9 @@ void W8NpcDialogue::Advance()
         session_ = *suspended_;
         suspended_.reset();
     }
-    if (gXStatus.fNpcDialogueMode && CurrentGame().status.world_cursor_gate == 0 &&
-        !gXStatus.scripted_scene && reply_ == W8NpcReplyState::none &&
-        (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) {
+    if (CurrentGame().activity.conversation && CurrentGame().status.world_cursor_gate == 0 &&
+        !CurrentGame().activity.scripted_scene && reply_ == W8NpcReplyState::none &&
+        (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue)) {
         EndNpcDialogueSession(false);
     }
     if (reply_ == W8NpcReplyState::none && g_npc_interaction_state->dialogue_panel_hidden &&
@@ -468,7 +467,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(entry->operand0, true, true, false);
         notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(&item));
-        if (!gXStatus.fNpcDialogueMode) {
+        if (!CurrentGame().activity.conversation) {
             CurrentGame().party.held.item = item;
             SetItemCursor(0);
         } else {

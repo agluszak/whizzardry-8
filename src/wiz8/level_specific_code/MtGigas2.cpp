@@ -27,7 +27,6 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 struct W8ItemInstance;
 struct W8NpcState;
@@ -97,7 +96,7 @@ bool MtGigas2Train(Trigger* pTrigger)
     int item_id;
     int value;
 
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     npc = GetNpcStateByKind(0x5b);
@@ -223,7 +222,7 @@ static void MtGigas2WireShock(void)
    the held item, if any. */
 bool MtGigas2Lift3(Trigger* pTrigger)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     QueueNpcHeldItemNotice(0x5c);
@@ -235,7 +234,7 @@ bool MtGigas2Lift3(Trigger* pTrigger)
    with the held item, if any. */
 bool MtGigas2TopDoor1(Trigger* pTrigger)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     QueueNpcHeldItemNotice(0x5f);
@@ -245,7 +244,7 @@ bool MtGigas2TopDoor1(Trigger* pTrigger)
 
 static bool ActivateMtGigasOfficer(int door_bit, const char* door_name, int npc_kind)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     int doors = 0;

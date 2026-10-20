@@ -44,7 +44,6 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_slot.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
@@ -375,7 +374,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     glm::vec3 other_position;
     glm::vec3 trace_position;
 
-    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !monster_info->fActive ||
+    if (!CurrentGame().activity.in_world() || !monster_info->fActive ||
         monster_info->hp_current == 0) {
         return;
     }

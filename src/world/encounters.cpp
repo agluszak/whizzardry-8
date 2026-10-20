@@ -378,7 +378,8 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (GetWorld()->encounters.save_flag != 0 || gXStatus.world_update_blocked ||
-        CurrentGame().combat.active() || gXStatus.fNpcDialogueMode || !generation_enabled) {
+        CurrentGame().combat.active() || CurrentGame().activity.conversation ||
+        !generation_enabled) {
         return false;
     }
 

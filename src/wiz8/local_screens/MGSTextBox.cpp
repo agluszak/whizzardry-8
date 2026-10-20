@@ -59,7 +59,6 @@
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 struct MessageBoxInput {
@@ -194,9 +193,10 @@ void ResetEditorStatusLine(short line)
 static short ResolveNoticeTextBox(short text_box)
 {
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
-        if ((gXStatus.fNpcDialogueMode &&
-             !(gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) ||
-            gXStatus.fCampMode) {
+        if ((CurrentGame().activity.conversation &&
+             !(CurrentGame().activity.conversation &&
+               g_npc_interaction_state->scripted_dialogue)) ||
+            CurrentGame().activity.conversation_aside) {
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
 
@@ -581,10 +581,10 @@ void ScrollDialogueTextBoxToLine(void)
     if (IsNpcDialogueTextInputActive()) {
         return;
     }
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         offset = g_npc_interaction_state->text_box_collapsed ? 1 : 7;
     } else {
-        offset = !gpSCSV && !ItemUseDraft() && !gXStatus.fCampMode ? 1 : 7;
+        offset = !gpSCSV && !ItemUseDraft() && !CurrentGame().activity.conversation_aside ? 1 : 7;
     }
     ScrollTextBoxTo(
         CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - offset);
@@ -699,13 +699,13 @@ void AppendToLastTextLine(std::string_view text, short text_box)
    retains this out-of-line emission while VC6 inlines it at other callers. */
 int GetTextBoxVisibleLineCount(void)
 {
-    bool dialogue = gXStatus.fNpcDialogueMode;
+    bool dialogue = CurrentGame().activity.conversation;
     if (dialogue) {
         if (g_npc_interaction_state->text_box_collapsed) {
             return 1;
         }
     }
-    if (!gpSCSV && !dialogue && !ItemUseDraft() && !gXStatus.fCampMode) {
+    if (!gpSCSV && !dialogue && !ItemUseDraft() && !CurrentGame().activity.conversation_aside) {
         return 1;
     }
     return 7;
@@ -755,11 +755,11 @@ void AdvanceNoticeLine(short text_box)
     record->clock = w8_get_ticks() + (delay);
     unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
     if (g_level_block->text_scroll_drag_idle) {
-        if (gXStatus.fNpcDialogueMode && g_npc_interaction_state->text_box_collapsed) {
+        if (CurrentGame().activity.conversation && g_npc_interaction_state->text_box_collapsed) {
             ScrollTextBoxTo(shown);
             g_npc_interaction_state->text_box_collapsed = false;
-        } else if (!gpSCSV && !gXStatus.fNpcDialogueMode && !ItemUseDraft() &&
-                   !gXStatus.fCampMode) {
+        } else if (!gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
+                   !CurrentGame().activity.conversation_aside) {
             if (CurrentGame().combat.active() &&
                 CurrentGame().combat.state()->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
@@ -938,13 +938,13 @@ UiResult HandleTextBody(const UiPointerEvent& event)
             ScrollTextBoxDown(-event.wheel);
         else
             ScrollTextBoxUp(event.wheel);
-        if (gXStatus.fNpcDialogueMode)
+        if (CurrentGame().activity.conversation)
             NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
         else if (ItemUseDraft())
             UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
         return UiResult::Handled;
     }
-    if (gXStatus.fNpcDialogueMode) return HandleNpcTextBox(event);
+    if (CurrentGame().activity.conversation) return HandleNpcTextBox(event);
     if (gpSCSV) return HandleSpellTextBox(event);
     if (ItemUseDraft()) return HandleUseItemTextBox(event);
     return UiResult::Handled;
@@ -1485,9 +1485,9 @@ void RefreshTextBoxMode(unsigned short mode)
         return;
     }
     if (mode == 0xffff) {
-        if ((!gXStatus.fNpcDialogueMode ||
-             (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue)) &&
-            !gXStatus.fCampMode) {
+        if ((!CurrentGame().activity.conversation ||
+             (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue)) &&
+            !CurrentGame().activity.conversation_aside) {
 
             mode = CurrentGame().combat.active();
 

@@ -877,7 +877,7 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
                 unsigned int chance = group->MemberCount() * 20;
 
-                if (!gXStatus.fNpcDialogueMode && Random(chance) == 0) {
+                if (!CurrentGame().activity.conversation && Random(chance) == 0) {
                     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPICE, W8_ANIMATION_PLAY_ONCE);
                 }
             }
