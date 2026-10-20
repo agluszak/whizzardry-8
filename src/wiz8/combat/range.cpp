@@ -7,8 +7,6 @@
 #include <span>
 #include <vector>
 
-#include <fmt/format.h>
-
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
@@ -325,10 +323,6 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
         return best;
     }
     if (!character->Hand[hand].in_play) {
-        DebugMessage(
-            1,
-            fmt::format("ERROR: GetCharAttackRange for hand {:d} which can't attack, uiChar = {:d}",
-                        hand, CharacterPointerToPartySlot(character)));
         return W8_RANGE_NONE;
     }
     if (character->Hand[hand].uiHolds != 1 && character->Hand[hand].uiHolds != 3) {

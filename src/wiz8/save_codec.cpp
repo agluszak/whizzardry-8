@@ -239,8 +239,8 @@ struct GlobalStatus {
     /* 0x49c0: set when the endgame transition starts; saves carrying either
        this or flag are filtered from the load list. */
     bool endgame_started;
-    /* 0x49c1: latched while g_dev_mode is set at teardown; persisted into
-       the save slot as dev_flagged. */
+    /* 0x49c1: retail's developer-mode latch. Never set here; kept so saves
+       round-trip the byte. */
     bool dev_flagged;
 };
 static_assert(std::is_trivially_copyable_v<GlobalStatus>);

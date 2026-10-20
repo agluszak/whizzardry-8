@@ -303,10 +303,6 @@ public:
        movement.vertical_amplitude). */
     float bob_amplitude_min;
     float bob_amplitude_max;
-    /* 0x22c: the missing spell-launch-vertex warning already fired once. */
-    bool spell_vertex_warned;
-    /* 0x22d: the missing missile-start-point warning already fired once. */
-    bool missile_point_warned;
     W8MonsterRemovalState removal_state;
     CycleCallback cycle_callback;
     int callback_cycle;

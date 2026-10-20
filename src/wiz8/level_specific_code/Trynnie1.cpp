@@ -104,7 +104,7 @@ void Trynnie1Script::enter()
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))
                 throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
             vPos2 = vPos;
-            [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
+            [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, true);
             assert(group != 0);
             CreateLocationVar("Trynnie1Killed", 1);
         }

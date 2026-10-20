@@ -32,7 +32,6 @@
 #include "wiz8/render/light.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
@@ -55,10 +54,6 @@ static W8WorldCursorState* WorldCursor()
 }
 
 /* The cursor scene node relocated to position on each move. */
-
-/* Set when the cursor is opened while a shift key is held; while set the
-   update keeps the latched dragged monster instead of re-picking. */
-static bool g_cursor_pick_latch;
 
 /* 0x60ab44: the saved world-cursor monster group id; -1 until a cursor is
    torn down. Seeds and restores monster_group_id. */
@@ -87,7 +82,6 @@ void InitializeWorldCursor(void)
         cursor.detached = false;
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
-        cursor.dragged_location_id = 0;
         auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1, 1);
         cursor.monster = monster.get();
         GetWorld()->monsters.push_back(std::move(monster));
@@ -132,10 +126,6 @@ void InitializeWorldCursor(void)
         cursor.probe_offsets[6] = minimum;
         cursor.probe_offsets[7] = glm::vec3(maximum.x, minimum.y, minimum.z);
         UpdateWorldCursorPlacement();
-        if (g_dev_mode && (((GetInputState().modifiers & SHIFT_DOWN) != 0) ||
-                           ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-            g_cursor_pick_latch = true;
-        }
     }
 }
 
@@ -199,18 +189,6 @@ void ApplyWorldCursorInput(void)
     cursor.input_delta.x = 0;
     cursor.input_delta.y = 0;
     cursor.input_delta.z = 0;
-    if (g_dev_mode) {
-        if (((GetInputState().modifiers & SHIFT_DOWN) == 0) &&
-            ((GetInputState().modifiers & CTRL_DOWN) == 0)) {
-            if (g_cursor_pick_latch) {
-                g_cursor_pick_latch = false;
-            }
-            cursor.dragged_location_id = 0;
-        } else if (!g_cursor_pick_latch && cursor.dragged_location_id == 0) {
-            if (auto* nearest = FindNearestMonsterInfo(&cursor.position, 2500.0))
-                cursor.dragged_location_id = nearest->location_id;
-        }
-    }
     if (!cursor.detached) {
         lifted = glm::vec3(delta.x, delta.y + 1e+03f, delta.z);
         if (cursor.range > 0.0f && cursor.range < glm::length(lifted)) {
@@ -267,17 +245,6 @@ void ApplyWorldCursorInput(void)
         if (cursor.light != 0) {
             node_location = glm::dvec3(cursor.position);
             cursor.light->transform.setLocation(node_location);
-        }
-        // The dragged monster may have been removed or unloaded since the drag began.
-        const auto* dragged = FindMonster(cursor.dragged_location_id, false);
-        if (dragged == nullptr || dragged->p3D == nullptr) {
-            cursor.dragged_location_id = 0;
-        } else {
-            dragged->p3D->nav.SetPositionInternal(&cursor.position);
-            GetWorldSpatialIndex()->UpdateMonsterLocation(dragged->location_id, cursor.position);
-            if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-                dragged->p3D->ForwardReferencePosition(1);
-            }
         }
         cursor.last_published = cursor.position;
     }

@@ -166,7 +166,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_CROCK_BREKEK_ASSIGN:
         fact_value = GetFact(W8_FACT_CROCK_BREKEK_DEAD);
         if (fact_value == 0 && FindEntityByName("Brekek", &position, 0, 0)) {
-            SpawnMonsters(0x131, 1, &position, 1, true, true, false);
+            SpawnMonsters(0x131, 1, &position, 1, true, true);
         }
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:

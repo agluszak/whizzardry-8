@@ -161,7 +161,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
                    pTrigger->representation_vectors[2].z + pTrigger->representation_vectors[3].z) *
                       0.25);
     position = center;
-    group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
+    group = SpawnMonsters(0x1b5, 1, &position, 0, true, false);
     index = group->MemberLocationId(0);
     if (index != 0) {
         monster_info = FindMonster(index);

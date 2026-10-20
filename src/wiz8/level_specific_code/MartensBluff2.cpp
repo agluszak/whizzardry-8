@@ -214,7 +214,7 @@ void MartensBluff2Script::setup()
             FindTriggerByName("DummyLever")->flags &= ~W8_TRIGGER_ENABLED;
             if (quest_state == RavenQuestState::perfume_used) {
                 if (FindEntityByName("Ravenz", &position, 0, 0)) {
-                    group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
+                    group = SpawnMonsters(0x183, 1, &position, 0, true, false);
                     location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
                         info = FindMonster(location_id);
@@ -417,7 +417,7 @@ bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     quest_state = RavenQuestState::perfume_used;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
-        group = SpawnMonsters(0x183, 1, &position, 0, true, false, false);
+        group = SpawnMonsters(0x183, 1, &position, 0, true, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonster(location_id);

@@ -595,7 +595,7 @@ try {
             path->looping = options[3] == '1';
         }
         const glm::vec3 origin(0);
-        auto* group = CreateGroup(monster_id, 1, &origin, true, false, true);
+        auto* group = CreateGroup(monster_id, 1, &origin, true, true);
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);

@@ -166,16 +166,6 @@ void UnloadSkyWorld(void)
     ResetEnvironment();
 }
 
-// The original bounds-checks only the upper end, so a negative level_id reads
-// before the table. Reproduced as-is; GetLevelFolderName checks both ends.
-std::optional<std::string> GetLevelLocationCode(int level_id)
-{
-    if (level_id >= W8_LEVEL_COUNT || level_id < 0) {
-        return std::nullopt;
-    }
-    return std::string(g_level_folders[level_id].location_code);
-}
-
 static int LevelFindIDByLocationCode(std::string_view location_code)
 {
     for (int level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {

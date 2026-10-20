@@ -64,10 +64,6 @@ struct W8WorldCursorState {
     glm::vec3 extent_min{0};
     /* second fixed probe offset used when footprint_mode is set. */
     glm::vec3 extent_max{0};
-    /* the location id of the monster the shift-drag latched, zero for none;
-       the update looks it up, drags it to the cursor position and releases
-       it when shift lifts or the monster is gone. */
-    int dragged_location_id{};
 };
 
 /* Build the 3D cursor, light and initial camera-relative bounds. */

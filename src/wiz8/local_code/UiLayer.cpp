@@ -22,7 +22,6 @@
 #include "wiz8/ui_layer.h"
 
 UiRoutingState g_ui;
-bool g_dev_mode;
 bool g_ui_help_forced;
 
 namespace {

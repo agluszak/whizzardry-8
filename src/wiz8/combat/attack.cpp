@@ -79,7 +79,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/party_camera.h"
@@ -109,9 +108,6 @@ static int SumTargetCombatAttributes(const W8CombatSlot& target)
     }
     if (target.iType == W8_TARGET_KIND_CHARACTER)
         return SumCharacterCombatAttributes(CurrentGame().party.characters[target.iChar]);
-    DebugMessage(
-        1, fmt::format("GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
-                       fmt::underlying(target.iType), target.iChar, target.iMonsterID));
     return 0;
 }
 
@@ -271,16 +267,12 @@ unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterReco
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
     if (record->attacks[attack].attack_modes == 0) {
-        DebugMessage(0, fmt::format("DATA ERROR: {} has 0 attack modes for attack {:d}",
-                                    record->name0, attack));
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
     if (record->attacks_per_round == 0) {
-        DebugMessage(0, fmt::format("DATA ERROR: {} has 0 ATTACKS/round", record->name0));
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
     if (record->swings_per_round == 0) {
-        DebugMessage(0, fmt::format("DATA ERROR: {} has 0 SWINGS/round", record->name0));
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
     action_kind = monster_info->action_kind;
@@ -867,8 +859,6 @@ static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
     unsigned int roll = CurrentGame().rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_MONSTER_HIT_LOCATIONS) {
-            DebugMessage(0, fmt::format("ERROR: DBS Hit Locations total only {:d}% for monster {}",
-                                        total, record->name0));
             return 3;
         }
         total += record->hit_location_chances[hit_location];
@@ -884,7 +874,6 @@ static unsigned int RollCharacterHitLocation()
     unsigned int roll = CurrentGame().rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_PC_HIT_LOCATIONS) {
-            DebugMessage(1, "ERROR: gubLocalACPercent total only %d%%");
             return 1;
         }
         total += gubLocalACPercent[hit_location];
@@ -972,7 +961,6 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     chance = AttackModeMod(1, attack_mode) + 50 +
              (10 - TargetArmorClassAtLocation(target, attack_mode, hit_location)) * 5;
     penetration_roll = CurrentGame().rng.below(100) + 1;
-    CombatLog(fmt::format("TO PENETRATE: Chance {:d}, Rolled {:d}", chance, penetration_roll));
     if (penetration_roll <= chance) {
         magnitude = RollEffectMagnitude(&missile->definition);
         if (magnitude > 0) {
@@ -1031,8 +1019,6 @@ void PrepareCharacterAttacks(int party_slot)
     int value;
 
     if (best_hand == -1) {
-        DebugMessage(1, fmt::format("ERROR: {} is preparing attacks with when it's not possible!",
-                                    CurrentGame().party.characters[party_slot].name));
         return;
     }
     CurrentGame().combat->characters[party_slot].current_hand = best_hand;
@@ -1381,11 +1367,6 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     } else if (database_range >= W8_RANGE_LONG) {
         corrected_range = W8_RANGE_TOUCH;
     }
-    if (corrected_range) {
-        DebugMessage(0,
-                     fmt::format("DATA ERROR: {} has mismatched range/attack modes for attack {:d}",
-                                 record->name0, attack));
-    }
     range = GetMonsterActionRangeCategory(monster_info, record, attack);
     if (range >= W8_RANGE_LONG) {
         monster_info->fMissileReleased = false;
@@ -1573,16 +1554,6 @@ static void MarkDefenderSkillUse(int party_slot)
     }
 }
 
-/* Both character and monster attacks report invalid targets identically. */
-static void ReportInvalidAttackTarget(const W8CombatSlot& target, const W8TargetSource& source)
-{
-    DebugMessage(!g_dev_mode,
-                 fmt::format("InvalidAttackTarget: Target Type {:d}(char {:d},ID "
-                             "{:d}), Source Type {:d}(char {:d},ID {:d})",
-                             fmt::underlying(target.iType), target.iChar, target.iMonsterID,
-                             fmt::underlying(source.iType), source.iChar, source.iMonsterID));
-}
-
 /* Resolve one queued swing of the monster's attack: rolls the hit chance and
    the fumble redirection, resolves guardian interception, picks the hit
    location, rolls penetration, applies damage and the struck target's
@@ -1639,8 +1610,6 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
         int redirect_chance = GetMonsterAttackScore(monster_info, attack, action_detail, 1);
         int fumble_chance = GetCombatFumbleChance(fumble_list, redirect_chance);
         fumbled = roll > 100 - fumble_chance;
-        CombatLog(fmt::format("TO HIT: Chance {:d}, Rolled {:d} (fumble {:d}%)", to_hit, roll,
-                              fumble_chance));
         if (!guaranteed_hit && fumbled) {
             if (!verbose) {
                 local_report = {};
@@ -1703,14 +1672,6 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             unsigned int location_roll = CurrentGame().rng.below(100);
             for (hit_location = 0;; ++hit_location) {
                 if (hit_location >= W8_PC_HIT_LOCATIONS) {
-                    if (monster_info == nullptr) {
-                        DebugMessage(1, "ERROR: gubLocalACPercent total only %d%%");
-                    } else {
-                        DebugMessage(
-                            0, fmt::format(
-                                   "ERROR: DBS Attack Locations total only {:d}% for monster {}",
-                                   total, GetMonsterName(monster_info, nullptr, 0)));
-                    }
                     hit_location = 1;
                     break;
                 }
@@ -1784,7 +1745,6 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             const int target_sum = SumTargetCombatAttributes(CurrentGame().combat->TargetHit);
             penetration += (SumMonsterCombatAttributes(*monster_info) - target_sum) / 10;
             ScaleValueForMonsterDifficulty(monster_info, &penetration);
-            CombatLog(fmt::format("TO PENETRATE: Chance {:d}, Rolled was {:d}", penetration, roll));
             if (!guaranteed_penetration && penetration < roll) {
                 message_id = 0x20f;
             } else {
@@ -1908,7 +1868,6 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     return ActionStep::finishing;
 
 invalid_target:
-    ReportInvalidAttackTarget(CurrentGame().combat->TargetHit, source);
     return ActionStep::finishing;
 }
 
@@ -1933,10 +1892,6 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
     assert(combat != 0);
     CurrentGame().combat->attack_report = {};
     if (combat->attacks_per_round == 0) {
-        DebugMessage(
-            1, fmt::format(
-                   "ERROR: Monster ID {:d} is starting attack with 0 of {:d} attacks remaining!",
-                   monster_info->location_id, combat->attacks_per_round0));
         return false;
     }
     attack = combat->attack_index;
@@ -2058,12 +2013,6 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         if (pAttack->weapon_type == 1) {
             name_id = g_attack_flag_name_ids[action_detail][1];
         } else {
-            if (pAttack->weapon_type == 0) {
-                DebugMessage(
-                    0, fmt::format(
-                           "DATA ERROR: Attack {:d} weapon type is NONE for monster {} -> Charles",
-                           attack, GetMonsterName(monster_info, 0, 0)));
-            }
             name_id = g_monster_attack_name_ids[pAttack->weapon_type * 2];
         }
         CurrentGame().combat->attack_message += Data().strings[name_id];
@@ -2477,11 +2426,6 @@ int GetMonsterAttackScore(W8MonsterInfo* monster_info, const W8MonsterAttack* at
                              .attributes[W8_ATTRIBUTE_INTELLIGENCE]
                              .effective;
         } else {
-            DebugMessage(
-                1, fmt::format(
-                       "GetTargetAttackAttributes: Invalid Target Type {:d}(char {:d}, ID {:d})",
-                       fmt::underlying(monster_info->Target.iType), monster_info->Target.iChar,
-                       monster_info->Target.iMonsterID));
             target_sum = 0;
         }
         score += (monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] +
@@ -3181,8 +3125,6 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
     int i;
     int missile_type = Data().items[row->paired_item_id].missile_type;
     if (Data().missiles.size() <= static_cast<unsigned int>(missile_type)) {
-        DebugMessage(0, fmt::format("DATA ERROR: Item {} has an invalid missile type ({:d})",
-                                    Data().items[row->paired_item_id].display_name, missile_type));
         missile_type = 0;
     }
     SetTargetSourceToCharacter(party_slot, &source);
@@ -3213,7 +3155,6 @@ void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacter
         static_cast<W8AttackMode>(
             CurrentGame().party.rows[party_slot].executing.attack_mode[row->current_hand]),
         0);
-    CombatLog(fmt::format("TO HIT (MISSILE ACCURACY): Chance {:d}", accuracy));
     FireMissileSourceToTarget(missile_type, &source,
                               &CurrentGame().party.rows[party_slot].executing.target, &attack_block,
                               false, range_category, accuracy);
@@ -3364,10 +3305,6 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     }
     party_row->executing.attack_mode[hand] = mode;
     if (row->hand_attack_values[hand] == 0) {
-        DebugMessage(
-            1, fmt::format(
-                   "ERROR: {} is starting attack with 0 of {:d} attacks remaining (hand {:d})!",
-                   character->name, row->saved_attack_value[hand], hand));
         return false;
     }
     row->hand_attack_values[hand]--;
@@ -3375,8 +3312,6 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     CurrentGame().combat->natural_attack = 0;
     if (!TargetIsInPlay(party_slot, hand,
                         SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
-        DebugMessage(
-            1, fmt::format("ERROR: {} is starting attack with invalid target!", character->name));
         return false;
     }
     if (hand == 0) {
@@ -3425,8 +3360,6 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     }
     found = FindCharacterItem(*character, ItemWithId(row->weapon_item_id), W8ItemReach::Worn);
     if (found == nullptr) {
-        DebugMessage(1, fmt::format("ERROR: {} does not have a {}!", character->name,
-                                    Data().items[row->weapon_item_id].display_name));
         return false;
     }
     if (CurrentGame().combat->natural_attack != 0) {
@@ -3583,7 +3516,6 @@ ActionStep ResolveCharacterAttack(int party_slot)
     } else if (!TargetIsInPlay(
                    party_slot, hand,
                    SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
-        ReportInvalidAttackTarget(party_row->executing.target, source);
         return ActionStep::finishing;
     } else {
         attack_mode = static_cast<W8AttackMode>(party_row->executing.attack_mode[hand]);
@@ -3615,8 +3547,6 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 }
             }
             fumbled = roll > 100 - fumble_chance;
-            CombatLog(fmt::format("TO HIT: Chance {:d}, Rolled {:d} (fumble {:d}%)", to_hit, roll,
-                                  fumble_chance));
             if (!guaranteed_hit && fumbled) {
                 if (!verbose) {
                     local_report = {};
@@ -3667,7 +3597,6 @@ ActionStep ResolveCharacterAttack(int party_slot)
         } else if (!staged_miss) {
             source.target_diverted = (target != CurrentGame().combat->TargetHit);
             if (!IsTargetStillPresent(&CurrentGame().combat->TargetHit)) {
-                ReportInvalidAttackTarget(CurrentGame().combat->TargetHit, source);
                 return ActionStep::finishing;
             }
             if (!verbose && source.target_diverted) {
@@ -3689,7 +3618,6 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 }
             } else {
                 if (CurrentGame().combat->TargetHit.iType != W8_TARGET_KIND_CHARACTER) {
-                    ReportInvalidAttackTarget(CurrentGame().combat->TargetHit, source);
                     return ActionStep::finishing;
                 }
                 hit_location = RollCharacterHitLocation();
@@ -3743,7 +3671,6 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     mode = CharChooseHandAttackMode(character, 1);
                 }
                 int penetrate = GetTargetHitAttackAttributes(party_slot, hand, mode, hit_location);
-                CombatLog(fmt::format("TO PENETRATE: Chance {:d}, Rolled {:d}", penetrate, roll));
                 if (!guaranteed_penetration && penetrate < roll) {
                     message_id = 0x20f;
                 } else {

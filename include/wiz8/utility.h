@@ -24,9 +24,6 @@ void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
 
-void DebugMessage(int channel, std::string_view message);
-/* The plain message reporter. ReadLevel.cpp uses it for load failures and
-   GrCycle.cpp for a cycle with no usable LOD, so its name stays neutral. */
 int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
                        signed char excluded_gender);
 /* 0x00517FB0: fill `selected` with up to `count` distinct party slots that pass

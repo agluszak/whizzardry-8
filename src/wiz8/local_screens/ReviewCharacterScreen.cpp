@@ -698,9 +698,6 @@ std::optional<ScreenRequest> CampScreen::rebuildRequest(const ScreenRequest& ent
 
 void CampScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     ServiceMusicPlaylist();
     if (dialogs.ProcessInput()) InvalidateAll();
     if (CurrentGame().level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&

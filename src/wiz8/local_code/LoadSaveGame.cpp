@@ -903,7 +903,6 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
         case W8_CHUNK_GAME_STATUS:
             saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks)).status;
             has_status = true;
-            slot->dev_flagged = saved.dev_flagged;
             break;
         case W8_CHUNK_GAME_VERSION:
             chunks.ReadValue(slot->version_major);

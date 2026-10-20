@@ -71,7 +71,7 @@ void SpawnAlfieAt(const char* entity, int monster_id)
     glm::vec3 position;
 
     if (FindEntityByName(entity, &position, 0, 0)) {
-        SpawnMonsters(monster_id, 1, &position, 0, true, false, false);
+        SpawnMonsters(monster_id, 1, &position, 0, true, false);
     }
 }
 
@@ -82,16 +82,16 @@ void SpawnAscensionAmbush()
     glm::vec3 position;
 
     if (FindEntityByName("NP_Rapax02", &position, 0, 0)) {
-        SpawnMonsters(0xc3, 3, &position, 0, true, false, false);
+        SpawnMonsters(0xc3, 3, &position, 0, true, false);
     }
     if (FindEntityByName("NP_Rapax03", &position, 0, 0)) {
-        SpawnMonsters(0xc4, 6, &position, 0, true, false, false);
+        SpawnMonsters(0xc4, 6, &position, 0, true, false);
     }
     if (FindEntityByName("NP_Rapax05", &position, 0, 0)) {
-        SpawnMonsters(0xc5, 6, &position, 0, true, false, false);
+        SpawnMonsters(0xc5, 6, &position, 0, true, false);
     }
     if (FindEntityByName("NP_Prince", &position, 0, 0)) {
-        SpawnMonsters(0xb2, 1, &position, 0, true, false, false);
+        SpawnMonsters(0xb2, 1, &position, 0, true, false);
     }
 }
 
@@ -165,10 +165,10 @@ void AscensionScript::peakInit()
 
             avalanche(true);
             if (FindEntityByName("NP_Rapax01", &position, 0, 0)) {
-                group = SpawnMonsters(0xb1, 6, &position, 1, true, false, false);
+                group = SpawnMonsters(0xb1, 6, &position, 1, true, false);
             }
             if (FindEntityByName("NP_Rapax04", &position, 0, 0)) {
-                SpawnMonsters(0xf, 4, &position, 1, true, false, false);
+                SpawnMonsters(0xf, 4, &position, 1, true, false);
             }
             if (group != nullptr) {
                 W8MonsterInfo* info = FindMonster(group->leader_location_id);
@@ -185,7 +185,7 @@ void AscensionScript::peakInit()
             if (npc != 0 && npc->greeting_pending && npc->spawned == 0 && !npc->party_noticed &&
                 GetFact(W8_FACT_TEMPLAR) != 0) {
                 if (FindEntityByName("NP_Daughter", &position, 0, 0)) {
-                    SpawnMonsters(0x18d, 1, &position, 0, true, false, false);
+                    SpawnMonsters(0x18d, 1, &position, 0, true, false);
                     SetFact(static_cast<W8FactId>(0x327), 1, false);
                 }
                 CreateLocationVar("AP_SpawnDaughter", 1);
@@ -195,7 +195,7 @@ void AscensionScript::peakInit()
     if (count == 3) {
         if (GetLocationVarIDByName("AP_All3Items") == -1) {
             if (FindEntityByName("NP_Savants01", &position, 0, 0)) {
-                SpawnMonsters(0x1a0, 6, &position, 1, true, false, false);
+                SpawnMonsters(0x1a0, 6, &position, 1, true, false);
             }
             if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                 GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
@@ -337,10 +337,10 @@ bool AscensionScript::darkSavantSpawn(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("NP_DSavant", &position, 0, 0)) {
-        SpawnMonsters(0xc2, 1, &position, 0, true, false, false);
+        SpawnMonsters(0xc2, 1, &position, 0, true, false);
     }
     if (FindEntityByName("NP_Bela", &position, 0, 0)) {
-        SpawnMonsters(0x18c, 1, &position, 0, true, false, false);
+        SpawnMonsters(0x18c, 1, &position, 0, true, false);
     }
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         CreateLocationVar("AP_DSSpawned", 1);

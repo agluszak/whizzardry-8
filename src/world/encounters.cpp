@@ -12,7 +12,6 @@
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
-#include <fmt/format.h>
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
@@ -27,7 +26,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
@@ -37,13 +35,10 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -244,7 +239,6 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     unsigned int species;
     const char* script;
     int encounter_weight;
-    int companion_count = 0;
     int index;
 
     if ((flags & W8_MONGEN_DISABLED) != 0 || encounter_table_index == -1) {
@@ -264,9 +258,6 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     record = MonsterDBFromSpecies(species);
     if (record == 0) throw std::runtime_error("encounter names an unknown monster species");
     if (record->deleted != 0) {
-        DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
-                                    "species {:d} has been DELETED!",
-                                    species));
         return false;
     }
 
@@ -294,7 +285,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     int count = RollEncounterGroupSize(record);
     if (count == 0) throw std::runtime_error("monster database gives an empty encounter group");
 
-    group = CreateGroup(species, count, &spawn_position, false, false, true);
+    group = CreateGroup(species, count, &spawn_position, false, true);
     group->encounter_registered = true;
     SetMonsterGroupFormation(group, &this->spawn_position);
 
@@ -314,32 +305,17 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         if (companion_record == 0)
             throw std::runtime_error("encounter names an unknown companion species");
         if (companion_record->deleted != 0) {
-            DebugMessage(1,
-                         fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
-                                     "species {:d} has been DELETED, chum of species {:d}!",
-                                     companion_species, species));
             return false;
         }
 
         int companion_group_count = RollDice(&companion_record->group_size_dice);
-        companion_count += companion_group_count;
-        W8MonsterGroup* companion_group = CreateGroup(companion_species, companion_group_count,
-                                                      &spawn_position, false, false, true);
+        W8MonsterGroup* companion_group =
+            CreateGroup(companion_species, companion_group_count, &spawn_position, false, true);
         companion_group->encounter_registered = true;
         SetMonsterGroupFormation(companion_group, &this->spawn_position);
         LinkMonsterGroupToLeader(group, companion_group);
     }
 
-    if (g_dev_mode && CurrentScreenState().id != W8_SCREEN_PLEASE_WAIT) {
-        const W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
-        std::string group_name =
-            group->MemberCount() == 1 ? group_record->name0 : group_record->name1;
-        const char* companion_word = companion_count == 1 ? "chum" : "chums";
-        ShowNotice(W8_FONT_PALETTE_BROWN,
-                   fmt::format("MonGen ({}): spawned {:d} {} & {:d} {} (lvl {:d})", name,
-                               group->MemberCount(), group_name, companion_count, companion_word,
-                               selected->challenge_level));
-    }
     return true;
 }
 

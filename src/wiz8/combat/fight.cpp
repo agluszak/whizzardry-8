@@ -4,7 +4,6 @@
 #include <cassert>
 #include <chrono>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <variant>
 
@@ -101,7 +100,6 @@ constexpr unsigned int kFleeChance = 15;
 
 /* The per-character combat rows live at +0x18 of the combat state and run
    0xd4 bytes apart; the state's leading 0x18 bytes are its own header. */
-static bool g_combat_log_enabled;
 /* A hostile NPC's combat-start script notice is queued and not yet shown. */
 static bool g_npc_combat_notice_pending;
 
@@ -641,14 +639,6 @@ void RecordCharacterDeath(int party_slot)
     if (CurrentGame().combat.has_value()) {
         ++CurrentGame().combat->pending_death_count;
     }
-}
-
-/* Post one line to the combat log, if the log is on. The whole line is
-   formatted whether or not it will be shown. */
-void CombatLog(std::string_view text)
-{
-    if (g_combat_log_enabled)
-        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BROWN, std::string(text)});
 }
 
 /* Start a fresh round: lift the one action that does not survive it and clear

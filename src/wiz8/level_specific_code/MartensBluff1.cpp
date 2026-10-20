@@ -344,7 +344,7 @@ bool MartensBluff1Script::transportSpawn()
     }
     CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f,
                            30.0f, false);
-    group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
+    group = SpawnMonsters(0x177, 1, &position_a, 0, true, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = FindMonster(location_id);

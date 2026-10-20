@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
-#include <string_view>
 
 #include <SDL3/SDL_rect.h>
 
@@ -327,12 +326,6 @@ retry:
         goto retry;
     }
     return -1;
-}
-
-void DebugMessage(int channel, std::string_view message)
-{
-    (void)channel;
-    (void)message; // The recovered diagnostic sink is inactive.
 }
 
 int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)

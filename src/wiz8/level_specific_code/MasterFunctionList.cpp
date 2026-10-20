@@ -121,7 +121,7 @@ W8SavedLocationState LevelScript::captureState() const
    ground when asked, create the group, apply hostility, refresh its centre
    cache and re-run outward sight for the new arrivals. */
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
-                              bool settle, bool a, bool b)
+                              bool settle, bool use_alternate_name)
 {
     W8MonsterGroup* group;
     glm::vec3 position_copy;
@@ -130,7 +130,7 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
         position->y = probeGround((*position)).position.y;
     }
     position_copy = *position;
-    group = CreateGroup(monster_id, count, &position_copy, a, b, settle);
+    group = CreateGroup(monster_id, count, &position_copy, use_alternate_name, settle);
     if (group != 0) {
         SetMonsterGroupHostility(group, static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);

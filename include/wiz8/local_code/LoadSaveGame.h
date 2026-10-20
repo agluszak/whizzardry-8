@@ -29,7 +29,6 @@ struct W8SaveSlot {
     int version_major;
     unsigned int version_minor;
     unsigned int version_patch;
-    bool dev_flagged; /* saved copy of status dev_flagged */
 };
 
 void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
