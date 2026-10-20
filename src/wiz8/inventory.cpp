@@ -5,7 +5,6 @@
 #include <bitset>
 #include <functional>
 #include <initializer_list>
-#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -17,7 +16,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "layouts/levels.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
@@ -35,6 +33,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"
@@ -69,7 +68,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
-#include "xstatus.h"
+#include "wiz8/xstatus.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
 

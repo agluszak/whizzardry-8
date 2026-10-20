@@ -1,8 +1,11 @@
 #include "wiz8/game.h"
 
+#include <functional>
 #include <optional>
 #include <stdexcept>
 #include <utility>
+
+#include "wiz8/rules/events.h"
 
 namespace {
 std::optional<Game> current_game;

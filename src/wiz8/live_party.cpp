@@ -23,6 +23,7 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"

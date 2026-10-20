@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -7,7 +8,6 @@
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
 #include <memory>
 #include <span>
-#include <string>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -17,7 +17,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "fact_state.h"
-#include "layouts/npc_state.h"
 #include "mgs_commands.h"
 #include "mutable_game_data.h"
 #include "save_payload.h"
@@ -40,6 +39,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"

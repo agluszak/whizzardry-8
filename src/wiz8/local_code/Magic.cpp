@@ -21,7 +21,6 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
@@ -54,6 +53,7 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -80,6 +80,7 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"

@@ -8,7 +8,6 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
@@ -27,6 +26,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/loaded_game_data.h"
@@ -46,7 +46,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"

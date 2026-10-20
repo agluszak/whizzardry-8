@@ -45,7 +45,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -57,6 +56,7 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
@@ -64,7 +64,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/utility.h"
-#include "xstatus.h"
+#include "wiz8/xstatus.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather
    than singly, so a stack of them divides its bundle value out - rounding up,

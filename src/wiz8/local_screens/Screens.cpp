@@ -6,17 +6,17 @@
 #include <string_view>
 #include <variant>
 
-#include "compat/native.h"
-#include "layouts/main_game_screen.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -34,6 +34,7 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
