@@ -373,6 +373,9 @@ void InstanceNode::advanceTextures(std::chrono::milliseconds now)
             for (const auto& layer : pass)
                 for (std::size_t polygon = 0; polygon < layer.size(); ++polygon)
                     if (const auto& texture = layer[polygon]) texture->UpdateFrame(now);
+        for (const auto& skin : part->mesh->skins)
+            for (std::size_t polygon = 0; polygon < skin.textures.size(); ++polygon)
+                if (const auto& texture = skin.textures[polygon]) texture->UpdateFrame(now);
     }
 }
 

@@ -27,6 +27,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"

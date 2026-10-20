@@ -1,6 +1,7 @@
 #include "wiz8/entities/monster.h"
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <optional>

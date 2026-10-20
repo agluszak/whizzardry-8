@@ -305,68 +305,73 @@ void Texture::UpdateFrame(std::chrono::milliseconds now, TextureClock clock)
     if (state.last_update == now) return;
     if (state.last_update && now >= *state.last_update) state.elapsed += now - *state.last_update;
     state.last_update = now;
-    for (const auto& frame : state.textures)
-        if (frame) frame->UpdateFrame(now, clock);
-    const int count = static_cast<int>(state.textures.size());
+    const auto advance = [&] {
+        const int count = static_cast<int>(state.textures.size());
 
-    if (count == 0) return;
-    if (state.animation_mode == W8_TEXTURE_ANIM_MANUAL) {
-        return;
-    }
-
-    if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
-        if (PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
-            state.frame = std::min(count - 1, static_cast<int>(PresentationRng().next() /
-                                                               static_cast<float>(0x7fff) * count));
-        }
-        return;
-    }
-
-    if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_START) {
-        if (!state.running &&
-            PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
-            state.running = true;
-            state.direction = 0;
-            state.frame = 0;
-            state.elapsed = {};
-        }
-        if (!state.running) {
+        if (count == 0) return;
+        if (state.animation_mode == W8_TEXTURE_ANIM_MANUAL) {
             return;
         }
-    }
-    if (count == 0) {
-        return;
-    }
 
-    const int elapsed_frames = static_cast<int>(state.elapsed.count() * state.frame_rate * 0.001f);
-    if (state.animation_mode == W8_TEXTURE_ANIM_LOOP) {
-        int next = (state.direction * elapsed_frames) % count;
-        if (next < state.frame) {
-            state.frame = 0;
-            state.running = false;
+        if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
+            if (PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
+                state.frame =
+                    std::min(count - 1, static_cast<int>(PresentationRng().next() /
+                                                         static_cast<float>(0x7fff) * count));
+            }
             return;
         }
-        state.frame = next;
-    } else if (state.animation_mode == W8_TEXTURE_ANIM_PING_PONG) {
-        if ((elapsed_frames / count & 1) != 0) {
-            state.direction = -1;
-            state.frame = count - elapsed_frames % count - 1;
-        } else {
-            if (state.direction == -1) {
+
+        if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_START) {
+            if (!state.running &&
+                PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
+                state.running = true;
+                state.direction = 0;
+                state.frame = 0;
+                state.elapsed = {};
+            }
+            if (!state.running) {
+                return;
+            }
+        }
+        if (count == 0) {
+            return;
+        }
+
+        const int elapsed_frames =
+            static_cast<int>(state.elapsed.count() * state.frame_rate * 0.001f);
+        if (state.animation_mode == W8_TEXTURE_ANIM_LOOP) {
+            int next = (state.direction * elapsed_frames) % count;
+            if (next < state.frame) {
+                state.frame = 0;
                 state.running = false;
                 return;
             }
-            state.direction = 1;
-            state.frame = elapsed_frames % count;
+            state.frame = next;
+        } else if (state.animation_mode == W8_TEXTURE_ANIM_PING_PONG) {
+            if ((elapsed_frames / count & 1) != 0) {
+                state.direction = -1;
+                state.frame = count - elapsed_frames % count - 1;
+            } else {
+                if (state.direction == -1) {
+                    state.running = false;
+                    return;
+                }
+                state.direction = 1;
+                state.frame = elapsed_frames % count;
+            }
+        } else if (state.animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE) {
+            if (elapsed_frames >= count) {
+                state.running = false;
+                state.frame = count - 1;
+            } else {
+                state.frame = elapsed_frames;
+            }
         }
-    } else if (state.animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE) {
-        if (elapsed_frames >= count) {
-            state.running = false;
-            state.frame = count - 1;
-        } else {
-            state.frame = elapsed_frames;
-        }
-    }
+    };
+    advance();
+    if (!state.textures.empty())
+        if (const auto& frame = state.textures.at(state.frame)) frame->UpdateFrame(now, clock);
 }
 
 int Texture::IsFinished() const
