@@ -1636,7 +1636,7 @@ static void ReportInvalidAttackTarget(const W8CombatSlot& target, const W8Target
    location, rolls penetration, applies damage and the struck target's
    retaliation enchantment, then decides whether the monster swings again,
    repicks a target or is done. */
-W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 {
     W8SpellEffectResult* report = &CurrentGame().combat.state()->attack_report;
     W8SpellEffectResult local_report;
@@ -1951,7 +1951,7 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
                         fmt::sprintf(Data().strings[0x269],
                                      CombatTargetName(&source, &monster_info->Target)));
                 }
-                return W8CombatActionStatus::resolving;
+                return ActionStep::resolving;
             }
         }
     }
@@ -1967,11 +1967,11 @@ W8CombatActionStatus ContinueMonsterAttack(W8MonsterInfo* monster_info, W8Monste
             }
         }
     }
-    return W8CombatActionStatus::finishing;
+    return ActionStep::finishing;
 
 invalid_target:
     ReportInvalidAttackTarget(CurrentGame().combat.state()->TargetHit, source);
-    return W8CombatActionStatus::finishing;
+    return ActionStep::finishing;
 }
 
 /* The monster-side counterpart: the same swing/damage/casualty walk reported
@@ -3654,7 +3654,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
    picks the hit location, rolls to hit and to penetrate, applies damage and
    the struck target's retaliation enchantment, consumes the thrown item or
    charge, and answers whether the attack continues. */
-W8CombatActionStatus ResolveCharacterAttack(int party_slot)
+ActionStep ResolveCharacterAttack(int party_slot)
 {
     W8SpellEffectResult* report = &CurrentGame().combat.state()->attack_report;
     W8SpellEffectResult local_report;
@@ -3704,13 +3704,13 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                    party_slot, hand,
                    SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         ReportInvalidAttackTarget(party_row->target_out_of_combat, source);
-        return W8CombatActionStatus::finishing;
+        return ActionStep::finishing;
     } else {
         attack_mode = static_cast<W8AttackMode>(party_row->attack_mode[hand]);
         if (!row->attack_sound_played) {
             MakePCAttackSound(row, &character->Hand[hand], attack_mode, true, -1);
             row->attack_sound_played = true;
-            return W8CombatActionStatus::resolving;
+            return ActionStep::resolving;
         }
         target = party_row->target_out_of_combat;
         range = GetCharAttackRange(character, hand);
@@ -3788,7 +3788,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
             source.target_diverted = (target != CurrentGame().combat.state()->TargetHit);
             if (!IsTargetStillPresent(&CurrentGame().combat.state()->TargetHit)) {
                 ReportInvalidAttackTarget(CurrentGame().combat.state()->TargetHit, source);
-                return W8CombatActionStatus::finishing;
+                return ActionStep::finishing;
             }
             if (!verbose && source.target_diverted) {
                 local_report = {};
@@ -3810,7 +3810,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
             } else {
                 if (CurrentGame().combat.state()->TargetHit.iType != W8_TARGET_KIND_CHARACTER) {
                     ReportInvalidAttackTarget(CurrentGame().combat.state()->TargetHit, source);
-                    return W8CombatActionStatus::finishing;
+                    return ActionStep::finishing;
                 }
                 hit_location = RollCharacterHitLocation();
                 location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
@@ -4121,7 +4121,7 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
                 MakePCAttackSound(row, &character->Hand[hand], attack_mode, false, -1);
                 row->attack_sound_played = true;
             }
-            return W8CombatActionStatus::resolving;
+            return ActionStep::resolving;
         }
     }
     if (!verbose && !special_item) {
@@ -4137,5 +4137,5 @@ W8CombatActionStatus ResolveCharacterAttack(int party_slot)
             }
         }
     }
-    return W8CombatActionStatus::finishing;
+    return ActionStep::finishing;
 }

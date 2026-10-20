@@ -175,6 +175,15 @@ Unlayered code may use the layers.
   the world, fed by the environment clock and by the rounds of a fight there; aging also
   waits while `aging_held`, which the screens set while the camp's Use hands an item to
   the use-item picker.
+- **The combat turn.** `W8CombatState::turn()` is a `CombatTurn` value: idle, or a
+  `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when
+  used) that is scheduled, resolving or finishing. `UpdateCombat` steps it once per
+  frame after `CombatWaitFor` reports nothing to wait on (camera, monster animation,
+  hit sound, retiring spell effect, missile, queued NPC script, in that order).
+  Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave
+  a turn the actor no longer holds alone, so an actor that dies or leaves while its
+  action runs is not given its turn back. `action_clock` paces the scheduled actor and
+  outlives the turn. Combat is not saved.
 - **Transitional access.** Code that does not yet receive the game reaches it through
   `CurrentGame()`, which throws when no game is in progress. Menus check
   `GameInProgress()`.
