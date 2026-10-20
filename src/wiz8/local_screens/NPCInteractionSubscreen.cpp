@@ -30,7 +30,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/checked_integer.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"

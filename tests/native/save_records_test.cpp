@@ -55,7 +55,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -1257,7 +1256,7 @@ TEST_CASE("Faction sections keep every byte", "[save][records]")
 
 TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 {
-    W8SpellEffectEntry effect;
+    W8SpellEffectEntry effect{};
     effect.kind = static_cast<W8SpellId>(0x26);
     effect.turns_remaining = 5;
     effect.sustained = true;

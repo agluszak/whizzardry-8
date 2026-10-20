@@ -1062,7 +1062,7 @@ std::vector<std::unique_ptr<W8NpcState>> decode_npc_states(std::span<const std::
     std::vector<std::unique_ptr<W8NpcState>> npcs;
     npcs.reserve(count);
     for (std::uint32_t index = 0; index < count; ++index) {
-        retail::NpcState image;
+        retail::NpcState image{};
         std::memcpy(&image, in.take(sizeof(image)).data(), sizeof(image));
         auto npc = std::make_unique<W8NpcState>();
         retail::decode_image(image, *npc);
@@ -1178,7 +1178,7 @@ std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
 W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
 {
     Reader in(payload);
-    W8SpellEffectEntry effect;
+    W8SpellEffectEntry effect{};
     effect.kind = static_cast<W8SpellId>(in.value<std::int32_t>());
     effect.turns_remaining = in.value<std::int32_t>();
     in.record(effect.Source);

@@ -13,7 +13,6 @@
 #include <SDL3/SDL_keycode.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "fact_state.h"
 #include "mgs_commands.h"
 #include "save_payload.h"
 #include "scoped_combat.h"
@@ -363,9 +362,10 @@ static bool journalSerialization()
                                              {9, 30, {0x01, 0xff, 0xff, 0xff}}}};
     static_assert(sizeof(disk) == count * 12);
     std::vector<std::byte> payload;
-    for (const auto bytes : {std::as_bytes(std::span(&format, 1)),
-                             std::as_bytes(std::span(&count, 1)), std::as_bytes(std::span(disk))})
-        payload.insert(payload.end(), bytes.begin(), bytes.end());
+    const std::array<std::span<const std::byte>, 3> parts{std::as_bytes(std::span(&format, 1)),
+                                                          std::as_bytes(std::span(&count, 1)),
+                                                          std::as_bytes(std::span(disk))};
+    for (const auto bytes : parts) payload.insert(payload.end(), bytes.begin(), bytes.end());
     const auto journal = wiz8::save::decode_journal(payload);
     REQUIRE(journal.size() == count);
     for (int i = 0; i < count; ++i) {
