@@ -1168,7 +1168,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
             SetTargetCursor(W8_CURSOR_NONE);
         } else {
             CurrentGame().party.held.item = g_npc_interaction_state->pending_item;
-            SetItemCursor(0);
             g_npc_interaction_state->held_item_pending = false;
         }
         W8NpcState* npc = g_npc_interaction_state->dialogue_npc;
@@ -4066,7 +4065,6 @@ void CloseNpcDialogueForCamp(void)
     EndNpcDialogueSession(false);
     if (g_npc_interaction_state->held_item_pending) {
         CurrentGame().party.held.item = g_npc_interaction_state->pending_item;
-        SetItemCursor(0);
         return;
     }
     SetTargetCursor(W8_CURSOR_NONE);

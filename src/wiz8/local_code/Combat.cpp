@@ -22,7 +22,6 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
@@ -177,7 +176,7 @@ bool Game::beginCombat(int surprise)
     if (status.vi_event_stage == 1) {
         status.vi_event_stage = 2;
     }
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     if (surprise_possible) {
         ResolveSurpriseHold();
     }

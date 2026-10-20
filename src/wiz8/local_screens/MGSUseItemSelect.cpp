@@ -491,8 +491,8 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
                                {kInfoDialogX, 0x48});
     dialog->SetText("");
 
-    dialog->cleanup = [cursor = ShownCursor()] {
-        SetTargetCursor(cursor);
+    dialog->cleanup = [pointer = CurrentPointerRequest()] {
+        RestorePointerRequest(pointer);
         RequestRedraw(W8_MAIN_REDRAW_ALL);
     };
     OpenModal(std::unique_ptr<ModalContent>(dialog));

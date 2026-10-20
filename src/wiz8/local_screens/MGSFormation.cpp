@@ -497,7 +497,7 @@ static void DropFormationSlot(int cell)
                                g_formation_cell_slots[cell]);
         }
     }
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     UpdateFormationCells();
     formation->highlighted[g_formation_drag_cell] = false;
     if (cell != -1) {
@@ -523,7 +523,7 @@ void CloseFormationPanel(void)
 {
     DestroyFormationPanel();
     MainGame()->formation_panel_open = false;
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
 }

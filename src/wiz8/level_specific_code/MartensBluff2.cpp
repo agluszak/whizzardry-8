@@ -17,7 +17,6 @@
 #include "local_code/SpellEffect.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
@@ -604,7 +603,6 @@ bool MartensBluff2Script::stoneIdol(Trigger* pTrigger)
         return false;
     }
     ReplaceHeldItem(ctx.game, MakeItem(0x291, false, false, false));
-    SetItemCursor(0);
     ShowString(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
@@ -628,7 +626,6 @@ bool MartensBluff2Script::blueFlowers(Trigger* pTrigger)
             return false;
         }
         ReplaceHeldItem(ctx.game, MakeItem(0x2eb, false, false, false));
-        SetItemCursor(0);
     }
     running_trigger_from_script_ = false;
     return true;

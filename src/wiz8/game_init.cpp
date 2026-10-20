@@ -8,7 +8,6 @@
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
-#include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
@@ -50,7 +49,6 @@ bool InitializeGame(bool load_at_startup, const std::string& string_data_overrid
     }
     InitializeButtonImageManager();
     InitializeUiHelp();
-    UpdateHeldItemCursor();
     if (!VerifyDataSubdirs()) {
         return false;
     }

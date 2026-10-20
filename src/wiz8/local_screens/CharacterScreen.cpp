@@ -24,7 +24,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -49,6 +48,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
@@ -579,7 +579,7 @@ bool CharacterScreen::enter(const ScreenRequest& request)
     const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(request.mode);
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
     m_mode = mode;

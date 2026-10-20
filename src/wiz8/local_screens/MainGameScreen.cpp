@@ -2263,11 +2263,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         }
     }
     DrainInputEventQueue();
-    if (CurrentGame().party.held.item.iItemNo != -1) {
-        SetItemCursor(0);
-    } else {
-        ClearHeldItemDisplay();
-    }
+    ResetPointerCursor();
     SetTargetingMode(W8_TARGET_NEED_NONE);
     SetPrimarySurfaceTextureHint2Enabled(true);
     if (LockInteractionSuspended()) {
@@ -2402,7 +2398,7 @@ void MainGameScreen::frame()
     if (g_modal_owner) {
         // A modal takes the pointer back from mouselook and from any targeting cursor.
         CancelMouselook();
-        UpdateHeldItemCursor();
+        ResetPointerCursor();
     }
     // A screen fade, and the party-death or ending screen it leads to, takes the frame.
     if (MainGameHud()->screen_fade_running) {
@@ -2596,11 +2592,8 @@ bool MainGameScreen::leave(ScreenDeparture departure)
         }
     }
 
-    UpdateHeldItemCursor();
-    if (MainGameHud()->held_item_display != -1) {
-        MainGameHud()->held_item_display = -1;
-        UpdateHeldItemCursor();
-    }
+    MainGameHud()->held_item_display = -1;
+    ResetPointerCursor();
 
     CloseMainGameOverlays();
 
@@ -5353,7 +5346,7 @@ bool LoadCurrentLevelData(void)
         UnloadSkyWorld();
         LeaveLevel();
         g_world_cleanup_flag = false;
-        UpdateHeldItemCursor();
+        ResetPointerCursor();
     }
     return true;
 }

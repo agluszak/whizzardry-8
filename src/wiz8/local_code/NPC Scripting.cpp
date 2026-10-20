@@ -469,7 +469,6 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
         notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(&item));
         if (!context.activity.conversation) {
             context.party.held.item = item;
-            SetItemCursor(0);
         } else {
             AddItemToPartyOrDrop(context.game, &item, false);
             DisplayNpcQuote(notice_text, true);

@@ -66,8 +66,6 @@ struct CombatPanelChanged {};
 struct CharacterActionChanged {};
 // The party's equipment settled after an inventory edit.
 struct EquipmentSettled {};
-// The hand holds something else.
-struct HeldItemChanged {};
 /* A skill became available or unavailable to a character; a character screen editing
    that character adjusts its draft. */
 struct SkillAvailabilityChanged {
@@ -99,8 +97,8 @@ struct CombatCalledOff {};
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, PartySlotChanged,
                  PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
-                 HeldItemChanged, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff>;
+                 SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged, CombatantsMoved,
+                 CombatExecutionBegan, CombatCalledOff>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

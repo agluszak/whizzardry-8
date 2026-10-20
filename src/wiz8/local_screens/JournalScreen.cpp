@@ -21,7 +21,6 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/chunk.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -40,6 +39,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -385,7 +385,7 @@ bool JournalScreen::enter(const ScreenRequest&)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetPrimarySurfaceTextureHint2Enabled(false);
-    UpdateHeldItemCursor();
+    ResetPointerCursor();
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 
     switch (g_settings.difficulty) {

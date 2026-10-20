@@ -29,7 +29,7 @@ static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 /* One animated cursor resource the main-game / camp screens can install. The
    object is an Texture; size and hotspot are the unsigned shorts
-   ApplyCurrentCursor feeds to the mouse-cursor surface helpers. */
+   the pointer feeds to the mouse-cursor surface helpers. */
 struct W8MainGameResourceSlot {
     int image_id;
     std::shared_ptr<Texture> object;

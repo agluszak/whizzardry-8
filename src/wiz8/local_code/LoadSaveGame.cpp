@@ -37,7 +37,6 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/entities/cursor_nodes.h"
@@ -1682,11 +1681,6 @@ try {
     });
     CurrentGame().gameplay_timer.Restart();
     ResetMainGameScreenState();
-    if (CurrentGame().party.held.item.iItemNo == -1) {
-        ClearHeldItemDisplay();
-    } else {
-        SetItemCursor(0);
-    }
     SanitizeLoadedItems();
     return true;
 } catch (const std::exception&) {

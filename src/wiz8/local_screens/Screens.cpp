@@ -176,123 +176,179 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
 }
 
 namespace {
-// The cursor-table slot the pointer shows, its animation frame and when the next is due.
-struct ShownPointer {
-    int cursor = W8_CURSOR_NONE;
+// What the pointer shows: the arrow, a cursor-table slot, the held item under an overlay, or
+// an image a screen drew itself.
+struct PointerLook {
+    PointerRequest::Kind kind = PointerRequest::Kind::None;
+    int value = W8_CURSOR_NONE;
+    int item = -1;
+    bool operator==(const PointerLook&) const = default;
+};
+
+struct Pointer {
+    PointerRequest request;
+    PointerLook shown;
+    // A multi-frame slot's animation frame and when the next is due.
     int frame = 0;
     std::uint64_t next_frame = 0;
 };
-ShownPointer shown_pointer;
+Pointer pointer;
 
-void ShowDefaultCursor()
+int HeldItemId()
 {
-    const auto cursor = CatalogArtwork::Load(0);
-    SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
-    RefreshMouseCursorTexture();
-    shown_pointer = {};
+    return GameInProgress() ? CurrentGame().party.held.item.iItemNo : -1;
+}
+
+/* The look the pointer should have. A request made while the hand held something else has
+   lapsed; without one, the main game and the camp show the held item. */
+PointerLook WantedLook()
+{
+    const int hand = HeldItemId();
+    if (pointer.request.hand != hand) pointer.request = {};
+    const auto& request = pointer.request;
+    using Kind = PointerRequest::Kind;
+    switch (request.kind) {
+    case Kind::Slot:
+    case Kind::Custom:
+        return {.kind = request.kind, .value = request.value};
+    case Kind::HeldItem:
+        if (hand != -1) return {.kind = Kind::HeldItem, .value = request.value, .item = hand};
+        return {};
+    case Kind::None:
+        break;
+    }
+    const auto screen = CurrentScreenState().id;
+    if (hand != -1 && (screen == W8_SCREEN_MAIN_GAME || screen == W8_SCREEN_CAMP))
+        return {.kind = Kind::HeldItem, .value = 0, .item = hand};
+    return {};
+}
+
+/* Install the shown slot from the main-game resource table: resize, install the slot's
+   texture, select the current frame and refresh the hotspot. A multi-frame cursor arms its
+   animation. */
+void ApplyShownSlot()
+{
+    auto& slot = g_main_game_resource_slots[pointer.shown.value];
+    if (slot.object != 0) {
+        ResizeMouseCursorSurface(slot.size_x, slot.size_y);
+        SetMouseCursorTexture(slot.object);
+        slot.object->SetFrame(pointer.frame);
+        SetMouseCursorHotspot(slot.hotspot_x, slot.hotspot_y);
+    }
+    if (slot.frame_count > 1) {
+        pointer.next_frame = MonotonicMilliseconds() + (0xfa);
+    }
+}
+
+void ShowLook(const PointerLook& look)
+{
+    pointer.shown = look;
+    pointer.frame = 0;
+    switch (look.kind) {
+    case PointerRequest::Kind::None: {
+        const auto cursor = CatalogArtwork::Load(0);
+        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
+        RefreshMouseCursorTexture();
+        break;
+    }
+    case PointerRequest::Kind::Slot:
+        ApplyShownSlot();
+        break;
+    case PointerRequest::Kind::HeldItem: {
+        const auto sprites = ItemSprites(look.item);
+        SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
+        const auto overlay = CatalogArtwork::Load(look.value);
+        BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
+        RefreshMouseCursorTexture();
+        break;
+    }
+    case PointerRequest::Kind::Custom:
+        // The screen drew the image itself.
+        break;
+    }
+}
+
+void Ask(PointerRequest request)
+{
+    request.hand = HeldItemId();
+    pointer.request = request;
+    PresentPointer();
 }
 } // namespace
 
+void PresentPointer()
+{
+    if (const auto look = WantedLook(); look != pointer.shown) ShowLook(look);
+}
+
 int ShownCursor()
 {
-    return shown_pointer.cursor;
+    const auto look = WantedLook();
+    switch (look.kind) {
+    case PointerRequest::Kind::None:
+        return W8_CURSOR_NONE;
+    case PointerRequest::Kind::Slot:
+        return look.value;
+    case PointerRequest::Kind::HeldItem:
+    case PointerRequest::Kind::Custom:
+        break;
+    }
+    return W8_CURSOR_INVALID_TARGET;
+}
+
+PointerRequest CurrentPointerRequest()
+{
+    WantedLook();
+    return pointer.request;
+}
+
+void RestorePointerRequest(const PointerRequest& request)
+{
+    pointer.request = request;
+    PresentPointer();
 }
 
 void ShowCustomCursor()
 {
-    shown_pointer.cursor = W8_CURSOR_INVALID_TARGET;
+    Ask({.kind = PointerRequest::Kind::Custom});
+}
+
+void ShowHeldItemCursor(int overlay)
+{
+    Ask({.kind = PointerRequest::Kind::HeldItem, .value = overlay});
 }
 
 void AnimateShownCursor()
 {
-    const int cursor = shown_pointer.cursor;
-    if (cursor == W8_CURSOR_NONE || cursor == W8_CURSOR_INVALID_TARGET) return;
-    const auto frame_count = static_cast<int>(g_main_game_resource_slots[cursor].frame_count);
-    if (frame_count <= 1 || TimeUntilDeadline(shown_pointer.next_frame)) return;
-    if (++shown_pointer.frame == frame_count) shown_pointer.frame = 0;
-    ApplyCurrentCursor();
+    if (pointer.shown.kind != PointerRequest::Kind::Slot) return;
+    const auto frame_count =
+        static_cast<int>(g_main_game_resource_slots[pointer.shown.value].frame_count);
+    if (frame_count <= 1 || TimeUntilDeadline(pointer.next_frame)) return;
+    if (++pointer.frame == frame_count) pointer.frame = 0;
+    ApplyShownSlot();
 }
 
-/* Install a named cursor, or restore the held-item / default cursor when the
-   caller passes W8_CURSOR_NONE (-1). Unchanged ids are ignored; a new id resets
-   the frame and applies through ApplyCurrentCursor. */
 void SetTargetCursor(int cursor)
 {
-    if (cursor == shown_pointer.cursor) {
+    if (cursor == W8_CURSOR_NONE) {
+        ResetPointerCursor();
         return;
     }
-    if (cursor == -1) {
-        UpdateHeldItemCursor();
-    } else {
-        shown_pointer.cursor = cursor;
-        shown_pointer.frame = 0;
-        ApplyCurrentCursor();
-    }
+    Ask({.kind = PointerRequest::Kind::Slot, .value = cursor});
 }
 
-void UpdateHeldItemCursor(void)
+void ResetPointerCursor()
 {
-    if ((CurrentScreenState().id == W8_SCREEN_MAIN_GAME ||
-         CurrentScreenState().id == W8_SCREEN_CAMP) &&
-        (CurrentGame().party.held.item.iItemNo != -1)) {
-        if (CurrentGame().party.held.item.iItemNo != -1) {
-
-            const auto sprites = ItemSprites(CurrentGame().party.held.item.iItemNo);
-            SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
-            const auto cursor = CatalogArtwork::Load(0);
-            BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
-            RefreshMouseCursorTexture();
-            ShowCustomCursor();
-            return;
-        }
-    } else if (shown_pointer.cursor != W8_CURSOR_NONE) {
-        ShowDefaultCursor();
-    }
+    pointer.request = {};
+    PresentPointer();
 }
 
-/* Drive the mouse cursor from the shown cursor's slot in the main-game resource table:
-   resize, install the slot's texture anim, select the current frame, and refresh the
-   hotspot. Multi-frame cursors also arm the animation countdown. */
-void ApplyCurrentCursor(void)
-{
-    if (shown_pointer.cursor == W8_CURSOR_NONE) {
-        Fail("ShownCursor() != -1");
-    }
-    auto& slot = g_main_game_resource_slots[shown_pointer.cursor];
-    if (slot.object != 0) {
-        ResizeMouseCursorSurface(slot.size_x, slot.size_y);
-        SetMouseCursorTexture(slot.object);
-        slot.object->SetFrame(shown_pointer.frame);
-        SetMouseCursorHotspot(slot.hotspot_x, slot.hotspot_y);
-    }
-    if (slot.frame_count > 1) {
-        shown_pointer.next_frame = MonotonicMilliseconds() + (0xfa);
-    }
-}
-
-/* Restore the normal cursor. Inventory operations own the held item. */
+/* Empty the hand and drop whatever cursor a screen asked for. Inventory operations own the
+   held item. */
 void ClearHeldItemDisplay(void)
 {
     CurrentGame().party.held.item = {};
-
-    if (shown_pointer.cursor != W8_CURSOR_NONE) {
-        ShowDefaultCursor();
-    }
-}
-
-/* Draw the held item as the cursor, then blit the supplied catalog video
-   object over it. A negative held item id leaves the cursor unchanged. */
-void SetItemCursor(int overlay_video_object)
-{
-    if (CurrentGame().party.held.item.iItemNo != -1) {
-
-        const auto sprites = ItemSprites(CurrentGame().party.held.item.iItemNo);
-        SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
-        const auto overlay = CatalogArtwork::Load(overlay_video_object);
-        BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
-        RefreshMouseCursorTexture();
-        ShowCustomCursor();
-    }
+    ResetPointerCursor();
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
@@ -381,7 +437,6 @@ struct GameEventPresentation {
         if (MainGameHud()->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
-    void operator()(const HeldItemChanged&) const { UpdateHeldItemCursor(); }
     void operator()(const SkillAvailabilityChanged& change) const
     {
         if (auto* screen = FindScreen<CharacterScreen>())
