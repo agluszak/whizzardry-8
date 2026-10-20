@@ -1500,9 +1500,9 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
     detail.item_use.kind = -1;
     auto& row = CurrentGame().party.rows[party_slot];
     if (CurrentGame().combat.active())
-        row.committed_action.target = action.target;
+        row.committed.target = action.target;
     else
-        row.target_out_of_combat = action.target;
+        row.executing.target = action.target;
     StagePartySlotItemUse(party_slot, item, &action.target);
     if (Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
@@ -1518,10 +1518,10 @@ void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatS
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    row->item_detail.item_use.kind = -1;
-    row->item_detail.item_use.item = CurrentGame().party.locateItem(item);
-    row->item_target = *target;
-    row->item_id = item->iItemNo;
+    row->remembered.item_detail.item_use.kind = -1;
+    row->remembered.item_detail.item_use.item = CurrentGame().party.locateItem(item);
+    row->remembered.item_target = *target;
+    row->remembered.item_id = item->iItemNo;
 }
 
 /* Cast the spell an item carries and spend the uses it cost. The attempt is
@@ -1598,9 +1598,9 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     {
         int power_out = static_cast<int>(power);
-        effect = CastSpellFromSource(
-            spell_id, &target, &CurrentGame().party.rows[party_slot].target_out_of_combat, power, 0,
-            difficulty, false, &power_out, difficulty_kind, 0, 0);
+        effect = CastSpellFromSource(spell_id, &target,
+                                     &CurrentGame().party.rows[party_slot].executing.target, power,
+                                     0, difficulty, false, &power_out, difficulty_kind, 0, 0);
         power = static_cast<unsigned int>(power_out);
     }
 
@@ -1622,8 +1622,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (skill != W8_SKILL_NONE) {
         if (SpellAffectedTarget(character, spell_id,
-                                &CurrentGame().party.rows[party_slot].target_out_of_combat,
-                                power)) {
+                                &CurrentGame().party.rows[party_slot].executing.target, power)) {
             PracticeCharacterSkill(CurrentGame(), character, skill,
                                    Data().spells[spell_id].spell_level + (power >> 1), false);
         }

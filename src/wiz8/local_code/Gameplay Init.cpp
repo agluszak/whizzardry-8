@@ -175,9 +175,9 @@ void ResetPartySlotRow(int slot)
 
     memset(row, 0, sizeof(W8PartySlotRow));
     row->fOccupied = true;
-    row->spell = {W8_ACTION_CAST_SPELL, W8_SPELL_NONE};
-    row->queued_action = W8_ACTION_NONE;
-    SetSlotAction(slot, W8_ACTION_ATTACK, -1);
+    row->remembered.spell = {W8_ACTION_CAST_SPELL, W8_SPELL_NONE};
+    row->remembered.repeat_action = W8_ACTION_NONE;
+    row->remembered.chooseBasic(W8_ACTION_ATTACK, -1);
 }
 
 /* Both buffers are cleared only after both allocations succeed, so a failed

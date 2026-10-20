@@ -3,6 +3,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 
@@ -55,4 +56,26 @@ TEST_CASE("The hand forgets where its item came from once it is emptied", "[part
     REQUIRE(party.take({W8ItemStorage::Hand}).iItemNo == 10);
     REQUIRE(party.held.item.iItemNo == -1);
     REQUIRE((party.held.origin == W8ItemLocation{} && party.held.actor == -1));
+}
+
+TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "[party][actions]")
+{
+    ActionChoices choices{};
+    choices.chooseBasic(W8_ACTION_BERSERK, 0);
+    W8Action committed{W8_ACTION_BERSERK, 0};
+
+    ReconcileBerserkChoice(choices, committed, false);
+    REQUIRE(choices.basic_kind == W8_ACTION_ATTACK);
+    REQUIRE(committed.kind == W8_ACTION_ATTACK);
+
+    ReconcileBerserkChoice(choices, committed, true);
+    REQUIRE(choices.basic_kind == W8_ACTION_BERSERK);
+    REQUIRE(committed.kind == W8_ACTION_BERSERK);
+
+    // A plain attack choice stays an attack when berserk becomes possible.
+    choices.chooseBasic(W8_ACTION_ATTACK, 0);
+    committed = {W8_ACTION_DEFEND, 0};
+    ReconcileBerserkChoice(choices, committed, true);
+    REQUIRE(choices.basic_kind == W8_ACTION_ATTACK);
+    REQUIRE(committed.kind == W8_ACTION_DEFEND);
 }

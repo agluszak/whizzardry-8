@@ -248,10 +248,10 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     if (CanPartySlotUseRecordedItem(party_slot)) {
         gXStatus.item_drag.reset();
         item = CurrentGame().party.itemAt(
-            CurrentGame().party.rows[party_slot].item_detail.item_use.item);
+            CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item);
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
-                CurrentGame().party.rows[party_slot].item_detail.item_use.item.storage ==
+                CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item.storage ==
                 W8ItemStorage::Pool;
             if (party_pool && CurrentGame().combat.active()) Fail("!CurrentGame().combat.active()");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);

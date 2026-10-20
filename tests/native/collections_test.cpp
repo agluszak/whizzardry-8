@@ -624,7 +624,7 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
     auto& row = rows[0];
     auto& character = characters[0];
     row.fOccupied = true;
-    row.committed_action.kind = W8_ACTION_NONE;
+    row.committed.kind = W8_ACTION_NONE;
     character.hp_current = 1;
     character.highest_condition = W8_CONDITION_NONE;
     W8CombatSlot target{};
@@ -649,13 +649,13 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     } restore;
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
-    rows[0].committed_action.kind = W8_ACTION_CAST_SPELL;
-    rows[0].committed_action.detail = 5;
-    rows[0].committed_action.detail_block.spell.power_level = 2;
-    rows[0].committed_action.target = {W8_TARGET_KIND_MONSTER, -1, 17, -1, {}, {}};
-    rows[0].spell = {W8_ACTION_CAST_SPELL, 7};
+    rows[0].committed.kind = W8_ACTION_CAST_SPELL;
+    rows[0].committed.detail = 5;
+    rows[0].committed.detail_block.spell.power_level = 2;
+    rows[0].committed.target = {W8_TARGET_KIND_MONSTER, -1, 17, -1, {}, {}};
+    rows[0].remembered.spell = {W8_ACTION_CAST_SPELL, 7};
     gpSCSV = std::make_unique<W8SpellCastingView>();
-    gpSCSV->draft = rows[0].spell;
+    gpSCSV->draft = rows[0].remembered.spell;
     gpSCSV->draft.detail = 9;
     gpSCSV->draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
@@ -666,11 +666,11 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     gpSCSV->draft.target.iType = W8_TARGET_KIND_NONE;
     REQUIRE(assessed.target == target);
     gpSCSV.reset();
-    REQUIRE(rows[0].committed_action.detail == 5);
-    REQUIRE(rows[0].committed_action.detail_block.spell.power_level == 2);
-    REQUIRE(rows[0].committed_action.target.iMonsterID == 17);
-    REQUIRE(rows[0].spell.detail == 7);
-    REQUIRE(rows[0].spell.target.iType == W8_TARGET_KIND_NONE);
+    REQUIRE(rows[0].committed.detail == 5);
+    REQUIRE(rows[0].committed.detail_block.spell.power_level == 2);
+    REQUIRE(rows[0].committed.target.iMonsterID == 17);
+    REQUIRE(rows[0].remembered.spell.detail == 7);
+    REQUIRE(rows[0].remembered.spell.target.iType == W8_TARGET_KIND_NONE);
 }
 
 TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[trade]")

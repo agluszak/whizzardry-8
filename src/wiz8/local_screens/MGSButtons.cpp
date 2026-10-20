@@ -792,12 +792,12 @@ void DrawSubMenuCharacterAction(void)
         }
         text = Data().strings[g_condition_notices[character->highest_condition].name];
     } else {
-        action = row->committed_action.kind;
+        action = row->committed.kind;
         switch (action) {
         case W8_ACTION_CAST_SPELL:
             text = fmt::format("{} - {} ({:d})", Data().strings[g_action_kind_message_ids[7]],
-                               Data().spells[row->committed_action.detail].display_name,
-                               row->committed_action.detail_block.spell.power_level);
+                               Data().spells[row->committed.detail].display_name,
+                               row->committed.detail_block.spell.power_level);
             break;
         case W8_ACTION_USE_ITEM:
             text = fmt::format(
@@ -805,8 +805,7 @@ void DrawSubMenuCharacterAction(void)
                 Data()
                     .spells[Data()
                                 .items[CurrentGame()
-                                           .party
-                                           .itemAt(row->committed_action.detail_block.item_use.item)
+                                           .party.itemAt(row->committed.detail_block.item_use.item)
                                            ->iItemNo]
                                 .spell_id]
                     .display_name);
@@ -846,12 +845,12 @@ void DrawSubMenuCharacterAction(void)
             }
             break;
         case W8_ACTION_PROTECT:
-            if (row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
-                text = fmt::format(
-                    "{} - {}", Data().strings[g_action_kind_message_ids[5]],
-                    CurrentGame().party.characters[row->committed_action.target.iChar].name);
-            } else if (row->committed_action.target.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info = FindMonster(row->committed_action.target.iMonsterID);
+            if (row->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
+                text =
+                    fmt::format("{} - {}", Data().strings[g_action_kind_message_ids[5]],
+                                CurrentGame().party.characters[row->committed.target.iChar].name);
+            } else if (row->committed.target.iType == W8_TARGET_KIND_MONSTER) {
+                monster_info = FindMonster(row->committed.target.iMonsterID);
                 name = GetMonsterName(monster_info, 0, 0);
                 text = fmt::format("{} - {}", Data().strings[g_action_kind_message_ids[5]], name);
             } else {
@@ -1161,7 +1160,7 @@ bool BuildSubMenuPanel(short notification)
             message += Data()
                            .spells[CurrentGame()
                                        .party.rows[CurrentGame().status.selected_character]
-                                       .spell.detail]
+                                       .remembered.spell.detail]
                            .realm *
                        7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
@@ -1215,7 +1214,8 @@ bool BuildSubMenuPanel(short notification)
                 const int slot = CurrentGame().status.selected_character;
                 if (!CanPartySlotUseRecordedItem(slot)) return std::string(Data().strings[0x5d]);
                 const auto& row = CurrentGame().party.rows[slot];
-                const auto* item = CurrentGame().party.itemAt(row.item_detail.item_use.item);
+                const auto* item =
+                    CurrentGame().party.itemAt(row.remembered.item_detail.item_use.item);
                 return fmt::format("{}: {}", Data().strings[0x5d],
                                    FormatItemDisplayName(item, false));
             });
@@ -1245,8 +1245,7 @@ W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
     unsigned char matches;
 
     matches = 0;
-    if (g_level_block->selection_kind ==
-            CurrentGame().party.rows[party_slot].committed_action.kind &&
+    if (g_level_block->selection_kind == CurrentGame().party.rows[party_slot].committed.kind &&
         !g_level_block->selection_settled) {
         matches = 1;
     }
