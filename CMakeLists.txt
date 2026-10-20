@@ -237,6 +237,7 @@ add_library(wiz8_rules STATIC
     src/rules/character_derivation.cpp
     src/rules/character_stats.cpp
     src/rules/events.cpp
+    src/rules/inventory.cpp
     src/rules/item_rules.cpp
     src/rules/party.cpp
     src/rules/party_formation.cpp

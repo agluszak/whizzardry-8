@@ -50,7 +50,6 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -156,7 +155,7 @@ void BeginNpcScriptedScene(const ScriptContext& context)
     context.activity.scripted_scene = true;
     SetTargetingMode(W8_TARGET_NEED_ALLY);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (context.party.rows[party_slot].fOccupied) {
+        if (context.party.members[party_slot].has_value()) {
             EnableMainGamePortraitSlot(party_slot);
             MainGame()->edge_targets[party_slot]->setEnabled(true);
         }
@@ -185,7 +184,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     for (slot = 0; slot < 8; ++slot) {
-        if (context.party.rows[slot].fOccupied) {
+        if (context.party.members[slot].has_value()) {
             DisableMainGamePortraitSlot(slot);
             MainGame()->edge_targets[slot]->setEnabled(false);
         }
@@ -198,7 +197,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 0, false);
     for (slot = 0; slot < 8; ++slot) {
-        if (context.party.rows[slot].fOccupied &&
+        if (context.party.members[slot].has_value() &&
             context.party.characters[slot].gender != W8_GENDER_FEMALE) {
             other_gender_present = true;
             break;
@@ -210,7 +209,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
         QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         return;
     }
-    if (context.party.rows[party_slot].npc_index == -1 &&
+    if (context.party.npcIndex(party_slot) == -1 &&
         character->highest_condition < W8_CONDITION_ASLEEP) {
         if (FindCharacterItem(*character, ItemWithId(0x1fd), W8ItemReach::Worn) &&
             FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
@@ -228,7 +227,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 1, false);
     }
     for (slot = 0; slot < 8; ++slot) {
-        if (context.party.rows[slot].fOccupied) {
+        if (context.party.members[slot].has_value()) {
             EnableMainGamePortraitSlot(slot);
             MainGame()->edge_targets[slot]->setEnabled(true);
         }
@@ -259,9 +258,8 @@ void UpdateSedexusScene(const ScriptContext& context)
         ClearMainGameTargetState();
         int sedexus_party_slot = context.status.sedexus_party_slot;
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
-            const W8PartySlotRow& row = context.party.rows[party_slot];
             const W8Character& character = context.party.characters[party_slot];
-            if (row.fOccupied &&
+            if (context.party.members[party_slot].has_value() &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
                 RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
@@ -295,7 +293,7 @@ void BeginSedexusCapture(const ScriptContext& context)
     CurrentGame().sedexus_scene.capture_active = true;
     BeginWorldLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (context.party.rows[party_slot].fOccupied &&
+        if (context.party.members[party_slot].has_value() &&
             (context.party.characters[party_slot].hp_current > 0 ||
              context.party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
             party_slot != static_cast<unsigned int>(context.status.sedexus_party_slot)) {
@@ -461,7 +459,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         unsigned int eligible = 0;
         int party_slot;
         for (party_slot = 2; party_slot < 8; ++party_slot) {
-            if (context.party.rows[party_slot].fOccupied &&
+            if (context.party.members[party_slot].has_value() &&
                 context.party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
                 ++eligible;
             }
@@ -469,7 +467,8 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         if (eligible > 1) {
             for (party_slot = 0; party_slot < 8; ++party_slot) {
                 W8Character* character = &context.party.characters[party_slot];
-                if (context.party.rows[party_slot].fOccupied && character->iRace == W8_RACE_MOOK &&
+                if (context.party.members[party_slot].has_value() &&
+                    character->iRace == W8_RACE_MOOK &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
                     QueueCharacterEvent(character, 51, kCharacterEventNoNpcDefer,
                                         kCharacterEventFullVolume);

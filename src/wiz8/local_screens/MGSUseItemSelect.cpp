@@ -48,8 +48,10 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -63,6 +65,7 @@ enum class ItemPool { Character, Party, Hand };
 struct UseItemView {
     struct Row {
         W8ItemInstance* item;
+        W8ItemLocation location;
         bool usable;
     };
     W8Action draft{W8_ACTION_USE_ITEM, -1};
@@ -97,7 +100,7 @@ void SetUseItemSelectInputEnabled(bool enabled)
 void UpdateUseItemScrollButtons(void);
 static void SelectUseItemPool(ItemPool pool);
 static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select);
-static void AppendUseItemListEntry(W8ItemInstance* item);
+static void AppendUseItemListEntry(W8ItemLocation location);
 static void ShowUseItemList(W8ItemInstance* select);
 static bool IsUseItemFilteredOut(W8ItemInstance* item);
 static void UseItemSelectAssayButton(void);
@@ -369,14 +372,16 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
     use_item->filter->SetPressed(true);
     use_item->rows.clear();
     if (pool == ItemPool::Hand) {
-        AppendUseItemListEntry(&CurrentGame().party.held.item);
+        AppendUseItemListEntry({W8ItemStorage::Hand});
     } else if (pool == ItemPool::Character) {
-        auto& character = CurrentGame().party.characters[use_item->owner];
-        for (auto& item : character.EquippedItem) AppendUseItemListEntry(&item);
-        for (auto& item : character.backpack) AppendUseItemListEntry(&item);
+        const auto owner = static_cast<unsigned int>(use_item->owner);
+        for (unsigned int slot = 0; slot < W8_EQUIP_SLOT_COUNT; ++slot)
+            AppendUseItemListEntry({W8ItemStorage::Equipment, owner, slot});
+        for (unsigned int slot = 0; slot < 8; ++slot)
+            AppendUseItemListEntry({W8ItemStorage::Backpack, owner, slot});
     } else {
         for (unsigned int i = 0; i < CurrentGame().party.item_count; ++i)
-            AppendUseItemListEntry(&CurrentGame().party.item_pool[i]);
+            AppendUseItemListEntry({W8ItemStorage::Pool, 0, i});
     }
     ShowUseItemList(select);
     UpdateUseItemScrollButtons();
@@ -385,14 +390,15 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
 }
 
 // Classify once; stable partition preserves inventory order within each band.
-static void AppendUseItemListEntry(W8ItemInstance* item)
+static void AppendUseItemListEntry(W8ItemLocation location)
 {
+    W8ItemInstance* item = CurrentGame().party.itemAt(location);
     if (item->iItemNo == -1 || IsUseItemFilteredOut(item)) return;
     const bool usable = CanUseItemForAction(use_item->owner, item);
     if (!usable && (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
                     TrapInteractionSuspended()))
         return;
-    use_item->rows.push_back({item, usable});
+    use_item->rows.push_back({item, location, usable});
 }
 
 static void ShowUseItemList(W8ItemInstance* select)
@@ -403,13 +409,13 @@ static void ShowUseItemList(W8ItemInstance* select)
     if (rows.size() > 350) rows.resize(350);
     use_item->selected_line = -1;
     for (std::size_t index = 0; index < rows.size(); ++index) {
-        const auto [item, usable] = rows[index];
+        const auto [item, location, usable] = rows[index];
         if (item == select) use_item->selected_line = static_cast<int>(index);
         if (!usable) {
             const bool silenced =
                 Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
                 CurrentGame().party.characters[use_item->owner].uiCondition[W8_CONDITION_SILENCED];
-            ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(item, true), 2);
+            ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(Data(), item, true), 2);
             continue;
         }
         int count = 0;
@@ -421,7 +427,8 @@ static void ShowUseItemList(W8ItemInstance* select)
         case W8_ITEM_QUANTITY_CHARGES:
         case W8_ITEM_QUANTITY_USES:
             if (!item->identified) {
-                ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(item, false)), 2);
+                ShowNotice(0xf, fmt::format("{} (?)", FormatItemDisplayName(Data(), item, false)),
+                           2);
                 continue;
             }
             [[fallthrough]];
@@ -432,7 +439,7 @@ static void ShowUseItemList(W8ItemInstance* select)
         default:
             break;
         }
-        auto text = FormatItemDisplayName(item, false);
+        auto text = FormatItemDisplayName(Data(), item, false);
         if (count == -1)
             text = fmt::format("{} (?)", text);
         else if (count > 1 || charged)
@@ -462,8 +469,8 @@ static bool IsUseItemFilteredOut(W8ItemInstance* item)
         }
         if ((CurrentGame().status.selected_character == 0 ||
              CurrentGame().status.selected_character == 1) &&
-            (npc = GetNpcState(
-                 CurrentGame().party.rows[CurrentGame().status.selected_character].npc_index),
+            (npc =
+                 GetNpcState(CurrentGame().party.npcIndex(CurrentGame().status.selected_character)),
              npc != 0) &&
             NpcWantsItem(npc, item)) {
             return true;
@@ -567,8 +574,10 @@ void SelectUseItemLine(int iTextLine)
         return;
     }
     auto* item = use_item->rows[iTextLine].item;
-    use_item->draft.detail_block.item_use.item = CurrentGame().party.locateItem(item);
-    if (Trynnie2UseItem(MakeScriptContext(CurrentGame()), item)) {
+    const auto location = use_item->rows[iTextLine].location;
+    use_item->draft.detail_block.item_use.item = location;
+    use_item->draft.detail_block.item_use.item_id = item->iItemNo;
+    if (Trynnie2UseItem(MakeScriptContext(CurrentGame()), location)) {
         CloseUseItemSelectView();
         return;
     }
@@ -580,7 +589,7 @@ void SelectUseItemLine(int iTextLine)
     if (CanCastFromItem(&CurrentGame().party.characters[CurrentGame().status.selected_character],
                         item)) {
         LearnSpellFromItem(&CurrentGame().party.characters[CurrentGame().status.selected_character],
-                           item);
+                           location);
         CloseUseItemSelectView();
         return;
     }
@@ -654,8 +663,8 @@ void TakeUseItemIntoHand(void)
             Fail("giUseItemChar != BAD_INDEX");
         }
         const auto old_count = CurrentGame().party.item_count;
-        GiveItemToCharacterOrParty(CurrentGame(), use_item->owner, &CurrentGame().party.held.item,
-                                   true);
+        GiveItemToCharacterOrParty(CurrentGame(), use_item->owner,
+                                   PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), true);
         // A new pool entry goes to the front and moves the selection down one row.
         if (use_item->pool == ItemPool::Party && old_count != CurrentGame().party.item_count &&
             selected.storage == W8ItemStorage::Pool &&

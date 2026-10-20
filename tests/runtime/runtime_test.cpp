@@ -53,6 +53,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
@@ -113,7 +114,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -787,7 +787,7 @@ int PremadeSlot()
 {
     REQUIRE(CountActiveCharacters() == 1);
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             REQUIRE(CurrentGame().party.characters[slot].fInParty);
             return slot;
         }
@@ -1050,10 +1050,10 @@ void InventoryChestScenario()
     REQUIRE(stack_id >= 0);
     REQUIRE(nonstack_id >= 0);
     auto& remainder = picker->entries.front().item->item;
-    remainder = MakeItem(stack_id, true, false, false);
+    remainder = MakeItem(Data(), CurrentGame().rng, stack_id, true, false, false);
     remainder.stack_count = 5;
     W8ItemInstance filler{};
-    filler = MakeItem(nonstack_id, true, false, false);
+    filler = MakeItem(Data(), CurrentGame().rng, nonstack_id, true, false, false);
     std::fill(std::begin(CurrentGame().party.item_pool), std::end(CurrentGame().party.item_pool),
               filler);
     CurrentGame().party.item_count = 500;
@@ -1149,7 +1149,7 @@ void InventoryChestScenario()
         }
     REQUIRE(healing_potion >= 0);
     auto& potion = caster.backpack[1];
-    potion = MakeItem(healing_potion, true, true, false);
+    potion = MakeItem(Data(), CurrentGame().rng, healing_potion, true, true, false);
     potion.stack_count = 2;
     caster.hp_current = 1;
     FindScreen<CampScreen>()->InvalidateAll();
@@ -1430,9 +1430,9 @@ void CheckGameplayUi(GameHarness& game)
     RefreshSpellIconHudRows();
 
     const auto original_experience = character.experience;
-    const auto original_notice = CurrentGame().party.rows[slot].portrait_advance;
+    const auto original_notice = CurrentGame().party.members[slot]->level_up_announced;
     character.experience = character.experience_goal;
-    CurrentGame().party.rows[slot].portrait_advance = true;
+    CurrentGame().party.members[slot]->level_up_announced = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
     game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
@@ -1443,7 +1443,7 @@ void CheckGameplayUi(GameHarness& game)
     game.key(SDLK_RETURN); // Confirm abandoning the level-up edit.
     game.wait_screen("cancel-level-up", W8_SCREEN_MAIN_GAME);
     character.experience = original_experience;
-    CurrentGame().party.rows[slot].portrait_advance = original_notice;
+    CurrentGame().party.members[slot]->level_up_announced = original_notice;
     UpdatePortraitAdvanceButtons();
 }
 
@@ -2215,7 +2215,7 @@ void PrintState(GameHarness& game)
                     camp->dialogs.open() != nullptr, int(TargetingMode()));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             const auto& character = CurrentGame().party.characters[slot];
             std::printf("  pc %d %s hp=%u xp=%u kills=%d\n", slot, character.name.c_str(),
                         character.hp_current, character.experience, character.kill_count);

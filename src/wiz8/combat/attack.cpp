@@ -55,7 +55,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -846,7 +845,7 @@ void ResolveSpellMissileHit(Missile* missile)
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_CHARACTER;
             for (index = 0; index < 8; ++index) {
-                if (CurrentGame().party.rows[index].fOccupied) {
+                if (CurrentGame().party.members[index].has_value()) {
                     struck.iChar = index;
                     ApplyEffectConditions(source, &struck, definition, announce, verbose, 0);
                 }
@@ -1204,8 +1203,9 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     case W8_TARGET_KIND_EIGHT:
         return Data().strings[0x1e5];
     case W8_TARGET_KIND_ITEM:
-        return fmt::sprintf(Data().strings[0x1e6],
-                            FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
+        return fmt::sprintf(
+            Data().strings[0x1e6],
+            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
     default:
         Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
                                   fmt::underlying(target->iType)));
@@ -2164,7 +2164,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         int party_slot = monster_info->Target.iChar;
         MonsterVsCharDisposition(party_slot, monster_info);
         CurrentGame().combat->attack_message += CurrentGame().party.characters[party_slot].name;
-        palette = CurrentGame().party.rows[party_slot].party_order_index;
+        palette = CurrentGame().party.orderIndexOf(party_slot);
         if (range <= W8_RANGE_SHORT && !IsCharacterFacingMonster(party_slot, monster_info)) {
             if (!CharacterNoticesAttacker(party_slot)) {
                 CurrentGame().combat->unaware = IsMonsterBehindCharacter(monster_info, party_slot);
@@ -2702,7 +2702,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
         if (target->iChar == -1) {
             Fail("pTarget->iChar != BAD_INDEX");
         }
-        if (CurrentGame().party.rows[target->iChar].fOccupied == 0) {
+        if (CurrentGame().party.members[target->iChar].has_value() == 0) {
             Fail("fCHAR_OCCUPIED(pTarget->iChar)");
         }
         highest_condition = CurrentGame().party.characters[target->iChar].highest_condition;
@@ -3056,8 +3056,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
     unsigned char highlight_start;
     unsigned char highlight_stop;
     if (TargetSourceIsCharacter(source, 0)) {
-        color =
-            static_cast<unsigned char>(CurrentGame().party.rows[source->iChar].party_order_index);
+        color = static_cast<unsigned char>(CurrentGame().party.orderIndexOf(source->iChar));
         std::string name = CurrentGame().party.characters[source->iChar].name;
         highlight_start = 0;
         highlight_stop = static_cast<unsigned char>(name.size());
@@ -3550,7 +3549,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         CurrentGame().combat->attack_message = verb;
         CurrentGame().combat->attack_message += " ";
         if (character->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            name = GetItemDisplayName(found);
+            name = GetItemDisplayName(Data(), found);
             AppendAttackWeaponName(name, mode);
             AppendAttackMessageSuffix(mode);
         } else {
@@ -3612,7 +3611,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             Fail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
         }
         if (character->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            name = GetItemDisplayName(found);
+            name = GetItemDisplayName(Data(), found);
             AppendAttackWeaponName(name, mode);
             AppendAttackMessageSuffix(mode);
         }
@@ -3721,7 +3720,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             int fumble_chance = GetCombatFumbleChance(fumble_list, redirect_chance);
             if (character->iRace == W8_RACE_ANDROID) {
                 W8NpcState* npc_state = GetNpcState(
-                    CurrentGame().party.rows[CharacterPointerToPartySlot(character)].npc_index);
+                    CurrentGame().party.npcIndex(CharacterPointerToPartySlot(character)));
                 if (npc_state != nullptr && npc_state->name_style == ' ' &&
                     GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) == 0) {
                     fumble_chance += 5;

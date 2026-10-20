@@ -46,6 +46,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -209,18 +210,16 @@ void RefreshLevelUpReadyNotices(void)
 
     CurrentGame().level_up_check_due = false;
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         bool* ready_flag = &CurrentGame().monster_manager_entries[party_slot].level_up_ready;
         W8Character* character = &CurrentGame().party.characters[party_slot];
 
-        if (!row->fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             if (character->hp_current != 0) {
                 if (*ready_flag != 0) {
                     CurrentGame().events.push(
                         PartySlotChanged{static_cast<unsigned int>(party_slot)});
                 }
                 *ready_flag = 0;
-                row->portrait_advance = 0;
             }
         } else if (character->hp_current != 0) {
             if (character->highest_condition > W8_CONDITION_UNCONSCIOUS ||
@@ -231,16 +230,17 @@ void RefreshLevelUpReadyNotices(void)
                             PartySlotChanged{static_cast<unsigned int>(party_slot)});
                     }
                     *ready_flag = 0;
-                    row->portrait_advance = 0;
+                    CurrentGame().party.members[party_slot]->level_up_announced = false;
                 }
             } else {
                 CurrentGame().level_up_check_due = true;
                 if (*ready_flag == 0) {
-                    if (row->portrait_advance == 0) {
+                    if (!CurrentGame().party.members[party_slot]->level_up_announced) {
                         std::string text = " ";
                         wiz8::text::append(text, 0xb4);
-                        wiz8::text::append(text, GetPartyOrderTextColor(static_cast<signed char>(
-                                                     row->party_order_index)));
+                        wiz8::text::append(text,
+                                           GetPartyOrderTextColor(static_cast<signed char>(
+                                               CurrentGame().party.orderIndexOf(party_slot))));
                         text += " " + character->name + " ";
                         wiz8::text::append(text, 0xb5);
                         text += " ";
@@ -252,7 +252,7 @@ void RefreshLevelUpReadyNotices(void)
                     } else {
                         *ready_flag = 1;
                     }
-                } else if (row->portrait_advance != 0) {
+                } else if (CurrentGame().party.members[party_slot]->level_up_announced) {
                     *ready_flag = 1;
                 }
             }
@@ -270,7 +270,7 @@ bool IsCharacterReadyToAdvance(int party_slot)
 {
     const W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         return false;
     }
     if (character->hp_current == 0) {
@@ -288,7 +288,7 @@ unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
     unsigned int slot;
 
     for (slot = first; slot < last; ++slot) {
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             return slot;
         }
     }
@@ -439,7 +439,7 @@ unsigned int GetAveragePartyLevel(void)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             total_level += CurrentGame().party.characters[slot].uiExpLevel;
             ++occupied_slots;
         }
@@ -457,7 +457,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
 
     if (slot_kind == -1) {
         slot = 2;
-        while (CurrentGame().party.rows[slot].fOccupied) {
+        while (CurrentGame().party.members[slot].has_value()) {
             ++slot;
             if (slot > 7) {
                 return -1;
@@ -465,7 +465,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         }
     } else {
         slot = 0;
-        while (CurrentGame().party.rows[slot].fOccupied) {
+        while (CurrentGame().party.members[slot].has_value()) {
             ++slot;
             if (slot > 1) {
                 return -1;
@@ -482,12 +482,11 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
     ResetPartySlotRow(slot);
     ResetGameplaySlot(slot);
 
-    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
-    row->npc_index = slot_kind;
+    CurrentGame().party.members[slot]->npc_index = slot_kind;
     for (unsigned int index = 0; index < 8; ++index) {
         if (CurrentGame().party.order_slots[index] == static_cast<unsigned int>(-1)) {
             CurrentGame().party.order_slots[index] = slot;
-            row->party_order_index = index;
+            CurrentGame().party.members[slot]->order_index = index;
             break;
         }
     }
@@ -515,7 +514,6 @@ void RemoveCharacterFromParty(int party_slot)
 
     CurrentGame().speech.RemoveCharacterEvents(character);
     character->fInParty = false;
-    CurrentGame().party.rows[party_slot].fOccupied = false;
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
     SetFormationPosition(&CurrentGame().party.formation, party_slot, -1, -1, false, true, true);
@@ -528,7 +526,10 @@ void RemoveCharacterFromParty(int party_slot)
     if (GameStarted()) {
         PostCharacterNotice(party_slot, Data().strings[0x251]);
     }
-    CurrentGame().party.order_slots[CurrentGame().party.rows[party_slot].party_order_index] = -1;
+    // The departing member's notice still names it in its marching-order colour.
+    auto& member = CurrentGame().party.members[party_slot];
+    if (member) CurrentGame().party.order_slots[member->order_index] = -1;
+    member.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RefreshPartySlotRegions();
     }
@@ -551,12 +552,18 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 
     for (index = 0; index < 12; ++index) {
         if (character->EquippedItem[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(), &character->EquippedItem[index], false, false);
+            AddItemToParty(CurrentGame(),
+                           PartyItem(CurrentGame().party, {W8ItemStorage::Equipment, slot,
+                                                           static_cast<unsigned>(index)}),
+                           false, false);
         }
     }
     for (index = 0; index < 8; ++index) {
         if (character->backpack[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(), &character->backpack[index], false, false);
+            AddItemToParty(CurrentGame(),
+                           PartyItem(CurrentGame().party,
+                                     {W8ItemStorage::Backpack, slot, static_cast<unsigned>(index)}),
+                           false, false);
         }
     }
     RemoveCharacterFromParty(slot);
@@ -564,11 +571,11 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     character->fInParty = true;
     ResetPartySlotRow(slot);
     ResetGameplaySlot(slot);
-    CurrentGame().party.rows[slot].npc_index = -1;
+    CurrentGame().party.members[slot]->npc_index = -1;
     for (order_index = 0; order_index < 8; ++order_index) {
         if (CurrentGame().party.order_slots[order_index] == static_cast<unsigned int>(-1)) {
             CurrentGame().party.order_slots[order_index] = slot;
-            CurrentGame().party.rows[slot].party_order_index = order_index;
+            CurrentGame().party.members[slot]->order_index = order_index;
             break;
         }
     }

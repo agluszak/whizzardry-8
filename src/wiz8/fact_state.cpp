@@ -114,7 +114,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
             return CountLeadingPartySlots() == 2;
         case W8_FACT_MOOK_MOOK_IN_PARTY: {
             unsigned int slot = 0;
-            while (!CurrentGame().party.rows[slot].fOccupied ||
+            while (!CurrentGame().party.members[slot].has_value() ||
                    CurrentGame().party.characters[slot].iRace != W8_RACE_MOOK ||
                    CurrentGame().party.characters[slot].highest_condition > W8_CONDITION_WEBBED) {
                 if (slot >= 7) {
@@ -195,7 +195,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_FATHER_IN_PARTY:
             if (CurrentGame().status.rpc_active) {
                 for (unsigned int slot = 0; slot < 8; ++slot) {
-                    if (CurrentGame().party.rows[slot].fOccupied &&
+                    if (CurrentGame().party.members[slot].has_value() &&
                         slot ==
                             static_cast<unsigned int>(CurrentGame().status.sedexus_party_slot)) {
                         return 1;

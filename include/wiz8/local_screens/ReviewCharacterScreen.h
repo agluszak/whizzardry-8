@@ -42,6 +42,7 @@ enum W8CampItemFilterButton {
 
 struct W8Character;
 struct W8CombatSlot;
+struct W8ItemUse;
 
 enum CampMainRegionOffset {
     kCampPartyPortraitRegionOffset = 1,
@@ -343,7 +344,7 @@ private:
     void DropHeldCampItem();
     void UseCampItem(W8ItemLocation location);
     void MergeItemStacksWithHeld(W8ItemLocation location);
-    void UseHeldItemOnItem(W8ItemInstance* item);
+    void UseHeldItemOnItem(W8ItemLocation location);
     void UnequipBothHands();
     void TogglePartyRowFlag();
     void SortCampItemPool();
@@ -599,7 +600,7 @@ extern int g_race_portrait_images[0x30];
    combat. */
 bool IsCampActionAllowed(int party_slot);
 int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target);
-int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target);
+int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target);
 
 bool IsEquippableItemClass(W8ItemInstance* item);
 

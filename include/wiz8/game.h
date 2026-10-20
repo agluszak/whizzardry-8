@@ -29,6 +29,7 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/save_codec.h"
+#include "wiz8/rules/rule_context.h"
 #include "wiz8/story.h"
 
 struct World;
@@ -98,6 +99,9 @@ public:
     /* A trap or fountain casts `spell` at `position`. Heal All also lifts every condition
        from the party. */
     void castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level);
+
+    // The context the rules act on: the game's data, party, random stream and events.
+    RuleContext rules();
 
     W8Party party{};
     GameStatus status{};

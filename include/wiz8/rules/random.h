@@ -4,6 +4,8 @@
 #include <source_location>
 #include <vector>
 
+#include "wiz8/data/dice.h"
+
 /* A random stream: the MSVC 32-bit linear congruential sequence with 15-bit draws, which
    retail's rand() produced. The game's stream is `Game::rng`; presentation has its own
    (`PresentationRng()`), so what is drawn or played never moves a game draw. */
@@ -64,3 +66,12 @@ private:
     std::uint32_t state_ = 1;
     std::vector<Draw>* trace_ = nullptr;
 };
+
+// `count` d`sides` plus `base`, one draw per die.
+inline int RollDice(Rng& rng, const W8Dice& dice)
+{
+    int result = dice.base;
+    for (unsigned int roll = 0; roll < dice.count; ++roll)
+        result += static_cast<int>(rng.below(dice.sides) + 1);
+    return result;
+}

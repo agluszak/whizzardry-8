@@ -71,7 +71,7 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id);
 void LearnSpell(W8Character* character, int spell_id, bool announce);
 /* Learns the spell a spell-source item holds and empties the
    item. */
-void LearnSpellFromItem(W8Character* character, W8ItemInstance* item);
+void LearnSpellFromItem(W8Character* character, W8ItemLocation location);
 
 /* Learned, and the remaining points in the spell's realm cover its cost.
    CharacterHasCastableSpell expands this body for every spell. */

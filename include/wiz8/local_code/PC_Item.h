@@ -13,6 +13,7 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 
 struct W8ItemDatabaseRecord;
 struct W8NpcState;
@@ -24,18 +25,9 @@ struct W8Action;
 bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item);
 
 extern W8Skill g_item_spell_presentation[11];
-/* The paper-doll icon of each of the twelve equipment slots. The
-   two alternate-set hand slots have none, which is exactly the value the
-   bound-item predicates refuse to hold a binding behind. */
-extern int g_equip_slot_icons[12];
 
 unsigned int GetEquipmentBindingDifficulty(int character_index);
-W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot);
-std::string GetItemDisplayName(const W8ItemInstance* item);
 
-enum { W8_GENERIC_ITEM_NAME_COUNT = 147 };
-/* The per-item-class notice index. */
-extern unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT];
 /* The message ids for what an item use did, read at every other entry; the
    last six are the item property labels. */
 enum { W8_ITEM_PROPERTY_MESSAGE_FIRST = 19 };
@@ -48,43 +40,25 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
 /* Reveal one character's worn bindings; 0 none bound, 1 some
    still hidden, 2 all revealed. */
 int RevealCharacterItemBindings(unsigned int party_slot, int strength, unsigned int percent);
-std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity);
 unsigned int GetItemStackValue(const W8ItemInstance* item);
 unsigned int GetItemUnitWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
-W8EquipSlot GetItemDefaultEquipSlot(int item_id);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
-unsigned short GetItemEquipSlotMask(int item_id, bool primary_off_hand_free,
-                                    bool alternate_off_hand_free, bool primary_main_hand_free,
-                                    bool alternate_main_hand_free);
-W8ItemInstance MakeItem(int item_id, bool maximum_quantity, bool force_identified,
-                        bool mark_special);
 void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item);
 void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
                                     W8Character* character);
-void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatSlot* target);
+void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target);
 bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
 
 bool CanItemLeaveItsSlot(const W8ItemInstance* item);
 bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item);
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item);
-void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot);
-bool CanUnequipSlotItem(const W8Character* character, W8EquipSlot equip_slot);
+
 bool AreAllHandSlotsEmpty(const W8Character* character);
-bool CanEquipItemInSlot(W8Character* character, int item_id, unsigned char equip_slot,
-                        bool ignore_worn_items);
 
 /* Same equipment class, and same unidentified display name. */
 bool ItemsShareEquipClass(const W8ItemInstance* first, const W8ItemInstance* second);
 bool ItemsShareUnidentifiedName(const W8ItemInstance* first, const W8ItemInstance* second);
-
-bool CanCharacterUseItem(const W8Character* character, int item_id);
-/* The first attribute or skill requirement the character misses, with the message
-   naming it. */
-bool FindUnmetItemRequirement(const W8Character* character, const W8ItemDatabaseRecord* record,
-                              unsigned short* message_id);
-// Whether two items may share the two hands of one weapon set.
-bool CanHoldItemsTogether(int first_item_id, int second_item_id);
 
 /* Equip-slot bucket used by the items-page realm filters: body locations are
    Head/Torso/Feet/Legs/Hands, accessory slots are Misc #1/#2 and Cloak, and
@@ -100,8 +74,6 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id);
 unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int percent);
 
 bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
-
-bool ItemHasHiddenProperties(int item_id);
 
 /* Per-item-class notice index into Data().strings used for the
    unidentified ("Uncursed item" style) display name. */

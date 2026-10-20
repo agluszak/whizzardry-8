@@ -341,7 +341,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         killer_party_slot = monster_info->condition_target.iChar;
         if (killer_party_slot != -1 &&
             (killer_party_slot < 0 || killer_party_slot >= W8_PARTY_SLOT_COUNT ||
-             !CurrentGame().party.rows[killer_party_slot].fOccupied ||
+             !CurrentGame().party.members[killer_party_slot].has_value() ||
              !CurrentGame().party.characters[killer_party_slot].fInParty)) {
             Fail("(iKilledByPC == BAD_INDEX) || VALID_CHAR(iKilledByPC)");
         }
@@ -396,7 +396,7 @@ done:
                 unsigned int level_total = 0;
                 int occupied = 0;
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    if (CurrentGame().party.rows[slot].fOccupied) {
+                    if (CurrentGame().party.members[slot].has_value()) {
                         level_total += CurrentGame().party.characters[slot].uiExpLevel;
                         ++occupied;
                     }
@@ -1359,7 +1359,7 @@ float GetAveragePartyMemberLevel(void)
     float total = 0.0f;
     float count = 0.0f;
     for (int party_slot = 0; party_slot < 6; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied) {
+        if (CurrentGame().party.members[party_slot].has_value()) {
             total += CurrentGame().party.characters[party_slot].uiExpLevel;
             count += 1.0f;
         }
@@ -1374,7 +1374,7 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
     int best_slot = -1;
     for (int index = 0; index < 8; ++index) {
         W8Character* character = &CurrentGame().party.characters[index];
-        if (CurrentGame().party.rows[index].fOccupied && character->hp_current != 0 &&
+        if (CurrentGame().party.members[index].has_value() && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_TURNCOAT &&
             (character->skills[skill_index].level > best_level || best_slot == -1)) {
             best_level = character->skills[skill_index].level;
@@ -1442,7 +1442,7 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 static bool CanNoticeMonsterGroup(unsigned int slot)
 {
     const W8Character& character = CurrentGame().party.characters[slot];
-    return CurrentGame().party.rows[slot].fOccupied && character.hp_current != 0 &&
+    return CurrentGame().party.members[slot].has_value() && character.hp_current != 0 &&
            character.highest_condition < W8_CONDITION_INSANE &&
            character.uiCondition[W8_CONDITION_BLIND] == 0;
 }
@@ -1556,14 +1556,13 @@ void EvaluateCombatDifficulty(void)
     }
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
         if (!CanPartySlotParticipate(slot)) {
             continue;
         }
         bool count_character = true;
         if (slot < 2) {
-            W8NpcState* npc = GetNpcState(row->npc_index);
+            W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
             if (npc != 0) {
                 int faction = npc->record->faction;
                 if (faction != 0 && faction != 1) {
@@ -1634,9 +1633,8 @@ void EvaluateCombatDifficulty(void)
     recent_combat.difficulty = difficulty;
 
     for (slot = 0; slot < 2; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
-        if (row->fOccupied) {
-            W8NpcState* npc = GetNpcState(row->npc_index);
+        if (CurrentGame().party.members[slot].has_value()) {
+            W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
             if (npc != 0) {
                 W8Character* character = &CurrentGame().party.characters[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
@@ -1651,9 +1649,9 @@ void EvaluateCombatDifficulty(void)
         }
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (row->fOccupied && character->uiCondition[W8_CONDITION_DEAD] == 0) {
+        if (CurrentGame().party.members[slot].has_value() &&
+            character->uiCondition[W8_CONDITION_DEAD] == 0) {
             CurrentGame().monster_manager_entries[slot].condition_19_latch =
                 character->uiCondition[W8_CONDITION_MISSING] != 0;
         }

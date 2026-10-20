@@ -31,7 +31,6 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/party_formation.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -89,20 +88,19 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
         int left;
         int top;
         int image;
         int order_image;
 
-        if (!row->fOccupied || position->bQuadrant == -1) {
+        if (!CurrentGame().party.members[slot].has_value() || position->bQuadrant == -1) {
             continue;
         }
         left = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].x;
         top = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].y;
         image = position->facing * 3;
-        order_image = row->party_order_index * 3;
+        order_image = CurrentGame().party.orderIndexOf(slot) * 3;
         if (slot == MainGameHud()->highlight.FormationSlot()) {
             image += 1;
             order_image += 1;
@@ -184,11 +182,10 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
 
     hit = -1;
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
         int cell;
 
-        if (!row->fOccupied || position->bQuadrant == -1) {
+        if (!CurrentGame().party.members[slot].has_value() || position->bQuadrant == -1) {
             continue;
         }
         cell = position->bQuadrant * 3 + position->bQuadrantSlot;
@@ -272,10 +269,10 @@ void RefreshFormationPanel(bool force)
                           (disabled                         ? 2
                            : formation->cells[cell].pressed ? 1
                                                             : 0);
-        const int chip = CurrentGame().party.rows[slot].party_order_index * 3 +
-                         (disabled                       ? 2
-                          : formation->highlighted[cell] ? 1
-                                                         : 0);
+        const int chip =
+            CurrentGame().party.orderIndexOf(slot) * 3 + (disabled                       ? 2
+                                                          : formation->highlighted[cell] ? 1
+                                                                                         : 0);
         arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
@@ -306,7 +303,7 @@ static void UpdateFormationCells(void)
     for (auto& slot : g_formation_cell_slots) slot = -1;
     for (int slot = 0; slot < 8; ++slot) {
         const auto& position = CurrentGame().planned_formation.positions[slot];
-        if (CurrentGame().party.rows[slot].fOccupied && position.bQuadrant != -1)
+        if (CurrentGame().party.members[slot].has_value() && position.bQuadrant != -1)
             g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
     }
     SelectFormationSlotCell(CurrentGame().status.selected_character);
@@ -331,7 +328,7 @@ static void AcceptFormationChanges(void)
     unsigned int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied && CanHoldFormationPlace(slot) &&
+        if (CurrentGame().party.members[slot].has_value() && CanHoldFormationPlace(slot) &&
             CurrentGame().planned_formation.positions[slot].bQuadrant !=
                 CurrentGame().party.formation.positions[slot].bQuadrant) {
             StartBreathCycle(slot, false);
@@ -470,9 +467,9 @@ static void BeginFormationDrag()
     region = artwork.imageOffset() + static_cast<short>(sprite);
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
-    const auto overlay = static_cast<std::uint16_t>(
-        overlay_artwork.imageOffset() +
-        CurrentGame().party.rows[g_formation_drag_slot].party_order_index * 3 + 1);
+    const auto overlay =
+        static_cast<std::uint16_t>(overlay_artwork.imageOffset() +
+                                   CurrentGame().party.orderIndexOf(g_formation_drag_slot) * 3 + 1);
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();

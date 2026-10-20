@@ -560,13 +560,12 @@ TEST_CASE("Ambient exchanges wait for completion and choose a different responde
 {
     const ScopedGame game;
     auto& characters = CurrentGame().party.characters;
-    auto& slots = CurrentGame().party.rows;
     CurrentGame().advancement.time_passes = true;
     auto& queue = CurrentGame().speech;
     queue.ProcessFollowUpEvents();
     REQUIRE(queue.pending_events.empty()); // No eligible speaker: retry later.
     for (int i : {0, 1}) {
-        slots[i].fOccupied = true;
+        CurrentGame().party.members[i].emplace();
         characters[i].fInParty = true;
         characters[i].hp_current = 10;
     }

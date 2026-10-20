@@ -71,6 +71,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -1469,14 +1470,14 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
         }
     } else if (effect->kind == W8_SPELL_LIFESTEAL) {
         unsigned int slot = FindPartySlotWithLowestHitPoints();
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             CurrentGame().party.characters[slot].hp_current <
                 static_cast<unsigned int>(CurrentGame().party.characters[slot].uiHPMax)) {
             HealCharacter(slot, (drained * 7) / 10, announce);
         }
     } else if (effect->kind == W8_SPELL_MIGHT_TO_MAGIC) {
         unsigned int slot = FindPartySlotWithLowestSpellPoints();
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             W8Character* character = &CurrentGame().party.characters[slot];
             if (SumCharacterSpellPointsLeft(character) < SumCharacterSpellPoints(character)) {
                 RestoreCharacterSpellPointsEvenly(slot, drained);
@@ -1541,7 +1542,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                             turns = 1;
                         }
                         character->stamina = turns;
-                        int npc_index = CurrentGame().party.rows[character_index].npc_index;
+                        int npc_index = CurrentGame().party.npcIndex(character_index);
                         if (npc_index != -1 &&
                             (npc_state = GetNpcState(npc_index), npc_state != 0)) {
                             npc_state->spawned = 0;
@@ -2137,9 +2138,9 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     }
 }
 
-static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, unsigned int chance,
-                                   int* totals)
+static void DestroyItemConsumables(W8ItemLocation location, unsigned int chance, int* totals)
 {
+    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
     unsigned int destroyed;
     unsigned int unit;
     if (item->iItemNo != -1 &&
@@ -2160,7 +2161,7 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), destroyed);
+        RemoveInventoryQuantity(CurrentGame(), location, destroyed);
     }
 }
 
@@ -2170,8 +2171,6 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
    their own summary line. */
 void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
 {
-    W8Character* character;
-    W8ItemInstance* item;
     bool verbose;
     unsigned int chance;
     int totals[3];
@@ -2188,21 +2187,19 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
         if (party_slot == -1) {
             Fail("iChar != -1");
         }
-        character = &CurrentGame().party.characters[party_slot];
-        for (slot = 0; slot < 12; ++slot) {
-            item = &character->EquippedItem[slot];
-            DestroyItemConsumables(item, character, chance, totals);
-        }
-        for (slot = 0; slot < 8; ++slot) {
-            item = &character->backpack[slot];
-            DestroyItemConsumables(item, character, chance, totals);
-        }
+        const auto member = static_cast<unsigned int>(party_slot);
+        for (slot = 0; slot < 12; ++slot)
+            DestroyItemConsumables({W8ItemStorage::Equipment, member, static_cast<unsigned>(slot)},
+                                   chance, totals);
+        for (slot = 0; slot < 8; ++slot)
+            DestroyItemConsumables({W8ItemStorage::Backpack, member, static_cast<unsigned>(slot)},
+                                   chance, totals);
     }
     if (!effect->target_indices.empty()) {
         for (index = 0; static_cast<unsigned int>(index) < CurrentGame().party.item_count;
              ++index) {
-            item = &CurrentGame().party.item_pool[index];
-            DestroyItemConsumables(item, 0, chance, totals);
+            DestroyItemConsumables({W8ItemStorage::Pool, 0, static_cast<unsigned>(index)}, chance,
+                                   totals);
         }
     }
     if (totals[2] + totals[1] + totals[0] != 0) {
@@ -2758,7 +2755,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                         fmt::sprintf(Data().strings[0x1ae], Data().spells[spell_id].display_name)});
                 }
                 do {
-                    if (CurrentGame().party.rows[party_slot].fOccupied &&
+                    if (CurrentGame().party.members[party_slot].has_value() &&
                         CurrentGame().party.characters[party_slot].highest_condition <
                             W8_CONDITION_DEAD) {
                         char_target.iType = W8_TARGET_KIND_CHARACTER;

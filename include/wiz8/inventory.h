@@ -1,99 +1,67 @@
 #pragma once
 
 #include <expected>
-#include <functional>
 #include <optional>
-#include <string>
 
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/inventory.h" // IWYU pragma: export - the storage rules the commands apply.
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/targeting.h"
 
 class Game;
 struct W8Character;
-struct W8Party;
 
-/* A game's inventory: its members' equipment and backpacks, the shared pool and the
-   hand. Every command here acts on the game it is given and finishes its own
-   consequences: unusable equipment comes off, statistics and shared load are
-   recalculated, combat choices follow a change of weapons, a committed item use
-   loses a replaced item, and the hand's change is reported. Notices and display
-   changes are appended to the game's events; a command the player is refused returns
-   the refusal for the screen to show. */
-
-// Why an inventory command was turned down, worded for the player.
-struct InventoryRefusal {
-    std::string notice;
-};
-
-// ---- Searching
-
-/* What a search covers: worn equipment, also the backpack, and for the party also the
-   shared pool. */
-enum class W8ItemReach { Worn, Carried, Party };
-using W8ItemMatch = std::function_ref<bool(const W8ItemInstance&)>;
-inline auto ItemWithId(int item_id)
-{
-    return [item_id](const W8ItemInstance& item) { return item.iItemNo == item_id; };
-}
-// Items whose records share an unidentified name kind, such as every class item tier.
-bool ItemIsOfKind(const W8ItemInstance& item, short item_kind);
-inline auto ItemOfKind(short item_kind)
-{
-    return [item_kind](const W8ItemInstance& item) { return ItemIsOfKind(item, item_kind); };
-}
-// The first match in equipment slot order, then in backpack order.
-W8ItemInstance* FindCharacterItem(W8Character& character, W8ItemMatch match, W8ItemReach reach);
-const W8ItemInstance* FindCharacterItem(const W8Character& character, W8ItemMatch match,
-                                        W8ItemReach reach);
-// The first match on the party: the hand, each occupied member, then the pool.
-W8ItemLocation FindPartyItem(const W8Party& party, W8ItemMatch match, W8ItemReach reach);
-inline bool PartyHasItem(const W8Party& party, int item_id, W8ItemReach reach = W8ItemReach::Party)
-{
-    return FindPartyItem(party, ItemWithId(item_id), reach).storage != W8ItemStorage::None;
-}
-// Units of one item, a stack counting its size.
-unsigned int CountCharacterItem(const W8Character& character, int item_id, W8ItemReach reach);
-unsigned int CountPartyItem(const W8Party& party, int item_id);
-bool EveryCharacterHasItem(const W8Party& party, int item_id, W8ItemReach reach);
-// The held item's id, or -1.
-int GetItemInHand(const W8Party& party);
+/* A game's inventory commands. The storage rules (rules/inventory.h) place and edit items;
+   these apply what they set off in parts of the game that are not rules yet: acquiring an
+   item updates the story's facts and may draw a member's remark, what no store takes is
+   dropped into the world, and every edit settles the party: unusable equipment comes off,
+   statistics and shared load are recalculated, combat choices follow a change of weapons,
+   and the hand's change is reported. A command the player is refused returns the refusal
+   for the screen to show. */
 
 // ---- Receiving, giving and losing items
 
-/* Place an item with a character: equipped when asked and allowed, else merged into
-   a stack or put in the first free backpack slot. A stored item leaves its source;
-   a refused one stays there. The character may be a draft outside the party. */
-bool AddItemToCharacter(Game& game, W8Character* character, W8ItemInstance* item,
+// A party member as the receiver of an item.
+ItemRecipient PartyMember(Game& game, unsigned int party_slot);
+// A character outside the party, such as a draft in party creation.
+inline ItemRecipient Outsider(W8Character& character)
+{
+    return {character, std::nullopt};
+}
+
+/* Place an item with a character: equipped when asked and allowed, else merged into a stack
+   or put in the first free backpack slot. A character outside the party is also brought up
+   to date on its own. */
+bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemSource source,
                         bool equip_if_possible, bool announce, bool skip_stacking);
 // Merge into a pool stack, else add a new entry at the front of the pool.
-bool AddItemToParty(Game& game, W8ItemInstance* item, bool announce, bool skip_stacking);
+bool AddItemToParty(Game& game, ItemSource source, bool announce, bool skip_stacking);
 // The pool, else the party's feet, else an empty hand.
-bool AddItemToPartyOrDrop(Game& game, W8ItemInstance* item, bool announce);
+bool AddItemToPartyOrDrop(Game& game, ItemSource source, bool announce);
 // The character and the pool, in the order the flag asks for.
-bool StoreItemWithCharacterOrParty(Game& game, W8Character* character, W8ItemInstance* item,
+bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemSource source,
                                    bool party_first, bool announce, bool equip_if_possible);
-/* Hand one item to a party member, preferring the character or the party pool
-   according to the flag. */
-bool GiveItemToCharacterOrParty(Game& game, int uiChar, W8ItemInstance* item, bool party_first);
-/* The held-item form, after the whole party has had its identification attempt. A
-   failed party-first attempt still reports success and empties the hand, as retail
-   did. */
-std::expected<void, InventoryRefusal> GiveHeldItemToCharacterOrParty(Game& game, int uiChar,
-                                                                     bool party_first);
-/* A departing character's items go to the pool; equipment bound to its slot stays
-   unless announced, iconless or worn by the dead. */
-void StashDepartingCharacterItems(Game& game, W8Character* character);
-void EmptyAllCarriedItems(Game& game, W8Character* character);
+/* Hand one item to a party member, preferring the member or the party pool according to the
+   flag; a member who cannot take items leaves only the pool. */
+bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource source,
+                                bool party_first);
+/* The held-item form, after the whole party has had its identification attempt. A failed
+   party-first attempt still reports success and empties the hand, as retail did. */
+std::expected<void, InventoryRefusal>
+GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_first);
+/* A departing member's items go to the pool; equipment bound to its slot stays unless
+   announced, iconless or worn by the dead. */
+void StashDepartingCharacterItems(Game& game, unsigned int party_slot);
+// Empty a character outside the party, such as a draft, of everything it carries.
+void EmptyAllCarriedItems(Game& game, W8Character& outsider);
 // Give or raise the class item the character's current profession level earns.
-void UpgradeProfessionClassItem(Game& game, W8Character* character);
+void UpgradeProfessionClassItem(Game& game, ItemRecipient recipient);
 // Remove an item id from the hand, the members and the pool; once per holder.
 bool RemovePartyItemByID(Game& game, int item_id, bool remove_all);
 void RemoveInventoryQuantity(Game& game, W8ItemLocation location, unsigned amount);
 W8ItemInstance TakeInventoryItem(Game& game, W8ItemLocation location);
 void AddPartyGold(Game& game, int amount, bool announce);
-// Take gold from the party, clamping at zero.
-void SpendPartyGold(W8Party& party, unsigned int amount);
 
 // ---- The hand
 
@@ -127,23 +95,14 @@ bool InsertHeldItemInPool(Game& game, unsigned index);
 std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8ItemLocation target);
 // Pour the source's uses into the destination.
 void MergeItemUses(Game& game, unsigned actor, W8ItemLocation destination, W8ItemLocation source);
-// Add recharge uses to an item, never past what it can hold.
-void AddItemUses(W8ItemInstance* item, char uses);
-void SortPartyItemPool(Game& game);
-bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& second);
 
 // ---- Weapon sets and ammunition
 
-struct W8WeaponSwap {
-    bool primary;
-    bool secondary;
-};
-std::optional<W8WeaponSwap> PlanWeaponSetSwap(const W8Character& character);
-void CommitWeaponSetSwap(Game& game, int party_slot, W8WeaponSwap choice);
-bool SwapWeaponSetSlots(Game& game, int party_slot, bool announce);
+void CommitWeaponSetSwap(Game& game, unsigned int party_slot, W8WeaponSwap choice);
+bool SwapWeaponSetSlots(Game& game, unsigned int party_slot, bool announce);
 // The combat UI's weapon-set swap, refused outside the member's own turn.
-void BindCharacterItems(Game& game, int party_slot, bool announce);
-// Spend what one attack used and ready the weapon again.
+void BindCharacterItems(Game& game, unsigned int party_slot, bool announce);
+// Spend what one attack used and ready the weapon again; whether the thrown weapon ran out.
 bool ConsumeAttackItems(Game& game, unsigned actor, unsigned hand, W8EquipSlot used,
                         W8EquipSlot paired);
 // Equip the primary weapon's off-hand partner and refill its shots before attacking.
@@ -157,8 +116,9 @@ struct W8ItemUseResult {
     // The attempt's own fatigue cost; none leaves the action's ordinary cost.
     std::optional<int> fatigue_cost;
 };
-// Use one item as a character's action.
-W8ItemUseResult UseItem(Game& game, unsigned actor, W8ItemLocation item);
+/* Use one item as a character's action; a use whose location no longer holds its item does
+   nothing. */
+W8ItemUseResult UseItem(Game& game, unsigned actor, const W8ItemUse& use);
 
 // ---- Equipment rule
 

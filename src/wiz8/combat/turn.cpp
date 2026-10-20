@@ -104,7 +104,7 @@ CombatWait Combat::waitingOn(const Game& game) const
         }
     }
     for (unsigned int slot = 0; slot < 2; ++slot) {
-        if (game.party.rows[slot].fOccupied && game.party.characters[slot].hp_current != 0 &&
+        if (game.party.members[slot].has_value() && game.party.characters[slot].hp_current != 0 &&
             game.party.characters[slot].highest_condition < W8_CONDITION_ASLEEP &&
             npc_combat_script_pending[slot]) {
             return CombatWait::npc_script;
@@ -260,7 +260,7 @@ void Combat::scheduleNextActor(Game& game)
             uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
             for (int slot = 0; slot < 8; ++slot) {
                 W8PartySlotRow* row = &game.party.rows[slot];
-                if (!row->fOccupied) {
+                if (!game.party.members[slot].has_value()) {
                     continue;
                 }
                 W8CombatCharacterRow* combat_row = &characters[slot];
@@ -396,7 +396,7 @@ void Combat::scheduleNextActor(Game& game)
                 equip_phase = W8CombatEquipPhase::action_selection;
                 equip_pending = 0;
                 for (unsigned int slot = 0; slot < 8; ++slot) {
-                    if (game.party.rows[slot].fOccupied &&
+                    if (game.party.members[slot].has_value() &&
                         game.party.characters[slot].hp_current != 0 &&
                         game.party.characters[slot].highest_condition < W8_CONDITION_TURNCOAT &&
                         game.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {

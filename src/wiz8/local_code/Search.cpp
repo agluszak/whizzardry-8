@@ -211,7 +211,7 @@ void RunSearchPulse(void)
                Scouting skill and then discards the result. */
             for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
                 W8Character* character = &CurrentGame().party.characters[slot];
-                if (CurrentGame().party.rows[slot].fOccupied && character->hp_current != 0 &&
+                if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
                     character->highest_condition < W8_CONDITION_TURNCOAT &&
                     character->skills[W8_SKILL_SCOUTING].level != 0) {
                     break;
@@ -237,7 +237,7 @@ int W8Searchable::PickBestSearcher()
     bool earned = false;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (!CurrentGame().party.rows[slot].fOccupied || character->hp_current == 0 ||
+        if (!CurrentGame().party.members[slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }

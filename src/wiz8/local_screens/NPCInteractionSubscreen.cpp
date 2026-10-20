@@ -91,6 +91,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -532,8 +533,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (npc->name_style == 0xf || npc->name_style == 0x12) {
         characters = CurrentGame().party.characters;
         for (slot = 0; slot < 2; ++slot) {
-            if (CurrentGame().party.rows[slot].fOccupied) {
-                bound = GetNpcState(CurrentGame().party.rows[slot].npc_index);
+            if (CurrentGame().party.members[slot].has_value()) {
+                bound = GetNpcState(CurrentGame().party.npcIndex(slot));
                 if ((bound->name_style == W8_NPC_RODAN || bound->name_style == W8_NPC_DRAZIC) &&
                     characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
                     for (condition = 0; condition <= 0x12; ++condition) {
@@ -794,7 +795,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     }
     state->camera_redirected = false;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             if (speaker == -1) {
                 speaker = slot;
             }
@@ -806,7 +807,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     }
     CurrentGame().npc_interaction.dialogue_speaker = speaker;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             SetPortraitTargetPose(&CurrentGame().monster_manager_entries[slot], 1);
         }
     }
@@ -1584,7 +1585,7 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
             SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
         }
         text = ShortenTextToWidth(
-            FormatItemDisplayName(CurrentGame().npc_interaction.trade_item, false), 0x7d,
+            FormatItemDisplayName(Data(), CurrentGame().npc_interaction.trade_item, false), 0x7d,
             g_wiz_text_font_secondary);
         CurrentGame().npc_interaction.ui->actions[W8_NPC_CONTROL_TEXT_36].text.SetText(
             text, g_wiz_text_font_secondary);
@@ -1960,7 +1961,7 @@ void OpenNpcDialogueTranscriptLayout(void)
     }
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     for (index = 0; index < 8; ++index) {
-        if (CurrentGame().party.rows[index].fOccupied) {
+        if (CurrentGame().party.members[index].has_value()) {
             DisableMainGamePortraitSlot(index);
 
             MainGame()->edge_targets[index]->setEnabled(false);
@@ -1997,7 +1998,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
     CurrentGame().npc_interaction.ui->transcript->ClearBackground();
     EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
     for (index = 0; index < 8; ++index) {
-        if (CurrentGame().party.rows[index].fOccupied) {
+        if (CurrentGame().party.members[index].has_value()) {
             EnableMainGamePortraitSlot(index);
 
             MainGame()->edge_targets[index]->setEnabled(true);
@@ -2591,6 +2592,7 @@ bool NpcTradeItemAllowed(W8ItemInstance* item)
             }
         } else {
             if (!CanCharacterUseItem(
+                    Data(),
                     &CurrentGame().party.characters[CurrentGame().status.selected_character],
                     item->iItemNo)) {
                 return true;
@@ -3454,8 +3456,8 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (CurrentGame().npc_interaction.held_item_pending &&
                     CurrentGame().npc_interaction.pending_item.iItemNo == item->iItemNo) {
                     CurrentGame().npc_interaction.held_item_pending = false;
-                    AddItemToParty(CurrentGame(), &CurrentGame().npc_interaction.pending_item, true,
-                                   false);
+                    AddItemToParty(CurrentGame(), OwnedItem(CurrentGame().npc_interaction.pending_item),
+                                   true, false);
                     (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
                     return 0;
                 }
@@ -3825,7 +3827,7 @@ static void SetNpcDialogueHidden(char value)
         CurrentGame().npc_interaction.ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
         for (index = 0; index < 8; ++index) {
-            if (CurrentGame().party.rows[index].fOccupied) {
+            if (CurrentGame().party.members[index].has_value()) {
                 EnableMainGamePortraitSlot(index);
             }
         }
@@ -3845,7 +3847,7 @@ static void SetNpcDialogueHidden(char value)
     } else {
         RefreshMainGameLayout();
         for (index = 0; index < 8; ++index) {
-            if (CurrentGame().party.rows[index].fOccupied) {
+            if (CurrentGame().party.members[index].has_value()) {
                 DisableMainGamePortraitSlot(index);
             }
         }
@@ -3887,15 +3889,17 @@ static void ResolveNpcPickpocket(int party_slot)
     switch (
         AttemptNpcPickpocket(character, CurrentGame().npc_interaction.dialogue_npc, &item, &gold)) {
     case W8_PICKPOCKET_ITEM_TAKEN:
-        text = fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(&item));
+        text =
+            fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), &item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
-                AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
+                AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), party_slot),
+                                   OwnedItem(item), false, false, false);
                 DisplayNpcQuote(text, true);
                 return;
             }
         }
-        AddItemToParty(CurrentGame(), &item, false, false);
+        AddItemToParty(CurrentGame(), OwnedItem(item), false, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
@@ -4065,7 +4069,8 @@ static void HandleNpcDialogueDeparture(unsigned char value)
                 CurrentGame().npc_interaction.dialogue_npc->record->merchant == 0) {
                 for (index = 0; index < 8; ++index) {
                     character = &CurrentGame().party.characters[index];
-                    if (CurrentGame().party.rows[index].fOccupied && character->hp_current != 0 &&
+                    if (CurrentGame().party.members[index].has_value() &&
+                        character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
                         PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_COMMUNICATION,
                                                0xf, false);

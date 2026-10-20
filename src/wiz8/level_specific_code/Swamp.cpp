@@ -11,19 +11,21 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -104,7 +106,7 @@ bool SwampScript::oilPool(Trigger* pTrigger)
 {
     if ((ctx.party.held.item.iItemNo != -1) && GetItemInHand(ctx.party) == 0x2d0) {
         (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
-        ReplaceHeldItem(ctx.game, MakeItem(0x15e, false, true, false));
+        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x15e, false, true, false));
         g_trigger_feedback = true;
     }
     return false;

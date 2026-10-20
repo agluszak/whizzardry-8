@@ -37,10 +37,14 @@ are enforced:
   installs it; unlayered code reads it through `Data()`. A test owns and installs a small
   `GameData` it builds for itself with `ScopedGameData`.
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
-  party storage (`W8Party`, formation), item rules, character derivation (modifier
-  blocks, effective attributes and skills, statistics and the party's shared load) and
-  the event log (`events.h`) and the party's `Activity`. Functions that read the databases
-  take `const GameData&`.
+  party storage (`W8Party`, formation), item rules (`item_rules.h`: names, equip slots,
+  requirements, item making), the inventory's storage rules (`inventory.h`), character
+  derivation (modifier blocks, effective attributes and skills, statistics and the
+  party's shared load), the event log (`events.h`) and the party's `Activity`. Functions
+  that read the databases take `const GameData&`; those that change the party, draw
+  random numbers or report events take a `RuleContext` (`rule_context.h`: the data, the
+  party, the game's `Rng` and `Events`, and whether the game has started), which
+  `Game::rules()` builds.
 
 A layer file includes only its own layer, the layers below it, the standard library,
 glm, fmt and three stateless foundation headers (`math.h`, `world/camera_pose.h`,
@@ -331,7 +335,7 @@ Unlayered code may use the layers.
   `PartyEffectsChanged`, `PartyMembershipChanged`, `MonstersChanged`,
   `WorldItemRemoved`), a fight's course (`CombatBegan`, `CombatEnded`,
   `CombatProgressChanged`, `CombatStanceChanged`, `CombatEffectsChanged`) and skill
-  changes (`SkillAvailabilityChanged`, `SkillImproved`). Rules push them; they never
+  changes (`SkillAvailabilityChanged`, `SkillImproved`) and speech (`CharacterSpeech`). Rules push them; they never
   ask for repaints. An installed observer receives each event as it is pushed, so
   presentation keeps its place among the screen calls that unmigrated code still
   makes; a game without one keeps them pending, which is how tests inspect them.
@@ -362,30 +366,45 @@ Unlayered code may use the layers.
 ## Gameplay operations
 
 - **Actions.** Spell and item pickers own an action draft while open; cancelling
-  discards it, and committing copies the completed draft. A party row holds three
-  independent parts (`action_choices.h`): the member's `remembered` choices (basic
+  discards it, and committing copies the completed draft. The party keeps a row
+  (`W8PartySlotRow`) for every slot, occupied or not, with three independent parts
+  (`action_choices.h`): the member's `remembered` choices (basic
   action, last spell, item use, breath target, the repeat key's action), the action
   `committed` for this turn, and the action `executing`. A berserk choice yields to
   attack while the member cannot berserk and returns when they can
   (`ReconcileBerserkChoice`, a rule); in combat a weapon-hand change also re-aims an
   attack and flips the alternate hand (`ReconcileCombatHandChange`). Target preview and execution share target geometry
-  and sight rules but never share random power or damage results.
+  and sight rules but never share random power or damage results. An item use
+  (`W8ItemUse`) names its item's location and the item id it expects there; a staged or
+  committed use whose location no longer holds that item is abandoned.
+- **Membership.** `W8Party::members` holds an optional `W8PartyMember` per slot: the
+  member's place in the marching order, its NPC state and binding, walking fatigue not
+  yet charged and whether its level-up was announced. An empty slot has none, so
+  nothing tells members apart by flags or addresses; `npcIndex` and `orderIndexOf`
+  answer for empty slots too. The save's party record keeps these fields beside the
+  slot's action state, and an empty slot is written with a cleared member.
 - **Trade.** Trade rows keep a source location and the expected item contents;
   compaction or changed contents invalidates the selection. Identical stacks are
   fungible, and there is no global item identity. Purchasing prepares stack merges,
   capacity and overflow placement before committing stock and payment.
-- **Inventory.** `inventory.h` is the active party's inventory model. Each command
-  states the locations it replaced or emptied and finishes once: settlement
-  (unusable equipment comes off in slot order and is stored like a received item,
-  statistics and shared load are recalculated, an exhausted member dies), combat
-  choices follow a weapon-hand change, a committed item use loses a replaced item,
-  and a changed hand is reported. A change of quantity is not a replacement.
-  Commands take the `Game` they act on and report notices and display changes as
-  its events, except that a player command turned down returns an
-  `InventoryRefusal` the calling screen shows (`ShowRefusal`); queries take
-  `const W8Party&`. `W8Party` owns storage primitives with
-  no gameplay; `party_stats.h` derives values from explicit rules; `live_party.h`
-  supplies the game's own rules and applies what follows. `PC Item.cpp` keeps per-item rules.
+- **Inventory.** Two headers share the inventory. `rules/inventory.h` holds the
+  storage rules over a `RuleContext`: placement (`PlaceWithCharacter`, `PlaceInPool`,
+  `PlaceInEmptyHand`) returns where an item went, and removal, splitting, exchange,
+  stack merging, pool sorting, weapon-set swaps and attack consumption return an
+  `InventoryEdit` naming the locations they replaced. Rules address members by party
+  slot and items by `W8ItemLocation` (`PartyItem`) or as owned values (`OwnedItem`),
+  never by scanning storage for an address. `wiz8/inventory.h` holds the game's
+  commands, which apply a rule and then what it owes the game: acquisition effects
+  (story facts, exceptional-item reactions), world drops, and one settlement per
+  command (unusable equipment comes off in slot order and is stored like a received
+  item, statistics and shared load are recalculated, an exhausted member dies, combat
+  choices follow a weapon-hand change, committed item uses whose item is gone are
+  dropped, and a changed hand is reported). A change of quantity is not a replacement.
+  Notices and display changes are events; a player command turned down returns an
+  `InventoryRefusal` the calling screen shows (`ShowRefusal`). Queries take
+  `const W8Party&`. `W8Party` owns storage primitives with no gameplay;
+  `party_stats.h` derives values from explicit rules; `live_party.h` supplies the
+  game's own rules and applies what follows. `PC Item.cpp` keeps per-item effects.
 - **Character derivation.** Every statistic is derived in one place,
   `DeriveCharacterStats` (`character_stats.h`): pool ceilings, regeneration, damage
   reduction, resistances, capacity, weight and load, initiative, attacks and armor

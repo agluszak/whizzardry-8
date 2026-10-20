@@ -209,7 +209,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0) {
             for (slot = 0; slot < 8; ++slot) {
                 character = &context.party.characters[slot];
-                if (context.party.rows[slot].fOccupied &&
+                if (context.party.members[slot].has_value() &&
                     character->highest_condition < W8_CONDITION_DEAD &&
                     g_profession_skill_availability[7][character->iProfession] != 0 &&
                     character->skills[W8_SKILL_MODERN_WEAPONS].points < 10) {
@@ -874,7 +874,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
     int pick;
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &context.party.characters[slot];
-        if (context.party.rows[slot].fOccupied && character->hp_current != 0 &&
+        if (context.party.members[slot].has_value() && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             eligible_slots[eligible_count] = slot;
             ++eligible_count;
@@ -895,7 +895,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
     }
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &context.party.characters[slot];
-        if (context.party.rows[slot].fOccupied && character->hp_current != 0 &&
+        if (context.party.members[slot].has_value() && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_ASLEEP) {
             QueueCharacterEvent(character, 42, kCharacterEventNoNpcDefer,
                                 kCharacterEventFullVolume);

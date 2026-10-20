@@ -1,9 +1,10 @@
 #ifndef WIZ8_LAYOUTS_PARTY_FORMATION_H
 #define WIZ8_LAYOUTS_PARTY_FORMATION_H
 
+#include <optional>
 #include <span>
 
-struct W8PartySlotRow;
+#include "wiz8/rules/party_slot.h"
 
 struct W8PartyFormationPosition {
     /* The row the slot stands in, -1 while unseated. */
@@ -24,7 +25,8 @@ struct W8PartyFormationState {
     void setPosition(int slot, signed char row, signed char column, bool detach,
                      bool update_facing);
     void compactRow(unsigned char row);
-    void reconcile(std::span<const W8PartySlotRow, 8> rows);
+    // Unseat every slot that has no member.
+    void reconcile(std::span<const std::optional<W8PartyMember>, 8> members);
 
     signed char bOccupantChar[5][3];
     unsigned char ubQuadrantOccupants[5]; /* 0x0f */

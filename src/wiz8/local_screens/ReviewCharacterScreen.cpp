@@ -648,7 +648,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection) {
         if (CurrentGame().combat->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
+                if (CurrentGame().party.members[slot].has_value() && IsPartySlotEligible(slot) &&
                     CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     text = fmt::format("{} {}", CurrentGame().party.characters[slot].name,
                                        Data().strings[0x919]);
@@ -658,7 +658,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         } else {
             unsigned char count = 0;
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
+                if (CurrentGame().party.members[slot].has_value() && IsPartySlotEligible(slot) &&
                     CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
@@ -718,7 +718,7 @@ void CampScreen::frame()
                     }
                 } else if (input.key == SDLK_P) {
                     if (GameStarted()) {
-                        SortPartyItemPool(CurrentGame());
+                        SortPartyItemPool(CurrentGame().rules());
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
@@ -839,8 +839,7 @@ done:
 
 void CampScreen::SyncReviewCharInputRegion(void)
 {
-    if (ReviewedPartySlot() != -1 &&
-        CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
+    if (ReviewedPartySlot() != -1 && CurrentGame().party.npcIndex(ReviewedPartySlot()) != -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
@@ -872,7 +871,7 @@ void CampScreen::ActivateCampPage(void)
         for (index = 0; index < 8; ++index) {
             main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
-    } else if (CurrentGame().party.rows[ReviewedPartySlot()].npc_index == -1) {
+    } else if (CurrentGame().party.npcIndex(ReviewedPartySlot()) == -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
@@ -1063,8 +1062,9 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
    cost (or the standard use-item cost when no use happened). The audio cues
    mirror the spell path: fizzle, learned for a successful identify, general
    magic otherwise. */
-int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target)
+int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
 {
+    const W8ItemInstance* item = CurrentGame().party.itemAt(use.item);
     int result;
     W8PartySlotRow* row;
     W8ItemInstance* used;
@@ -1072,17 +1072,17 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     StartBreathCycle(party_slot, false);
     row = &CurrentGame().party.rows[party_slot];
     row->executing.start(W8_ACTION_USE_ITEM, -1);
-    row->executing.detail_block.item_use.kind = -1;
-    row->executing.detail_block.item_use.item = CurrentGame().party.locateItem(item);
+    use.kind = -1;
+    row->executing.detail_block.item_use = use;
     row->executing.target = *target;
     const auto spell = Data().items[item->iItemNo].spell_id;
-    StagePartySlotItemUse(party_slot, item, target);
-    const auto use = UseItem(CurrentGame(), party_slot, CurrentGame().party.locateItem(item));
-    result = use.effect;
+    StagePartySlotItemUse(party_slot, use.item, target);
+    const auto used_item = UseItem(CurrentGame(), party_slot, use);
+    result = used_item.effect;
     FatigueCharacter(
         party_slot,
-        use.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)), true,
-        0);
+        used_item.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)),
+        true, 0);
     if (result == 1) {
         used = CurrentGame().party.itemAt(target->item);
         if (spell == W8_SPELL_IDENTIFY_ITEM && used && used->iItemNo != -1 && used->identified) {

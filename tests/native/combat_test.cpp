@@ -50,7 +50,7 @@ struct CombatFixture {
         g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
         g_settings.verbose_combat_messages = 0;
         for (int slot = 0; slot < 2; ++slot) {
-            game.party.rows[slot].fOccupied = true;
+            game.party.members[slot].emplace();
             game.party.characters[slot].hp_current = 10;
         }
     }
@@ -156,7 +156,7 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     backpack[1] = {.iItemNo = 0, .uses_or_charges = 4};
     auto& committed = game.party.rows[0].committed;
     committed.kind = W8_ACTION_USE_ITEM;
-    committed.detail_block.item_use.item = source;
+    committed.detail_block.item_use = {-1, source, 0};
     // The member has acted this round; the use waits for the next one.
     combat.characters[0].dead = true;
 
