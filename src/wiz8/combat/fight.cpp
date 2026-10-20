@@ -1090,8 +1090,6 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
         W8Action choice{action, detail};
         if (data) choice.detail_block = *data;
-        if (gpSCSV || ItemUseDraft())
-            choice.target = CurrentGame().party.rows[party_slot].committed.target;
         SetCharacterCombatAction(party_slot, choice, notify);
         return;
     }
@@ -1308,7 +1306,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
 
 /* Whether a slot may switch to the action held in the given context,
    optionally repairing the aim state first when the caller allows it. */
-bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow_missing_target,
+bool CharacterCanSwitchTo(int party_slot, W8EditedAction context, bool allow_missing_target,
                           bool allow_equipment_changes)
 {
     if (const auto gate = GateActionSwitch(party_slot); gate != SwitchGate::CheckAction) {

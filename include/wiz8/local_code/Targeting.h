@@ -29,15 +29,15 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect);
 signed char GetSourceNoticeColor(const W8TargetSource* source);
 signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
 
-void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context);
+void AimByKind(int actor, W8TargetKind kind, W8EditedAction context);
 void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id);
 bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id);
 
 void RefreshAllPartyTargets(void);
-bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg);
-void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext context);
-void AimAtCharacter(int actor, int character_slot, W8TargetingContext context);
-void AimAtCharacterIndirect(int actor, int character_slot, W8TargetingContext context);
+bool RepickActionTarget(int party_slot, W8EditedAction context, int arg);
+void AimAtTarget(int actor, const W8CombatSlot* target, W8EditedAction context);
+void AimAtCharacter(int actor, int character_slot, W8EditedAction context);
+void AimAtCharacterIndirect(int actor, int character_slot, W8EditedAction context);
 void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_target);
 void AimAtPlace(int actor);
 void AimAtGroundTarget(int party_slot);
@@ -57,7 +57,7 @@ void SetTargetToCharacter(int character_slot, bool in_combat);
 
 /* The action a slot's selection holds in a targeting context: its committed or
    executing action, or the spell, item or submenu choice being drafted. */
-W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
+W8Action SelectCombatAction(int party_slot, W8EditedAction context);
 /* What the player is asked to pick a target for, if anything; the cursor follows it. */
 W8TargetNeed TargetingMode();
 void SetTargetingMode(W8TargetNeed state);
@@ -104,9 +104,11 @@ bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool ne
    needed-target kind. */
 bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* item);
 /* Select the party slot the spell-casting view is casting for. */
-void SelectSpellCastingPartySlot(int party_slot);
-/* Set the targeting filter for the spell being aimed. */
-void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind);
+void SelectSpellCastingPartySlot(int party_slot, W8Action& draft);
+/* Set the targeting filter for the spell being aimed. A picker passes its draft, which
+   automatic spell targeting aims. */
+void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind,
+                                W8Action* draft);
 void RefreshMonsterTargetCounts(void);
 bool AnyMonsterVisible(void);
 
@@ -168,7 +170,7 @@ signed char FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
 // Commit gameplay state only. Presentation belongs to the interaction controller.
-void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlot& target,
+void CommitActionTarget(int actor, W8EditedAction context, const W8CombatSlot& target,
                         bool remember_action_target);
 
 int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
