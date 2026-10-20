@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 
+#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -25,7 +26,6 @@
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/platform/assertion.h"
 
 W8AttributeMinimums g_race_attribute_minimums[W8_RACE_PLAYABLE_COUNT] = {
     {{45, 45, 45, 45, 45, 45, 45}}, {{35, 50, 50, 35, 50, 45, 40}}, {{55, 30, 50, 60, 35, 35, 35}},
@@ -152,9 +152,7 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
 W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
     : W8ProfRaceInfoDialogBase(CatalogArtwork::Load(0x10b))
 {
-    if (uiIndex >= W8_PROFESSION_COUNT) {
-        Fail("uiIndex < PROF_COUNT");
-    }
+    assert(uiIndex < W8_PROFESSION_COUNT);
     m_uiIndex = uiIndex;
     m_uiHeadingId = 0x14c;
     m_uiSummaryImage = g_profession_info_rows[uiIndex].image_id;
@@ -232,9 +230,7 @@ bool W8ProfessionInfoDialog::PopulateText()
 W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
     : W8ProfRaceInfoDialogBase(CatalogArtwork::Load(0x10c))
 {
-    if (uiIndex >= W8_RACE_COUNT) {
-        Fail("uiIndex < RACE_COUNT");
-    }
+    assert(uiIndex < W8_RACE_COUNT);
     m_uiIndex = uiIndex;
     m_uiHeadingId = 0x152;
     m_uiSummaryImage = g_race_info_rows[uiIndex].image_id;

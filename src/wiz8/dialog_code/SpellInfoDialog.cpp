@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 
+#include <cassert>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -21,7 +22,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/CharacterScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/string_database.h"
 
@@ -188,11 +188,7 @@ bool W8SpellInfoDialog::PopulateText()
                 display_base = (duration_base * 0x78) / 0xe10;
                 ui_units_lvl = 0x127;
             }
-            if (duration_per_level != 0 && ui_units != ui_units_lvl) {
-                Fail("uiUnits == uiUnitsLvl",
-                     fmt::format("Spell {} duration has mismatched base & per-lvl units",
-                                 record->display_name));
-            }
+            assert(duration_per_level == 0 || ui_units == ui_units_lvl);
             text += fmt::format("{:d} ", display_base);
         }
         if ((duration_per_level == 1 && display_base == 0) ||

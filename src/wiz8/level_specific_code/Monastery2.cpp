@@ -9,7 +9,6 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
@@ -27,10 +26,7 @@ namespace {
 
 void DisableBellTrigger(const char* name)
 {
-    Trigger* pPropTrigger = FindTriggerByName(name);
-    if (pPropTrigger == 0) {
-        Fail("pPropTrigger");
-    }
+    Trigger* pPropTrigger = FindRequiredTriggerByName(name);
     pPropTrigger->flags &= ~W8_TRIGGER_ON;
 }
 

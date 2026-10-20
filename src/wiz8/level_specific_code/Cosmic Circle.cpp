@@ -1,4 +1,6 @@
+#include <cassert>
 #include <memory>
+#include <stdexcept>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/combat/combat.h"
@@ -13,7 +15,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
@@ -55,11 +56,8 @@ bool CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
     }
     BeginScriptedWorldAction();
     pNPC = GetNpcStateByKind(0x85);
-    if (pNPC == 0) {
-        Fail("pNPC", "Cannot find VOC_SAVANT_CC1");
-    } else {
-        QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
-    }
+    if (pNPC == 0) throw std::runtime_error("Savant NPC state is missing");
+    QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
     UpdateCameraPathStateByName(&world(), "CameraPath1", 1);
     return true;
 }
@@ -86,20 +84,14 @@ void CosmicCircleScript::setup()
         if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {
             group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
-            if (uiMonsterID == 0) {
-                Fail("uiMonsterID", "Invalid Monster ID for CC end");
-            } else {
-                pMonsterInfoAltheides = FindMonster(uiMonsterID);
-            }
+            assert(uiMonsterID != 0);
+            pMonsterInfoAltheides = FindMonster(uiMonsterID);
         }
         if (FindEntityByName("NP_DSARENA", &positionDs, 0, 0)) {
             group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false, false);
             uiMonsterID = group->MemberLocationId(0);
-            if (uiMonsterID == 0) {
-                Fail("uiMonsterID", "Invalid Monster ID for CC end");
-            } else {
-                pMonsterInfoDs = FindMonster(uiMonsterID);
-            }
+            assert(uiMonsterID != 0);
+            pMonsterInfoDs = FindMonster(uiMonsterID);
         }
         if (FindEntityByName("NP_BELASTART", &positionBela, 0, 0)) {
             SpawnMonsters(0x1b4, 1, &positionBela, 2, true, false, false);
