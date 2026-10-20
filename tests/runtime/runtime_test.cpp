@@ -847,12 +847,13 @@ void FormationUiScenario()
     const auto center = [&](int cell) {
         return SDL_Point{214 + cell_offsets[cell].x + 16, 60 + cell_offsets[cell].y + 16};
     };
-    const int original_row = CurrentGame().party.formation.positions[slot].bQuadrant;
+    const int original_row = CurrentGame().party.formation.rowOf(slot);
     const int destination_row = (original_row + 1) % 5;
     const auto destination = center(destination_row * 3);
     const auto begin_drag = [&] {
-        const auto& position = CurrentGame().planned_formation.positions[slot];
-        const auto source = center(position.bQuadrant * 3 + position.bQuadrantSlot);
+        const auto seat = CurrentGame().planned_formation.cellOf(slot);
+        REQUIRE(seat);
+        const auto source = center(seat->row * 3 + seat->column);
         game.press_at(source.x, source.y);
         REQUIRE(g_ui.captured != 0);
         for (int frame = 0; frame < 5; ++frame) game.frame();
@@ -869,21 +870,21 @@ void FormationUiScenario()
     REQUIRE(FormationPanelOpen());
     begin_drag();
     drop_at(destination);
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == destination_row);
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == destination_row);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == original_row);
 
     // Reset preserves the live formation; dropping on the panel edge cancels.
     game.click_at(242, 278);
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == original_row);
     begin_drag();
     drop_at({220, 70});
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == original_row);
 
     begin_drag();
     drop_at(destination);
     game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
     REQUIRE_FALSE(FormationPanelOpen());
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination_row);
     REQUIRE(g_ui.captured == 0);
 
     OpenFormationPanel();
@@ -893,7 +894,7 @@ void FormationUiScenario()
     game.click_at(394, 276); // Cancel after re-entry.
     REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination_row);
 }
 
 std::vector<fs::path> SaveFiles(const fs::path& user)
@@ -1344,10 +1345,10 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_formation = CurrentGame().party.formation;
     OpenFormationPanel();
     game.frame();
-    const auto position = CurrentGame().party.formation.positions[slot];
-    const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
-    REQUIRE((source >= 0 && source < 15));
-    const int destination = ((position.bQuadrant + 1) % 5) * 3;
+    const auto seat = CurrentGame().party.formation.cellOf(slot);
+    REQUIRE(seat);
+    const int source = seat->row * 3 + seat->column;
+    const int destination = ((seat->row + 1) % 5) * 3;
     constexpr std::array<SDL_Point, 15> cells{{
         {90, 28},
         {61, 37},
@@ -1367,10 +1368,10 @@ void CheckGameplayUi(GameHarness& game)
     }};
     game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
               {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == destination / 3);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == destination / 3);
     game.click_at(360, 276);
     REQUIRE_FALSE(FormationPanelOpen());
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination / 3);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination / 3);
     CurrentGame().party.formation = original_formation;
     RefreshFormationBoard();
 
