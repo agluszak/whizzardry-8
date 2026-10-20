@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -62,7 +64,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -195,9 +196,7 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
     unsigned int seen = 0;
     unsigned int mode = 0;
 
-    if (static_cast<short>(attack_modes) == 0) {
-        Fail("fsAttackModes != 0");
-    }
+    assert(static_cast<short>(attack_modes) != 0);
 
     wanted = CurrentGame().rng.below(W8_ATTACK_MODE_COUNT);
     while (((attack_modes & 0xffff) & (1 << mode)) == 0 || seen++ < wanted) {
@@ -265,9 +264,7 @@ unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterReco
     W8MonsterActionKind action_kind;
     bool reaches;
 
-    if (attack >= W8_MAX_MONSTER_ATTACKS) {
-        Fail("uiAttack < MAX_MONSTER_ATTACKS");
-    }
+    assert(attack < W8_MAX_MONSTER_ATTACKS);
     if (record->attacks[attack].fHasAttack == 0) {
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
@@ -325,9 +322,7 @@ enum { W8_HAND_COUNT = 2 };
    hand has to be in play and to have a range category at all. */
 bool CanHandReachTarget(int party_slot, unsigned int hand)
 {
-    if (hand >= W8_HAND_COUNT) {
-        Fail("uiHand < HAND_COUNT");
-    }
+    assert(hand < W8_HAND_COUNT);
     if (!CurrentGame().party.characters[party_slot].Hand[hand].in_play) {
         return false;
     }
@@ -384,9 +379,7 @@ bool CanCharacterBerserk(int party_slot)
         return false;
     }
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
-        if (hand >= W8_HAND_COUNT) {
-            Fail("uiHand < HAND_COUNT");
-        }
+        assert(hand < W8_HAND_COUNT);
         if (CurrentGame().party.characters[party_slot].Hand[hand].in_play &&
             GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) !=
                 W8_RANGE_NONE) {
@@ -598,7 +591,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         W8MonsterInfo* target_info = FindMonster(target->iMonsterID);
         target_name = GetMonsterName(target_info, nullptr, 0);
     } else {
-        Fail("FALSE");
+        std::unreachable();
     }
     for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
         W8TargetSource* candidate = &candidates[i];
@@ -609,7 +602,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             W8MonsterInfo* defender = FindMonster(candidate->iMonsterID);
             guardian_score = GetMonsterProtectionScore(defender);
         } else {
-            Fail("FALSE");
+            std::unreachable();
         }
         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
             W8Character* attacker = &CurrentGame().party.characters[source->iChar];
@@ -618,7 +611,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             W8MonsterInfo* attacker = FindMonster(source->iMonsterID);
             attacker_score = GetMonsterProtectionScore(attacker);
         } else {
-            Fail("FALSE");
+            std::unreachable();
         }
         if (CurrentGame().combat->unaware != 0) {
             attacker_score += 10;
@@ -655,9 +648,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         return 0;
     }
     unsigned int uiSuccessfulCnt = static_cast<int>(interposers.size());
-    if (uiSuccessfulCnt <= 0) {
-        Fail("uiSuccessfulCnt > 0");
-    }
+    assert(uiSuccessfulCnt > 0);
     W8TargetSource* interposer = &interposers[CurrentGame().rng.below(uiSuccessfulCnt)];
     CurrentGame().combat->attack_message = fmt::sprintf(Data().strings[0x21a], target_name);
     if (interposer->iType == W8_TARGET_SOURCE_CHARACTER) {
@@ -733,8 +724,7 @@ static int AttackModeMod(int is_character, W8AttackMode attack_mode)
         case W8_ATTACK_MODE_LASH:
             return 10;
         default:
-            Fail("FALSE", "AttackModeMod: ERROR - Invalid attack mode");
-            return 0;
+            std::unreachable();
         }
     }
     switch (attack_mode) {
@@ -754,8 +744,7 @@ static int AttackModeMod(int is_character, W8AttackMode attack_mode)
     case W8_ATTACK_MODE_LASH:
         return -10;
     default:
-        Fail("FALSE", "AttackModeMod: ERROR - Invalid attack mode");
-        return 0;
+        std::unreachable();
     }
 }
 
@@ -1009,11 +998,7 @@ int ChooseCharacterAttackHand(int party_slot)
     unsigned int hand;
 
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
-        if (hand >= W8_HAND_COUNT) {
-            Fail(
-                "uiHand < HAND_COUNT", // reinterpret-ok: the assert message slot carries the failing hand index
-                reinterpret_cast<const char*>(hand));
-        }
+        assert(hand < W8_HAND_COUNT);
         if (CurrentGame().party.characters[party_slot].Hand[hand].in_play &&
             GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) !=
                 W8_RANGE_NONE &&
@@ -1045,11 +1030,7 @@ void PrepareCharacterAttacks(int party_slot)
     }
     CurrentGame().combat->characters[party_slot].current_hand = best_hand;
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
-        if (hand >= W8_HAND_COUNT) {
-            Fail(
-                "uiHand < HAND_COUNT", // reinterpret-ok: the assert message slot carries the failing hand index
-                reinterpret_cast<const char*>(hand));
-        }
+        assert(hand < W8_HAND_COUNT);
         if (!CurrentGame().party.characters[party_slot].Hand[hand].in_play ||
             GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) ==
                 W8_RANGE_NONE) {
@@ -1115,8 +1096,7 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
         }
         out_of_formation = character->bonus.out_of_formation;
     } else {
-        Fail("FALSE");
-        return 0;
+        std::unreachable();
     }
     if (distracted && out_of_formation == 0 &&
         (attack_mode != W8_ATTACK_MODE_THROW &&
@@ -1139,19 +1119,10 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
     } else {
         slot = (hand != 0) + 6;
         item = &character->EquippedItem[slot];
-        if (item->iItemNo == -1) {
-            Fail("pPC->EquippedItem[uiWeaponSlot].iItemNo != -1",
-                 fmt::format("CharChooseHandAttackMode: ERROR - {}'s weapon slot {:d} has "
-                             "no item in it, but holds {:d}",
-                             character->name, slot, character->Hand[hand].uiHolds));
-        }
+        assert(item->iItemNo != -1);
         modes = Data().items[item->iItemNo].attack_flags;
     }
-    if (modes == 0) {
-        Fail("fsAttackModes > 0",
-             fmt::format("CharChooseHandAttackMode: ERROR - {}'s hand {:d} has no attack modes",
-                         character->name, hand));
-    }
+    assert(modes != 0);
     return ChooseAttackMode(modes);
 }
 
@@ -1164,9 +1135,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     const W8MonsterRecord* record;
     W8MonsterGroup* monster_group;
 
-    if (target == nullptr) {
-        Fail("pTarget != NULL");
-    }
+    assert(target != nullptr);
     switch (target->iType) {
     case W8_TARGET_KIND_NONE:
     case W8_TARGET_KIND_PLACE:
@@ -1177,9 +1146,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     case W8_TARGET_KIND_PARTY:
         return Data().strings[0x1e3];
     case W8_TARGET_KIND_MONSTER:
-        if (target->iMonsterID == -1) {
-            Fail("pTarget->iMonsterID != BAD_INDEX");
-        }
+        assert(target->iMonsterID != -1);
         monster_info = FindMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         if (TargetSourceIsMonster(source, 0) && source->iMonsterID == target->iMonsterID) {
@@ -1197,13 +1164,9 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
         return fmt::sprintf(Data().strings[0x1e6],
                             FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
     default:
-        Fail("FALSE", fmt::format("SpellTargetString: ERROR - Invalid target type {:d}",
-                                  fmt::underlying(target->iType)));
-        return " - TARGET INVALID";
+        std::unreachable();
     }
-    if (target->iChar == -1) {
-        Fail("pTarget->iChar != BAD_INDEX");
-    }
+    assert(target->iChar != -1);
     if (TargetSourceIsCharacter(source, 0) && !source->name_known &&
         source->iChar == target->iChar) {
         return std::string(
@@ -1234,7 +1197,7 @@ int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode)
     } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
         base = CurrentGame().party.characters[target->iChar].armor_class_total;
     } else {
-        Fail("FALSE");
+        std::unreachable();
     }
     return GetTargetArmorClassModifier(target, attack_mode) + base;
 }
@@ -1264,8 +1227,7 @@ int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, i
                (character->armor_class_by_location[hit_location] - character->armor_class_total) +
                base;
     }
-    Fail("FALSE");
-    return GetTargetArmorClassModifier(target, attack_mode) + hit_location + base;
+    std::unreachable();
 }
 
 /* Whether a swing the attacker landed is blocked outright: a character blocks
@@ -1307,8 +1269,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         }
         material = 2;
     } else {
-        Fail("FALSE", "BlockedForSpecialReason: Unknown target type");
-        return false;
+        std::unreachable();
     }
     if (g_settings.verbose_combat_messages != 0) {
         ShowNotice(palette, Data().strings[0x213]);
@@ -1332,8 +1293,7 @@ unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
         monster_info = FindMonster(target->iMonsterID);
         health = monster_info->uiHPMax;
     } else {
-        Fail("FALSE");
-        health = 0;
+        std::unreachable();
     }
     limit = health / 5;
     if (limit <= 1) {
@@ -1386,9 +1346,7 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
         cycle = W8_MONSTER_CYCLE_ATTACK_MELEE;
         break;
     default:
-        Fail("FALSE", fmt::format("StartMonsterAttack: ERROR - Invalid attack mode {:d}",
-                                  fmt::underlying(action_detail)));
-        return;
+        std::unreachable();
     }
     if (!monster_info->p3D->IsCycleSupported(cycle)) {
         switch (cycle) {
@@ -1551,9 +1509,7 @@ static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int a
     if (attack_score < 100) {
         chance = static_cast<int>(pow(100 - attack_score, 3.0) * 1e-5 + 0.5);
         const auto count = wiz8::checked_integer<unsigned int>(targets.size());
-        if (count == 0) {
-            Fail("uiNumTargets > 0");
-        }
+        assert(count != 0);
         chance = count * chance * 10 / 100;
     } else {
         chance = 0;
@@ -1565,9 +1521,7 @@ static int GetCombatFumbleChance(const std::vector<W8CombatSlot>& targets, int a
 static W8CombatSlot ChooseCombatFumbleTarget(const std::vector<W8CombatSlot>& targets)
 {
     const auto count = wiz8::checked_integer<unsigned int>(targets.size());
-    if (count == 0) {
-        Fail("uiChoices > 0");
-    }
+    assert(count != 0);
     return targets[CurrentGame().rng.below(count)];
 }
 
@@ -1689,14 +1643,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             guaranteed_penetration = guaranteed_hit;
         }
     } else {
-        if (!monster_info->fMissileReleased) {
-            Fail("pMonsterInfo->fMissileReleased",
-                 fmt::format("ContinueMonsterAttack: ERROR - Missile not released, ID "
-                             "{:d}, cycle {:d}, pending {:d}",
-                             monster_info->location_id,
-                             monster_info->p3D->Query(W8_MONSTER_QUERY_CYCLE),
-                             monster_info->p3D->visual.pending_cycle));
-        }
+        assert(monster_info->fMissileReleased);
         if (CurrentGame().combat->missile_hit_result == W8_MISSILE_HIT) {
             swing_missed = false;
             guaranteed_hit = true;
@@ -1888,9 +1835,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
         }
         ApplyQueuedFatigue(&CurrentGame().combat->TargetHit, queued_fatigue, 1);
     }
-    if (combat->uiSwingsRemaining == 0) {
-        Fail("pCmbt->uiSwingsRemaining > 0");
-    }
+    assert(combat->uiSwingsRemaining != 0);
     --combat->uiSwingsRemaining;
     if (monster_info->hp_current == 0 && monster_info->highest_condition > W8_CONDITION_WEBBED) {
         combat->uiSwingsRemaining = 0;
@@ -1964,16 +1909,10 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
     W8MonsterCombatState* combat;
     unsigned int attack;
 
-    if (monster_info == 0) {
-        Fail("pMonsterInfo != NULL");
-    }
-    if (record == 0) {
-        Fail("pMonsterDB != NULL");
-    }
+    assert(monster_info != 0);
+    assert(record != 0);
     combat = monster_info->pCombat.get();
-    if (combat == 0) {
-        Fail("pCmbt != NULL");
-    }
+    assert(combat != 0);
     CurrentGame().combat->attack_report = {};
     if (combat->attacks_per_round == 0) {
         DebugMessage(
@@ -2151,9 +2090,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
             }
         }
     } else {
-        if (monster_info->Target.iType != W8_TARGET_KIND_MONSTER) {
-            Fail("pMonsterInfo->Target.iType == TARGET_TYPE_MONSTER");
-        }
+        assert(monster_info->Target.iType == W8_TARGET_KIND_MONSTER);
         second = FindMonster(monster_info->Target.iMonsterID);
         MonsterHostility(monster_info, second);
         CurrentGame().combat->attack_message += GetMonsterName(second, 0, 0);
@@ -2192,9 +2129,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         }
     } else {
         CurrentGame().combat->attack_message += Data().strings[0x212];
-        if (pAttack->ubWeaponNameIndex == 0) {
-            Fail("pAttack->ubWeaponNameIndex != MON_WEAPON_NAME_UNARMED");
-        }
+        assert(pAttack->ubWeaponNameIndex != 0);
         if (pAttack->ubWeaponNameIndex != 0) {
             text = Data().strings[g_monster_attack_verb_ids[pAttack->ubWeaponNameIndex]];
             CurrentGame().combat->attack_message += text;
@@ -2328,9 +2263,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     const bool target_is_monster = CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER;
 
     if (target_is_monster) {
-        if (CurrentGame().combat->TargetHit.iMonsterID == -1) {
-            Fail("gpCombat->TargetHit.iMonsterID != BAD_INDEX");
-        }
+        assert(CurrentGame().combat->TargetHit.iMonsterID != -1);
         monster_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         out_of_formation = monster_info->modifiers.out_of_formation;
@@ -2339,9 +2272,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         target_defending =
             action_kind == W8_MONSTER_ACTION_WAIT || action_kind == W8_MONSTER_ACTION_PROTECT;
     } else {
-        if (CurrentGame().combat->TargetHit.iChar == -1) {
-            Fail("gpCombat->TargetHit.iChar != BAD_INDEX");
-        }
+        assert(CurrentGame().combat->TargetHit.iChar != -1);
         target = &CurrentGame().party.characters[CurrentGame().combat->TargetHit.iChar];
         W8PartyAction party_action = GetEffectivePartyAction();
         out_of_formation = target->bonus.out_of_formation;
@@ -2386,9 +2317,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     W8Dice dice;
     switch (attack_mode) {
     case W8_ATTACK_MODE_PUNCH:
-        if (pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            Fail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
-        }
+        assert(pPC->Hand[hand].uiHolds == HOLDS_NOTHING);
         if (pPC->Hand[1].uiHolds != HOLDS_NOTHING) {
             dice =
                 Data().items[pPC->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo].damage_dice;
@@ -2397,9 +2326,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         }
         break;
     case W8_ATTACK_MODE_KICK:
-        if (pPC->Hand[hand].uiHolds != HOLDS_NOTHING) {
-            Fail("pPC->Hand[uiHand].uiHolds == HOLDS_NOTHING");
-        }
+        assert(pPC->Hand[hand].uiHolds == HOLDS_NOTHING);
         if (pPC->Hand[0].uiHolds != HOLDS_NOTHING) {
             W8EquipSlot paired = W8_EQUIP_SLOT_NONE;
             if (ItemHasSingledOutGenericName(
@@ -2416,9 +2343,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         }
         break;
     default:
-        if (attack_mode != W8_ATTACK_MODE_BERSERK && pPC->Hand[hand].uiHolds == HOLDS_NOTHING) {
-            Fail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
-        }
+        assert(attack_mode == W8_ATTACK_MODE_BERSERK || pPC->Hand[hand].uiHolds != HOLDS_NOTHING);
         if (pPC->Hand[hand].uiHolds == HOLDS_NOTHING) {
             dice = pPC->Hand[hand].damage_dice;
         } else {
@@ -2571,9 +2496,7 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttac
         CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_CHARACTER;
 
     if (target_is_character) {
-        if (CurrentGame().combat->TargetHit.iChar == -1) {
-            Fail("gpCombat->TargetHit.iChar != BAD_INDEX");
-        }
+        assert(CurrentGame().combat->TargetHit.iChar != -1);
         target = &CurrentGame().party.characters[CurrentGame().combat->TargetHit.iChar];
         target_info = nullptr;
         record = nullptr;
@@ -2584,9 +2507,7 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttac
             TryCharacterAction(CurrentGame().combat->TargetHit.iChar, W8_ACTION_DEFEND, true) ||
             TryCharacterAction(CurrentGame().combat->TargetHit.iChar, W8_ACTION_PROTECT, true);
     } else {
-        if (CurrentGame().combat->TargetHit.iMonsterID == -1) {
-            Fail("gpCombat->TargetHit.iMonsterID != BAD_INDEX");
-        }
+        assert(CurrentGame().combat->TargetHit.iMonsterID != -1);
         target_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
         record = GetMonsterDataForInfo(target_info);
         FindMonsterGroup(target_info->monster_group_id);
@@ -2676,20 +2597,12 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
         accumulator = &local;
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        if (target->iChar == -1) {
-            Fail("pTarget->iChar != BAD_INDEX");
-        }
-        if (CurrentGame().party.rows[target->iChar].fOccupied == 0) {
-            Fail("fCHAR_OCCUPIED(pTarget->iChar)");
-        }
+        assert(target->iChar != -1);
+        assert(CurrentGame().party.rows[target->iChar].fOccupied != 0);
         highest_condition = CurrentGame().party.characters[target->iChar].highest_condition;
     } else {
-        if (target->iType != W8_TARGET_KIND_MONSTER) {
-            Fail("pTarget->iType == TARGET_TYPE_MONSTER");
-        }
-        if (target->iMonsterID == -1) {
-            Fail("pTarget->iMonsterID != BAD_INDEX");
-        }
+        assert(target->iType == W8_TARGET_KIND_MONSTER);
+        assert(target->iMonsterID != -1);
         highest_condition = FindMonster(target->iMonsterID)->highest_condition;
     }
     for (i = 0; i < 0x10; ++i) {
@@ -3050,9 +2963,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
             message += GetMonsterName(monster_info, nullptr, 0);
         }
     } else {
-        if (!TargetSourceIsMonster(source, 0)) {
-            Fail("SourceIsMonster(pSource)");
-        }
+        assert(TargetSourceIsMonster(source, 0));
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         message =
@@ -3127,10 +3038,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     float yaw;
     float pitch;
 
-    if (!use_default_accuracy && CurrentGame().combat->engaged_missile != nullptr) {
-        Fail("FALSE");
-        return nullptr;
-    }
+    assert(use_default_accuracy || CurrentGame().combat->engaged_missile == nullptr);
     if (TargetSourceIsCharacter(source, 0) && target->iType == W8_TARGET_KIND_CHARACTER &&
         !Data().missiles[missile_type].spell_missile) {
         if (use_default_accuracy) {
@@ -3150,7 +3058,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
         target_position = target->point;
     } else {
-        Fail("FALSE", "FireMissileSourceToTarget: Unknown target type");
+        std::unreachable();
     }
     if (TargetSourceIsCharacter(source, 0)) {
         GetCharacterProjectilePosition(source->iChar, &source_position);
@@ -3174,9 +3082,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         }
         blind = CurrentGame().party.characters[source->iChar].uiCondition[W8_CONDITION_BLIND] != 0;
     } else if (TargetSourceIsMonster(source, 0)) {
-        if (source->iMonsterID == -1) {
-            Fail("pSource->iMonsterID != -1");
-        }
+        assert(source->iMonsterID != -1);
         monster_info = FindMonster(source->iMonsterID);
         monster = monster_info->p3D;
         if (!Data().missiles[missile_type].spell_missile) {
@@ -3199,10 +3105,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         target_flag = 0;
         blind = monster_info->uiCondition[W8_CONDITION_BLIND] != 0;
     } else {
-        if (source->iType != W8_TARGET_SOURCE_INDIRECT) {
-            Fail("FALSE");
-            return nullptr;
-        }
+        assert(source->iType == W8_TARGET_SOURCE_INDIRECT);
         source_position = source->point;
         if (source->iChar == -1) {
             target_flag = source->iMonsterID != -1;
@@ -3237,8 +3140,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         PointCameraAtCombatTarget(source, target);
         return missile;
     }
-    Fail("pMissileFired");
-    return nullptr;
+    throw std::runtime_error(fmt::format("cannot load missile {}", missile_type));
 }
 
 /* The character-side missile fire: builds the attack block from the wielded
@@ -3424,17 +3326,13 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     bool noticed;
     unsigned int event_ids[3];
 
-    if (static_cast<unsigned int>(party_slot) >= 8) {
-        Fail("uiChar < MAX_CHARS");
-    }
+    assert(static_cast<unsigned int>(party_slot) < 8);
     found = nullptr;
     character = &CurrentGame().party.characters[party_slot];
     row = &CurrentGame().combat->characters[party_slot];
     party_row = &CurrentGame().party.rows[party_slot];
     CurrentGame().combat->attack_report = {};
-    if (static_cast<unsigned int>(row->current_hand) >= 2) {
-        Fail("uiHand < HAND_COUNT");
-    }
+    assert(static_cast<unsigned int>(row->current_hand) < 2);
     hand = row->current_hand;
     if (!character->Hand[hand].in_play || GetCharAttackRange(character, hand) == W8_RANGE_NONE) {
         row->hand_attack_values[hand] = 0;
@@ -3564,12 +3462,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             }
         }
     } else {
-        if (party_row->executing.target.iType != W8_TARGET_KIND_CHARACTER) {
-            Fail("CHAR_CURRENT_TARGET(uiChar).iType == TARGET_TYPE_CHAR");
-        }
-        if (party_row->executing.target.iChar == -1) {
-            Fail("CHAR_CURRENT_TARGET(uiChar).iChar != BAD_INDEX");
-        }
+        assert(party_row->executing.target.iType == W8_TARGET_KIND_CHARACTER);
+        assert(party_row->executing.target.iChar != -1);
         CurrentGame().combat->attack_message +=
             CurrentGame().party.characters[party_row->executing.target.iChar].name;
         if (range <= W8_RANGE_SHORT &&
@@ -3583,9 +3477,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         }
     }
     if (CurrentGame().combat->natural_attack != 0) {
-        if (character->Hand[hand].uiHolds == HOLDS_NOTHING) {
-            Fail("pPC->Hand[uiHand].uiHolds != HOLDS_NOTHING");
-        }
+        assert(character->Hand[hand].uiHolds != HOLDS_NOTHING);
         if (character->Hand[hand].uiHolds != HOLDS_NOTHING) {
             name = GetItemDisplayName(found);
             AppendAttackWeaponName(name, mode);
@@ -4055,17 +3947,13 @@ ActionStep ResolveCharacterAttack(int party_slot)
     if (ConsumeAttackItems(CurrentGame(), party_slot, hand, row->current_equip_slot,
                            row->paired_equip_slot))
         row->uiSwingsRemaining = 1;
-    if (row->uiSwingsRemaining == 0) {
-        Fail("pCmbt->uiSwingsRemaining > 0");
-    }
+    assert(row->uiSwingsRemaining != 0);
     --row->uiSwingsRemaining;
     if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_ASLEEP) {
         row->uiSwingsRemaining = 0;
     }
     if (row->uiSwingsRemaining != 0) {
-        if (hand >= 2) {
-            Fail("uiHand < HAND_COUNT");
-        }
+        assert(hand < 2);
         if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
             (target == party_row->executing.target) &&
             TargetIsInPlay(party_slot, hand,

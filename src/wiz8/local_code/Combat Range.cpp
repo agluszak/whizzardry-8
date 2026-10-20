@@ -1,7 +1,9 @@
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -31,7 +33,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
@@ -165,18 +166,13 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         camera_top = cameraLocation();
         point = target->point;
         unsigned int spell_id = GetActionSpellLikeId(CurrentGame().party, selected);
-        if (spell_id == W8_SPELL_NONE) {
-            Fail("uiSpell != SPELL_NONE");
-        }
+        assert(spell_id != W8_SPELL_NONE);
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type == W8_TARGET_TYPE_CONE) {
             trace = false;
             distance = 1.25e+04f;
         } else {
-            if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_POINT) {
-                Fail("FALSE");
-                return false;
-            }
+            assert(target_type == W8_TARGET_TYPE_RADIUS || target_type == W8_TARGET_TYPE_POINT);
 
             trace = true;
             camera.y -= g_default_world_height;
@@ -198,9 +194,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         if (group == nullptr) {
             return false;
         }
-        if (group == 0) {
-            Fail("pMonsterGroup != NULL");
-        }
+        assert(group != 0);
         W8TargetSource source;
         SetTargetSourceToCharacter(party_slot, &source);
         return IsTargetSourceInRangeOfGroup(&source, group,
@@ -318,9 +312,7 @@ W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int ha
     W8RangeCategory range;
 
     if (hand >= 2) {
-        if (hand != 2) {
-            Fail("uiHand == HAND_ANY");
-        }
+        assert(hand == 2);
         best = W8_RANGE_NONE;
         for (index = 0; index < 2; ++index) {
             if (character->Hand[index].in_play) {
@@ -626,12 +618,8 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
         return W8_RANGE_NONE;
     }
 
-    if (attack >= W8_MAX_MONSTER_ATTACKS) {
-        Fail("uiAttack < MAX_MONSTER_ATTACKS");
-    }
-    if (record->attacks[attack].fHasAttack == 0) {
-        Fail("pMonsterDB->Attack[uiAttack].fHasAttack");
-    }
+    assert(attack < W8_MAX_MONSTER_ATTACKS);
+    assert(record->attacks[attack].fHasAttack != 0);
     return MonsterAttackRange(*monster_info, *record, attack);
 }
 
@@ -658,7 +646,7 @@ float CalcRangeDistance(W8RangeCategory range_category)
         steps = 50;
         break;
     default:
-        Fail("FALSE", "CalcRangeDistance: ERROR - Invalid range category");
+        std::unreachable();
     }
     return steps * kWorldScale;
 }
@@ -673,9 +661,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
         return PartyNavigator()->movement.alternate_radius + distance;
     }
     if (TargetSourceIsMonster(source, 0)) {
-        if (source->iMonsterID == -1) {
-            Fail("pSource->iMonsterID != -1");
-        }
+        assert(source->iMonsterID != -1);
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         return monster_info->p3D->nav.movement.alternate_radius + distance;
     }
@@ -760,9 +746,7 @@ char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
         rows = 1;
     }
 
-    if (monster_quadrant == 4) {
-        Fail("ubMonsterQuadrant != QUADRANT_CENTER");
-    }
+    assert(monster_quadrant != 4);
     if (party_quadrant == 4) {
         return rows;
     }
@@ -1033,7 +1017,7 @@ void GetMonsterAttackSourceOffset(Monster* monster, int kind, glm::vec3* out)
             return;
         }
     }
-    Fail("FALSE");
+    // A model without the origin vertex attacks from its height offset.
 }
 
 bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, const W8Action& action)

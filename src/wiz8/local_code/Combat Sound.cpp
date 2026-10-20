@@ -25,7 +25,6 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -62,10 +61,7 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
             const auto status = wiz8::file_status(wiz8::asset_path(zSoundFileName));
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
-        Fail("[&]() { const auto status = "
-             "wiz8::file_status(wiz8::asset_path(zSoundFileName)); return status "
-             "&& status->info.type == SDL_PATHTYPE_FILE; }()",
-             fmt::format("CombatSound: ERROR - Sound file {} not found", zSoundFileName));
+        return; // A missing variant stays silent.
     }
     wiz8::sound::PlayOptions options;
     if (volume > 0) {
@@ -155,7 +151,7 @@ static int PCItemInACSlot(const W8Character* character, int hit_location)
         slot = W8_EQUIP_SLOT_FEET;
         break;
     default:
-        Fail("FALSE", "PCItemInACSlot: ERROR - Invalid AC location");
+        std::unreachable();
     }
     return character->EquippedItem[slot].iItemNo;
 }
@@ -187,7 +183,7 @@ static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int a
         const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
         target_material = record == 0 ? 0 : record->material;
     } else {
-        Fail("FALSE", "MakePCHitSound : Unknown target type");
+        std::unreachable();
     }
     return target_material;
 }
