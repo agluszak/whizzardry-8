@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string_view>
 #include <utility>
 #include <variant>
@@ -48,6 +49,13 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 
+// The screens that belong to one game take it when they are built.
+static Game& GameOf(GameSession& games)
+{
+    if (auto* game = games.game()) return *game;
+    throw std::logic_error("a game screen was requested with no game in progress");
+}
+
 std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games)
 {
     switch (id) {
@@ -58,15 +66,15 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games)
     case W8_SCREEN_GAME_START_ROUTER:
         return CreateGameStartRouterScreen();
     case W8_SCREEN_CHARACTER:
-        return std::make_unique<CharacterScreen>();
+        return std::make_unique<CharacterScreen>(GameOf(games));
     case W8_SCREEN_PLEASE_WAIT:
         return CreatePleaseWaitScreen(games);
     case W8_SCREEN_PARTY_SELECTION:
         return CreatePartySelectionScreen(games);
     case W8_SCREEN_CAMP:
-        return std::make_unique<CampScreen>();
+        return std::make_unique<CampScreen>(GameOf(games));
     case W8_SCREEN_MAIN_GAME:
-        return std::make_unique<MainGameScreen>();
+        return std::make_unique<MainGameScreen>(GameOf(games));
     case W8_SCREEN_AUTOMAP:
         return CreateAutomapScreen();
     case W8_SCREEN_CREDITS:

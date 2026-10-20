@@ -631,7 +631,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
     if (auto* main_game = MainGame()) main_game->item_drag.reset();
-    CurrentGame().aging_held = false;
+    game_.aging_held = false;
     CreatePartyPortraitEventRegions();
     CreateCampInput();
     items.Reset(request.parameter_4);
@@ -644,13 +644,13 @@ bool CampScreen::enter(const ScreenRequest& request)
     stats.CreateControls(scroll_input);
     character_info.CreateControls();
     ActivateCampPage();
-    if (CurrentGame().combat.has_value() &&
-        CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection) {
-        if (CurrentGame().combat->equip_pending == 1) {
+    if (game_.combat.has_value() &&
+        game_.combat->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (game_.combat->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.members[slot].has_value() && IsPartySlotEligible(slot) &&
-                    CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
-                    text = fmt::format("{} {}", CurrentGame().party.characters[slot].name,
+                if (game_.party.members[slot].has_value() && IsPartySlotEligible(slot) &&
+                    game_.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
+                    text = fmt::format("{} {}", game_.party.characters[slot].name,
                                        Data().strings[0x919]);
                     goto show_equip_message;
                 }
@@ -658,20 +658,20 @@ bool CampScreen::enter(const ScreenRequest& request)
         } else {
             unsigned char count = 0;
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.members[slot].has_value() && IsPartySlotEligible(slot) &&
-                    CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
+                if (game_.party.members[slot].has_value() && IsPartySlotEligible(slot) &&
+                    game_.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
-                        text = fmt::format("{}", CurrentGame().party.characters[slot].name);
+                        text = fmt::format("{}", game_.party.characters[slot].name);
                     } else {
-                        if (count == CurrentGame().combat->equip_pending) {
+                        if (count == game_.combat->equip_pending) {
                             text += " ";
                             text += fmt::sprintf(Data().strings[0x918],
-                                                 CurrentGame().party.characters[slot].name);
+                                                 game_.party.characters[slot].name);
                             goto show_equip_message;
                         }
                         text += ", ";
-                        text += CurrentGame().party.characters[slot].name;
+                        text += game_.party.characters[slot].name;
                     }
                 }
             }
@@ -703,8 +703,8 @@ void CampScreen::frame()
     }
     ServiceMusicPlaylist();
     if (dialogs.ProcessInput()) InvalidateAll();
-    if (CurrentGame().level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
-        !CurrentGame().combat.has_value() && !IsScreenTransitionPending()) {
+    if (game_.level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
+        !game_.combat.has_value() && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
     if (!dialogs.open())
@@ -718,7 +718,7 @@ void CampScreen::frame()
                     }
                 } else if (input.key == SDLK_P) {
                     if (GameStarted()) {
-                        SortPartyItemPool(CurrentGame().rules());
+                        SortPartyItemPool(game_.rules());
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
@@ -732,8 +732,8 @@ void CampScreen::frame()
     if (page == W8_CAMP_PAGE_ITEMS) items.Tick();
     // The world stays covered while the camp steps the game; speech waits for the portraits.
     if (!IsScreenTransitionPending()) {
-        CurrentGame().advance(step_timer.lap(), {.world = {.covered = true},
-                                                 .speech = header_mode != W8_CAMP_HEADER_SUMMARY});
+        game_.advance(step_timer.lap(), {.world = {.covered = true},
+                                         .speech = header_mode != W8_CAMP_HEADER_SUMMARY});
     }
     if (header_mode == W8_CAMP_HEADER_SUMMARY) AnimatePartyPortraits();
     DrawCampScreen();
@@ -748,7 +748,7 @@ bool CampScreen::leave(ScreenDeparture)
     g_wiz_text_font.resetPalette();
     // A conversation set aside for the camp resumes once the main game runs again.
     if (auto* main_game = MainGame();
-        main_game && GameInProgress() && CurrentGame().activity.conversation_aside) {
+        main_game && GameInProgress() && game_.activity.conversation_aside) {
         main_game->resume_conversation = true;
     }
     return true;
@@ -762,7 +762,7 @@ void CampScreen::DismissSelectedPartyCharacter()
 {
     if (!items.ResolvePendingCampCharacter(true)) return;
     BeginCombatRound();
-    CurrentGame().activity.place = Activity::Place::World;
+    game_.activity.place = Activity::Place::World;
     ReturnToPreviousScreen();
 }
 
@@ -776,7 +776,7 @@ void CampScreen::DrawCampScreen(void)
     full_redraw |= requested.all;
     header_redraw.portrait |= requested.portrait;
     if (full_redraw || header_redraw.any() || items.RedrawPending() || stats.RedrawPending() ||
-        spells.RedrawPending() || (CurrentGame().party.held.item.iItemNo != -1)) {
+        spells.RedrawPending() || (game_.party.held.item.iItemNo != -1)) {
         if (full_redraw) {
             items.InvalidateCells();
             if (auto* dialog = dialogs.open()) dialog->m_dirty = true;
@@ -817,13 +817,13 @@ void CampScreen::DrawCampScreen(void)
         spells.DrawControls();
     }
     DrawButtonPanel(false);
-    if (!CurrentGame().combat.has_value()) {
+    if (!game_.combat.has_value()) {
         if (ReviewedPartySlot() != -1) {
             if (GameStarted() ||
                 (PreviousScreen() == W8_SCREEN_PARTY_SELECTION && PartySelectionInReviewMode())) {
                 UpdateRcsLevelUpPanel();
             }
-            if (CurrentGame().combat.has_value()) {
+            if (game_.combat.has_value()) {
                 goto done;
             }
         }
@@ -839,7 +839,7 @@ done:
 
 void CampScreen::SyncReviewCharInputRegion(void)
 {
-    if (ReviewedPartySlot() != -1 && CurrentGame().party.npcIndex(ReviewedPartySlot()) != -1) {
+    if (ReviewedPartySlot() != -1 && game_.party.npcIndex(ReviewedPartySlot()) != -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
@@ -871,7 +871,7 @@ void CampScreen::ActivateCampPage(void)
         for (index = 0; index < 8; ++index) {
             main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
-    } else if (CurrentGame().party.npcIndex(ReviewedPartySlot()) == -1) {
+    } else if (game_.party.npcIndex(ReviewedPartySlot()) == -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);

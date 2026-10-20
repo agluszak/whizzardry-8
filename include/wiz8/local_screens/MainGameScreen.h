@@ -29,12 +29,14 @@ struct W8LevelRuntimeBlock;
 struct MainGameScreen final : Screen {
     static constexpr W8ScreenId id = W8_SCREEN_MAIN_GAME;
 
-    MainGameScreen();
+    explicit MainGameScreen(Game& game);
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
     bool leave(ScreenDeparture departure) override;
 
+    // The game this main game belongs to; it is discarded before the game ends.
+    Game& game;
     // The time since the screen last stepped the game.
     LapTimer step_timer;
     std::unique_ptr<W8LockInteraction> lock_interaction;
@@ -107,6 +109,8 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/ui_layer.h"
+
+class Game;
 
 class W8TrapInteraction;
 
@@ -426,7 +430,11 @@ bool IsModalOpen(void);
 
 struct W8TargetingPresentation;
 void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
-void DrawMainGameScreen(W8LevelRuntimeBlock& hud);
+/* A main-game frame updates what it shows, then paints it: the update brings the party's
+   facing, the targeting presentation, the radar blips and the text box's repaint in line
+   with the game; the draw paints the recorded repaint parts and presents. */
+W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud);
+void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 bool IsScreenInputBlocked(void);

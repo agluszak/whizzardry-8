@@ -2134,7 +2134,7 @@ void SetWorldResumeInput(bool enabled)
     if (MainGame()) MainGame()->resume_world = enabled;
 }
 
-MainGameScreen::MainGameScreen()
+MainGameScreen::MainGameScreen(Game& game) : game(game)
 {
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
@@ -2202,23 +2202,23 @@ void DisableMainGamePortraitSlot(unsigned int slot)
 bool MainGameScreen::enter(const ScreenRequest&)
 {
     int display_mode;
-    W8Difficulty difficulty = CurrentGame().status.difficulty;
+    W8Difficulty difficulty = game.status.difficulty;
 
     /* A main game belongs to one game: it is built when that game first shows its world
        and discarded before another game replaces it. It faces the party as saved, starts
        the world running and the gameplay timer afresh, and readies the portraits. */
     if (!hud) {
         hud = std::make_unique<W8LevelRuntimeBlock>();
-        TurnPartyToImmediate(CurrentGame().status.party_facing, 0);
-        CurrentGame().advancement.held = false;
-        CurrentGame().advancement.paused = false;
-        CurrentGame().aging_held = false;
-        CurrentGame().autosave_due = Game::kAutosaveInterval;
+        TurnPartyToImmediate(game.status.party_facing, 0);
+        game.advancement.held = false;
+        game.advancement.paused = false;
+        game.aging_held = false;
+        game.autosave_due = Game::kAutosaveInterval;
         ResetAssayTab();
         ResetTargetingState();
         LoadMainGameCursorResources();
     }
-    CurrentGame().level_up_check_due = true;
+    game.level_up_check_due = true;
     CreatePartyPortraitEventRegions();
 
     InitTextBoxRegions();
@@ -2275,10 +2275,10 @@ bool MainGameScreen::enter(const ScreenRequest&)
             SelectCurrentUseItemLine();
         } else {
             item_drag.reset();
-            CurrentGame().aging_held = false;
+            game.aging_held = false;
         }
     }
-    if (!CurrentGame().combat.has_value()) {
+    if (!game.combat.has_value()) {
         StartLevelMusic(1, 1);
     }
     return true;
@@ -2406,27 +2406,27 @@ void MainGameScreen::frame()
         return;
     }
     // Nobody left who can act, or the party fell out of the world: the game is lost.
-    if (!AnyCharacterActive() || CurrentGame().party_moving) BeginPartyDeath();
+    if (!AnyCharacterActive() || game.party_moving) BeginPartyDeath();
     if (dismissed_npc_slot != -1) UpdateNpcPartyMember(std::exchange(dismissed_npc_slot, -1));
     if (std::exchange(resume_conversation, false)) SyncDialogueNpcStateAndMarkPending();
-    if (SkillIncreasesShownNow(CurrentGame())) FlushDeferredSkillNotices(CurrentGame());
+    if (SkillIncreasesShownNow(game)) FlushDeferredSkillNotices(game);
     SyncPartyPortraitVitalsBars();
     if (g_modal_owner && ProcessModalOwner()) hud->repaint.portrait_panel = true;
-    SetWorldResumeInput(CurrentGame().advancement.paused && !InteractionBlocksWorldAdvancement());
+    SetWorldResumeInput(game.advancement.paused && !InteractionBlocksWorldAdvancement());
     DrainNpcDialogueDeferralInput();
     FlushInputWhileWorldCursorGate();
     TickPartyPortraitFx();
-    if (CurrentGame().combat.has_value()) {
+    if (game.combat.has_value()) {
         UpdateCombatPortraitStatus();
     }
-    CurrentGame().status.world_suspended = false;
+    game.status.world_suspended = false;
     if (MainGameHud()->keyboard_menu_open || MainGameHud()->combat_slot != -1) {
         UpdateKeyboardMenu();
     }
-    if (CurrentGame().combat.has_value()) {
+    if (game.combat.has_value()) {
         for (int slot = 0; slot < 8; ++slot) {
-            if (!CurrentGame().party.members[slot].has_value() ||
-                CurrentGame().party.characters[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
+            if (!game.party.members[slot].has_value() ||
+                game.party.characters[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
                 (MainGameHud()->keyboard_menu_open && MainGameHud()->combat_slot == slot)) {
                 MainGame()->combat_targets[slot]->setEnabled(false);
             } else {
@@ -2436,29 +2436,28 @@ void MainGameScreen::frame()
     }
     if (MainGameHud()->portrait_flash != 0 && TimeUntilDeadline(MainGameHud()->clock) == 0) {
         MainGameHud()->portrait_flash = 0;
-        RequestPartySlotRedraw(CurrentGame().status.selected_character);
+        RequestPartySlotRedraw(game.status.selected_character);
     }
-    if (CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] <
-        CurrentGame().status.text_box_lines_used[CurrentGame().status.text_line_cursor]) {
-        AdvanceNoticeLine(CurrentGame().status.text_line_cursor);
+    if (game.status.text_box_lines_shown[game.status.text_line_cursor] <
+        game.status.text_box_lines_used[game.status.text_line_cursor]) {
+        AdvanceNoticeLine(game.status.text_line_cursor);
     }
     if (IsScreenTransitionPending()) {
         // A pending transition holds the world until another screen covers it.
         step_timer.restart();
-        DrawMainGameScreen(*hud);
+        DrawMainGameScreen(*hud, UpdateMainGamePresentation(*hud));
         return;
     }
     SDL_Point point;
     point = CursorPosition();
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
-            if ((!ShouldDeferCharacterEventForNpcScript(true) ||
-                 !CurrentGame().activity.conversation) &&
-                !CurrentGame().status.world_cursor_gate)
+            if ((!ShouldDeferCharacterEventForNpcScript(true) || !game.activity.conversation) &&
+                !game.status.world_cursor_gate)
                 UpdateUiPointer(point.x, point.y);
         } else {
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.members[slot].has_value() &&
+                if (game.party.members[slot].has_value() &&
                     (MainGame()->portrait_targets[slot][2]->hitAt(point) ||
                      MainGame()->edge_targets[slot]->hitAt(point))) {
                     UpdateUiPointer(point.x, point.y);
@@ -2500,12 +2499,11 @@ void MainGameScreen::frame()
             UpdateFormationPortraitRefresh();
         }
         if (!IsWorldCursorVisible() && !g_mouselook_active) AnimateShownCursor();
-        CurrentGame().advance(step_timer.lap(),
-                              {.world = {.world = InteractionBlocksWorldAdvancement(),
-                                         .party = LockInteraction() || TrapInteraction()},
-                               .combat = gpSCSV || ItemUseDraft()});
+        game.advance(step_timer.lap(), {.world = {.world = InteractionBlocksWorldAdvancement(),
+                                                  .party = LockInteraction() || TrapInteraction()},
+                                        .combat = gpSCSV || ItemUseDraft()});
         AnimatePartyPortraits();
-        if (CurrentGame().combat.has_value() && MainGameHud()->refresh_combat_panel &&
+        if (game.combat.has_value() && MainGameHud()->refresh_combat_panel &&
             !TimeUntilDeadline(MainGameHud()->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
             MainGameHud()->combat_panel_timer = MonotonicMilliseconds() + (500);
@@ -2513,7 +2511,7 @@ void MainGameScreen::frame()
         }
         if (gpSCSV) CommitSpellCastingSelection();
         if (ItemUseDraft()) CommitSelectedItemUse();
-        if (CurrentGame().activity.conversation) ServiceNpcDialogue();
+        if (game.activity.conversation) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
         if (IsTrapInteractionActive()) UpdateTrapInteraction();
         int active;
@@ -2524,17 +2522,16 @@ void MainGameScreen::frame()
             active = 1;
         }
         SetWorldModelPickingEnabled(active);
-        if (CurrentGame().level_up_check_due && !CurrentGame().activity.conversation &&
-            !CurrentGame().combat.has_value()) {
+        if (game.level_up_check_due && !game.activity.conversation && !game.combat.has_value()) {
             RefreshLevelUpReadyNotices();
         }
-        if (CurrentGame().status.selected_character == -1) {
+        if (game.status.selected_character == -1) {
             int next = GetNextCharacter(1, 1, -1);
             assert(next != -1);
             SelectPartyCharacter(next);
         }
     }
-    DrawMainGameScreen(*hud);
+    DrawMainGameScreen(*hud, UpdateMainGamePresentation(*hud));
 }
 
 /* Suspension retains the allocation and resource strip. A full leave also
@@ -2548,8 +2545,8 @@ bool MainGameScreen::leave(ScreenDeparture departure)
         OpenModal(nullptr);
         RetireModal(std::move(g_pending_main_game_dialog), false);
         // End a fight while the interface it updates still exists.
-        if (CurrentGame().combat.has_value()) {
-            CurrentGame().endCombat(true);
+        if (game.combat.has_value()) {
+            game.endCombat(true);
         }
     }
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
@@ -2564,7 +2561,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (gpSCSV) CloseSpellCastingView();
     if (ItemUseDraft()) CloseUseItemSelectView();
     if (FormationPanelOpen()) CloseFormationPanel();
-    if (CurrentGame().activity.conversation) EndNpcDialogueSession(false);
+    if (game.activity.conversation) EndNpcDialogueSession(false);
     if (MainGameHud()->keyboard_menu_open) CloseKeyboardMenu();
     ReleasePortraitControls();
     ReleaseConditionButtons();
@@ -2572,7 +2569,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     RestoreCurrentNpcQuoteBubble();
     MoveTimer(W8_MOVE_TIMER_SUSPEND);
     // The world stays covered, and held, until this screen steps it again.
-    ApplyWorldAdvancement(CurrentGame(), {.covered = true});
+    ApplyWorldAdvancement(game, {.covered = true});
 
     if (leaving) {
         for (index = 0; index < 17; ++index) {
@@ -2861,25 +2858,27 @@ finish_mode_overlays:
     }
 }
 
-/* Draw the main-game frame: sync facing and radar, repaint the requested
-   regions and invalidate their rectangles, paint overlays, and present.
-   MainGameScreenFrame calls it after its update and on a pending transition. */
-void DrawMainGameScreen(W8LevelRuntimeBlock& hud)
+W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
 {
-    int stopped_line;
-
     SyncPartyFacingFromCamera();
-    const auto presentation = BuildTargetingPresentation(hud);
+    auto presentation = BuildTargetingPresentation(hud);
     ApplyTargetingPresentation(presentation);
     UpdateRadarBlips(presentation);
     if (hud.action_panel_visible == 0 && !CurrentGame().activity.conversation &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !gpSCSV && !ItemUseDraft()) {
-        stopped_line = FindStoppedTextLine();
+        const int stopped_line = FindStoppedTextLine();
         if (stopped_line != -1 && hud.text_lines[4 + CurrentGame().status.text_line_cursor] !=
                                       static_cast<unsigned int>(stopped_line)) {
             hud.repaint.text_box = true;
         }
     }
+    return presentation;
+}
+
+/* Draw the main-game frame: repaint the requested regions and invalidate their
+   rectangles, paint overlays, and present. */
+void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
+{
     const MainGameRepaint requested = hud.repaint;
     if (requested.any()) {
         ApplyMainGameRepaint(hud, presentation);

@@ -471,13 +471,16 @@ widget tree.
   under the destination unless it asks to discard it; a return discards the
   current screen and resumes the top of the stack; returning with nothing
   suspended ends the program. `CreateScreen` builds a screen when it is first
-  requested and the router destroys it when it is discarded, so a suspended
+  requested, with the game for the screens that belong to one (the main game, the camp
+  and the character screen), and the router destroys it when it is discarded, so a suspended
   main game keeps its HUD (`MainGameScreen::hud`; its draw path receives it, and the
   main game's other free functions reach it through `MainGameHud()`). The camp,
   character and options screens are rebuilt on every visit: their `rebuildRequest`
   makes the router destroy them when they are suspended and enter a new one with that
   request in place of resuming them (a rebuilt camp reviews the character it showed).
   They hold their per-visit state as members and exist only while current.
+- Discarding suspended screens, on a load or at shutdown, has each leave while it is
+  still on the stack, so its teardown finds it through `FindScreen`.
 - Other modules reach a screen through `FindScreen<T>()` (or `MainGame()`),
   never through a global slot: `PresentGameEvent` hands an event to the screen
   that shows it, and UI code calls a screen's own methods. The intro film,
@@ -564,7 +567,9 @@ widget tree.
 - The main game's invalidation is per part too: its HUD's `MainGameRepaint` records
   each portrait and HUD part the next draw repaints, `everything` for a full repaint
   (which entering the main game asks for) and `panels` for the pass that refreshes the
-  panels tracking their own state. `DrawMainGameScreen` paints the recorded parts
+  panels tracking their own state. Each frame first updates what it shows
+  (`UpdateMainGamePresentation`: the party's facing, the targeting presentation, the
+  radar blips and the text box's repaint), then `DrawMainGameScreen` paints the recorded parts
   (`ApplyMainGameRepaint`, where painting one part may record others), invalidates the
   rectangles of the parts it was asked for, and clears the record. Screen code marks the
   parts it changed; game events mark the shown main game's parts through the presenter.

@@ -214,15 +214,13 @@ the licensed runtime scenarios after every step.
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
      portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
      viewport mode, which the screen should hand the camera when it changes.
-   - The router builds the main game, camp and character screens without the
-     `GameSession` it already passes to `CreateScreen`; they should take their game and
-     data from it. Because the screens' teardown helpers find their state globally,
-     `GameloopExit` makes each suspended screen current before it leaves; once a screen
-     can update, paint and be destroyed from its members and explicit inputs, that
-     shutdown procedure goes. Do this for one whole flow first, the main game's HUD
-     and dialogue: explicit dependencies, operations as members (or taking the panel
-     they operate on), dialogue widgets, quote layout and portrait presentation moved
-     out of `Game` (step 1), and the migrated global accessors deleted.
+   - The main game, camp and character screens are built with their game and use it in
+     their members, but their free helpers (most of `local_screens`) still reach it and
+     the HUD globally. Finish one whole flow first, the main game's HUD and dialogue:
+     operations as members (or taking the panel they operate on), dialogue widgets,
+     quote layout and portrait presentation moved out of `Game` (step 1), and the
+     migrated global accessors deleted, so the screen updates, paints and is destroyed
+     from its members and explicit inputs.
    - The pointer (the shown cursor and its request, in `Screens.cpp`) and the targeting
      mode (`TargetingMode()`, in `MainGameScreen.cpp`) are module state. The camp shares
      both with a main game suspended under it, and a camp opened from party creation
@@ -231,9 +229,11 @@ the licensed runtime scenarios after every step.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
-   - Painting still updates: `DrawMainGameScreen` synchronizes the party's facing,
-     applies the targeting presentation and updates the radar blips before it paints.
-     Make the frame "update presentation state, paint the 640×480 canvas, commit it".
+   - Painting still updates: the main game's frame now updates its facing, targeting
+     presentation, radar blips and text-box request before `DrawMainGameScreen`
+     (`UpdateMainGamePresentation`), but the draw still refreshes the portrait,
+     condition, submenu and HUD buttons, which repaint as they change. Make the frame
+     "update presentation state, paint the 640×480 canvas, commit it".
      Once painting is free of updates, try a full paint or coarse per-panel
      invalidation, and keep `MainGameRepaint`'s finer propagation (one part requesting
      others, a separate pass mapping parts to rectangles, per-panel shadow state) only

@@ -219,7 +219,7 @@ void camp_effects()
         }
     } restore{previous_roots};
     {
-        CampScreen independent;
+        CampScreen independent(game.game);
         auto* state = &independent;
         REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
@@ -2160,8 +2160,9 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     const auto layers = LiveUiLayerCount();
     const auto targets = LiveUiTargetCount();
 
+    const ScopedGame game;
     {
-        MainGameScreen screen;
+        MainGameScreen screen(game.game);
         auto& hud = screen.hud_buttons;
         int clicks = 0;
         REQUIRE(hud.options_disk.Configure(ButtonAppearance{}, {100, 100, 20, 20},
@@ -2201,7 +2202,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     REQUIRE(LiveUiTargetCount() == targets);
     REQUIRE(LiveUiLayerCount() == layers);
     {
-        MainGameScreen reentered;
+        MainGameScreen reentered(game.game);
         REQUIRE_FALSE(reentered.hud_buttons.options_disk.IsConfigured());
     }
     REQUIRE(LiveUiTargetCount() == targets);
