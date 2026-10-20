@@ -10,6 +10,7 @@
 #include <vsg/core/ref_ptr.h>
 #include <vsg/nodes/Group.h>
 
+#include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/entities/animation_types.h"
@@ -40,6 +41,8 @@ public:
 
     vsg::ref_ptr<render::InstanceNode> renderNode() const;
     glm::dmat4 worldMatrix() const;
+    // Emitter orientation follows authored rotations independently of scale.
+    glm::dmat3 worldRotation() const;
     void attachTo(MeshInstance& parent, std::optional<short> mapped_key = {});
     std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index) const;
 

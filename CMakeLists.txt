@@ -93,8 +93,8 @@ include(FetchContent)
 
 # ConanCenter has SDL_mixer 3.2.0, but we require 3.2.4.
 # The SDL release archive doesn't contain its optional vendored submodules.
-# Build SDL_mixer static, matching Conan's static SDL3, so there is one
-# SDL runtime and its audio device state is shared with the game.
+# Build SDL_mixer static against Conan's shared SDL3, so the mixer and game
+# use the same SDL runtime and audio device state.
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build third-party dependencies statically")
 # Use the built-in decoders (WAV, MP3, Vorbis, FLAC, MIDI) instead of
 # introducing system codec dependencies.

@@ -544,8 +544,10 @@ void ParticleSystem::AdvanceSimulation()
         transform.setLocation(glm::dvec3(cameraLocation() + camera_offset));
     }
 
+    // An IFL frame can itself be animated. Resolve the selected chain here
+    // so every view later consumes the same complete playback snapshot.
     for (unsigned index = 0; index < texture_frames.size(); ++index)
-        if (particle_active[index]) texture_frames[index]->UpdateFrame();
+        if (particle_active[index]) texture_frames[index]->resolve();
     Update();
 
     if (emission_limit != 0 && emission_count >= emission_limit) {

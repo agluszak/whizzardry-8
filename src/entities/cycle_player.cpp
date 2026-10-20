@@ -841,11 +841,7 @@ void CyclePlayer::UpdateParticleAttachments()
     }
     if (!psrMesh || !psrMesh->getModel()) return;
     const auto matrix = psrMesh->worldMatrix();
-    auto rotation = glm::dmat3(matrix);
-    for (int column = 0; column < 3; ++column) {
-        const auto length = glm::length(rotation[column]);
-        if (length > 0) rotation[column] /= length;
-    }
+    const auto rotation = psrMesh->worldRotation();
     for (auto& attachment : particles) {
         auto* particle = attachment.m_pstParticles.get();
         if (!particle->emitting) {

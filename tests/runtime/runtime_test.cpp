@@ -1458,6 +1458,12 @@ void ResourceLifecycleScenario()
     g_renderer->close();
     REQUIRE(OpenRendererWindow());
     REQUIRE(g_renderer->isOpen());
+    SuspendVideoManager();
+    REQUIRE_FALSE(IsVideoActive());
+    REQUIRE_FALSE(g_renderer->isOpen());
+    REQUIRE(RestoreVideoManager());
+    REQUIRE(IsVideoActive());
+    REQUIRE(g_renderer->isOpen());
     // Rendering must retain the world graph when presentation is reopened.
     CheckWorldRender(game);
     CheckTwoWorldViews(game);

@@ -4,6 +4,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <ios>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -19,9 +22,13 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Object.h>
+#include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/DescriptorBuffer.h>
 
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -33,7 +40,9 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
+#include "scoped_asset_roots.h"
 #include "scoped_game.h"
+#include "temporary_directory.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/audio/sound3d.h"
@@ -44,16 +53,19 @@
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -72,8 +84,10 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/segment_math.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/render/triangle_projection.h"
 #include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -83,6 +97,7 @@
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
 #include "wiz8/surface_geometry.h"
+#include "wiz8/texture_animation.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/environment_state.h"
@@ -662,6 +677,89 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     REQUIRE(polygons.size() == faces);
     REQUIRE(polygons.front() == (1u << 16));
     REQUIRE(tree.registry.current_regions == std::vector<bool>{true, false});
+}
+
+TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry][rendering]")
+{
+    const ScopedTemporaryDirectory directory("wiz8-shadow-bounds");
+    const ScopedAssetRoots asset_roots({directory.path.string(), directory.path.string()});
+    const auto bitmap_path = directory.path / "data/monsters/bitmaps";
+    std::filesystem::create_directories(bitmap_path);
+    // A one-pixel opaque TGA keeps this a CPU graph test without retail assets.
+    const std::array<unsigned char, 22> tga{0, 0, 2, 0, 0, 0,  0, 0,   0,   0,   0,
+                                            0, 1, 0, 1, 0, 32, 8, 255, 255, 255, 255};
+    {
+        std::ofstream output(bitmap_path / "shadow.tga", std::ios::binary);
+        output.write(reinterpret_cast<const char*>(tga.data()), tga.size());
+        REQUIRE(output.good());
+    }
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& world = *GetWorld();
+    auto mesh = std::make_shared<Mesh>(1, 4);
+    mesh->getVertexLoc()[0] = {-1, 0, -1};
+    mesh->getVertexLoc()[1] = {0, 0, 1};
+    mesh->getVertexLoc()[2] = {1, 0, -1};
+    // Unselected terrain still contributes to the original shading bound.
+    mesh->getVertexLoc()[3] = {10000, 0, 0};
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    MeshInstance instance;
+    instance.setModel(mesh);
+    world.psrMeshes = {nullptr, &instance};
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    auto& tree = *world.spatial;
+    tree.m_meshCount = 2;
+    tree.m_alpha_bits.assign(2, false);
+    tree.m_polygon_bit_count = 2;
+    tree.m_spatial.m_bounds.minimum = {-50000, -50000, -50000};
+    tree.m_spatial.m_node_extent = 100000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = {1};
+    tree.m_leaves.resize(2);
+    tree.m_leaves[1].polygon_offset = 1;
+    tree.m_polygon_index_stream = {0, 1, 1};
+    tree.m_aulPolyLookup = {0, 1u << 16};
+
+    struct ShadowSetting {
+        unsigned char previous = g_settings.monster_shadows;
+        ~ShadowSetting() { g_settings.monster_shadows = previous; }
+    } setting;
+    g_settings.monster_shadows = true;
+    GroundShadow shadow(world.scene.get());
+    render::RenderContext context({640, 480});
+    shadow.updateRenderNode(context, {}, 0);
+    struct ShadingBounds : vsg::ConstVisitor {
+        std::vector<glm::vec4> bounds;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            if (dynamic_cast<const render::DrawNode*>(&group))
+                for (const auto& command : group.stateCommands) {
+                    const auto* bind = command->cast<vsg::BindDescriptorSet>();
+                    if (!bind || bind->firstSet != 1) continue;
+                    const auto* buffer =
+                        bind->descriptorSet->descriptors.front()->cast<vsg::DescriptorBuffer>();
+                    REQUIRE(buffer);
+                    const auto data = buffer->bufferInfoList.front()->data.cast<vsg::vec4Array>();
+                    REQUIRE(data);
+                    const auto value = data->at(1);
+                    bounds.emplace_back(value.x, value.y, value.z, value.w);
+                }
+            group.traverse(*this);
+        }
+    } before;
+    shadow.renderNode()->accept(before);
+    REQUIRE(before.bounds.size() == 1);
+    const auto source = mesh->getTriMesh();
+    REQUIRE(before.bounds.front() == glm::vec4(source.bounds_center, source.bounds_radius));
+    REQUIRE(before.bounds.front().w > shadow.width);
+
+    mesh->setBounds({-20, -30, -40}, {20, 30, 40}, {5, 6, 7}, 80);
+    shadow.width *= 2;
+    shadow.updateRenderNode(context, {}, 1);
+    ShadingBounds after;
+    shadow.renderNode()->accept(after);
+    REQUIRE(after.bounds == std::vector<glm::vec4>{glm::vec4(5, 6, 7, 80)});
 }
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
@@ -1288,6 +1386,36 @@ TEST_CASE("Particle activation preserves emission limits and world placement", "
     REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
 }
 
+TEST_CASE("Attached particle orientation follows rotations independently of model scale",
+          "[geometry][particles]")
+{
+    MeshInstance parent, model;
+    model.setModel(std::make_shared<Mesh>());
+    model.attachTo(parent);
+    parent.transform.setRotation(.2, -.3, .4);
+    model.transform.setRotation(-.4, .1, -.2);
+    CyclePlayer cycle;
+    cycle.current_model_instance = &model;
+    auto& attachment = cycle.particles.emplace_back();
+    attachment.position = {1, 2, 3};
+    attachment.rotation = glm::mat3(1);
+    attachment.m_pstParticles = std::make_unique<ParticleSystem>(nullptr, 1);
+    auto& particle = *attachment.m_pstParticles;
+    particle.direction_mode = W8_PARTICLE_DIRECTION_CONE;
+    const auto expected_rotation = parent.transform.getRotation() * model.transform.getRotation();
+    for (const auto& scale : {glm::dvec3(-2, 3, -4), glm::dvec3(0), glm::dvec3(2, 3, 4)}) {
+        parent.transform.setScale(scale);
+        model.transform.setScale(scale);
+        cycle.UpdateParticleAttachments();
+        const auto expected_position =
+            glm::dvec3(model.worldMatrix() * glm::dvec4(attachment.position, 1));
+        REQUIRE(particle.transform.getLocation() == expected_position);
+        const auto rotation = particle.transform.getRotation();
+        for (int column = 0; column < 3; ++column)
+            REQUIRE(glm::length(rotation[column] - expected_rotation[column]) < 1e-12);
+    }
+}
+
 TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
 {
     ParticleSystem particles(nullptr, 2);
@@ -1349,6 +1477,39 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     draws.index_count = 0;
     particles.renderNode()->accept(draws);
     REQUIRE(draws.index_count == 0);
+}
+
+TEST_CASE("Particle simulation resolves nested animation before views consume it",
+          "[geometry][particles]")
+{
+    auto first = std::make_shared<Texture>();
+    auto last = std::make_shared<Texture>();
+    auto inner = std::make_shared<Texture>(TexturePlayback{});
+    inner->AddTexture(first);
+    inner->AddTexture(last);
+    inner->playback->animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    inner->playback->frame_rate = 10;
+    auto outer = std::make_shared<Texture>(TexturePlayback{});
+    outer->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+    outer->AddTexture(inner);
+    ParticleSystem particles(nullptr, 1);
+    particles.emission_gap = 0;
+    particles.initial_speed = 0;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.SetTexture(outer);
+    REQUIRE(particles.activateParticle(false));
+    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    particles.AdvanceSimulation();
+    REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
+
+    // Time may elapse before another view. Only simulation advances playback.
+    inner->SetFrame(0);
+    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    render::RenderContext context({640, 480});
+    particles.updateRenderNode(context, {}, 0);
+    particles.updateRenderNode(context, {}, 1);
+    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")

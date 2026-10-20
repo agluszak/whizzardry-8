@@ -2,12 +2,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,6 +21,7 @@
 #include <vsg/core/ref_ptr.h>
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/transform.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/nodes/CullNode.h>
 #include <vsg/nodes/Group.h>
 #include <vsg/nodes/MatrixTransform.h>
@@ -34,6 +35,7 @@
 #include <vsg/state/PipelineLayout.h>
 
 #include "../effects/effect_geometry.h"
+#include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -127,9 +129,6 @@ void MeshInstance::setExclusionMask(std::uint32_t mask)
     exclusion_mask = mask;
 }
 
-/* Scratch vertex store shared by every highlight shell submission; grown
-   on demand and kept between frames. */
-
 /* Find the animated texture assigned to polygons whose runtime name begins
    with "mouth". Damage-stage instances use the stage-specific texture table;
    ordinary instances use the mesh's active polygon texture table. */
@@ -160,11 +159,6 @@ int MeshInstance::FindDamageStage(std::string_view name)
     Mesh* mesh = static_cast<Mesh*>(getModel());
     return mesh->FindSkinTable(name);
 }
-
-/* The scene entry is queued before the sibling chain is walked for an opaque
-   model, and after it for a model flagged W8_MESH_SORTED_RENDERING, so the
-   sorted models are processed after every opaque sibling, in reverse sibling
-   order. Children follow unless the node terminates. */
 
 /* Add a stage by cloning the first stage's table across the complete linked
    mesh chain. The instance stores the table id shared by that chain. */
@@ -284,38 +278,6 @@ void MeshInstance::setModel(std::shared_ptr<Mesh> model)
     model_ = std::move(model);
 }
 
-void MeshInstance::attachTo(MeshInstance& parent, std::optional<short> mapped_key)
-{
-    // Reject a cycle before changing either relationship.
-    for (auto ancestor = parent.render_parent_.ref_ptr(); ancestor;) {
-        if (ancestor.get() == node_.get())
-            throw std::invalid_argument("A visual cannot be attached beneath itself");
-        auto* instance_node = dynamic_cast<render::InstanceNode*>(ancestor.get());
-        if (!instance_node || !instance_node->instance) break;
-        ancestor = instance_node->instance->render_parent_.ref_ptr();
-    }
-    if (&parent == this) throw std::invalid_argument("A visual cannot be its own parent");
-    auto old_scene = scene;
-    setScene(nullptr);
-    if (parent.scene) {
-        parent.scene->dynamic_meshes.push_back(this);
-        scene = parent.scene;
-    } else if (old_scene) {
-        // Parentage is authoritative; an unattached parent leaves its subtree
-        // unattached until the parent joins a scene.
-        scene = nullptr;
-    }
-    if (mapped_key) {
-        attachment_ = render::VertexAttachment::create(parent.node_, *mapped_key);
-        attachment_->addChild(node_);
-        parent.node_->addChild(attachment_);
-        render_parent_ = parent.node_;
-    } else {
-        parent.node_->addChild(node_);
-        render_parent_ = parent.node_;
-    }
-}
-
 std::optional<glm::vec3> MeshInstance::sampledPosition(const Mesh& mesh, std::size_t index) const
 {
     return node_->sampledPosition(mesh, index);
@@ -337,6 +299,7 @@ struct InstanceNode::Part {
     };
     struct Pass {
         vsg::ref_ptr<vsg::Group> body;
+        vsg::ref_ptr<vsg::CullNode> cull;
         vsg::ref_ptr<vsg::vec4Array> data;
         vsg::ref_ptr<vsg::BindDescriptorSet> bind;
         vsg::ref_ptr<vsg::vec4Array> shell_data;
@@ -457,8 +420,9 @@ extrusionShadow(RenderContext& context, const MeshInstance& instance, Mesh& mesh
 void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                            std::uint64_t frame_number, bool static_geometry)
 {
-    if (prepared_frame == frame_number) return;
+    if (prepared_frame == frame_number && prepared_layout == context.layout) return;
     prepared_frame = frame_number;
+    prepared_layout = context.layout;
     ensureParts();
     if (!instance || !instance->getModel()) {
         geometry->children.clear();
@@ -544,7 +508,8 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.batches.resize(source.batches.size());
                 const auto bound = vsg::dsphere(asset.bounds_center.x, asset.bounds_center.y,
                                                 asset.bounds_center.z, asset.bounds_radius);
-                part->graph->addChild(vsg::CullNode::create(bound, cached.body));
+                cached.cull = vsg::CullNode::create(bound, cached.body);
+                part->graph->addChild(cached.cull);
             } else {
                 store(*cached.data, pass_values);
             }
@@ -555,6 +520,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
             const bool show_shell =
                 highlighted && source.pass == 0 && source.side == 0 && shell_part && shell_texture;
+            cached.cull->bound.radius = asset.bounds_radius;
             if (show_shell) {
                 if (!cached.expanded) {
                     cached.expanded = vsg::vec3Array::create(sampled.positions->size());
@@ -580,9 +546,16 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     scale_y != 0 ? static_cast<float>((asset.bounds_radius * scale_y * .001 + 1) *
                                                       15.625 / scale_y)
                                  : 0;
-                for (std::size_t vertex = 0; vertex < cached.expanded->size(); ++vertex)
-                    cached.expanded->at(vertex) =
+                double radius_squared =
+                    static_cast<double>(asset.bounds_radius) * asset.bounds_radius;
+                for (std::size_t vertex = 0; vertex < cached.expanded->size(); ++vertex) {
+                    const auto expanded =
                         sampled.positions->at(vertex) + sampled.normals->at(vertex) * amount;
+                    cached.expanded->at(vertex) = expanded;
+                    const auto offset = vsg::dvec3(expanded) - cached.cull->bound.center;
+                    radius_squared = std::max(radius_squared, vsg::dot(offset, offset));
+                }
+                cached.cull->bound.radius = std::sqrt(radius_squared);
                 cached.expanded->dirty();
             }
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
@@ -714,4 +687,14 @@ glm::dmat4 MeshInstance::worldMatrix() const
         parent_matrix = glm::dmat4(render::toGlm(attached));
     }
     return parent_matrix * transform.matrix();
+}
+
+glm::dmat3 MeshInstance::worldRotation() const
+{
+    auto rotation = transform.getRotation();
+    if (auto parent = render_parent_.ref_ptr())
+        if (const auto* ancestor = dynamic_cast<const render::InstanceNode*>(parent.get());
+            ancestor && ancestor->instance)
+            rotation = ancestor->instance->worldRotation() * rotation;
+    return rotation;
 }

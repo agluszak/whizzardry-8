@@ -378,6 +378,12 @@ TEST_CASE("events_test")
     resizes = 0;
     push(resize);
     drain_events();
+    REQUIRE(resizes == 0);
+    // Vulkan targets follow physical pixels, which can change without a
+    // logical resize when the window moves between displays with different DPI.
+    resize.type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
+    push(resize);
+    drain_events();
     REQUIRE(resizes == 1);
     SDL_Point point{};
     REQUIRE(WarpGameMouse(window, 320, 240));

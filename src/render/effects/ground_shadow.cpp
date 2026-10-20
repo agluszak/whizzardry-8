@@ -5,10 +5,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 #include <vsg/core/Array.h>
 #include <vsg/core/Data.h>
 #include <vsg/core/ref_ptr.h>
@@ -32,6 +34,7 @@
 #include "wiz8/render/vsg_material.h"
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/world.h"
 
@@ -178,7 +181,6 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
     const GroundShadowProjection projection(position, width, depth, angle);
     render::InstanceBlock instance;
     if (scene) instance.ambient = glm::vec4(scene->ambient_light, 0);
-    instance.bounds = glm::vec4(position, radius);
     auto image = context.texture(asset->texture.get(), frame.texture_reduction);
     if (!data.batch || data.image != image) {
         data.image = image;
@@ -213,6 +215,18 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         }
         auto& part = *data.parts[part_index];
         auto& geometry = part.geometry;
+        auto center = mesh.bounds_center;
+        auto shading_radius = mesh.bounds_radius;
+        if (mesh.control_flags & (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE)) {
+            auto bounds = BoundingBox{mesh.bounds_minimum, mesh.bounds_maximum};
+            if (mesh.control_flags & (1u << Mesh::CONTROL_SKIP_AUTO_BOX))
+                bounds = boundingBox(std::span(mesh.positions, mesh.vertex_count));
+            center = bounds.center();
+            shading_radius = glm::length(bounds.minimum - center) * 1.001f;
+        }
+        // Native shading rejects lights and fog against the source terrain's
+        // complete bound, even when the shadow selects only a few of its faces.
+        instance.bounds = glm::vec4(center, shading_radius);
         bool positions_changed = false, normals_changed = false;
         std::array<bool, 4> attributes_changed{};
         const auto update = [](auto& destination, const auto& value, bool& changed) {

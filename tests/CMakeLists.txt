@@ -177,21 +177,23 @@ catch_discover_tests(native_audio_test
 
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE wiz8_engine wiz8_native_settings SDL3::SDL3)
+# Linux CI provides an X11 Vulkan surface under Xvfb. Other platforms use
+# SDL's native video driver.
+set(WIZ8_GRAPHICS_TEST_ENVIRONMENT)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
-    set_tests_properties(native_gpu_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30
-        FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
+    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "SDL_VIDEODRIVER=x11")
 endif()
+add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
+set_tests_properties(native_gpu_rendering PROPERTIES
+    ENVIRONMENT "${WIZ8_GRAPHICS_TEST_ENVIRONMENT}" TIMEOUT 30
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 
 add_executable(native_surface_rendering_test native/surface_rendering_test.cpp)
 target_link_libraries(native_surface_rendering_test PRIVATE wiz8_engine SDL3::SDL3)
-if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
-    set_tests_properties(native_surface_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30
-        FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
-endif()
+add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
+set_tests_properties(native_surface_rendering PROPERTIES
+    ENVIRONMENT "${WIZ8_GRAPHICS_TEST_ENVIRONMENT}" TIMEOUT 30
+    FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
 target_compile_definitions(native_movie_test PRIVATE
@@ -229,11 +231,12 @@ set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
+set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=x11;SDL_AUDIO_DRIVER=dummy"
+        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT}"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
         RESOURCE_LOCK game_gpu LABELS runtime
         FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")

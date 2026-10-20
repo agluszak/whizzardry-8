@@ -89,6 +89,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/retail_geometry_types.h"
+#include "wiz8/retail_records.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
@@ -200,16 +201,6 @@ void RequireSection(bool succeeded, const char* section)
 {
     if (!succeeded) throw std::runtime_error(std::string("save section failed: ") + section);
 }
-
-template<class F> class ScopeExit {
-    F action_;
-
-public:
-    explicit ScopeExit(F action) : action_(std::move(action)) {}
-    ScopeExit(const ScopeExit&) = delete;
-    ScopeExit& operator=(const ScopeExit&) = delete;
-    ~ScopeExit() { action_(); }
-};
 
 /* Writes a save through a staged file: the RIFF is finalized and only then
    published over the old file, so a failure leaves the old save intact. */
@@ -1470,9 +1461,7 @@ try {
     return false;
 }
 
-/* Render the world into the screenshot's 80x60 ARGB1555 pixels. Auto-flip is
-   suspended so the capture is never presented, and the frame is redrawn
-   afterwards. */
+/* Capture the world offscreen into the save's 80x60 ARGB1555 image. */
 void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
 {
     screenshot.version = 1.0f;
@@ -1482,12 +1471,9 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.right = 640;
     rect.bottom = 480;
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
-    SetRendererAutoFlipEnabled(false);
-    ScopeExit restore([] { SetRendererAutoFlipEnabled(true); });
     screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true)
                                     ? W8ScreenshotCaptureResult::succeeded
                                     : W8ScreenshotCaptureResult::failed;
-    RenderFrame();
 }
 
 /* Delete the last-used slot and the CurrentGame save. */

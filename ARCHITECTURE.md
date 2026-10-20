@@ -82,7 +82,8 @@ Unlayered code may use the layers.
   topology, UVs and material batches. Ordinary VSG subgraphs can join the root
   without a Wizardry material or submission adapter. Typed scene collections
   remain where game activation, ownership and world queries need them; they do
-  not define render parentage. The spatial index retains collision, authored
+  not define render parentage. Adopting or detaching a subtree updates those
+  collections by traversing its graph. The spatial index retains collision, authored
   regions and activation timing.
 - **Poses and views.** Each instance samples its current pose on the CPU into
   ordinary VSG position and normal arrays. Positions interpolate; normals use
@@ -106,7 +107,11 @@ Unlayered code may use the layers.
   swapchain. `endFrame` waits for submitted work before returning. That is the
   single resource-retirement boundary: game-thread graph mutations and object
   destruction occur between completed frames. Readback is requested before
-  presentation and copies the completed image into an SDL surface.
+  presentation and copies the completed image into an SDL surface. Window and
+  offscreen targets follow physical pixel dimensions, including swapchain changes
+  during acquisition or present-mode updates. Offscreen capture renders the same
+  prepared graph; presentation surfaces without transfer-source support use it
+  for screenshots as well.
 - **UI publication.** Drawing still uses the 640×480 ARGB1555 CPU canvas.
   Invalidation publishes pixels into a separate texture image, so `Draw`
   without `Refresh` cannot expose uncommitted painting. VSG composes that image,

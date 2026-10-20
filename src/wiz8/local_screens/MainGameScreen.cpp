@@ -2268,7 +2268,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         ClearHeldItemDisplay();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    SetPrimarySurfaceTextureHint2Enabled(true);
+    SetUiCanvasAlphaTestEnabled(true);
     if (LockInteractionSuspended()) {
         OpenLockInteraction(0);
     }
@@ -6052,7 +6052,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
     request.id = W8_SCREEN_CAMP;
     RequestScreen(std::move(request));
     UpdateScreenOverlays(1);
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
 }
 
 /* The viewport mode the screen falls back to after a raised overlay drops:
@@ -6583,7 +6583,7 @@ void ResetMainGameMode(void)
     CurrentGame().status.game_started = false;
     ClearHeldItemDisplay();
     ReturnToPreviousScreen();
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
 }
 
 void CreateSurpriseFade(void)

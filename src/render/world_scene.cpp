@@ -25,6 +25,7 @@
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Data.h>
 #include <vsg/core/Inherit.h>
+#include <vsg/core/Mask.h>
 #include <vsg/core/Object.h>
 #include <vsg/core/Visitor.h>
 #include <vsg/core/ref_ptr.h>
@@ -84,6 +85,18 @@ public:
     vsg::dmat4 transform(const vsg::dvec3& = {}) const override { return matrix; }
     vsg::dmat4 matrix;
 };
+
+bool bindViewState(vsg::StateGroup& group, RenderContext& context)
+{
+    if (!group.stateCommands.empty())
+        if (const auto* binding = group.stateCommands.front()->cast<vsg::BindViewDescriptorSets>();
+            binding && binding->layout == context.layout)
+            return false;
+    group.stateCommands.clear();
+    group.add(
+        vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS, context.layout, 0));
+    return true;
+}
 
 class WorldViewState : public vsg::Inherit<vsg::ViewDependentState, WorldViewState> {
 public:
@@ -232,11 +245,12 @@ public:
                                              item.node->winding == Winding::Standard))
                         continue;
                 }
-                float depth = item.node->sort_bias * 3;
+                float depth = 0;
                 for (std::uint32_t corner = 0; corner < 3; ++corner) {
                     const auto& p = item.node->positions->at(source->at(first + corner));
                     depth += (matrix * glm::vec4(p.x, p.y, p.z, 1)).z;
                 }
+                depth += item.node->sort_bias * 3;
                 const auto bits = std::bit_cast<std::uint32_t>(-depth);
                 auto key = (bits & 0x80000000u) == 0 ? bits | 0x80000000u
                                                      : 0x7fffffffu - (bits & 0x7fffffffu);
@@ -377,6 +391,40 @@ struct CountIndices : vsg::ConstVisitor {
     }
 };
 
+void updateMembership(vsg::Node& root, WorldScene* target)
+{
+    struct Membership : vsg::Visitor {
+        WorldScene* target;
+        explicit Membership(WorldScene* target) : target(target) { overrideMask = vsg::MASK_ALL; }
+        void apply(vsg::Object& object) override { object.traverse(*this); }
+        void apply(vsg::Transform& transform) override
+        {
+            if (auto* node = dynamic_cast<InstanceNode*>(&transform); node && node->instance) {
+                auto& item = *node->instance;
+                if (item.scene != target) {
+                    if (item.scene) std::erase(item.scene->dynamic_meshes, &item);
+                    item.scene = target;
+                    if (target && !node->static_geometry) target->dynamic_meshes.push_back(&item);
+                }
+            }
+            transform.traverse(*this);
+        }
+        void apply(vsg::Node& node) override
+        {
+            if (auto* collector = dynamic_cast<LightNode*>(&node); collector && collector->light) {
+                auto& item = *collector->light;
+                if (item.scene != target) {
+                    if (item.scene) std::erase(item.scene->lights, &item);
+                    item.scene = target;
+                    if (target) target->lights.push_back(&item);
+                }
+            }
+            node.traverse(*this);
+        }
+    } membership(target);
+    root.accept(membership);
+}
+
 } // namespace
 
 DrawNode::DrawNode(vsg::ref_ptr<vsg::VertexIndexDraw> geometry,
@@ -422,7 +470,10 @@ vsg::StateCommands DrawNode::recordState(vsg::RecordTraversal& traversal) const
     // not change which authored side is drawn. Hardware winding reverses when
     // the accumulated transform changes handedness (the game camera flips Z).
     const auto matrix = toGlm(traversal.getState()->modelviewMatrixStack.top());
-    if (reflected_pipeline && glm::determinant(glm::mat3(matrix)) > 0)
+    const auto& projection = traversal.getState()->projectionMatrixStack.top();
+    const auto projection_winding =
+        projection[0][0] * projection[1][1] - projection[0][1] * projection[1][0];
+    if (reflected_pipeline && glm::determinant(glm::mat3(matrix)) * projection_winding < 0)
         for (auto& command : commands)
             if (command->cast<vsg::BindGraphicsPipeline>()) command = reflected_pipeline;
     return commands;
@@ -479,6 +530,7 @@ struct WorldScene::CachedView {
     vsg::ref_ptr<vsg::View> view;
     vsg::ref_ptr<render::Projection> projection;
     vsg::ref_ptr<render::ViewMatrix> view_matrix;
+    vsg::ref_ptr<vsg::StateGroup> translucent;
 };
 
 WorldScene::WorldScene()
@@ -490,6 +542,7 @@ WorldScene::WorldScene()
 }
 WorldScene::~WorldScene()
 {
+    for (auto& item : static_meshes) item->scene = nullptr;
     for (auto* item : dynamic_meshes) item->scene = nullptr;
     for (auto* item : lights) item->scene = nullptr;
     for (auto* item : particles) item->scene = nullptr;
@@ -507,15 +560,14 @@ MeshInstance* WorldScene::addStaticMesh(std::unique_ptr<MeshInstance> mesh)
     objects->addChild(mesh->renderNode());
     mesh->renderNode()->static_geometry = true;
     mesh->render_parent_ = objects;
+    render::updateMembership(*mesh->renderNode(), this);
     static_meshes.push_back(std::move(mesh));
     return result;
 }
 void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame,
                          std::uint64_t frame_number)
 {
-    if (game_root->stateCommands.empty())
-        game_root->add(vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                           context.layout, 0));
+    if (render::bindViewState(*game_root, context)) prepared_frame = ~std::uint64_t{0};
     if (prepared_frame == frame_number) return;
     prepared_frame = frame_number;
     const ScenePass pass{.frame = frame,
@@ -615,15 +667,14 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
         entry->view_matrix = render::ViewMatrix::create(vsg::dmat4{});
         entry->view->camera = vsg::Camera::create(entry->projection, entry->view_matrix, viewport);
         entry->view->addChild(root);
-        auto translucent = vsg::StateGroup::create();
-        translucent->add(vsg::BindViewDescriptorSets::create(VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                                             context.layout, 0));
-        translucent->addChild(render::TranslucentStage::create());
-        entry->view->addChild(translucent);
+        entry->translucent = vsg::StateGroup::create();
+        entry->translucent->addChild(render::TranslucentStage::create());
+        entry->view->addChild(entry->translucent);
         views.push_back(std::move(entry));
         found = std::prev(views.end());
     }
     (*found)->last_frame = frame_number;
+    render::bindViewState(*(*found)->translucent, context);
     auto& view = (*found)->view;
     const auto transform = source ? source->drawTransform() : DrawTransform{};
     glm::dmat4 clip(1);
@@ -660,10 +711,23 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
 void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
 {
     const auto viewport = camera.getViewport();
+    if (viewport.width <= 0 || viewport.height <= 0) return;
+    const auto projection = camera.projectionMatrix->transform();
+    const auto inverse_projection = vsg::inverse(projection);
+    const bool reverse_depth = projection[2][2] > 0;
     for (auto& pick : picks) {
         const auto x = static_cast<int>(viewport.x + (pick.position.x + 1) * .5f * viewport.width);
         const auto y = static_cast<int>(viewport.y + (1 - pick.position.y) * .5f * viewport.height);
         auto test = vsg::LineSegmentIntersector::create(camera, x, y);
+        const auto ndc_x = (x - viewport.x) / viewport.width * 2 - 1;
+        const auto ndc_y = (y - viewport.y) / viewport.height * 2 - 1;
+        const auto near_point =
+            inverse_projection *
+            vsg::dvec3(ndc_x, ndc_y, reverse_depth ? viewport.maxDepth : viewport.minDepth);
+        const auto far_point =
+            inverse_projection *
+            vsg::dvec3(ndc_x, ndc_y, reverse_depth ? viewport.minDepth : viewport.maxDepth);
+        const auto toward_eye = near_point - far_point;
         test->traversalMask = render::pick_mask;
         root->accept(*test);
         double nearest = std::numeric_limits<double>::max();
@@ -684,7 +748,7 @@ void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
             bool clipped = false;
             const auto view = render::toGlm(camera.viewMatrix->transform());
             for (const auto& plane : clip_planes) {
-                if (!plane->visible) continue;
+                if (!drawable || !plane->visible) continue;
                 const auto eye_plane = eyeSpaceClipPlane(
                     view * plane->transform.matrix<glm::mat4>(), plane->getClipPlane());
                 if (glm::dot(eye_plane, glm::vec4(eye_intersection.x, eye_intersection.y,
@@ -716,8 +780,9 @@ void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
                 const auto a = vsg::dvec3(drawable->positions->at(hit->indexRatios[0].index));
                 const auto b = vsg::dvec3(drawable->positions->at(hit->indexRatios[1].index));
                 const auto c = vsg::dvec3(drawable->positions->at(hit->indexRatios[2].index));
-                const auto eye = vsg::inverse(model_view) * vsg::dvec3(0, 0, 0);
-                auto facing = vsg::dot(vsg::cross(b - a, c - a), eye - a);
+                const auto direction = vsg::inverse(model_view) * vsg::dvec4(toward_eye, 0);
+                auto facing = vsg::dot(vsg::cross(b - a, c - a),
+                                       vsg::dvec3(direction.x, direction.y, direction.z));
                 if (drawable->winding == Winding::Reversed) facing = -facing;
                 if (drawable->cull == FaceCull::Back ? facing <= 0 : facing >= 0) continue;
             }
@@ -737,16 +802,15 @@ void WorldScene::attach(MeshInstance& item)
     else if (auto parent = item.render_parent_.ref_ptr())
         std::erase(parent->children, item.attachment_ ? vsg::ref_ptr<vsg::Node>(item.attachment_)
                                                       : vsg::ref_ptr<vsg::Node>(item.node_));
-    dynamic_meshes.push_back(&item);
     objects->addChild(item.node_);
     item.node_->static_geometry = false;
     item.render_parent_ = objects;
     item.attachment_ = {};
-    item.scene = this;
+    render::updateMembership(*item.node_, this);
 }
 void WorldScene::detach(MeshInstance& item)
 {
-    std::erase(dynamic_meshes, &item);
+    render::updateMembership(*item.node_, nullptr);
     if (auto parent = item.render_parent_.ref_ptr()) {
         std::erase(parent->children, item.attachment_ ? vsg::ref_ptr<vsg::Node>(item.attachment_)
                                                       : vsg::ref_ptr<vsg::Node>(item.node_));
@@ -757,7 +821,6 @@ void WorldScene::detach(MeshInstance& item)
     }
     item.render_parent_.reset();
     item.attachment_ = {};
-    if (item.scene == this) item.scene = nullptr;
 }
 void MeshInstance::setScene(WorldScene* value)
 {
@@ -772,12 +835,35 @@ void MeshInstance::setScene(WorldScene* value)
         render_parent_.reset();
         attachment_ = {};
     }
+    render::updateMembership(*node_, nullptr);
     if (value) value->attach(*this);
+}
+void MeshInstance::attachTo(MeshInstance& parent, std::optional<short> mapped_key)
+{
+    // Reject a cycle before changing either relationship.
+    for (auto ancestor = parent.render_parent_.ref_ptr(); ancestor;) {
+        if (ancestor.get() == node_.get())
+            throw std::invalid_argument("A visual cannot be attached beneath itself");
+        auto* instance_node = dynamic_cast<render::InstanceNode*>(ancestor.get());
+        if (!instance_node || !instance_node->instance) break;
+        ancestor = instance_node->instance->render_parent_.ref_ptr();
+    }
+    if (&parent == this) throw std::invalid_argument("A visual cannot be its own parent");
+    setScene(nullptr);
+    if (mapped_key) {
+        attachment_ = render::VertexAttachment::create(parent.node_, *mapped_key);
+        attachment_->addChild(node_);
+        parent.node_->addChild(attachment_);
+    } else {
+        parent.node_->addChild(node_);
+    }
+    render_parent_ = parent.node_;
+    render::updateMembership(*node_, parent.scene);
 }
 void WorldScene::attach(Light& item)
 {
     if (item.scene == this) return;
-    if (item.scene) item.scene->detach(item);
+    item.setScene(nullptr);
     item.render_node = render::LightNode::create(item);
     objects->addChild(item.render_node);
     item.render_parent = objects;

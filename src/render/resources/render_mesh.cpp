@@ -166,8 +166,11 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
     auto asset = std::make_shared<MeshAsset>();
     if (view.vertex_count <= 0 || view.polygon_count <= 0) return asset;
     asset->triangles.assign(view.poly_vertices, view.poly_vertices + view.polygon_count);
-    asset->bounds_center = view.bounds_center;
-    asset->bounds_radius = view.bounds_radius;
+    // Legacy draw controls can suppress the borrowed TriMesh bound fields
+    // (the sky uses both). VSG still needs the actual all-frame model bound.
+    const auto bounds = mesh.getBounds();
+    asset->bounds_center = bounds.sphere.center;
+    asset->bounds_radius = bounds.sphere.radius;
     asset->sort_bias = view.sort_bias;
     asset->sorted = (view.control_flags & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();

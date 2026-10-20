@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <initializer_list>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -188,19 +189,22 @@ TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures acro
     const auto sampled = instance.sampledPosition(*mesh, 0);
     REQUIRE(sampled == glm::vec3(-.75f, -1, 3));
 
-    // Thirty-three active lights exercise the real shader beyond the former
-    // prototype's limit. Their sum is exactly 33/64 in binary floating point.
+    // Grow the live light list after compiling both views: this exercises
+    // descriptor-buffer replacement as well as counts beyond the old cap.
     std::vector<std::unique_ptr<Light>> lights;
-    for (int index = 0; index < 33; ++index) {
-        auto light = std::make_unique<Light>(&scene, Light::PRESET_DIRECTIONAL);
-        light->ambient = glm::vec3(0);
-        light->diffuse = glm::vec3(1.f / 64);
-        light->specular = glm::vec3(0);
-        light->derived_flags = 0x1234;
-        light->eye_location = {7, 8, 9};
-        light->scaled_diffuse = glm::vec4(6);
-        lights.push_back(std::move(light));
-    }
+    const auto add_lights = [&](int count) {
+        for (int index = 0; index < count; ++index) {
+            auto light = std::make_unique<Light>(&scene, Light::PRESET_DIRECTIONAL);
+            light->ambient = glm::vec3(0);
+            light->diffuse = glm::vec3(1.f / 64);
+            light->specular = glm::vec3(0);
+            light->derived_flags = 0x1234;
+            light->eye_location = {7, 8, 9};
+            light->scaled_diffuse = glm::vec4(6);
+            lights.push_back(std::move(light));
+        }
+    };
+    add_lights(1);
     FogParams fog(&scene);
     fog.setRange(0, 1);
     fog.setDensity(.25f);
@@ -229,6 +233,11 @@ TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures acro
         }
     };
     render({});
+    // (ambient 1/4 + diffuse 1/64) * red, then 1/4 blue fog.
+    expect(0x330040);
+    add_lights(32);
+    render({});
+    // Thirty-three active lights sum to 33/64 exactly in binary arithmetic.
     // (ambient 1/4 + diffuse 33/64) * red, then 1/4 blue fog.
     // Fog must survive even though the secondary RGB gradient is disabled.
     expect(0x920040);
@@ -247,4 +256,111 @@ TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures acro
         REQUIRE(light->eye_location == glm::vec3(7, 8, 9));
         REQUIRE(light->scaled_diffuse == glm::vec4(6));
     }
+}
+
+TEST_CASE("Wizardry globally sorts transparent triangles around opaque VSG and depth-only draws")
+{
+    Fixture fixture;
+    WorldScene scene;
+    scene.camera.setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
+    scene.camera.setClipRange(1, 10);
+    scene.camera.setViewPlane(Camera3D::Rect{-2, -2, 2, 2}, 1);
+
+    auto builder = vsg::Builder::create();
+    vsg::GeometryInfo ordinary_geometry;
+    ordinary_geometry.position = {-1, 0, 3};
+    ordinary_geometry.dx = {-.5f, 0, 0};
+    ordinary_geometry.dy = {0, 2, 0};
+    ordinary_geometry.color = vsg::vec4(0, 1, 0, 1);
+    vsg::StateInfo ordinary_state;
+    ordinary_state.lighting = false;
+    ordinary_state.two_sided = true;
+    scene.root->addChild(builder->createQuad(ordinary_geometry, ordinary_state));
+
+    using Quad = std::array<glm::vec3, 4>;
+    const auto quad = [](float left, float right, float depth) -> Quad {
+        return {{{left, -1, depth}, {right, -1, depth}, {right, 1, depth}, {left, 1, depth}}};
+    };
+    DrawShader transparent;
+    transparent.value = DrawShader::PASS_LEQUAL | DrawShader::MASK_COLOR_WRITE |
+                        DrawShader::MASK_GRADIENT_MODULATE |
+                        (DrawShader::SRCBLEND_SRC_ALPHA << DrawShader::SRCBLEND_SHIFT) |
+                        (DrawShader::DSTBLEND_ONE_MINUS_SRC_ALPHA << DrawShader::DSTBLEND_SHIFT);
+    const auto visual = [&](std::initializer_list<Quad> quads, const glm::vec4& color,
+                            DrawShader shader, bool sorted) {
+        auto material = std::make_shared<Material>();
+        material->setAmbient(glm::vec4(0));
+        material->setDiffuse(glm::vec4(0, 0, 0, color.a));
+        material->setSpecular(glm::vec4(0));
+        material->setEmissive(color);
+        auto mesh = std::make_shared<Mesh>(static_cast<int>(quads.size()) * 2,
+                                           static_cast<int>(quads.size()) * 4);
+        int vertex = 0;
+        int polygon = 0;
+        for (const auto& positions : quads) {
+            for (const auto& position : positions) mesh->getVertexLoc()[vertex++] = position;
+            mesh->getPolyVertex()[polygon++] = {vertex - 4, vertex - 2, vertex - 3};
+            mesh->getPolyVertex()[polygon++] = {vertex - 4, vertex - 1, vertex - 2};
+        }
+        mesh->setMaterial(material, 0, Mesh::SIDE_FRONT);
+        mesh->setShader(shader, 0);
+        if (sorted) mesh->enable(Mesh::CONTROL_SORTED_RENDERING);
+        auto instance = std::make_unique<MeshInstance>(&scene);
+        instance->setModel(mesh);
+        return instance;
+    };
+    // The red object has triangles both in front of and behind the blue
+    // object. Sorting whole objects cannot produce both expected colors.
+    auto red =
+        visual({quad(-1.75f, -.25f, 2), quad(.25f, 1.75f, 6)}, {1, 0, 0, .5f}, transparent, true);
+    auto blue = visual({quad(-1.75f, 1.75f, 4)}, {0, 0, 1, .5f}, transparent, true);
+    DrawShader depth_only;
+    depth_only.value &= ~DrawShader::MASK_COLOR_WRITE;
+    auto occluder = visual({quad(.75f, 1.25f, 1.5f)}, {1, 1, 1, 1}, depth_only, false);
+    DrawShader cutout;
+    cutout.value |= DrawShader::MASK_TEXTURING | DrawShader::MASK_ALPHATEST;
+    auto discarded = visual({quad(-1.75f, 1.75f, 1.25f)}, {1, 1, 1, 1}, cutout, false);
+    discarded->getModel()->setTexture(solidTexture(0x00ffffff), 0, 0);
+
+    const auto render = [&] {
+        fixture.renderer->beginFrame({0, 0, 0, 1});
+        fixture.renderer->addView(scene.createView(fixture.renderer->context(), &scene.camera, {},
+                                                   vsg::ViewportState::create(0, 0, 64, 64),
+                                                   fixture.renderer->frameNumber()));
+        fixture.renderer->endFrame(false, true);
+    };
+    const auto expect = [&](int x, unsigned expected) {
+        const auto actual = fixture.pixel(x, 32);
+        INFO("pixel " << x << " RGB " << actual << ", expected " << expected);
+        for (unsigned shift : {0u, 8u, 16u}) {
+            const auto channel = static_cast<int>((actual >> shift) & 255u);
+            const auto target = static_cast<int>((expected >> shift) & 255u);
+            REQUIRE(channel >= target - 2);
+            REQUIRE(channel <= target + 2);
+        }
+    };
+    render();
+    expect(16, 0x807300); // Near red over ordinary VSG green; blue fails depth.
+    expect(24, 0x800040); // Blue, then near red.
+    expect(40, 0x400080); // Far red, then blue.
+    expect(48, 0x000000); // Depth-only geometry occludes without writing color.
+    blue->visible = false;
+    render();
+    expect(16, 0x807300);
+    expect(24, 0x800000);
+    expect(40, 0x800000);
+    expect(48, 0x000000);
+    blue->visible = true;
+    red->transform.setScale(glm::dvec3(-1, 1, 1));
+    render();
+    expect(16, 0x00e600);
+    expect(24, 0x400080);
+    expect(40, 0x800040);
+    expect(48, 0x000000);
+    scene.camera.flipHorizontal();
+    render();
+    expect(16, 0x000000);
+    expect(24, 0x800040);
+    expect(40, 0x400080);
+    expect(48, 0x00e600);
 }

@@ -682,7 +682,7 @@ bool CampScreen::enter(const ScreenRequest& request)
     }
     InvalidateAll();
     ResetTransientRenderScenes();
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
     if (!GameStarted()) {
         StartMusicResource("MainMenu.MPL", 1, 1);
     }

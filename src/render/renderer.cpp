@@ -9,6 +9,7 @@
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_error.h>
@@ -66,6 +67,7 @@
 #include <vsg/vk/DeviceMemory.h>
 #include <vsg/vk/Framebuffer.h>
 #include <vsg/vk/Instance.h>
+#include <vsg/vk/PhysicalDevice.h>
 #include <vsg/vk/RenderPass.h>
 #include <vsg/vk/SubmitCommands.h>
 #include <vsg/vk/Surface.h>
@@ -84,11 +86,54 @@ vsg::ref_ptr<vsg::ShaderModule> module(std::span<const std::uint32_t> code)
 {
     return vsg::ShaderModule::create(vsg::ShaderModule::SPIRV(code.begin(), code.end()));
 }
+SDL_PixelFormat readbackFormat(VkFormat format)
+{
+    switch (format) {
+    case VK_FORMAT_R8G8B8A8_UNORM:
+    case VK_FORMAT_R8G8B8A8_SRGB:
+        return SDL_PIXELFORMAT_RGBA32;
+    case VK_FORMAT_B8G8R8A8_UNORM:
+    case VK_FORMAT_B8G8R8A8_SRGB:
+        return SDL_PIXELFORMAT_BGRA32;
+    case VK_FORMAT_A8B8G8R8_UNORM_PACK32:
+    case VK_FORMAT_A8B8G8R8_SRGB_PACK32:
+        return SDL_PIXELFORMAT_ABGR8888;
+    case VK_FORMAT_A2R10G10B10_UNORM_PACK32:
+        return SDL_PIXELFORMAT_ARGB2101010;
+    case VK_FORMAT_A2B10G10R10_UNORM_PACK32:
+        return SDL_PIXELFORMAT_ABGR2101010;
+    case VK_FORMAT_R8G8B8_UNORM:
+    case VK_FORMAT_R8G8B8_SRGB:
+        return SDL_PIXELFORMAT_RGB24;
+    case VK_FORMAT_B8G8R8_UNORM:
+    case VK_FORMAT_B8G8R8_SRGB:
+        return SDL_PIXELFORMAT_BGR24;
+    case VK_FORMAT_R5G6B5_UNORM_PACK16:
+        return SDL_PIXELFORMAT_RGB565;
+    case VK_FORMAT_B5G6R5_UNORM_PACK16:
+        return SDL_PIXELFORMAT_BGR565;
+    case VK_FORMAT_R5G5B5A1_UNORM_PACK16:
+        return SDL_PIXELFORMAT_RGBA5551;
+    case VK_FORMAT_B5G5R5A1_UNORM_PACK16:
+        return SDL_PIXELFORMAT_BGRA5551;
+    case VK_FORMAT_A1R5G5B5_UNORM_PACK16:
+        return SDL_PIXELFORMAT_ARGB1555;
+    case VK_FORMAT_R16G16B16A16_UNORM:
+        return SDL_PIXELFORMAT_RGBA64;
+    case VK_FORMAT_R16G16B16A16_SFLOAT:
+        return SDL_PIXELFORMAT_RGBA64_FLOAT;
+    case VK_FORMAT_R32G32B32A32_SFLOAT:
+        return SDL_PIXELFORMAT_RGBA128_FLOAT;
+    default:
+        throw std::runtime_error("Unsupported Vulkan screenshot pixel format");
+    }
+}
 }
 
 struct Renderer::Impl {
     explicit Impl(SDL_Window* platform_window);
     void createOffscreen();
+    void syncTargets();
     vsg::ref_ptr<vsg::View> overlayView();
     vsg::ref_ptr<vsg::BindGraphicsPipeline> overlayPipeline(DrawShader shader);
     void capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layout);
@@ -115,6 +160,7 @@ struct Renderer::Impl {
     int graphics_family = -1;
     bool open = true;
     bool capture_enabled = false;
+    bool capture_window = false;
 };
 
 Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_window)
@@ -129,7 +175,6 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
     // The canvas and retail lighting already contain display-space color.
     traits->swapchainPreferences.surfaceFormat = {VK_FORMAT_B8G8R8A8_UNORM,
                                                   VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
-    traits->swapchainPreferences.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     Uint32 count = 0;
     const auto* names = SDL_Vulkan_GetInstanceExtensions(&count);
     if (!names) throw std::runtime_error(SDL_GetError());
@@ -140,6 +185,14 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
         throw std::runtime_error(SDL_GetError());
     window = vsg::WindowAdapter::create(vsg::Surface::create(surface, instance), traits);
     window->windowValid = window->windowVisible = true;
+    VkSurfaceCapabilitiesKHR capabilities{};
+    if (vkGetPhysicalDeviceSurfaceCapabilitiesKHR(window->getOrCreatePhysicalDevice()->vk(),
+                                                  surface, &capabilities) != VK_SUCCESS)
+        throw std::runtime_error("Cannot query Vulkan window capabilities");
+    // WSI only guarantees color-attachment usage. Screenshots can render the
+    // same graph offscreen when the presentation images cannot be copied.
+    capture_window = (capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+    if (capture_window) traits->swapchainPreferences.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     window->getOrCreateSwapchain();
     context = std::make_unique<render::RenderContext>(window->extent2D());
 
@@ -152,7 +205,7 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
     white = vsg::ImageInfo::create(vsg::Sampler::create(), pixel);
 
     render_graph = vsg::RenderGraph::create(window);
-    render_graph->windowResizeHandler = {};
+    render_graph->previous_extent = window->extent2D();
     render_graph->addChild(frame_root);
     auto commands = vsg::CommandGraph::create(window);
     graphics_family = commands->queueFamily;
@@ -195,10 +248,26 @@ void Renderer::Impl::createOffscreen()
     offscreen_graph->renderArea = {{0, 0}, extent};
     offscreen_graph->viewportState = vsg::ViewportState::create(extent);
     offscreen_graph->windowResizeHandler = {};
+    offscreen_graph->clearValues = render_graph->clearValues;
     offscreen_graph->addChild(frame_root);
     auto commands = vsg::CommandGraph::create(device, graphics_family);
     commands->addChild(offscreen_graph);
     offscreen_viewer->assignRecordAndSubmitTaskAndPresentation({commands});
+}
+
+void Renderer::Impl::syncTargets()
+{
+    const auto extent = window->extent2D();
+    if (offscreen_color->extent.width == extent.width &&
+        offscreen_color->extent.height == extent.height)
+        return;
+    // Acquisition and present-mode changes can rebuild the swapchain as well
+    // as explicit resize events. Keep every target on its actual WSI extent.
+    render_graph->resized();
+    render_graph->renderArea = {{0, 0}, extent};
+    createOffscreen();
+    for (auto& view : overlay_views)
+        view->camera->viewportState = vsg::ViewportState::create(extent);
 }
 
 vsg::ref_ptr<vsg::BindGraphicsPipeline> Renderer::Impl::overlayPipeline(DrawShader shader)
@@ -289,11 +358,8 @@ try {
         impl->offscreen_viewer->deviceWaitIdle();
         impl->window->updateExtents(next.width, next.height);
         impl->window->resize();
-        impl->render_graph->renderArea = {{0, 0}, impl->window->extent2D()};
-        impl->createOffscreen();
-        for (auto& view : impl->overlay_views)
-            view->camera->viewportState = vsg::ViewportState::create(impl->window->extent2D());
     }
+    impl->syncTargets();
     impl->open = true;
     return true;
 } catch (const vsg::Exception& error) {
@@ -335,8 +401,15 @@ try {
     const auto mode = enabled ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
     if (impl->window->traits()->swapchainPreferences.presentMode == mode) return;
     impl->viewer->deviceWaitIdle();
+    impl->offscreen_viewer->deviceWaitIdle();
     impl->window->traits()->swapchainPreferences.presentMode = mode;
+    int width = 0, height = 0;
+    if (SDL_GetWindowSizeInPixels(impl->platform_window, &width, &height) && width > 0 &&
+        height > 0)
+        impl->window->updateExtents(static_cast<std::uint32_t>(width),
+                                    static_cast<std::uint32_t>(height));
     impl->window->resize();
+    impl->syncTargets();
 } catch (const vsg::Exception& error) {
     throw std::runtime_error(error.message);
 }
@@ -400,8 +473,17 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
 {
     auto device = window->getOrCreateDevice();
     const auto device_id = device->deviceID;
-    const auto extent = window->extent2D();
-    const VkDeviceSize bytes = VkDeviceSize(extent.width) * extent.height * 4;
+    // Swapchain wrappers leave Image::format and extent undefined; their
+    // metadata belongs to the window. Owned offscreen images carry both.
+    const bool swapchain = image->format == VK_FORMAT_UNDEFINED;
+    const auto extent =
+        swapchain ? window->extent2D() : VkExtent2D{image->extent.width, image->extent.height};
+    const auto format =
+        readbackFormat(swapchain ? window->imageView(window->imageIndex())->format : image->format);
+    const auto row_bytes = VkDeviceSize(extent.width) * SDL_BYTESPERPIXEL(format);
+    const VkDeviceSize bytes = row_bytes * extent.height;
+    auto next =
+        CreateCpuStorage(static_cast<int>(extent.width), static_cast<int>(extent.height), format);
     auto buffer = vsg::createBufferAndMemory(
         device, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -435,45 +517,53 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
                     VK_ACCESS_MEMORY_READ_BIT);
         });
     if (copied != VK_SUCCESS) throw std::runtime_error("Cannot copy rendered frame");
-    // Swapchain images wrap Vulkan handles; their format is held by the
-    // swapchain/ImageView rather than initialized on the Image wrapper.
-    const auto format =
-        image->format == VK_FORMAT_UNDEFINED ? window->surfaceFormat().format : image->format;
-    captured =
-        CreateCpuStorage(static_cast<int>(extent.width), static_cast<int>(extent.height),
-                         format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB
-                             ? SDL_PIXELFORMAT_BGRA32
-                             : SDL_PIXELFORMAT_RGBA32);
     auto* memory = buffer->getDeviceMemory(device_id);
     void* mapped = nullptr;
     if (memory->map(buffer->getMemoryOffset(device_id), bytes, 0, &mapped) != VK_SUCCESS)
         throw std::runtime_error("Cannot map rendered frame");
     for (std::uint32_t y = 0; y < extent.height; ++y)
-        std::memcpy(static_cast<std::uint8_t*>(captured->pixels) + std::size_t(y) * captured->pitch,
-                    static_cast<const std::uint8_t*>(mapped) + std::size_t(y) * extent.width * 4,
-                    std::size_t(extent.width) * 4);
+        std::memcpy(static_cast<std::uint8_t*>(next->pixels) + std::size_t(y) * next->pitch,
+                    static_cast<const std::uint8_t*>(mapped) + y * row_bytes, row_bytes);
     memory->unmap();
+    captured = std::move(next);
 }
 void Renderer::endFrame(bool present, bool capture)
 try {
     if (!impl->open) return;
     auto viewer = present ? impl->viewer : impl->offscreen_viewer;
+    if (!viewer->advanceToNextFrame()) throw std::runtime_error("VSG frame acquisition failed");
+    // WSI acquisition can resize the window before this frame is recorded.
+    impl->syncTargets();
     // Viewer::compile discovers current views and newly attached resources.
     // Retain its manager so VSG can reuse device memory and descriptor pools.
     const auto compiled = viewer->compile();
     if (compiled.result != VK_SUCCESS)
         throw std::runtime_error("VSG scene compilation failed: " + compiled.message);
-    if (!viewer->advanceToNextFrame()) throw std::runtime_error("VSG frame acquisition failed");
     viewer->update();
     viewer->recordAndSubmit();
     // A single completion boundary handles removed graph nodes, replaced
     // descriptors and streamed UI pixels without parallel retirement queues.
     viewer->deviceWaitIdle();
-    if (capture || impl->capture_enabled)
-        impl->capture(present ? impl->window->imageView(impl->window->imageIndex())->image
-                              : impl->offscreen_color,
-                      present ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-                              : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    if (capture || impl->capture_enabled) {
+        if (present && !impl->capture_window) {
+            // The render graph has no simulation updates: another target sees
+            // the same prepared pose, materials and canvas publication.
+            if (!impl->offscreen_viewer->advanceToNextFrame())
+                throw std::runtime_error("VSG offscreen frame acquisition failed");
+            const auto compiled_offscreen = impl->offscreen_viewer->compile();
+            if (compiled_offscreen.result != VK_SUCCESS)
+                throw std::runtime_error("VSG scene compilation failed: " +
+                                         compiled_offscreen.message);
+            impl->offscreen_viewer->update();
+            impl->offscreen_viewer->recordAndSubmit();
+            impl->offscreen_viewer->deviceWaitIdle();
+        }
+        const bool window_capture = present && impl->capture_window;
+        impl->capture(window_capture ? impl->window->imageView(impl->window->imageIndex())->image
+                                     : impl->offscreen_color,
+                      window_capture ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                                     : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    }
     if (present) viewer->present();
     viewer->deviceWaitIdle();
 } catch (const vsg::Exception& error) {

@@ -75,9 +75,8 @@
 void SaveJpegScreenshot(void);
 static void FlushUiUpload();
 
-/* The CPU frame buffer is the game-space UI canvas and g_ui_canvas's
-   streaming texture mirrors it on the GPU. Invalidation accumulates one
-   bounding rectangle, uploaded once per frame before composition. */
+/* Invalidation coalesces CPU canvas publication. VSG uploads the complete
+   published image before composing it with the world and other overlays. */
 static SDL_Rect g_ui_upload{};
 
 /*
@@ -107,12 +106,10 @@ bool g_world_blacked_out;
 bool g_screenshot_pending;
 bool g_video_inspector_enabled;
 std::unique_ptr<Renderer> g_renderer;
-static bool g_present_frames = true;
 static std::shared_ptr<SDL_Surface> primarySurface;
 SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 Compositor g_compositor;
-std::shared_ptr<SDL_Surface> g_primary_color_surface;
 std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 float g_texture_inset_pixels;
 std::shared_ptr<SDL_Surface> g_mouse_surface;
@@ -136,8 +133,7 @@ int g_cursor_image_height;
 int g_cursor_hotspot_x;
 int g_cursor_hotspot_y;
 
-/* Reset both framebuffer pages and discard transient scene instances.
-   Callers select whether to invalidate all dirty blocks or the normal region. */
+/* Publish the entire UI canvas on the next frame. */
 static void ResetVideoDirtyState()
 {
     g_ui_upload = {};
@@ -152,10 +148,7 @@ void ResetVideoFrameState(void)
     ResetVideoDirtyState();
 }
 
-/* Brings the renderer up, shows the window and, when the INSPECTOR switch was
-   given, loads that extension from the DLL subdirectory before returning to the
-   original working directory. Each gate that fails returns straight out with
-   the callee's own false still in AL. */
+/* Create the platform window, CPU canvas and VSG renderer before scene setup. */
 bool InitializeVideoManager(void)
 {
     g_world_pick_enabled = true;
@@ -172,21 +165,7 @@ bool InitializeVideoManager(void)
         return 0;
     }
     InitializeRendererSceneObjects();
-    if (!g_video_active) {
-        if (ghWindow && g_renderer) {
-            g_video_active = true;
-            if (g_renderer->isOpen() == 0) {
-                if (!OpenRendererWindow()) {
-                    goto done;
-                }
-            }
-            SDL_ShowWindow(ghWindow);
-            SDL_RestoreWindow(ghWindow);
-            SDL_RaiseWindow(ghWindow);
-            ResetVideoDirtyState();
-        }
-    }
-done:
+    if (!RestoreVideoManager()) return false;
     SetViewport({0, 0, 0x281, 0x1e1});
     if (!InitializeStartupNavigation()) {
         return 0;
@@ -225,7 +204,6 @@ void ShutdownVideoScenes(void)
     g_compositor.clear();
     g_ui_canvas.reset();
     g_mouse_surface.reset();
-    g_primary_color_surface.reset();
 }
 
 /* Selects the SDL packed format for SGP's 16-bit framebuffer and sprites.
@@ -323,7 +301,7 @@ unsigned char OpenRendererWindow(void)
     if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
         return 0;
     if (!g_renderer->reopen()) return 0;
-    g_flush_pending = true;
+    g_flush_pending = !videoSurfaceOwner;
     return 1;
 }
 
@@ -343,10 +321,10 @@ unsigned char FinishVideoPresentation(void)
     return 1;
 }
 
-/* Rebuild window-sized render targets after a windowed resize. */
+/* Render targets follow physical pixels in both window modes. */
 bool VideoResizeWindow(void)
 {
-    if (g_fullscreen || !ghWindow || !g_renderer || !g_flush_pending) {
+    if (!ghWindow || !g_renderer || !g_video_active) {
         return 0;
     }
     g_flush_pending = false;
@@ -355,14 +333,14 @@ bool VideoResizeWindow(void)
         return 0;
     }
     ResetTransientRenderScenes();
-    g_flush_pending = true;
+    g_flush_pending = !videoSurfaceOwner;
     return 1;
 }
 
 void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
-    if (ghWindow && g_renderer && g_flush_pending) {
+    if (ghWindow && g_renderer && g_video_active && !videoSurfaceOwner) {
         g_flush_pending = false;
         g_renderer->close();
         OpenRendererWindow();
@@ -401,19 +379,17 @@ void SuspendVideoManager(void)
 
 bool RestoreVideoManager(void)
 {
-    if (g_video_active) {
+    if (g_video_active && g_renderer && g_renderer->isOpen()) {
         return 1;
     }
-    if (ghWindow && g_renderer) {
-        g_video_active = true;
-        SDL_ShowWindow(ghWindow);
-        SDL_RestoreWindow(ghWindow);
-        if (g_renderer->isOpen() != 0 || OpenRendererWindow()) {
-            SDL_RaiseWindow(ghWindow);
-            ResetVideoDirtyState();
-        }
-    }
-    return 0;
+    if (!ghWindow || !g_renderer) return false;
+    SDL_ShowWindow(ghWindow);
+    SDL_RestoreWindow(ghWindow);
+    if (!g_renderer->isOpen() && !OpenRendererWindow()) return false;
+    g_video_active = true;
+    SDL_RaiseWindow(ghWindow);
+    ResetVideoDirtyState();
+    return true;
 }
 
 unsigned char ClearPrimarySurface(void)
@@ -453,7 +429,7 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
     g_renderer->addView(render_view);
 }
 
-/* The central renderer frame transaction. It owns the page flip, every scene
+/* The central renderer frame transaction. It owns presentation, every scene
    pass, optional world picking, transient-node retirement, and frame timing;
    callers do not reproduce any subset of that lifecycle. */
 void RenderFrame(void)
@@ -531,7 +507,7 @@ void RenderFrame(void)
         if (g_fullscreen_scene_last) g_compositor.draw(*g_renderer, OverlayLayer::Fullscreen);
         if (g_cursor_scene_enabled) g_compositor.draw(*g_renderer, OverlayLayer::Cursor);
     }
-    g_renderer->endFrame(g_present_frames, g_screenshot_pending);
+    g_renderer->endFrame(true, g_screenshot_pending);
 
     if (g_screenshot_pending) {
         SaveJpegScreenshot();
@@ -554,10 +530,9 @@ void RenderFrame(void)
     }
 }
 
-/* Render the world into the locked frame buffer and copy the pixels onto a
-   caller-owned color surface. `rect` selects a logical 640x480 viewport; otherwise
-   the stored game viewport applies. Saves use this for SHOT screenshots, and
-   the automap uses it for its backdrop. */
+/* Render offscreen and copy the completed image into a caller-owned surface.
+   `rect` selects a logical 640x480 viewport; otherwise the stored game viewport
+   applies. Saves use this for SHOT screenshots and the automap for its backdrop. */
 // FUNCTION: WIZ8 0x00426f80
 bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary)
 {
@@ -589,16 +564,6 @@ void PublishLightDirection(const glm::vec3* direction)
     if (GetSecondaryWorld() != 0) {
         GetSecondaryWorld()->scene->setFogColor(*direction);
     }
-}
-
-void SetRendererAutoFlipEnabled(bool enabled)
-{
-    g_present_frames = enabled;
-}
-
-bool RendererBufferIsLockable(void)
-{
-    return g_renderer && g_renderer->isOpen();
 }
 
 void SetWorldModelPickingEnabled(bool enabled)
@@ -1126,10 +1091,10 @@ void PresentMenuOverlayFrame(void)
     FlushUiUpload();
     g_renderer->beginFrame();
     g_ui_canvas->draw(g_renderer.get());
-    g_renderer->endFrame(g_present_frames);
+    g_renderer->endFrame();
 }
 
-void SetPrimarySurfaceTextureHint2Enabled(bool enabled)
+void SetUiCanvasAlphaTestEnabled(bool enabled)
 {
     if (g_ui_canvas) {
         g_ui_canvas->setAlphaTestEnabled(enabled);
@@ -1148,7 +1113,6 @@ unsigned char InitializeMouseSurface(void)
 unsigned char InitializeRendererSceneObjects(void)
 {
     InitializeMouseSurface();
-    g_primary_color_surface = primarySurface;
     g_ui_canvas = std::make_unique<UiCanvasTexture>(primarySurface);
     g_viewport = {};
     g_surface_opaque_shader_bits = 0x100a017;
@@ -1216,7 +1180,6 @@ SDL_Surface& GetFrameBufferSurface()
 /* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
 
 int g_screenshot_index;
-int g_screenshot_page;
 
 void SaveJpegScreenshot(void)
 {
@@ -1228,7 +1191,6 @@ void SaveJpegScreenshot(void)
         sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
         imageIO::save(filename, *surface);
     }
-    g_screenshot_page = (g_screenshot_page - 1) & 1;
 }
 
 /* Places one tooltip node at a screen position in normalized coordinates.
@@ -1432,7 +1394,7 @@ std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, f
 void DrawColorSurface(SDL_Surface* surface, int x, int y)
 {
     SDL_Rect destination{x, y, surface->w, surface->h};
-    SDL_BlitSurface(surface, nullptr, g_primary_color_surface.get(), &destination);
+    SDL_BlitSurface(surface, nullptr, primarySurface.get(), &destination);
 }
 
 ViewportBounds GetScaledViewportBounds()

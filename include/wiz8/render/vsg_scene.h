@@ -78,6 +78,7 @@ private:
     struct Part;
     std::vector<std::unique_ptr<Part>> parts;
     vsg::ref_ptr<vsg::Switch> geometry;
+    vsg::ref_ptr<vsg::PipelineLayout> prepared_layout;
     std::uint64_t prepared_frame = ~std::uint64_t{0};
 };
 

@@ -346,10 +346,6 @@ public:
     std::unique_ptr<W8MessageDialogBase> m_active_modal;
     std::unique_ptr<W8OptionsTextEditor> m_text_editor;
     W8OptionsKeyboardPanel* m_key_capture = nullptr;
-
-private:
-    /* The first frame of a visit presents without the automatic flip. */
-    bool first_frame_ = false;
 };
 
 extern std::string g_options_last_save_name;

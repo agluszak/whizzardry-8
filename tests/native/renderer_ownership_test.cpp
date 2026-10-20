@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <span>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_approx.hpp>
@@ -18,17 +20,25 @@
 #include <vsg/core/Visitor.h>
 #include <vsg/core/ref_ptr.h>
 #include <vsg/maths/mat4.h>
+#include <vsg/maths/transform.h>
 #include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
+#include <vsg/nodes/CullNode.h>
 #include <vsg/nodes/Group.h>
+#include <vsg/nodes/MatrixTransform.h>
+#include <vsg/nodes/StateGroup.h>
+#include <vsg/nodes/Switch.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
 #include <vsg/state/BufferInfo.h>
 #include <vsg/state/DescriptorBuffer.h>
 #include <vsg/state/DescriptorSet.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/PipelineLayout.h>
 #include <vsg/state/ViewDependentState.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/utils/LineSegmentIntersector.h>
+#include <vulkan/vulkan_core.h>
 
 #include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_double4x4.hpp"
@@ -427,4 +437,281 @@ TEST_CASE("Instance graph and material buffers survive live pose and appearance 
     REQUIRE(instance_data->at(0) == vsg::vec4(.4f, .2f, .1f, 1));
     REQUIRE(material_data->at(4) == vsg::vec4(.3f, .5f, .9f, 1));
     REQUIRE(material_data->at(6).y == Catch::Approx(.5f));
+}
+
+TEST_CASE("Attached subtrees follow their parent between scenes and through detachment",
+          "[renderer][ownership]")
+{
+    WorldScene first, second;
+    MeshInstance parent, child, grandchild;
+    Light light;
+    parent.transform.setLocation(10, 20, 30);
+    child.transform.setLocation(1, 2, 3);
+    grandchild.transform.setLocation(4, 5, 6);
+    child.attachTo(parent);
+    grandchild.attachTo(child, 0);
+    light.attachTo(child);
+    child.visible = false;
+    parent.setScene(&first);
+    REQUIRE(first.dynamic_meshes.size() == 3);
+    REQUIRE(first.lights.size() == 1);
+    REQUIRE(child.scene == &first);
+    REQUIRE(grandchild.scene == &first);
+    REQUIRE(light.scene == &first);
+    const auto inherited = grandchild.worldMatrix();
+
+    parent.setScene(&second);
+    REQUIRE(first.dynamic_meshes.empty());
+    REQUIRE(first.lights.empty());
+    REQUIRE(second.dynamic_meshes.size() == 3);
+    REQUIRE(second.lights.size() == 1);
+    REQUIRE(child.scene == &second);
+    REQUIRE(grandchild.scene == &second);
+    REQUIRE(light.scene == &second);
+    REQUIRE(grandchild.worldMatrix() == inherited);
+    parent.setScene(&second);
+    REQUIRE(second.dynamic_meshes.size() == 3);
+    REQUIRE(second.lights.size() == 1);
+
+    parent.setScene(nullptr);
+    REQUIRE(second.dynamic_meshes.empty());
+    REQUIRE(second.lights.empty());
+    REQUIRE(child.scene == nullptr);
+    REQUIRE(grandchild.scene == nullptr);
+    REQUIRE(light.scene == nullptr);
+    REQUIRE(grandchild.worldMatrix() == inherited);
+    parent.setScene(&first);
+    REQUIRE(first.dynamic_meshes.size() == 3);
+    REQUIRE(first.lights.size() == 1);
+}
+
+TEST_CASE("Static parents adopt attached visuals and lights without becoming dynamic",
+          "[renderer][ownership]")
+{
+    MeshInstance child;
+    Light light;
+    auto scene = std::make_unique<WorldScene>();
+    auto parent = std::make_unique<MeshInstance>();
+    child.attachTo(*parent);
+    light.attachTo(*parent);
+    const auto* attached_parent = scene->addStaticMesh(std::move(parent));
+    REQUIRE(attached_parent->scene == scene.get());
+    REQUIRE(scene->dynamic_meshes.size() == 1);
+    REQUIRE(scene->dynamic_meshes.front() == &child);
+    REQUIRE(scene->lights.size() == 1);
+    REQUIRE(child.scene == scene.get());
+    REQUIRE(light.scene == scene.get());
+    scene.reset();
+    REQUIRE(child.scene == nullptr);
+    REQUIRE(light.scene == nullptr);
+}
+
+TEST_CASE("Directly adopting a worldless attached light removes its previous collector",
+          "[renderer][ownership]")
+{
+    WorldScene scene;
+    MeshInstance parent;
+    Light light;
+    light.attachTo(parent, 0);
+    const auto previous = light.render_attachment;
+    REQUIRE(parent.renderNode()->children.size() == 2);
+    scene.attach(light);
+    REQUIRE(parent.renderNode()->children.size() == 1);
+    REQUIRE(light.render_attachment == nullptr);
+    REQUIRE(light.render_node != nullptr);
+    REQUIRE(light.scene == &scene);
+    REQUIRE(scene.lights.size() == 1);
+    REQUIRE(previous->children.size() == 1);
+}
+
+TEST_CASE("Orthographic picking tests triangle faces against parallel view rays",
+          "[renderer][picking]")
+{
+    render::RenderContext context({640, 480});
+    WorldScene scene;
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    auto* positions = mesh->getVertexLoc();
+    positions[0] = {9, -1, 4};
+    positions[1] = {10, 1, 5};
+    positions[2] = {11, -1, 6};
+    MeshInstance instance(&scene);
+    instance.setModel(mesh);
+    scene.camera.setClipRange(.1, 20);
+    scene.camera.setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
+    scene.camera.setViewPlane({-20, -10, 20, 10}, .1);
+    const auto view =
+        scene.createView(context, &scene.camera, {}, vsg::ViewportState::create(0, 0, 640, 480), 1);
+    Pick pick{.position = {.5f, 0, 1}};
+    scene.pick(*view->camera, std::span{&pick, 1});
+    REQUIRE(pick.selected_model == &instance);
+    REQUIRE(pick.position.z < 1);
+}
+
+TEST_CASE("Ordinary VSG picking follows transforms and masks without Wizardry clip state",
+          "[renderer][picking]")
+{
+    render::RenderContext context({640, 480});
+    WorldScene scene;
+    auto positions = vsg::vec3Array::create(3);
+    positions->at(0) = {-1, -1, 0};
+    positions->at(1) = {0, 1, 0};
+    positions->at(2) = {1, -1, 0};
+    auto indices = vsg::uintArray::create(3);
+    indices->at(0) = 0;
+    indices->at(1) = 1;
+    indices->at(2) = 2;
+    auto draw = vsg::VertexIndexDraw::create();
+    draw->assignArrays({positions});
+    draw->assignIndices(indices);
+    draw->indexCount = 3;
+    draw->instanceCount = 1;
+    auto transform = vsg::MatrixTransform::create(vsg::translate(0., 0., 5.));
+    transform->addChild(draw);
+    auto mask = vsg::Switch::create();
+    mask->addChild(render::render_mask | render::pick_mask, transform);
+    scene.root->addChild(mask);
+    auto plane = std::make_unique<ClipPlane>();
+    plane->setClipPlane({0, 0, -1, 1});
+    scene.clip_planes.push_back(std::move(plane));
+    const auto view =
+        scene.createView(context, &scene.camera, {}, vsg::ViewportState::create(0, 0, 640, 480), 1);
+    Pick visible;
+    scene.pick(*view->camera, std::span{&visible, 1});
+    REQUIRE(visible.position.z < 1);
+    REQUIRE(visible.selected_model == nullptr);
+
+    mask->children[0].mask = render::render_mask;
+    Pick unpickable;
+    scene.pick(*view->camera, std::span{&unpickable, 1});
+    REQUIRE(unpickable.position.z == 1);
+    mask->children[0].mask = render::render_mask | render::pick_mask;
+    transform->matrix = vsg::translate(0., 0., .05);
+    Pick before_near;
+    scene.pick(*view->camera, std::span{&before_near, 1});
+    REQUIRE(before_near.position.z == 1);
+}
+
+TEST_CASE("A scene refreshes scoped material bindings when its render context is replaced",
+          "[renderer][ownership]")
+{
+    struct Bindings : vsg::ConstVisitor {
+        const vsg::PipelineLayout* expected;
+        unsigned views = 0;
+        unsigned pipelines = 0;
+        explicit Bindings(const vsg::PipelineLayout* expected) : expected(expected) {}
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::BindViewDescriptorSets& bind) override
+        {
+            REQUIRE(bind.layout.get() == expected);
+            ++views;
+        }
+        void apply(const vsg::BindGraphicsPipeline& bind) override
+        {
+            REQUIRE(bind.pipeline->layout.get() == expected);
+            ++pipelines;
+        }
+    };
+    WorldScene scene;
+    MeshInstance instance(&scene);
+    instance.setModel(std::make_shared<Mesh>(1, 3));
+    instance.getModel()->getPolyVertex()[0] = {0, 1, 2};
+    auto* positions = instance.getModel()->getVertexLoc();
+    positions[0] = {-1, -1, 5};
+    positions[1] = {0, 1, 5};
+    positions[2] = {1, -1, 5};
+    auto original = std::make_unique<render::RenderContext>(VkExtent2D{640, 480});
+    const auto viewport = vsg::ViewportState::create(0, 0, 640, 480);
+    scene.createView(*original, &scene.camera, {}, viewport, 1);
+    original.reset();
+    render::RenderContext replacement({640, 480});
+    // A new renderer restarts its frame counter, too.
+    const auto view = scene.createView(replacement, &scene.camera, {}, viewport, 1);
+    Bindings bindings(replacement.layout.get());
+    view->accept(bindings);
+    REQUIRE(bindings.views == 2);
+    REQUIRE(bindings.pipelines == 2);
+}
+
+TEST_CASE("VSG cull bounds enclose sky geometry and animated highlight shells",
+          "[renderer][culling]")
+{
+    struct Bounds : vsg::ConstVisitor {
+        const vsg::CullNode* current = nullptr;
+        std::vector<const vsg::CullNode*> nodes;
+        std::size_t draws = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::CullNode& node) override
+        {
+            const auto* previous = current;
+            current = &node;
+            nodes.push_back(&node);
+            node.traverse(*this);
+            current = previous;
+        }
+        void apply(const vsg::StateGroup& group) override
+        {
+            if (const auto* draw = dynamic_cast<const render::DrawNode*>(&group)) {
+                REQUIRE(current);
+                ++draws;
+                const auto radius = current->bound.radius + .0001;
+                for (const auto& position : *draw->positions) {
+                    const auto offset = vsg::dvec3(position) - current->bound.center;
+                    REQUIRE(vsg::dot(offset, offset) <= radius * radius);
+                }
+            }
+            group.traverse(*this);
+        }
+    };
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    mesh->InitializeVertexFrames(2);
+    mesh->vertex_compression_scale = 1;
+    const std::array<short, 9> first{100, 0, 0, 102, 0, 0, 100, 2, 0};
+    const std::array<short, 9> second{104, 0, 0, 106, 0, 0, 104, 2, 0};
+    std::ranges::copy(first, mesh->GetVertex(0));
+    std::ranges::copy(second, mesh->GetVertex(1));
+    mesh->FinalizeVertexFrame(0);
+    mesh->FinalizeVertexFrame(1);
+    mesh->setTexture(std::make_shared<Texture>(), 0, 0);
+    // Sky meshes suppress the old borrowed TriMesh bounds. Their VSG nodes
+    // still need to enclose the real geometry, including its later poses.
+    mesh->enable(Mesh::CONTROL_SKIP_AUTO_BOX);
+    mesh->enable(Mesh::CONTROL_SKIP_AUTO_SPHERE);
+    MeshInstance instance;
+    instance.setModel(mesh);
+    render::RenderContext context({640, 480});
+    instance.renderNode()->prepare(context, {}, 1);
+    Bounds body;
+    instance.renderNode()->accept(body);
+    REQUIRE(body.draws == 1);
+    REQUIRE(body.nodes.size() == 1);
+    const auto* bound = body.nodes.front();
+    const auto body_radius = bound->bound.radius;
+
+    instance.highlight_colour = {1, 0, 0, 1};
+    instance.renderNode()->prepare(context, {}, 2);
+    Bounds shell;
+    instance.renderNode()->accept(shell);
+    REQUIRE(shell.draws == 2);
+    REQUIRE(shell.nodes == body.nodes);
+    REQUIRE(bound->bound.radius > body_radius);
+    const auto shell_radius = bound->bound.radius;
+
+    instance.frame_index = 1;
+    instance.transform.setScale(.5);
+    instance.renderNode()->prepare(context, {}, 3);
+    Bounds moved;
+    instance.renderNode()->accept(moved);
+    REQUIRE(moved.draws == 2);
+    REQUIRE(moved.nodes == body.nodes);
+    REQUIRE(bound->bound.radius > shell_radius);
+
+    instance.highlight_colour = {};
+    instance.renderNode()->prepare(context, {}, 4);
+    Bounds unhighlighted;
+    instance.renderNode()->accept(unhighlighted);
+    REQUIRE(unhighlighted.draws == 1);
+    REQUIRE(unhighlighted.nodes == body.nodes);
+    REQUIRE(bound->bound.radius == body_radius);
 }

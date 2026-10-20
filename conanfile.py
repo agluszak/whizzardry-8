@@ -1,7 +1,7 @@
 """Conan dependency graph for the native Whizzardry build.
 
 SDL_mixer 3.2.4 and utf8proc 2.10.0 are not yet in ConanCenter.
-Those two (and Catch2) remain explicitly pinned by CMake FetchContent.
+Those two, VulkanSceneGraph and Catch2 are pinned by CMake FetchContent.
 """
 from conan import ConanFile
 from conan.tools.cmake import CMakeDeps, CMakeToolchain

@@ -105,7 +105,7 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
 
 bool PleaseWaitScreen::resume(const ScreenRequest&)
 {
-    SetPrimarySurfaceTextureHint2Enabled(false);
+    SetUiCanvasAlphaTestEnabled(false);
     DisableCursorScene();
     caption_y = 0;
     entered_tick = MonotonicMilliseconds();
