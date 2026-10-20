@@ -22,11 +22,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-#ifdef WIZ8_RUNTIME_TESTS
-#include "runtime_instrumentation.h"
-#include "wiz8/screen.h"
-#endif
-
 UiRoutingState g_ui;
 bool g_dev_mode;
 bool g_ui_help_forced;
@@ -408,12 +403,6 @@ bool DispatchUiInput(const InputEvent* input)
     }
     auto& state = State();
     g_ui.pointer = input->position;
-#ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_MOUSE_DISPATCH, input->type,
-                   static_cast<w8_ulong>(input->position.x) |
-                       (static_cast<w8_ulong>(input->position.y) << 16),
-                   CurrentScreenState().id);
-#endif
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
     if (!target) return false;
     state.hideTooltip();

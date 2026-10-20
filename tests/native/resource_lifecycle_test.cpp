@@ -523,8 +523,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
 {
     struct RestoreRecord {
         std::unique_ptr<W8MonsterRecord> previous =
-            std::exchange(gXStatus.monster_record_cache[0], std::make_unique<W8MonsterRecord>());
-        ~RestoreRecord() { gXStatus.monster_record_cache[0] = std::move(previous); }
+            std::exchange(CachedMonsterRecord(0), std::make_unique<W8MonsterRecord>());
+        ~RestoreRecord() { CachedMonsterRecord(0) = std::move(previous); }
     } restore;
     auto active = std::make_unique<W8MonsterInfo>();
     active->location_id = 7;

@@ -16,6 +16,9 @@ class W8TextBuffer;
 
 enum { W8_ASSAY_BUTTON_COUNT = 0x25, W8_ASSAY_TEXT_BUFFER_COUNT = 5 };
 
+/* Show the profession side first again, as a fresh game does. */
+void ResetAssayTab(void);
+
 /* The item information dialog. It keeps the inspected item and the character
    whose stats the requirement lines compare against. */
 class W8AssayDialog : public W8DialogBase {

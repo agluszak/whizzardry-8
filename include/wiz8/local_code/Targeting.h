@@ -1,5 +1,8 @@
 #pragma once
 
+/* Forget the monster and group the target cycling keys last picked. */
+void ResetTargetPicks(void);
+
 #include <optional>
 #include <vector>
 

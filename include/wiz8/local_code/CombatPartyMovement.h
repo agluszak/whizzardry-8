@@ -15,6 +15,9 @@ void InterruptActivePartyMovement(void);
 bool CanPartyMove(void);
 void ClearPendingPartyMovement();
 void StartPartyMovementAction(W8PartyAction move_kind);
+/* A new round: arm the movement gauge for a pending walk or run, otherwise
+   stop level movement. */
+void ResetRoundPartyMovement(void);
 void UpdateActivePartyMovement(void);
 void UpdatePartyMovementControl(void);
 void RoundPhaseToStep(unsigned int* phase, unsigned int base);

@@ -89,8 +89,6 @@
 
 const float g_monster_record_float_scale = 20.0f;
 
-#define MAX_MONSTERS_IN_DATABASE 1000
-
 /* The two cycles that always start regardless of the pending one: 0x14 is the
    cycle a motionless monster is still allowed to enter, and 0x15 is death. */
 enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
@@ -335,9 +333,6 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         Fail("pMonsterInfo != NULL");
     }
     unsigned int monster_species = monster_info->monster_species;
-    if (monster_species >= MAX_MONSTERS_IN_DATABASE) {
-        Fail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE");
-    }
     W8MonsterRecord* record = MonsterDBFromSpecies(monster_species);
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
@@ -427,12 +422,42 @@ done:
     }
 }
 
-W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
+namespace {
+std::array<std::unique_ptr<W8MonsterRecord>, kMaxMonsterSpecies> monster_record_cache;
+
+struct RecentCombat {
+    std::uint64_t until = 0;
+    W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
+};
+RecentCombat recent_combat;
+} // namespace
+
+std::unique_ptr<W8MonsterRecord>& CachedMonsterRecord(unsigned int monster_species)
 {
-    if (monster_species >= MAX_MONSTERS_IN_DATABASE) {
+    if (monster_species >= kMaxMonsterSpecies) {
         Fail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE");
     }
-    auto& record = gXStatus.monster_record_cache[monster_species];
+    return monster_record_cache[monster_species];
+}
+
+void RecordCombatStart()
+{
+    recent_combat.until = w8_get_ticks() + 120000;
+}
+
+void ForgetRecentCombat()
+{
+    recent_combat.until = 0;
+}
+
+W8Difficulty LastCombatDifficulty()
+{
+    return recent_combat.difficulty;
+}
+
+W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
+{
+    auto& record = CachedMonsterRecord(monster_species);
     if (!record) {
         auto loaded = std::make_unique<W8MonsterRecord>();
         if (!LoadMonsterDatabaseRecord(monster_species, loaded.get())) return nullptr;
@@ -1592,8 +1617,7 @@ void EvaluateCombatDifficulty(void)
         break;
     }
     if ((g_combat.state() != 0 && g_combat.state()->party_surprised) ||
-        TimeUntilDeadline(gXStatus.combat_countdown) == 0 ||
-        difficulty != gXStatus.combat_difficulty) {
+        TimeUntilDeadline(recent_combat.until) == 0 || difficulty != recent_combat.difficulty) {
         unsigned int event_type;
         switch (difficulty) {
         case W8_DIFFICULTY_NOVICE:
@@ -1609,7 +1633,7 @@ void EvaluateCombatDifficulty(void)
         ApplyItemEffectToRandomCharacter(event_type, -1, 0);
     }
     ++g_status.combat_difficulty_counts[difficulty];
-    gXStatus.combat_difficulty = difficulty;
+    recent_combat.difficulty = difficulty;
 
     for (slot = 0; slot < 2; ++slot) {
         W8PartySlotRow* row = &g_status.party.rows[slot];

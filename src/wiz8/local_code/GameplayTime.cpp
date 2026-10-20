@@ -72,6 +72,25 @@
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
 
+namespace {
+enum class SurprisePhase : unsigned char { fade_in, hold, fade_out_and_resolve };
+
+/* The camping surprise sequence while fSurprisePossible is set. */
+struct SurpriseSequence {
+    /* Surprise started with no character engaged; the hold then waits for one. */
+    bool unengaged = false;
+    /* World-clock deadline the hold compares against; zero before it starts. */
+    unsigned int deadline_turns = 0;
+    SurprisePhase phase = SurprisePhase::fade_in;
+};
+SurpriseSequence surprise;
+} // namespace
+
+bool SurpriseFadingIn()
+{
+    return surprise.phase == SurprisePhase::fade_in;
+}
+
 static void BeginPartyCamping()
 {
     gXStatus.world_paused = false;
@@ -79,21 +98,21 @@ static void BeginPartyCamping()
         SyncWorldAdvancement();
     }
     if (!AnyCharacterEngaged()) {
-        gXStatus.surprise_unengaged = true;
+        surprise.unengaged = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
     } else {
-        gXStatus.surprise_unengaged = false;
+        surprise.unengaged = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x790], 8));
     }
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     gXStatus.fSurprisePossible = true;
     SetWorldResumeInput(true);
-    gXStatus.surprise_deadline_turns = 0;
+    surprise.deadline_turns = 0;
     CreateSurpriseFade();
-    gXStatus.surprise_phase = W8SurprisePhase::fade_in;
+    surprise.phase = SurprisePhase::fade_in;
     StartMusicResource("Camping.MPL", 0, 1);
-    gXStatus.combat_countdown = 0;
+    ForgetRecentCombat();
 }
 
 /* The per-frame game-time driver: folds the elapsed milliseconds into the
@@ -186,11 +205,10 @@ void UpdateGameClock(int elapsed)
     if (!gXStatus.fSurprisePossible) {
         return;
     }
-    if (gXStatus.surprise_unengaged && AnyCharacterEngaged() &&
-        gXStatus.surprise_phase == W8SurprisePhase::hold) {
+    if (surprise.unengaged && AnyCharacterEngaged() && surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        gXStatus.surprise_phase = W8SurprisePhase::fade_out_and_resolve;
+        surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -253,10 +271,10 @@ void UpdateSurpriseMode(void)
     if (!gXStatus.fSurprisePossible) {
         return;
     }
-    switch (gXStatus.surprise_phase) {
-    case W8SurprisePhase::fade_in:
+    switch (surprise.phase) {
+    case SurprisePhase::fade_in:
         if (UpdateSurpriseFade() != 0) {
-            gXStatus.surprise_deadline_turns = g_status.world_clock + 0x7080;
+            surprise.deadline_turns = g_status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
@@ -264,22 +282,22 @@ void UpdateSurpriseMode(void)
             scale = 1.0f / level_scale;
             GameTimeAccumulator().SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
-            gXStatus.surprise_phase = W8SurprisePhase::hold;
+            surprise.phase = SurprisePhase::hold;
         }
         break;
-    case W8SurprisePhase::hold:
-        if (!gXStatus.surprise_unengaged &&
-            static_cast<unsigned int>(g_status.world_clock) >= gXStatus.surprise_deadline_turns) {
+    case SurprisePhase::hold:
+        if (!surprise.unengaged &&
+            static_cast<unsigned int>(g_status.world_clock) >= surprise.deadline_turns) {
             ResetSight();
             UpdateEnvironmentLight();
             RefreshEnvironment();
             ReverseSurpriseFade();
-            gXStatus.surprise_phase = W8SurprisePhase::fade_out_and_resolve;
+            surprise.phase = SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();
             StartLevelMusic(1, 1);
         }
         break;
-    case W8SurprisePhase::fade_out_and_resolve:
+    case SurprisePhase::fade_out_and_resolve:
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
             if (g_combat.active()) {
@@ -297,7 +315,7 @@ void UpdateSurpriseMode(void)
    sequence to phase 2. */
 void AcknowledgeSurprise(void)
 {
-    if (gXStatus.surprise_unengaged && !g_combat.active()) {
+    if (surprise.unengaged && !g_combat.active()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
         return;
     }
@@ -309,10 +327,10 @@ void AcknowledgeSurprise(void)
    music. */
 void ResolveSurpriseHold(void)
 {
-    if (gXStatus.surprise_phase == W8SurprisePhase::hold) {
+    if (surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        gXStatus.surprise_phase = W8SurprisePhase::fade_out_and_resolve;
+        surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -328,17 +346,16 @@ void EndSurprise(void)
     SetWorldResumeInput(false);
 
     std::string text;
-    if (!gXStatus.surprise_unengaged) {
-        if (gXStatus.surprise_deadline_turns == 0) {
+    if (!surprise.unengaged) {
+        if (surprise.deadline_turns == 0) {
             text = g_localized_strings[0x793];
-        } else if (gXStatus.surprise_deadline_turns <
-                   static_cast<unsigned int>(g_status.world_clock)) {
+        } else if (surprise.deadline_turns < static_cast<unsigned int>(g_status.world_clock)) {
             text = g_localized_strings[0x791];
         } else {
             text = g_localized_strings[0x792];
         }
     } else {
-        gXStatus.surprise_unengaged = false;
+        surprise.unengaged = false;
         text = AnyCharacterEngaged() ? g_localized_strings[0x795] : g_localized_strings[0x792];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, text);
@@ -361,7 +378,7 @@ void EndSurprise(void)
 void RestoreSurpriseView(void)
 {
     gXStatus.fSurprisePossible = false;
-    gXStatus.surprise_unengaged = false;
+    surprise.unengaged = false;
     ResetSight();
     DestroySurpriseFade();
 }

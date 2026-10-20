@@ -149,13 +149,13 @@ static void databases()
             REQUIRE((fault.fired));
         }
         REQUIRE((g_item_tables == tables && g_item_table_category_names == categories));
-        REQUIRE((gXStatus.uiItemTablesInDatabase == 1 && gXStatus.uiItemTableCategories == 1));
+        REQUIRE((ItemTableCount() == 1 && ItemTableCategoryCount() == 1));
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("data/databases/itemtables.dbs", bytes.substr(0, end));
         REQUIRE((!InitializeItemTables()));
         REQUIRE((g_item_tables == tables && g_item_table_category_names == categories));
-        REQUIRE((gXStatus.uiItemTablesInDatabase == 1 && gXStatus.uiItemTableCategories == 1));
+        REQUIRE((ItemTableCount() == 1 && ItemTableCategoryCount() == 1));
         REQUIRE((!std::strcmp(tables[0].name, "Starter")));
     }
     auto bad = bytes;

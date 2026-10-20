@@ -70,6 +70,18 @@
 #include "wiz8/world/world.h"
 #include "wiz8/xstatus.h"
 
+namespace {
+/* The monster and group the target cycling keys last picked. */
+int picked_monster = -1;
+int picked_group = -1;
+} // namespace
+
+void ResetTargetPicks()
+{
+    picked_monster = -1;
+    picked_group = -1;
+}
+
 constexpr int BAD_INDEX = -1;
 
 /* Point a source at one party character. Everything is cleared first and the
@@ -1554,7 +1566,7 @@ static int PickNextTargetableMonster(int party_slot, const W8Action& edited_acti
             targetable.push_back(monster_info->location_id);
         }
     }
-    return SelectNextGroupMemberByAngle(targetable, gXStatus.picked_monster);
+    return SelectNextGroupMemberByAngle(targetable, picked_monster);
 }
 
 int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
@@ -1632,10 +1644,10 @@ static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action
     const auto& groups = CurrentLevelPopulation().monster_groups;
     if (groups.empty()) return BAD_INDEX;
     const auto current = std::ranges::find_if(
-        groups, [](const auto& group) { return group->group_id == gXStatus.picked_group; });
+        groups, [](const auto& group) { return group->group_id == picked_group; });
     std::size_t start = 0;
     if (current == groups.end())
-        gXStatus.picked_group = BAD_INDEX;
+        picked_group = BAD_INDEX;
     else
         start = (std::distance(groups.begin(), current) + 1) % groups.size();
     for (std::size_t offset = 0; offset < groups.size(); ++offset) {
@@ -1676,7 +1688,7 @@ void CycleToNextTarget(int party_slot)
         target.iType = W8_TARGET_KIND_GROUP;
         target.iGroupID = pick;
         AimAtTarget(party_slot, &target, context);
-        gXStatus.picked_group = pick;
+        picked_group = pick;
     } else {
         pick = PickNextTargetableMonster(party_slot, selected, sighting);
         if (pick == BAD_INDEX) {
@@ -1688,7 +1700,7 @@ void CycleToNextTarget(int party_slot)
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = pick;
         AimAtTarget(party_slot, &target, context);
-        gXStatus.picked_monster = pick;
+        picked_monster = pick;
     }
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);

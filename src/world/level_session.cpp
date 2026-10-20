@@ -451,7 +451,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             ClearPendingNpcLevelFlags();
             ReleaseNpcMonsterBindings();
             RecordLevelEntryDialogueState();
-            gXStatus.combat_countdown = 0;
+            ForgetRecentCombat();
         }
         if (g_status.greeting_pending &&
             (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {

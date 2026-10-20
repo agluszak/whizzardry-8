@@ -34,9 +34,11 @@
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -157,7 +159,7 @@ void InitializeGameplayRuntimeObjects(void)
    this body treats the global as the table itself rather than as a cursor. */
 void ResetGameplayStatusBlock(void)
 {
-    memset(gXStatus.spell_cooldown_clocks, 0, sizeof(gXStatus.spell_cooldown_clocks));
+    ResetSpellCooldowns();
     gXStatus.character_event_queue->DestroyAllEvents();
     gXStatus.party_moving = false;
     gXStatus.fSurprisePossible = false;
@@ -237,8 +239,7 @@ void ResetTargetingState(void)
     for (slot = 0; slot < 8; ++slot) {
         ResetGameplaySlot(slot);
     }
-    gXStatus.picked_monster = -1;
-    gXStatus.picked_group = -1;
+    ResetTargetPicks();
 }
 
 /* Resets one 0x118-byte slot. The tier it stores twice comes from the character

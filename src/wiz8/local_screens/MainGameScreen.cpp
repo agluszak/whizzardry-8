@@ -2080,28 +2080,25 @@ extern W8MainGameInvalidateRect g_main_game_invalidate_rects[23];
 /* Reset the owned Main Game state and its coupled UI/selection state. */
 void ResetMainGameScreenState(void)
 {
-    int unset;
-
     if (g_level_block) {
         gpSCSV.reset();
         ResetUseItemSelection();
         *g_level_block = W8LevelRuntimeBlock{};
         TurnPartyToImmediate(g_status.party_facing, 0);
         gXStatus.fNpcDialogueMode = false;
-        if (MainGame()) {
-            MainGame()->lock_active = false;
-            MainGame()->trap_active = false;
-            MainGame()->lock_interaction.reset();
-            MainGame()->trap_interaction.reset();
+        if (auto* main_game = MainGame()) {
+            main_game->lock_active = false;
+            main_game->trap_active = false;
+            main_game->lock_interaction.reset();
+            main_game->trap_interaction.reset();
+            main_game->dismissed_npc_slot = -1;
         }
         gXStatus.fReviewCharacterMode = false;
         gXStatus.fSurprisePossible = false;
         gXStatus.world_update_blocked = false;
         gXStatus.world_paused = false;
-        unset = -1;
-        gXStatus.review_character_slot = static_cast<unsigned short>(unset);
         gXStatus.gameplay_timer->Restart();
-        gXStatus.assay_professions_tab = true;
+        ResetAssayTab();
         gXStatus.item_drag.reset();
         ResetTargetingState();
     }
@@ -4317,7 +4314,7 @@ void SyncMainGameModeInput(void)
 
 /* Party portrait hit region: left-click selects / aims, right-hold opens camp,
    drag-hover arms the mode-6 overlay, and InputEventType::MouseMove drives help plus targeting
-   cursor. Skips the slot parked in gXStatus.review_character_slot. */
+   cursor. Skips the slot whose NPC the camp just dismissed. */
 UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int id)
 {
     if (event.action != UiPointerAction::Enter &&
@@ -4330,7 +4327,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
     W8TargetNeed needed;
     std::string help_text;
 
-    if (slot == static_cast<short>(gXStatus.review_character_slot)) {
+    if (slot == MainGame()->dismissed_npc_slot) {
         return UiResult::Pass;
     }
 
@@ -6648,7 +6645,7 @@ void CreateSurpriseFade(void)
 
 void ReverseSurpriseFade(void)
 {
-    if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
+    if (SurpriseFadingIn()) {
         OverlayQuad* material = g_surprise_fade_node.get();
         float opacity = material->color.a;
 
@@ -6703,7 +6700,7 @@ unsigned char UpdateSurpriseFade(void)
     g_surprise_fade_node->color.a = opacity;
 
     if (boundary) {
-        if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
+        if (SurpriseFadingIn()) {
             const auto snapshot = CatalogArtwork::Load(0x1e0).bitmap();
             g_surprise_snapshot_surface = snapshot;
             g_surprise_snapshot_overlay = makeOverlayFromTexture(
@@ -6719,7 +6716,7 @@ unsigned char UpdateSurpriseFade(void)
         return done;
     }
     if (done) {
-        if (gXStatus.surprise_phase == W8SurprisePhase::fade_in) {
+        if (SurpriseFadingIn()) {
             g_surprise_fade_node->visible = false;
 
             return done;

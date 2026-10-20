@@ -39,6 +39,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -127,7 +128,7 @@ int FindItemTableByName(const char* name)
 {
     int index;
 
-    for (index = 0; index < static_cast<int>(gXStatus.uiItemTablesInDatabase); ++index) {
+    for (index = 0; index < static_cast<int>(ItemTableCount()); ++index) {
         if (SDL_strcasecmp(name, g_item_tables[index].name) == 0) {
             return index;
         }

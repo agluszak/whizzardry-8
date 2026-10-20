@@ -22,6 +22,27 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/xstatus.h"
 
+namespace {
+unsigned int item_table_count;
+unsigned int item_table_category_count;
+unsigned int monster_database_count;
+} // namespace
+
+unsigned int ItemTableCount()
+{
+    return item_table_count;
+}
+
+unsigned int ItemTableCategoryCount()
+{
+    return item_table_category_count;
+}
+
+unsigned int MonsterDatabaseCount()
+{
+    return monster_database_count;
+}
+
 /* 0x0054B300 resets one of eight slots. */
 /* The gStatus object owned by GameplayDatabase.cpp. */
 W8GlobalStatus g_status;
@@ -96,8 +117,8 @@ try {
     item_tables.swap(tables);
     g_item_table_category_names = category_count ? item_table_categories.data() : nullptr;
     g_item_tables = table_count ? item_tables.data() : nullptr;
-    gXStatus.uiItemTableCategories = category_count;
-    gXStatus.uiItemTablesInDatabase = table_count;
+    item_table_category_count = category_count;
+    item_table_count = table_count;
     return true;
 } catch (const std::exception&) {
     return false;
@@ -106,8 +127,8 @@ try {
 /* Seeks straight to one record and strips the four name suffixes. */
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
 try {
-    if (!(uiMonsterIndex < gXStatus.uiMonstersInDatabase)) {
-        Fail("uiMonsterIndex < gXStatus.uiMonstersInDatabase");
+    if (!(uiMonsterIndex < monster_database_count)) {
+        Fail("uiMonsterIndex < monster_database_count");
     }
     auto handle =
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
@@ -134,11 +155,11 @@ void DestroyItemTables(void)
     decltype(item_tables){}.swap(item_tables);
     g_item_table_category_names = nullptr;
     g_item_tables = nullptr;
-    gXStatus.uiItemTableCategories = 0;
-    gXStatus.uiItemTablesInDatabase = 0;
+    item_table_category_count = 0;
+    item_table_count = 0;
 }
 
-/* Reads MONSTERS.DBS whole: the count into gXStatus, then - only when the
+/* Reads MONSTERS.DBS whole: the count, then - only when the
    caller wants them - every record into one allocation handed back through the
    out-parameter. InitializeGame calls it with null just to publish the count. */
 bool LoadMonsterDatabase(std::unique_ptr<W8MonsterRecord[]>* records)
@@ -147,9 +168,8 @@ try {
         wiz8::open_file(wiz8::asset_path("Data\\Databases\\Monsters.DBS"), wiz8::OpenMode::read);
     unsigned int count;
     handle->read_exact(&count, sizeof(count));
-    if (count > std::size(gXStatus.monster_record_cache) ||
-        count >
-            (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
+    if (count > kMaxMonsterSpecies || count > (handle->size() - handle->tell()) /
+                                                  std::int64_t(wiz8::retail::kMonsterRecordBytes)) {
         return false;
     }
     if (records) {
@@ -157,7 +177,7 @@ try {
         for (unsigned i = 0; i < count; ++i) wiz8::retail::read_exact(*handle, block[i]);
         *records = std::move(block);
     }
-    gXStatus.uiMonstersInDatabase = count;
+    monster_database_count = count;
     return true;
 } catch (const std::exception&) {
     return false;
@@ -167,8 +187,8 @@ try {
 bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex,
                               W8MonsterRecord* records)
 try {
-    if (!(uiEndIndex < gXStatus.uiMonstersInDatabase)) {
-        Fail("uiEndIndex < gXStatus.uiMonstersInDatabase");
+    if (!(uiEndIndex < monster_database_count)) {
+        Fail("uiEndIndex < monster_database_count");
     }
     if (uiStartIndex > uiEndIndex) {
         Fail("uiStartIndex <= uiEndIndex");

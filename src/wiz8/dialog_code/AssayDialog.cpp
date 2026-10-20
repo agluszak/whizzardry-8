@@ -50,6 +50,15 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/xstatus.h"
 
+/* Which tab the dialog opens on: the profession icons, or the race side. The
+   choice outlives the dialog. */
+static bool g_assay_professions_tab = true;
+
+void ResetAssayTab()
+{
+    g_assay_professions_tab = true;
+}
+
 static int g_assay_scroll_x_offset = 0x160;
 static int g_assay_scroll_y_offset = 0x48;
 struct W8AssayButtonOffset {
@@ -105,11 +114,11 @@ W8AssayDialog::W8AssayDialog(const W8ItemInstance& item, W8Character* character,
                            g_assay_text_area_offsets.bottom - g_assay_text_area_offsets.top);
     if (!PopulateRequirements()) throw std::runtime_error("Cannot configure assay controls");
     CreateTextBuffers();
-    m_buttons[0].SetVisible(gXStatus.assay_professions_tab);
-    SetProfessionIconsVisible(gXStatus.assay_professions_tab);
-    m_buttons[1].SetVisible(!gXStatus.assay_professions_tab);
-    SetRaceIconsVisible(!gXStatus.assay_professions_tab);
-    m_buttons[gXStatus.assay_professions_tab ? 2 : 3].SetPressed(true);
+    m_buttons[0].SetVisible(g_assay_professions_tab);
+    SetProfessionIconsVisible(g_assay_professions_tab);
+    m_buttons[1].SetVisible(!g_assay_professions_tab);
+    SetRaceIconsVisible(!g_assay_professions_tab);
+    m_buttons[g_assay_professions_tab ? 2 : 3].SetPressed(true);
 }
 
 W8AssayDialog::~W8AssayDialog() = default;
@@ -504,7 +513,7 @@ void W8AssayDialog::ShowTab(bool professions)
 {
     m_buttons[2].SetPressed(professions);
     m_buttons[3].SetPressed(!professions);
-    gXStatus.assay_professions_tab = professions;
+    g_assay_professions_tab = professions;
     m_buttons[0].SetVisible(professions);
     SetProfessionIconsVisible(professions);
     m_buttons[1].SetVisible(!professions);
