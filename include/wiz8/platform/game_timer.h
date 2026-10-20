@@ -16,12 +16,20 @@ extern bool g_level_motion_resume_pending;
 /* The shared game timer counts in 1/10000-second units. */
 inline constexpr std::uint32_t W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
 
-// Both units share MonotonicMicroseconds's monotonic epoch, including its virtual test clock.
+// The shared timers' clock, on MonotonicMicroseconds (including its virtual test clock).
 std::uint32_t GameClockTicks();
+/* The world's animation clock: the game's step time (`Game::time`), modulo 2^32; zero
+   while no game is in progress. Cycles, monsters, missiles and particles stamp it. */
 std::uint32_t GameClockMilliseconds();
 
 void PauseSharedGameTimers(void);
 void ResumeSharedGameTimers(void);
+/* The shared timers are held: a timer on them makes no progress. Step-time countdowns
+   that stand in for such timers stop with them. */
+inline bool SharedGameTimersHeld()
+{
+    return g_shared_timer_paused || g_shared_timer_flag0 || g_level_motion_resume_pending;
+}
 
 /* Mode 1 samples the saved game-day/millisecond clock. Mode 0 samples the
    shared clock; its separate raw-time flag controls pause adjustment. */

@@ -2,6 +2,7 @@
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -12,7 +13,6 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/rules/item_instance.h"
 
 struct W8Character;
@@ -65,20 +65,17 @@ struct W8CharacterEvent {
        Only the id is ever established here; the remaining bytes keep whatever
        the allocation gave them, exactly as before. */
     W8ItemInstance item;
-    /* 0x30/0x34: ProcessDeferredCharacterEvents delays dispatch until this many
-       milliseconds have elapsed since the queued MonotonicMilliseconds stamp. */
-    int dispatch_delay_ms;
-    uint64_t dispatch_delay_start;
+    /* ProcessDeferredCharacterEvents holds the event until more than `dispatch_delay` of
+       the game's step time has passed since `dispatch_delay_start`; zero does not hold. */
+    std::chrono::milliseconds dispatch_delay{};
+    std::chrono::milliseconds dispatch_delay_start{};
 
     /* The event owns its voice; the portrait's shared handle can change
        independently of the event lifetime. */
     wiz8::sound::Playback voice_playback;
 
-    void DelayDispatch(int milliseconds)
-    {
-        dispatch_delay_ms = milliseconds;
-        dispatch_delay_start = MonotonicMilliseconds();
-    }
+    // Hold the event's dispatch for `delay` of the game's step time from now.
+    void DelayDispatch(std::chrono::milliseconds delay);
 
     bool IsAmbientExchange() const
     {
@@ -108,10 +105,10 @@ struct W8CharacterEventQueue {
     std::vector<std::unique_ptr<W8CharacterEvent>> active_events;
     int active_event_type;
     int active_party_slot;
-    /* 0x58: a five-second countdown armed by every successful Dispatch; while
-       it ticks, active_event_type/active_party_slot still describe the last
+    /* A five-second window, on the game's step time, opened by every successful Dispatch;
+       while it lasts, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
-    uint64_t recent_event_clock;
+    std::chrono::milliseconds recent_event_until{};
     // No schedule means idle dialogue is disabled. Queue membership supplies
     // the wait for playback; this stores only the next speaker and deadline.
     struct FollowUp {

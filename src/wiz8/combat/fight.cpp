@@ -1709,7 +1709,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
                 (event = QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 35, 2,
                                              kCharacterEventFullVolume),
                  event != 0)) {
-                event->DelayDispatch(0x5dc);
+                event->DelayDispatch(std::chrono::milliseconds{1500});
                 CurrentGame().endCombat(false);
                 return 1;
             }

@@ -3,6 +3,7 @@
 struct BoundingBox;
 
 #include <array>
+#include <chrono>
 #include <memory>
 #include <span>
 
@@ -27,7 +28,8 @@ void SetSceneAmbientLightWhite(WorldScene* scene);
 void SetModelInstanceExclusionMask(MeshInstance* node, int value);
 std::unique_ptr<MeshInstance> DuplicateModelInstance(const MeshInstance& instance);
 void UpdateWorldMonsters(World* world);
-void WorldUpdateProps(World* world);
+// Advance the world's prop animations by the step's `elapsed` time.
+void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed);
 void SetWorldSceneMeshShaderLowBits(World* owner, int argument);
 void SetWorldSceneMeshShaderBit3(World* owner, int argument);
 void FinalizeStaticScene(World& world);

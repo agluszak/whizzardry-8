@@ -21,8 +21,8 @@ of it:
   `Data()` (about 1,650). The Application owns both; the game's state has moved into
   `Game`; the main game's HUD is `MainGameScreen::hud`, reached through `MainGameHud()`,
   and `g_localized_strings` is now `Data().strings`.
-- **The step still reads the clock.** `Game::advance(elapsed)` is the one step, but the
-  code it calls still keeps its own deadlines on the monotonic clock.
+- **The step still reads the clock in places.** `Game::advance(elapsed)` is the one step
+  and most of what it runs keeps time on the step's time, but some world entities still keep deadlines on the monotonic clock or the shared timers.
 - **Rules drive presentation directly.** Inventory and party report events, but other
   rules still call presentation (notices, targeting, the combat panel, screen ids), and 33 of the 57
   `local_code` files include screen headers.
@@ -138,13 +138,22 @@ the licensed runtime scenarios after every step.
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
    - This absorbs "characters by slot, items by location" below.
-4. **One step.** `Game::advance(elapsed)` is the game's step (ARCHITECTURE.md,
-   "Stepping"); its own countdowns, the frame delta and the environment clock take the
-   elapsed time it is given. What it calls still reads the monotonic clock: the surprise
-   fade, autosave pacing, the monster manager, props and monster generators
-   (`W8GameTimer`/`W8IntervalGate` on the shared clock), missiles, and speech's dispatch delays, recent-event window and mouth frames.
-   Move each onto the elapsed time the step passes down so that a test can step a game
-   deterministically; then add a test that steps a small game with explicit times.
+4. **One step.** `Game::advance(elapsed)` is the game's step and `Game::time` its
+   accumulated time (ARCHITECTURE.md, "Stepping"); a test steps an empty level with
+   explicit times (`game_timer_test.cpp`). What the step calls still keeps its own time
+   in these places:
+   - World entities on the shared timers (`W8GameTimer`/`W8IntervalGate`, real time less
+     pauses): monsters' script delay, light and fade timers, triggers and their
+     countdowns, the level scripts' gates, the party camera's manual-input hold, ambient
+     sound fades and camera shake. Their saves store progress, so each can move to
+     step-time countdowns as `GeneratorInterval` did; then `GameClockTicks` serves only
+     presentation.
+   - World code on the monotonic clock: world items' settle countdown
+     (`world_item.cpp`), keyframe tracks, the environment's lighting transition, random
+     ambient sounds' next play, trigger item-group seeds and random subcycles, spell
+     cooldowns (`Magic.cpp`), and the portrait idle clock the rest sequence arms
+     (`GameplayTime.cpp`). The renderer's light animations and texture playback stay on
+     the monotonic clock until the VulkanSceneGraph migration settles their owner.
 5. **Presentation owned by screens.** The main game repaints what its HUD's record
    (`MainGameRepaint`) holds, game code reports changes as events, the draw path
    receives the HUD, and the pointer derives the held-item cursor every frame

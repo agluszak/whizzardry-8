@@ -17,7 +17,7 @@ std::uint32_t GameClockTicks()
 
 std::uint32_t GameClockMilliseconds()
 {
-    return static_cast<std::uint32_t>(MonotonicMilliseconds());
+    return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
 }
 
 std::uint32_t g_shared_timer_pause_base;

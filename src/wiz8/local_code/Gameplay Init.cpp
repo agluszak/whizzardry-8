@@ -113,7 +113,7 @@ void ResetGameplaySlot(unsigned int slot)
     record->portrait.rendered_pose = -1;
     record->portrait.pose_dirty = false;
     record->portrait.frame_dirty = false;
-    record->portrait.frame_clock = MonotonicMilliseconds() + (0);
+    record->portrait.frame_due = {};
     record->portrait.voice_remaining_ms = 0;
     record->portrait.pose_clock = MonotonicMilliseconds() + (0);
     record->portrait.idle_clock = MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);

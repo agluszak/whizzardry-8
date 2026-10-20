@@ -1,6 +1,7 @@
 #include "wiz8/world/encounters.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -38,8 +39,8 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
@@ -54,8 +55,41 @@ MonGen::MonGen()
     custom_interval_seconds = 100;
     unknown_08 = 0xffff;
     encounter_table_index = -1;
-    timer.m_flags.one_shot = false;
     generation_enabled = true;
+}
+
+void GeneratorInterval::setSeconds(float seconds)
+{
+    if (seconds > 0.0f) seconds_ = seconds;
+}
+
+void GeneratorInterval::setScale(float scale)
+{
+    const float kept = SharedGameTimersHeld() ? 0.0f : progress();
+    scale_ = scale;
+    elapsed_ = kept * length();
+}
+
+unsigned int GeneratorInterval::advance(std::chrono::milliseconds elapsed)
+{
+    elapsed_ += elapsed;
+    const auto intervals = static_cast<unsigned int>(progress());
+    elapsed_ -= static_cast<float>(intervals) * length();
+    return intervals;
+}
+
+void GeneratorInterval::save(wiz8::File& handle) const
+{
+    const float saved_progress = progress();
+    handle.write(&saved_progress, sizeof(saved_progress));
+    handle.write(&scale_, sizeof(scale_));
+}
+
+void GeneratorInterval::load(W8Chunk& handle)
+{
+    const auto saved_progress = handle.ReadValue<float>();
+    scale_ = handle.ReadValue<float>();
+    elapsed_ = saved_progress * length();
 }
 
 MonGen* FindMonGenByName(const char* name)
@@ -438,7 +472,7 @@ void ResetMonsterGeneratorTimers(void)
 
     for (const auto& generator : *generators) {
 
-        generator->timer.ResetDurationScale();
+        generator->timer.setScale(1.0f);
     }
 }
 
@@ -564,9 +598,9 @@ void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state)
             generator->flags = flags;
         }
         if (version > 1) {
-            W8IntervalGate timer;
-            timer.m_flags.one_shot = false;
-            if (!timer.LoadState(file)) throw std::runtime_error("invalid generator timer");
+            // The record restores a one-second interval until the generator rearms.
+            GeneratorInterval timer;
+            timer.load(file);
             if (generator) generator->timer = timer;
         }
     }
@@ -574,7 +608,7 @@ void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state)
 
 void StartLevelEncounters(World& world)
 {
-    for (const auto& generator : world.encounters.generators) generator->timer.Arm();
+    for (const auto& generator : world.encounters.generators) generator->timer.arm();
     if (world.level_id >= 0 && world.level_id < W8_LEVEL_COUNT) {
         auto& level = Data().levels[world.level_id];
         ClampEncounterBudget(world);
@@ -582,18 +616,20 @@ void StartLevelEncounters(World& world)
     }
 }
 
-/* Runs one encounter roll for every generator that is armed and whose own
+/* Runs one encounter roll for every generator whose interval passed in the step's
+   `elapsed` time (none passes while the shared timers are held) and whose own
    precondition passes. The count is taken once, but the vector is re-read for
    each element, which is what the repeated bounds test in the original is. */
-void RunMonsterGenerators(void)
+void RunMonsterGenerators(std::chrono::milliseconds elapsed)
 {
+    if (SharedGameTimersHeld()) elapsed = {};
     int count = static_cast<int>(GetWorld()->encounters.generators.size());
     MonGen* generator;
     int index;
 
     for (index = 0; index < count; ++index) {
         generator = GetWorld()->encounters.generators[index].get();
-        if (generator->timer.PollElapsedIntervals() != 0) {
+        if (generator->timer.advance(elapsed) != 0) {
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
             }
@@ -632,7 +668,7 @@ void SaveMonsterGenerators(wiz8::File& handle)
         const unsigned char enabled = generator->generation_enabled;
         handle.write(&enabled, 1);
         handle.write(&generator->flags, 4);
-        generator->timer.SaveState(handle);
+        generator->timer.save(handle);
     }
 }
 
@@ -656,7 +692,7 @@ void MonGen::Save(wiz8::File& handle)
     handle.write(&spawn_position.y, 4);
     handle.write(&spawn_position.z, 4);
     handle.write(&encounter_table_index, 4);
-    timer.SaveState(handle);
+    timer.save(handle);
 }
 
 /* Reads one generator back. The leading byte is a record version: from 3 the
@@ -686,8 +722,8 @@ try {
     handle.ReadBytes(&encounter_table_index, 4);
     Reset(default_interval);
     if (static_cast<signed char>(version) > 1) {
-        if (!timer.LoadState(handle)) return false;
-        timer.Arm();
+        timer.load(handle);
+        timer.arm();
     }
     flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
     return true;
@@ -707,10 +743,9 @@ void MonGen::Reset(short default_interval)
     interval =
         (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval : custom_interval_seconds;
     jitter = interval * g_generator_jitter_fraction;
-    timer.SetDuration(
-        static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) + interval -
-        jitter);
-    timer.Arm();
+    timer.setSeconds(static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) +
+                     interval - jitter);
+    timer.arm();
 }
 
 /* Writes the encounter subsystem's own state to a save, ahead of the generator
@@ -778,7 +813,7 @@ void SetMonsterGeneratorDurationScale(float scale)
     auto* generators = &GetWorld()->encounters.generators;
 
     for (auto& generator : *generators) {
-        generator->timer.SetDurationScale(scale);
+        generator->timer.setScale(scale);
     }
 }
 
