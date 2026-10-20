@@ -335,11 +335,12 @@ Unlayered code may use the layers.
   `PartyEffectsChanged`, `PartyMembershipChanged`, `MonstersChanged`,
   `WorldItemRemoved`), a fight's course (`CombatBegan`, `CombatEnded`,
   `CombatProgressChanged`, `CombatStanceChanged`, `CombatEffectsChanged`) and skill
-  changes (`SkillAvailabilityChanged`, `SkillImproved`) and speech (`CharacterSpeech`). Rules push them; they never
-  ask for repaints. An installed observer receives each event as it is pushed, so
+  changes (`SkillAvailabilityChanged`, `SkillImproved`) and speech (`CharacterSpeech`).
+  Rules push them; they never ask for repaints. An installed observer receives each event as it is pushed, so
   presentation keeps its place among the screen calls that unmigrated code still
   makes; a game without one keeps them pending, which is how tests inspect them.
-  `GameSession::observe` (called once by `InitializeGame`) gives every game the session begins the UI's presenter, `PresentGameEvent` in `Screens.cpp`, which maps each
+  `GameSession::observe` (called once by `InitializeGame`) gives every game the session
+  begins the UI's presenter, `PresentGameEvent` in `Screens.cpp`, which maps each
   event to the active screen's notice, repaint or character-screen call (the main game's
   repaints only while it is shown) and decides there whether a skill increase is shown
   at once.

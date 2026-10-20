@@ -40,6 +40,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"

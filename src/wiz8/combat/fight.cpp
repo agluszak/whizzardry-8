@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <cmath>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,8 +24,6 @@
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/party_movement.h"
 #include "wiz8/combat/range.h"
-#include "wiz8/data/attack_modes.h"
-#include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
@@ -72,10 +69,8 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/monster_cycles.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"

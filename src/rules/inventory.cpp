@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <expected>
 #include <functional>
 #include <iterator>

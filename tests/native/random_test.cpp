@@ -21,7 +21,6 @@
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/rules/item_rules.h"

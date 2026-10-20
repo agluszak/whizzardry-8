@@ -11,7 +11,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
@@ -270,7 +269,7 @@ void Combat::scheduleNextActor(Game& game)
                     schedule(PartyActor{slot});
                     break;
                 }
-                row->executing.kind = W8_ACTION_NONE;
+                game.party.rows[slot].executing.kind = W8_ACTION_NONE;
                 combat_row->phase = 0;
                 if (!combat_row->dead) {
                     combat_row->dead = true;

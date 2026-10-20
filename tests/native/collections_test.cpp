@@ -121,9 +121,9 @@ TEST_CASE("World-clock rollover preserves seconds and NPC cooldowns", "[timers][
     REQUIRE(game.status.world_clock_ms == 0);
 
     game.surprise_possible = false;
-    game.party.rows[0].fOccupied = true;
-    game.party.rows[0].npc_bound = true;
-    game.party.rows[0].npc_index = 0;
+    game.party.members[0].emplace();
+    game.party.members[0]->npc_bound = true;
+    game.party.members[0]->npc_index = 0;
     game.party.characters[0].hp_current = 1;
     std::vector<Rng::Draw> draws;
     game.rng.trace(&draws);

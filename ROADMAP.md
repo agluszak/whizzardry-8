@@ -116,7 +116,7 @@ the licensed runtime scenarios after every step.
      `NpcDialogueUi`; its transcript and staged notice are game state),
      `npc_presentation` and `npc_speech`, and the portrait animation in
      `monster_manager_entries`. Move them to the screen with step 5.
-   - The main game's first entry starts the world running, restarts the gameplay timer,
+   - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the
      portraits are the screen's.
