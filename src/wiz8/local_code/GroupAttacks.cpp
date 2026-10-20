@@ -110,7 +110,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     int i;
     int drain;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8CombatSlot target;
     unsigned int uiHits[2];
     unsigned int uiTotals[2];
@@ -455,7 +455,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
 void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
                                W8CombatSlot* pAttackerSlot)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     int count;
     glm::vec3* position;
     W8MonsterGroup* group;

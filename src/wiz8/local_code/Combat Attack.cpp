@@ -46,7 +46,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -261,7 +260,7 @@ int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecor
    attack the record lacks is simply not usable, and so is one whose data is
    broken, which is reported. Otherwise the attack is out of reach unless it
    reaches anyone, judged with the monster's current action set aside. */
-unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                 unsigned int attack, int, bool friendly_targets)
 {
     W8MonsterActionKind action_kind;
@@ -297,7 +296,7 @@ unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* re
    motionless monster is always rated at one; otherwise each of its three
    attacks is rated, a usable one answering at once and the highest reason
    otherwise kept. */
-unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                     bool friendly_targets)
 {
     unsigned char best;
@@ -442,7 +441,7 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
    for a monster target. */
 bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8Character* character;
     W8MonsterInfo* target_info;
     int target_slot;
@@ -529,7 +528,7 @@ static int GetCharacterProtectionScore(W8Character* character)
 
 static int GetMonsterProtectionScore(W8MonsterInfo* monster)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster);
     int armed = 0;
     if (record->attacks[0].fHasAttack != 0) {
         armed = record->attacks[0].attack_score;
@@ -580,7 +579,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
     for (unsigned int monster_index = 0;
          monster_index < CurrentLevelPopulation().monster_roster.live().size(); ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_BLIND &&
             (record->flags & W8_MONSTER_FLAG_BODYGUARD) != 0 &&
@@ -873,7 +872,7 @@ void ResolveSpellMissileHit(Missile* missile)
                           g_settings.verbose_combat_messages, &missile->result);
 }
 
-static unsigned int RollMonsterHitLocation(W8MonsterRecord* record)
+static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
 {
     unsigned int total = 0;
     unsigned int roll = Random(100);
@@ -919,7 +918,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
 {
     W8TargetSource* source = &missile->m_Source;
     W8CombatSlot* target = &missile->combat_slot;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     std::string text;
     std::string location_name;
     unsigned char target_start;
@@ -1073,7 +1072,7 @@ void PrepareCharacterAttacks(int party_slot)
 int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     int modifier = 0;
     bool distracted = false;
     unsigned char out_of_formation;
@@ -1167,7 +1166,7 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
 static std::string CombatTargetName(const W8TargetSource* source, const W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8MonsterGroup* monster_group;
 
     if (target == nullptr) {
@@ -1225,7 +1224,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
 int GetTargetArmorClass(W8CombatSlot* target, W8AttackMode attack_mode)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     /* Retail continued with an uninitialized base after the assertion;
        natively it starts at zero. */
     int base = 0;
@@ -1252,7 +1251,7 @@ int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, i
 {
     W8Character* character;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     int base = GetTargetArmorClass(target, attack_mode);
 
     if (target->iType == W8_TARGET_KIND_MONSTER) {
@@ -1282,7 +1281,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
                              int armor_value, unsigned int palette)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     int material;
     int difference = attack_value - armor_value;
 
@@ -1359,7 +1358,7 @@ unsigned int CapAttackDamageByTargetHealth(unsigned int damage)
    to long and reported; the reverse is corrected to short the same way. */
 void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_detail)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     unsigned int attack = monster_info->pCombat->attack_index;
     W8RangeCategory range;
     signed char cycle;
@@ -1626,16 +1625,16 @@ static void ReportInvalidAttackTarget(const W8CombatSlot& target, const W8Target
    location, rolls penetration, applies damage and the struck target's
    retaliation enchantment, then decides whether the monster swings again,
    repicks a target or is done. */
-ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     W8SpellEffectResult* report = &CurrentGame().combat.state()->attack_report;
     W8SpellEffectResult local_report;
     W8MonsterCombatState* combat = monster_info->pCombat.get();
     unsigned int attack_index = combat->attack_index;
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
-    W8MonsterAttack* attack = &record->attacks[attack_index];
+    const W8MonsterAttack* attack = &record->attacks[attack_index];
     W8MonsterInfo* target_info = nullptr;
-    W8MonsterRecord* target_record;
+    const W8MonsterRecord* target_record;
     W8TargetSource source;
     W8TargetSource victim_source;
     W8CombatSlot entry_target;
@@ -1974,7 +1973,7 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
 /* Begin one of the monster's attacks for the round: validate the state, rate
    the pending attack, confirm the target is still reachable, roll the swing
    count, announce it and start the cycle. */
-bool StartMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     W8MonsterCombatState* combat;
     unsigned int attack;
@@ -2082,13 +2081,13 @@ static void AppendAttackWeaponName(std::string_view name, int mode)
     }
 }
 
-void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            char target_changed)
 {
     W8MonsterCombatState* combat = monster_info->pCombat.get();
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
     unsigned int attack = combat->attack_index;
-    W8MonsterAttack* pAttack = &record->attacks[attack];
+    const W8MonsterAttack* pAttack = &record->attacks[attack];
     W8RangeCategory range = GetMonsterActionRangeCategory(monster_info, record, attack);
     W8MonsterCombatState* second_combat;
     W8MonsterInfo* second;
@@ -2339,7 +2338,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
     W8Character* pPC = &CurrentGame().party.characters[party_slot];
     W8CombatCharacterRow* row = &CurrentGame().combat.state()->characters[party_slot];
     W8MonsterInfo* monster_info = nullptr;
-    W8MonsterRecord* record = nullptr;
+    const W8MonsterRecord* record = nullptr;
     W8Character* target = nullptr;
     unsigned char out_of_formation;
     bool target_defending;
@@ -2492,7 +2491,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
    modifier and mode terms, unaware/natural bonuses, a fatigue penalty that
    halves for natural verbs, a repick surprise penalty, an optional armor and
    attribute comparison against the target, the blind cap, and difficulty. */
-int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
+int GetMonsterAttackScore(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
                           W8AttackMode attack_mode, char ignore_target_defenses)
 {
     W8MonsterCombatState* combat = monster_info->pCombat.get();
@@ -2578,12 +2577,12 @@ int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
    dice count for the running attack, rolls the attack's dice, floors the
    result at one, applies the target's damage reduction, and reports the dice
    count through the out pointer. */
-int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
+int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
                                unsigned int* out_dice_count)
 {
     W8AttackMode attack_mode = static_cast<W8AttackMode>(monster_info->action_detail);
     W8MonsterInfo* target_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8Character* target;
     unsigned char out_of_formation;
     bool target_defending;
@@ -3012,7 +3011,7 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
 /* The monster twin: candidates for the monster's next target. Retail's
    monster exclusion compares the aimed id with the acting monster's own id,
    rather than the candidate's id (0x005441aa..0x005441b2). */
-void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+void BuildMonsterTargetList(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                             unsigned int attack, std::vector<W8CombatSlot>& out_list)
 {
     for (int i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
@@ -3076,7 +3075,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
             Fail("SourceIsMonster(pSource)");
         }
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         message =
             fmt::format("{} {} ", GetMonsterName(monster_info, record, 0), "accidentally strikes");
         color = GetTargetNoticeColor(source, target);
@@ -3787,7 +3786,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             PointCameraAtCombatTarget(&source, &CurrentGame().combat.state()->TargetHit);
             if (CurrentGame().combat.state()->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(CurrentGame().combat.state()->TargetHit.iMonsterID);
-                W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+                const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
                 hit_location = RollMonsterHitLocation(record);
                 if (record->hit_location_chances[hit_location] < 100) {
                     location_name =

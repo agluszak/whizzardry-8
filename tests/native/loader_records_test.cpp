@@ -28,13 +28,13 @@
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
-#include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
-#include "scoped_records.h"
+#include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/cursor_nodes.h"
@@ -960,8 +960,9 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
 {
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>());
-    const ScopedRecords records(MutableData().items, 2);
-    MutableData().items[0].flags = W8_ITEM_FLAG_CONTAINER;
+    GameData data{.items = std::vector<W8ItemDatabaseRecord>(2)};
+    data.items[0].flags = W8_ITEM_FLAG_CONTAINER;
+    const ScopedGameData installed(std::move(data));
     Trigger trigger(GetWorld());
     trigger.world_item_group = std::make_unique<W8WorldItem>();
     auto prop = std::make_unique<Prop>();

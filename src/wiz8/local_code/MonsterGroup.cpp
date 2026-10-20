@@ -188,7 +188,7 @@ bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
    the original emits the dec/je ladder VC6 produces for small dense cases. */
 static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8NpcState* npc_record;
     W8Disposition disposition = W8_DISPOSITION_NEUTRAL;
 
@@ -254,7 +254,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
    not moved since that stamp. */
 void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8MonsterInfo* monster_info;
     unsigned int index;
     int cooldown;
@@ -320,7 +320,7 @@ W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::sour
 
 /* The database record behind a group's species. The assertion is the same one
    the disposition calculation opens with, at the same source line. */
-W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
+const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
 {
     if (monster_group == 0) {
         Fail("pMonsterGroup != NULL");
@@ -502,7 +502,7 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group)
    Its opening assertion is followed immediately by MonsterGroupGetRecord's own. */
 std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int name_form;
 
     if (monster_group == 0) {
@@ -732,7 +732,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
                             bool use_alternate_name, bool announce_spawn, bool place_on_ground)
 {
     W8MonsterGroup* group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     std::vector<std::unique_ptr<W8MonsterGroup>>* list;
     unsigned int index;
     unsigned int created;
@@ -982,7 +982,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         if (monster_group == 0) {
             Fail("pMonsterGroup != NULL");
         }
-        W8MonsterRecord* record = MonsterDBFromSpecies(monster_group->monster_id);
+        const W8MonsterRecord* record = MonsterDBFromSpecies(monster_group->monster_id);
         if (record->untargetable != 0) {
             return;
         }

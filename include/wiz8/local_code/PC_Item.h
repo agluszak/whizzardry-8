@@ -4,7 +4,6 @@
 #include <memory>
 #include <string>
 
-void ReleaseGenericItemNames(void);
 struct SpriteSheet;
 /* The item's inventory artwork, shared through the image asset cache. */
 std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
@@ -37,8 +36,6 @@ std::string GetItemDisplayName(const W8ItemInstance* item);
 enum { W8_GENERIC_ITEM_NAME_COUNT = 147 };
 /* The per-item-class notice index. */
 extern unsigned short g_generic_item_name_notice[W8_GENERIC_ITEM_NAME_COUNT];
-/* One lazily built generic name per unidentified-name index. */
-extern std::string g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 /* The message ids for what an item use did, read at every other entry; the
    last six are the item property labels. */
 enum { W8_ITEM_PROPERTY_MESSAGE_FIRST = 19 };

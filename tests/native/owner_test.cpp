@@ -29,10 +29,9 @@
 #include <fmt/printf.h>
 
 #include "application.h"
-#include "mutable_game_data.h"
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
-#include "scoped_records.h"
+#include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
@@ -45,6 +44,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
@@ -1561,15 +1561,10 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     UiStateSnapshot saved_state;
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
-        std::vector<std::string> localized_strings = std::move(MutableData().strings);
-        ~TooltipStateSnapshot()
-        {
-            g_settings.tooltips_enabled = tooltips_enabled;
-            MutableData().strings = std::move(localized_strings);
-        }
+        ~TooltipStateSnapshot() { g_settings.tooltips_enabled = tooltips_enabled; }
     } tooltip_state;
     g_settings.tooltips_enabled = true;
-    MutableData().strings.emplace_back("Button tooltip");
+    const ScopedGameData installed(GameData{.strings = {"Button tooltip"}});
     UiLayer layer;
     Font font{};
 
@@ -1839,11 +1834,13 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         button_image_fixture(assets / "data" / "dialogs", image, 16);
     }
     {
-        const ScopedRecords items(MutableData().items, 3);
+        GameData data{.items = std::vector<W8ItemDatabaseRecord>(3)};
+        for (int index = 0; index < 3; ++index)
+            data.items[index].equip_class = static_cast<W8ItemEquipClass>(index);
+        const ScopedGameData installed(std::move(data));
         W8WorldItem group{};
         std::vector<W8WorldItem*> addresses;
         for (int index = 0; index < 3; ++index) {
-            MutableData().items[index].equip_class = static_cast<W8ItemEquipClass>(index);
             auto item = std::make_unique<W8WorldItem>();
             item->item.iItemNo = index;
             item->item.identified = true;
@@ -2121,9 +2118,12 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "data/items/icon.sti", 1);
-    const ScopedRecords items(MutableData().items, 1005);
-    auto& records = MutableData().items;
-    for (auto& record : records) record.video_object_name = "icon.sti";
+    GameData data{.items = std::vector<W8ItemDatabaseRecord>(1005)};
+    for (auto& record : data.items) record.video_object_name = "icon.sti";
+    data.items[1].video_object_name = "missing.sti";
+    data.items[2].video_object_name.clear();
+    data.items[2].unidentified_name_index = 145;
+    const ScopedGameData installed(std::move(data));
     struct Restore {
         w8_native::Roots roots;
         ~Restore()
@@ -2136,14 +2136,9 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     REQUIRE_THROWS_AS(ItemSprites(-1), std::out_of_range);
-    REQUIRE_THROWS_AS(ItemSprites(static_cast<int>(records.size())), std::out_of_range);
-    records[0].video_object_name = "missing.sti";
-    REQUIRE_THROWS_AS(ItemSprites(0), std::runtime_error);
-    records[0].video_object_name.clear();
-    records[0].unidentified_name_index = 145;
-    REQUIRE_THROWS_AS(ItemSprites(0), std::out_of_range);
-    records[0].video_object_name = "icon.sti";
-    records[0].unidentified_name_index = 0;
+    REQUIRE_THROWS_AS(ItemSprites(1005), std::out_of_range);
+    REQUIRE_THROWS_AS(ItemSprites(1), std::runtime_error);
+    REQUIRE_THROWS_AS(ItemSprites(2), std::out_of_range);
 
     // Items naming one file share one decoded sheet.
     const auto held = ItemSprites(0);

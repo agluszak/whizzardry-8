@@ -33,7 +33,6 @@
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -251,7 +250,7 @@ void UpdateMonsterGroups(bool staggered)
 W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     W8SightState result;
 
@@ -297,7 +296,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
     update = false;
     decision = W8_RT_AI_IDLE;
     if (engage && IsSightRangeOverridden() && monster_info->ai_mode == W8_RT_AI_CHARGE_PARTY) {
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
         W8MonsterGroup* monster_group;
         Navigator* navigator;
         unsigned char best_range;
@@ -624,7 +623,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
 {
     Monster* monster = monster_info->p3D;
     W8MonsterGroup* monster_group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8MonsterInfo* member;
     W8SpellEffectEntry* effect;
     SpellVisual* visual;
@@ -772,7 +771,7 @@ static bool g_spell_cycle_error_reported;
    settles on is checked, and a group that has given up holds instead. */
 void UpdateMonsterAI(W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8RangeCategory range_category;
     unsigned int chance;
     unsigned char rating;
@@ -905,7 +904,7 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* member;
     W8MonsterInfo* leader;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     unsigned int spell;
     float distance;
@@ -987,7 +986,7 @@ members:
    committed keeps advancing until an enemy is inside short range, and a
    record without an explicit advance chance advances unless its behavior byte
    says otherwise. */
-unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     unsigned int hp_percent;
     unsigned int result = 0;
@@ -1033,7 +1032,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
 {
     W8MonsterInfo* locked_monster = nullptr;
     W8MonsterInfo* other;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     unsigned int attack;
     unsigned int mode_bit;
@@ -1220,7 +1219,7 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
 bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked,
                                bool set_attack_rate)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
     record = GetMonsterDataForInfo(monster_info);
     BuildMonsterActionQueue(monster_info, target_locked, attack_locked);
@@ -1306,7 +1305,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
 {
     W8MonsterInfo* target = 0;
     W8Character* character = 0;
-    W8MonsterRecord* record = 0;
+    const W8MonsterRecord* record = 0;
     int hp = 0;
     int hp_max = 0;
     int stat = 0;
@@ -1760,7 +1759,7 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
 /* Which of the record's ten spells the monster casts: each usable slot adds
    its weight from the fixed table, then a roll under the total walks them
    down. The assertion names the original local, uiCastableSpellCnt. */
-int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     int weights[10] = {0};
     int spell_ids[10];
@@ -1794,7 +1793,7 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 /* Adds each active monster in combat with the given disposition that can reach the
    caster and accept the spell. exclude_caster skips the caster itself. */
 static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                   W8MonsterRecord* record, W8Disposition disposition,
+                                   const W8MonsterRecord* record, W8Disposition disposition,
                                    bool exclude_caster, std::vector<W8CombatSlot>& targets)
 {
     W8CombatSlot slot;
@@ -1824,7 +1823,7 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
 void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                                 std::vector<W8CombatSlot>& targets)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     int saved_detail = monster_info->action_detail;
     W8MonsterActionKind saved_kind = monster_info->action_kind;
     W8VisibilityCondition sight_kind;
@@ -2209,7 +2208,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
    row, the special-attack cycle the flee uses, enough stamina left, and - for
    non-summoning attacks - somewhere to run. Summoning rows flee at the party
    instead and may not be offered as a special action. */
-bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool exclude_special)
+bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
+                    bool exclude_special)
 {
     std::vector<W8CombatSlot> targets;
 
@@ -2559,7 +2559,7 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
 void CheckMonsterGroupsEnterCombat(void)
 {
     W8MonsterGroup* group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
 
     RefreshAllSight();

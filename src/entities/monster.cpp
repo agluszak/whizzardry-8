@@ -58,7 +58,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -781,7 +780,7 @@ bool Monster::GetSpellPosition(glm::vec3* position)
     if (!found && !spell_vertex_warned) {
         if (g_dev_mode) {
             W8MonsterInfo* monster_info = FindMonster(location_id);
-            W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+            const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
             DebugMessage(0, fmt::sprintf(g_warning_missing_spell_vertex, record->name0));
         }
         spell_vertex_warned = true;
@@ -2670,7 +2669,7 @@ bool Monster::IsRenderable(bool alternate)
     bool disabled = this->disabled;
     int location_id = this->location_id;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
     if (disabled) {
         return false;

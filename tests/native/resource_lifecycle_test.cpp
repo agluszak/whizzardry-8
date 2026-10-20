@@ -19,8 +19,10 @@
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
+#include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
@@ -522,11 +524,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "Prepared monster visibility resolves records in its owning population",
                  "[resources][levels][rendering]")
 {
-    struct RestoreRecord {
-        std::unique_ptr<W8MonsterRecord> previous =
-            std::exchange(CachedMonsterRecord(0), std::make_unique<W8MonsterRecord>());
-        ~RestoreRecord() { CachedMonsterRecord(0) = std::move(previous); }
-    } restore;
+    const ScopedGameData installed(GameData{.monsters = std::vector<W8MonsterRecord>(1)});
     auto active = std::make_unique<W8MonsterInfo>();
     active->location_id = 7;
     active->within_viewing_distance = false;

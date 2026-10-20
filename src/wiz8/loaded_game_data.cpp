@@ -4,10 +4,13 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <regex>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -15,7 +18,9 @@
 #include <vector>
 
 #include "asset_paths.h"
+#include "layouts/encounter_tables.h"
 #include "retail_records.h"
+#include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
@@ -78,6 +83,44 @@ std::vector<W8MissileTableRecord> ReadMissileDatabase()
         handle->seek(0x101, wiz8::SeekOrigin::current);
         if (wiz8::retail::read(*handle, row).bytes != wiz8::retail::kMissileTableRecordBytes)
             Malformed("MissileTables.dbs");
+    }
+    return rows;
+}
+
+std::optional<std::string> ParseKeywordToken(std::string_view& line)
+{
+    const auto start = line.find_first_not_of(' ');
+    if (start == std::string_view::npos) return {};
+    line.remove_prefix(start);
+    const auto end = line.find_first_of("/\r\n");
+    auto word = line.substr(0, end);
+    const auto last = word.find_last_not_of(' ');
+    if (last == std::string_view::npos) return {};
+    word = word.substr(0, last + 1);
+    line = end == std::string_view::npos ? std::string_view{} : line.substr(end + 1);
+    return std::string(word);
+}
+
+/* One keyword file: a header line, then one row per line after an eleven-character
+   prefix. */
+std::vector<std::vector<std::string>> ReadKeywordFile(std::string_view path)
+{
+    auto input = wiz8::open_file(wiz8::asset_path(path));
+    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) Malformed(path);
+    const auto bytes = input->read_text();
+    if (bytes.find('\0') != std::string::npos) Malformed(path);
+    std::istringstream stream(bytes);
+    std::string line;
+    std::getline(stream, line);
+    std::vector<std::vector<std::string>> rows;
+    while (std::getline(stream, line)) {
+        // Retail's line limit and eleven-character metadata prefix are format constraints.
+        if (wiz8::text::to_utf16(line).size() >= 1000) Malformed(path);
+        std::string_view remaining(line);
+        remaining.remove_prefix(wiz8::text::codepoint_prefix(remaining, 11));
+        std::vector<std::string> words;
+        while (auto word = ParseKeywordToken(remaining)) words.push_back(std::move(*word));
+        rows.push_back(std::move(words));
     }
     return rows;
 }
@@ -193,6 +236,68 @@ std::vector<W8SpellRuntimeRecord> ReadSpellDatabase()
     return records;
 }
 
+/* EncounterTables.dbs: a count of category names, the names, a count of tables, then
+   each table's header followed by its entries stored as columns. */
+std::vector<W8EncounterTable> ReadEncounterTables()
+{
+    auto handle = OpenDatabase("EncounterTables.dbs");
+    int name_count;
+    handle->read_exact(&name_count, sizeof(name_count));
+    if (name_count < 0) Malformed("EncounterTables.dbs");
+    handle->seek(std::int64_t(name_count) * 256, wiz8::SeekOrigin::current);
+    int table_count;
+    handle->read_exact(&table_count, sizeof(table_count));
+    if (table_count < 0) Malformed("EncounterTables.dbs");
+    std::vector<W8EncounterTable> tables(table_count);
+    for (auto& table : tables) {
+        W8EncounterTableDiskHeader header;
+        handle->read_exact(&header, sizeof(header));
+        table.name.assign(header.name, std::find(std::begin(header.name),
+                                                 std::prev(std::end(header.name)), '\0'));
+        table.entries.resize(header.entry_count);
+        for (auto& entry : table.entries) handle->read_exact(&entry.species, sizeof(entry.species));
+        for (auto& entry : table.entries) handle->read_exact(&entry.rarity_class, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.time_condition, 1);
+        for (auto& entry : table.entries) handle->read_exact(&entry.challenge_level, 1);
+        for (auto& entry : table.entries) {
+            W8EncounterScriptName script;
+            handle->read_exact(&script, sizeof(script));
+            entry.script.assign(script.value, std::find(std::begin(script.value),
+                                                        std::prev(std::end(script.value)), '\0'));
+        }
+        // Version two adds a flag byte nothing reads.
+        if (header.version != 1) handle->seek(1, wiz8::SeekOrigin::current);
+    }
+    return tables;
+}
+
+W8DialogueKeywords ReadDialogueKeywords()
+try {
+    return {.english = ReadKeywordFile("Data\\Strings\\English_Keywords.txt"),
+            .translated = ReadKeywordFile("Data\\Strings\\translated_Keywords.txt")};
+} catch (const std::exception&) {
+    return {};
+}
+
+/* Monsters.DBS: a count, then the records. Names drop their editor suffix after '#'. */
+std::vector<W8MonsterRecord> ReadMonsterDatabase()
+{
+    auto handle = OpenDatabase("Monsters.DBS");
+    unsigned int count;
+    handle->read_exact(&count, sizeof(count));
+    if (count > kMaxMonsterSpecies ||
+        count > (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kMonsterRecordBytes))
+        Malformed("Monsters.DBS");
+    std::vector<W8MonsterRecord> records(count);
+    for (auto& record : records) {
+        wiz8::retail::read_exact(*handle, record);
+        for (auto* name : {&record.name0, &record.name1, &record.name2, &record.name3})
+            if (const auto suffix = name->find('#'); suffix != std::string::npos)
+                name->resize(suffix);
+    }
+    return records;
+}
+
 GameData LoadGameData(std::string_view string_data_path)
 {
     auto item_tables = ReadItemTables();
@@ -206,7 +311,10 @@ GameData LoadGameData(std::string_view string_data_path)
         .facts = wiz8::retail::read_database<W8FactDatabaseRecord>(*OpenDatabase("FACT.DBS"),
                                                                    W8_FACT_SLOT_COUNT),
         .levels = wiz8::retail::read_database<W8LevelDatabaseRecord>(*OpenDatabase("LEVELS.DBS")),
+        .monsters = ReadMonsterDatabase(),
         .missiles = ReadMissileDatabase(),
+        .encounter_tables = ReadEncounterTables(),
+        .keywords = ReadDialogueKeywords(),
     };
 }
 
@@ -215,7 +323,7 @@ const GameData& Data()
     return loaded;
 }
 
-void InstallGameData(GameData data)
+GameData InstallGameData(GameData data)
 {
-    loaded = std::move(data);
+    return std::exchange(loaded, std::move(data));
 }

@@ -8,6 +8,7 @@
 #include <iterator> // IWYU pragma: keep - public header for std::istreambuf_iterator.
 #include <memory>
 #include <span>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -18,16 +19,16 @@
 
 #include "fact_state.h"
 #include "mgs_commands.h"
-#include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_combat.h"
 #include "scoped_game.h"
-#include "scoped_records.h"
+#include "scoped_game_data.h"
 #include "sight_state.h"
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -86,6 +87,30 @@
 struct LevelWorldFixture : ScopedGame {
     LevelWorldFixture() { game.level.replacePrimary(std::make_unique<World>()); }
 };
+
+// Item records with no profession, race, gender, attribute or skill restriction.
+static std::vector<W8ItemDatabaseRecord> UnrestrictedItems(std::size_t count)
+{
+    W8ItemDatabaseRecord record{};
+    record.profession_mask = 0xffff;
+    record.race_mask = 0xffff;
+    record.gender_mask = 3;
+    record.attribute_requirements[0].stat_id = 0xff;
+    record.attribute_requirements[1].stat_id = 0xff;
+    record.skill_requirements[0].stat_id = 0xff;
+    record.skill_requirements[1].stat_id = 0xff;
+    return std::vector<W8ItemDatabaseRecord>(count, record);
+}
+
+// Level zero, with an encounter budget between one and twenty.
+static GameData EncounterLevelData()
+{
+    GameData data;
+    data.levels.resize(1);
+    data.levels[0].minimum_encounter_budget = 1;
+    data.levels[0].maximum_encounter_budget = 20;
+    return data;
+}
 
 static std::vector<int> masterCalls;
 
@@ -164,23 +189,25 @@ TEST_CASE("Group activity is derived from its own population without recounts", 
 
 TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
 {
-    const ScopedRecords spells(MutableData().spells, 3);
-    W8Character caster{};
-    W8SpellCastingView view{};
-    view.caster = &caster;
-    auto& spell = MutableData().spells[1];
+    GameData data;
+    data.spells.resize(3);
+    auto& spell = data.spells[1];
     spell.power_class = W8_SPELL_POWER_SELECTABLE;
     spell.realm = W8_SPELL_REALM_FIRE;
     spell.spell_point_cost = 5;
-    caster.iSPLeft[spell.realm] = 20;
+    data.spells[2] = spell;
+    data.spells[2].power_class = W8_SPELL_POWER_FIXED;
+    data.spells[2].spell_point_cost = 10;
+    const ScopedGameData installed(std::move(data));
+    W8Character caster{};
+    W8SpellCastingView view{};
+    view.caster = &caster;
+    caster.iSPLeft[W8_SPELL_REALM_FIRE] = 20;
     view.draft.detail = 1;
     REQUIRE(view.PowerClass() == W8_SPELL_POWER_SELECTABLE);
     REQUIRE(view.AffordablePowerLevels() == 4);
-    caster.iSPLeft[spell.realm] = 5;
+    caster.iSPLeft[W8_SPELL_REALM_FIRE] = 5;
     REQUIRE(view.AffordablePowerLevels() == 1);
-    MutableData().spells[2] = spell;
-    MutableData().spells[2].power_class = W8_SPELL_POWER_FIXED;
-    MutableData().spells[2].spell_point_cost = 10;
     view.draft.detail = 2;
     REQUIRE(view.PowerClass() == W8_SPELL_POWER_FIXED);
     REQUIRE(view.AffordablePowerLevels() == 0);
@@ -234,10 +261,11 @@ static bool gameplayCollectionLifetime()
 
 static bool npcStockOrdering()
 {
-    const ScopedRecords items(MutableData().items, 2);
-    auto& records = MutableData().items;
-    records[0].unidentified_name_index = 20;
-    records[1].unidentified_name_index = 10;
+    GameData data;
+    data.items.resize(2);
+    data.items[0].unidentified_name_index = 20;
+    data.items[1].unidentified_name_index = 10;
+    const ScopedGameData installed(std::move(data));
 
     W8NpcState npc{};
     npc.items.resize(3);
@@ -467,14 +495,18 @@ TEST_CASE_METHOD(LevelWorldFixture, "Engagement propagates to the original leade
 TEST_CASE("Proposed weapons use the same hand rules without changing equipment", "[equipment]")
 {
     const ScopedGame game;
-    const ScopedRecords items(MutableData().items, 3);
-    auto& records = MutableData().items;
+    GameData data;
+    auto& records = data.items;
+    records.resize(3);
     records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     records[0].weapon_skill = W8_SKILL_SWORD;
     records[1].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
     records[1].weapon_skill = W8_SKILL_THROWING_SLING;
     records[2].equip_class = W8_ITEM_EQUIP_CLASS_SHIELD;
     records[2].weapon_skill = W8_SKILL_SHIELD;
+    auto binding = data;
+    binding.items[0].binds_on_equip = 1;
+    const ScopedGameData installed(std::move(data));
     W8Character character{};
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
@@ -491,7 +523,7 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
     REQUIRE_FALSE(proposed[1].in_play);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE_FALSE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].bound);
-    records[0].binds_on_equip = 1;
+    const ScopedGameData bound(std::move(binding));
     REQUIRE_FALSE(PlanWeaponSetSwap(character));
     REQUIRE_FALSE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].bound);
 }
@@ -500,20 +532,12 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
 {
     const ScopedGame game;
     auto& characters = CurrentGame().party.characters;
-    const ScopedRecords items(MutableData().items, 3);
-    for (auto& record : MutableData().items) {
-        record.profession_mask = 0xffff;
-        record.race_mask = 0xffff;
-        record.gender_mask = 3;
-        record.attribute_requirements[0].stat_id = 0xff;
-        record.attribute_requirements[1].stat_id = 0xff;
-        record.skill_requirements[0].stat_id = 0xff;
-        record.skill_requirements[1].stat_id = 0xff;
-    }
-    MutableData().items[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
-    MutableData().items[0].unidentified_name_index = 0x83;
-    MutableData().items[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    MutableData().items[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
+    GameData data{.items = UnrestrictedItems(3)};
+    data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
+    data.items[0].unidentified_name_index = 0x83;
+    data.items[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    data.items[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
+    const ScopedGameData installed(std::move(data));
     CurrentGame().party.rows[0].fOccupied = true;
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
@@ -534,19 +558,10 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
 {
     const ScopedGame scoped;
     auto& game = scoped.game;
-    const ScopedRecords items(MutableData().items, 2);
-    const ScopedRecords strings(MutableData().strings, 0x200);
-    MutableData().strings[0x1ec] = "changes weapons.";
-    for (auto& record : MutableData().items) {
-        record.profession_mask = 0xffff;
-        record.race_mask = 0xffff;
-        record.gender_mask = 3;
-        record.attribute_requirements[0].stat_id = 0xff;
-        record.attribute_requirements[1].stat_id = 0xff;
-        record.skill_requirements[0].stat_id = 0xff;
-        record.skill_requirements[1].stat_id = 0xff;
-        record.equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    }
+    GameData data{.strings = std::vector<std::string>(0x200), .items = UnrestrictedItems(2)};
+    data.strings[0x1ec] = "changes weapons.";
+    for (auto& record : data.items) record.equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    const ScopedGameData installed(std::move(data));
     game.party.rows[0].fOccupied = true;
     auto& character = game.party.characters[0];
     character.fInParty = true;
@@ -581,8 +596,16 @@ TEST_CASE_METHOD(LevelWorldFixture,
 {
     auto& characters = CurrentGame().party.characters;
     auto& rows = CurrentGame().party.rows;
-    const ScopedRecords items(MutableData().items, 2);
-    auto& records = MutableData().items;
+    GameData data;
+    auto& records = data.items;
+    records.resize(2);
+    records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    records[0].weapon_skill = W8_SKILL_SWORD;
+    records[1].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
+    records[1].weapon_skill = W8_SKILL_THROWING_SLING;
+    records[1].range_category = W8_RANGE_LONG;
+    records[1].binds_on_equip = 1;
+    const ScopedGameData installed(std::move(data));
     struct RestoreState {
         unsigned char autoswap = g_settings.autoswap_weapons;
         ScopedCombat combat;
@@ -594,12 +617,6 @@ TEST_CASE_METHOD(LevelWorldFixture,
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
-    records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    records[0].weapon_skill = W8_SKILL_SWORD;
-    records[1].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
-    records[1].weapon_skill = W8_SKILL_THROWING_SLING;
-    records[1].range_category = W8_RANGE_LONG;
-    records[1].binds_on_equip = 1;
     W8CombatSlot target{};
     const W8Action action{W8_ACTION_ATTACK, -1, target, {}};
     REQUIRE_FALSE(ChooseFallbackMonsterTarget(0, action));
@@ -715,12 +732,14 @@ TEST_CASE("A picker constrains layout without restoring an obsolete preference",
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")
 {
     const ScopedGame game;
-    const ScopedRecords items(MutableData().items, 2);
-    MutableData().items[0].flags = W8_ITEM_FLAG_NO_DISCARD;
-    MutableData().items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
-    MutableData().items[0].maximum_quantity = 10;
-    MutableData().items[0].initial_quantity = {0, 1, 6};
-    MutableData().items[0].value = 10;
+    GameData data;
+    data.items.resize(2);
+    data.items[0].flags = W8_ITEM_FLAG_NO_DISCARD;
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].maximum_quantity = 10;
+    data.items[0].initial_quantity = {0, 1, 6};
+    data.items[0].value = 10;
+    const ScopedGameData installed(std::move(data));
     CurrentGame().party.gold = 100;
     CurrentGame().party.item_count = 500;
     for (auto& item : CurrentGame().party.item_pool) item = {.iItemNo = 1};
@@ -750,9 +769,7 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>(0));
     const ScopedCombat combat{true};
-    const ScopedRecords levels(MutableData().levels, 1);
-    MutableData().levels[0].minimum_encounter_budget = 1;
-    MutableData().levels[0].maximum_encounter_budget = 20;
+    const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
     W8MonsterGroup unowned{};
     unowned.encounter_registered = true;
@@ -789,10 +806,12 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
 {
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>(0));
-    const ScopedRecords levels(MutableData().levels, 2);
-    MutableData().levels[1].minimum_encounter_budget = 2;
-    MutableData().levels[1].maximum_encounter_budget = 9;
-    MutableData().levels[1].encounter_culling_seconds = 123;
+    GameData data;
+    data.levels.resize(2);
+    data.levels[1].minimum_encounter_budget = 2;
+    data.levels[1].maximum_encounter_budget = 9;
+    data.levels[1].encounter_culling_seconds = 123;
+    const ScopedGameData installed(std::move(data));
     auto& live = GetWorld()->encounters;
     live.random_budget = 6;
     live.saved_budget = 77;
@@ -845,9 +864,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>(0));
     const ScopedCombat combat{true};
-    const ScopedRecords levels(MutableData().levels, 1);
-    MutableData().levels[0].minimum_encounter_budget = 1;
-    MutableData().levels[0].maximum_encounter_budget = 20;
+    const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
     std::array<std::unique_ptr<Monster>, 3> representations;
@@ -964,8 +981,10 @@ W8Character MakeFighter()
 TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit",
           "[party][encumbrance]")
 {
-    const ScopedRecords items(MutableData().items, 1);
-    MutableData().items[0].weight = 7;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].weight = 7;
+    const ScopedGameData installed(std::move(data));
     W8Party party;
     for (int slot : {0, 1}) {
         party.rows[slot].fOccupied = true;
@@ -986,8 +1005,10 @@ TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit
 
 TEST_CASE("A recalculation reports crossing the carrying capacity once", "[party][encumbrance]")
 {
-    const ScopedRecords items(MutableData().items, 1);
-    MutableData().items[0].weight = 10;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].weight = 10;
+    const ScopedGameData installed(std::move(data));
     auto character = MakeFighter();
     character.backpack[0] = {.iItemNo = 0, .stack_count = 200};
     // Strength and vitality of fifty carry (50 + 2 * 50) * 12 = 1800 against 2000.
@@ -1003,8 +1024,10 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
 {
     const ScopedGame game;
     const ScopedCombat combat{true};
-    const ScopedRecords items(MutableData().items, 1);
-    MutableData().items[0].weight = 18;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].weight = 18;
+    const ScopedGameData installed(std::move(data));
     CurrentGame().party.characters[0].party_weight_share = 123;
     W8Party party;
     party.rows[0].fOccupied = true;
@@ -1124,9 +1147,11 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
 
 TEST_CASE("Weapon swings read the damage bonus the operation started from", "[party][stats]")
 {
-    const ScopedRecords items(MutableData().items, 1);
-    MutableData().items[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    MutableData().items[0].weapon_skill = W8_SKILL_SWORD;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    data.items[0].weapon_skill = W8_SKILL_SWORD;
+    const ScopedGameData installed(std::move(data));
     W8Character character{};
     character.iProfession = W8_PROFESSION_FIGHTER;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
@@ -1173,11 +1198,12 @@ W8Character& PrepareMember(unsigned int slot)
 TEST_CASE("A split stack travels through the hand and merges back", "[party][inventory]")
 {
     const ScopedActiveParty active;
-    const ScopedRecords items(MutableData().items, 1);
-    auto& record = MutableData().items[0];
+    GameData data;
+    auto& record = data.items.emplace_back();
     record.quantity_kind = W8_ITEM_QUANTITY_STACK;
     record.maximum_quantity = 100;
     record.weight = 10;
+    const ScopedGameData installed(std::move(data));
     auto& actor = PrepareMember(0);
     auto& party = CurrentGame().party;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
@@ -1203,9 +1229,11 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
           "[party][inventory]")
 {
     const ScopedActiveParty active;
-    const ScopedRecords items(MutableData().items, 1);
-    MutableData().items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
-    MutableData().items[0].maximum_quantity = 100;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].maximum_quantity = 100;
+    const ScopedGameData installed(std::move(data));
     auto& party = CurrentGame().party;
     party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
     for (auto& item : party.characters[0].backpack)
@@ -1224,21 +1252,15 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
           "[party][inventory][stats]")
 {
     const ScopedActiveParty active;
-    const ScopedRecords items(MutableData().items, 3);
-    for (auto& record : MutableData().items) {
-        record.profession_mask = 0xffff;
-        record.race_mask = 0xffff;
-        record.gender_mask = 3; // Both genders.
-        record.attribute_requirements[0].stat_id = 0xff; // No requirement.
-        record.attribute_requirements[1].stat_id = 0xff;
-        record.skill_requirements[0].stat_id = 0xff;
-        record.skill_requirements[1].stat_id = 0xff;
-    }
+    GameData data{.items = UnrestrictedItems(3)};
     // The first item supplies strength to the second, but itself requires speed.
-    MutableData().items[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
-    MutableData().items[0].modifier_0b3_value = 20;
-    MutableData().items[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
-    MutableData().items[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
+    data.items[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
+    data.items[0].modifier_0b3_value = 20;
+    data.items[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
+    data.items[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
+    auto undiscardable = data;
+    undiscardable.items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
+    const ScopedGameData installed(std::move(data));
     auto& character = PrepareMember(0);
     character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
@@ -1252,7 +1274,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
 
     // With no storage left, an item that may not be discarded falls into the hand.
     auto& party = CurrentGame().party;
-    MutableData().items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
+    const ScopedGameData no_discard(std::move(undiscardable));
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
     party.item_count = 500;

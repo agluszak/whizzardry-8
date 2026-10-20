@@ -113,7 +113,7 @@ bool Trynnie1FountRandomFX(Trigger* pTrigger)
 void KillTrynnieGroups(void)
 {
     W8MonsterGroup* group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     MonGen* generator;
     int iOldTable;
     int iNewTable;

@@ -1,13 +1,14 @@
 #include <memory>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "mutable_game_data.h"
 #include "scoped_combat.h"
 #include "scoped_game.h"
-#include "scoped_records.h"
+#include "scoped_game_data.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
@@ -64,7 +65,7 @@ struct CombatFixture {
 /* The fight in a started game with two item records, so inventory edits settle the
    party. No profession or race data is loaded, so the members derive no statistics. */
 struct InventoryCombatFixture : CombatFixture {
-    ScopedRecords<W8ItemDatabaseRecord> items{MutableData().items, 2};
+    ScopedGameData item_data{GameData{.items = std::vector<W8ItemDatabaseRecord>(2)}};
 
     InventoryCombatFixture()
     {
@@ -140,9 +141,10 @@ TEST_CASE_METHOD(InventoryCombatFixture,
 
 TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed use of the item")
 {
-    auto& wand = MutableData().items[0];
-    wand.quantity_kind = W8_ITEM_QUANTITY_CHARGES;
-    wand.initial_quantity = {.base = 0, .count = 1, .sides = 5};
+    GameData wands{.items = std::vector<W8ItemDatabaseRecord>(2)};
+    wands.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
+    wands.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
+    const ScopedGameData installed(std::move(wands));
     const W8ItemLocation source{W8ItemStorage::Backpack, 0, 0};
     const W8ItemLocation destination{W8ItemStorage::Backpack, 0, 1};
     auto& backpack = game.party.characters[0].backpack;

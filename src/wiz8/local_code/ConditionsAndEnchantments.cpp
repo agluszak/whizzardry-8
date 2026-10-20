@@ -27,7 +27,6 @@
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -454,7 +453,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
                          W8TargetSource* target, bool announce)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8ConditionImmunity* immunity;
     unsigned char kind;
     int index;

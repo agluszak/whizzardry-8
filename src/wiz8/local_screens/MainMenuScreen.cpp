@@ -22,12 +22,10 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -176,9 +174,6 @@ bool MainMenuScreen::enter(const ScreenRequest&)
                     [this, item](const UiPointerEvent& event) { return handleItem(item, event); });
     }
 
-    if (MonsterDatabaseCount() > kMaxMonsterSpecies) {
-        Fail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE");
-    }
     if (PreviousScreen() != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
     }

@@ -132,10 +132,10 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
 void CombatSignals::missileReleased(Monster& monster)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8TargetSource source;
     W8SpellEffectDefinition attack_block;
-    W8MonsterAttack* attack;
+    const W8MonsterAttack* attack;
     unsigned int attack_index;
     W8RangeCategory range_category;
     int missile_type;

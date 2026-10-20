@@ -274,7 +274,7 @@ void ApplyConditionModifiers(W8Character* character, const unsigned int* conditi
                         GetLoadedLevelID() &&
                     (bound = FindMonster(
                          character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
-                    W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
+                    const W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
                     target->health_regen_adjustment += -1 - (monster->effective_level >> 1);
                 } else {
                     target->health_regen_adjustment += -5;

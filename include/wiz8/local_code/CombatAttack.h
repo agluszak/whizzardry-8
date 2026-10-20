@@ -97,9 +97,9 @@ enum {
    though the monster were idle. `friendly_targets` selects friendly rather than hostile targets.
    RateMonsterBestAttack answers zero as soon as any attack is usable, one for a
    motionless monster, and otherwise the highest reason it saw. */
-unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                 unsigned int attack, int, bool friendly_targets);
-unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                     bool friendly_targets);
 bool CanAnyHandReachTarget(int party_slot);
 /* Whether `hand` is in play and has a range category at all. */
@@ -137,15 +137,15 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
 /* The monster side of the attack-score pipeline - the attack's
    own score plus modifier, mode, surprise, armour and attribute terms; ignore_target_defenses
    selects the fumble-redirect variant. */
-int GetMonsterAttackScore(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
+int GetMonsterAttackScore(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
                           W8AttackMode attack_mode, char ignore_target_defenses);
 /* Roll the running monster attack's damage dice and reduce them
    by the target's damage reduction, reporting the dice count. */
-int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, W8MonsterAttack* attack,
+int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
                                unsigned int* out_dice_count);
 /* Build the candidate list the monster's fumbled or repicked
    attack chooses a new target from. */
-void BuildMonsterTargetList(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+void BuildMonsterTargetList(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                             unsigned int attack, std::vector<W8CombatSlot>& out_list);
 /* Announce a friendly-fire strike and highlight the name on the
    other side's notice palette when the two sides differ. */
@@ -153,19 +153,19 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target);
 /* Whether a character catches the incoming attack in time to turn toward it. */
 bool CharacterNoticesAttacker(int party_slot);
 /* Begin one of the monster's attacks for the round. */
-bool StartMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Bodyguard readiness for the selected protection target. */
 bool CanMonsterProtectTarget(W8MonsterInfo* monster_info);
 /* The character counterpart of the same six checks. */
 bool CanCharacterAttackItsTarget(int party_slot);
 /* Build the monster attack announcement message and aim it at the target. */
-void AnnounceMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            char target_changed);
 /* Resolve one queued swing of the monster's attack - rolls the
    hit and fumble-redirect chances, resolves guardian interception, picks the
    hit location, rolls penetration, applies damage and the struck target's
    retaliation enchantment, then decides whether the monster keeps swinging. */
-ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Start one of the character's attacks for the round: validates the hand and
    target, rolls the swings, announces the attack and dispatches the missile or
    melee event. */

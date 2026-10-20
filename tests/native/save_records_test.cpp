@@ -8,15 +8,17 @@
 #include "catch2/catch_message.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "mutable_game_data.h"
 #include "retail_records.h"
 #include "save_payload.h"
 #include "scoped_combat.h"
 #include "scoped_game.h"
+#include "scoped_game_data.h"
 #include "unicode.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
@@ -25,7 +27,6 @@
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -266,21 +267,17 @@ static void unicode_database_contracts()
     monsters->write(&count, 4);
     for (unsigned i = 0; i < count; ++i) {
         W8MonsterRecord monster{};
-        monster.name0 = i ? "怪物😀" : "Élan";
+        monster.name0 = i ? "怪物😀#2" : "Élan";
         monster.name1 = i ? "怪物们" : "Élans";
         const auto image = wiz8::retail::encode(monster);
         monsters->write(image.data(), image.size());
     }
     monsters->close();
-    std::unique_ptr<W8MonsterRecord[]> records;
-    REQUIRE(LoadMonsterDatabase(&records));
-    REQUIRE((records && std::string(records[1].name0) == "怪物😀"));
-    W8MonsterRecord single{};
-    REQUIRE(LoadMonsterDatabaseRecord(1, &single));
-    REQUIRE(std::string(single.name0) == "怪物😀");
-    W8MonsterRecord range[2]{};
-    REQUIRE(LoadMonsterDatabaseRange(0, 1, range));
-    REQUIRE((std::string(range[0].name1) == "Élans" && std::string(range[1].name1) == "怪物们"));
+    // Names drop the editor's suffix after '#'.
+    const auto monster_records = ReadMonsterDatabase();
+    REQUIRE(monster_records.size() == 2);
+    REQUIRE((monster_records[0].name1 == "Élans" && monster_records[1].name0 == "怪物😀"));
+    REQUIRE(monster_records[1].name1 == "怪物们");
 }
 
 static void unicode_file_contracts()
@@ -425,35 +422,36 @@ static void keyword_file_contracts()
     };
     const char* english = "data/strings/english_keywords.txt";
     const char* translated = "data/strings/translated_keywords.txt";
+    const auto none = [] {
+        const auto keywords = ReadDialogueKeywords();
+        return keywords.english.empty() && keywords.translated.empty();
+    };
     write_keywords(english, "header\r\n01234567890  hello / world /\r\n01234567890bye/last");
-    ReloadKeywordLists();
-    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+    REQUIRE(none());
     write_keywords(translated, "header\n01234567890bonjour/monde/\n01234567890au revoir/final");
-    ReloadKeywordLists();
-    REQUIRE((g_keyword_lists_loaded && g_keyword_lists.size() == 2));
-    const auto& first = g_keyword_lists[0];
-    REQUIRE(first.size() == 2);
-    REQUIRE(first[0] == std::vector<std::string>({"hello", "world"}));
-    REQUIRE(first[1] == std::vector<std::string>({"bye", "last"}));
-    REQUIRE(TranslateDialogueKeyword("BONJOUR") == "hello");
-    REQUIRE(TranslateDialogueKeyword("unknown") == "unknown");
+    {
+        const ScopedGameData installed(GameData{.keywords = ReadDialogueKeywords()});
+        const auto& first = Data().keywords.english;
+        REQUIRE(first.size() == 2);
+        REQUIRE(first[0] == std::vector<std::string>({"hello", "world"}));
+        REQUIRE(first[1] == std::vector<std::string>({"bye", "last"}));
+        REQUIRE(TranslateDialogueKeyword("BONJOUR") == "hello");
+        REQUIRE(TranslateDialogueKeyword("unknown") == "unknown");
+    }
     // Translated fields without an English counterpart remain unchanged.
     write_keywords(english, "header\n01234567890hello/");
-    ReloadKeywordLists();
-    REQUIRE(TranslateDialogueKeyword("monde") == "monde");
-    REQUIRE(TranslateDialogueKeyword("final") == "final");
-    ClearKeywordLists();
-    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+    {
+        const ScopedGameData installed(GameData{.keywords = ReadDialogueKeywords()});
+        REQUIRE(TranslateDialogueKeyword("monde") == "monde");
+        REQUIRE(TranslateDialogueKeyword("final") == "final");
+    }
     write_keywords(english,
                    "header\n01234567890partial/row/\n01234567890" + std::string("\0bad", 4));
-    ReloadKeywordLists();
-    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+    REQUIRE(none());
     write_keywords(english, "header\n01234567890" + std::string(1000, 'x'));
-    ReloadKeywordLists();
-    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+    REQUIRE(none());
     REQUIRE(wiz8::remove_file(wiz8::asset_path(english)));
-    ReloadKeywordLists();
-    REQUIRE((!g_keyword_lists_loaded && g_keyword_lists.size() == 0));
+    REQUIRE(none());
 }
 
 static void path_record_contracts()
@@ -763,33 +761,30 @@ static void encounter_table_contracts()
             file->write(scripts, sizeof(scripts));
             if (version == 2) file->write(&flags, sizeof(flags));
         }
-        REQUIRE(InitializeEncounterTables());
-        REQUIRE(g_encounter_names == std::vector<std::string>{"Wilderness"});
-        REQUIRE(g_encounter_tables.size() == 1);
-        const auto* table = GetEncounterTable(0);
-        REQUIRE((table && !strcmp(table->name, "Forest") && table->category == 7));
-        REQUIRE((table->version_two_flags == (version == 1 ? 0 : 0x42)));
-        REQUIRE(table->entries.size() == 2);
-        const auto& first = table->entries[0];
-        const auto& second = table->entries[1];
+        const auto tables = ReadEncounterTables();
+        REQUIRE(tables.size() == 1);
+        const auto& table = tables[0];
+        REQUIRE(table.name == "Forest");
+        REQUIRE(table.entries.size() == 2);
+        const auto& first = table.entries[0];
+        const auto& second = table.entries[1];
         REQUIRE((first.species == 12 && first.rarity_class == 3 &&
                  first.time_condition == W8_ENCOUNTER_DAY && first.challenge_level == 5 &&
-                 !strcmp(first.script.value, "first.msf")));
+                 first.script == "first.msf"));
         REQUIRE((second.species == 34 && second.rarity_class == 70 &&
                  second.time_condition == W8_ENCOUNTER_ANY_TIME && second.challenge_level == 20 &&
-                 !strcmp(second.script.value, "second.msf")));
-        REQUIRE((!GetEncounterTable(-1) && !GetEncounterTable(1)));
+                 second.script == "second.msf"));
+        const ScopedGameData installed(GameData{.encounter_tables = tables});
+        REQUIRE((GetEncounterTable(0) == &Data().encounter_tables[0] && !GetEncounterTable(-1) &&
+                 !GetEncounterTable(1)));
+        REQUIRE(FindEncounterTableByName("forest") == 0);
     }
-    // Failed loads must not publish partially populated parallel data.
     {
         auto file = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::replace);
         const int count = 1;
         file->write(&count, sizeof(count));
     }
-    REQUIRE(!InitializeEncounterTables());
-    REQUIRE((g_encounter_tables.empty() && g_encounter_names.empty()));
-    REQUIRE(g_encounter_tables_level == -1);
-    UnloadEncounterTables();
+    REQUIRE_THROWS(ReadEncounterTables());
     REQUIRE(wiz8::remove_file(wiz8::asset_path(path)));
 }
 
@@ -1193,24 +1188,33 @@ static void camera_angles()
 
 #include <catch2/generators/catch_generators.hpp>
 
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-struct NpcGlobalGuard {
-    std::vector<W8NpcDatabaseRecord> previous_records = std::exchange(MutableData().npcs, {});
-    const ScopedGame game;
+// Three NPC database records, each of the kind of its index.
+static GameData ThreeNpcs()
+{
+    GameData data{.npcs = std::vector<W8NpcDatabaseRecord>(3)};
+    for (unsigned char index = 0; index < 3; ++index) data.npcs[index].kind = index;
+    return data;
+}
 
-    ~NpcGlobalGuard() { MutableData().npcs = std::move(previous_records); }
+struct NpcGlobalGuard {
+    const ScopedGameData data{ThreeNpcs()};
+    const ScopedGame game;
 };
+
+// The spell table, with Sleep aimed at enemies.
+static GameData SleepSpell()
+{
+    GameData data{.spells = std::vector<W8SpellRuntimeRecord>(W8_SPELL_COUNT)};
+    data.spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
+    return data;
+}
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct CombatRecordGuard {
-    std::vector<W8SpellRuntimeRecord> previous_spells = std::exchange(MutableData().spells, {});
+    const ScopedGameData data{SleepSpell()};
     W8Party previous_party = std::exchange(CurrentGame().party, W8Party{});
 
-    ~CombatRecordGuard()
-    {
-        MutableData().spells = std::move(previous_spells);
-        CurrentGame().party = std::move(previous_party);
-    }
+    ~CombatRecordGuard() { CurrentGame().party = std::move(previous_party); }
 };
 
 struct SaveFixture {
@@ -1363,9 +1367,6 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
 {
     NpcGlobalGuard globals;
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
-    // All three database nodes are supplied by the serialized states below.
-    MutableData().npcs.resize(3);
-    for (unsigned char index = 0; index < 3; ++index) MutableData().npcs[index].kind = index;
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version =
@@ -1406,7 +1407,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(static_cast<int>(CurrentGame().story.npcs.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = CurrentGame().story.npcs[i].get();
-            REQUIRE(npc->record == &MutableData().npcs[i]);
+            REQUIRE(npc->record == &Data().npcs[i]);
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
                 REQUIRE(npc->character.has_value());
@@ -1428,7 +1429,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(CurrentGame().story.npcs.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = CurrentGame().story.npcs[index].get();
-            REQUIRE((npc->record == &MutableData().npcs[index] && npc->items.empty()));
+            REQUIRE((npc->record == &Data().npcs[index] && npc->items.empty()));
             if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
             else
@@ -1566,8 +1567,6 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     // The AI used to decay the odd-offset condition array into unsigned int*.
     auto& character = CurrentGame().party.characters[0];
     character = {};
-    MutableData().spells.resize(W8_SPELL_COUNT);
-    MutableData().spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;

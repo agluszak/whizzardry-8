@@ -53,7 +53,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -195,7 +194,7 @@ bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
    two combat gates have to agree. */
 bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8CombatSlot* combat_slot;
     unsigned char kind;
 
@@ -1261,7 +1260,7 @@ static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
 
    The budget is the monster's database base plus its own runtime bonus; a base
    of zero is a data error the monster is named in. */
-unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8MonsterRecord*,
+unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8MonsterRecord*,
                                           int spell_id)
 {
     unsigned int power_level;
@@ -1275,7 +1274,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, W8Monster
 
     power_level = 1;
     for (;;) {
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
 
         budget = MonsterSpellPointBudget(monster_info, record);
 
@@ -1801,7 +1800,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 
     case 3: {
         W8MonsterInfo* monster_info;
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
 
         if (target->iMonsterID == -1) {
             Fail("pTarget->iMonsterID != BAD_INDEX");
@@ -1853,7 +1852,7 @@ enum { W8_MESSAGE_MONSTER_CAST_VERBOSE = 0x638, W8_MESSAGE_MONSTER_CAST = 0x63c 
    makes the two one rule rather than a monster-specific one. */
 unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8TargetSource source;
     unsigned int budget;
     unsigned int failure;
@@ -2615,7 +2614,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     bool quiet;
     bool forced;
     bool icon_flag;
-    W8MonsterRecord* record_data;
+    const W8MonsterRecord* record_data;
     Missile* missile;
     Monster* monster;
     SpellVisual* visual;
@@ -3779,7 +3778,7 @@ void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
 {
     std::erase_if(monster_markers, [spell_id](int monster_id) {
         W8MonsterInfo* monster = FindMonster(monster_id);
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster);
         if (!monster->fActive || monster->hp_current == 0 ||
             monster->uiCondition[W8_CONDITION_DEAD] > 0 || record->untargetable != 0) {
             return true;

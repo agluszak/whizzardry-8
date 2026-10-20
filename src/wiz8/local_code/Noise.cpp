@@ -48,7 +48,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         } else if (flag == 0 && info->ubDisposition != W8_DISPOSITION_HOSTILE) {
             continue;
         }
-        W8MonsterRecord* record = GetMonsterDataForInfo(info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(info);
         glm::vec3 monster_position = info->p3D->nav.GetPosition();
         int remaining = radius - static_cast<int>(glm::length((monster_position - noise_position)));
         if (remaining <= 0) {

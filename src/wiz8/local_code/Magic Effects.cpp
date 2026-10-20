@@ -43,7 +43,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
@@ -323,7 +322,7 @@ void ClearMonsterCharm(W8MonsterInfo* monster_info)
 bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster;
+    const W8MonsterRecord* monster;
     int score;
 
     monster_info = FindMonster(target->iMonsterID);
@@ -416,7 +415,7 @@ void ReduceMagnitudeByResistance(unsigned int* magnitude, W8CombatSlot* target, 
                                  int power_level)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster;
+    const W8MonsterRecord* monster;
     W8Character* character;
     int resistance;
     unsigned int level;
@@ -457,7 +456,7 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
                             W8Condition condition_id)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster;
+    const W8MonsterRecord* monster;
     W8Character* character;
     int resistance;
     unsigned int level;
@@ -890,7 +889,7 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
 {
     W8Character* character;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster;
+    const W8MonsterRecord* monster;
     W8Condition highest_condition;
     unsigned int index;
     int source_character;
@@ -1902,7 +1901,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
             RebuildMonsterDerivedStats(monster_info->location_id);
             if (source_character != -1) {
-                W8MonsterRecord* monster = GetMonsterDataForInfo(monster_info);
+                const W8MonsterRecord* monster = GetMonsterDataForInfo(monster_info);
                 monster_info->pCombat->character_hate[source_character] +=
                     monster->effective_level * effect->definition.duration_scale;
             }
@@ -2347,7 +2346,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
 {
     W8CombatSlot* target;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster;
+    const W8MonsterRecord* monster;
     unsigned int magnitude;
     std::string notice;
     std::string name;
@@ -2403,7 +2402,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
 void ResolveCharmRefusal(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster;
+    const W8MonsterRecord* monster;
     W8SpellRealm realm;
 
     realm = Data().spells[effect->kind].realm;
@@ -2691,7 +2690,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
     W8CombatSlot char_target;
     W8Dice dice;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* monster_record;
+    const W8MonsterRecord* monster_record;
     unsigned int difficulty;
     unsigned int amount;
     unsigned int duration;
@@ -3451,7 +3450,7 @@ void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sourc
                               W8Enchantment* enchantment)
 {
     bool verbose = g_settings.verbose_combat_messages != 0;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8Dice dice;
     int damage;
     unsigned int amount;
@@ -3499,7 +3498,7 @@ void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sou
 {
     bool verbose = g_settings.verbose_combat_messages != 0;
     W8SpellEffectResult result;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int amount;
 
     record = GetMonsterDataForInfo(monster_info);

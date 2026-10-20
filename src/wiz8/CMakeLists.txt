@@ -122,7 +122,6 @@ target_sources(wiz8_engine PRIVATE
     ../entities/cycle_player.cpp
     ../render/mesh_updates.cpp
     ../render/effects/ground_shadow.cpp
-    local_code/GameplayDatabase.cpp
     "local_code/Gameplay Init.cpp"
     dialog_code/DialogInterface.cpp
     dialog_code/PortraitQuote.cpp

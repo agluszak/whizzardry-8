@@ -41,13 +41,13 @@
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
 
-#include "../native/mutable_game_data.h"
 #include "../native/surface_pixels.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
@@ -1028,8 +1028,8 @@ void InventoryChestScenario()
     const auto original_item = picker->entries.front().item->item;
     const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
-    for (unsigned i = 0; i < MutableData().items.size(); ++i) {
-        const auto& record = MutableData().items[i];
+    for (unsigned i = 0; i < Data().items.size(); ++i) {
+        const auto& record = Data().items[i];
         if (record.quantity_kind == W8_ITEM_QUANTITY_STACK && record.maximum_quantity >= 5)
             stack_id = i;
         else if (record.quantity_kind != W8_ITEM_QUANTITY_STACK)
@@ -1047,7 +1047,7 @@ void InventoryChestScenario()
               filler);
     CurrentGame().party.item_count = 500;
     CurrentGame().party.item_pool[0] = remainder;
-    const auto maximum = MutableData().items[stack_id].maximum_quantity;
+    const auto maximum = Data().items[stack_id].maximum_quantity;
     CurrentGame().party.item_pool[0].stack_count = maximum - 2;
     for (auto& entry : picker->entries) entry.selected = false;
     picker->entries.front().selected = true;
@@ -1075,8 +1075,7 @@ void InventoryChestScenario()
     int potion_slot = -1;
     for (int i = 0; i < 500; ++i)
         if (CurrentGame().party.item_pool[i].iItemNo >= 0 &&
-            MutableData().items[CurrentGame().party.item_pool[i].iItemNo].unidentified_name_index ==
-                102) {
+            Data().items[CurrentGame().party.item_pool[i].iItemNo].unidentified_name_index == 102) {
             potion_slot = i;
             break;
         }
@@ -1130,10 +1129,10 @@ void InventoryChestScenario()
     // Use a real healing consumable through inventory. It must reach gameplay,
     // heal the user and consume exactly one unit from the carried stack.
     int healing_potion = -1;
-    for (unsigned id = 0; id < MutableData().items.size(); ++id)
-        if (MutableData().items[id].equip_class == W8_ITEM_EQUIP_CLASS_POTION &&
-            MutableData().items[id].spell_id == W8_SPELL_HEAL_WOUNDS &&
-            MutableData().items[id].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+    for (unsigned id = 0; id < Data().items.size(); ++id)
+        if (Data().items[id].equip_class == W8_ITEM_EQUIP_CLASS_POTION &&
+            Data().items[id].spell_id == W8_SPELL_HEAL_WOUNDS &&
+            Data().items[id].quantity_kind == W8_ITEM_QUANTITY_STACK) {
             healing_potion = id;
             break;
         }
@@ -1191,7 +1190,7 @@ void CampSpellsScenario()
     for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
         caster.skills[skill].base_level = caster.skills[skill].level = 100;
     LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
-    const auto realm = MutableData().spells[W8_SPELL_IDENTIFY_ITEM].realm;
+    const auto realm = Data().spells[W8_SPELL_IDENTIFY_ITEM].realm;
     caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     REQUIRE(sword.iItemNo >= 0);
@@ -1219,7 +1218,7 @@ void CampSpellsScenario()
     LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
-    const auto curse_realm = MutableData().spells[W8_SPELL_REMOVE_CURSE].realm;
+    const auto curse_realm = Data().spells[W8_SPELL_REMOVE_CURSE].realm;
     caster.sp_max[curse_realm] = caster.iSPLeft[curse_realm] = 100;
     caster.uiCondition[W8_CONDITION_HEXED] = 20;
     FindScreen<CampScreen>()->InvalidateAll();
@@ -1321,7 +1320,7 @@ void CheckGameplayUi(GameHarness& game)
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
     LearnSpell(&character, W8_SPELL_LIGHT, false);
-    const auto realm = MutableData().spells[W8_SPELL_LIGHT].realm;
+    const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
     REQUIRE(OpenSpellCastingView(slot));
@@ -2208,7 +2207,7 @@ void PrintItems(int slot)
 {
     const W8Character& character = CurrentGame().party.characters[slot];
     const auto describe = [](const W8ItemInstance& item) {
-        return item.iItemNo > 0 ? MutableData().items[item.iItemNo].display_name + "(" +
+        return item.iItemNo > 0 ? Data().items[item.iItemNo].display_name + "(" +
                                       std::to_string(item.iItemNo) + ")"
                                 : std::string("-");
     };
@@ -2303,7 +2302,7 @@ bool RunScriptCommand(GameHarness& game, const std::string& line)
         game.drag({x, y, 1, 1}, {to_x, to_y, 1, 1});
     } else if (op == "strings" && in >> std::hex >> x >> std::dec >> y) {
         for (int index = x; index < x + y; ++index)
-            std::printf("  string 0x%x: \"%s\"\n", index, MutableData().strings[index].c_str());
+            std::printf("  string 0x%x: \"%s\"\n", index, Data().strings[index].c_str());
     } else if (op == "log" && in >> x) {
         // The newest lines of the main message box.
         const unsigned used = CurrentGame().status.text_box_lines_used[0];
@@ -2313,9 +2312,9 @@ bool RunScriptCommand(GameHarness& game, const std::string& line)
         Monkey(game, x, seed);
     } else if (op == "journal") {
         std::printf("  journal: %zu entries, %zu facts\n", CurrentGame().story.journal.size(),
-                    MutableData().facts.size());
+                    Data().facts.size());
         for (const W8JournalEntry& entry : CurrentGame().story.journal)
-            if (unsigned(entry.fact) >= MutableData().facts.size())
+            if (unsigned(entry.fact) >= Data().facts.size())
                 std::printf("  journal entry level %d fact %d alternate %d out of range\n",
                             entry.level, int(entry.fact), entry.alternate_text);
     } else if (op == "items" || op == "spells") {
@@ -2329,7 +2328,7 @@ bool RunScriptCommand(GameHarness& game, const std::string& line)
             std::printf("  spells of %d %s:\n", slot, character.name.c_str());
             for (std::size_t id = 0; id < std::size(character.spell_learned); ++id) {
                 if (!character.spell_learned[id]) continue;
-                const auto& spell = MutableData().spells[id];
+                const auto& spell = Data().spells[id];
                 std::printf("  spell %zu %s realm=%d mana=%d/%d cost=%u\n", id,
                             spell.display_name.c_str(), int(spell.realm),
                             character.iSPLeft[spell.realm], character.sp_max[spell.realm],

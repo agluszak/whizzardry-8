@@ -22,7 +22,6 @@
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -383,7 +382,7 @@ bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCatego
 bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack,
                                 bool friendly_targets)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8Disposition disposition_needed;
     int party_slot;
     unsigned int index;
@@ -434,7 +433,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
 static int GetMonsterActionSightIndex(W8MonsterInfo* monster_info, unsigned int attack)
 {
     if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK) {
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         return RangeCategoryUsesSightCondition(
             monster_info, static_cast<W8RangeCategory>(record->attacks[attack].range_category));
     }
@@ -445,8 +444,8 @@ static int GetMonsterActionSightIndex(W8MonsterInfo* monster_info, unsigned int 
 }
 
 static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
-                                                  W8MonsterRecord* record, unsigned int attack,
-                                                  int party_slot)
+                                                  const W8MonsterRecord* record,
+                                                  unsigned int attack, int party_slot)
 {
     int sight_index;
     W8RangeCategory range;
@@ -475,7 +474,7 @@ static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
    given what it can see and how far away they stand. Combat mode shortens
    touch/short reach by CountRowsBetween. */
-bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                    unsigned int attack, int party_slot)
 {
     W8RangeCategory range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
@@ -493,7 +492,7 @@ bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord*
 /* Whether the monster's attack `attack` reaches another monster. Untargetable
    attackers never reach; the same monster always does. Sight comes from the
    mon-to-mon visibility row rather than the party record. */
-bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                  unsigned int attack, W8MonsterInfo* target)
 {
     W8VisibilityRecord* visibility;
@@ -556,7 +555,7 @@ W8RangeCategory GetBestMonsterAttackRange(const W8MonsterRecord* record, bool cl
 W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
                                             bool skip_capability_checks, int* out_sight)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8RangeCategory best = W8_RANGE_NONE;
     int attack;
     int spell;
@@ -955,7 +954,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
    carries: its own line of sight has to hold for a character or the party, the
    target monster has to be reachable, and a group target is checked against
    every member. */
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                 unsigned int attack, W8CombatSlot* target)
 {
     W8RangeCategory range;
@@ -1046,7 +1045,7 @@ bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, con
     }
     if (TargetSourceIsMonster(source, 0)) {
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         return MonsterActionReachesTarget(monster_info, record, 0, target);
     }
     return true;

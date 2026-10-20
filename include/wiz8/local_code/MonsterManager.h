@@ -10,7 +10,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio_resources.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/targeting.h"
 
@@ -123,16 +122,14 @@ struct W8MonsterManagerEntry {
     unsigned int pending_event_type; /* last queued portrait event type */
 };
 
-W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
-/* The cached database record slot for a species; null until first use. */
-std::unique_ptr<W8MonsterRecord>& CachedMonsterRecord(unsigned int monster_species);
+const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
 /* Combat started: for two minutes a new fight at the same difficulty skips
    the combat-start character reaction. */
 void RecordCombatStart(void);
 /* Forget the recent combat, so the next fight reacts again. */
 void ForgetRecentCombat(void);
 W8Difficulty LastCombatDifficulty(void);
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
+W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
                                  glm::vec3* position);
 
 /* One queued monster action, 0x30 bytes: the kind/detail pair, the attack
@@ -408,11 +405,11 @@ void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
 void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
-W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
+const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
 
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
                            std::source_location caller = std::source_location::current());
-W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
+const W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
@@ -445,7 +442,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehavi
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 void ShutdownMonsterManager(void);
 
-std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            unsigned char name_form);
 enum class W8MonsterRemoval : unsigned char { Deactivate, Despawn, Unload };
 bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);

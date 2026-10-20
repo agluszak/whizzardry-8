@@ -15,12 +15,13 @@
 
 #include "asset_paths.h"
 #include "filesystem.h"
-#include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
+#include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -303,20 +304,16 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
           "[levels][rewards]")
 {
     const ScopedGame game;
+    GameData data{.strings = std::vector<std::string>(0x233)};
+    data.strings[0x232] = "%d";
+    const ScopedGameData installed(std::move(data));
     struct Restore {
-        std::vector<std::string> strings = std::move(MutableData().strings);
-        ~Restore()
-        {
-            ClearNpcMessageQueue();
-            MutableData().strings = std::move(strings);
-        }
+        ~Restore() { ClearNpcMessageQueue(); }
     } restore;
     auto& characters = CurrentGame().party.characters;
     auto& rows = CurrentGame().party.rows;
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
-    MutableData().strings.resize(0x233);
-    MutableData().strings[0x232] = "%d";
     CurrentGame().status.resume_level = 8;
     game.game.level.replacePrimary(std::make_unique<World>(3));
     AddPartyGold(CurrentGame(), 1, false);

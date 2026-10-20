@@ -34,7 +34,6 @@
 #include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -104,10 +103,10 @@ bool W8MonsterInfoDialog::PopulateText()
     Navigator* linked;
     Script* script;
     W8NpcState* npc;
-    W8MonsterAttack* attack;
+    const W8MonsterAttack* attack;
     W8ConditionImmunity* immunity;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
     bounds.left = m_x + 0x11;
     bounds.right = m_x + 0x11f;

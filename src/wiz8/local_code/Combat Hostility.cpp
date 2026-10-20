@@ -26,7 +26,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -70,8 +69,8 @@ void RefreshCombatEngagement(void)
    presence test. */
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
 {
-    W8MonsterRecord* first_record;
-    W8MonsterRecord* second_record;
+    const W8MonsterRecord* first_record;
+    const W8MonsterRecord* second_record;
     unsigned int first_faction;
     unsigned int second_faction;
 
@@ -873,12 +872,12 @@ int CharacterPrayAction(int party_slot)
 
 void AlertSameFactionGroups(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
+    const W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
     if (record->faction_id != W8_FACTION_UNALIGNED) {
         for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
              ++index) {
             W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();
-            W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
+            const W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&
                 record->faction_id == other_record->faction_id &&

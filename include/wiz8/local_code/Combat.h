@@ -70,7 +70,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
 void ExecuteCharacterAction(int party_slot);
 /* Run one monster's committed combat action - the monster-side
    counterpart of ExecuteCharacterAction. */
-void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+void ExecuteMonsterAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Pick the hand the slot's attack lands with this round and
    derive the row's next action phase from the stored attack values. */
 void ComputeCharacterActionPhase(int party_slot);
@@ -80,10 +80,10 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info);
    returns the interrupt kind, or -1 when none fires. */
 int GetConditionInterrupt(W8TargetSource* source);
 /* The monster's breathe/special-attack action step. */
-bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+bool MonsterFleeAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Run the monster's committed special attack against its marker
    lists and every monster hostile to it; returns the action outcome code. */
-ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* The character's breathe/special-attack action step. */
 bool CreateCharacterBreathEffect(int party_slot);
 /* The character's committed breath attack against the marker

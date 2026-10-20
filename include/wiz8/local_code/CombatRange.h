@@ -36,9 +36,9 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position);
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
    or the monster `target`, given what it can see and how far away they stand. */
-bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                    unsigned int attack, int party_slot);
-bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                  unsigned int attack, W8MonsterInfo* target);
 /* Whether the monster's attack reaches friendly or hostile targets. Berserk
    monsters always use friendly targets. */
@@ -49,7 +49,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source);
 /* The sight-condition slot a range band needs the observer's sight flags
    checked under: zero inside long range, the current condition beyond it. */
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category);
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                 unsigned int attack, W8CombatSlot* target);
 /* The location id of the nearest live, in-combat group member visible under
    the selected condition, or -1 when none qualify. */

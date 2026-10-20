@@ -9,7 +9,6 @@
 #include <memory>
 #include <optional>
 #include <span>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -24,7 +23,6 @@
 #include <fmt/printf.h>
 #include <wiz8/filesystem.h>
 
-#include "asset_paths.h"
 #include "glm/ext/vector_float3.hpp"
 #include "message_box.h"
 #include "mgs_commands.h"
@@ -214,12 +212,6 @@ static W8NpcInteractionState g_npc_interaction_storage;
    retail static initializer that runs the former and registers the latter. */
 
 W8NpcInteractionState* g_npc_interaction_state = &g_npc_interaction_storage;
-/* The dialogue keyword tables. Element zero is the English file
-   list and element one the translated one; each file list holds one line list
-   per line and each line list one word per field. */
-std::vector<KeywordFile> g_keyword_lists;
-/* Both keyword files are loaded and the tables are usable. */
-bool g_keyword_lists_loaded;
 /* The keyword subsystem's active flag, written absolutely by the
    screen reset and by the keyword panel helpers. */
 bool g_pending_notice_queued;
@@ -464,80 +456,19 @@ static void DisableNpcTradeActions()
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_5, false);
 }
 
-static std::optional<std::string> ParseKeywordToken(std::string_view& line)
-{
-    const auto start = line.find_first_not_of(' ');
-    if (start == std::string_view::npos) return {};
-    line.remove_prefix(start);
-    const auto end = line.find_first_of("/\r\n");
-    auto word = line.substr(0, end);
-    const auto last = word.find_last_not_of(' ');
-    if (last == std::string_view::npos) return {};
-    word = word.substr(0, last + 1);
-    line = end == std::string_view::npos ? std::string_view{} : line.substr(end + 1);
-    return std::string(word);
-}
-
-/* Load one keyword file into a file list. */
-static bool LoadKeywordFile(std::string_view path, KeywordFile& file)
-try {
-    auto input = wiz8::open_file(wiz8::asset_path(path));
-    if (input->size() < 0 || input->size() > 16 * 1024 * 1024) return false;
-    const auto bytes = input->read_text();
-    if (bytes.find('\0') != std::string::npos) return false;
-    std::istringstream stream(bytes);
-    std::string line;
-    std::getline(stream, line);
-    KeywordFile pending;
-    while (std::getline(stream, line)) {
-        // Retail's line limit and eleven-character metadata prefix are format constraints.
-        if (wiz8::text::to_utf16(line).size() >= 1000) return false;
-        std::string_view remaining(line);
-        remaining.remove_prefix(wiz8::text::codepoint_prefix(remaining, 11));
-        std::vector<std::string> words;
-        while (auto word = ParseKeywordToken(remaining)) words.push_back(std::move(*word));
-        pending.push_back(std::move(words));
-    }
-    file = std::move(pending);
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
-void ClearKeywordLists(void)
-{
-    g_keyword_lists.clear();
-    g_keyword_lists_loaded = false;
-}
-
-void ReloadKeywordLists(void)
-{
-    ClearKeywordLists();
-    KeywordFile english, translated;
-    if (!LoadKeywordFile("Data\\Strings\\English_Keywords.txt", english) ||
-        !LoadKeywordFile("Data\\Strings\\translated_Keywords.txt", translated))
-        return;
-    g_keyword_lists.push_back(std::move(english));
-    g_keyword_lists.push_back(std::move(translated));
-    g_keyword_lists_loaded = true;
-}
-
 std::string TranslateDialogueKeyword(std::string_view source)
 {
-    if (g_keyword_lists_loaded) {
-        const auto& translated = g_keyword_lists[1];
-        const auto& english = g_keyword_lists[0];
-        for (std::size_t row = 0; row < translated.size(); ++row)
-            for (std::size_t word = 0; word < translated[row].size(); ++word)
-                if (CompareTextIgnoreAsciiCase(source, translated[row][word]) == 0 &&
-                    row < english.size() && word < english[row].size())
-                    return english[row][word];
-    }
+    const auto& [english, translated] = Data().keywords;
+    for (std::size_t row = 0; row < translated.size(); ++row)
+        for (std::size_t word = 0; word < translated[row].size(); ++word)
+            if (CompareTextIgnoreAsciiCase(source, translated[row][word]) == 0 &&
+                row < english.size() && word < english[row].size())
+                return english[row][word];
     return std::string(source);
 }
 
-/* Reset the screen state block: zero its 0x268 bytes, write its reset values,
-   clear the keyword status byte, and reload the keyword lists. */
+/* Reset the screen state block: zero its 0x268 bytes, write its reset values
+   and clear the keyword status byte. */
 void ResetMainScreenStateBlock(void)
 {
     int unset = -1;
@@ -551,7 +482,6 @@ void ResetMainScreenStateBlock(void)
     g_npc_interaction_state->trade_pc_items = true;
     CurrentGame().status.selected_party_member = 0xff;
     g_pending_notice_queued = false;
-    ReloadKeywordLists();
 }
 
 /* Forward a monster-script notice to the targeting layer unless the screen is
