@@ -1,4 +1,3 @@
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/world/encounters.h"
 
 #include <algorithm>
@@ -34,6 +33,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterGenerator.h"

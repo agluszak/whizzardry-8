@@ -4,14 +4,12 @@
 #include <string_view>
 #include <vector>
 
-#include "glm/ext/vector_float3.hpp"
-#include "wiz8/entities/cycle_resources.h"
-
-
 #include "compat/compiler.h"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/missile_records.h"
 #include "wiz8/entities/cycle_player.h"
+#include "wiz8/entities/cycle_resources.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/rules/targeting.h"
@@ -140,8 +138,6 @@ Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm::v
 /* The world position `character_index`'s current hand fires a missile from:
    the camera's launch point swung to the wielding side. */
 void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position);
-
-
 
 Missile* NextMissile(bool restart);
 

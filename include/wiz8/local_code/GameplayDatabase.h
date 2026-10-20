@@ -19,5 +19,3 @@ bool LoadMonsterDatabaseRange(unsigned int uiStartIndex, unsigned int uiEndIndex
 bool LoadMonsterDatabaseRecord(unsigned int monster_species, W8MonsterRecord* record);
 
 extern unsigned int g_starting_item_ids[];
-
-
