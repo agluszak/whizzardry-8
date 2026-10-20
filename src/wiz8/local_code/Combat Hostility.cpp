@@ -442,7 +442,7 @@ bool CanPartySlotTurnUndead(int party_slot)
     return false;
 }
 
-int TurnUndead(int party_slot, int* out_cost, bool check)
+int TurnUndead(int party_slot, bool check)
 {
     std::vector<int> monsters;
     std::vector<int> party;
@@ -489,9 +489,6 @@ int TurnUndead(int party_slot, int* out_cost, bool check)
     }
     CastSpellFromSource(W8_SPELL_DISPEL_UNDEAD, &source, &target, spell_power, 0, 0, false, 0,
                         W8SpellCastKind::Standard, 0, &monsters);
-    if (out_cost != 0) {
-        *out_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
-    }
     return static_cast<int>(monsters.size());
 }
 
@@ -779,7 +776,7 @@ int CharacterPrayAction(int party_slot)
             break;
         }
         case 7:
-            prayed = TurnUndead(party_slot, 0, false) > 0;
+            prayed = TurnUndead(party_slot, false) > 0;
             break;
         case 8:
             AppendToLastTextLine(Data().strings[0x179], -1);

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <variant>
@@ -1992,7 +1993,8 @@ void ExecuteCharacterAction(int party_slot)
     W8TargetSource source;
     W8TargetSource enemy_source;
     int interrupt = -1;
-    int fatigue_cost = -1;
+    // What the action cost in stamina; without one, its kind's ordinary cost is charged.
+    std::optional<int> fatigue_cost;
     unsigned char result = 1;
     bool saved_dead = false; /* only combat tracks whether the slot already acted */
     W8ActionKind action;
@@ -2109,17 +2111,18 @@ void ExecuteCharacterAction(int party_slot)
         unsigned int power = slot->executing.detail_block.spell.power_level;
         int step_cost;
         int step;
-        fatigue_cost = 0;
+        int spent = 0;
         do {
             step = ExecuteCharacterSpellCast(party_slot, detail, power, &step_cost, false);
             if (step == 0) {
                 result = 0;
             }
-            fatigue_cost += step_cost;
+            spent += step_cost;
         } while (step == 2 && power == 8 &&
-                 SpellCastFatigueCost(detail, 1) + fatigue_cost <= character->stamina &&
+                 SpellCastFatigueCost(detail, 1) + spent <= character->stamina &&
                  Data().spells[detail].spell_point_cost <=
                      character->iSPLeft[Data().spells[detail].realm]);
+        fatigue_cost = spent;
         break;
     }
     case W8_ACTION_BREATHE:
@@ -2127,18 +2130,16 @@ void ExecuteCharacterAction(int party_slot)
         break;
     case W8_ACTION_PRAY:
         fatigue_cost = CharacterPrayAction(party_slot);
-        if (fatigue_cost == 0) {
+        if (*fatigue_cost == 0) {
             result = 0;
         }
         break;
     case W8_ACTION_TURN_UNDEAD:
-        if (CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0) {
-            result = 0;
+        if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
+            TurnUndead(party_slot, true) > 0) {
+            fatigue_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
         } else {
-            TurnUndead(party_slot, &fatigue_cost, true);
-            if (fatigue_cost == -1) {
-                result = 0;
-            }
+            result = 0;
         }
         break;
     case W8_ACTION_ATTACK:
@@ -2162,7 +2163,7 @@ void ExecuteCharacterAction(int party_slot)
     case W8_ACTION_USE_ITEM: {
         const auto use =
             UseItem(CurrentGame(), party_slot, slot->executing.detail_block.item_use.item);
-        fatigue_cost = use.fatigue_cost.value_or(-1);
+        fatigue_cost = use.fatigue_cost;
         if (use.effect == 0) {
             result = 0;
         }
@@ -2201,10 +2202,8 @@ void ExecuteCharacterAction(int party_slot)
         }
     }
     if (action != W8_ACTION_ATTACK && action != W8_ACTION_BERSERK) {
-        if (fatigue_cost == -1) {
-            fatigue_cost = CharacterActionFatigueCost(party_slot, action);
-        }
-        FatigueCharacter(party_slot, fatigue_cost, true, nullptr);
+        if (!fatigue_cost) fatigue_cost = CharacterActionFatigueCost(party_slot, action);
+        FatigueCharacter(party_slot, *fatigue_cost, true, nullptr);
     }
     if (CurrentGame().combat.active()) {
         CurrentGame().combat.state()->setStepOf(PartyActor{party_slot}, ActionStep::resolving);

@@ -53,7 +53,9 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target);
 void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse);
 /* Write the fatigue the slot's pending pray costs, or -1 when it
    cannot be paid; the flag picks the check flavor. */
-int TurnUndead(int party_slot, int* out_cost, bool check);
+/* Turn the undead in sight; answers how many it reached, zero when it could not. With
+   `check` it is the member's once-per-combat action and is refused when used up. */
+int TurnUndead(int party_slot, bool check);
 /* The fatigue the slot's pending turn-undead costs, zero when it
    cannot be carried out. */
 int CharacterPrayAction(int party_slot);
