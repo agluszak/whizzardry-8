@@ -75,6 +75,7 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"

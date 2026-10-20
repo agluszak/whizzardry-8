@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cmath>
+#include <optional>
 #include <vector>
 
 #include <fmt/printf.h>
