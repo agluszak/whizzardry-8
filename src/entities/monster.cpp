@@ -800,10 +800,10 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
         if (const auto mapped = findMappedVertex(mesh, mapped_index)) {
             mesh = mapped->mesh;
             const int vertex = mapped->index;
-            glm::vec3* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
-            if (vertices != 0 && current_model != 0) {
+            const auto vertex_position = mesh->framePosition(dispatch_value, vertex);
+            if (vertex_position && current_model != 0) {
                 auto rotation = current_model->transform.orientation<glm::mat3>();
-                glm::vec3 local = vertices[vertex] * scale;
+                glm::vec3 local = *vertex_position * scale;
                 glm::vec3 rotated = rotation * local;
                 glm::vec3 owner_position = nav.GetPosition();
                 (*position) = glm::vec3(rotated.x + owner_position.x,
@@ -2183,18 +2183,15 @@ void Monster::GetMappedPosition(glm::vec3* position)
             int index = mesh_part->FindMappedIndex(0);
 
             if (index >= 0) {
-                glm::vec3* vertices;
+                std::optional<glm::vec3> vertex;
                 if ((mesh_part->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
-                    vertices = mesh_part->getVertexLoc();
+                    if (const auto* vertices = mesh_part->getVertexLoc()) vertex = vertices[index];
                 } else {
-                    vertices = mesh_part->GetVertexLocations(0, true, 0.0f);
+                    vertex = mesh_part->framePosition(0, index);
                 }
-                if (vertices != 0) {
-                    glm::mat4 matrix;
-
-                    *position = vertices[index];
-                    matrix = instance->transform.matrix<glm::mat4>();
-                    *position = glm::vec3{glm::vec3(matrix * glm::vec4((*position), 1))};
+                if (vertex) {
+                    const auto matrix = instance->transform.matrix<glm::mat4>();
+                    *position = glm::vec3(matrix * glm::vec4(*vertex, 1));
                     return;
                 }
             }

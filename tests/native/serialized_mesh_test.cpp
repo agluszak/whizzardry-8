@@ -124,8 +124,8 @@ bool LoadAnimated(const std::filesystem::path& path)
     REQUIRE((first));
     auto* model = static_cast<Mesh*>(first->getModel());
     REQUIRE((model->frames.size() == 2));
-    REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
-    REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
+    REQUIRE(model->framePosition(0, 1)->x == 1.0f);
+    REQUIRE(model->framePosition(1, 1)->x == 3.0f);
     // A cache hit shares geometry but reads this record's own placement.
     {
         auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
@@ -145,7 +145,6 @@ bool LoadAnimated(const std::filesystem::path& path)
     REQUIRE(first->getModel() == model);
     first.reset();
     second.reset();
-    REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
     return true;
 }
 
@@ -177,7 +176,6 @@ bool LoadCycles(const std::filesystem::path& path)
             REQUIRE(world.psrMeshes[3] == nullptr);
             REQUIRE(world.psrMeshes.back() == nullptr);
         }
-        REQUIRE(g_mesh_models.empty());
     }
     return true;
 }
@@ -224,7 +222,6 @@ TEST_CASE("serialized_mesh_test")
             FileFaults fault(operation);
             REQUIRE(ReadMultipleLevelMeshes(*file, 4, {}).empty());
             REQUIRE(fault.fired);
-            REQUIRE(g_mesh_models.empty());
         }
     }
     {
@@ -514,7 +511,7 @@ TEST_CASE("Mesh reuse distinguishes source files, record offsets and material di
     REQUIRE(second);
     REQUIRE(first->getModel() != second->getModel());
     auto* second_model = static_cast<Mesh*>(second->getModel());
-    REQUIRE(second_model->GetVertexLocations(0, true, 0)[0].x == 4);
+    REQUIRE(second_model->framePosition(0, 0)->x == 4);
     file->seek(second_offset, wiz8::SeekOrigin::begin);
     auto repeated = ReadSingleLevelMesh(*file, directory.path / "textures-a");
     REQUIRE(repeated);

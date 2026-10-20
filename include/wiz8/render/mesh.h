@@ -188,7 +188,6 @@ public:
     std::uint32_t render_control = 0;
 
 public:
-    ~Mesh();
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via Mesh::setBounds. */
     void calculateCompoundBounds();                 /* 0x00471e10 */
@@ -208,30 +207,29 @@ public:
        The view is borrowed until its skin or automap filter is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
     void RemoveSkinTable(int index);
-    // Borrowed frame caches; interpolated positions reuse the model's lerp buffer.
+    /* One animation frame decoded from its compressed tables. Positions
+       interpolate toward the next frame; normals are this frame's own. */
     struct FrameGeometry {
-        std::span<glm::vec3> positions;
-        std::span<glm::vec3> normals;
-        std::span<const glm::vec3> polygon_normals;
+        std::vector<glm::vec3> positions;
+        std::vector<glm::vec3> normals;
+        std::vector<glm::vec3> polygon_normals;
     };
-    FrameGeometry frameGeometry(unsigned int frame, float interpolation);
-    glm::vec3* GetVertexLocations(unsigned int frame, bool load, float interpolation);
-    glm::vec3* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
-    glm::vec3* GetPolygonNormals(unsigned int frame, bool load);
+    FrameGeometry frameGeometry(unsigned int frame, float interpolation) const;
+    /* One decoded table (a W8MeshFrameData kind) of `frame`; empty when there is no such frame. */
+    std::vector<glm::vec3> decodeFrame(unsigned int frame, unsigned char kind) const;
+    /* One vertex's position in `frame`, for attachments that follow a source frame. */
+    std::optional<glm::vec3> framePosition(unsigned int frame, int vertex) const;
     void ClearVertexLights();
     void SetAmbientColor(const glm::vec3& color, const glm::vec3& environment = glm::vec3(0),
                          float brightness = 1.0f);
-    bool AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
     std::span<glm::vec3> GetVertexLights(bool initialize, int table); /* 0x00472100 */
     std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
-    int ReleaseDecompressedFrames(); /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
-    /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
-       is not resident. Invalid frames and empty meshes return zero bounds. */
-    BoundingBox GetFrameBounds(int frame);
+    /* Return `frame`'s vertex bounds. Invalid frames and empty meshes return zero bounds. */
+    BoundingBox GetFrameBounds(int frame) const;
     bool DecompressFrame(int frame, unsigned char flags,
-                         std::span<glm::vec3> destination); /* 0x00471930 */
+                         std::span<glm::vec3> destination) const; /* 0x00471930 */
     void ComputeFrameNormals(int frame); /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
@@ -245,12 +243,6 @@ public:
         std::vector<short> compressed_locations;
         std::vector<unsigned char> compressed_vertex_normals;
         std::vector<unsigned char> compressed_polygon_normals;
-        // m_pVertexLoc / m_pVertexNormal / m_pPolyNormal. Disengaged means
-        // absent, even on a zero-vertex model. Engaged storage counts toward
-        // g_decompressed_mesh_bytes and is dropped only by explicit eviction.
-        std::optional<std::vector<glm::vec3>> locations;
-        std::optional<std::vector<glm::vec3>> vertex_normals;
-        std::optional<std::vector<glm::vec3>> polygon_normals;
     };
 
     struct Skin {
@@ -277,17 +269,13 @@ public:
     std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::list<Skin> skins;
     std::unordered_map<short, int> mapped_vertices; // wire marker key -> runtime vertex index
-    std::uint64_t last_decompress_release_tick;
     float vertex_compression_scale;
-    // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
-    std::vector<glm::vec3> lerp_buffer;
     std::optional<std::vector<std::uint32_t>> automap_polygons;
     bool automap_filter_active;
 
 private:
     std::shared_ptr<render::MeshAsset> render_asset_;
     void updateBakedLighting();
-    glm::vec3* frameTable(unsigned int frame, bool load, unsigned char kind);
 };
 
 // Iterate concrete owned submeshes without a linked-list compatibility API.
@@ -304,14 +292,3 @@ struct MappedVertex {
     int index;
 };
 std::optional<MappedVertex> findMappedVertex(Mesh* model, int key);
-
-/* Every mesh model whose frame storage has been initialized. */
-extern std::vector<Mesh*> g_mesh_models; /* 0x00659CB8 */
-/* Bytes currently held by decompressed per-frame float caches. */
-extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
-
-/* True when all three components of the vector are zero. */
-/* Release least-recently-used decompressed frame caches until `needed` bytes
-   have been freed; 0 when the registry cannot supply them. A requesting model
-   is retained because its renderer may already hold borrowed frame pointers. */
-bool ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model = nullptr);

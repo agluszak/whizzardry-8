@@ -1706,10 +1706,8 @@ TEST_CASE("Static and frame normals share area weighting across shade seams", "[
     REQUIRE(sampled.normals.size() == positions.size());
     REQUIRE(sampled.polygon_normals.size() == triangles.size());
     REQUIRE(sampled.positions[1] == positions[1]);
-    REQUIRE(sampled.normals.data() == mesh.GetVertexNormals(0, true));
-    REQUIRE(sampled.polygon_normals.data() == mesh.GetPolygonNormals(0, true));
     REQUIRE_THROWS_AS(mesh.frameGeometry(1, 0.0f), std::out_of_range);
-    const auto* frame_normals = mesh.GetVertexNormals(0, true);
+    const auto& frame_normals = sampled.normals;
     REQUIRE(frame_normals[4] == frame_normals[0]);
     for (std::size_t vertex = 0; vertex < positions.size(); ++vertex)
         REQUIRE(glm::length(frame_normals[vertex] - normals[vertex]) < 0.012f);

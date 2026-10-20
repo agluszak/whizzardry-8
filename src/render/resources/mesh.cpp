@@ -16,7 +16,6 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/bounding_radius.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
@@ -312,7 +311,6 @@ Mesh::Mesh(std::int32_t polygons, std::int32_t vertices)
     ambient_color = glm::vec3(-1);
     vertex_light_table = 0;
     vertex_compression_scale = 1.0f;
-    last_decompress_release_tick = MonotonicMilliseconds();
     render_control &= ~(1u << CONTROL_SKIP_AUTO_BOX);
     automap_filter_active = false;
 }
