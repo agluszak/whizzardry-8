@@ -267,7 +267,6 @@ Substantial but contained work.
 
 Small, local and low-risk.
 
-- `CreateItemIntoHandOrPool` always replaces the hand; rename it to say so.
 - `MergeItems`, `DropItemInHand` and `GiveHeldItemToCharacterOrParty` report refusals
   as `NoticeDialog` events; return the refusal to the screen instead.
 - Add regression tests with a light combat fixture: a weapon-set swap toggles

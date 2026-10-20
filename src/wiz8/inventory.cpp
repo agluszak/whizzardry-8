@@ -1047,7 +1047,7 @@ bool PlaceItemOnCursor(Game& game, int item_id, bool maximum_quantity, bool forc
 }
 
 /* Conjure one item into the hand, replacing whatever was held. */
-void CreateItemIntoHandOrPool(Game& game, int item_id, bool quality)
+void ReplaceHeldItemWithNew(Game& game, int item_id, bool quality)
 {
     DiscardItem(game.party, &game.party.held.item);
     auto created = MakeItem(item_id, true, quality, false);

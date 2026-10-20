@@ -417,7 +417,7 @@ void Monster::ProcessScript()
                 if (tokens) {
                     int item = FindItemRecordByName(token.c_str());
                     if (item != -1) {
-                        CreateItemIntoHandOrPool(CurrentGame(), item, true);
+                        ReplaceHeldItemWithNew(CurrentGame(), item, true);
                     }
                 }
                 break;

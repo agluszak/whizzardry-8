@@ -93,7 +93,7 @@ void ReplaceHeldItem(Game& game, W8ItemInstance item);
 bool PlaceItemOnCursor(Game& game, int item_id, bool maximum_quantity, bool force_identified,
                        bool mark_special);
 // Conjure an item into the hand, replacing whatever was held.
-void CreateItemIntoHandOrPool(Game& game, int item_id, bool quality);
+void ReplaceHeldItemWithNew(Game& game, int item_id, bool quality);
 bool ReceiveItemInHand(Game& game, W8ItemInstance& item);
 // Drop the held item unless it may not be discarded.
 bool DropItemInHand(Game& game, int unused);
