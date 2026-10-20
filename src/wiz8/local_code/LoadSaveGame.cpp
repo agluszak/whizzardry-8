@@ -89,6 +89,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/retail_geometry_types.h"
+#include "wiz8/retail_records.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"

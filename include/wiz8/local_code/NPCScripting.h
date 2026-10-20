@@ -95,7 +95,8 @@ private:
     void RunNextAction(const ScriptContext& context);
     void RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry* entry,
                        int continuation_quote);
-    int SelectResponse(W8NpcQuoteEntry* entry, int quote, int entry_index);
+    int SelectResponse(const ScriptContext& context, W8NpcQuoteEntry* entry, int quote,
+                       int entry_index);
     int FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(const ScriptContext& context, int quote);
 
