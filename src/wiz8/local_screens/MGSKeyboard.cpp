@@ -35,11 +35,11 @@
 #include "wiz8/key_bindings.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Magic.h"
@@ -47,7 +47,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/character_events.h"
@@ -261,13 +260,12 @@ void DispatchMGSCommand(W8MGSCommand command)
                     return;
                 }
             }
-            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true,
-                                   true);
+            ShowMainGameNoticeLine(Data().strings[0x779], OnLeaveGameConfirmClosed, true, true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
     case W8_MGS_COMMAND_QUIT_GAME:
-        ShowMainGameNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
+        ShowMainGameNoticeLine(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
@@ -293,10 +291,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7bb], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7bb], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -310,10 +308,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7bc], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7bc], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -327,10 +325,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7b8], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7b8], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -344,10 +342,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7b9], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7b9], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -443,23 +441,23 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (CurrentGame().status.iron_man && !g_dev_mode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x82c]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }
         if (CurrentGame().combat.active()) {
             if (g_dev_mode) {
                 CurrentGame().combat.End(false);
             } else {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x774]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
                 break;
             }
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
         if (slot_name && SaveGame(*slot_name, nullptr)) {
             g_options_last_save_name = (*slot_name);
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f5]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x6f5]);
         } else {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f6]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x6f6]);
         }
         break;
     }
@@ -468,7 +466,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (CurrentGame().status.iron_man && !g_dev_mode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x82c]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }
         if (const auto slot_name = FindStartupQuickSave()) {
@@ -483,7 +481,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             request.id = W8_SCREEN_PLEASE_WAIT;
             RequestScreen(std::move(request));
         } else {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x786]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x786]);
         }
         break;
     }
@@ -619,7 +617,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         g_settings.auto_advance_character ^= 1;
         ShowNotice(
             W8_FONT_PALETTE_BEIGE,
-            g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
+            Data().strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);
@@ -722,21 +720,21 @@ void CloseKeyboardMenu(void)
 
 static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
 {
-    if (row.menu == -1) return g_localized_strings[0x11];
+    if (row.menu == -1) return Data().strings[0x11];
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
-        if (!row.enabled) return g_localized_strings[0x5a];
+        if (!row.enabled) return Data().strings[0x5a];
         const auto& spell =
-            g_spell_records[CurrentGame().party.rows[g_selected_party_slot].spell.detail];
-        return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
+            Data().spells[CurrentGame().party.rows[g_selected_party_slot].spell.detail];
+        return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(g_selected_party_slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
-        if (!row.enabled) return g_localized_strings[0x5d];
+        if (!row.enabled) return Data().strings[0x5d];
         const auto& party = CurrentGame().party.rows[g_selected_party_slot];
         auto* item = CurrentGame().party.itemAt(party.item_detail.item_use.item);
-        return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+        return fmt::format("{}: {}", Data().strings[0x5d], FormatItemDisplayName(item, false));
     }
-    return g_localized_strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
+    return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }
 
 unsigned char BuildKeyboardMenu(void)
@@ -845,9 +843,9 @@ void RefreshKeyboardMenuRows(void)
         }
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
-            offset = g_spell_records[CurrentGame().party.rows[g_selected_party_slot].spell.detail]
-                         .realm *
-                     7;
+            offset =
+                Data().spells[CurrentGame().party.rows[g_selected_party_slot].spell.detail].realm *
+                7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset =
                 GetAttackMenuWeaponOffset(

@@ -1,19 +1,13 @@
 #include "wiz8/local_code/spell_database.h"
 
-#include <cstdint>
-#include <exception>
-#include <limits>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
 
-#include "asset_paths.h"
 #include "monster_spell_icons.h"
-#include "retail_records.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
@@ -21,14 +15,11 @@
 #include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/filesystem.h"
-#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/retail_text_records.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/level_loader.h"
@@ -37,7 +28,7 @@
 
 W8SpellTargetType GetSpellTargetType(int spell_id, bool normalize_single_target)
 {
-    W8SpellTargetType target_type = g_spell_records[spell_id].target_type;
+    W8SpellTargetType target_type = Data().spells[spell_id].target_type;
 
     if (target_type == W8_TARGET_TYPE_ALLY && normalize_single_target) {
         target_type = W8_TARGET_TYPE_CASTER;
@@ -67,7 +58,7 @@ int MinimumCasterLevelForSpellLevel(int spell_level)
 
 int GetMinimumCasterLevelForSpell(int spell_id)
 {
-    return MinimumCasterLevelForSpellLevel(g_spell_records[spell_id].spell_level);
+    return MinimumCasterLevelForSpellLevel(Data().spells[spell_id].spell_level);
 }
 
 /* Whether one spell id is among the six that occupy a persistent combat
@@ -90,11 +81,6 @@ bool IsCombatEffectSlotSpell(int spell_id)
     default:
         return false;
     }
-}
-
-void ReleaseSpellDatabase()
-{
-    g_spell_records = {};
 }
 
 /* The forty icon resource names under Data\Icons\MonsterSpells. Entries 8 and
@@ -149,7 +135,7 @@ void ClearMonsterSpellIcons(Monster* monster)
 
 bool CanSpellBackfire(int spell_id)
 {
-    switch (g_spell_records[spell_id].target_type) {
+    switch (Data().spells[spell_id].target_type) {
     case W8_TARGET_TYPE_ENEMY:
     case W8_TARGET_TYPE_ENEMY_GROUP:
     case W8_TARGET_TYPE_CONE:
@@ -194,30 +180,5 @@ bool CanSpellBackfire(int spell_id)
     case W8_TARGET_TYPE_COUNT:
         break;
     }
-    return false;
-}
-
-unsigned char InitializeSpellDatabase(void)
-try {
-    auto handle = wiz8::open_file(wiz8::asset_path("data/databases/spelltables.dbs"));
-    std::int32_t count;
-    std::uint32_t version;
-    handle->read_exact(&count, sizeof(count));
-    handle->read_exact(&version, sizeof(version));
-    // Spell IDs in retail records are 16-bit. Each entry starts with a 257-byte label.
-    constexpr std::int64_t entry_bytes = 0x101 + wiz8::retail::kSpellRuntimeRecordBytes;
-    if (count <= 0 || count > std::numeric_limits<std::uint16_t>::max() ||
-        std::int64_t(count) * entry_bytes > handle->size() - handle->tell())
-        return false;
-    std::vector<W8SpellRuntimeRecord> records(count);
-    for (int index = 0; index < count; ++index) {
-        handle->seek(0x101, wiz8::SeekOrigin::current);
-        if (wiz8::retail::read(*handle, records[index]).bytes !=
-            wiz8::retail::kSpellRuntimeRecordBytes)
-            return false;
-    }
-    g_spell_records = std::move(records);
-    return true;
-} catch (const std::exception&) {
     return false;
 }

@@ -12,6 +12,7 @@
 #include "monster_spell_icons.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/unaligned.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -22,9 +23,9 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/GameplayDatabase.h"
@@ -34,7 +35,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
@@ -43,14 +43,15 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/utility.h"
@@ -164,9 +165,9 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
             }
         }
         if (announce) {
-            PostCharacterNotice(
-                party_slot, fmt::sprintf(g_localized_strings[0x243],
-                                         g_localized_strings[g_condition_notices[condition].name]));
+            PostCharacterNotice(party_slot,
+                                fmt::sprintf(Data().strings[0x243],
+                                             Data().strings[g_condition_notices[condition].name]));
         }
         character->uiCondition[condition] = 0;
         RecomputeCharacterHighestCondition(party_slot);
@@ -220,7 +221,7 @@ void NormalizeItemQuantityKind(W8ItemInstance* item)
         return;
     }
 
-    quantity_kind = g_item_records[item->iItemNo].quantity_kind;
+    quantity_kind = Data().items[item->iItemNo].quantity_kind;
     if (quantity_kind != W8_ITEM_QUANTITY_STACK) {
         if (quantity_kind <= W8_ITEM_QUANTITY_STACK || quantity_kind > W8_ITEM_QUANTITY_SHOTS ||
             item->stack_count <= 0) {
@@ -369,7 +370,7 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
         enchantment->turns = duration;
         if (slot == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
             enchantment->magnitude = static_cast<short>(
-                RollDice(&g_spell_records[W8_SPELL_GUARDIAN_ANGEL].effect_dice) * argument);
+                RollDice(&Data().spells[W8_SPELL_GUARDIAN_ANGEL].effect_dice) * argument);
             enchantment->magnitude =
                 static_cast<short>((static_cast<unsigned int>(enchantment->magnitude) * percent) /
                                    100) +
@@ -552,9 +553,9 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     if (announce &&
         (CurrentGame().combat.active() || monster_info->party_threat.visible_to_player)) {
         auto name = GetMonsterName(monster_info, 0, 0);
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::format("{} {}!", name,
-                               g_localized_strings[g_condition_notices[condition].singular]));
+        ShowNotice(
+            W8_FONT_PALETTE_RUST,
+            fmt::format("{} {}!", name, Data().strings[g_condition_notices[condition].singular]));
     }
     if (monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -579,8 +580,8 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
         }
         if (CurrentGame().combat.active() || monster_info->party_threat.visible_to_player) {
             ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(g_localized_strings[0x244], GetMonsterName(monster_info, 0, 0),
-                                    g_localized_strings[g_condition_notices[condition].name]));
+                       fmt::sprintf(Data().strings[0x244], GetMonsterName(monster_info, 0, 0),
+                                    Data().strings[g_condition_notices[condition].name]));
         }
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
@@ -682,14 +683,14 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     }
     if (CurrentGame().status.world_suspended) {
         PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x242],
-                                         g_localized_strings[g_condition_notices[condition].name]));
+                            fmt::sprintf(Data().strings[0x242],
+                                         Data().strings[g_condition_notices[condition].name]));
         return 0;
     }
     switch (condition) {
     case W8_CONDITION_AFRAID:
         if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x180]);
+            PostCharacterNotice(party_slot, Data().strings[0x180]);
             return 0;
         }
         [[fallthrough]];
@@ -709,7 +710,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         [[fallthrough]];
     case W8_CONDITION_TURNCOAT:
         if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x181]);
+            PostCharacterNotice(party_slot, Data().strings[0x181]);
             return 0;
         }
         break;
@@ -751,11 +752,11 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     }
     if (announce != 0) {
         if (condition == W8_CONDITION_MISSING && alternate_missing_notice != 0) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x1d5]);
+            PostCharacterNotice(party_slot, Data().strings[0x1d5]);
         } else {
             PostCharacterNotice(
                 party_slot,
-                fmt::format("{}!", g_localized_strings[g_condition_notices[condition].singular]));
+                fmt::format("{}!", Data().strings[g_condition_notices[condition].singular]));
         }
     }
 
@@ -868,7 +869,7 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
         enchantment->percent = static_cast<unsigned short>(percent);
         enchantment->turns = duration;
         if (slot == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
-            int roll = RollDice(&g_spell_records[W8_SPELL_GUARDIAN_ANGEL].effect_dice);
+            int roll = RollDice(&Data().spells[W8_SPELL_GUARDIAN_ANGEL].effect_dice);
             enchantment->magnitude =
                 static_cast<short>(
                     (static_cast<unsigned int>(static_cast<unsigned short>(roll * argument)) *

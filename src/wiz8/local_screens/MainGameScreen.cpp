@@ -46,6 +46,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -70,10 +71,10 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
@@ -98,7 +99,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -125,7 +125,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
@@ -143,6 +142,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -293,8 +293,7 @@ static int LearnedSpellPower(int slot, W8SpellId spell)
         return -1;
     }
     const W8Skill book = GetBestSpellbookSkillForSpell(character, spell, true, false, 7);
-    return static_cast<int>(
-        GetSpellCastingSkillLevel(character, book, g_spell_records[spell].realm));
+    return static_cast<int>(GetSpellCastingSkillLevel(character, book, Data().spells[spell].realm));
 }
 void CancelMouselook()
 {
@@ -607,15 +606,15 @@ W8LockInfoPanel::W8LockInfoPanel(int tumbler_count)
     text[0] = W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary, g_W8TextBufferAlignCenter, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    text[1] = W8TextBuffer(&bounds, g_localized_strings[0x7a9], g_wiz_text_font_secondary,
+    text[1] = W8TextBuffer(&bounds, Data().strings[0x7a9], g_wiz_text_font_secondary,
                            g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    text[3] = W8TextBuffer(&bounds, g_localized_strings[0x7aa], g_wiz_text_font_secondary,
+    text[3] = W8TextBuffer(&bounds, Data().strings[0x7aa], g_wiz_text_font_secondary,
                            g_W8TextBufferAlignLeft, 4);
     bounds.top += 0xe;
     bounds.bottom += 0xe;
-    text[5] = W8TextBuffer(&bounds, g_localized_strings[0x7ab], g_wiz_text_font_secondary,
+    text[5] = W8TextBuffer(&bounds, Data().strings[0x7ab], g_wiz_text_font_secondary,
                            g_W8TextBufferAlignLeft, 4);
     bounds.left = 0x17 + 0x98;
     bounds.top = 0x166 + 0x15;
@@ -796,7 +795,7 @@ void W8LockInteraction::Process()
             }
         }
         wiz8::sound::play(s_lock_picking_success);
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7ac]);
         BeginUnlock();
         break;
     }
@@ -905,7 +904,7 @@ void W8LockInteraction::ResolvePick()
         }
     }
     wiz8::sound::play(s_lock_picking_success);
-    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7ac]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7ac]);
     BeginUnlock();
 }
 
@@ -920,12 +919,12 @@ void W8LockInteraction::AttemptForce()
     FatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
     if (static_cast<int>(Random(100)) < *chance) {
         wiz8::sound::play(s_lock_forcing_success);
-        ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ae]));
+        ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ae]));
         BeginUnlock();
         return;
     }
     wiz8::sound::play(s_lock_forcing_fail);
-    ShowString(fmt::format("{} {}", character->name, g_localized_strings[0x7ad]));
+    ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ad]));
     RefreshControls();
 }
 
@@ -1018,7 +1017,7 @@ void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire)
         return;
     }
     if (!IsLockInteractionActive()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7af]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7af]);
         return;
     }
     LockInteraction()->ApplyKnockKnock(level, flag, backfire);
@@ -1093,7 +1092,7 @@ void W8MainGameTextKeyHandler::Redraw(SDL_Surface& target, bool full_redraw)
         }
         g_wiz_text_font_secondary.setPalette(colour);
         DrawText(target, g_wiz_text_font_secondary, {left, top},
-                 g_localized_strings[g_trap_name_string_ids[line]]);
+                 Data().strings[g_trap_name_string_ids[line]]);
         top += 0xe;
     }
     g_wiz_text_font_secondary.resetPalette();
@@ -1213,7 +1212,7 @@ W8MainGameTextPanel::W8MainGameTextPanel()
                 }
                 return UiResult::Handled;
             });
-        cells[index].target->setTooltip([] { return g_localized_strings[0x7d1]; });
+        cells[index].target->setTooltip([] { return Data().strings[0x7d1]; });
     }
     m_key_handler = std::make_unique<W8MainGameTextKeyHandler>();
     m_key_handler->on_selection = [this] { OnRangeChanged(); };
@@ -1321,7 +1320,7 @@ W8MainGameStatusPanel::W8MainGameStatusPanel()
         auto& label = m_text[row * 2 + 1];
         label.SetLayoutBounds(0x17 + 0x25, 0x17b + row * 14, 0x17 + 0xb4, 0x185 + row * 14);
         label.SetLayoutMode(g_W8TextBufferAlignLeft);
-        label.SetText(g_localized_strings[labels[row]], g_wiz_text_font_secondary);
+        label.SetText(Data().strings[labels[row]], g_wiz_text_font_secondary);
         auto& value = m_text[row * 2 + 2];
         value.SetLayoutBounds(0x17 + 0x98, 0x17b + row * 14, 0x17 + 0xb5, 0x185 + row * 14);
         value.SetLayoutMode(g_W8TextBufferAlignCenter);
@@ -1460,7 +1459,7 @@ void W8TrapInteraction::SelectTextEntry(int index)
     m_action_controls[3]->SetEnabled(false);
     m_action_controls[4]->SetEnabled(false);
     actions_dirty = true;
-    m_text_panel->BeginProgress(g_localized_strings[0x7b5], duration, hold);
+    m_text_panel->BeginProgress(Data().strings[0x7b5], duration, hold);
     m_sound_handle = wiz8::sound::play(g_trap_sounds[index]);
 }
 
@@ -1532,7 +1531,7 @@ void W8TrapInteraction::OnPrimary(W8TrapInteractionAction action)
     m_action_controls[3]->SetEnabled(false);
     m_action_controls[4]->SetEnabled(false);
     actions_dirty = true;
-    m_text_panel->BeginProgress(g_localized_strings[0x7b6], duration, hold);
+    m_text_panel->BeginProgress(Data().strings[0x7b6], duration, hold);
     m_sound_handle = wiz8::sound::stream(g_trap_inspection_sound);
 }
 
@@ -2129,8 +2128,7 @@ MainGameScreen::MainGameScreen()
                 &input.add(shape, [this, slot, index, handler](const UiPointerEvent& event) {
                     return handler(event, *portrait_targets[slot][index], slot);
                 });
-            if (help != -1)
-                targets[index]->setTooltip([help] { return g_localized_strings[help]; });
+            if (help != -1) targets[index]->setTooltip([help] { return Data().strings[help]; });
         };
         constexpr int orb_y[] = {27, 112, 198, 283};
         constexpr int portrait_y[] = {18, 103, 189, 274};
@@ -2157,12 +2155,12 @@ MainGameScreen::MainGameScreen()
         input.setEnabled(false);
     }
     radar_target = &radar.add(UiCircle{{75, 402}, 46}, RadarMapButtonInput);
-    radar_target->setTooltip([] { return g_localized_strings[31]; });
+    radar_target->setTooltip([] { return Data().strings[31]; });
     auto& board = formation.add(UiCircle{{564, 402}, 40}, HandleFormationBoard);
-    board.setTooltip([] { return g_localized_strings[32]; });
+    board.setTooltip([] { return Data().strings[32]; });
     formation.add(SDL_Rect{512, 358, 106, 93}, {});
     monster_list = &world.add(SDL_Rect{0, 0, 1, 1}, MonsterListInput);
-    monster_list->setTooltip([] { return g_localized_strings[36]; });
+    monster_list->setTooltip([] { return Data().strings[36]; });
     world_view = &world.add(SDL_Rect{0, 0, 1, 1}, WorldViewInput);
     hud_buttons.input.setEnabled(false);
     combat.setEnabled(false);
@@ -2210,7 +2208,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         DisableSky();
     }
     if (TakePendingSaveFlag()) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x782]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x782]);
     }
     if (g_settings.difficulty != difficulty) {
         g_settings.difficulty = difficulty;
@@ -2226,7 +2224,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
             break;
         }
         ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   fmt::sprintf(g_localized_strings[0x78c], g_localized_strings[display_mode]));
+                   fmt::sprintf(Data().strings[0x78c], Data().strings[display_mode]));
     }
     ResetTransientRenderScenes();
     MoveTimer(W8_MOVE_TIMER_RESUME);
@@ -3439,7 +3437,7 @@ static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsig
 {
     CatalogArtwork::Load(condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     g_level_block->text_paint_scratch =
-        fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
+        fmt::format("{}", Data().strings[g_condition_notices[condition].name]);
     int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
              {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
@@ -3451,7 +3449,7 @@ static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, i
 {
     CatalogArtwork::Load(slot + 0xc9, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     g_level_block->text_paint_scratch =
-        fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
+        fmt::format("{} ({:d})", Data().strings[g_enchantment_notices[slot]],
                     character->enchantments[slot].power);
     int text_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
@@ -3469,9 +3467,9 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
+    g_level_block->text_paint_scratch = fmt::format("{}: ", Data().strings[0x282]);
     unsigned int label_width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
-    g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
+    g_level_block->text_paint_scratch = fmt::format("{}: ", Data().strings[0x283]);
     int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
     if (label_width < static_cast<unsigned int>(width)) {
         width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
@@ -3510,7 +3508,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
     int text_x = g_level_block->dialogue_text_x;
     int row_y = g_level_block->dialogue_row_y;
 
-    g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x282]);
+    g_level_block->text_paint_scratch = fmt::format("{}: ", Data().strings[0x282]);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y},
              g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
@@ -3522,7 +3520,7 @@ void DrawPortraitVitalsOverlay(int party_slot)
              g_level_block->text_paint_scratch);
     row_y += 0x12;
 
-    g_level_block->text_paint_scratch = fmt::format("{}: ", g_localized_strings[0x283]);
+    g_level_block->text_paint_scratch = fmt::format("{}: ", Data().strings[0x283]);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y},
              g_level_block->text_paint_scratch);
     g_level_block->text_paint_scratch =
@@ -3561,7 +3559,7 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
     for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             g_level_block->text_paint_scratch =
-                fmt::format("{}", g_localized_strings[g_condition_notices[condition].name]);
+                fmt::format("{}", Data().strings[g_condition_notices[condition].name]);
             int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
                 max_width = width;
@@ -3584,7 +3582,7 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
     for (slot = 7; slot > 0; --slot) {
         if (character->enchantments[slot].turns != 0) {
             g_level_block->text_paint_scratch =
-                fmt::format("{} ({:d})", g_localized_strings[g_enchantment_notices[slot]],
+                fmt::format("{} ({:d})", Data().strings[g_enchantment_notices[slot]],
                             character->enchantments[slot].power);
             int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
@@ -3640,7 +3638,7 @@ void DrawPortraitStatusOverlay(int party_slot)
     if (0x14 < row_count) {
         row_count = 0x14;
         truncated = true;
-        int width = g_wiz_text_font.textWidth(g_localized_strings[0x7d8]);
+        int width = g_wiz_text_font.textWidth(Data().strings[0x7d8]);
         if (max_width < static_cast<unsigned int>(width - 0x1a)) {
             width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             max_width = width - 0x1a;
@@ -3662,7 +3660,7 @@ void DrawPortraitStatusOverlay(int party_slot)
     }
     for (slot = 7; slot > 0; --slot) {
         if (rows_drawn == 0x13 && truncated) {
-            g_level_block->text_paint_scratch = g_localized_strings[0x7d8];
+            g_level_block->text_paint_scratch = Data().strings[0x7d8];
             int width = g_wiz_text_font.textWidth(g_level_block->text_paint_scratch);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font,
                      {static_cast<int>((((text_width - width) + 0x1a) >> 1) + text_x), row_y},
@@ -3906,9 +3904,8 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
     g_level_block->pending_entry_id = entry;
     if (flag != 0) {
         if (normalized < 0x2f) {
-            g_level_block->text_paint_scratch =
-                fmt::format("{} {}?", g_localized_strings[0x799],
-                            g_localized_strings[g_level_name_indices[normalized]]);
+            g_level_block->text_paint_scratch = fmt::format(
+                "{} {}?", Data().strings[0x799], Data().strings[g_level_name_indices[normalized]]);
         } else if (normalized == 0x38) {
             g_level_block->text_paint_scratch = g_text_enter_default_level;
         } else {
@@ -4434,7 +4431,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                              .party
                                              .characters[CurrentGame().status.selected_character],
                                         0x35, 0, kCharacterEventFullVolume);
-                                    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dc]);
+                                    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7dc]);
                                 } else {
                                     AimAtCharacter(CurrentGame().status.selected_character, slot,
                                                    GetEditedActionContext(
@@ -4528,9 +4525,9 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                             gXStatus.iCurrentCursor != W8_CURSOR_INVALID_TARGET ||
                             (gXStatus.item_drag &&
                              gXStatus.item_drag->item.storage == W8ItemStorage::Hand)) {
-                            help_text = g_localized_strings[0x1d];
+                            help_text = Data().strings[0x1d];
                         } else {
-                            help_text = g_localized_strings[0x1e];
+                            help_text = Data().strings[0x1e];
                         }
                         target.setTooltip([text = help_text] { return std::string(text); });
                     }
@@ -4622,7 +4619,7 @@ static UiResult DispatchPortraitOrbInput(const UiPointerEvent& event, HitTarget&
                             }
                         }
                         target.setTooltip(
-                            [tooltip_kind] { return g_localized_strings[24 + tooltip_kind]; });
+                            [tooltip_kind] { return Data().strings[24 + tooltip_kind]; });
                         return UiResult::Pass;
                     }
                 } else {
@@ -4687,7 +4684,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
 
     character = &CurrentGame().party.characters[slot];
     item_id = character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
-    if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
+    if (item_id == -1 || (Data().items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
         if (event.local.y < 0x19) {
             g_level_block->portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON;
         } else {
@@ -4869,8 +4866,8 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
             if (row->committed_action.kind == W8_ACTION_CAST_SPELL) {
 
                 target.setTooltip(
-                    [text = fmt::format("{}: {} ({:d})", g_localized_strings[0x68],
-                                        g_spell_records[row->committed_action.detail].display_name,
+                    [text = fmt::format("{}: {} ({:d})", Data().strings[0x68],
+                                        Data().spells[row->committed_action.detail].display_name,
                                         row->committed_action.detail_block.spell.power_level)] {
                         return std::string(text);
                     });
@@ -4879,7 +4876,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
             if (row->committed_action.kind == W8_ACTION_USE_ITEM) {
 
                 target.setTooltip(
-                    [text = fmt::format("{}: {}", g_localized_strings[0x69],
+                    [text = fmt::format("{}: {}", Data().strings[0x69],
                                         FormatItemDisplayName(
                                             CurrentGame().party.itemAt(
                                                 row->committed_action.detail_block.item_use.item),
@@ -5142,7 +5139,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                             CurrentGame().status.selected_character,
                             GetEditedActionContext(CurrentGame().status.selected_character)))) {
                     if ((GetMonsterDataForInfo(monster_info)->flags & W8_MONSTER_FLAG_NPC) == 0) {
-                        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);
+                        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7de]);
                     } else {
                         W8ItemInstance* item = 0;
                         if ((CurrentGame().party.held.item.iItemNo != -1)) {
@@ -5154,14 +5151,14 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
                             SetCombatSelection(-1);
                         } else {
-                            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7de]);
+                            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7de]);
                         }
                     }
                 }
             }
         } else if (!CurrentGame().combat.state()->round_active &&
                    !CurrentGame().party_movement_mode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x7dd]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7dd]);
             assign = false;
         } else if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
             for (slot = 0; slot < 8; ++slot) {
@@ -5605,7 +5602,7 @@ static void DrawMainGamePrompt(void)
         bounds.bottom = 0x153;
         buffer = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary,
                                   g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        buffer->RenderString(g_localized_strings[CurrentGame().combat.active() ? 0x780 : 0x77f],
+        buffer->RenderString(Data().strings[CurrentGame().combat.active() ? 0x780 : 0x77f],
                              g_wiz_text_font_secondary, false, GetFrameBufferSurface());
         delete buffer;
     }
@@ -6272,7 +6269,7 @@ void ConfirmNpcTradeItem(void)
                                              static_cast<unsigned char>(state.trade_quantity));
         switch (result.outcome) {
         case W8TradeOutcome::Complete:
-            if (result.dropped_overflow) DisplayNpcQuote(g_localized_strings[0x6b1], false);
+            if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
             SortNpcItems(state.dialogue_npc);
             RebuildNpcTradeItemList(false);
             SetSelectedTextLine(row, 2);
@@ -6310,7 +6307,7 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
     }
     if (mode == W8_NPC_TRADE_BUY || mode == W8_NPC_TRADE_SHOPLIFT || mode == W8_NPC_TRADE_SELL) {
         unsigned char stack_count;
-        if (g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        if (Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             stack_count = item->stack_count;
         } else {
             stack_count = 1;
@@ -6329,7 +6326,7 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
         ShowNotice(font_palette, FormatItemDisplayName(item, true), 2);
         return;
     }
-    g_level_block->text_paint_scratch = fmt::format("{:d}{}", price, g_localized_strings[0x797]);
+    g_level_block->text_paint_scratch = fmt::format("{:d}{}", price, Data().strings[0x797]);
     ShowNotice(font_palette, FormatItemDisplayName(item, true), 2,
                (g_level_block->text_box_right - g_level_block->text_box_left) -
                    (*g_level_block->text_box_font).textWidth(g_level_block->text_paint_scratch));
@@ -6374,15 +6371,14 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
 {
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_SELL) {
         unsigned char count =
-            g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION
+            Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION
                 ? item->stack_count
                 : 1;
         int price =
             CalculateNpcTradeStackPrice(g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                         W8_TRADE_PRICE_PARTY_SELLS, count, item->identified);
         if (acceptable) {
-            g_level_block->text_paint_scratch =
-                fmt::format("{:d}{}", price, g_localized_strings[0x797]);
+            g_level_block->text_paint_scratch = fmt::format("{:d}{}", price, Data().strings[0x797]);
         } else {
             g_level_block->text_paint_scratch = "---";
         }
@@ -6408,9 +6404,9 @@ void PopulateNpcTradeList(void)
     EnableNpcTradeFilterButtons();
     if (g_npc_interaction_state->trade_mode == W8_NPC_TRADE_GIVE) {
         g_level_block->text_paint_scratch =
-            fmt::format("{:d}{}", CurrentGame().party.gold, g_localized_strings[0x797]);
+            fmt::format("{:d}{}", CurrentGame().party.gold, Data().strings[0x797]);
         ShowNotice(
-            W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x72d], 2,
+            W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x72d], 2,
             (g_level_block->text_box_right - g_level_block->text_box_left) -
                 (*g_level_block->text_box_font).textWidth(g_level_block->text_paint_scratch));
         AppendTextBoxLine(g_level_block->text_paint_scratch, 2);
@@ -6532,20 +6528,20 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
     result = AttemptNpcItemTheft(character, g_npc_interaction_state->dialogue_npc, item->iItemNo,
                                  quantity);
     if (result == W8_ITEM_THEFT_SUCCEEDED) {
-        text = fmt::sprintf(g_localized_strings[0x74d], character->name, GetItemDisplayName(item));
+        text = fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(item));
         DisplayNpcQuote(text, true);
-        if (g_item_records[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
+        if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
             AddNpcTopic(g_npc_interaction_state->dialogue_npc, item->iItemNo);
         }
         const auto purchase =
             CompleteNpcItemPurchase(g_npc_interaction_state->dialogue_npc, index, quantity, true);
         if (purchase.outcome != W8TradeOutcome::Complete) return false;
-        if (purchase.dropped_overflow) DisplayNpcQuote(g_localized_strings[0x6b1], false);
+        if (purchase.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
         RebuildNpcTradeItemList(false);
         return true;
     }
     if (result == W8_ITEM_THEFT_FAILED) {
-        text = fmt::sprintf(g_localized_strings[0x74f], character->name);
+        text = fmt::sprintf(Data().strings[0x74f], character->name);
         DisplayNpcQuote(text, false);
         return false;
     }

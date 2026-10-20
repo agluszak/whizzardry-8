@@ -37,13 +37,12 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/learned_spells.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -80,13 +79,13 @@ std::unique_ptr<W8SpellCastingView> gpSCSV;
 W8SpellPowerClass W8SpellCastingView::PowerClass() const
 {
     return draft.detail == W8_SPELL_NONE ? W8_SPELL_POWER_CLASS_NONE
-                                         : g_spell_records[draft.detail].power_class;
+                                         : Data().spells[draft.detail].power_class;
 }
 
 unsigned int W8SpellCastingView::AffordablePowerLevels() const
 {
     if (draft.detail == W8_SPELL_NONE) return 0;
-    const auto& spell = g_spell_records[draft.detail];
+    const auto& spell = Data().spells[draft.detail];
     return std::clamp(GetCharacterRealmSpellPoints(caster, spell.realm) / spell.spell_point_cost, 0,
                       7);
 }
@@ -144,9 +143,9 @@ static void CreateSpellCastingViewControls(void)
             [realm] { SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm)); },
             [](bool) { gpSCSV->dirty[0] = true; });
         const auto tooltip = [realm] {
-            const auto& name = g_localized_strings[g_spell_realm_help_string_ids[realm]];
+            const auto& name = Data().strings[g_spell_realm_help_string_ids[realm]];
             if (!gpSCSV->realm_buttons[realm]->IsEnabled()) return std::string(name);
-            return fmt::format("{} ({}: {:d})", name, g_localized_strings[0x2d],
+            return fmt::format("{} ({}: {:d})", name, Data().strings[0x2d],
                                CurrentGame()
                                    .party.characters[CurrentGame().status.selected_character]
                                    .skills[W8_SKILL_FIRE_MAGIC + realm]
@@ -201,7 +200,7 @@ static void CreateSpellCastingViewControls(void)
         gpSCSV->name_target = &gpSCSV->input.add(
             SDL_Rect{0x1b2, 0x170, 35, 15}, [](const UiPointerEvent&) { return UiResult::Pass; });
         gpSCSV->name_target->setPassive();
-        gpSCSV->name_target->setTooltip([] { return std::string(g_localized_strings[55]); });
+        gpSCSV->name_target->setTooltip([] { return std::string(Data().strings[55]); });
     }
     gpSCSV->cancel =
         make_button(0x8e, {7, 4, 5, -1, 6}, {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
@@ -340,7 +339,7 @@ void SelectSpellCastingCharacter(int party_slot)
     ClearSpellCastingChoice();
     if (GetAffordableSpellPowerLevel(party_slot) != 0) {
         int spell_id = CurrentGame().party.rows[party_slot].spell.detail;
-        SelectSpellCastingRealm(g_spell_records[spell_id].realm);
+        SelectSpellCastingRealm(Data().spells[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
             gpSCSV->uiSpellIndex = -1;
             return;
@@ -491,7 +490,7 @@ static void RebuildSpellCastingList(int spell_id)
         const int id = gpSCSV->learned.spell_ids_by_realm[realm][index];
         const bool usable = SpellUsableNow(id, false);
         const bool castable =
-            g_spell_records[id].spell_point_cost <= gpSCSV->caster->iSPLeft[realm] && usable &&
+            Data().spells[id].spell_point_cost <= gpSCSV->caster->iSPLeft[realm] && usable &&
             SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), id, false) &&
             !IsTeleportCastMissingAnchor(gpSCSV->caster, id);
         const signed char color =
@@ -506,7 +505,7 @@ static void RebuildSpellCastingList(int spell_id)
     int selected = -1;
     for (std::size_t index = 0; index < rows.size(); ++index) {
         const auto& row = rows[index];
-        const auto& spell = g_spell_records[row.spell];
+        const auto& spell = Data().spells[row.spell];
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX,
                    fmt::format("{} {}",
                                g_spell_target_parentheticals[GetSpellTargetType(row.spell, false)],
@@ -594,7 +593,7 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
         return;
     }
     realm = W8_SPELL_REALM_NONE;
-    switch (g_spell_records[spell_id].realm) {
+    switch (Data().spells[spell_id].realm) {
     case W8_SPELL_REALM_FIRE:
         SelectSpellCastingRealm(W8_SPELL_REALM_FIRE);
         RebuildSpellCastingList(spell_id);
@@ -772,7 +771,7 @@ void SelectSpellPowerLevel(int power_level)
         gpSCSV->spell_name.SetRenderMode(4);
         if (gpSCSV->PowerClass() == W8_SPELL_POWER_FIXED) {
             gpSCSV->draft.detail_block.spell.power_level = 1;
-            text = fmt::format("{:d}", g_spell_records[gpSCSV->draft.detail].spell_point_cost);
+            text = fmt::format("{:d}", Data().spells[gpSCSV->draft.detail].spell_point_cost);
         } else {
             text = "";
         }
@@ -790,7 +789,7 @@ void SelectSpellPowerLevel(int power_level)
         }
         gpSCSV->spell_name.SetRenderMode(4);
         text = fmt::format("{:d}", (power_level + 1) *
-                                       g_spell_records[gpSCSV->draft.detail].spell_point_cost);
+                                       Data().spells[gpSCSV->draft.detail].spell_point_cost);
     }
     gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
 }
@@ -812,7 +811,7 @@ static void PreviewSpellPowerPipHover(int power_level)
                 gpSCSV->spell_name.SetRenderMode(6);
                 text =
                     fmt::format("{:d}", (power_level + 1) *
-                                            g_spell_records[gpSCSV->draft.detail].spell_point_cost);
+                                            Data().spells[gpSCSV->draft.detail].spell_point_cost);
                 gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                 return;
             }
@@ -821,7 +820,7 @@ static void PreviewSpellPowerPipHover(int power_level)
                 if (gpSCSV->draft.detail_block.spell.power_level != 0) {
                     text = fmt::format("{:d}",
                                        gpSCSV->draft.detail_block.spell.power_level *
-                                           g_spell_records[gpSCSV->draft.detail].spell_point_cost);
+                                           Data().spells[gpSCSV->draft.detail].spell_point_cost);
                     gpSCSV->spell_name.SetText(text, g_wiz_text_font_secondary);
                     return;
                 }
@@ -936,14 +935,14 @@ static void SelectSpellCastingListRow(int index)
         return;
     }
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
-    power_class = g_spell_records[spell_id].power_class;
+    power_class = Data().spells[spell_id].power_class;
     if (power_class == W8_SPELL_POWER_CLASS_NONE) {
         Fail("iSpellPowerClass != BAD_INDEX");
     }
-    cost = g_spell_records[spell_id].spell_point_cost;
+    cost = Data().spells[spell_id].spell_point_cost;
     levels = GetCharacterRealmSpellPoints(
                  &CurrentGame().party.characters[CurrentGame().status.selected_character],
-                 g_spell_records[spell_id].realm) /
+                 Data().spells[spell_id].realm) /
              cost;
     levels = std::clamp(levels, 0u, 7u);
     if (levels == 0) {
@@ -975,11 +974,10 @@ void TryCommitSpellCast(void)
         if (!IsModalOpen() && CurrentGame()
                                   .party.characters[CurrentGame().status.selected_character]
                                   .has_saved_location) {
-            ShowMainGameNoticeLine(g_localized_strings[0x7a4], SpellCastingDialogResult, true,
-                                   true);
+            ShowMainGameNoticeLine(Data().strings[0x7a4], SpellCastingDialogResult, true, true);
         }
     } else if (gpSCSV->draft.detail == 0x49 && !gpSCSV->dialog_confirmed && !IsModalOpen()) {
-        ShowMainGameNoticeLine(g_localized_strings[0x7a5], SpellCastingDialogResult, true, true);
+        ShowMainGameNoticeLine(Data().strings[0x7a5], SpellCastingDialogResult, true, true);
     }
     if (ready && !IsModalOpen()) {
         if (gpSCSV->draft.detail != 0x17) {
@@ -998,16 +996,16 @@ void TryCommitSpellCast(void)
 void ShowSpellCastingError(int spell_id)
 {
     if (!SpellUsableNow(spell_id, false)) {
-        ShowMainGameNoticeLine(g_localized_strings[0x79e], SpellCastingNoticeClosed, true, false);
+        ShowMainGameNoticeLine(Data().strings[0x79e], SpellCastingNoticeClosed, true, false);
     } else if (GetCharacterRealmSpellPoints(gpSCSV->caster, gpSCSV->iSpellRealm) <
-               g_spell_records[spell_id].spell_point_cost) {
-        ShowMainGameNoticeLine(g_localized_strings[0x7a0], SpellCastingNoticeClosed, true, false);
+               Data().spells[spell_id].spell_point_cost) {
+        ShowMainGameNoticeLine(Data().strings[0x7a0], SpellCastingNoticeClosed, true, false);
     } else if (!SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), spell_id,
                                        false)) {
-        ShowMainGameNoticeLine(g_localized_strings[0x7a1], SpellCastingNoticeClosed, true, false);
+        ShowMainGameNoticeLine(Data().strings[0x7a1], SpellCastingNoticeClosed, true, false);
     } else if (IsTeleportCastMissingAnchor(gpSCSV->caster, spell_id)) {
-        ShowMainGameNoticeLine(g_localized_strings[0x7a2], SpellCastingNoticeClosed, true, false);
+        ShowMainGameNoticeLine(Data().strings[0x7a2], SpellCastingNoticeClosed, true, false);
     } else if (IsSpellBlockedForCharacter(gpSCSV->caster, spell_id)) {
-        ShowMainGameNoticeLine(g_localized_strings[0x79f], SpellCastingNoticeClosed, true, false);
+        ShowMainGameNoticeLine(Data().strings[0x79f], SpellCastingNoticeClosed, true, false);
     }
 }

@@ -13,11 +13,11 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
@@ -419,7 +419,7 @@ void W8NpcDialogue::Answer(std::string_view text)
         }
     } else {
         const W8NpcPriceCheck check = *price_check_;
-        if (CompareTextIgnoreAsciiCase(text, g_localized_strings[0x7df]) == 0) {
+        if (CompareTextIgnoreAsciiCase(text, Data().strings[0x7df]) == 0) {
             if (static_cast<unsigned int>(check.price) > CurrentGame().party.gold) {
                 Speak(0x14, false);
             } else {

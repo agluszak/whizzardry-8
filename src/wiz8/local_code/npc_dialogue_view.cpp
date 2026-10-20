@@ -20,10 +20,10 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -184,7 +184,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
                 return W8NpcSubquoteOutcome::presented;
             }
             plain_text =
-                fmt::sprintf(g_localized_strings[s_empty_quote_text_ids[g_empty_quote_text_index]],
+                fmt::sprintf(Data().strings[s_empty_quote_text_ids[g_empty_quote_text_index]],
                              speaker->record->source_name);
             ++g_empty_quote_text_index;
             if (g_empty_quote_text_index == 2) {

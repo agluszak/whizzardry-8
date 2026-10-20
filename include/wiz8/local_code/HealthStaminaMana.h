@@ -32,7 +32,6 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
                                     bool announce);
 void DrainPartySpellPoints(int amount, bool announce);
 int CalculateMonsterFatigueBand(int current, int maximum);
-unsigned int FatigueArmorPenalty(int fatigue_band);
 int SpellCastFatigueCost(int spell_id, int result);
 void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
 int MonsterActionFatigueCost(const W8MonsterInfo* monster_info);
@@ -77,6 +76,3 @@ void RestorePartySpellPoints(int amount);
 int SumCharacterSpellPoints(const W8Character* character);
 int SumCharacterSpellPointsLeft(const W8Character* character);
 int GetCharacterRealmSpellPoints(const W8Character* character, W8SpellRealm realm);
-void RecalculateCharacterStamina(W8Character* character);
-void RecalculateRealmSpellPoints(W8Character* character);
-int RebuildRealmSpellPointCeilings(W8Character* character);

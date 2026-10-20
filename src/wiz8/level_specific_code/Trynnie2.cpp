@@ -15,11 +15,11 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
@@ -102,12 +102,12 @@ bool Trynnie2MeatBox(Trigger* pTrigger)
 
     group = FindFirstMonsterByID(0x1d4);
     if (group == 0 || !(CurrentGame().party.held.item.iItemNo != -1)) {
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
     }
     item_id = GetItemInHand();
     if (item_id != 0x1b4 && item_id != 0x1c2) {
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
     }
     info = FindMonster(group->leader_location_id);
@@ -145,18 +145,18 @@ bool Trynnie2UseItem(W8ItemInstance* item)
         return false;
     }
     if (DispatchWorldCursorNodeCommand(0, 8, 0) == 0) {
-        ShowString(g_localized_strings[0x966]);
+        ShowString(Data().strings[0x966]);
         return true;
     }
     if (item->iItemNo == 0x1b3) {
-        ShowString(g_localized_strings[0x968]);
+        ShowString(Data().strings[0x968]);
     } else {
-        ShowString(g_localized_strings[0x967]);
+        ShowString(Data().strings[0x967]);
     }
     if (!CurrentGame().status.use_item_latch) {
         CurrentGame().status.use_item_latch = true;
     } else {
-        ShowString(g_localized_strings[0x969]);
+        ShowString(Data().strings[0x969]);
         if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
             SpawnMonsters(0xec, 1, &position, 0, true, false, false);
         }

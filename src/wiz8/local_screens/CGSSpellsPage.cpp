@@ -17,10 +17,9 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/fonts.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
@@ -137,9 +136,9 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
             }
             DrawText(target, g_wiz_text_font_secondary, {left + 2, y},
-                     g_spell_records[m_entries[index].spell].display_name);
+                     Data().spells[m_entries[index].spell].display_name);
             std::string cost;
-            cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
+            cost = fmt::format("{:d}", Data().spells[m_entries[index].spell].spell_point_cost);
             DrawText(target, g_wiz_text_font_secondary,
                      {left + width - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
             y += 13;
@@ -212,15 +211,14 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.top = 0xec;
         bounds.right = 0xc2;
         bounds.bottom = 0x173;
-        text.RenderString(
-            &bounds, g_localized_strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
-            g_wiz_text_font_secondary, true, target);
+        text.RenderString(&bounds,
+                          Data().strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
+                          g_wiz_text_font_secondary, true, target);
 
         bounds.top = 0x173;
         bounds.bottom = 0x18a;
         bounds.right = 0x8f;
-        text.RenderString(&bounds, g_localized_strings[0xf4], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xf4], g_wiz_text_font_secondary, true, target);
         m_prepared = false;
     }
 
@@ -251,8 +249,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
             text.SetFontStateIndex(1);
-            text.RenderString(fmt::format("{}:", g_localized_strings[0xf2]),
-                              g_wiz_text_font_secondary, false, target);
+            text.RenderString(fmt::format("{}:", Data().strings[0xf2]), g_wiz_text_font_secondary,
+                              false, target);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
@@ -265,8 +263,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
             text.SetFontStateIndex(1);
-            text.RenderString(fmt::format("{}:", g_localized_strings[0xf3]),
-                              g_wiz_text_font_secondary, false, target);
+            text.RenderString(fmt::format("{}:", Data().strings[0xf3]), g_wiz_text_font_secondary,
+                              false, target);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}/{:d}",
@@ -312,7 +310,7 @@ void W8CharacterSpellsPage::UpdateSpellLists()
         int first = entry;
         for (char pass = 0; pass < 2; ++pass) {
             for (unsigned int spell = 0; spell < 0x72; ++spell) {
-                if (g_spell_records[spell].realm == realm) {
+                if (Data().spells[spell].realm == realm) {
                     switch (m_character->spell_learned[spell]) {
                     case -1:
                     case 2:

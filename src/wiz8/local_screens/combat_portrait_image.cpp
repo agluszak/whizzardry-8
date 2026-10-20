@@ -1,8 +1,8 @@
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/rules/character.h"
@@ -46,7 +46,7 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
         image = 0x134;
         break;
     case W8_ACTION_CAST_SPELL:
-        switch (g_spell_records[detail].realm) {
+        switch (Data().spells[detail].realm) {
         case W8_SPELL_REALM_FIRE:
             image = 0x126;
             break;

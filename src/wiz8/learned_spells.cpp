@@ -3,7 +3,7 @@
 #include "layouts/learned_spells.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
-#include "wiz8/local_code/GameplayDatabase.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/character.h"
 
 /* Original translation unit is not established by the ItemManager/Magic source anchors. */
@@ -19,7 +19,7 @@ void BuildLearnedSpellState(W8LearnedSpellState* scratch, W8Character* character
     scratch->learned_total = 0;
     for (spell_id = W8_SPELL_NONE; spell_id < 0x72; ++spell_id) {
         if (character->spell_learned[spell_id] == 1 || character->spell_learned[spell_id] == 2) {
-            realm = g_spell_records[spell_id].realm;
+            realm = Data().spells[spell_id].realm;
             count = character->skill_unlocks[0x1c + realm];
             scratch->spell_ids_by_realm[realm][count] = spell_id;
             character->skill_unlocks[0x1c + realm] = count + 1;

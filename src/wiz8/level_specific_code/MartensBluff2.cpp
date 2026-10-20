@@ -29,6 +29,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -37,7 +38,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -363,7 +363,7 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
         }
     }
     SetRavenQuestState(quest_state);
-    ShowString(g_localized_strings[0x71c]);
+    ShowString(Data().strings[0x71c]);
     return false;
 }
 
@@ -561,7 +561,7 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
     }
     ReplaceHeldItem(MakeItem(0x291, false, false, false));
     SetItemCursor(0);
-    ShowString(g_localized_strings[0x71d]);
+    ShowString(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(true);

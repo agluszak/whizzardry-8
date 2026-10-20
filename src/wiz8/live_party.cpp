@@ -3,7 +3,6 @@
 #include <bitset>
 
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
@@ -14,6 +13,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -23,11 +23,13 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/xstatus.h"
@@ -57,7 +59,7 @@ void RecalculateHitPoints(W8Character& character)
 
 void RecalculateArmorClass(W8Character& character)
 {
-    CalcArmorClasses(&character, CaptureLiveCharacterStatRules(character).defensive_action);
+    CalcArmorClasses(Data(), &character, CaptureLiveCharacterStatRules(character).defensive_action);
 }
 
 PartyStatRules CaptureLivePartyStatRules()
@@ -94,7 +96,8 @@ void PresentPartyLoadChange(bool redistributed)
 void RedistributePartyEncumbrance()
 {
     if (GameStarted())
-        PresentPartyLoadChange(RefreshPartyLoad(CurrentGame().party, CaptureLivePartyStatRules()));
+        PresentPartyLoadChange(
+            RefreshPartyLoad(Data(), CurrentGame().party, CaptureLivePartyStatRules()));
 }
 
 /* Combat choices that depend on the weapons in hand follow a change of them: berserk
@@ -145,7 +148,7 @@ void SettleActiveParty(std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
         if (party.rows[slot].fOccupied && IsCharacterDefined(party.characters[slot]) &&
             UnequipUnusableItems(slot))
             changed_hands.set(slot);
-    const auto stats = UpdatePartyStats(party, CaptureLivePartyStatRules());
+    const auto stats = UpdatePartyStats(Data(), party, CaptureLivePartyStatRules());
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.rows[slot].fOccupied) continue;
         auto& character = party.characters[slot];
@@ -178,5 +181,5 @@ void RecalculateCharacterDerivedStats(W8Character& character)
         SettleActiveParty();
         return;
     }
-    UpdateStandaloneCharacterStats(character, {});
+    UpdateStandaloneCharacterStats(Data(), character, {});
 }

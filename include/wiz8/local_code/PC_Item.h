@@ -30,7 +30,6 @@ extern W8Skill g_item_spell_presentation[11];
    bound-item predicates refuse to hold a binding behind. */
 extern int g_equip_slot_icons[12];
 
-void SetHandType(W8Character* character, W8EquipSlot equip_slot);
 unsigned int GetEquipmentBindingDifficulty(int character_index);
 W8EquipSlot GetPairedEquipSlot(W8EquipSlot equip_slot);
 std::string GetItemDisplayName(const W8ItemInstance* item);
@@ -107,7 +106,7 @@ bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
 
 bool ItemHasHiddenProperties(int item_id);
 
-/* Per-item-class notice index into g_localized_strings used for the
+/* Per-item-class notice index into Data().strings used for the
    unidentified ("Uncursed item" style) display name. */
 unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item);
 

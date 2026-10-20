@@ -9,9 +9,9 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/encounter_tables.h"
-#include "layouts/item_tables.h"
 #include "layouts/levels.h"
 #include "layouts/npc_dialogue.h"
+#include "mutable_game_data.h"
 #include "retail_records.h"
 #include "save_payload.h"
 #include "scoped_combat.h"
@@ -20,13 +20,14 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/compat/native.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
@@ -254,12 +255,11 @@ static void unicode_database_contracts()
         items->write(image.data(), image.size());
     }
     items->close();
-    REQUIRE(InitializeItemDatabase());
-    REQUIRE(g_item_records.size() == 2);
-    REQUIRE(std::string(g_item_records[0].display_name) == "Épée");
-    REQUIRE((std::string(g_item_records[1].display_name) == "药水😀" &&
-             g_item_records[1].value == 101));
-    DestroyItemDatabase();
+    const auto item_records = ReadItemDatabase();
+    REQUIRE(item_records.size() == 2);
+    REQUIRE(std::string(item_records[0].display_name) == "Épée");
+    REQUIRE(
+        (std::string(item_records[1].display_name) == "药水😀" && item_records[1].value == 101));
     auto monsters =
         wiz8::open_file(wiz8::asset_path("data/databases/monsters.dbs"), wiz8::OpenMode::replace);
     monsters->write(&count, 4);
@@ -342,10 +342,8 @@ static void unicode_file_contracts()
     file->write(&length, 4);
     file->write(bytes.data(), bytes.size());
     file->close();
-    LoadLocalizedStrings("Data/Strings/unicode.dat");
-    REQUIRE((giStringListLen == 1 && std::string(g_localized_strings[0]) == "é中😀 %s %hs %s"));
-    ReleaseLocalizedStrings();
-    REQUIRE((g_localized_strings.empty() && !giStringListLen));
+    const auto strings = ReadStringTable("Data/Strings/unicode.dat");
+    REQUIRE((strings.size() == 1 && strings[0] == "é中😀 %s %hs %s"));
 
     ReleaseMessageStorage();
     memset(CurrentGame().status.text_box_lines_used, 0,
@@ -1199,23 +1197,23 @@ static void camera_angles()
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct NpcGlobalGuard {
-    std::vector<W8NpcDatabaseRecord> previous_records = std::exchange(g_npc_records, {});
+    std::vector<W8NpcDatabaseRecord> previous_records = std::exchange(MutableData().npcs, {});
 
     ~NpcGlobalGuard()
     {
         ReleaseNpcStates();
-        g_npc_records = std::move(previous_records);
+        MutableData().npcs = std::move(previous_records);
     }
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct CombatRecordGuard {
-    std::vector<W8SpellRuntimeRecord> previous_spells = std::exchange(g_spell_records, {});
+    std::vector<W8SpellRuntimeRecord> previous_spells = std::exchange(MutableData().spells, {});
     W8Party previous_party = std::exchange(CurrentGame().party, W8Party{});
 
     ~CombatRecordGuard()
     {
-        g_spell_records = std::move(previous_spells);
+        MutableData().spells = std::move(previous_spells);
         CurrentGame().party = std::move(previous_party);
     }
 };
@@ -1333,8 +1331,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
     NpcGlobalGuard globals;
     const auto path = root / wiz8::path_from_utf8("npc-雪.bin");
     // All three database nodes are supplied by the serialized states below.
-    g_npc_records.resize(3);
-    for (unsigned char index = 0; index < 3; ++index) g_npc_records[index].kind = index;
+    MutableData().npcs.resize(3);
+    for (unsigned char index = 0; index < 3; ++index) MutableData().npcs[index].kind = index;
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version =
@@ -1375,7 +1373,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = g_npc_states[i].get();
-            REQUIRE(npc->record == &g_npc_records[i]);
+            REQUIRE(npc->record == &MutableData().npcs[i]);
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
                 REQUIRE(npc->character.has_value());
@@ -1397,7 +1395,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         REQUIRE(g_npc_states.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = g_npc_states[index].get();
-            REQUIRE((npc->record == &g_npc_records[index] && npc->items.empty()));
+            REQUIRE((npc->record == &MutableData().npcs[index] && npc->items.empty()));
             if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
             else
@@ -1538,8 +1536,8 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     // The AI used to decay the odd-offset condition array into unsigned int*.
     auto& character = CurrentGame().party.characters[0];
     character = {};
-    g_spell_records.resize(W8_SPELL_COUNT);
-    g_spell_records[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
+    MutableData().spells.resize(W8_SPELL_COUNT);
+    MutableData().spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;

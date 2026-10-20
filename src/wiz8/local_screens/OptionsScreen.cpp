@@ -38,6 +38,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/save_screenshot.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -45,7 +46,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/JournalScreen.h"
@@ -629,7 +629,7 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
 
     std::string level_name = m_save->level_id == 0x38
                                  ? g_default_level
-                                 : g_localized_strings[g_level_name_indices[m_save->level_id]];
+                                 : Data().strings[g_level_name_indices[m_save->level_id]];
     std::string timestamp;
     timestamp = fmt::format("{:d}-{:02d}-{:02d} {:2d}:{:02d}", m_save->timestamp.year,
                             m_save->timestamp.month, m_save->timestamp.day, m_save->timestamp.hour,
@@ -640,17 +640,17 @@ void W8OptionsSaveRow::Redraw(SDL_Surface& target, bool full_redraw)
         1.24f) {
         DrawText(target, g_wiz_text_font_secondary, {text_x, y + 9}, level_name);
         DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x16},
-                 fmt::format("{} {:3d}, {:2d}:{:02d}", g_localized_strings[0x826],
+                 fmt::format("{} {:3d}, {:2d}:{:02d}", Data().strings[0x826],
                              m_save->game_time_days, m_save->game_time_ms / 3600000,
                              (m_save->game_time_ms / 60000) % 60));
         DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x23}, timestamp);
     } else {
-        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 9}, g_localized_strings[0x830]);
-        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x16}, g_localized_strings[0x831]);
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 9}, Data().strings[0x830]);
+        DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x16}, Data().strings[0x831]);
     }
     DrawText(target, g_wiz_text_font_secondary, {text_x, y + 0x34}, m_save->name);
     if (m_save->iron_man) {
-        DrawText(target, g_wiz_text_font_secondary, {x + 0x156, y + 9}, g_localized_strings[0x827]);
+        DrawText(target, g_wiz_text_font_secondary, {x + 0x156, y + 9}, Data().strings[0x827]);
     }
 }
 
@@ -699,17 +699,17 @@ void W8OptionsKeyButton::SetKeyText(SDL_Keycode key)
     std::string text;
     for (const auto* name = g_options_key_names; name->key != 0; ++name) {
         if (name->key == key) {
-            text = g_localized_strings[name->label];
+            text = Data().strings[name->label];
             break;
         }
     }
     if (text.empty()) {
         const char* name = SDL_GetKeyName(key);
-        text = name && *name ? name : g_localized_strings[0x86d];
+        text = name && *name ? name : Data().strings[0x86d];
     }
 
     if (m_secondary_binding != W8_MGS_COMMAND_NONE && key != 0) {
-        text = fmt::format("({}) {}", g_localized_strings[0x89d], text);
+        text = fmt::format("({}) {}", Data().strings[0x89d], text);
     }
     this->text.SetText(text, g_options_detail_font);
 }
@@ -759,7 +759,7 @@ void W8OptionsKeyboardPanel::Populate()
     const W8ControlsRect title_bounds{m_bounds.x + 30, m_content_top, m_bounds.x + m_bounds.w - 30,
                                       m_content_top + 22};
     m_text_buffers.emplace_back(std::make_unique<W8TextBuffer>(
-        &title_bounds, g_localized_strings[page.title], g_options_detail_font,
+        &title_bounds, Data().strings[page.title], g_options_detail_font,
         g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4));
     m_content_top += 44;
     auto* row = g_options_key_rows;
@@ -768,14 +768,14 @@ void W8OptionsKeyboardPanel::Populate()
         const W8ControlsRect bounds{m_bounds.x + 20, m_content_top, m_bounds.x + m_bounds.w,
                                     m_content_top + 22};
         m_text_buffers.emplace_back(std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[row->label], g_options_detail_font,
+            &bounds, Data().strings[row->label], g_options_detail_font,
             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
         add_key({m_bounds.x + 100, m_content_top, 0x15e - 100, 22}, row->primary_binding,
                 row->secondary_binding, "");
         m_content_top += 22;
         if ((row++)->primary_binding == page.last_binding) break;
     }
-    const auto& reset = g_localized_strings[0x833];
+    const auto& reset = Data().strings[0x833];
     const int width = g_options_detail_font.textWidth(reset) + 20;
     add_key({m_bounds.x + (m_bounds.w - width) / 2, 0x18e, width, 22}, W8_MGS_COMMAND_NONE,
             W8_MGS_COMMAND_NONE, reset);
@@ -1157,9 +1157,8 @@ void W8OptionsUnavailablePanel::Populate()
     m_content_top += 44;
     W8ControlsRect bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
                              ToEdges(ScreenBounds()).right - 30, ToEdges(ScreenBounds()).bottom};
-    W8TextBuffer* text =
-        new W8TextBuffer(&bounds, g_localized_strings[m_message], g_options_detail_font,
-                         g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
+    W8TextBuffer* text = new W8TextBuffer(&bounds, Data().strings[m_message], g_options_detail_font,
+                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
     m_text_buffers.emplace_back(text);
     m_text_buffers[0]->SetLineHeight(22);
 }
@@ -1304,7 +1303,7 @@ void W8OptionsScreenState::ShowNotification(bool allow_cancel, int message,
 {
     auto dialog = std::unique_ptr<W8MessageDialogBase>(CreateMessageDialog());
     dialog->SetClientExtent(250, 200);
-    dialog->SetMessage(g_localized_strings[message], 1, 50, true, allow_cancel, true, true, 0, 350);
+    dialog->SetMessage(Data().strings[message], 1, 50, true, allow_cancel, true, true, 0, 350);
     dialog->InputLayer().setModal(true);
     m_active_modal = std::move(dialog);
     m_notification_closed = std::move(closed);
@@ -1603,7 +1602,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
         panel.ScreenBounds().x + 20, panel.ScreenBounds().y + panel.m_content_top,
         ToEdges(panel.ScreenBounds()).right, panel.ScreenBounds().y + panel.m_content_top + 22};
     panel.m_text_buffers.emplace_back(
-        new W8TextBuffer(&bounds, g_localized_strings[label], g_options_detail_font,
+        new W8TextBuffer(&bounds, Data().strings[label], g_options_detail_font,
                          g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
@@ -1622,7 +1621,7 @@ W8ButtonWidget* W8OptionsPanel::AddChoiceButton(int label, W8ButtonCallback call
     const W8ControlsRect bounds{m_bounds.x, m_bounds.y + m_content_top, m_bounds.x + 0x147,
                                 m_bounds.y + m_content_top + 22};
     m_text_buffers.emplace_back(
-        std::make_unique<W8TextBuffer>(&bounds, g_localized_strings[label], g_options_detail_font,
+        std::make_unique<W8TextBuffer>(&bounds, Data().strings[label], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4));
     auto* button = AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, -1, std::move(callback));
     button->Policy().primary_toggle = ButtonToggle::Release;

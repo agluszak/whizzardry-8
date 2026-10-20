@@ -29,6 +29,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
@@ -38,7 +39,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PartyImport.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
@@ -462,7 +462,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
                 ApplyAttributeChange(character, W8_ATTRIBUTE_INTELLIGENCE);
             }
         }
-        ShowString(g_localized_strings[0x1dc]);
+        ShowString(Data().strings[0x1dc]);
         trigger = FindTriggerByName("FOUNT_RIDDLE");
         if (trigger == 0) {
             return;
@@ -991,15 +991,15 @@ unsigned char GetFact(W8FactId fact_id)
 
     value = EvaluateFact(fact_id);
     if (CurrentGame().status.log_fact_checks &&
-        static_cast<unsigned>(fact_id) < g_fact_records.size()) {
+        static_cast<unsigned>(fact_id) < Data().facts.size()) {
         if (value) {
             display_value = "TRUE";
         } else {
             display_value = "FALSE";
         }
         ShowNotice(W8_FONT_PALETTE_YELLOW,
-                   fmt::format("Checking fact {} which is {}",
-                               g_fact_records[fact_id].symbolic_name, display_value));
+                   fmt::format("Checking fact {} which is {}", Data().facts[fact_id].symbolic_name,
+                               display_value));
     }
     return value;
 }
@@ -1016,7 +1016,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     previous_value = g_fact_values[fact_id];
     g_fact_values[fact_id] = value;
 
-    if (fact_id < static_cast<int>(g_fact_records.size())) {
+    if (fact_id < static_cast<int>(Data().facts.size())) {
         if (value) {
             display_value = "TRUE";
         } else {
@@ -1031,7 +1031,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
         HandleFactChange(fact_id, value);
 
         if (CurrentGame().status.log_fact_checks &&
-            static_cast<unsigned>(fact_id) < g_fact_records.size()) {
+            static_cast<unsigned>(fact_id) < Data().facts.size()) {
             if (value) {
                 display_value = "TRUE";
             } else {
@@ -1039,7 +1039,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
             }
             ShowNotice(
                 W8_FONT_PALETTE_YELLOW,
-                fmt::format("{} set to {}", g_fact_records[fact_id].symbolic_name, display_value));
+                fmt::format("{} set to {}", Data().facts[fact_id].symbolic_name, display_value));
         }
     }
 }

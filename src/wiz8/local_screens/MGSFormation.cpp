@@ -22,10 +22,10 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -345,7 +345,7 @@ static void AcceptFormationChanges(void)
         ReconcilePartyFormation(&gXStatus.edited_formation, &CurrentGame().party.formation);
     } else if (memcmp(&CurrentGame().party.formation, &gXStatus.edited_formation,
                       sizeof(W8PartyFormationState)) != 0) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x7d9]);
+        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
     RefreshFormationBoard();
     RefreshRadarMap();

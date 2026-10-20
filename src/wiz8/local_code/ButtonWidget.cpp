@@ -13,9 +13,9 @@
 #include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -132,7 +132,7 @@ void W8ButtonWidget::SetTooltipEnabled(bool enabled)
     const bool show_tooltip =
         enabled && m_setup.tooltip != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
     if (show_tooltip)
-        m_target->setTooltip([index = m_setup.tooltip] { return g_localized_strings[index]; });
+        m_target->setTooltip([index = m_setup.tooltip] { return Data().strings[index]; });
     else
         m_target->setTooltip({});
 }

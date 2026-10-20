@@ -17,6 +17,7 @@
 #include "fact_state.h"
 #include "layouts/npc_state.h"
 #include "mgs_commands.h"
+#include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_combat.h"
@@ -25,28 +26,26 @@
 #include "sight_state.h"
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -64,17 +63,20 @@
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/world.h"
@@ -162,11 +164,11 @@ TEST_CASE("Group activity is derived from its own population without recounts", 
 
 TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
 {
-    const ScopedRecords spells(g_spell_records, 3);
+    const ScopedRecords spells(MutableData().spells, 3);
     W8Character caster{};
     W8SpellCastingView view{};
     view.caster = &caster;
-    auto& spell = g_spell_records[1];
+    auto& spell = MutableData().spells[1];
     spell.power_class = W8_SPELL_POWER_SELECTABLE;
     spell.realm = W8_SPELL_REALM_FIRE;
     spell.spell_point_cost = 5;
@@ -176,9 +178,9 @@ TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
     REQUIRE(view.AffordablePowerLevels() == 4);
     caster.iSPLeft[spell.realm] = 5;
     REQUIRE(view.AffordablePowerLevels() == 1);
-    g_spell_records[2] = spell;
-    g_spell_records[2].power_class = W8_SPELL_POWER_FIXED;
-    g_spell_records[2].spell_point_cost = 10;
+    MutableData().spells[2] = spell;
+    MutableData().spells[2].power_class = W8_SPELL_POWER_FIXED;
+    MutableData().spells[2].spell_point_cost = 10;
     view.draft.detail = 2;
     REQUIRE(view.PowerClass() == W8_SPELL_POWER_FIXED);
     REQUIRE(view.AffordablePowerLevels() == 0);
@@ -234,8 +236,8 @@ static bool gameplayCollectionLifetime()
 
 static bool npcStockOrdering()
 {
-    const ScopedRecords items(g_item_records, 2);
-    auto& records = g_item_records;
+    const ScopedRecords items(MutableData().items, 2);
+    auto& records = MutableData().items;
     records[0].unidentified_name_index = 20;
     records[1].unidentified_name_index = 10;
 
@@ -469,8 +471,8 @@ TEST_CASE_METHOD(LevelWorldFixture, "Engagement propagates to the original leade
 TEST_CASE("Proposed weapons use the same hand rules without changing equipment", "[equipment]")
 {
     const ScopedGame game;
-    const ScopedRecords items(g_item_records, 3);
-    auto& records = g_item_records;
+    const ScopedRecords items(MutableData().items, 3);
+    auto& records = MutableData().items;
     records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     records[0].weapon_skill = W8_SKILL_SWORD;
     records[1].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
@@ -487,7 +489,7 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
     REQUIRE(choice.value().primary);
     REQUIRE(choice.value().secondary);
     const auto proposed =
-        EvaluateWeaponHands(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
+        EvaluateWeaponHands(Data(), character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON],
                             character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON]);
     REQUIRE(proposed[0].in_play);
     REQUIRE_FALSE(proposed[1].in_play);
@@ -502,8 +504,8 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
 {
     const ScopedGame game;
     auto& characters = CurrentGame().party.characters;
-    const ScopedRecords items(g_item_records, 3);
-    for (auto& record : g_item_records) {
+    const ScopedRecords items(MutableData().items, 3);
+    for (auto& record : MutableData().items) {
         record.profession_mask = 0xffff;
         record.race_mask = 0xffff;
         record.gender_mask = 3;
@@ -512,17 +514,17 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
         record.skill_requirements[0].stat_id = 0xff;
         record.skill_requirements[1].stat_id = 0xff;
     }
-    g_item_records[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
-    g_item_records[0].unidentified_name_index = 0x83;
-    g_item_records[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    g_item_records[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
+    MutableData().items[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
+    MutableData().items[0].unidentified_name_index = 0x83;
+    MutableData().items[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    MutableData().items[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
     CurrentGame().party.rows[0].fOccupied = true;
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 2;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
-    SetHandType(&character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    SetHandType(Data(), &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     REQUIRE(character.Hand[1].uiHolds == 3);
     CommitWeaponSetSwap(0, {true, false});
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
@@ -538,8 +540,8 @@ TEST_CASE_METHOD(LevelWorldFixture,
     const ScopedGame game;
     auto& characters = CurrentGame().party.characters;
     auto& rows = CurrentGame().party.rows;
-    const ScopedRecords items(g_item_records, 2);
-    auto& records = g_item_records;
+    const ScopedRecords items(MutableData().items, 2);
+    auto& records = MutableData().items;
     struct RestoreState {
         unsigned char autoswap = g_settings.autoswap_weapons;
         ScopedCombat combat;
@@ -671,12 +673,12 @@ TEST_CASE("A picker constrains layout without restoring an obsolete preference",
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")
 {
     const ScopedGame game;
-    const ScopedRecords items(g_item_records, 2);
-    g_item_records[0].flags = W8_ITEM_FLAG_NO_DISCARD;
-    g_item_records[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
-    g_item_records[0].maximum_quantity = 10;
-    g_item_records[0].initial_quantity = {0, 1, 6};
-    g_item_records[0].value = 10;
+    const ScopedRecords items(MutableData().items, 2);
+    MutableData().items[0].flags = W8_ITEM_FLAG_NO_DISCARD;
+    MutableData().items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    MutableData().items[0].maximum_quantity = 10;
+    MutableData().items[0].initial_quantity = {0, 1, 6};
+    MutableData().items[0].value = 10;
     CurrentGame().party.gold = 100;
     CurrentGame().party.item_count = 500;
     for (auto& item : CurrentGame().party.item_pool) item = {.iItemNo = 1};
@@ -709,9 +711,9 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
         ScopedCombat combat{true};
         ~Restore() { ReplaceWorld(std::move(world)); }
     } restore;
-    const ScopedRecords levels(g_level_records, 1);
-    g_level_records[0].minimum_encounter_budget = 1;
-    g_level_records[0].maximum_encounter_budget = 20;
+    const ScopedRecords levels(MutableData().levels, 1);
+    MutableData().levels[0].minimum_encounter_budget = 1;
+    MutableData().levels[0].maximum_encounter_budget = 20;
     GetWorld()->encounters.random_budget = 8;
     W8MonsterGroup unowned{};
     unowned.encounter_registered = true;
@@ -750,10 +752,10 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
         std::unique_ptr<World> world = ReplaceWorld(std::make_unique<World>(0));
         ~Restore() { ReplaceWorld(std::move(world)); }
     } restore;
-    const ScopedRecords levels(g_level_records, 2);
-    g_level_records[1].minimum_encounter_budget = 2;
-    g_level_records[1].maximum_encounter_budget = 9;
-    g_level_records[1].encounter_culling_seconds = 123;
+    const ScopedRecords levels(MutableData().levels, 2);
+    MutableData().levels[1].minimum_encounter_budget = 2;
+    MutableData().levels[1].maximum_encounter_budget = 9;
+    MutableData().levels[1].encounter_culling_seconds = 123;
     auto& live = GetWorld()->encounters;
     live.random_budget = 6;
     live.saved_budget = 77;
@@ -810,9 +812,9 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         ScopedCombat combat{true};
         ~Restore() { ReplaceWorld(std::move(world)); }
     } restore;
-    const ScopedRecords levels(g_level_records, 1);
-    g_level_records[0].minimum_encounter_budget = 1;
-    g_level_records[0].maximum_encounter_budget = 20;
+    const ScopedRecords levels(MutableData().levels, 1);
+    MutableData().levels[0].minimum_encounter_budget = 1;
+    MutableData().levels[0].maximum_encounter_budget = 20;
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
     std::array<std::unique_ptr<Monster>, 3> representations;
@@ -914,8 +916,8 @@ TEST_CASE("Retail monster combat markers describe ownership without restoring a 
 TEST_CASE("Detached party weight uses stable slot ties and drops the odd half-unit",
           "[party][encumbrance]")
 {
-    const ScopedRecords items(g_item_records, 1);
-    g_item_records[0].weight = 7;
+    const ScopedRecords items(MutableData().items, 1);
+    MutableData().items[0].weight = 7;
     W8Party party;
     for (int slot : {0, 1}) {
         party.rows[slot].fOccupied = true;
@@ -924,13 +926,13 @@ TEST_CASE("Detached party weight uses stable slot ties and drops the odd half-un
     }
     party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
     party.item_count = 1;
-    REQUIRE(RefreshPartyLoad(party, {}));
+    REQUIRE(RefreshPartyLoad(Data(), party, {}));
     REQUIRE(party.characters[0].party_weight_share == 2);
     REQUIRE(party.characters[1].party_weight_share == 1);
     REQUIRE(party.characters[0].total_carried_weight == 2);
     REQUIRE(party.characters[1].total_carried_weight == 1);
     party.rows[0].fOccupied = false;
-    REQUIRE(RefreshPartyLoad(party, {}));
+    REQUIRE(RefreshPartyLoad(Data(), party, {}));
     REQUIRE(party.characters[0].party_weight_share == 0);
     REQUIRE(party.characters[1].party_weight_share == 3);
 }
@@ -938,19 +940,19 @@ TEST_CASE("Detached party weight uses stable slot ties and drops the odd half-un
 TEST_CASE("Inventory weight reports overload without scheduling a voice event",
           "[party][encumbrance]")
 {
-    const ScopedRecords items(g_item_records, 1);
-    g_item_records[0].weight = 7;
+    const ScopedRecords items(MutableData().items, 1);
+    MutableData().items[0].weight = 7;
     W8Character character{};
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     for (auto& item : character.backpack) item.iItemNo = -1;
     character.carrying_capacity = 10;
     character.inventory_weight = 7;
     character.backpack[0] = {.iItemNo = 0, .stack_count = 2};
-    const auto changed = RecalculateInventoryWeight(character);
+    const auto changed = RecalculateInventoryWeight(Data(), character);
     REQUIRE(character.inventory_weight == 14);
     REQUIRE(changed.changed);
     REQUIRE(changed.became_overloaded);
-    const auto unchanged = RecalculateInventoryWeight(character);
+    const auto unchanged = RecalculateInventoryWeight(Data(), character);
     REQUIRE_FALSE(unchanged.changed);
     REQUIRE_FALSE(unchanged.became_overloaded);
 }
@@ -960,8 +962,8 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
 {
     const ScopedGame game;
     const ScopedCombat combat{true};
-    const ScopedRecords items(g_item_records, 1);
-    g_item_records[0].weight = 18;
+    const ScopedRecords items(MutableData().items, 1);
+    MutableData().items[0].weight = 18;
     CurrentGame().party.characters[0].party_weight_share = 123;
     W8Party party;
     party.rows[0].fOccupied = true;
@@ -977,12 +979,12 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     party.item_count = 1;
     PartyStatRules rules;
     rules.load_timing = PartyLoadTiming::AfterCombat;
-    REQUIRE_FALSE(RefreshPartyLoad(party, rules));
+    REQUIRE_FALSE(RefreshPartyLoad(Data(), party, rules));
     REQUIRE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 4);
     rules.load_timing = PartyLoadTiming::Immediate;
     rules.characters[0].defensive_action = true;
-    REQUIRE(RefreshPartyLoad(party, rules));
+    REQUIRE(RefreshPartyLoad(Data(), party, rules));
     REQUIRE_FALSE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
@@ -1046,7 +1048,7 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     detached.modifiers.damage_bonus = 7;
     RebuildCharacterModifierBlock(&foreign, &detached.modifiers);
     REQUIRE(foreign.bonus.damage_bonus == 9);
-    const auto result = UpdateStandaloneCharacterStats(foreign, {});
+    const auto result = UpdateStandaloneCharacterStats(Data(), foreign, {});
     REQUIRE(result.valid);
     REQUIRE(foreign.party_weight_share == 0);
     REQUIRE(CurrentGame().party.characters[0].party_weight_share == 99);
@@ -1063,9 +1065,9 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
 
 TEST_CASE("Weapon swings see the damage bonus left by the previous calculation", "[party][stats]")
 {
-    const ScopedRecords items(g_item_records, 1);
-    g_item_records[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    g_item_records[0].weapon_skill = W8_SKILL_SWORD;
+    const ScopedRecords items(MutableData().items, 1);
+    MutableData().items[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
+    MutableData().items[0].weapon_skill = W8_SKILL_SWORD;
     W8Character character{};
     character.iProfession = W8_PROFESSION_FIGHTER;
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
@@ -1077,11 +1079,11 @@ TEST_CASE("Weapon swings see the damage bonus left by the previous calculation",
     character.Hand[0].damage_bonus = 3;
 
     // Retail scores swings before resetting the bonus: (100 + 30 + 90) / 3 = 73.
-    CalcAttacks(&character, false);
+    CalcAttacks(Data(), &character, false);
     REQUIRE(character.Hand[0].damage_bonus == 0);
     REQUIRE(character.Hand[0].swings == 2);
     // The next calculation sees this arrangement's bonus: (100 + 0 + 90) / 3 = 63.
-    CalcAttacks(&character, false);
+    CalcAttacks(Data(), &character, false);
     REQUIRE(character.Hand[0].swings == 1);
 }
 
@@ -1111,8 +1113,8 @@ W8Character& PrepareMember(unsigned int slot)
 TEST_CASE("A split stack travels through the hand and merges back", "[party][inventory]")
 {
     const ScopedActiveParty active;
-    const ScopedRecords items(g_item_records, 1);
-    auto& record = g_item_records[0];
+    const ScopedRecords items(MutableData().items, 1);
+    auto& record = MutableData().items[0];
     record.quantity_kind = W8_ITEM_QUANTITY_STACK;
     record.maximum_quantity = 100;
     record.weight = 10;
@@ -1141,9 +1143,9 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
           "[party][inventory]")
 {
     const ScopedActiveParty active;
-    const ScopedRecords items(g_item_records, 1);
-    g_item_records[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
-    g_item_records[0].maximum_quantity = 100;
+    const ScopedRecords items(MutableData().items, 1);
+    MutableData().items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    MutableData().items[0].maximum_quantity = 100;
     auto& party = CurrentGame().party;
     party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
     for (auto& item : party.characters[0].backpack)
@@ -1162,8 +1164,8 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
           "[party][inventory][stats]")
 {
     const ScopedActiveParty active;
-    const ScopedRecords items(g_item_records, 3);
-    for (auto& record : g_item_records) {
+    const ScopedRecords items(MutableData().items, 3);
+    for (auto& record : MutableData().items) {
         record.profession_mask = 0xffff;
         record.race_mask = 0xffff;
         record.gender_mask = 3; // Both genders.
@@ -1173,10 +1175,10 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
         record.skill_requirements[1].stat_id = 0xff;
     }
     // The first item supplies strength to the second, but itself requires speed.
-    g_item_records[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
-    g_item_records[0].modifier_0b3_value = 20;
-    g_item_records[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
-    g_item_records[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
+    MutableData().items[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
+    MutableData().items[0].modifier_0b3_value = 20;
+    MutableData().items[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
+    MutableData().items[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
     auto& character = PrepareMember(0);
     character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
@@ -1190,7 +1192,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
 
     // With no storage left, an item that may not be discarded falls into the hand.
     auto& party = CurrentGame().party;
-    g_item_records[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
+    MutableData().items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
     party.item_count = 500;

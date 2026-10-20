@@ -15,6 +15,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/world_item.h"
@@ -24,19 +25,19 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/xstatus.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -70,7 +71,7 @@ static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
 {
     const auto count = npc->record->item_stock_rules.size();
     for (unsigned int index = 0; index < count; ++index) {
-        W8NpcItemStockRule* rule = &npc->record->item_stock_rules[index];
+        const W8NpcItemStockRule* rule = &npc->record->item_stock_rules[index];
         if (rule->item_id == item_id) {
             return rule->quantity;
         }
@@ -116,7 +117,7 @@ static void RemoveDepletedNpcStock(W8NpcState* npc)
 
 int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
 {
-    W8ItemDatabaseRecord* record;
+    const W8ItemDatabaseRecord* record;
     W8NpcItemEntry* entry;
     unsigned int repeats;
     unsigned int added;
@@ -125,7 +126,7 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     if (npc == 0) {
         return -1;
     }
-    record = &g_item_records[item_id];
+    record = &Data().items[item_id];
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         repeats = quantity;
     } else {
@@ -162,7 +163,7 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
 unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 {
     W8NpcItemEntry* entry;
-    W8NpcItemStockRule* rule;
+    const W8NpcItemStockRule* rule;
     std::size_t count;
     unsigned int index;
     unsigned int rule_index;
@@ -175,7 +176,7 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
         entry = &npc->items[index];
         if (((entry->quantity != 0) &&
              (NormalizeItemQuantityKind(&entry->item),
-              g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
+              Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
             entry->quantity > entry->item.stack_count) {
             entry->item.stack_count = entry->quantity;
             entry->quantity = 1;
@@ -221,7 +222,7 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
 
 unsigned char PopulateNpcStock(W8NpcState* npc)
 {
-    W8NpcItemStockRule* rule;
+    const W8NpcItemStockRule* rule;
     std::size_t rule_count;
     unsigned int rule_index;
     unsigned int remaining;
@@ -239,7 +240,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
         rule = &npc->record->item_stock_rules[rule_index];
         item_id = rule->item_id;
-        if (item_id < static_cast<int>(g_item_records.size())) {
+        if (item_id < static_cast<int>(Data().items.size())) {
             persistent = rule->persistent;
             added = 0;
             if (rule->quantity != 0) {
@@ -296,7 +297,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
     }
     item_id = item->iItemNo;
     index = -1;
-    if (g_item_records[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+    if (Data().items[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         index = FindNpcStockItem(npc, item_id);
     }
     if (index == -1) {
@@ -305,7 +306,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
         npc->items.push_back(MakeNpcItemEntry(item_id));
     }
     entry = &npc->items[index];
-    if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+    if (Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->quantity == 0) {
             entry->quantity = 1;
         }
@@ -327,7 +328,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
    recovered symbolic name. */
 int RestockNpcItems(W8NpcState* npc)
 {
-    W8NpcItemStockRule* rule;
+    const W8NpcItemStockRule* rule;
     std::size_t rule_count;
     unsigned int rule_index;
     int item_id;
@@ -390,7 +391,7 @@ W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
     char lower;
     char upper;
 
-    difficulty = static_cast<char>(g_item_records[item_id].identify_difficulty);
+    difficulty = static_cast<char>(Data().items[item_id].identify_difficulty);
     level = static_cast<char>(GetAveragePartyLevel());
     base = static_cast<char>(level * 100 / 30) / 5;
     raw_upper = base + 4;
@@ -452,7 +453,7 @@ static unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsign
     W8ItemInstance stack;
     int amount;
 
-    if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
+    if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (NpcAcceptsTradeItemClass(npc, item)) {
             stack = *item;
             stack.stack_count = quantity;
@@ -525,14 +526,14 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
 
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
 {
-    const auto cls = g_item_records[item->iItemNo].equip_class;
+    const auto cls = Data().items[item->iItemNo].equip_class;
     return cls <= W8_ITEM_EQUIP_CLASS_OTHER &&
            (npc->record->trade_item_class_mask & (std::uint32_t{1} << cls)) != 0;
 }
 
 bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
 {
-    if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
+    if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
         return false;
     }
     return NpcAcceptsTradeItemClass(npc, item);
@@ -545,7 +546,7 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
     // made merely drawing a trade row advance the shared random sequence.
     W8ItemInstance item{.iItemNo = item_id,
                         .stack_count = stack_count,
-                        .identified = identified || (g_item_records[item_id].flags &
+                        .identified = identified || (Data().items[item_id].flags &
                                                      W8_ITEM_FLAG_AUTO_IDENTIFY) != 0};
     return CalculateTradeStackPrice(npc, &item, price_kind);
 }
@@ -561,7 +562,7 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePrice
 {
     int stack_value = GetItemStackValue(item);
     unsigned int skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0);
-    W8NpcDatabaseRecord* record = npc->record;
+    const W8NpcDatabaseRecord* record = npc->record;
     float scale = skill * 0.002f;
     if (scale > fabs(record->sell_price_factor - record->buy_price_factor) * 0.5) {
         scale *= 0.5f;
@@ -575,7 +576,7 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePrice
     if (price <= 0.0f) {
         price = 0.1f;
     }
-    W8ItemDatabaseRecord* info = &g_item_records[item->iItemNo];
+    const W8ItemDatabaseRecord* info = &Data().items[item->iItemNo];
     int amount;
     if (info->quantity_kind == W8_ITEM_QUANTITY_STACK && item->stack_count > 1 &&
         info->equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
@@ -601,7 +602,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     if (!entry || quantity == 0 || entry->available_at != 0)
         return {W8TradeOutcome::InvalidSelection};
     const auto stock = entry->item;
-    const auto& record = g_item_records[stock.iItemNo];
+    const auto& record = Data().items[stock.iItemNo];
     const auto available =
         record.quantity_kind == W8_ITEM_QUANTITY_STACK ? stock.stack_count : entry->quantity;
     if (quantity > available) return {W8TradeOutcome::InvalidSelection};
@@ -710,7 +711,7 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
     if (entry == 0) {
         return 0;
     }
-    if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+    if (Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->item.stack_count < quantity) {
             entry->item.stack_count = quantity;
         }
@@ -736,7 +737,7 @@ void DecayNpcInventory(W8NpcState* npc)
     std::size_t item_count;
     W8NpcItemEntry* entry;
     std::size_t rule_count;
-    W8NpcItemStockRule* rule;
+    const W8NpcItemStockRule* rule;
     char quantity;
     unsigned int rule_index;
     unsigned int item_index;
@@ -749,7 +750,7 @@ void DecayNpcInventory(W8NpcState* npc)
             entry = &npc->items[item_index];
             if (((entry->quantity != 0) &&
                  (item_id = entry->item.iItemNo,
-                  (g_item_records[item_id].flags &
+                  (Data().items[item_id].flags &
                    (W8_ITEM_FLAG_NO_DISCARD | W8_ITEM_FLAG_MERCHANT_CANNOT_SELL)) == 0))) {
                 if (entry->available_at > 0) {
                     goto next_item;

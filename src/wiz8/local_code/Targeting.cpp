@@ -18,6 +18,7 @@
 #include "layouts/main_game_screen.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/cursor.h"
@@ -25,11 +26,10 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -41,7 +41,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -58,6 +57,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -324,7 +324,7 @@ W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_
     if (item == 0 || item->iItemNo == -1) {
         return W8_TARGET_NEED_NONE;
     }
-    record = &g_item_records[item->iItemNo];
+    record = &Data().items[item->iItemNo];
     if (record->spell_id == W8_SPELL_NONE) {
         return W8_TARGET_NEED_NONE;
     }
@@ -654,7 +654,7 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
     W8TargetNeed needed = W8_TARGET_NEED_NONE;
 
     if (item != 0 && item->iItemNo != -1) {
-        record = &g_item_records[item->iItemNo];
+        record = &Data().items[item->iItemNo];
         if (record->spell_id != W8_SPELL_NONE) {
             needed = GetTargetNeededForSpellFriendly(record->spell_id,
                                                      ItemClassNormalizesTarget(record), true);
@@ -1262,7 +1262,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
                 }
                 if (context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
                     if (g_settings.verbose_combat_messages != 0) {
-                        PostCharacterNotice(party_slot, g_localized_strings[0x26b]);
+                        PostCharacterNotice(party_slot, Data().strings[0x26b]);
                     }
                     const auto committed =
                         SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
@@ -1400,9 +1400,8 @@ bool SlotHasAnyValidTarget(int party_slot)
             if (item == 0) {
                 return false;
             }
-            return SpellHasAnyValidTarget(
-                party_slot, g_item_records[item->iItemNo].spell_id,
-                ItemClassNormalizesTarget(&g_item_records[item->iItemNo]));
+            return SpellHasAnyValidTarget(party_slot, Data().items[item->iItemNo].spell_id,
+                                          ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
         }
         break;
     case W8_ACTION_PROTECT:
@@ -2019,7 +2018,7 @@ bool ItemUseNeedsTarget(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
     W8ItemInstance* item = CurrentGame().party.itemAt(row->item_detail.item_use.item);
-    bool normalize = ItemClassNormalizesTarget(&g_item_records[item->iItemNo]);
+    bool normalize = ItemClassNormalizesTarget(&Data().items[item->iItemNo]);
     switch (GetSpellTargetType(GetItemSpell(item), normalize)) {
     case 3:
         if (gXStatus.fCampMode) {
@@ -2056,14 +2055,14 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
     const auto& secondary =
         character.EquippedItem[choice->secondary ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
                                                  : W8_EQUIP_SLOT_SECONDARY_WEAPON];
-    const auto hands = EvaluateWeaponHands(primary, secondary);
+    const auto hands = EvaluateWeaponHands(Data(), primary, secondary);
     W8RangeCategory range = W8_RANGE_NONE;
     for (unsigned int hand = 0; hand < 2; ++hand) {
         if (!hands[hand].in_play) continue;
         const auto& item = hand == 0 ? primary : secondary;
         const auto reach =
             hands[hand].uiHolds == 1 || hands[hand].uiHolds == 3
-                ? static_cast<W8RangeCategory>(g_item_records[item.iItemNo].range_category)
+                ? static_cast<W8RangeCategory>(Data().items[item.iItemNo].range_category)
                 : W8_RANGE_TOUCH;
         range = std::max(range, reach);
     }
@@ -2081,7 +2080,7 @@ static void CommitAutomaticWeaponChoice(int party_slot, const W8WeaponTarget& ch
 {
     CurrentGame().party.rows[party_slot].weapon_swap_pending ^= 1;
     CommitWeaponSetSwap(party_slot, choice.equipment);
-    PostCharacterNotice(party_slot, g_localized_strings[0x26d]);
+    PostCharacterNotice(party_slot, Data().strings[0x26d]);
 }
 
 /* When combat ends, swap each occupied, living slot whose pending swap flag is

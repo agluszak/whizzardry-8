@@ -26,13 +26,13 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -1135,15 +1135,15 @@ void ShowMonsterGroupInfoNotice(int group_id)
 
     ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{:d} {}", group->MemberCount(), name));
     if (!group->alternate_name) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c5]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x1c5]);
     }
+    ShowNotice(
+        W8_FONT_PALETTE_BEIGE,
+        fmt::sprintf(Data().strings[0x1c6], CurrentLevelPopulation().activeMemberCount(*group)));
     ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c6],
-                            CurrentLevelPopulation().activeMemberCount(*group)));
+               fmt::sprintf(Data().strings[0x1c7], group->selectable_member_count));
     ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c7], group->selectable_member_count));
-    ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c8], group->visible_member_count));
+               fmt::sprintf(Data().strings[0x1c8], group->visible_member_count));
 }
 
 /* Flags every live member of the group for removal, then recurses into each

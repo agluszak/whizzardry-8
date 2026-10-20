@@ -29,13 +29,12 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -104,8 +103,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     entry.alternate_text = GetFact(fact_id) != 0;
     g_fact_journal_entries.push_back(entry);
 
-    if (g_fact_notifications_suppressed ||
-        static_cast<unsigned>(fact_id) >= g_fact_records.size()) {
+    if (g_fact_notifications_suppressed || static_cast<unsigned>(fact_id) >= Data().facts.size()) {
         return;
     }
     int visibility;
@@ -119,7 +117,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
             visibility = 0;
         }
     }
-    const W8FactDatabaseRecord* record = &g_fact_records[fact_id];
+    const W8FactDatabaseRecord* record = &Data().facts[fact_id];
     if (record->visibility > visibility) {
         return;
     }
@@ -133,7 +131,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     int range = (g_level_block->text_box_right - g_level_block->text_box_left);
-    ShowNotice(W8_FONT_PALETTE_BLUE, g_localized_strings[0x74a], 2, range);
+    ShowNotice(W8_FONT_PALETTE_BLUE, Data().strings[0x74a], 2, range);
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
 
@@ -243,8 +241,8 @@ void JournalScreen::DrawContent(SDL_Surface& target)
 {
     if (!m_alternate_mode) {
         CatalogArtwork::Load(0x1b8, 0).drawAndInvalidate(target, 0, 0, 0);
-        DrawJournalLine(target, g_localized_strings[0x6db], 0, 0x19, 0, true);
-        DrawJournalLine(target, g_localized_strings[0x6dc], 1, 0x19, 0, true);
+        DrawJournalLine(target, Data().strings[0x6db], 0, 0x19, 0, true);
+        DrawJournalLine(target, Data().strings[0x6dc], 1, 0x19, 0, true);
 
         int first = g_journal_page * 12;
         int last = first + 11;
@@ -255,7 +253,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         int y = 0x39;
         for (int index = first; index <= last; ++index, y += 0x1e) {
             const W8JournalEntry* entry = &g_journal_entries[index];
-            const W8FactDatabaseRecord* fact = &g_fact_records[entry->fact];
+            const W8FactDatabaseRecord* fact = &Data().facts[entry->fact];
             int active = fact->highlight_when_true && GetFact(entry->fact);
             std::string description =
                 entry->alternate_text ? fact->alternate_description : fact->description;
@@ -263,9 +261,9 @@ void JournalScreen::DrawContent(SDL_Surface& target)
             if (entry->level == 0x38) {
                 level_name = g_default_level;
             } else if (entry->level == -1) {
-                level_name = g_localized_strings[0x6dd];
+                level_name = Data().strings[0x6dd];
             } else {
-                level_name = g_localized_strings[g_level_name_indices[entry->level]];
+                level_name = Data().strings[g_level_name_indices[entry->level]];
             }
             if (entry->level != previous_level) {
                 DrawJournalLine(target, level_name, 0, y, 0, true);
@@ -275,8 +273,8 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         }
     } else {
         CatalogArtwork::Load(0x1b8, 0).drawAndInvalidate(target, 0, 0, 0);
-        DrawJournalLine(target, g_localized_strings[0x6de], 0, 0x19, 0, true);
-        DrawJournalLine(target, g_localized_strings[0x6df], 1, 0x19, 0, true);
+        DrawJournalLine(target, Data().strings[0x6de], 0, 0x19, 0, true);
+        DrawJournalLine(target, Data().strings[0x6df], 1, 0x19, 0, true);
 
         int y = 0x39;
         for (int index = 0; index < 11; ++index) {
@@ -286,20 +284,20 @@ void JournalScreen::DrawContent(SDL_Surface& target)
                 std::string disposition_name;
                 switch (disposition) {
                 case W8_FACTION_HOSTILE:
-                    disposition_name = g_localized_strings[0x200];
+                    disposition_name = Data().strings[0x200];
                     break;
                 case W8_FACTION_NEUTRAL:
-                    disposition_name = g_localized_strings[0x1ff];
+                    disposition_name = Data().strings[0x1ff];
                     break;
                 case W8_FACTION_FRIENDLY:
-                    disposition_name = g_localized_strings[0x201];
+                    disposition_name = Data().strings[0x201];
                     break;
                 }
                 if (!disposition_name.empty()) {
                     DrawJournalLine(target, disposition_name, 0, y, 0, true);
                 }
-                DrawJournalLine(target, g_localized_strings[g_journal_faction_name_indices[index]],
-                                1, y, 0, false);
+                DrawJournalLine(target, Data().strings[g_journal_faction_name_indices[index]], 1, y,
+                                0, false);
                 y += 0x1e;
             }
         }
@@ -410,8 +408,8 @@ bool JournalScreen::enter(const ScreenRequest&)
     g_journal_entries.clear();
     for (const auto& entry : g_fact_journal_entries) {
         // Retail saves can name a fact past the end of FACT.DBS; keep it, show nothing.
-        if (static_cast<unsigned>(entry.fact) >= g_fact_records.size()) continue;
-        const W8FactDatabaseRecord* fact = &g_fact_records[entry.fact];
+        if (static_cast<unsigned>(entry.fact) >= Data().facts.size()) continue;
+        const W8FactDatabaseRecord* fact = &Data().facts[entry.fact];
         std::string description =
             entry.alternate_text ? fact->alternate_description : fact->description;
         if ((g_journal_show_all || fact->visibility <= maximum_visibility) &&

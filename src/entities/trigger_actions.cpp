@@ -34,7 +34,6 @@
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_tables.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
@@ -63,6 +62,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -70,7 +70,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -995,7 +994,7 @@ void Trigger::GenerateItemGroup()
         return;
     }
 
-    maximum_items = RollDice(&g_item_tables[table_id].item_count_dice);
+    maximum_items = RollDice(&Data().item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items, position);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0);
@@ -1003,7 +1002,7 @@ void Trigger::GenerateItemGroup()
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         world_item_group->contents.push_back(std::move(items[index]));
     }
-    gold = RollDice(&g_item_tables[table_id].gold_dice);
+    gold = RollDice(&Data().item_tables[table_id].gold_dice);
     items_generated = 1;
 }
 
@@ -1026,10 +1025,10 @@ void Trigger::PrintNothingHappenedOrSpecialItemRequired()
         return;
     }
     if (required_item_id != -1) {
-        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x96b]);
+        ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x96b]);
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, g_localized_strings[0x964]);
+    ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
 }
 
 /* Execute the selected Trigger action. The original keeps the three trigger
@@ -1696,7 +1695,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else if (action == 0x27) {
                 RestorePartySpellPoints(m_lData3);
-                ShowString(g_localized_strings[0x722]);
+                ShowString(Data().strings[0x722]);
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;

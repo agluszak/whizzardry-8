@@ -11,6 +11,7 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
@@ -46,6 +47,7 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/compat/unaligned.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
@@ -58,7 +60,6 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatHostility.h"
@@ -74,7 +75,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -90,6 +90,7 @@
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
@@ -410,10 +411,10 @@ bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
         if (wanted_id == item->iItemNo) {
             break;
         }
-        if (g_item_records[wanted_id].unidentified_name_index != 0x83) {
+        if (Data().items[wanted_id].unidentified_name_index != 0x83) {
             continue;
         }
-        if (g_item_records[item->iItemNo].unidentified_name_index == 0x83) {
+        if (Data().items[item->iItemNo].unidentified_name_index == 0x83) {
             break;
         }
     }
@@ -455,11 +456,11 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     }
     if (returned) {
         ShowNotice(W8_FONT_PALETTE_RED,
-                   fmt::sprintf(g_localized_strings[0x1fd], npc->record->source_name));
+                   fmt::sprintf(Data().strings[0x1fd], npc->record->source_name));
     }
     if (dropped) {
         ShowNotice(W8_FONT_PALETTE_RED,
-                   fmt::sprintf(g_localized_strings[0x1fe], npc->record->source_name));
+                   fmt::sprintf(Data().strings[0x1fe], npc->record->source_name));
     }
 }
 
@@ -539,7 +540,7 @@ void UpdateNpcPartyMember(int party_slot)
     glm::vec3 position;
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
-        ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(g_localized_strings[0x7d4], character->name));
+        ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
         StashDepartingCharacterItems(character);
         RemoveCharacterFromParty(party_slot);
         return;
@@ -549,7 +550,7 @@ void UpdateNpcPartyMember(int party_slot)
         return;
     }
     if (!ProbeNpcPlacementNearParty(party_slot, 0, &position)) {
-        ShowNotice(W8_FONT_PALETTE_RED, g_localized_strings[0x7d5]);
+        ShowNotice(W8_FONT_PALETTE_RED, Data().strings[0x7d5]);
         return;
     }
     if (NpcOffersService(npc, GetLevelBand(GetLoadedLevelID()))) {
@@ -1121,8 +1122,8 @@ void ResetNpcStates(void)
     unsigned int npc_id;
 
     ReleaseNpcStates();
-    for (npc_id = 0; npc_id < g_npc_records.size(); ++npc_id) {
-        if (g_npc_records[npc_id].monster_bound == 0) {
+    for (npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+        if (Data().npcs[npc_id].monster_bound == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
     }
@@ -1184,7 +1185,7 @@ static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
     auto owner = std::make_unique<W8NpcState>();
     auto* npc = owner.get();
     npc->name_style = npc_id;
-    npc->record = &g_npc_records[npc_id];
+    npc->record = &Data().npcs[npc_id];
     if (npc->record->has_group != 0) {
         InitializeNpcCharacter(npc, npc->character.emplace());
     }
@@ -1194,10 +1195,10 @@ static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
     InitializeNpcItemTable(npc);
     npc->location_id = 0;
     npc->is_present = false;
-    npc->disposition = g_npc_records[npc_id].disposition;
-    npc->gold = g_npc_records[npc_id].gold;
+    npc->disposition = Data().npcs[npc_id].disposition;
+    npc->gold = Data().npcs[npc_id].gold;
     npc->greeting_pending = true;
-    npc->trade_pool = g_npc_records[npc_id].trade_pool;
+    npc->trade_pool = Data().npcs[npc_id].trade_pool;
 
     return owner;
 }
@@ -1234,7 +1235,7 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         }
         const int kind = record->npc_kind;
         W8NpcState* source = nullptr;
-        if (!g_npc_records[kind].monster_bound)
+        if (!Data().npcs[kind].monster_bound)
             source = GetNpcStateByKind(kind);
         else if (info.bound_npc_index > 0) {
             auto* candidate = GetNpcState(info.bound_npc_index);
@@ -1320,7 +1321,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
             return;
         }
 
-        if (g_npc_records[npc_id].monster_bound == 0) {
+        if (Data().npcs[npc_id].monster_bound == 0) {
             npc = GetNpcStateByKind(npc_id);
         } else {
             if (monster_info->bound_npc_index > 0) {
@@ -1355,8 +1356,8 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
    and worn/carried items, then the derived passes a level advance settles. */
 static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
 {
-    W8NpcDatabaseRecord* record = npc->record;
-    W8NpcCharacterTemplate* source;
+    const W8NpcDatabaseRecord* record = npc->record;
+    const W8NpcCharacterTemplate* source;
     W8ItemInstance item;
     int index;
 
@@ -1404,7 +1405,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
         }
     }
     AdvanceCharacterToLevel(&character, source->level);
-    AccumulateEquipmentModifiers(&character, &character.equipment_bonus);
+    AccumulateEquipmentModifiers(Data(), &character, &character.equipment_bonus);
     RebuildCharacterModifierBlock(&character, nullptr);
     CalcCharacterLevelBand(&character);
     RefreshCharacterSkillAvailability(&character);
@@ -1433,21 +1434,21 @@ static void InitializeNpcItemTable(W8NpcState* npc)
     unsigned int index;
 
     memset(npc->item_ids, 0xff, sizeof(npc->item_ids));
-    if (npc->record->item_table_id >= static_cast<int>(ItemTableCount())) {
+    if (npc->record->item_table_id >= static_cast<int>(Data().item_tables.size())) {
         return;
     }
     if (npc->record->item_table_id == 0) {
         return;
     }
     for (index = 0; index < 40; ++index) {
-        if (g_item_tables[npc->record->item_table_id - 1].entries[index].selector != 0) {
+        if (Data().item_tables[npc->record->item_table_id - 1].entries[index].selector != 0) {
             npc->item_ids[index] =
-                g_item_tables[npc->record->item_table_id - 1].entries[index].item_id;
+                Data().item_tables[npc->record->item_table_id - 1].entries[index].item_id;
             npc->item_weights[index] =
-                g_item_tables[npc->record->item_table_id - 1].entries[index].weight;
+                Data().item_tables[npc->record->item_table_id - 1].entries[index].weight;
         }
     }
-    npc->item_count_dice = g_item_tables[npc->record->item_table_id - 1].item_count_dice;
+    npc->item_count_dice = Data().item_tables[npc->record->item_table_id - 1].item_count_dice;
 }
 
 /* Release the monster binding and script held by an active NPC slot. */
@@ -1506,12 +1507,12 @@ void LoadNpcStates(W8Chunk& file)
         W8NpcState disk_state;
         wiz8::retail::decode_image(image, disk_state);
         const unsigned int record_id = disk_state.name_style == 0 ? loaded : disk_state.name_style;
-        if (record_id >= g_npc_records.size() ||
+        if (record_id >= Data().npcs.size() ||
             record_id > std::numeric_limits<unsigned char>::max()) {
             throw std::runtime_error("invalid NPC database index");
         }
         disk_state.name_style = static_cast<unsigned char>(record_id);
-        disk_state.record = &g_npc_records[record_id];
+        disk_state.record = &Data().npcs[record_id];
         if (has_character) {
             // Version 3 sizes the character block; older saves store 0x185c bytes.
             size = 0x185c;
@@ -1530,7 +1531,7 @@ void LoadNpcStates(W8Chunk& file)
 
         npc->script_file.reset();
         npc->has_monster = false;
-        npc->record = &g_npc_records[npc->name_style];
+        npc->record = &Data().npcs[npc->name_style];
         if (npc->is_grouped) {
             npc->is_present = false;
             npc->has_monster = true;
@@ -1547,8 +1548,8 @@ void LoadNpcStates(W8Chunk& file)
             throw std::runtime_error("invalid NPC stock lists");
         }
     }
-    for (npc_id = 0; npc_id < g_npc_records.size(); ++npc_id) {
-        if (g_npc_records[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
+    for (npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+        if (Data().npcs[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
             CreateNpcRuntimeNode(npc_id);
         }
     }
@@ -1646,7 +1647,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
     if (level != 0) {
         npc->disposition = 0x4b;
     }
-    npc->trade_pool = g_npc_records[npc->name_style].trade_pool;
+    npc->trade_pool = Data().npcs[npc->name_style].trade_pool;
 }
 
 /* One dialogue interaction against an NPC. The action kind selects the path:
@@ -1783,7 +1784,7 @@ static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, 
     unsigned int penalty = character->skills[W8_SKILL_PICKPOCKET].level >> 2;
     score += (character->uiExpLevel - record->effective_level) * 5;
     if (item_id != -1) {
-        unsigned int weight = g_item_records[item_id].weight * count;
+        unsigned int weight = Data().items[item_id].weight * count;
         item = MakeItem(item_id, false, false, false);
         item.stack_count = static_cast<unsigned char>(count);
         penalty = penalty - weight / 10 - GetItemStackValue(&item) / 100;

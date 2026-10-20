@@ -13,10 +13,10 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/input.h"
@@ -112,7 +112,7 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
     if (help_id == -1)
         m_help->setTooltip({});
     else
-        m_help->setTooltip([help_id] { return std::string(g_localized_strings[help_id]); });
+        m_help->setTooltip([help_id] { return std::string(Data().strings[help_id]); });
     SetEnabled(true);
     UpdateButtons();
     MarkDirty();

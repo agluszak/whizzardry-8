@@ -28,11 +28,13 @@
 #include "geometry.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
+#include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_records.h"
 #include "temporary_directory.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/keyframe_track.h"
@@ -42,9 +44,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/GameplayDatabase.h"
-#include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/location_variables.h"
@@ -95,33 +95,28 @@ static void databases()
     append(bytes, 1u);
     append(bytes, item);
     store("data/databases/items.dbs", bytes);
-    REQUIRE((InitializeItemDatabase()));
+    REQUIRE(ReadItemDatabase().size() == 1);
     std::size_t item_operations;
     {
         FileFaults trace;
-        REQUIRE((InitializeItemDatabase()));
+        REQUIRE(ReadItemDatabase().size() == 1);
         item_operations = trace.operations;
     }
-    const auto* records = g_item_records.data();
     for (std::size_t operation = 1; operation <= item_operations; ++operation) {
         {
             FileFaults fault(operation);
-            REQUIRE((!InitializeItemDatabase()));
+            REQUIRE_THROWS(ReadItemDatabase());
             REQUIRE((fault.fired));
         }
-        REQUIRE((g_item_records.data() == records && g_item_records.size() == 1));
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("data/databases/items.dbs", bytes.substr(0, end));
-        REQUIRE((!InitializeItemDatabase()));
-        REQUIRE((g_item_records.data() == records && g_item_records.size() == 1));
+        REQUIRE_THROWS(ReadItemDatabase());
     }
     std::string excessive;
     append(excessive, UINT32_MAX);
     store("data/databases/items.dbs", excessive);
-    REQUIRE((!InitializeItemDatabase() && g_item_records.data() == records));
-    DestroyItemDatabase();
-    REQUIRE(g_item_records.empty());
+    REQUIRE_THROWS(ReadItemDatabase());
 
     std::array<char, 256> category{};
     std::strcpy(category.data(), "Weapons");
@@ -133,41 +128,32 @@ static void databases()
     append(bytes, 1u);
     append(bytes, table);
     store("data/databases/itemtables.dbs", bytes);
-    REQUIRE((InitializeItemTables()));
+    const auto tables = ReadItemTables();
+    REQUIRE((tables.categories.size() == 1 && tables.tables.size() == 1));
+    REQUIRE(!std::strcmp(tables.tables[0].name, "Starter"));
     std::size_t table_operations;
     {
         FileFaults trace;
-        REQUIRE((InitializeItemTables()));
+        REQUIRE(ReadItemTables().tables.size() == 1);
         table_operations = trace.operations;
     }
-    auto* tables = g_item_tables;
-    auto* categories = g_item_table_category_names;
     for (std::size_t operation = 1; operation <= table_operations; ++operation) {
-        {
-            FileFaults fault(operation);
-            REQUIRE((!InitializeItemTables()));
-            REQUIRE((fault.fired));
-        }
-        REQUIRE((g_item_tables == tables && g_item_table_category_names == categories));
-        REQUIRE((ItemTableCount() == 1 && ItemTableCategoryCount() == 1));
+        FileFaults fault(operation);
+        REQUIRE_THROWS(ReadItemTables());
+        REQUIRE(fault.fired);
     }
     for (std::size_t end = 0; end < bytes.size(); ++end) {
         store("data/databases/itemtables.dbs", bytes.substr(0, end));
-        REQUIRE((!InitializeItemTables()));
-        REQUIRE((g_item_tables == tables && g_item_table_category_names == categories));
-        REQUIRE((ItemTableCount() == 1 && ItemTableCategoryCount() == 1));
-        REQUIRE((!std::strcmp(tables[0].name, "Starter")));
+        REQUIRE_THROWS(ReadItemTables());
     }
     auto bad = bytes;
     std::memset(bad.data() + 4, 'x', 256);
     store("data/databases/itemtables.dbs", bad);
-    REQUIRE((!InitializeItemTables() && g_item_tables == tables));
+    REQUIRE_THROWS(ReadItemTables());
     bad = bytes;
     std::memset(bad.data() + 264, 'x', 256);
     store("data/databases/itemtables.dbs", bad);
-    REQUIRE((!InitializeItemTables() && g_item_tables == tables));
-    DestroyItemTables();
-    REQUIRE((!g_item_tables && !g_item_table_category_names));
+    REQUIRE_THROWS(ReadItemTables());
 }
 
 static std::string geometry_snapshot(const LevelSpatialIndex& data)
@@ -528,9 +514,6 @@ TEST_CASE_METHOD(LoaderFixture, "Database record validation", "[loader][records]
 TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock rules",
                  "[loader][records]")
 {
-    const struct Cleanup {
-        ~Cleanup() { DestroyNpcDatabase(); }
-    } cleanup;
     std::filesystem::create_directories(fixture_root / "data/databases");
     W8NpcDatabaseRecord npc{};
     npc.version = 2;
@@ -545,33 +528,26 @@ TEST_CASE_METHOD(LoaderFixture, "NPC database replacement owns appended stock ru
     append(bytes, npc);
     append(bytes, 0u);
     store("data/databases/npc.dbs", bytes);
-    REQUIRE(InitializeNpcDatabase());
-    const auto* original = g_npc_records.data();
-    REQUIRE(g_npc_records.size() == 2);
-    REQUIRE(original[0].item_stock_rules.size() == 2);
-    REQUIRE(original[0].item_stock_rules[1].item_id == 29);
-    REQUIRE(original[1].item_stock_rules.empty());
+    const auto npcs = ReadNpcDatabase();
+    REQUIRE(npcs.size() == 2);
+    REQUIRE(npcs[0].item_stock_rules.size() == 2);
+    REQUIRE(npcs[0].item_stock_rules[1].item_id == 29);
+    REQUIRE(npcs[1].item_stock_rules.empty());
 
-    // Fail after constructing the first record and its stock. The published database survives.
+    // Fail after constructing the first record and its stock.
     auto truncated = bytes.substr(0, bytes.size() - sizeof(unsigned int));
     append(truncated, 1u); // A second stock list whose payload is missing.
     store("data/databases/npc.dbs", truncated);
-    REQUIRE_FALSE(InitializeNpcDatabase());
-    REQUIRE(g_npc_records.data() == original);
-    REQUIRE(g_npc_records.size() == 2);
-    REQUIRE(original[0].item_stock_rules[0].quantity == 3);
+    REQUIRE_THROWS(ReadNpcDatabase());
 
     npc.no_item_stock = 1;
     bytes.clear();
     append(bytes, 1u);
     append(bytes, npc);
     store("data/databases/npc.dbs", bytes);
-    REQUIRE(InitializeNpcDatabase());
-    REQUIRE(g_npc_records.size() == 1);
-    REQUIRE(g_npc_records[0].item_stock_rules.empty());
-    DestroyNpcDatabase();
-    DestroyNpcDatabase();
-    REQUIRE(g_npc_records.empty());
+    const auto single = ReadNpcDatabase();
+    REQUIRE(single.size() == 1);
+    REQUIRE(single[0].item_stock_rules.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Processed geometry", "[loader][records]")
@@ -987,8 +963,8 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
         std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
         ~WorldScope() { ReplaceWorld(std::move(previous)); }
     } scope;
-    const ScopedRecords records(g_item_records, 2);
-    g_item_records[0].flags = W8_ITEM_FLAG_CONTAINER;
+    const ScopedRecords records(MutableData().items, 2);
+    MutableData().items[0].flags = W8_ITEM_FLAG_CONTAINER;
     Trigger trigger(GetWorld());
     trigger.world_item_group = std::make_unique<W8WorldItem>();
     auto prop = std::make_unique<Prop>();
@@ -1088,9 +1064,6 @@ TEST_CASE_METHOD(LoaderFixture,
                  "Spell database replacement rejects incomplete and oversized inputs",
                  "[loader][records]")
 {
-    const struct Cleanup {
-        ~Cleanup() { ReleaseSpellDatabase(); }
-    } cleanup;
     std::filesystem::create_directories(fixture_root / "data/databases");
     W8SpellRuntimeRecord spell{};
     spell.display_name = "Fixture spell";
@@ -1103,26 +1076,21 @@ TEST_CASE_METHOD(LoaderFixture,
         append(bytes, spell);
     }
     store("data/databases/spelltables.dbs", bytes);
-    REQUIRE(InitializeSpellDatabase());
-    const auto* previous = g_spell_records.data();
-    REQUIRE(previous[1].display_name == spell.display_name);
-    REQUIRE(previous[1].duration == spell.duration);
+    const auto spells = ReadSpellDatabase();
+    REQUIRE(spells.size() == 2);
+    REQUIRE(spells[1].display_name == spell.display_name);
+    REQUIRE(spells[1].duration == spell.duration);
     for (auto end : {0u, 4u, 7u, 8u, 264u, unsigned(bytes.size() - 1)}) {
         store("data/databases/spelltables.dbs", bytes.substr(0, end));
-        REQUIRE_FALSE(InitializeSpellDatabase());
-        REQUIRE(g_spell_records.data() == previous);
-        REQUIRE(previous[1].display_name == spell.display_name);
+        REQUIRE_THROWS(ReadSpellDatabase());
     }
     for (const int count : {0, -1, std::numeric_limits<int>::max()}) {
         std::string invalid;
         append(invalid, count);
         append(invalid, 1u);
         store("data/databases/spelltables.dbs", invalid);
-        REQUIRE_FALSE(InitializeSpellDatabase());
-        REQUIRE(g_spell_records.data() == previous);
+        REQUIRE_THROWS(ReadSpellDatabase());
     }
-    ReleaseSpellDatabase();
-    REQUIRE(g_spell_records.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterminated text lines",

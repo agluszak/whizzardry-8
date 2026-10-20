@@ -26,8 +26,8 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -36,6 +36,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
@@ -162,8 +163,7 @@ void RunSearchPulse(void)
             !LockInteractionSuspended() && !IsTrapInteractionActive() &&
             !TrapInteractionSuspended()) {
             if (IsLevelFastMovement() && CurrentGame().status.search_mode) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE,
-                           g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
             }
             auto candidates = CollectSearchablesInView(*GetWorld());
             bool found = false;
@@ -315,15 +315,15 @@ void ToggleSearchMode(void)
 {
     if (CurrentGame().status.search_mode) {
         CurrentGame().status.search_mode = false;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
     if (!CurrentGame().combat.active()) {
         CurrentGame().status.search_mode = true;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
         g_search_pulse_clock = w8_get_ticks() + (0x1f4);
         ClearActiveWorldCursorNode();
     } else {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
     }
 }

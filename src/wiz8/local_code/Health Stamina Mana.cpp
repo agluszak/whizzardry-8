@@ -15,7 +15,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
@@ -27,21 +26,19 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
@@ -53,6 +50,8 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
@@ -81,15 +80,14 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         return 0;
     }
     if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x253], amount));
+        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x253], amount));
         return 0;
     }
 
     if (character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostCharacterNotice(party_slot,
-                                fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
+            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], amount));
             character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -98,11 +96,10 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             return 0;
         }
 
-        PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
+        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
         ClearCharacterEnchantmentSlot(party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
-        PostCharacterNotice(party_slot, g_localized_strings[0x194]);
+        PostCharacterNotice(party_slot, Data().strings[0x194]);
     }
 
     FatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
@@ -113,12 +110,12 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
 
     if (announce) {
         if (detailed) {
-            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x268], amount));
+            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x268], amount));
         } else if (short_notice) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x254], amount));
+            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x254], amount));
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x255], amount,
-                                                         quiet ? g_localized_strings[0x257] : ""));
+            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x255], amount,
+                                                         quiet ? Data().strings[0x257] : ""));
         }
     }
 
@@ -324,8 +321,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     if (monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostMonsterNotice(monster_info,
-                              fmt::sprintf(g_localized_strings[0x193 - (quiet)], amount));
+            PostMonsterNotice(monster_info, fmt::sprintf(Data().strings[0x193 - (quiet)], amount));
             monster_info->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -333,8 +329,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             return 0;
         }
-        PostMonsterNotice(monster_info,
-                          fmt::sprintf(g_localized_strings[0x193 - (quiet)], absorbed));
+        PostMonsterNotice(monster_info, fmt::sprintf(Data().strings[0x193 - (quiet)], absorbed));
         amount -= absorbed;
         ClearMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_GUARDIAN_ANGEL);
     }
@@ -352,11 +347,11 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             if (in_combat != 0) {
                 if (c) {
                     ShowNotice(category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                                     g_localized_strings[0x268]));
+                                                     Data().strings[0x268]));
                 } else if (a != 0) {
-                    ShowNotice(category, fmt::sprintf(g_localized_strings[0x254], amount));
+                    ShowNotice(category, fmt::sprintf(Data().strings[0x254], amount));
                 } else {
-                    ShowNotice(category, fmt::sprintf(g_localized_strings[0x256],
+                    ShowNotice(category, fmt::sprintf(Data().strings[0x256],
                                                       GetMonsterName(monster_info, 0, 0), amount,
                                                       quiet ? g_poison_suffix : ""));
                 }
@@ -412,12 +407,12 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 
     if (announce) {
         if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x259],
-                                                          GetMonsterName(monster_info, 0, 0)));
-        } else {
             ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(g_localized_strings[0x25b], GetMonsterName(monster_info, 0, 0),
-                                    amount));
+                       fmt::sprintf(Data().strings[0x259], GetMonsterName(monster_info, 0, 0)));
+        } else {
+            ShowNotice(
+                W8_FONT_PALETTE_RUST,
+                fmt::sprintf(Data().strings[0x25b], GetMonsterName(monster_info, 0, 0), amount));
         }
     }
 }
@@ -493,24 +488,6 @@ int SumCharacterSpellPointsLeft(const W8Character* character)
     return total;
 }
 
-unsigned int FatigueArmorPenalty(int fatigue_band)
-{
-    switch (fatigue_band) {
-    case 0:
-        return 0;
-    case 1:
-        return 5;
-    case 2:
-        return 10;
-    case 3:
-        return 20;
-    case 4:
-        return 40;
-    default:
-        return fatigue_band;
-    }
-}
-
 /* One notice index per spell realm, giving the realm's name. */
 /* Turn a pool fraction into a band. The same ladder decides a character's
    fatigue band and a monster's, from the percentage of the pool that is
@@ -556,9 +533,9 @@ void HealCharacter(int party_slot, int amount, bool announce)
     }
     if (announce) {
         if (character->hp_current == hp_max) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x258]);
+            PostCharacterNotice(party_slot, Data().strings[0x258]);
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x25a], amount));
+            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x25a], amount));
         }
     }
 
@@ -602,9 +579,9 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
     }
     if (announce) {
         if (character->stamina == stamina_max) {
-            PostCharacterNotice(party_slot, g_localized_strings[0x25c]);
+            PostCharacterNotice(party_slot, Data().strings[0x25c]);
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x25e], amount));
+            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x25e], amount));
         }
     }
 
@@ -638,7 +615,7 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
         return;
     }
     if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x260], amount));
+        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x260], amount));
         return;
     }
 
@@ -652,8 +629,8 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
             SpendCharacterSpellPoints(party_slot, realm, taken);
             if (announce) {
                 ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::sprintf(g_localized_strings[0x263], amount,
-                                        g_localized_strings[g_realm_message_offsets[realm]]));
+                           fmt::sprintf(Data().strings[0x263], amount,
+                                        Data().strings[g_realm_message_offsets[realm]]));
             }
             remaining = amount - taken;
             amount = remaining;
@@ -692,8 +669,7 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
             if (order[index].deficit == 0 || (index != W8_SPELL_REALM_COUNT - 1 &&
                                               order[index].deficit < order[index + 1].deficit)) {
                 if (index == W8_SPELL_REALM_COUNT - 1) {
-                    PostCharacterNotice(party_slot,
-                                        fmt::sprintf(g_localized_strings[0x1a3], granted));
+                    PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a3], granted));
                     return;
                 }
                 continue;
@@ -707,12 +683,12 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
                 break;
             }
             if (amount == 0) {
-                PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a3], granted));
+                PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a3], granted));
                 return;
             }
         }
     }
-    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x1a3], granted));
+    PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a3], granted));
 }
 
 /* Wound one character. Two thirds of the damage also tires them, the damage
@@ -730,7 +706,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
     if (character->uiHPMax != 0 && character->hp_current != 0) {
         FatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
         if (announce) {
-            ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(g_localized_strings[0x1c4], damage));
+            ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x1c4], damage));
         }
         character->hp_adjustment -= damage;
         RecalculateHitPoints(*character);
@@ -787,7 +763,7 @@ int SpellCastFatigueCost(int spell_id, int result)
     if (result == 8) {
         return 0;
     }
-    return g_spell_records[spell_id].spell_level + result;
+    return Data().spells[spell_id].spell_level + result;
 }
 
 /* Give one monster stamina back, the mirror of the character form down to the
@@ -810,12 +786,12 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
     }
     if (announce) {
         if (static_cast<unsigned int>(monster_info->stamina) == stamina_max) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(g_localized_strings[0x25d],
-                                                          GetMonsterName(monster_info, 0, 0)));
-        } else {
             ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(g_localized_strings[0x25f], GetMonsterName(monster_info, 0, 0),
-                                    amount));
+                       fmt::sprintf(Data().strings[0x25d], GetMonsterName(monster_info, 0, 0)));
+        } else {
+            ShowNotice(
+                W8_FONT_PALETTE_RUST,
+                fmt::sprintf(Data().strings[0x25f], GetMonsterName(monster_info, 0, 0), amount));
         }
     }
 
@@ -986,7 +962,7 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
             if (item_id == -1) {
                 cost = Random(4) + 3;
             } else {
-                weight_bands = g_item_records[item_id].weight / 0x28 + 1;
+                weight_bands = Data().items[item_id].weight / 0x28 + 1;
                 cost = Random(weight_bands) + 1 + weight_bands;
             }
         }
@@ -1042,8 +1018,8 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
 
     if (CurrentGame().status.world_suspended) {
         PostCharacterNotice(party_slot,
-                            fmt::sprintf(g_localized_strings[0x262], amount,
-                                         g_localized_strings[g_realm_message_offsets[realm]]));
+                            fmt::sprintf(Data().strings[0x262], amount,
+                                         Data().strings[g_realm_message_offsets[realm]]));
         return;
     }
 
@@ -1059,8 +1035,8 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     SpendCharacterSpellPoints(party_slot, realm, amount);
     if (announce) {
         ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(g_localized_strings[0x263], amount,
-                                g_localized_strings[g_realm_message_offsets[realm]]));
+                   fmt::sprintf(Data().strings[0x263], amount,
+                                Data().strings[g_realm_message_offsets[realm]]));
     }
 }
 
@@ -1114,130 +1090,6 @@ void CharacterDies(int party_slot)
             npc->spawned = 1;
         }
     }
-}
-
-/* Recompute the stamina ceiling from the three physical attributes and the
-   level, subtract any outstanding penalty, carry the difference into the
-   current pool, and derive the fatigue band from what is left.
-
-   Retail compares the penalty with JNC and divides the scaled pool with DIV,
-   so the ceiling and its delta are unsigned values even though the stored
-   fields are ints. The divisor is unguarded in retail; a zero ceiling would
-   trap there, so here it is treated as full fatigue. */
-void RecalculateCharacterStamina(W8Character* character)
-{
-    unsigned int previous = character->uiStaminaMax;
-    unsigned int value = static_cast<unsigned int>(
-        ((character->attributes[W8_ATTRIBUTE_STRENGTH].effective +
-          character->attributes[W8_ATTRIBUTE_PIETY].effective +
-          character->attributes[W8_ATTRIBUTE_VITALITY].effective) *
-         (1.0f / 3.0f)) *
-            (character->uiExpLevel * kItemWeightDisplayScale + kEnvironmentNearScale) +
-        0.5);
-    character->uiStaminaMax = value;
-    if (character->fatigue_penalty < value) {
-        character->uiStaminaMax = value - character->fatigue_penalty;
-    } else {
-        character->uiStaminaMax = 0;
-    }
-    value = character->uiStaminaMax;
-    if (value != previous) {
-        character->stamina += value - previous;
-    }
-    // A penalty that consumes the whole ceiling leaves the character fully
-    // fatigued instead of dividing by zero.
-    int fatigue = 100;
-    if (value != 0) {
-        fatigue -= static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
-    }
-    if (fatigue < 0x32) {
-        character->fatigue_band = 0;
-        return;
-    }
-    if (fatigue < 0x46) {
-        character->fatigue_band = 1;
-        return;
-    }
-    if (fatigue < 0x55) {
-        character->fatigue_band = 2;
-        return;
-    }
-    character->fatigue_band = (fatigue > 0x5e) + 3;
-}
-
-/* The resistance bonus skill (36) is derived only for the professions whose
-   bodies can learn spells; a few fixed professions keep it at zero. */
-void RecalculateRealmSpellPoints(W8Character* character)
-{
-    W8Profession profession = character->iProfession;
-    if (profession != W8_PROFESSION_FIGHTER &&
-        (profession < W8_PROFESSION_ROGUE || profession > W8_PROFESSION_BARD)) {
-        character->skill_unlocks[0x24] = RebuildRealmSpellPointCeilings(character);
-        return;
-    }
-    character->skill_unlocks[0x24] = 0;
-}
-
-/* Rebuild the six realm spell-point ceilings from the learned spells, the
-   realm skill levels and the attributes. The weighted best four realm skills
-   are capped at 125 and added to every realm's own skill and school
-   attribute; the sum scales with the realm's learned-spell count, level and
-   one. */
-int RebuildRealmSpellPointCeilings(W8Character* character)
-{
-    int max_spell_levels[6];
-    int realm_skills[4];
-    int index;
-    int best = 0;
-
-    RecountLearnedSpellsByRealm(character);
-    for (index = 0; index < 6; ++index) {
-        max_spell_levels[index] = 0;
-    }
-    for (index = 0; index < 0x72; ++index) {
-        if (character->spell_learned[index] == 1 || character->spell_learned[index] == 2) {
-            W8SpellRealm realm = g_spell_records[index].realm;
-            int cost = g_spell_records[index].spell_point_cost;
-            if (max_spell_levels[realm] < cost) {
-                max_spell_levels[realm] = cost;
-            }
-        }
-    }
-    for (index = 0; index < 4; ++index) {
-        realm_skills[index] = character->skills[W8_SKILL_SPELLBOOK_WIZARDRY + index].level;
-    }
-    std::ranges::sort(realm_skills, std::greater{});
-
-    float weighted = static_cast<float>(realm_skills[0] + (realm_skills[1] >> 1) +
-                                        (realm_skills[2] >> 2) + (realm_skills[3] >> 3));
-    if (weighted > 125.0f) {
-        weighted = 125.0f;
-    }
-
-    for (index = 0; index < 6; ++index) {
-        int old = character->sp_max[index];
-        unsigned int learned = character->skill_unlocks[0x1c + index];
-        int computed =
-            static_cast<int>(((weighted + character->skills[W8_SKILL_FIRE_MAGIC + index].level * 3 +
-                               character->attributes[W8_ATTRIBUTE_PIETY].effective) *
-                              0.02f) *
-                                 (learned + character->uiExpLevel + 1) +
-                             0.5);
-        if (best < computed) {
-            best = computed;
-        }
-        if (learned == 0) {
-            computed = 0;
-        }
-        character->sp_max[index] = computed;
-        if (computed < max_spell_levels[index]) {
-            character->sp_max[index] = max_spell_levels[index];
-        }
-        if (character->sp_max[index] != old) {
-            character->iSPLeft[index] += character->sp_max[index] - old;
-        }
-    }
-    return best;
 }
 
 int SumCharacterSpellPoints(const W8Character* character)

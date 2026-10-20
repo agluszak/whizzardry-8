@@ -47,6 +47,7 @@
 #include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -64,21 +65,19 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -286,7 +285,7 @@ static void SetNpcActionHelp(int index, int message)
     if (message < 0 || !g_settings.tooltips_enabled)
         target->setTooltip({});
     else
-        target->setTooltip([message] { return g_localized_strings[message]; });
+        target->setTooltip([message] { return Data().strings[message]; });
 }
 
 static void SetNpcPanelActive(int index, bool active)
@@ -1045,11 +1044,11 @@ static void CreateNpcDialogueControls()
     SetNpcActionHelp(W8_NPC_CONTROL_TEXT_12, 100);
     SetNpcActionHelp(W8_NPC_CONTROL_TEXT_13, 0x65);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_23].text.SetText(
-        g_localized_strings[0x741], g_wiz_text_font_secondary);
+        Data().strings[0x741], g_wiz_text_font_secondary);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_23].primary = SubmitNpcDialogueInput;
     SetNpcActionHelp(W8_NPC_CONTROL_TEXT_23, 0x66);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_22].text.SetText(
-        g_localized_strings[0x742], g_wiz_text_font_secondary);
+        Data().strings[0x742], g_wiz_text_font_secondary);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_22].primary = SubmitNpcWhereIsQuery;
     SetNpcActionHelp(W8_NPC_CONTROL_TEXT_22, 0x67);
 
@@ -1622,7 +1621,7 @@ static void ShowNpcTradeGold()
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, true);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_36].text.SetText(
-        g_localized_strings[0x72d], g_wiz_text_font_secondary);
+        Data().strings[0x72d], g_wiz_text_font_secondary);
     text = fmt::format("{:d}g", g_npc_interaction_state->trade_gold);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_35].text.SetText(
         text, g_wiz_text_font_secondary);
@@ -1659,7 +1658,7 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, true);
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31,
                             1 < g_npc_interaction_state->trade_item->stack_count);
-        if (g_item_records[g_npc_interaction_state->trade_item->iItemNo].equip_class ==
+        if (Data().items[g_npc_interaction_state->trade_item->iItemNo].equip_class ==
             W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
         }
@@ -1810,7 +1809,7 @@ static void PromptNpcDispositionChange(void)
 {
     W8MessageDialogBase* dialog = CreateMessageDialog();
 
-    SetDialogPrompt(dialog, g_localized_strings[0x798]);
+    SetDialogPrompt(dialog, Data().strings[0x798]);
     dialog->on_complete = OnNpcDispositionPromptClosed;
     OpenModal(std::unique_ptr<ModalContent>(dialog));
 }
@@ -1834,7 +1833,7 @@ static void EnterNpcServiceLayout(void)
 static void SetNpcDialogueAction(W8NpcDialogueControlSlot slot, int text_id,
                                  std::function<void()> callback)
 {
-    g_npc_interaction_state->ui->actions[slot].text.SetText(g_localized_strings[text_id],
+    g_npc_interaction_state->ui->actions[slot].text.SetText(Data().strings[text_id],
                                                             g_wiz_text_font_secondary);
     g_npc_interaction_state->ui->actions[slot].primary = std::move(callback);
 }
@@ -1855,8 +1854,8 @@ void ShowNpcDialogueTopicMenu(void)
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
         g_npc_interaction_state->dialogue_npc->record->source_name, g_wiz_text_bold_font);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].dirty = true;
-    g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_38].text.SetText(
-        g_localized_strings[0x726], g_wiz_text_bold_font);
+    g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_38].text.SetText(Data().strings[0x726],
+                                                                              g_wiz_text_bold_font);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_1, 0x727, SelectNpcDialogueService);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_2, 0x728, SelectNpcDialogueTalk);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_3, 0x729, SelectNpcDialogueExit);
@@ -2079,7 +2078,7 @@ static void RequestNpcJoinParty(void)
 {
     unsigned int slot;
 
-    ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x748], 3,
+    ShowNotice(W8_FONT_PALETTE_BRONZE, Data().strings[0x748], 3,
                (g_level_block->text_box_right - g_level_block->text_box_left));
     if (g_npc_interaction_state->dialogue_hidden != 0) {
         SetNpcDialogueHidden(0);
@@ -2101,7 +2100,7 @@ static void RequestNpcJoinParty(void)
 
 static void ShowNpcDialogueNotice(void)
 {
-    ShowNotice(W8_FONT_PALETTE_BRONZE, g_localized_strings[0x749], 3,
+    ShowNotice(W8_FONT_PALETTE_BRONZE, Data().strings[0x749], 3,
                (g_level_block->text_box_right - g_level_block->text_box_left));
     SetNpcDialogueHidden(1);
 }
@@ -2142,20 +2141,20 @@ void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int pl
     controller = g_npc_interaction_state->ui->transcript.get();
     StripNpcKeywordPunctuation(text);
     if (category == W8_DIALOGUE_CATEGORY_ALL) {
-        for (index = 0; index < g_item_records.size(); ++index) {
-            if (CompareTextIgnoreAsciiCase(text, g_item_records[index].display_name) == 0) {
+        for (index = 0; index < Data().items.size(); ++index) {
+            if (CompareTextIgnoreAsciiCase(text, Data().items[index].display_name) == 0) {
                 break;
             }
         }
-        if (index < g_item_records.size()) {
+        if (index < Data().items.size()) {
             category = W8_DIALOGUE_CATEGORY_ITEMS;
         } else {
-            for (index = 0; index < g_npc_records.size(); ++index) {
-                if (CompareTextIgnoreAsciiCase(text, g_npc_records[index].source_name) == 0) {
+            for (index = 0; index < Data().npcs.size(); ++index) {
+                if (CompareTextIgnoreAsciiCase(text, Data().npcs[index].source_name) == 0) {
                     break;
                 }
             }
-            if (index < g_npc_records.size()) {
+            if (index < Data().npcs.size()) {
                 category = W8_DIALOGUE_CATEGORY_PEOPLE;
             } else {
                 for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
@@ -2170,8 +2169,7 @@ void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int pl
                          index < static_cast<unsigned int>(g_dialogue_place_keyword_count);
                          ++index) {
                         if (CompareTextIgnoreAsciiCase(
-                                text, g_localized_strings[g_dialogue_place_keyword_ids[index]]) ==
-                            0) {
+                                text, Data().strings[g_dialogue_place_keyword_ids[index]]) == 0) {
                             break;
                         }
                     }
@@ -2285,7 +2283,7 @@ static void OpenNpcDialogueOptionLayout(void)
     SetNpcDialogueInputEnabled(2, true);
     SetNpcDialogueInputEnabled(1, true);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_34].text.SetText(
-        g_localized_strings[0x72d], g_wiz_text_font_secondary);
+        Data().strings[0x72d], g_wiz_text_font_secondary);
     ConfigureNpcTradeCommands();
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_5, 0x72b, SelectNpcPartyItems);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_6, 0x72c, SelectNpcStockItems);
@@ -2366,9 +2364,9 @@ static void SelectNpcTradeModeControls(W8NpcDialogueControlSlot selected,
 static void SetNpcTradeTitle(int text_id)
 {
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
-        g_localized_strings[text_id], g_wiz_text_bold_font);
+        Data().strings[text_id], g_wiz_text_bold_font);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetText(
-        g_localized_strings[text_id], g_wiz_text_bold_font);
+        Data().strings[text_id], g_wiz_text_bold_font);
 }
 
 void UpdateNpcDialogueSubMode(void)
@@ -2583,11 +2581,11 @@ static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
 
 static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool decrement)
 {
-    if (g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+    if (Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         g_npc_interaction_state->trade_quantity = item->stack_count;
     } else if (g_npc_interaction_state->selected_trade_row == row) {
         if (!decrement) {
-            if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+            if (Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
                 ++g_npc_interaction_state->trade_quantity;
                 if (item->stack_count < g_npc_interaction_state->trade_quantity) {
                     g_npc_interaction_state->trade_quantity = item->stack_count;
@@ -2699,7 +2697,7 @@ static void OpenNpcDialogueMode5Layout(void)
     SetNpcDialogueInputEnabled(2, true);
     SetNpcDialogueInputEnabled(1, true);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
-        g_localized_strings[0x739], g_wiz_text_bold_font);
+        Data().strings[0x739], g_wiz_text_bold_font);
     ConfigureNpcTradeCommands();
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_31].primary = ConfirmNpcTradeSlot;
@@ -2861,7 +2859,7 @@ static void OpenNpcDialogueMode1Layout(void)
                                                                               g_wiz_text_bold_font);
     SetNpcDialogueInputEnabled(2, true);
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
-        g_localized_strings[0x72f], g_wiz_text_bold_font);
+        Data().strings[0x72f], g_wiz_text_bold_font);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_1, 0x730, RequestNpcSpellService3);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_2, 0x732, RequestNpcSpellService41);
     SetNpcDialogueAction(W8_NPC_CONTROL_TEXT_4, 0x733, RequestNpcCharacterService);
@@ -3074,33 +3072,32 @@ void HandleNpcDialogueInput(void)
     }
     if (CompareTextIgnoreAsciiCase(
             std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 4)),
-            std::string_view(g_localized_strings[0x76b])
-                .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76b], 4))) == 0 ||
+            std::string_view(Data().strings[0x76b])
+                .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76b], 4))) == 0 ||
         CompareTextIgnoreAsciiCase(
             std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 7)),
-            std::string_view(g_localized_strings[0x76c])
-                .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76c], 7))) == 0) {
+            std::string_view(Data().strings[0x76c])
+                .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76c], 7))) == 0) {
         RequestNpcJoinParty();
         return;
     }
     if (g_npc_interaction_state->where_is_query) {
         if (CompareTextIgnoreAsciiCase(
                 std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 9)),
-                std::string_view(g_localized_strings[0x76d])
-                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d], 9))) == 0 ||
+                std::string_view(Data().strings[0x76d])
+                    .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76d], 9))) == 0 ||
             CompareTextIgnoreAsciiCase(
                 std::string_view(field_text)
                     .substr(0, wiz8::text::codepoint_prefix(field_text, 0xa)),
-                std::string_view(g_localized_strings[0x76e])
-                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e], 0xa))) ==
-                0 ||
+                std::string_view(Data().strings[0x76e])
+                    .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76e], 0xa))) == 0 ||
             CompareTextIgnoreAsciiCase(
                 std::string_view(field_text).substr(0, wiz8::text::codepoint_prefix(field_text, 8)),
-                std::string_view(g_localized_strings[0x76f])
-                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f], 8))) == 0) {
+                std::string_view(Data().strings[0x76f])
+                    .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76f], 8))) == 0) {
             buf = field_text;
         } else {
-            buf = fmt::sprintf(g_localized_strings[0x76a], field_text);
+            buf = fmt::sprintf(Data().strings[0x76a], field_text);
         }
         quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
         if (quote != -1) {
@@ -3119,26 +3116,25 @@ void HandleNpcDialogueInput(void)
         buf = field_text;
         if (CompareTextIgnoreAsciiCase(
                 std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xb)),
-                std::string_view(g_localized_strings[0x770])
-                    .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x770], 0xb))) ==
-            0) {
+                std::string_view(Data().strings[0x770])
+                    .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x770], 0xb))) == 0) {
             field_text = buf.substr(wiz8::text::codepoint_prefix(buf, 0xb));
             show_fallback = false;
         } else if (CompareTextIgnoreAsciiCase(
                        std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 9)),
-                       std::string_view(g_localized_strings[0x76d])
-                           .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76d],
-                                                                   9))) == 0 ||
+                       std::string_view(Data().strings[0x76d])
+                           .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76d], 9))) ==
+                       0 ||
                    CompareTextIgnoreAsciiCase(
                        std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xa)),
-                       std::string_view(g_localized_strings[0x76e])
-                           .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76e],
-                                                                   0xa))) == 0 ||
+                       std::string_view(Data().strings[0x76e])
+                           .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76e], 0xa))) ==
+                       0 ||
                    CompareTextIgnoreAsciiCase(
                        std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 8)),
-                       std::string_view(g_localized_strings[0x76f])
-                           .substr(0, wiz8::text::codepoint_prefix(g_localized_strings[0x76f],
-                                                                   8))) == 0) {
+                       std::string_view(Data().strings[0x76f])
+                           .substr(0, wiz8::text::codepoint_prefix(Data().strings[0x76f], 8))) ==
+                       0) {
             field_text = buf.substr(wiz8::text::codepoint_prefix(buf, 9));
             plain_text = false;
             show_fallback = false;
@@ -3219,8 +3215,7 @@ void HandleNpcDialogueInput(void)
         const auto roll = Random(5);
         const auto* replies = plain_text ? g_dialogue_fallback_ids0 : g_dialogue_fallback_ids1;
         const char punctuation = roll >= (plain_text ? 2u : 3u) ? '?' : '.';
-        notice =
-            fmt::format("{} {}{}", g_localized_strings[replies[roll]], field_text, punctuation);
+        notice = fmt::format("{} {}{}", Data().strings[replies[roll]], field_text, punctuation);
         ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3,
                    (g_level_block->text_box_right - g_level_block->text_box_left));
     } else {
@@ -3372,8 +3367,8 @@ void SetDialogueFieldKeyword(std::string keyword, bool append)
 static bool IsDialoguePlaceKeyword(std::string_view name)
 {
     for (int index = 0; index < g_dialogue_place_keyword_count; ++index) {
-        if (CompareTextIgnoreAsciiCase(
-                name, g_localized_strings[g_dialogue_place_keyword_ids[index]]) == 0) {
+        if (CompareTextIgnoreAsciiCase(name, Data().strings[g_dialogue_place_keyword_ids[index]]) ==
+            0) {
             return true;
         }
     }
@@ -3558,7 +3553,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
         }
         dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 200);
-        message = g_localized_strings[0x7d6];
+        message = Data().strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         dialog->on_complete = OnNpcTradeDialogClosed;
         OpenModal(std::unique_ptr<ModalContent>(dialog));
@@ -3572,7 +3567,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (g_npc_interaction_state->dialogue_npc->record->voice_script != 0) {
                     return 1;
                 }
-                if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
+                if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
                     g_npc_dialogue.QueueQuote(0x11, false, false, false);
                     return 1;
                 }
@@ -3599,7 +3594,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
             }
         }
     } else if (item != 0) {
-        if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
+        if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
             if (!WillNpcTradeForItem(g_npc_interaction_state->dialogue_npc, item)) {
                 g_npc_dialogue.QueueQuote(7, false, false, false);
                 return 1;
@@ -3852,13 +3847,13 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQu
     W8QuoteNotice dismissed = std::exchange(g_npc_interaction_state->quote_notice, {});
     if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   fmt::sprintf(g_localized_strings[experience->alternate_message ? 0x231 : 0x232],
+                   fmt::sprintf(Data().strings[experience->alternate_message ? 0x231 : 0x232],
                                 experience->amount),
                    0);
     } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
         PostSkillIncreaseNotices(skills);
     } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
-        PostCharacterNotice(level_up->party_slot, g_localized_strings[0x773]);
+        PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
     if (quote != 0) {
         /* index is int, not unsigned int: entry_count is an unsigned short,
@@ -4016,7 +4011,7 @@ static void ResolveNpcPickpocket(int party_slot)
 
     switch (AttemptNpcPickpocket(character, g_npc_interaction_state->dialogue_npc, &item, &gold)) {
     case W8_PICKPOCKET_ITEM_TAKEN:
-        text = fmt::sprintf(g_localized_strings[0x74d], character->name, GetItemDisplayName(&item));
+        text = fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(&item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
                 AddItemToCharacter(character, &item, false, false, false);
@@ -4028,12 +4023,12 @@ static void ResolveNpcPickpocket(int party_slot)
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
-        text = fmt::sprintf(g_localized_strings[0x74e], character->name, gold);
+        text = fmt::sprintf(Data().strings[0x74e], character->name, gold);
         AddPartyGold(gold, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_FAILED:
-        text = fmt::sprintf(g_localized_strings[0x74f], character->name);
+        text = fmt::sprintf(Data().strings[0x74f], character->name);
         DisplayNpcQuote(text, false);
         return;
     case W8_PICKPOCKET_CAUGHT:
@@ -4044,7 +4039,7 @@ static void ResolveNpcPickpocket(int party_slot)
         ShowNpcDialogueTopicMenu();
         return;
     case W8_PICKPOCKET_EMPTY:
-        DisplayNpcQuote(g_localized_strings[0x750], false);
+        DisplayNpcQuote(Data().strings[0x750], false);
         return;
     default:
         return;
@@ -4106,9 +4101,9 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
     } else if (request->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                request->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         if (npc_dialog->m_selected_option == 0) {
-            entry_text = g_localized_strings[0x7df];
+            entry_text = Data().strings[0x7df];
         } else {
-            entry_text = g_localized_strings[0x7e0];
+            entry_text = Data().strings[0x7e0];
         }
         if (!gXStatus.fNpcDialogueMode || g_npc_interaction_state->scripted_dialogue) {
             HandleNpcDialogueReply(entry_text, false);
@@ -4264,15 +4259,15 @@ void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory cate
     StripNpcKeywordPunctuation(keyword);
     if (category == W8_DIALOGUE_CATEGORY_ALL) {
         unsigned int index;
-        for (index = 0; index < g_item_records.size(); ++index) {
-            if (CompareTextIgnoreAsciiCase(keyword, g_item_records[index].display_name) == 0) {
+        for (index = 0; index < Data().items.size(); ++index) {
+            if (CompareTextIgnoreAsciiCase(keyword, Data().items[index].display_name) == 0) {
                 category = W8_DIALOGUE_CATEGORY_ITEMS;
                 break;
             }
         }
         if (category == W8_DIALOGUE_CATEGORY_ALL) {
-            for (index = 0; index < g_npc_records.size(); ++index) {
-                if (CompareTextIgnoreAsciiCase(keyword, g_npc_records[index].source_name) == 0) {
+            for (index = 0; index < Data().npcs.size(); ++index) {
+                if (CompareTextIgnoreAsciiCase(keyword, Data().npcs[index].source_name) == 0) {
                     category = W8_DIALOGUE_CATEGORY_PEOPLE;
                     break;
                 }

@@ -1,24 +1,13 @@
-#include <array>
-#include <cstdint>
 #include <cstring>
-#include <exception>
-#include <iterator>
-#include <limits>
 #include <memory>
 #include <string_view>
-#include <utility>
-#include <vector>
 
-#include "asset_paths.h"
 #include "compat/native.h"
 #include "difficulty.h"
 #include "layouts/main_game_screen.h"
 #include "retail_records.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
-#include "wiz8/fact_state.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
@@ -39,10 +28,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/quality.h"
-#include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
@@ -53,81 +40,6 @@
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
-}
-
-/* NPC.DBS records carry an optional sub-list, stored after the record when its
-   leading count exceeds one and its 0x9D flag is clear: a count, then that many
-   six-byte elements appended to a freshly created list. */
-unsigned char InitializeNpcDatabase(void)
-try {
-    auto handle =
-        wiz8::open_file(wiz8::asset_path("Data\\Databases\\NPC.DBS"), wiz8::OpenMode::read);
-    unsigned int count;
-    handle->read_exact(&count, sizeof(count));
-    if (count >
-        (handle->size() - handle->tell()) / std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes)) {
-        return 0;
-    }
-    std::vector<W8NpcDatabaseRecord> records(count);
-    for (unsigned int index = 0; index < count; ++index) {
-        auto& record = records[index];
-        wiz8::retail::read_exact(*handle, record);
-        if (record.no_item_stock == 0 && record.version > 1) {
-            unsigned int entry_count;
-            handle->read_exact(&entry_count, sizeof(entry_count));
-            const auto remaining = handle->size() - handle->tell();
-            const auto following_records = std::int64_t(count - index - 1) *
-                                           std::int64_t(wiz8::retail::kNpcDatabaseRecordBytes);
-            if (remaining < following_records ||
-                entry_count >
-                    (remaining - following_records) / std::int64_t(sizeof(W8NpcItemStockRule)) ||
-                entry_count > std::numeric_limits<int>::max()) {
-                return 0;
-            }
-            record.item_stock_rules.resize(entry_count);
-            for (auto& rule : record.item_stock_rules) handle->read_exact(&rule, sizeof(rule));
-        }
-    }
-    g_npc_records = std::move(records);
-    return 1;
-} catch (const std::exception&) {
-    return 0;
-}
-
-void DestroyNpcDatabase(void)
-{
-    g_npc_records = {};
-}
-
-unsigned char InitializeFactDatabase(void)
-try {
-    auto handle =
-        wiz8::open_file(wiz8::asset_path("Data\\Databases\\FACT.DBS"), wiz8::OpenMode::read);
-    g_fact_records =
-        wiz8::retail::read_database<W8FactDatabaseRecord>(*handle, std::size(g_fact_values));
-    return 1;
-} catch (const std::exception&) {
-    return 0;
-}
-
-void DestroyFactDatabase(void)
-{
-    g_fact_records = {};
-}
-
-unsigned char InitializeLevelDatabase(void)
-try {
-    auto handle =
-        wiz8::open_file(wiz8::asset_path("Data\\Databases\\LEVELS.DBS"), wiz8::OpenMode::read);
-    g_level_records = wiz8::retail::read_database<W8LevelDatabaseRecord>(*handle);
-    return 1;
-} catch (const std::exception&) {
-    return 0;
-}
-
-void DestroyLevelDatabase(void)
-{
-    g_level_records = {};
 }
 
 /* The new-game reset. Begin a new game, then

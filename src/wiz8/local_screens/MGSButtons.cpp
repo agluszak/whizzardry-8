@@ -25,16 +25,14 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -46,6 +44,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
@@ -783,55 +782,54 @@ void DrawSubMenuCharacterAction(void)
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
     character = &CurrentGame().party.characters[slot];
     text = fmt::format("{} - {}", character->name,
-                       g_localized_strings[g_profession_name_message_ids[character->iProfession]]);
+                       Data().strings[g_profession_name_message_ids[character->iProfession]]);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                           {(0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1c6}, text);
     if (!CurrentGame().combat.active()) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
         }
-        text = g_localized_strings[g_condition_notices[character->highest_condition].name];
+        text = Data().strings[g_condition_notices[character->highest_condition].name];
     } else {
         action = row->committed_action.kind;
         switch (action) {
         case W8_ACTION_CAST_SPELL:
-            text = fmt::format("{} - {} ({:d})", g_localized_strings[g_action_kind_message_ids[7]],
-                               g_spell_records[row->committed_action.detail].display_name,
+            text = fmt::format("{} - {} ({:d})", Data().strings[g_action_kind_message_ids[7]],
+                               Data().spells[row->committed_action.detail].display_name,
                                row->committed_action.detail_block.spell.power_level);
             break;
         case W8_ACTION_USE_ITEM:
             text = fmt::format(
-                "{} - {}", g_localized_strings[g_action_kind_message_ids[8]],
-                g_spell_records
-                    [g_item_records[CurrentGame()
-                                        .party
-                                        .itemAt(row->committed_action.detail_block.item_use.item)
-                                        ->iItemNo]
-                         .spell_id]
-                        .display_name);
+                "{} - {}", Data().strings[g_action_kind_message_ids[8]],
+                Data()
+                    .spells[Data()
+                                .items[CurrentGame()
+                                           .party
+                                           .itemAt(row->committed_action.detail_block.item_use.item)
+                                           ->iItemNo]
+                                .spell_id]
+                    .display_name);
             break;
         case W8_ACTION_ATTACK:
-            text = fmt::format("{} - ", g_localized_strings[g_action_kind_message_ids[0]]);
+            text = fmt::format("{} - ", Data().strings[g_action_kind_message_ids[0]]);
             if (character->Hand[0].in_play) {
                 if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
-                    text += g_localized_strings[0x5b8];
+                    text += Data().strings[0x5b8];
                 } else {
-                    text +=
-                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                            &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
+                    text += Data().strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                        &character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON])]];
                 }
             }
             if (!character->Hand[1].in_play) {
                 if (!character->Hand[0].in_play) {
-                    text += g_localized_strings[0x5b8];
+                    text += Data().strings[0x5b8];
                 }
             } else {
                 if (character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
-                    second = g_localized_strings[0x5b8];
+                    second = Data().strings[0x5b8];
                 } else {
-                    second =
-                        g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
-                            &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]];
+                    second = Data().strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(
+                        &character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON])]];
                 }
                 if (!character->Hand[0].in_play) {
                     text += second;
@@ -849,22 +847,21 @@ void DrawSubMenuCharacterAction(void)
         case W8_ACTION_PROTECT:
             if (row->committed_action.target.iType == W8_TARGET_KIND_CHARACTER) {
                 text = fmt::format(
-                    "{} - {}", g_localized_strings[g_action_kind_message_ids[5]],
+                    "{} - {}", Data().strings[g_action_kind_message_ids[5]],
                     CurrentGame().party.characters[row->committed_action.target.iChar].name);
             } else if (row->committed_action.target.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(row->committed_action.target.iMonsterID);
                 name = GetMonsterName(monster_info, 0, 0);
-                text =
-                    fmt::format("{} - {}", g_localized_strings[g_action_kind_message_ids[5]], name);
+                text = fmt::format("{} - {}", Data().strings[g_action_kind_message_ids[5]], name);
             } else {
-                text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[5]]);
+                text = fmt::format("{} ", Data().strings[g_action_kind_message_ids[5]]);
             }
             break;
         case W8_ACTION_NONE:
-            text = g_localized_strings[0x7e1];
+            text = Data().strings[0x7e1];
             break;
         default:
-            text = fmt::format("{} ", g_localized_strings[g_action_kind_message_ids[action]]);
+            text = fmt::format("{} ", Data().strings[g_action_kind_message_ids[action]]);
             break;
         }
     }
@@ -1159,11 +1156,12 @@ bool BuildSubMenuPanel(short notification)
         int message = g_submenu_entry_message_ids[menu * 5 + entry];
         int icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
-            message +=
-                g_spell_records
-                    [CurrentGame().party.rows[CurrentGame().status.selected_character].spell.detail]
-                        .realm *
-                7;
+            message += Data()
+                           .spells[CurrentGame()
+                                       .party.rows[CurrentGame().status.selected_character]
+                                       .spell.detail]
+                           .realm *
+                       7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
             const int base = GetAttackMenuWeaponOffset(
                 CurrentGame()
@@ -1213,11 +1211,10 @@ bool BuildSubMenuPanel(short notification)
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->SetTooltip([] {
                 const int slot = CurrentGame().status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot))
-                    return std::string(g_localized_strings[0x5d]);
+                if (!CanPartySlotUseRecordedItem(slot)) return std::string(Data().strings[0x5d]);
                 const auto& row = CurrentGame().party.rows[slot];
                 const auto* item = CurrentGame().party.itemAt(row.item_detail.item_use.item);
-                return fmt::format("{}: {}", g_localized_strings[0x5d],
+                return fmt::format("{}: {}", Data().strings[0x5d],
                                    FormatItemDisplayName(item, false));
             });
         }

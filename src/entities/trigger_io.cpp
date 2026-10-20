@@ -22,6 +22,7 @@
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/retail_geometry_types.h"
@@ -910,7 +911,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         }
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
-                trigger->m_lData1 >= static_cast<int>(g_missile_table.size())) {
+                trigger->m_lData1 >= static_cast<int>(Data().missiles.size())) {
                 Fail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
                      "Missile::GetNumTypes()))",
                      fmt::format("Trigger {}: You must enter a valid missile number",

@@ -10,8 +10,8 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/string_database.h"
@@ -87,9 +87,9 @@ bool RapaxUpperFloorAirBox(Trigger* pTrigger)
             SetTriggerVariableByName("TMakeTreasureNumber", item_id);
             return true;
         }
-        ShowString(g_localized_strings[0x96a]);
+        ShowString(Data().strings[0x96a]);
     }
-    ShowString(g_localized_strings[0x964]);
+    ShowString(Data().strings[0x964]);
     return true;
 }
 

@@ -10,6 +10,7 @@ void ResetSpellCooldowns(void);
 #include "wiz8/character_skills.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
@@ -74,16 +75,13 @@ void LearnSpell(W8Character* character, int spell_id, bool announce);
    item. */
 void LearnSpellFromItem(W8Character* character, W8ItemInstance* item);
 
-/* Zeroes the six per-realm learned-spell counters and recounts them from the
-   spell_learned array. */
-void RecountLearnedSpellsByRealm(W8Character* character);
 /* Learned, and the remaining points in the spell's realm cover its cost.
    CharacterHasCastableSpell expands this body for every spell. */
 inline bool CanCharacterCastSpell(W8Character* character, int spell_id)
 {
     if (spell_id != W8_SPELL_NONE && character->spell_learned[spell_id] == 1 &&
-        g_spell_records[spell_id].spell_point_cost <=
-            character->iSPLeft[g_spell_records[spell_id].realm]) {
+        Data().spells[spell_id].spell_point_cost <=
+            character->iSPLeft[Data().spells[spell_id].realm]) {
         return true;
     }
     return false;

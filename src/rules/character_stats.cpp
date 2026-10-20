@@ -1,22 +1,24 @@
-#include "wiz8/character_stats.h"
+#include "wiz8/rules/character_stats.h"
 
+#include <algorithm>
 #include <cstring>
+#include <functional>
+#include <stdexcept>
 
-#include "wiz8/character_skills.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
-#include "wiz8/item_rules.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/load_category.h"
 
 enum {
@@ -31,7 +33,7 @@ static const W8Dice g_unarmed_damage_dice[12] = {{0, 1, 2}, {0, 1, 3}, {0, 2, 2}
                                                  {0, 2, 4}, {0, 3, 3}, {1, 3, 3}, {2, 3, 3},
                                                  {0, 3, 5}, {0, 4, 4}, {2, 4, 4}, {4, 4, 4}};
 
-static int CalcPhysCombatExperience(W8Character* character)
+static int CalcPhysCombatExperience(const W8Character* character)
 {
     int total = 0;
     int weight = 0;
@@ -41,12 +43,9 @@ static int CalcPhysCombatExperience(W8Character* character)
     if (character->iProfession == W8_PROFESSION_NONE) {
         return 0;
     }
-    if (character == 0) {
-        Fail("pPC != NULL");
-    }
     if (character->iProfession < W8_PROFESSION_FIGHTER ||
         character->iProfession > W8_PROFESSION_MAGE) {
-        Fail("(pPC->iProfession >= 0) && (pPC->iProfession < PROF_COUNT)");
+        throw std::logic_error("CalcPhysCombatExperience: invalid profession");
     }
 
     for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
@@ -75,7 +74,7 @@ static int CalcPhysCombatExperience(W8Character* character)
                 weight = W8_PHYS_COMBAT_WEIGHT_CASTER;
                 break;
             default:
-                Fail("FALSE", "CalcPhysCombatExperience: ERROR - Invalid profession");
+                throw std::logic_error("CalcPhysCombatExperience: invalid profession");
             }
             total += levels * weight;
         }
@@ -110,27 +109,27 @@ void CalcInitiative(W8Character* character)
         character->initiative -= 8;
         break;
     default:
-        Fail("FALSE", "CalcInitiative: ERROR - Invalid load category");
-        break;
+        throw std::logic_error("CalcInitiative: invalid load category");
     }
 }
 
-void CalcAttacks(W8Character* character, bool damaged_android)
+void CalcAttacks(const GameData& data, W8Character* character, bool damaged_android)
 {
     W8HandAttack* attacks[2];
-    W8ItemDatabaseRecord* records[2];
+    const W8ItemDatabaseRecord* records[2];
     W8ItemInstance* equipment[2];
     unsigned int hand;
     int physical_experience;
     int load_penalty = 0;
 
-    const auto hands = EvaluateWeaponHands(character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
-                                           character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]);
+    const auto hands =
+        EvaluateWeaponHands(data, character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON],
+                            character->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON]);
     for (hand = 0; hand < 2; ++hand) {
         attacks[hand] = &character->Hand[hand];
         equipment[hand] = &character->EquippedItem[hand + 6];
         records[hand] =
-            equipment[hand]->iItemNo == -1 ? nullptr : &g_item_records[equipment[hand]->iItemNo];
+            equipment[hand]->iItemNo == -1 ? nullptr : &data.items[equipment[hand]->iItemNo];
         attacks[hand]->uiHolds = hands[hand].uiHolds;
         attacks[hand]->weapon_skill = hands[hand].weapon_skill;
         attacks[hand]->combat_skill = hands[hand].combat_skill;
@@ -184,7 +183,7 @@ void CalcAttacks(W8Character* character, bool damaged_android)
             load_penalty = -120;
             break;
         default:
-            Fail("FALSE", "CalcAttacks: ERROR - Invalid load category");
+            throw std::logic_error("CalcAttacks: invalid load category");
         }
         if (attack->weapon_skill == W8_SKILL_MODERN_WEAPONS) {
             load_penalty /= 2;
@@ -250,7 +249,7 @@ void CalcAttacks(W8Character* character, bool damaged_android)
             if (other->uiHolds == 3 && records[hand == 0] != 0) {
                 attack->hit_bonus += records[hand == 0]->attack_hit_bonus;
             }
-            if (ItemHasSingledOutGenericName(equipment[hand]->iItemNo)) {
+            if (ItemHasSingledOutGenericName(data, equipment[hand]->iItemNo)) {
                 attack->damage_percent += records[hand]->damage_dice.base * 10;
             }
         } else {
@@ -352,7 +351,7 @@ void CalcAttacks(W8Character* character, bool damaged_android)
     }
 }
 
-void CalcArmorClasses(W8Character* character, bool defensive_action)
+void CalcArmorClasses(const GameData& data, W8Character* character, bool defensive_action)
 {
     int location_slot = 0;
 
@@ -365,10 +364,8 @@ void CalcArmorClasses(W8Character* character, bool defensive_action)
         int item_id = character->EquippedItem[index].iItemNo;
         if (index != 0 && index != 4 && index != 5 && index != 8 && index != 9 && index != 10 &&
             index != 11 && item_id != -1) {
-            int component =
-                g_item_records[item_id].equip_class == W8_ITEM_EQUIP_CLASS_SHIELD ? 3 : 4;
-            character->armor_class_components[component] +=
-                g_item_records[item_id].armor_class_bonus;
+            int component = data.items[item_id].equip_class == W8_ITEM_EQUIP_CLASS_SHIELD ? 3 : 4;
+            character->armor_class_components[component] += data.items[item_id].armor_class_bonus;
         }
     }
 
@@ -467,11 +464,11 @@ void CalcArmorClasses(W8Character* character, bool defensive_action)
             location_slot = 11;
             break;
         default:
-            Fail("FALSE", "CalcArmorClasses: ERROR - Invalid AC location");
+            throw std::logic_error("CalcArmorClasses: invalid armor location");
         }
         int item_id = character->EquippedItem[location_slot].iItemNo;
         if (item_id != -1) {
-            character->armor_class_by_location[index] += g_item_records[item_id].armor_class_bonus;
+            character->armor_class_by_location[index] += data.items[item_id].armor_class_bonus;
         }
         weighted_total += gubLocalACPercent[index] * character->armor_class_by_location[index];
     }
@@ -515,4 +512,256 @@ bool RecalculateCharacterHitPoints(W8Character* character)
         return remaining == 0;
     }
     return false;
+}
+
+unsigned int FatigueArmorPenalty(int fatigue_band)
+{
+    switch (fatigue_band) {
+    case 0:
+        return 0;
+    case 1:
+        return 5;
+    case 2:
+        return 10;
+    case 3:
+        return 20;
+    case 4:
+        return 40;
+    default:
+        return fatigue_band;
+    }
+}
+
+/* Recompute the stamina ceiling from the three physical attributes and the
+   level, subtract any outstanding penalty, carry the difference into the
+   current pool, and derive the fatigue band from what is left.
+
+   Retail compares the penalty with JNC and divides the scaled pool with DIV,
+   so the ceiling and its delta are unsigned values even though the stored
+   fields are ints. The divisor is unguarded in retail; a zero ceiling would
+   trap there, so here it is treated as full fatigue. */
+void RecalculateCharacterStamina(W8Character* character)
+{
+    unsigned int previous = character->uiStaminaMax;
+    unsigned int value =
+        static_cast<unsigned int>(((character->attributes[W8_ATTRIBUTE_STRENGTH].effective +
+                                    character->attributes[W8_ATTRIBUTE_PIETY].effective +
+                                    character->attributes[W8_ATTRIBUTE_VITALITY].effective) *
+                                   (1.0f / 3.0f)) *
+                                      (character->uiExpLevel * 0.1f + 2.0f) +
+                                  0.5);
+    character->uiStaminaMax = value;
+    if (character->fatigue_penalty < value) {
+        character->uiStaminaMax = value - character->fatigue_penalty;
+    } else {
+        character->uiStaminaMax = 0;
+    }
+    value = character->uiStaminaMax;
+    if (value != previous) {
+        character->stamina += value - previous;
+    }
+    // A penalty that consumes the whole ceiling leaves the character fully
+    // fatigued instead of dividing by zero.
+    int fatigue = 100;
+    if (value != 0) {
+        fatigue -= static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
+    }
+    if (fatigue < 0x32) {
+        character->fatigue_band = 0;
+        return;
+    }
+    if (fatigue < 0x46) {
+        character->fatigue_band = 1;
+        return;
+    }
+    if (fatigue < 0x55) {
+        character->fatigue_band = 2;
+        return;
+    }
+    character->fatigue_band = (fatigue > 0x5e) + 3;
+}
+
+/* Recount the learned spells into the six per-realm slots (0x1c..0x21 of
+   skill_unlocks), where the expert-skill gate and the spell-point ceiling
+   both read them. */
+void RecountLearnedSpellsByRealm(const GameData& data, W8Character* character)
+{
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        character->skill_unlocks[0x1c + realm] = 0;
+    }
+    for (int index = 0; index < 0x72; ++index) {
+        if (character->spell_learned[index] == 1 || character->spell_learned[index] == 2) {
+            ++character->skill_unlocks[0x1c + data.spells[index].realm];
+        }
+    }
+}
+
+/* Rebuild the six realm spell-point ceilings from the learned spells, the
+   realm skill levels and the attributes. The weighted best four realm skills
+   are capped at 125 and added to every realm's own skill and school
+   attribute; the sum scales with the realm's learned-spell count, level and
+   one. */
+int RebuildRealmSpellPointCeilings(const GameData& data, W8Character* character)
+{
+    int max_spell_levels[6];
+    int realm_skills[4];
+    int index;
+    int best = 0;
+
+    RecountLearnedSpellsByRealm(data, character);
+    for (index = 0; index < 6; ++index) {
+        max_spell_levels[index] = 0;
+    }
+    for (index = 0; index < 0x72; ++index) {
+        if (character->spell_learned[index] == 1 || character->spell_learned[index] == 2) {
+            W8SpellRealm realm = data.spells[index].realm;
+            int cost = data.spells[index].spell_point_cost;
+            if (max_spell_levels[realm] < cost) {
+                max_spell_levels[realm] = cost;
+            }
+        }
+    }
+    for (index = 0; index < 4; ++index) {
+        realm_skills[index] = character->skills[W8_SKILL_SPELLBOOK_WIZARDRY + index].level;
+    }
+    std::ranges::sort(realm_skills, std::greater{});
+
+    float weighted = static_cast<float>(realm_skills[0] + (realm_skills[1] >> 1) +
+                                        (realm_skills[2] >> 2) + (realm_skills[3] >> 3));
+    if (weighted > 125.0f) {
+        weighted = 125.0f;
+    }
+
+    for (index = 0; index < 6; ++index) {
+        int old = character->sp_max[index];
+        unsigned int learned = character->skill_unlocks[0x1c + index];
+        int computed =
+            static_cast<int>(((weighted + character->skills[W8_SKILL_FIRE_MAGIC + index].level * 3 +
+                               character->attributes[W8_ATTRIBUTE_PIETY].effective) *
+                              0.02f) *
+                                 (learned + character->uiExpLevel + 1) +
+                             0.5);
+        if (best < computed) {
+            best = computed;
+        }
+        if (learned == 0) {
+            computed = 0;
+        }
+        character->sp_max[index] = computed;
+        if (computed < max_spell_levels[index]) {
+            character->sp_max[index] = max_spell_levels[index];
+        }
+        if (character->sp_max[index] != old) {
+            character->iSPLeft[index] += character->sp_max[index] - old;
+        }
+    }
+    return best;
+}
+
+/* The resistance bonus skill (36) is derived only for the professions whose
+   bodies can learn spells; a few fixed professions keep it at zero. */
+void RecalculateRealmSpellPoints(const GameData& data, W8Character* character)
+{
+    W8Profession profession = character->iProfession;
+    if (profession != W8_PROFESSION_FIGHTER &&
+        (profession < W8_PROFESSION_ROGUE || profession > W8_PROFESSION_BARD)) {
+        character->skill_unlocks[0x24] = RebuildRealmSpellPointCeilings(data, character);
+        return;
+    }
+    character->skill_unlocks[0x24] = 0;
+}
+
+/* The hit-point, stamina and per-realm spell regeneration rates
+   are one tick of the pool ceiling's share, twenty points of base and a
+   twelveth of a minute each; the modifier block's three regeneration-boost flags
+   raise their rate by half. */
+void RebuildCharacterRegenRates(W8Character* character)
+{
+    float rate;
+    int realm;
+
+    rate = (static_cast<unsigned int>(character->uiHPMax) * 0.4f + 20.0f) * 0.0041666669f;
+    character->health_regen_rate = rate;
+    if (character->bonus.boost_health_regen != 0) {
+        character->health_regen_rate = rate * 1.5f;
+    }
+
+    rate = (static_cast<unsigned int>(character->uiStaminaMax) * 0.9f + 20.0f) * 0.0041666669f;
+    character->stamina_regen_rate = rate;
+    if (character->bonus.boost_stamina_regen != 0) {
+        character->stamina_regen_rate = rate * 1.5f;
+    }
+
+    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        if (character->sp_max[realm] == 0) {
+            character->spell_regen_rates[realm * 2] = 0.0f;
+            continue;
+        }
+        rate =
+            (static_cast<unsigned int>(character->sp_max[realm]) * 0.65f + 20.0f) * 0.0041666669f;
+        character->spell_regen_rates[realm * 2] = rate;
+        if (character->bonus.boost_spell_regen != 0) {
+            character->spell_regen_rates[realm * 2] = rate * 1.5f;
+        }
+    }
+}
+
+void RecalculateCharacterResistances(W8Character* character)
+{
+    unsigned int index;
+    int channel;
+    unsigned int adjustment;
+
+    for (index = 0; index < W8_RESISTANCE_COUNT; ++index) {
+        W8CharacterResistance* resistance = &character->resistances[index];
+
+        resistance->base = 25;
+        resistance->base = character->skills[W8_FIRST_RESISTANCE_SKILL + index].level / 10 + 25;
+        if (character->skills[W8_SKILL_IRON_WILL].active) {
+            resistance->base += character->skills[W8_SKILL_IRON_WILL].level / 5 + 5;
+        }
+        if (character->iProfession == W8_PROFESSION_MAGE) {
+            resistance->base += 5;
+        }
+    }
+
+    if (character->iRace != W8_RACE_NONE) {
+        for (index = 0; index < W8_RESISTANCE_COUNT; ++index) {
+            channel =
+                g_race_resistance_profiles[character->iRace].adjustments[index].resistance_index;
+            if (channel == -1) {
+                break;
+            }
+            adjustment = g_race_resistance_profiles[character->iRace]
+                             .adjustments[index]
+                             .adjustment_or_attribute;
+            if (static_cast<int>(adjustment) > W8_RACE_ADJUSTMENT_ATTRIBUTE_BIAS) {
+                adjustment =
+                    character->attributes[adjustment - W8_RACE_ADJUSTMENT_ATTRIBUTE_BIAS].base / 5;
+            }
+            character->resistances[channel].base += adjustment;
+        }
+    }
+
+    if (character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective > 0x50) {
+        character->resistances[4].base +=
+            (character->attributes[W8_ATTRIBUTE_INTELLIGENCE].effective - 0x50) >> 1;
+    }
+    if (character->attributes[W8_ATTRIBUTE_PIETY].effective > 0x50) {
+        character->resistances[5].base +=
+            (character->attributes[W8_ATTRIBUTE_PIETY].effective - 0x50) >> 1;
+    }
+
+    for (index = 0; index < W8_RESISTANCE_COUNT; ++index) {
+        W8CharacterResistance* resistance = &character->resistances[index];
+
+        resistance->total = resistance->base;
+        resistance->total = resistance->base + character->bonus.resistance_bonus_all;
+        resistance->total += character->bonus.resistance_bonus[index];
+    }
+    for (index = 0; index < W8_RESISTANCE_COUNT; ++index) {
+        if (character->resistances[index].total > 100) {
+            character->resistances[index].total = 100;
+        }
+    }
 }

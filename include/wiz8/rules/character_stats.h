@@ -1,5 +1,6 @@
 #pragma once
 
+struct GameData;
 struct W8Character;
 
 /* W8Character::armor_class_by_location and gubLocalACPercent share this order.
@@ -36,9 +37,25 @@ enum W8ArmorClassComponent {
 };
 
 void CalcInitiative(W8Character* character);
-void CalcAttacks(W8Character* character, bool damaged_android);
-void CalcArmorClasses(W8Character* character, bool defensive_action);
+void CalcAttacks(const GameData& data, W8Character* character, bool damaged_android);
+void CalcArmorClasses(const GameData& data, W8Character* character, bool defensive_action);
 extern const unsigned char gubLocalACPercent[W8_ARMOR_LOCATION_COUNT];
+// The armor-class penalty, in tenths, of a fatigue band.
+unsigned int FatigueArmorPenalty(int fatigue_band);
 
 // True means a changed ceiling exhausted the pool; the caller applies death policy.
 [[nodiscard]] bool RecalculateCharacterHitPoints(W8Character* character);
+/* Recompute the stamina ceiling, carry its change into the current pool and
+   derive the fatigue band from what is left. */
+void RecalculateCharacterStamina(W8Character* character);
+/* Zeroes the six per-realm learned-spell counters and recounts them from the
+   spell_learned array. */
+void RecountLearnedSpellsByRealm(const GameData& data, W8Character* character);
+/* Rebuild the six realm spell-point ceilings, carrying each change into the
+   remaining points; returns the largest computed ceiling. */
+int RebuildRealmSpellPointCeilings(const GameData& data, W8Character* character);
+void RecalculateRealmSpellPoints(const GameData& data, W8Character* character);
+/* Rebuild the per-realm stamina and spell regeneration rates from
+   the pool ceilings and the three regeneration-boost flags. */
+void RebuildCharacterRegenRates(W8Character* character);
+void RecalculateCharacterResistances(W8Character* character);

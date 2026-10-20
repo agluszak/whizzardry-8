@@ -14,32 +14,30 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
-#include "wiz8/party_stats.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
-#include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/screen.h"
 #include "wiz8/unicode.h"
 
@@ -64,9 +62,9 @@ void PostSkillIncreaseNotices(const W8SkillNoticePayload* notices)
         W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
         W8Character* character = &CurrentGame().party.characters[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
-        PostCharacterNotice(
-            slot, fmt::sprintf(g_localized_strings[0x1d9],
-                               g_localized_strings[g_character_skill_name_ids[skill]], value));
+        PostCharacterNotice(slot,
+                            fmt::sprintf(Data().strings[0x1d9],
+                                         Data().strings[g_character_skill_name_ids[skill]], value));
     }
 }
 
@@ -79,8 +77,8 @@ std::string FormatSkillIncreaseNoticeText(int party_slot, bool continue_line, W8
                                  CurrentGame().party.rows[party_slot].party_order_index)));
     text += " " + fmt::format("{}'s", character->name) + " ";
     wiz8::text::append(text, 0xb5);
-    text += " " + fmt::sprintf(g_localized_strings[0x1db],
-                               g_localized_strings[g_character_skill_name_ids[skill_id]],
+    text += " " + fmt::sprintf(Data().strings[0x1db],
+                               Data().strings[g_character_skill_name_ids[skill_id]],
                                GetCharacterSkillNoticeValue(character, skill_id));
     return text;
 }
@@ -145,63 +143,6 @@ void InvalidateAndRecalculateCharacterClassData(W8Character* character)
     CalcCharacterTableValue(character);
 }
 
-/* Whether the character has the trait through profession, race, or - for
-   trait 0x1c - a set second enchantment slot. Profession id -1 and race id
-   -1 both mean absent and skip their tables. Read-only, so callers agree
-   on a const character. */
-bool CharacterHasTrait(const W8Character* character, W8Trait trait)
-{
-    unsigned int index;
-
-    if (character == 0) {
-        return false;
-    }
-    if (character->iProfession != W8_PROFESSION_NONE) {
-        const W8Trait* abilities = g_profession_abilities[character->iProfession].ability_ids;
-        for (index = 0; index < 3; ++index) {
-            if (abilities[index] == trait) {
-                return true;
-            }
-        }
-    }
-    if (character->iRace != W8_RACE_NONE) {
-        const W8Trait* abilities = g_race_abilities[character->iRace].ability_ids;
-        for (index = 0; index < 5; ++index) {
-            if (abilities[index] == trait) {
-                return true;
-            }
-        }
-    }
-    if (trait == W8_TRAIT_BREATHE &&
-        character->enchantments[W8_ENCHANTMENT_DRACON_BREATH].turns != 0) {
-        return true;
-    }
-    return false;
-}
-
-static float ScaleValueByLevel(unsigned int level, float base)
-{
-    if (level > 0x14) {
-        return base;
-    }
-    float scaled = (level * 2.0f + 60.0f) * base;
-    return scaled * kMovementSpeedStep;
-}
-
-/* Scale a trait's flat value by the character's level in their current
-   profession: full value above twenty levels, sixty percent at zero and two
-   percent per level in between. The trait id is carried by the call but the
-   body never reads it. */
-float ScaleValueByProfessionLevel(W8Character* character, W8Trait, float base)
-{
-    return ScaleValueByLevel(character->profession_levels[character->iProfession], base);
-}
-
-float ScaleValueByMonsterLevel(W8MonsterRecord* record, int, float base)
-{
-    return ScaleValueByLevel(record->effective_level, base);
-}
-
 /* The Valkyrie cheat-death trait fires instead of death while the character
    is not already deep into unconsciousness: a notice, an unconscious stint
    shortened by the profession-level scale, and hit points rolled back up -
@@ -211,7 +152,7 @@ void CheatDeathRevive(int party_slot)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    PostCharacterNotice(party_slot, g_localized_strings[0x173]);
+    PostCharacterNotice(party_slot, Data().strings[0x173]);
     SetCharacterCondition(
         party_slot, W8_CONDITION_UNCONSCIOUS,
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] -
@@ -288,7 +229,7 @@ void BrewAlchemistPotion(W8Character* character)
         if (item.stack_count > 1) {
             item.stack_count = 1;
         }
-        ShowNotice(slot, fmt::sprintf(g_localized_strings[0x183], character->name,
+        ShowNotice(slot, fmt::sprintf(Data().strings[0x183], character->name,
                                       FormatItemDisplayName(&item, true)));
         StoreItemWithCharacterOrParty(character, &item, false, false, false);
         made = 1;
@@ -370,70 +311,6 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
     return true;
 }
 
-/* Rebuild each attribute's effective value from its base and the modifier
-   block's seven adjustment bytes, clamped to one through 125, and then every
-   skill's base level from the attribute pair g_skill_attributes names. The
-   complete values are available before equipment requirements are checked. */
-// FUNCTION: WIZ8 0x005539e0
-static void ResetCharacterAttributes(W8Character* character)
-{
-    unsigned int index;
-
-    for (index = 0; index < 7; ++index) {
-        int value =
-            character->bonus.attribute_adjustments[index] + character->attributes[index].base;
-        value = std::clamp(value, 1, 0x7d);
-        character->attributes[index].effective = value;
-    }
-    InitializeSkillBaseLevels(character);
-}
-
-static int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id)
-{
-    int level = character->skills[skill_id].points;
-    if (skill_id == g_profession_bonus_skills[character->iProfession]) {
-        unsigned int bonus = static_cast<unsigned int>(level * 0x19) / 100;
-        if (bonus == 0) {
-            bonus = 1;
-        }
-        level += bonus;
-    }
-    level += character->bonus.skill_bonus[skill_id];
-    level = std::clamp(level, 0, 0x7d);
-    return level;
-}
-
-/* Rebuild every skill level from the value already spent on it, the
-   profession's bonus skill and the race and profession adjustment bytes the
-   modifier block carries, clamped to zero through 125. Equipment requirements are checked after all skills have been evaluated. */
-// FUNCTION: WIZ8 0x00553a60
-static void ResetCharacterSkills(W8Character* character)
-{
-    unsigned int index;
-
-    for (index = 0; index < 0x29; ++index) {
-        character->skills[index].level =
-            GetEffectiveSkillLevel(character, static_cast<W8Skill>(index));
-    }
-}
-
-void EvaluateCharacterInputs(W8Character& character, const W8GameplayModifierBlock* party_modifiers)
-{
-    character.equipment_bonus = {};
-    AccumulateEquipmentModifiers(&character, &character.equipment_bonus);
-    RebuildCharacterModifierBlock(&character, party_modifiers);
-    ResetCharacterAttributes(&character);
-    ResetCharacterSkills(&character);
-    SetHandType(&character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
-    SetHandType(&character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
-}
-
-bool IsCharacterDefined(const W8Character& character)
-{
-    return character.iProfession < W8_PROFESSION_COUNT && character.iRace < W8_RACE_COUNT &&
-           character.gender != W8_GENDER_UNSET;
-}
-
 /* An attribute's base value changed: flip the at-maximum flag on the
    attribute's pseudo-skill entry (id = attribute + 0x22), resetting or
    refunding its row while the character screen is up and announcing the cap
@@ -452,10 +329,10 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute)
             }
             if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
                 ShowMainGameNoticeLine(
-                    fmt::sprintf(g_localized_strings[0x1d6],
-                                 g_localized_strings[g_character_description_first_ids[attribute]],
+                    fmt::sprintf(Data().strings[0x1d6],
+                                 Data().strings[g_character_description_first_ids[attribute]],
                                  character->name,
-                                 g_localized_strings[g_character_skill_name_ids[skill_id]]),
+                                 Data().strings[g_character_skill_name_ids[skill_id]]),
                     0, true, false);
             }
         }
@@ -488,19 +365,6 @@ void ApplySkillChange(W8Character* character, W8Skill skill_id)
     RecalculateCharacterDerivedStats(*character);
 }
 
-/* Average the two attribute values g_skill_attributes names for every skill
-   into the skill's 0x0a base level. 0x00557D80 and 0x00557B20 seed the
-   profession skill levels from these. */
-void InitializeSkillBaseLevels(W8Character* character)
-{
-    for (int index = 0; index < 0x29; ++index) {
-        W8Attribute first = g_skill_attributes[index].attribute_1;
-        W8Attribute second = g_skill_attributes[index].attribute_2;
-        character->skills[index].base_level =
-            (character->attributes[first].base + character->attributes[second].base) >> 1;
-    }
-}
-
 /* Re-scan every skill's availability and mirror each flag change onto the
    open character screen's page 2. The realm flags array marks which expert
    skills gained a spell since the last scan. */
@@ -514,7 +378,7 @@ void RefreshCharacterSkillAvailability(W8Character* character)
     }
     for (index = 0; index < 0x72; ++index) {
         if (character->spell_learned[index + 1] == -1 || character->spell_learned[index + 1] == 2) {
-            expert_realm_flags[g_spell_records[index].realm] = true;
+            expert_realm_flags[Data().spells[index].realm] = true;
         }
     }
     for (index = 0; index < 0x29; ++index) {

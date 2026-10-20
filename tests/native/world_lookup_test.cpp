@@ -15,6 +15,7 @@
 
 #include "asset_paths.h"
 #include "filesystem.h"
+#include "mutable_game_data.h"
 #include "save_payload.h"
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
@@ -29,7 +30,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/render/camera_shake.h"
@@ -320,20 +320,20 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
 {
     const ScopedGame game;
     struct Restore {
-        std::vector<std::string> strings = std::move(g_localized_strings);
+        std::vector<std::string> strings = std::move(MutableData().strings);
         ~Restore()
         {
             ReplaceWorld(nullptr);
             ClearNpcMessageQueue();
-            g_localized_strings = std::move(strings);
+            MutableData().strings = std::move(strings);
         }
     } restore;
     auto& characters = CurrentGame().party.characters;
     auto& rows = CurrentGame().party.rows;
     rows[0].fOccupied = true;
     characters[0].hp_current = 1;
-    g_localized_strings.resize(0x233);
-    g_localized_strings[0x232] = "%d";
+    MutableData().strings.resize(0x233);
+    MutableData().strings[0x232] = "%d";
     CurrentGame().status.resume_level = 8;
     ReplaceWorld(std::make_unique<World>(3));
     AddPartyGold(1, false);

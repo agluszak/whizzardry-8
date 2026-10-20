@@ -24,6 +24,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
@@ -31,14 +32,13 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -48,6 +48,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/screen.h"
@@ -171,14 +172,14 @@ void W8CampStatsPage::DrawCampStatsPage(void)
         constexpr int origin_x = 0;
         constexpr int origin_y = 0xa5;
         int index;
-        std::string text = g_localized_strings[0x937];
+        std::string text = Data().strings[0x937];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 10},
                  text);
         int row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
-            const std::string& label = g_localized_strings[g_attribute_label_ids[index]];
+            const std::string& label = Data().strings[g_attribute_label_ids[index]];
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                      {origin_x + 10 + ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1),
                       row_y - 0xa6 + origin_y},
@@ -193,16 +194,16 @@ void W8CampStatsPage::DrawCampStatsPage(void)
                 formatted);
             row_y += 0xe;
         }
-        text = g_localized_strings[0x938];
+        text = Data().strings[0x938];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 0x8d},
                  text);
         formatted = fmt::format(
             "{} {}",
-            g_localized_strings[g_character_skill_name_ids
-                                    [g_profession_bonus_skills[screen.reviewed->iProfession]]],
-            g_localized_strings[0x8c5]);
+            Data().strings[g_character_skill_name_ids
+                               [g_profession_bonus_skills[screen.reviewed->iProfession]]],
+            Data().strings[0x8c5]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, formatted);
         int trait_count = 0;
         char traits[0x20];
@@ -219,11 +220,11 @@ void W8CampStatsPage::DrawCampStatsPage(void)
         for (index = 0; index < 0x20; ++index) {
             if (traits[index] != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, trait_y},
-                         g_localized_strings[g_character_trait_name_ids[index]]);
+                         Data().strings[g_character_trait_name_ids[index]]);
                 trait_y += step + 0xc;
             }
         }
-        text = g_localized_strings[0x939];
+        text = Data().strings[0x939];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {origin_x + 0x13b + ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 10},
@@ -248,7 +249,7 @@ void W8CampStatsPage::DrawCampStatsPage(void)
 // FUNCTION: WIZ8 0x005c4d40
 unsigned int W8CampStatsPage::CountEquipItemBenefits(int slot)
 {
-    W8ItemDatabaseRecord* record = &g_item_records[screen.reviewed->EquippedItem[slot].iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[screen.reviewed->EquippedItem[slot].iItemNo];
     unsigned int count = record->attack_damage_bonus > 0;
     int index;
     for (index = 0; index < 0x10; ++index) {
@@ -292,7 +293,7 @@ unsigned int W8CampStatsPage::CountEquipItemBenefits(int slot)
 // FUNCTION: WIZ8 0x005c4e20
 unsigned int W8CampStatsPage::CountEquipItemPenalties(int slot)
 {
-    W8ItemDatabaseRecord* record = &g_item_records[screen.reviewed->EquippedItem[slot].iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[screen.reviewed->EquippedItem[slot].iItemNo];
     unsigned int count = record->attack_damage_bonus < 0;
     int index;
     if (record->attack_hit_bonus < 0) {
@@ -488,13 +489,13 @@ void W8CampStatsPage::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_ou
     if (entry->kind == W8_CAMP_EFFECT_CONDITION) {
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                 fmt::format("{} {}", g_localized_strings[0x8d1],
-                             g_localized_strings[g_condition_notices[entry->index].name]));
+                 fmt::format("{} {}", Data().strings[0x8d1],
+                             Data().strings[g_condition_notices[entry->index].name]));
         g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (entry->turns == W8_CONDITION_INDEFINITE) {
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                     {0x15e, (line + 1) * 0xe + 0xbf}, g_localized_strings[0x8d2]);
+                     {0x15e, (line + 1) * 0xe + 0xbf}, Data().strings[0x8d2]);
             next = line + 2;
         }
         line = next;
@@ -502,14 +503,14 @@ void W8CampStatsPage::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_ou
             if (screen.reviewed->hp_adjustment != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {0x15e, line * 0xe + 0xbf},
-                         fmt::format("{}: {:+d}", g_localized_strings[0x8da],
+                         fmt::format("{}: {:+d}", Data().strings[0x8da],
                                      screen.reviewed->hp_adjustment));
                 ++line;
             }
             if (screen.reviewed->fatigue_penalty != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {0x15e, line * 0xe + 0xbf},
-                         fmt::format("{}: {:+d}", g_localized_strings[0x8dc],
+                         fmt::format("{}: {:+d}", Data().strings[0x8dc],
                                      -static_cast<int>(screen.reviewed->fatigue_penalty)));
                 ++line;
             }
@@ -517,28 +518,27 @@ void W8CampStatsPage::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_ou
     } else if (entry->kind == W8_CAMP_EFFECT_ENCHANTMENT) {
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                 fmt::format("{} {} ({:d})", g_localized_strings[0x8d4],
-                             g_localized_strings[g_enchantment_notices[entry->index]],
+                 fmt::format("{} {} ({:d})", Data().strings[0x8d4],
+                             Data().strings[g_enchantment_notices[entry->index]],
                              entry->enchantment));
         g_wiz_text_font_secondary.resetPalette();
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {0x15e, (line + 1) * 0xe + 0xbf},
-                 fmt::format("{:d} {}", entry->turns, g_localized_strings[0x8d3]));
+                 fmt::format("{:d} {}", entry->turns, Data().strings[0x8d3]));
         *line_out = line + 3;
         return;
     } else if (entry->kind == W8_CAMP_EFFECT_EQUIPMENT) {
-        W8ItemDatabaseRecord* record =
-            &g_item_records[screen.reviewed->EquippedItem[entry->index].iItemNo];
+        const W8ItemDatabaseRecord* record =
+            &Data().items[screen.reviewed->EquippedItem[entry->index].iItemNo];
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
                  GetItemDisplayName(&screen.reviewed->EquippedItem[entry->index]));
         g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (record->attack_damage_bonus != 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                {0x15e, (line + 1) * 0xe + 0xbf},
-                fmt::format("{} {:+d}", g_localized_strings[0x8b1], record->attack_damage_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
+                     {0x15e, (line + 1) * 0xe + 0xbf},
+                     fmt::format("{} {:+d}", Data().strings[0x8b1], record->attack_damage_bonus));
             next = line + 2;
         }
         line = next;
@@ -546,109 +546,100 @@ void W8CampStatsPage::DrawCampEffectEntry(W8CampEffectEntry* entry, int* line_ou
         for (index = 0; index < 0x10; ++index) {
             if (record->missile_values[index] != 0) {
                 text = "";
-                text += g_localized_strings[g_attack_effect_name_ids[index]];
+                text += Data().strings[g_attack_effect_name_ids[index]];
                 text += " ";
                 value_text = fmt::format("{:d}%", record->missile_values[index]);
                 text += value_text;
                 if (index == 2) {
                     text += " (";
-                    text += g_localized_strings[0x8d5];
+                    text += Data().strings[0x8d5];
                     value_text = fmt::format(" {:d})", record->missile_magnitude);
                     text += value_text;
                 }
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {0x15e, line * 0xe + 0xbf},
-                         fmt::format("{}: {}", g_localized_strings[0x8d6], text));
+                         fmt::format("{}: {}", Data().strings[0x8d6], text));
                 ++line;
             }
         }
         if (record->attack_hit_bonus != 0) {
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                     fmt::format("{} {:+d}", g_localized_strings[0x8b7], record->attack_hit_bonus));
+                     fmt::format("{} {:+d}", Data().strings[0x8b7], record->attack_hit_bonus));
             ++line;
         }
         if (record->slays_kind != 0xff) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {}", g_localized_strings[0x8d8],
-                            g_localized_strings[g_special_category_name_ids[record->slays_kind]]));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {}", Data().strings[0x8d8],
+                                 Data().strings[g_special_category_name_ids[record->slays_kind]]));
             ++line;
         }
         if (record->health_regen_bonus > 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {:+d}", g_localized_strings[0x8d9], record->health_regen_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {:+d}", Data().strings[0x8d9], record->health_regen_bonus));
             ++line;
         }
         if (record->health_regen_bonus < 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {:+d}", g_localized_strings[0x8da], record->health_regen_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {:+d}", Data().strings[0x8da], record->health_regen_bonus));
             ++line;
         }
         if (record->stamina_regen_bonus > 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {:+d}", g_localized_strings[0x8db], record->stamina_regen_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {:+d}", Data().strings[0x8db], record->stamina_regen_bonus));
             ++line;
         }
         if (record->stamina_regen_bonus < 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {:+d}", g_localized_strings[0x8dc], record->stamina_regen_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {:+d}", Data().strings[0x8dc], record->stamina_regen_bonus));
             ++line;
         }
         if (record->spell_regen_bonus > 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {:+d}", g_localized_strings[0x8dd], record->spell_regen_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {:+d}", Data().strings[0x8dd], record->spell_regen_bonus));
             ++line;
         }
         if (record->spell_regen_bonus < 0) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{}: {:+d}", g_localized_strings[0x8de], record->spell_regen_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{}: {:+d}", Data().strings[0x8de], record->spell_regen_bonus));
             ++line;
         }
         if (record->armor_class_bonus != 0 &&
             (record->armor_class_bonus < 0 ||
              (entry->index != 0 && entry->index != 4 && entry->index != 5 && entry->index != 10 &&
               entry->index != 0xb && record->equip_class != W8_ITEM_EQUIP_CLASS_SHIELD))) {
-            DrawText(
-                GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{} {:+d}", g_localized_strings[0x8df], record->armor_class_bonus));
+            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
+                     fmt::format("{} {:+d}", Data().strings[0x8df], record->armor_class_bonus));
             ++line;
         }
         if (record->modifier_0b3_index != -1) {
             DrawText(
                 GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format("{} {:+d}",
-                            g_localized_strings
-                                [g_character_description_first_ids[record->modifier_0b3_index]],
-                            record->modifier_0b3_value));
+                fmt::format(
+                    "{} {:+d}",
+                    Data().strings[g_character_description_first_ids[record->modifier_0b3_index]],
+                    record->modifier_0b3_value));
             ++line;
         }
         if (record->modifier_0b1_index != -1) {
             DrawText(
                 GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                fmt::format(
-                    "{} {:+d}",
-                    g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
-                    record->modifier_0b1_value));
+                fmt::format("{} {:+d}",
+                            Data().strings[g_character_skill_name_ids[record->modifier_0b1_index]],
+                            record->modifier_0b1_value));
             ++line;
         }
         for (index = 0; index < 6; ++index) {
             if (record->resistance_bonus[index] != 0) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {0x15e, line * 0xe + 0xbf},
-                         fmt::format("{} {} {:+d}%", g_localized_strings[g_attr_table1[6 + index]],
-                                     g_localized_strings[0x8e0], record->resistance_bonus[index]));
+                         fmt::format("{} {} {:+d}%", Data().strings[g_attr_table1[6 + index]],
+                                     Data().strings[0x8e0], record->resistance_bonus[index]));
                 ++line;
             }
         }
         if (record->binds_on_equip != 0 && screen.reviewed->EquippedItem[entry->index].bound != 0) {
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
-                     g_localized_strings[0x8e1]);
+                     Data().strings[0x8e1]);
             *line_out = line + 2;
             return;
         }
@@ -682,7 +673,7 @@ void W8CampSkillsPage::CreateCampSkillRegions(void)
                 return HandleCampSkillList(event, category);
             });
         target.setTooltip(
-            [this] { return skill_hover_row < 0 ? std::string{} : g_localized_strings[0x958]; });
+            [this] { return skill_hover_row < 0 ? std::string{} : Data().strings[0x958]; });
     }
 }
 
@@ -815,10 +806,10 @@ void W8CampSkillsPage::DrawCampSkillsPage(void)
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
                 short width = g_wiz_text_font_secondary.textWidth(
-                    g_localized_strings[g_character_skill_name_ids[skill]]);
+                    Data().strings[g_character_skill_name_ids[skill]]);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {(0x6b - width) / 2 + 2 + left, top + 1},
-                         g_localized_strings[g_character_skill_name_ids[skill]]);
+                         Data().strings[g_character_skill_name_ids[skill]]);
                 palette = g_wiz_text_font_secondary.glyphs->colors;
                 if (value->improved) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
@@ -1084,42 +1075,35 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = W8CharacterPage::bounds.x + 100;
         bounds.top = W8CharacterPage::bounds.y + 0x19;
         bounds.bottom = W8CharacterPage::bounds.y + 0x31;
-        text.RenderString(&bounds, g_localized_strings[0xee], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xee], g_wiz_text_font_secondary, true, target);
 
         bounds.top = W8CharacterPage::bounds.y + 0x67;
         bounds.bottom = W8CharacterPage::bounds.y + 0x7f;
-        text.RenderString(&bounds, g_localized_strings[0xf0], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xf0], g_wiz_text_font_secondary, true, target);
 
         bounds.left = W8CharacterPage::bounds.x + 0x160;
         bounds.right = W8CharacterPage::bounds.x + 0x198;
-        text.RenderString(&bounds, g_localized_strings[0xf1], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xf1], g_wiz_text_font_secondary, true, target);
 
         bounds.top = W8CharacterPage::bounds.y + 0x19;
         bounds.bottom = W8CharacterPage::bounds.y + 0x31;
-        text.RenderString(&bounds, g_localized_strings[0xef], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xef], g_wiz_text_font_secondary, true, target);
 
         bounds.left = W8CharacterPage::bounds.x + 0x24;
         bounds.right = W8CharacterPage::bounds.x + 0x92;
         bounds.top = W8CharacterPage::bounds.y + 0xaa;
         bounds.bottom = W8CharacterPage::bounds.y + 0xbc;
-        text.RenderString(&bounds, g_localized_strings[0x84], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0x84], g_wiz_text_font_secondary, true, target);
 
         bounds.top = W8CharacterPage::bounds.y + 0xc6;
         bounds.bottom = W8CharacterPage::bounds.y + 0xd8;
-        text.RenderString(&bounds, g_localized_strings[0x85], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0x85], g_wiz_text_font_secondary, true, target);
 
         bounds.left = W8CharacterPage::bounds.x + 0x18;
         bounds.top = W8CharacterPage::bounds.y + 0xee;
         bounds.right = W8CharacterPage::bounds.x + 0x1a8;
         bounds.bottom = W8CharacterPage::bounds.y + 0xfa;
-        text.RenderString(&bounds, g_localized_strings[0x86], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0x86], g_wiz_text_font_secondary, true, target);
 
         int index = 0;
         for (const unsigned short* message_id = g_personality_message_ids;
@@ -1131,8 +1115,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
-            text.RenderString(g_localized_strings[*message_id], g_wiz_text_font_secondary, true,
-                              target);
+            text.RenderString(Data().strings[*message_id], g_wiz_text_font_secondary, true, target);
         }
 
         bounds.top = W8CharacterPage::bounds.y + 0x13f;
@@ -1140,13 +1123,11 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.left = W8CharacterPage::bounds.x + 0x29;
         bounds.right = W8CharacterPage::bounds.x + 0x69;
         text.SetLayoutMode(g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop);
-        text.RenderString(&bounds, g_localized_strings[0x8d], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0x8d], g_wiz_text_font_secondary, true, target);
 
         bounds.top = W8CharacterPage::bounds.y + 0x15c;
         bounds.bottom = W8CharacterPage::bounds.y + 0x16a;
-        text.RenderString(&bounds, g_localized_strings[0x8e], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0x8e], g_wiz_text_font_secondary, true, target);
 
         m_portrait_dirty = true;
         m_description_dirty = true;
@@ -1179,8 +1160,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_prepared) {
         W8TextBuffer text;
         W8ControlsRect bounds = {9, 0xec, 0xbd, 0x184};
-        text.RenderString(&bounds, g_localized_strings[0xe9], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xe9], g_wiz_text_font_secondary, true, target);
         m_prepared = false;
     }
 }
@@ -1336,17 +1316,14 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (m_prepared) {
         W8TextBuffer text;
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
-        text.RenderString(&bounds, g_localized_strings[0xe8], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xe8], g_wiz_text_font_secondary, true, target);
         bounds.top = 0x162;
         bounds.right = 0x8f;
         bounds.bottom = 0x179;
-        text.RenderString(&bounds, g_localized_strings[0xe3], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xe3], g_wiz_text_font_secondary, true, target);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
-        text.RenderString(&bounds, g_localized_strings[0xe4], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xe4], g_wiz_text_font_secondary, true, target);
         bounds.left = 0x8f;
         bounds.top = 0x162;
         bounds.right = 0xbf;
@@ -1397,7 +1374,7 @@ void W8CharacterSkillsPage::UpdateEntries()
             W8CharacterPageEntry* entry = m_entries[entry_index].get();
             ++category_count[category_index];
             if (category == W8_SKILL_CATEGORY_EXPERT) m_show_fifth_category = true;
-            entry->SetContent(skill, g_localized_strings[g_character_skill_name_ids[skill]],
+            entry->SetContent(skill, Data().strings[g_character_skill_name_ids[skill]],
                               &value->points, &m_creation_state->skill_points_spent[skill],
                               &m_creation_state->skill_limits[skill], 0x101);
             entry->SetLabelFontState(

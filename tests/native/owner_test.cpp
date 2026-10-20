@@ -32,6 +32,7 @@
 #include "layouts/npc_dialogue.h"
 #include "local_code/RangeControl.h"
 #include "local_screens/RCSStatsPage.h"
+#include "mutable_game_data.h"
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
 #include "scoped_records.h"
@@ -47,6 +48,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -60,11 +62,9 @@
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
@@ -1523,15 +1523,15 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     UiStateSnapshot saved_state;
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
-        std::vector<std::string> localized_strings = std::move(g_localized_strings);
+        std::vector<std::string> localized_strings = std::move(MutableData().strings);
         ~TooltipStateSnapshot()
         {
             g_settings.tooltips_enabled = tooltips_enabled;
-            g_localized_strings = std::move(localized_strings);
+            MutableData().strings = std::move(localized_strings);
         }
     } tooltip_state;
     g_settings.tooltips_enabled = true;
-    g_localized_strings.emplace_back("Button tooltip");
+    MutableData().strings.emplace_back("Button tooltip");
     UiLayer layer;
     Font font{};
 
@@ -1801,11 +1801,11 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         button_image_fixture(assets / "data" / "dialogs", image, 16);
     }
     {
-        const ScopedRecords items(g_item_records, 3);
+        const ScopedRecords items(MutableData().items, 3);
         W8WorldItem group{};
         std::vector<W8WorldItem*> addresses;
         for (int index = 0; index < 3; ++index) {
-            g_item_records[index].equip_class = static_cast<W8ItemEquipClass>(index);
+            MutableData().items[index].equip_class = static_cast<W8ItemEquipClass>(index);
             auto item = std::make_unique<W8WorldItem>();
             item->item.iItemNo = index;
             item->item.identified = true;
@@ -2083,8 +2083,8 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "data/items/icon.sti", 1);
-    const ScopedRecords items(g_item_records, 1005);
-    auto& records = g_item_records;
+    const ScopedRecords items(MutableData().items, 1005);
+    auto& records = MutableData().items;
     for (auto& record : records) record.video_object_name = "icon.sti";
     struct Restore {
         w8_native::Roots roots;

@@ -15,6 +15,7 @@
 #include "local_code/TextBuffer.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -24,15 +25,14 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
@@ -143,7 +143,7 @@ static void CreateUseItemSelectControls(void)
         make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelection);
     use_item->caption.SetLayoutBounds(0x1b, 0x16a, 0xa0, 0x179);
     use_item->caption.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    use_item->caption.SetText(g_localized_strings[0x77a], g_wiz_text_font_secondary);
+    use_item->caption.SetText(Data().strings[0x77a], g_wiz_text_font_secondary);
     use_item->quantity.SetLayoutBounds(0x1e1, 0x16b, 0x20d, 0x19f);
     use_item->quantity.SetLayoutMode(g_W8TextBufferAlignBottom | g_W8TextBufferAlignRight);
     auto& item =
@@ -157,7 +157,7 @@ static void CreateUseItemSelectControls(void)
                 AfterUiDispatch(UseItemSelectAssayButton);
             return UiResult::Handled;
         });
-    item.setTooltip([] { return g_localized_strings[98]; });
+    item.setTooltip([] { return Data().strings[98]; });
 }
 
 unsigned char OpenUseItemSelectView(int slot)
@@ -405,14 +405,14 @@ static void ShowUseItemList(W8ItemInstance* select)
         if (item == select) use_item->selected_line = static_cast<int>(index);
         if (!usable) {
             const bool silenced =
-                g_item_records[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
+                Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
                 CurrentGame().party.characters[use_item->owner].uiCondition[W8_CONDITION_SILENCED];
             ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(item, true), 2);
             continue;
         }
         int count = 0;
         bool charged = false;
-        switch (g_item_records[item->iItemNo].quantity_kind) {
+        switch (Data().items[item->iItemNo].quantity_kind) {
         case W8_ITEM_QUANTITY_STACK:
             count = item->stack_count;
             break;
@@ -586,7 +586,7 @@ void SelectUseItemLine(int iTextLine)
     ClearHoveredTextLine(2);
     RedrawTextBox();
     target_type = GetSpellTargetType(GetItemSpell(item),
-                                     ItemClassNormalizesTarget(&g_item_records[item->iItemNo]));
+                                     ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
     ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, g_level_block == nullptr));
 }
 
@@ -602,7 +602,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
 
     use_item->item_image = ItemSprites(item->iItemNo);
     count = 0;
-    switch (g_item_records[item->iItemNo].quantity_kind) {
+    switch (Data().items[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_NONE:
         break;
     case W8_ITEM_QUANTITY_STACK:

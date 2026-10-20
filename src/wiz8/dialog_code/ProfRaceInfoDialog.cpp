@@ -20,10 +20,9 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/assertion.h"
@@ -98,13 +97,13 @@ void W8ProfRaceInfoDialogBase::Draw(SDL_Surface& target)
     W8DialogBase::Draw(target);
     m_uiArtwork.draw(target, m_uiSummaryImage, m_x + 0xd, m_y + 0xd);
     DrawTextLine(target, g_W8TextBufferAlignLeft, 0x25, 0xb, 0x147, 0x18,
-                 g_localized_strings[m_uiNameId], g_options_detail_font);
+                 Data().strings[m_uiNameId], g_options_detail_font);
     DrawTextLine(target, g_W8TextBufferAlignCenter, 0xd, 0x29, 0x8e, 0xc,
-                 g_localized_strings[m_uiHeadingId], g_wiz_text_font_secondary);
+                 Data().strings[m_uiHeadingId], g_wiz_text_font_secondary);
     int top = 0x37;
     for (int attribute = 0; attribute < ATTR_COUNT; ++attribute) {
         DrawTextLine(target, g_W8TextBufferAlignLeft, 0x10, top, 0x74, 0xc,
-                     g_localized_strings[g_character_description_first_ids[attribute]],
+                     Data().strings[g_character_description_first_ids[attribute]],
                      g_wiz_text_font_secondary);
         std::string minimum;
         if (m_minimums[attribute] == -1) {
@@ -170,62 +169,60 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
 bool W8ProfessionInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
-    m_text_area.AddEntry(g_localized_strings[0x153], g_localized_strings[m_uiDetailId], 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x153], Data().strings[m_uiDetailId], 10, 0xf, 0);
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x14d], "", 10, 0xf, 0);
     unsigned int index;
     for (index = 0; index < 3; ++index) {
         W8Trait ability = g_profession_abilities[m_uiIndex].ability_ids[index];
         if (ability == W8_TRAIT_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf,
-                             0);
+        m_text_area.AddEntry({}, Data().strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
     }
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14e], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x14e], "", 10, 0xf, 0);
     m_text_area.AddEntry(
-        {}, g_localized_strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]],
-        10, 0xf, 0);
+        {}, Data().strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]], 10,
+        0xf, 0);
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14f], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x14f], "", 10, 0xf, 0);
     for (index = 0; index < 4; ++index) {
         W8Skill skill = g_profession_skills[m_uiIndex][index];
         if (skill == W8_SKILL_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_skill_name_ids[skill]], 10, 0xf,
-                             0);
+        m_text_area.AddEntry({}, Data().strings[g_character_skill_name_ids[skill]], 10, 0xf, 0);
     }
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x150], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x150], "", 10, 0xf, 0);
     for (index = 0; index < 6; ++index) {
         int item = g_starting_equipment[m_uiIndex][index];
         if (item != -1) {
-            m_text_area.AddEntry({}, g_item_records[item].display_name, 10, 0xf, 0);
+            m_text_area.AddEntry({}, Data().items[item].display_name, 10, 0xf, 0);
         }
     }
     std::string first;
     std::string second;
     switch (m_uiIndex) {
     case 10:
-        second = g_item_records[82].display_name;
-        first = g_item_records[22].display_name;
+        second = Data().items[82].display_name;
+        first = Data().items[22].display_name;
         break;
     case 0:
-        second = g_item_records[7].display_name;
-        first = g_item_records[18].display_name;
+        second = Data().items[7].display_name;
+        first = Data().items[18].display_name;
         break;
     case 8:
-        m_text_area.AddEntry({}, g_item_records[599].display_name, 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().items[599].display_name, 10, 0xf, 0);
         return true;
     case 9:
-        m_text_area.AddEntry({}, g_item_records[324].display_name, 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().items[324].display_name, 10, 0xf, 0);
         return true;
     default:
         return true;
     }
-    m_text_area.AddEntry({}, fmt::sprintf(g_localized_strings[0x151], first, second), 10, 0xf, 0);
+    m_text_area.AddEntry({}, fmt::sprintf(Data().strings[0x151], first, second), 10, 0xf, 0);
     return true;
 }
 
@@ -256,19 +253,18 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
 bool W8RaceInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
-    m_text_area.AddEntry(g_localized_strings[0x153], g_localized_strings[m_uiDetailId], 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x153], Data().strings[m_uiDetailId], 10, 0xf, 0);
     m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(g_localized_strings[0x14d], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x14d], "", 10, 0xf, 0);
     bool listed = false;
     for (auto ability : g_race_abilities[m_uiIndex].ability_ids) {
         if (ability == W8_TRAIT_NONE) {
             if (!listed) {
-                m_text_area.AddEntry({}, g_localized_strings[0x154], 10, 0xf, 0);
+                m_text_area.AddEntry({}, Data().strings[0x154], 10, 0xf, 0);
             }
             return true;
         }
-        m_text_area.AddEntry({}, g_localized_strings[g_character_trait_name_ids[ability]], 10, 0xf,
-                             0);
+        m_text_area.AddEntry({}, Data().strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
         listed = true;
     }
     return true;

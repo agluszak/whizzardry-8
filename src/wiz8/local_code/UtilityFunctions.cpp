@@ -17,7 +17,6 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
@@ -370,9 +369,4 @@ int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
     Fail("FALSE",
          fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
     return 0;
-}
-
-void FreeStringTable(void)
-{
-    ReleaseLocalizedStrings();
 }

@@ -33,11 +33,10 @@
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/platform/input.h"
@@ -445,8 +444,8 @@ void W8SplitAmountDialog::CreateTextBuffers()
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
         m_text_buffers[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_split_amount_string_ids[index]],
-            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
+            &bounds, Data().strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
     }
 }
 
@@ -1016,7 +1015,7 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
             DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      name);
         }
-        unsigned short weight = g_item_records[item->iItemNo].weight;
+        unsigned short weight = Data().items[item->iItemNo].weight;
         DrawText(target, g_wiz_text_font,
                  {button->Bounds().x + 0x3c, button->Bounds().y + g_wiz_text_font.height() + 6},
                  fmt::format("{:4.1f} lbs", weight * 0.1f));

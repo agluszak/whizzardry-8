@@ -16,13 +16,13 @@
 #include "dialog_code/DialogTextArea.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/TextBuffer.h"
-#include "retail_item_payloads.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/character_stats.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/item_payloads.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -33,22 +33,21 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/item_rules.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/string_database.h"
 #include "wiz8/ui_input.h"
 
@@ -138,7 +137,7 @@ static int AppendAssayRequirements(const W8ItemRequirement* requirement, int cou
                 AppendAssayEntryText(g_comma_space);
             }
             std::string text =
-                g_localized_strings[g_character_description_first_ids[static_cast<signed char>(
+                Data().strings[g_character_description_first_ids[static_cast<signed char>(
                     requirement->stat_id)]];
             AppendAssayEntryText(text);
             text = fmt::format(" {:d}", requirement->minimum);
@@ -168,22 +167,23 @@ void W8AssayDialog::PopulateText()
     bounds.bottom = m_y + g_assay_text_area_offsets.bottom;
     m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(1);
-    record = &g_item_records[m_item.iItemNo];
+    record = &Data().items[m_item.iItemNo];
     if (m_item.identified && record->damage_dice.count + record->damage_dice.base > 0) {
-        if (!ItemHasSingledOutGenericName(m_item.iItemNo) || record->damage_dice.base == 0) {
+        if (!ItemHasSingledOutGenericName(Data(), m_item.iItemNo) ||
+            record->damage_dice.base == 0) {
             text = fmt::format("{:d} - {:d}", record->damage_dice.Minimum(),
                                record->damage_dice.Maximum());
         } else {
             text = fmt::format("{:+d}%", record->damage_dice.base * 10);
         }
-        m_text_area.AddEntry(g_localized_strings[0x8e8], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8e8], text, 10, 0xf, 0);
     }
     if (record->attack_hit_bonus != 0 && m_item.identified) {
-        m_text_area.AddEntry(g_localized_strings[0x8b7],
-                             fmt::format("{:+d}", record->attack_hit_bonus), 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8b7], fmt::format("{:+d}", record->attack_hit_bonus),
+                             10, 0xf, 0);
     }
     if (record->attack_damage_bonus != 0 && m_item.identified) {
-        m_text_area.AddEntry(g_localized_strings[0x8b1],
+        m_text_area.AddEntry(Data().strings[0x8b1],
                              fmt::format("{:+d}", record->attack_damage_bonus), 10, 0xf, 0);
     }
     slot_mask = GetItemEquipSlotMask(m_item.iItemNo, true, true, true, true);
@@ -195,31 +195,31 @@ void W8AssayDialog::PopulateText()
             } else {
                 AppendAssayEntryText(g_comma_space);
             }
-            text = g_localized_strings[g_equip_slot_label_ids[bit]];
+            text = Data().strings[g_equip_slot_label_ids[bit]];
             AppendAssayEntryText(text);
             ++count;
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x8e5], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8e5], g_assay_entry_text, 10, 0xf, 0);
     }
     if (GetItemDefaultEquipSlot(m_item.iItemNo) != -1 &&
-        g_item_records[m_item.iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        Data().items[m_item.iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         unsigned int palette;
         if (!m_item.bound) {
-            text = g_localized_strings[0x8fc];
+            text = Data().strings[0x8fc];
             palette = 0xf;
         } else if (record->binds_on_equip == 0) {
-            text = g_localized_strings[0x8fb];
+            text = Data().strings[0x8fb];
             palette = 0xf;
         } else if (!m_item.bind_announced) {
-            text = g_localized_strings[0x8fa];
+            text = Data().strings[0x8fa];
             palette = 0;
         } else {
-            text = g_localized_strings[0x8f9];
+            text = Data().strings[0x8f9];
             palette = 0xf;
         }
-        m_text_area.AddEntry(g_localized_strings[0x8fd], text, 10, palette, 0);
+        m_text_area.AddEntry(Data().strings[0x8fd], text, 10, palette, 0);
     }
     count = 0;
     for (bit = 0; bit < 8; ++bit) {
@@ -230,13 +230,13 @@ void W8AssayDialog::PopulateText()
             } else {
                 AppendAssayEntryText(g_comma_space);
             }
-            text = g_localized_strings[g_item_flag_name_ids[bit]];
+            text = Data().strings[g_item_flag_name_ids[bit]];
             AppendAssayEntryText(text);
             ++count;
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x913], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x913], g_assay_entry_text, 10, 0xf, 0);
     }
     if (m_item.identified) {
         count = 0;
@@ -247,7 +247,7 @@ void W8AssayDialog::PopulateText()
                 } else {
                     AppendAssayEntryText(g_comma_space);
                 }
-                text = g_localized_strings[g_attack_effect_name_ids[index]];
+                text = Data().strings[g_attack_effect_name_ids[index]];
                 AppendAssayEntryText(text);
                 AppendAssayEntryText(" ");
                 text = fmt::format("{:d}%", record->missile_values[index]);
@@ -255,7 +255,7 @@ void W8AssayDialog::PopulateText()
                 ++count;
                 if (index == 2) {
                     AppendAssayEntryText(" (");
-                    text = g_localized_strings[0x8d5];
+                    text = Data().strings[0x8d5];
                     AppendAssayEntryText(text);
                     text = fmt::format(" {:d})", record->missile_magnitude);
                     AppendAssayEntryText(text);
@@ -263,31 +263,30 @@ void W8AssayDialog::PopulateText()
             }
         }
         if (count != 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
         }
         if (record->slays_kind != 0xff) {
-            m_text_area.AddEntry(
-                g_localized_strings[0x8d8],
-                g_localized_strings[g_special_category_name_ids[record->slays_kind]], 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8d8],
+                                 Data().strings[g_special_category_name_ids[record->slays_kind]],
+                                 10, 0xf, 0);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 && m_item_worn) {
             m_text_area.AddEntry(
-                g_localized_strings[0x8df],
+                Data().strings[0x8df],
                 fmt::format("{:+d}, {:+d} {}", record->armor_class_bonus,
                             m_character->armor_class_components[W8_AC_COMPONENT_SHIELD] -
                                 record->armor_class_bonus,
-                            g_localized_strings[0x428]),
+                            Data().strings[0x428]),
                 10, 0xf, 0);
         } else if (record->armor_class_bonus != 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8df],
+            m_text_area.AddEntry(Data().strings[0x8df],
                                  fmt::format("{:+d}", record->armor_class_bonus), 10, 0xf, 0);
         }
     }
     if (record->property != 0) {
         m_text_area.AddEntry(
-            g_localized_strings[0x8e9],
-            g_localized_strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST +
-                                                    record->property]],
+            Data().strings[0x8e9],
+            Data().strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
             10, 0xf, 0);
     }
     switch (record->equip_class) {
@@ -297,9 +296,9 @@ void W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
     case W8_ITEM_EQUIP_CLASS_BOMB:
     case W8_ITEM_EQUIP_CLASS_POWDER:
-        m_text_area.AddEntry(g_localized_strings[0x8e7],
-                             g_localized_strings[g_spell_range_name_ids[record->range_category]],
-                             10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8e7],
+                             Data().strings[g_spell_range_name_ids[record->range_category]], 10,
+                             0xf, 0);
         break;
     default:
         break;
@@ -307,19 +306,19 @@ void W8AssayDialog::PopulateText()
     W8Skill presentation_skill = GetItemSpellPresentation(record);
     if (presentation_skill == W8_SKILL_NONE) {
         if (record->weapon_skill != W8_SKILL_NONE) {
-            m_text_area.AddEntry(
-                g_localized_strings[0x8c8],
-                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]], 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c8],
+                                 Data().strings[g_character_skill_name_ids[record->weapon_skill]],
+                                 10, 0xf, 0);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
-            text = g_localized_strings[g_character_skill_name_ids[presentation_skill]];
+            text = Data().strings[g_character_skill_name_ids[presentation_skill]];
         } else {
-            text = fmt::format(
-                "{}, {}", g_localized_strings[g_character_skill_name_ids[presentation_skill]],
-                g_localized_strings[g_character_skill_name_ids[record->weapon_skill]]);
+            text = fmt::format("{}, {}",
+                               Data().strings[g_character_skill_name_ids[presentation_skill]],
+                               Data().strings[g_character_skill_name_ids[record->weapon_skill]]);
         }
-        m_text_area.AddEntry(g_localized_strings[0x8c8], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8c8], text, 10, 0xf, 0);
     }
     count = 0;
     for (bit = 0; bit < 9; ++bit) {
@@ -329,95 +328,91 @@ void W8AssayDialog::PopulateText()
             } else {
                 AppendAssayEntryText(g_comma_space);
             }
-            text = g_localized_strings[g_attack_flag_name_ids[bit][0]];
+            text = Data().strings[g_attack_flag_name_ids[bit][0]];
             AppendAssayEntryText(text);
             ++count;
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x8d7], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8d7], g_assay_entry_text, 10, 0xf, 0);
     }
     if ((m_item.identified || m_item.spell_hint) && record->spell_id != W8_SPELL_NONE) {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT ||
             record->equip_class == W8_ITEM_EQUIP_CLASS_GADGET ||
             record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
-            text = g_spell_records[record->spell_id].display_name;
+            text = Data().spells[record->spell_id].display_name;
         } else {
-            text = fmt::format("{} (Pwr {:d})", g_spell_records[record->spell_id].display_name,
+            text = fmt::format("{} (Pwr {:d})", Data().spells[record->spell_id].display_name,
                                record->spell_power);
         }
-        m_text_area.AddEntry(g_localized_strings[0x8ea], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8ea], text, 10, 0xf, 0);
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
-            m_text_area.AddEntry(g_localized_strings[0x8eb],
-                                 fmt::format("{:d}", g_spell_records[record->spell_id].spell_level),
+            m_text_area.AddEntry(Data().strings[0x8eb],
+                                 fmt::format("{:d}", Data().spells[record->spell_id].spell_level),
                                  10, 0xf, 0);
         }
     }
     if (m_item.identified) {
         if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES) {
-            m_text_area.AddEntry(
-                g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
-                fmt::format("{:d}", m_item.uses_or_charges), 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[g_quantity_kind_name_ids[record->quantity_kind]],
+                                 fmt::format("{:d}", m_item.uses_or_charges), 10, 0xf, 0);
         }
         if (record->quantity_kind == W8_ITEM_QUANTITY_USES ||
             record->quantity_kind == W8_ITEM_QUANTITY_SHOTS) {
-            m_text_area.AddEntry(
-                g_localized_strings[g_quantity_kind_name_ids[record->quantity_kind]],
-                fmt::format("{:d}/{:d}", m_item.uses_or_charges,
-                            record->initial_quantity.Maximum()),
-                10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[g_quantity_kind_name_ids[record->quantity_kind]],
+                                 fmt::format("{:d}/{:d}", m_item.uses_or_charges,
+                                             record->initial_quantity.Maximum()),
+                                 10, 0xf, 0);
         }
         if (record->health_regen_bonus > 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8d9],
+            m_text_area.AddEntry(Data().strings[0x8d9],
                                  fmt::format("{:+d}", record->health_regen_bonus), 10, 0xf, 0);
         }
         if (record->health_regen_bonus < 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8da],
+            m_text_area.AddEntry(Data().strings[0x8da],
                                  fmt::format("{:d}", record->health_regen_bonus), 10, 0xf, 0);
         }
         if (record->stamina_regen_bonus > 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8db],
+            m_text_area.AddEntry(Data().strings[0x8db],
                                  fmt::format("{:+d}", record->stamina_regen_bonus), 10, 0xf, 0);
         }
         if (record->stamina_regen_bonus < 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8dc],
+            m_text_area.AddEntry(Data().strings[0x8dc],
                                  fmt::format("{:d}", record->stamina_regen_bonus), 10, 0xf, 0);
         }
         if (record->spell_regen_bonus > 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8dd],
+            m_text_area.AddEntry(Data().strings[0x8dd],
                                  fmt::format("{:+d}", record->spell_regen_bonus), 10, 0xf, 0);
         }
         if (record->spell_regen_bonus < 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8de],
+            m_text_area.AddEntry(Data().strings[0x8de],
                                  fmt::format("{:d}", record->spell_regen_bonus), 10, 0xf, 0);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value > 0) {
             modifier_text = fmt::format(
                 "{} {:+d}",
-                g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
+                Data().strings[g_character_description_first_ids[record->modifier_0b3_index]],
                 record->modifier_0b3_value);
-            m_text_area.AddEntry(g_localized_strings[0x8c3], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c3], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value < 0) {
             modifier_text = fmt::format(
                 "{} {:d}",
-                g_localized_strings[g_character_description_first_ids[record->modifier_0b3_index]],
+                Data().strings[g_character_description_first_ids[record->modifier_0b3_index]],
                 record->modifier_0b3_value);
-            m_text_area.AddEntry(g_localized_strings[0x8c4], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c4], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value > 0) {
             modifier_text = fmt::format(
-                "{} {:+d}",
-                g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
+                "{} {:+d}", Data().strings[g_character_skill_name_ids[record->modifier_0b1_index]],
                 record->modifier_0b1_value);
-            m_text_area.AddEntry(g_localized_strings[0x8c5], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c5], modifier_text, 10, 0xf, 0);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value < 0) {
             modifier_text = fmt::format(
-                "{} {:d}",
-                g_localized_strings[g_character_skill_name_ids[record->modifier_0b1_index]],
+                "{} {:d}", Data().strings[g_character_skill_name_ids[record->modifier_0b1_index]],
                 record->modifier_0b1_value);
-            m_text_area.AddEntry(g_localized_strings[0x8c6], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c6], modifier_text, 10, 0xf, 0);
         }
         count = 0;
         for (index = 0; index < 6; ++index) {
@@ -430,24 +425,24 @@ void W8AssayDialog::PopulateText()
                 text = fmt::format("{:d}%", record->resistance_bonus[index]);
                 AppendAssayEntryText(text);
                 AppendAssayEntryText(" vs. ");
-                text = g_localized_strings[g_realm_message_offsets[index]];
+                text = Data().strings[g_realm_message_offsets[index]];
                 AppendAssayEntryText(text);
                 ++count;
             }
         }
         if (count != 0) {
-            m_text_area.AddEntry(g_localized_strings[0x8cb], g_assay_entry_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8cb], g_assay_entry_text, 10, 0xf, 0);
         }
     }
     if (record->gender_mask != 3) {
         if (record->gender_mask == 0) {
-            text = g_localized_strings[0x912];
+            text = Data().strings[0x912];
         } else if (record->gender_mask != 1) {
-            text = g_localized_strings[0x911];
+            text = Data().strings[0x911];
         } else {
-            text = g_localized_strings[0x910];
+            text = Data().strings[0x910];
         }
-        m_text_area.AddEntry(g_localized_strings[0x8f3], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8f3], text, 10, 0xf, 0);
     }
     count = 0;
     g_assay_entry_text = "";
@@ -462,34 +457,34 @@ void W8AssayDialog::PopulateText()
             AppendAssayEntryText(g_comma_space);
         }
         if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6) {
-            text = g_localized_strings[0x8fe];
+            text = Data().strings[0x8fe];
         } else {
-            text = g_localized_strings[0x8ff];
+            text = Data().strings[0x8ff];
         }
         AppendAssayEntryText(text);
         text = fmt::format(" {:d}", GetMinimumCasterLevelForSpell(record->spell_id));
         AppendAssayEntryText(text);
     }
     if (count != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x8f4], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8f4], g_assay_entry_text, 10, 0xf, 0);
     }
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK &&
         (m_item.identified || m_item.spell_hint) && m_character != 0) {
         if (m_character->spell_learned[record->spell_id] == 1) {
-            m_text_area.AddEntry({}, g_localized_strings[0x8ed], 10, 1, 0);
+            m_text_area.AddEntry({}, Data().strings[0x8ed], 10, 1, 0);
         } else if (!CanCharacterLearnSpell(m_character, record->spell_id) &&
                    CanCastFromItem(m_character, &m_item)) {
-            m_text_area.AddEntry({}, g_localized_strings[0x8ec], 10, 0, 0);
+            m_text_area.AddEntry({}, Data().strings[0x8ec], 10, 0, 0);
         }
     }
     if (record->maximum_quantity != 0) {
-        m_text_area.AddEntry(g_localized_strings[0x8f8],
-                             fmt::format("{:d}", record->maximum_quantity), 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8f8], fmt::format("{:d}", record->maximum_quantity),
+                             10, 0xf, 0);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
     description = GetStringFromStringDatabase(path, m_item.iItemNo, 0, 0);
     if (description.size() != 0 && m_item.identified) {
-        m_text_area.AddEntry(g_localized_strings[0x90f], description, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x90f], description, 10, 0xf, 0);
     }
     m_text_area.m_dirty = true;
 }
@@ -727,21 +722,21 @@ void W8AssayDialog::CreateTextBuffers()
         bounds.right = m_x + g_assay_text_buffer_offsets[index].right;
         bounds.bottom = m_y + g_assay_text_buffer_offsets[index].bottom;
         m_text_buffers[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_assay_text_buffer_string_ids[index]],
+            &bounds, Data().strings[g_assay_text_buffer_string_ids[index]],
             g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
 
     m_text_buffers[0]->SetText(FormatItemDisplayName(&m_item, false), g_wiz_text_font_secondary);
     equip_class = GetItemEquipClass(&m_item);
-    m_text_buffers[2]->SetText(g_localized_strings[g_equip_class_name_ids[equip_class]],
+    m_text_buffers[2]->SetText(Data().strings[g_equip_class_name_ids[equip_class]],
                                g_wiz_text_font_secondary);
     item = &m_item;
-    if (g_item_records[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
+    if (Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         item->stack_count > 1) {
         unsigned int unit_weight = GetItemUnitWeight(item);
-        text =
-            fmt::format("{:.1f} ({:.1f} {})", GetItemStackWeight(&m_item) * kItemWeightDisplayScale,
-                        unit_weight * kItemWeightDisplayScale, g_localized_strings[0x117]);
+        text = fmt::format("{:.1f} ({:.1f} {})",
+                           GetItemStackWeight(Data(), &m_item) * kItemWeightDisplayScale,
+                           unit_weight * kItemWeightDisplayScale, Data().strings[0x117]);
     } else {
         text = fmt::format("{:.1f}", GetItemUnitWeight(item) * kItemWeightDisplayScale);
     }
@@ -752,7 +747,7 @@ void W8AssayDialog::SetProfessionIconsVisible(bool show)
 {
     unsigned int profession;
     int button_index;
-    const W8ItemDatabaseRecord* record = &g_item_records[m_item.iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[m_item.iItemNo];
 
     for (profession = 0; profession < 15; ++profession) {
         switch (profession) {
@@ -818,7 +813,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
     unsigned int race;
     unsigned int us_index;
     int button_index;
-    const W8ItemDatabaseRecord* record = &g_item_records[m_item.iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[m_item.iItemNo];
 
     for (race = 0; race < W8_RACE_COUNT; ++race) {
         switch (race) {

@@ -17,12 +17,12 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
@@ -228,8 +228,8 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
                                                     right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
-        movement->caption->RenderString(g_localized_strings[caption], g_wiz_text_font_secondary,
-                                        false, GetFrameBufferSurface());
+        movement->caption->RenderString(Data().strings[caption], g_wiz_text_font_secondary, false,
+                                        GetFrameBufferSurface());
     }
 }
 

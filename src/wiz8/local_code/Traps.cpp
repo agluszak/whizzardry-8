@@ -23,8 +23,8 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
@@ -242,8 +242,8 @@ void CompleteTrapDisarm(Trigger* trigger)
     if (Random(100) < 40) {
         ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0);
     }
-    text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]],
-                       g_localized_strings[0x7b2]);
+    text =
+        fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], Data().strings[0x7b2]);
     ShowString(text);
     trigger->Run(-1);
 }
@@ -309,11 +309,11 @@ void ResolveSprungTrap(Trigger* trigger)
     type = trigger->lock_state.device_id;
     if (Random(2) == 0) {
         trigger->CompleteItemInteraction();
-        result = g_localized_strings[0x7b3];
+        result = Data().strings[0x7b3];
     } else {
-        result = g_localized_strings[0x7b4];
+        result = Data().strings[0x7b4];
     }
-    text = fmt::format("{} {}", g_localized_strings[g_trap_name_string_ids[type]], result);
+    text = fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], result);
     ShowString(text);
     count = devices - static_cast<int>(Random(devices / 2));
     power = 4;

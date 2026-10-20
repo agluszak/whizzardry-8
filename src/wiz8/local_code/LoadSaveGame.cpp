@@ -56,6 +56,7 @@
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -71,7 +72,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -798,7 +798,7 @@ std::string_view AutoSaveSlotName()
 void ShowMainGameNotice(int string_id)
 {
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[string_id]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[string_id]);
 }
 
 } // namespace

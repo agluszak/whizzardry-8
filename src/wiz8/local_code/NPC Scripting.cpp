@@ -37,6 +37,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -44,7 +45,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
@@ -272,8 +272,8 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
                 RemoveInventoryQuantity({W8ItemStorage::Backpack, slot, index}, 1);
-                text = fmt::sprintf(g_localized_strings[0x7ec],
-                                    CurrentGame().party.characters[slot].name);
+                text =
+                    fmt::sprintf(Data().strings[0x7ec], CurrentGame().party.characters[slot].name);
                 ShowConsumedItemQuote(text);
                 return;
             }
@@ -284,7 +284,7 @@ void RemoveNpcScriptItem(W8ItemInstance* item, int match_item_id, int item_id)
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
             RemoveInventoryQuantity({W8ItemStorage::Pool, 0, slot}, 1);
-            text = g_localized_strings[0x7ed];
+            text = Data().strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;
         }
@@ -466,7 +466,7 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         break;
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(entry->operand0, true, true, false);
-        notice_text = fmt::sprintf(g_localized_strings[0x7ea], GetItemDisplayName(&item));
+        notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(&item));
         if (!gXStatus.fNpcDialogueMode) {
             CurrentGame().party.held.item = item;
             SetItemCursor(0);
@@ -483,8 +483,8 @@ void W8NpcDialogue::RunQuoteEntry(W8NpcQuoteEntry* entry, int continuation_quote
         RemoveNpcScriptItem(0, 1, entry->operand0);
         break;
     case W8_NPC_ENTRY_GIVE_GOLD:
-        notice_text = fmt::sprintf(g_localized_strings[0x7e9], session_.npc->record->source_name,
-                                   entry->operand0);
+        notice_text =
+            fmt::sprintf(Data().strings[0x7e9], session_.npc->record->source_name, entry->operand0);
         AddPartyGold(entry->operand0, false);
         DisplayNpcQuote(notice_text, true);
         break;
@@ -625,7 +625,7 @@ void W8NpcDialogue::RunNextAction()
                 OpenNpcDialogueTranscriptLayout();
                 break;
             case W8NpcCommand::journal_quote:
-                DisplayNpcQuote(g_localized_strings[0x74a], false);
+                DisplayNpcQuote(Data().strings[0x74a], false);
                 wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
                 break;
             case W8NpcCommand::dispatch_pending_notice:
@@ -706,7 +706,7 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcPortraitString message) const
         {
-            ShowNpcPortraitMessage(g_localized_strings[message.string_index]);
+            ShowNpcPortraitMessage(Data().strings[message.string_index]);
         }
         void operator()(W8NpcMarkMissing missing) const
         {
@@ -734,7 +734,7 @@ void W8NpcDialogue::RunNextAction()
         }
         void operator()(W8NpcTravelConfirm travel) const
         {
-            ShowMainGameNoticeLine(g_localized_strings[0x7eb], OnNpcTravelConfirmationClosed, true,
+            ShowMainGameNoticeLine(Data().strings[0x7eb], OnNpcTravelConfirmationClosed, true,
                                    true);
             g_pending_npc_travel_level = travel.level;
         }

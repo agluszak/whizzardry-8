@@ -22,6 +22,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -32,8 +33,8 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/learned_spells.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -42,7 +43,6 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
@@ -106,19 +106,19 @@ void TryGiveHeldItemToCampPortrait(int slot)
     }
     character = &CurrentGame().party.characters[slot];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0) {
-        ShowCampNoticeLine(g_localized_strings[0x907], 0, true, false);
+        ShowCampNoticeLine(Data().strings[0x907], 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_WEBBED] != 0) {
-        ShowCampNoticeLine(g_localized_strings[0x908], 0, true, false);
+        ShowCampNoticeLine(Data().strings[0x908], 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
-        ShowCampNoticeLine(g_localized_strings[0x909], 0, true, false);
+        ShowCampNoticeLine(Data().strings[0x909], 0, true, false);
         return;
     }
     if (!IsPartySlotEligible(slot)) {
-        ShowCampNoticeLine(g_localized_strings[0x901], 0, true, false);
+        ShowCampNoticeLine(Data().strings[0x901], 0, true, false);
         return;
     }
     if (!IsCampActionAllowed(slot)) {
@@ -379,12 +379,12 @@ void W8CampScreenState::ShowDismissCharacterDialog()
     std::string format;
     if (character->uiCondition[W8_CONDITION_MISSING] == 0) {
         if (character->uiCondition[W8_CONDITION_DEAD] == 0) {
-            format = g_localized_strings[0x92d];
+            format = Data().strings[0x92d];
         } else {
-            format = g_localized_strings[0x92e];
+            format = Data().strings[0x92e];
         }
     } else {
-        format = g_localized_strings[0x92f];
+        format = Data().strings[0x92f];
     }
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
@@ -464,7 +464,7 @@ void W8CampScreenState::DrawCampHeader(void)
             const SDL_Rect bounds{0, 0, 0x136, 0xa5};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
             CatalogArtwork::Load(0x123, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
-            DrawRcsText(g_localized_strings[0x8c2], 0xb, 0xd, 0x11e,
+            DrawRcsText(Data().strings[0x8c2], 0xb, 0xd, 0x11e,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             row = 0;
             for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
@@ -478,9 +478,8 @@ void W8CampScreenState::DrawCampHeader(void)
                         level_x = 0x10a;
                     }
                     y = (row & 7) * 0xe + 0x24;
-                    DrawRcsText(g_localized_strings[g_profession_name_message_ids[profession]],
-                                name_x, y, 0x68,
-                                g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
+                    DrawRcsText(Data().strings[g_profession_name_message_ids[profession]], name_x,
+                                y, 0x68, g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
                     text = fmt::format("{:d}", character->profession_levels[profession]);
                     DrawRcsText(text, level_x, y, 0x20,
                                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -542,25 +541,25 @@ void W8CampScreenState::DrawCampHeader(void)
                               text);
         g_wiz_text_bold_font.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        text = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
+        text = Data().strings[g_gender_name_message_rows[character->gender][0]];
         text += " ";
-        text += g_localized_strings[g_race_name_message_ids[character->iRace]];
+        text += Data().strings[g_race_name_message_ids[character->iRace]];
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                               {(0xba - g_wiz_text_font_secondary.textWidth(text)) / 2 + 0x74, 0x6f},
                               text);
         if (main_targets[10]->hovered()) {
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
-        text = g_localized_strings[g_profession_name_message_ids[character->iProfession]];
+        text = Data().strings[g_profession_name_message_ids[character->iProfession]];
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                               {(0xba - g_wiz_text_font_secondary.textWidth(text)) / 2 + 0x74, 0x7c},
                               text);
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        text = fmt::format(
-            "{} {:d} ({})", g_localized_strings[0x91a], character->uiExpLevel,
-            g_localized_strings[g_profession_level_name_message_ids[character->iProfession]
-                                                                   [character->level_band]]);
+        text =
+            fmt::format("{} {:d} ({})", Data().strings[0x91a], character->uiExpLevel,
+                        Data().strings[g_profession_level_name_message_ids[character->iProfession]
+                                                                          [character->level_band]]);
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                               {(0xba - g_wiz_text_font_secondary.textWidth(text)) / 2 + 0x74, 0x89},
                               text);
@@ -705,9 +704,8 @@ void W8CampScreenState::DrawCampVitals(void)
     } else {
         text.SetFontStateIndex(CurrentGame().party.rows[ReviewedPartySlot()].party_order_index);
     }
-    text.RenderString(
-        g_localized_strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
-        g_smfnt_font, false, GetFrameBufferSurface());
+    text.RenderString(Data().strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
+                      g_smfnt_font, false, GetFrameBufferSurface());
     if (g_settings.numeric_hit_points != 0) {
         bounds.left = 0x10e;
         bounds.right = 0x120;
@@ -758,7 +756,7 @@ void W8CampScreenState::DrawCampHands(void)
     Palette16 palette;
 
     item_id = reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
-    if (item_id == -1 || (g_item_records[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
+    if (item_id == -1 || (Data().items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
         two_handed = false;
         hand_image = 0;
     } else {

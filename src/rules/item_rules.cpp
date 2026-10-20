@@ -1,13 +1,11 @@
-#include "wiz8/item_rules.h"
+#include "wiz8/rules/item_rules.h"
 
 #include <array>
-#include <string>
+#include <stdexcept>
 
-#include <fmt/format.h>
-
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/data/skills.h"
-#include "wiz8/layouts/item_tables.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/item_instance.h"
 
@@ -19,27 +17,27 @@ static const short g_compatible_partner_pairs[6][2] = {
    an item that does not stack still weighs one of it - the count is zero for
    every quantity kind but the stacking one. */
 // FUNCTION: WIZ8 0x0051bfd0
-unsigned int GetItemStackWeight(const W8ItemInstance* item)
+unsigned int GetItemStackWeight(const GameData& data, const W8ItemInstance* item)
 {
     unsigned int weight;
 
     weight = 0;
     if (item->iItemNo != -1) {
-        weight = g_item_records[item->iItemNo].weight;
+        weight = data.items[item->iItemNo].weight;
         weight = (item->stack_count > 0 ? item->stack_count : 1) * weight;
     }
     return weight;
 }
 
-int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondary,
-                   unsigned int hand)
+int WeaponHandKind(const GameData& data, const W8ItemInstance& primary,
+                   const W8ItemInstance& secondary, unsigned int hand)
 {
     int item_id = (hand == 0 ? primary : secondary).iItemNo;
     int wield_kind;
     if (item_id == -1) {
         wield_kind = 0;
     } else {
-        switch (g_item_records[item_id].equip_class) {
+        switch (data.items[item_id].equip_class) {
         case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
         case W8_ITEM_EQUIP_CLASS_EXTENDED_WEAPON:
         case W8_ITEM_EQUIP_CLASS_RANGED_WEAPON:
@@ -48,7 +46,7 @@ int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondar
         case W8_ITEM_EQUIP_CLASS_THROWN_WEAPON:
             wield_kind = 1;
             if (hand != 1 || primary.iItemNo == -1 ||
-                g_item_records[primary.iItemNo].unidentified_name_index != 0x83) {
+                data.items[primary.iItemNo].unidentified_name_index != 0x83) {
                 break;
             }
             [[fallthrough]];
@@ -58,19 +56,14 @@ int WeaponHandKind(const W8ItemInstance& primary, const W8ItemInstance& secondar
         case W8_ITEM_EQUIP_CLASS_SHIELD:
             wield_kind = 2;
             break;
-        default: {
-            std::string message =
-                fmt::format("SetHandType: ERROR: invalid item {:d} type {:d} in hand {:d}!",
-                            item_id, static_cast<int>(g_item_records[item_id].equip_class), hand);
-            Fail("FALSE", message);
-            return 0;
-        }
+        default:
+            throw std::logic_error("WeaponHandKind: the hand holds an item that is not wielded");
         }
     }
     return wield_kind;
 }
 
-std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
+std::array<W8HandAttack, 2> EvaluateWeaponHands(const GameData& data, const W8ItemInstance& primary,
                                                 const W8ItemInstance& secondary)
 {
     std::array<W8HandAttack, 2> hands{};
@@ -79,14 +72,14 @@ std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
     const W8ItemInstance* equipment[2];
     unsigned int hand;
     for (hand = 0; hand < 2; ++hand) {
-        hands[hand].uiHolds = WeaponHandKind(primary, secondary, hand);
+        hands[hand].uiHolds = WeaponHandKind(data, primary, secondary, hand);
         attacks[hand] = &hands[hand];
         equipment[hand] = (hand == 0 ? &primary : &secondary);
         if (equipment[hand]->iItemNo == -1) {
             records[hand] = 0;
             attacks[hand]->weapon_skill = W8_SKILL_MARTIAL_ARTS;
         } else {
-            records[hand] = &g_item_records[equipment[hand]->iItemNo];
+            records[hand] = &data.items[equipment[hand]->iItemNo];
             attacks[hand]->weapon_skill = static_cast<W8Skill>(records[hand]->weapon_skill);
         }
     }
@@ -109,13 +102,14 @@ std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
         case 8:
         case 9:
             attack->combat_skill = W8_SKILL_RANGED_COMBAT;
-            if (ItemHasSingledOutGenericName(equipment[hand]->iItemNo) &&
+            if (ItemHasSingledOutGenericName(data, equipment[hand]->iItemNo) &&
                 (equipment[hand == 0]->iItemNo == -1 ||
-                 !CompatiblePartnerItems(equipment[hand]->iItemNo,
+                 !CompatiblePartnerItems(data, equipment[hand]->iItemNo,
                                          equipment[hand == 0]->iItemNo))) {
                 attack->in_play = false;
             }
-            if (ItemUsesShots(equipment[hand]->iItemNo) && equipment[hand]->uses_or_charges == 0) {
+            if (ItemUsesShots(data, equipment[hand]->iItemNo) &&
+                equipment[hand]->uses_or_charges == 0) {
                 attack->in_play = false;
             }
             break;
@@ -143,21 +137,17 @@ std::array<W8HandAttack, 2> EvaluateWeaponHands(const W8ItemInstance& primary,
     return hands;
 }
 
-bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
+bool CompatiblePartnerItems(const GameData& data, int ranged_item_id, int other_item_id)
 {
-    if (static_cast<unsigned int>(ranged_item_id) >= g_item_records.size()) {
-        Fail("uiRangedItem < g_item_records.size()",
-             fmt::format("CompatiblePartnerItems: ERROR - Illegal RANGED item index {:d}",
-                         ranged_item_id));
+    if (static_cast<unsigned int>(ranged_item_id) >= data.items.size()) {
+        throw std::logic_error("CompatiblePartnerItems: invalid ranged item");
     }
-    if (static_cast<unsigned int>(other_item_id) >= g_item_records.size()) {
-        Fail("uiOtherItem < g_item_records.size()",
-             fmt::format("CompatiblePartnerItems: ERROR - Illegal OTHER item index {:d}",
-                         other_item_id));
+    if (static_cast<unsigned int>(other_item_id) >= data.items.size()) {
+        throw std::logic_error("CompatiblePartnerItems: invalid partner item");
     }
 
-    short ranged_name = static_cast<short>(g_item_records[ranged_item_id].unidentified_name_index);
-    short other_name = static_cast<short>(g_item_records[other_item_id].unidentified_name_index);
+    short ranged_name = static_cast<short>(data.items[ranged_item_id].unidentified_name_index);
+    short other_name = static_cast<short>(data.items[other_item_id].unidentified_name_index);
 
     switch (ranged_name) {
     case 0xb:
@@ -179,9 +169,8 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
     case 0x68:
     case 0x6e:
     case 0x72:
-        if (g_item_records[other_item_id].equip_class > W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
-            g_item_records[ranged_item_id].range_category ==
-                g_item_records[other_item_id].range_category) {
+        if (data.items[other_item_id].equip_class > W8_ITEM_EQUIP_CLASS_RANGED_WEAPON ||
+            data.items[ranged_item_id].range_category == data.items[other_item_id].range_category) {
             if (ranged_item_id != -1 && g_compatible_partner_pairs[0][0] != 0) {
                 int index = 0;
                 short name = g_compatible_partner_pairs[0][0];
@@ -219,7 +208,7 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
         case 0x25d:
             if (other_name == 0x17 || other_name == 0x71 || other_name == 0x70 ||
                 other_name == 0x15 || other_name == 0x7e ||
-                (g_item_records[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
+                (data.items[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
                  other_name == 0)) {
                 return true;
             }
@@ -231,7 +220,7 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
         case 0x262:
             if (other_name == 0x17 || other_name == 0x71 || other_name == 0x70 ||
                 other_name == 0x15 || other_name == 0x7e ||
-                (g_item_records[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
+                (data.items[other_item_id].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
                  other_name == 0) ||
                 other_name == 0x16 || other_name == 0x53) {
                 return true;
@@ -243,10 +232,10 @@ bool CompatiblePartnerItems(int ranged_item_id, int other_item_id)
     return false;
 }
 
-bool ItemHasSingledOutGenericName(int item_id)
+bool ItemHasSingledOutGenericName(const GameData& data, int item_id)
 {
     if (item_id != -1) {
-        switch (g_item_records[item_id].unidentified_name_index) {
+        switch (data.items[item_id].unidentified_name_index) {
         case 0x0b:
         case 0x0c:
         case 0x0d:
@@ -258,20 +247,20 @@ bool ItemHasSingledOutGenericName(int item_id)
     return false;
 }
 
-bool ItemUsesShots(int item_id)
+bool ItemUsesShots(const GameData& data, int item_id)
 {
     if (item_id == -1) {
         return false;
     }
-    return g_item_records[item_id].quantity_kind == W8_ITEM_QUANTITY_SHOTS;
+    return data.items[item_id].quantity_kind == W8_ITEM_QUANTITY_SHOTS;
 }
 
-bool GetItemMergeKind(int item_id, short* related_kind)
+bool GetItemMergeKind(const GameData& data, int item_id, short* related_kind)
 {
     if (related_kind && item_id != -1) {
         for (int index = 0; g_compatible_partner_pairs[index][0] != 0; ++index) {
             if (g_compatible_partner_pairs[index][0] ==
-                g_item_records[item_id].unidentified_name_index) {
+                data.items[item_id].unidentified_name_index) {
                 *related_kind = g_compatible_partner_pairs[index][1];
                 return true;
             }

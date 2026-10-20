@@ -6,7 +6,7 @@
 
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
-#include "wiz8/retail_item_payloads.h"
+#include "wiz8/data/item_payloads.h"
 
 #pragma pack(push, 1)
 struct W8ItemTableEntry {
@@ -114,8 +114,5 @@ struct W8ItemDatabaseRecord : wiz8::retail::ItemProperties, wiz8::retail::ItemEf
 /* GameplayDatabase.cpp owns the runtime Items.dbs and ItemTables.dbs roots.
    Keeping their declarations beside the record layouts gives item consumers a
    direct owner beside the file-format types they index. */
-extern std::vector<W8ItemDatabaseRecord> g_item_records;
-extern W8ItemTableRecord* g_item_tables;
-extern std::string* g_item_table_category_names;
 
 #endif

@@ -38,6 +38,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -48,7 +49,6 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/CharacterScreen.h"
@@ -343,14 +343,14 @@ void PartySelectionScreen::DrawCharacters(SDL_Surface& target)
         }
         left += 0x36;
         DrawText(target, g_wiz_text_font_secondary, {left, top + 4}, character->name);
-        DrawText(target, g_wiz_text_font_secondary, {left, top + 0x0e},
-                 fmt::format(
-                     "{} {:d} {}", g_localized_strings[0x6b9], character->uiExpLevel,
-                     g_localized_strings[g_profession_name_message_ids[character->iProfession]]));
+        DrawText(
+            target, g_wiz_text_font_secondary, {left, top + 0x0e},
+            fmt::format("{} {:d} {}", Data().strings[0x6b9], character->uiExpLevel,
+                        Data().strings[g_profession_name_message_ids[character->iProfession]]));
         DrawText(target, g_wiz_text_font_secondary, {left, top + 0x18},
                  fmt::format("{} {}",
-                             g_localized_strings[g_gender_name_message_rows[character->gender][0]],
-                             g_localized_strings[g_race_name_message_ids[character->iRace]]));
+                             Data().strings[g_gender_name_message_rows[character->gender][0]],
+                             Data().strings[g_race_name_message_ids[character->iRace]]));
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
     }
 }
@@ -428,7 +428,7 @@ void PartySelectionScreen::DrawSummary(SDL_Surface& target)
     CatalogArtwork::Load(0x11, character->portrait_index).drawAndInvalidate(target, 0, 0x85, 0x30);
     if (character->fInParty) {
         W8ControlsRect bounds = {0x85, 0x30, 0x139, 0xba};
-        W8TextBuffer overlay(&bounds, g_localized_strings[0x6b8], g_options_title_font,
+        W8TextBuffer overlay(&bounds, Data().strings[0x6b8], g_options_title_font,
                              g_W8TextBufferAlignBottom | g_W8TextBufferAlignCenter, 4);
         overlay.RenderToTarget(0, false, target);
     }
@@ -443,59 +443,58 @@ void PartySelectionScreen::DrawSummary(SDL_Surface& target)
 
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
 
-    std::string level_text = g_localized_strings[0x6b9];
-    std::string profession =
-        g_localized_strings[g_profession_name_message_ids[character->iProfession]];
+    std::string level_text = Data().strings[0x6b9];
+    std::string profession = Data().strings[g_profession_name_message_ids[character->iProfession]];
     std::string level_line =
         fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession);
     int width = g_wiz_text_font_secondary.textWidth(level_line);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x78, 0xef},
              fmt::format("{} {:d} {}", level_text, character->uiExpLevel, profession));
 
-    std::string gender = g_localized_strings[g_gender_name_message_rows[character->gender][0]];
-    std::string race = g_localized_strings[g_race_name_message_ids[character->iRace]];
+    std::string gender = Data().strings[g_gender_name_message_rows[character->gender][0]];
+    std::string race = Data().strings[g_race_name_message_ids[character->iRace]];
     std::string race_line = fmt::format("{} {}", gender, race);
     width = g_wiz_text_font_secondary.textWidth(race_line);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x7f, 0xfd},
              fmt::format("{} {}", gender, race));
 
     const std::string& personality =
-        g_localized_strings[g_personality_message_ids[character->personality]];
+        Data().strings[g_personality_message_ids[character->personality]];
     width = g_wiz_text_font_secondary.textWidth(personality);
     DrawText(target, g_wiz_text_font_secondary, {(0xbf - width) / 2 + 0x82, 0x10b}, personality);
 
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x127}, g_localized_strings[0x6ba]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x127}, Data().strings[0x6ba]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x127},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_STRENGTH].base));
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x135}, g_localized_strings[0x6bb]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x135}, Data().strings[0x6bb]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x135},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base));
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x143}, g_localized_strings[0x6bc]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x143}, Data().strings[0x6bc]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x143},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_PIETY].base));
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x151}, g_localized_strings[0x6bd]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x151}, Data().strings[0x6bd]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x151},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_VITALITY].base));
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x15f}, g_localized_strings[0x6be]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x15f}, Data().strings[0x6be]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x15f},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_DEXTERITY].base));
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x16d}, g_localized_strings[0x6bf]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x16d}, Data().strings[0x6bf]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x16d},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SPEED].base));
-    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x17b}, g_localized_strings[0x6c0]);
+    DrawText(target, g_wiz_text_font_secondary, {0x96, 0x17b}, Data().strings[0x6c0]);
     DrawText(target, g_wiz_text_font_secondary, {0xbf, 0x17b},
              fmt::format("{:d}", character->attributes[W8_ATTRIBUTE_SENSES].base));
 
-    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x127}, g_localized_strings[0x6c1]);
+    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x127}, Data().strings[0x6c1]);
     DrawText(target, g_wiz_text_font_secondary, {0x115, 0x127},
              fmt::format("{:d}", character->uiHPMax));
-    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x135}, g_localized_strings[0x6c2]);
+    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x135}, Data().strings[0x6c2]);
     DrawText(target, g_wiz_text_font_secondary, {0x115, 0x135},
              fmt::format("{:d}", SumCharacterSpellPoints(character)));
-    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x143}, g_localized_strings[0x6c3]);
+    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x143}, Data().strings[0x6c3]);
     DrawText(target, g_wiz_text_font_secondary, {0x115, 0x143},
              fmt::format("{:d}", character->uiStaminaMax));
-    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x151}, g_localized_strings[0x6c4]);
+    DrawText(target, g_wiz_text_font_secondary, {0xe3, 0x151}, Data().strings[0x6c4]);
     DrawText(target, g_wiz_text_font_secondary, {0x115, 0x151},
              fmt::format("{:d}", character->carrying_capacity / 10));
 }
@@ -547,42 +546,42 @@ void PartySelectionScreen::SetOptionPanelMode(W8PartyCreationPage page)
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
         option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7f7], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x7f7], g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.right = 0x78 + 0x155;
         option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7f8], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x7f8], g_options_detail_font,
                              g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
         option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7f9], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x7f9], g_options_detail_font,
                              g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
         bounds.top += 0x16;
         option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x7fa], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x7fa], g_options_detail_font,
                              g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
 
         bounds.right = 0x78 + 0x16e;
         bounds.top += 0x2c;
         option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x80b], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x80b], g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
         W8TextBuffer* text =
-            new W8TextBuffer(&bounds, g_localized_strings[0x6cd], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x6cd], g_options_detail_font,
                              g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
         text->SetLineHeight(0x16);
         option_text.emplace_back(text);
 
         bounds.top += 0x42;
         option_text.emplace_back(
-            new W8TextBuffer(&bounds, g_localized_strings[0x6ce], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x6ce], g_options_detail_font,
                              g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 
         bounds.top += 0x2c;
-        text = new W8TextBuffer(&bounds, g_localized_strings[0x6cf], g_options_detail_font,
+        text = new W8TextBuffer(&bounds, Data().strings[0x6cf], g_options_detail_font,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
         text->SetLineHeight(0x16);
         option_text.emplace_back(text);
@@ -592,7 +591,7 @@ void PartySelectionScreen::SetOptionPanelMode(W8PartyCreationPage page)
     if (page == W8_PARTY_CREATION_NOTICE) {
         bounds.top += 0x2c;
         W8TextBuffer* text =
-            new W8TextBuffer(&bounds, g_localized_strings[0x6d0], g_options_detail_font,
+            new W8TextBuffer(&bounds, Data().strings[0x6d0], g_options_detail_font,
                              g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
         text->SetLineHeight(0x16);
         option_text.emplace_back(text);
@@ -605,9 +604,8 @@ void PartySelectionScreen::SetOptionPanelMode(W8PartyCreationPage page)
 
     bounds.left = 0x78 + 0x2c;
     bounds.right = 0x78 + 0x164;
-    W8TextBuffer* text =
-        new W8TextBuffer(&bounds, g_localized_strings[0x6d1], g_options_detail_font,
-                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
+    W8TextBuffer* text = new W8TextBuffer(&bounds, Data().strings[0x6d1], g_options_detail_font,
+                                          g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
     text->SetLineHeight(0x16);
     option_text.emplace_back(text);
 
@@ -759,9 +757,9 @@ void PartySelectionScreen::Setup()
     m_reset_button = actions[4].get();
     m_confirm_button = actions[5].get();
     m_back_button = actions[6].get();
-    m_create_button->SetText(g_localized_strings[0x6c5]);
-    m_delete_button->SetText(g_localized_strings[0x6c8]);
-    m_review_button->SetText(g_localized_strings[0x6c9]);
+    m_create_button->SetText(Data().strings[0x6c5]);
+    m_delete_button->SetText(Data().strings[0x6c8]);
+    m_review_button->SetText(Data().strings[0x6c9]);
     m_reset_button->Policy().primary_toggle = ButtonToggle::Release;
     for (int index = 0; index < 3; ++index) {
         auto& button = difficulty_buttons[index] = std::make_unique<W8ButtonWidget>(input);
@@ -842,7 +840,7 @@ void PartySelectionScreen::SetMode(W8PartySelectionMode mode)
                         : importing                       ? 0x6b5
                         : mode == W8_PARTY_SELECT_OPTIONS ? 0x6b6
                                                           : 0x6b7;
-    title.SetText(g_localized_strings[message], g_wiz_text_bold_font);
+    title.SetText(Data().strings[message], g_wiz_text_bold_font);
 }
 
 void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool refresh_other)
@@ -892,7 +890,7 @@ void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool ref
 
     summary_dirty = true;
     const std::string& text =
-        g_localized_strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
+        Data().strings[((!m_character || !m_character->fInParty) ? 0x1b18 : 0x1b1c) / 4];
     m_add_remove_button->SetText(text);
     bool have_character = m_character != 0;
     m_add_remove_button->SetEnabled(have_character);
@@ -917,7 +915,7 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         case W8_PARTY_SELECT_CHARACTERS:
         case W8_PARTY_SELECT_IMPORT:
             if (CountActiveCharacters() != 0) {
-                OpenNotification(g_localized_strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
+                OpenNotification(Data().strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
                 return;
             }
             ReturnToPreviousScreen();
@@ -938,8 +936,8 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         return;
     }
     if (control == m_delete_button) {
-        OpenNotification(fmt::format("{} {} {}?", g_localized_strings[0x6d4], m_character->name,
-                                     g_localized_strings[0x6d5]),
+        OpenNotification(fmt::format("{} {} {}?", Data().strings[0x6d4], m_character->name,
+                                     Data().strings[0x6d5]),
                          true, W8_PARTY_CONFIRM_DELETE_CHARACTER);
         return;
     }
@@ -957,8 +955,8 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
             if (static_cast<unsigned int>(CountActiveCharacters()) < 6) {
-                OpenNotification(fmt::sprintf(g_localized_strings[0x6d9], CountActiveCharacters()),
-                                 true, W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
+                OpenNotification(fmt::sprintf(Data().strings[0x6d9], CountActiveCharacters()), true,
+                                 W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
                 return;
             }
             [[fallthrough]];
@@ -997,7 +995,7 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         return;
     }
     if (CountActiveCharacters() != 0) {
-        OpenNotification(g_localized_strings[0x6d6], true, W8_PARTY_CONFIRM_IMPORT);
+        OpenNotification(Data().strings[0x6d6], true, W8_PARTY_CONFIRM_IMPORT);
         return;
     }
 
@@ -1020,8 +1018,7 @@ void PartySelectionScreen::OnDecision(bool accepted)
         std::string slot_name;
         slot_name = name_input->Text(0);
         if (SaveSlotFileExists(slot_name)) {
-            OpenNotification(g_localized_strings[0x829], true,
-                             W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
+            OpenNotification(Data().strings[0x829], true, W8_PARTY_CONFIRM_START_WITH_SAVE_NAME);
             return;
         }
         name_input.reset();
@@ -1035,7 +1032,7 @@ void PartySelectionScreen::OnDecision(bool accepted)
                 ReturnToPreviousScreen();
                 return;
             }
-            OpenNotification(g_localized_strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
+            OpenNotification(Data().strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
             return;
         case W8_PARTY_SELECT_OPTIONS:
         case W8_PARTY_SELECT_CREATION_NOTICE:
@@ -1175,7 +1172,7 @@ void PartySelectionScreen::LoadImportedPartyFile(int selection)
         int result = ImportWizardry7Party(path);
         if (result != 0) {
             ResetForNewGame();
-            OpenNotification(g_localized_strings[(result == 2 ? 0x1b60 : 0x1b5c) / 4], false,
+            OpenNotification(Data().strings[(result == 2 ? 0x1b60 : 0x1b5c) / 4], false,
                              W8_PARTY_CONFIRM_NONE);
         }
     }
@@ -1308,7 +1305,7 @@ void PartySelectionScreen::frame()
                         if (CountActiveCharacters() == 0) {
                             ReturnToPreviousScreen();
                         } else {
-                            controller->OpenNotification(g_localized_strings[0x6d3], true,
+                            controller->OpenNotification(Data().strings[0x6d3], true,
                                                          W8_PARTY_CONFIRM_LEAVE);
                         }
                         break;

@@ -21,7 +21,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -159,7 +159,7 @@ void MakePCAttackSound(W8CombatCharacterRow* row, const W8HandAttack* hand_attac
     if (hand_attack->uiHolds == HOLDS_NOTHING) {
         weapon_class = 9;
     } else {
-        weapon_class = g_item_records[row->weapon_item_id].weapon_sound_class;
+        weapon_class = Data().items[row->weapon_item_id].weapon_sound_class;
         if (weapon_class < 0 || weapon_class >= 38) {
             return;
         }
@@ -173,7 +173,7 @@ static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int a
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         const W8Character* character = &CurrentGame().party.characters[target->iChar];
         int item = PCItemInACSlot(character, hit_location);
-        target_material = item == -1 ? 0 : g_item_records[item].material;
+        target_material = item == -1 ? 0 : Data().items[item].material;
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
         target_material = record == 0 ? 0 : record->material;
@@ -191,9 +191,9 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
     if (hand_attack->uiHolds == HOLDS_NOTHING) {
         weapon_class = 9;
     } else {
-        weapon_class =
-            g_item_records[CurrentGame().combat.state()->characters[iChar].paired_item_id]
-                .weapon_sound_class;
+        weapon_class = Data()
+                           .items[CurrentGame().combat.state()->characters[iChar].paired_item_id]
+                           .weapon_sound_class;
     }
     int target_material = GetCombatTargetMaterial(target, hit_location, 415);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
@@ -201,7 +201,7 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
 
 void MakePCHitSound(Missile* missile, W8CombatSlot* target, int hit_location, int volume)
 {
-    int weapon_class = g_missile_table[missile->missile_table_index].weapon_sound_class;
+    int weapon_class = Data().missiles[missile->missile_table_index].weapon_sound_class;
 
     int target_material = GetCombatTargetMaterial(target, hit_location, 465);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);

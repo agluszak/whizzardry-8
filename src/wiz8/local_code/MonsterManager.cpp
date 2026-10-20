@@ -48,6 +48,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -62,7 +63,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/ThingEditorShared.h"
 #include "wiz8/local_code/character_events.h"
@@ -356,10 +356,9 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     }
     if (announce && !monster_info->death_processed &&
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
-        ShowNotice(
-            notice_channel,
-            fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
-                        g_localized_strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
+        ShowNotice(notice_channel,
+                   fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
+                               Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular]));
     }
     ReleaseMonsterConditionBindings(monster_info);
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
@@ -593,7 +592,7 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
             monster_info->summoned != W8_MONSTER_SUMMON_NONE) {
             if (!forced_cleanup) {
                 ShowNotice(W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(g_localized_strings[W8_NOTICE_MONSTER_SLAIN],
+                           fmt::sprintf(Data().strings[W8_NOTICE_MONSTER_SLAIN],
                                         GetMonsterName(monster_info, 0, 0)),
                            0);
             }
@@ -1123,7 +1122,7 @@ void TogglePartyCombatStance(void)
         if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
             return;
         }
-        message = g_localized_strings[W8_NOTICE_COMBAT_STANCE_RELAXED];
+        message = Data().strings[W8_NOTICE_COMBAT_STANCE_RELAXED];
     } else {
         g_settings.continuous_combat = 1;
         if (CurrentGame().combat.active() && CurrentGame().combat.state()->combat_ready) {
@@ -1133,7 +1132,7 @@ void TogglePartyCombatStance(void)
         if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
             return;
         }
-        message = g_localized_strings[W8_NOTICE_COMBAT_STANCE_READY];
+        message = Data().strings[W8_NOTICE_COMBAT_STANCE_READY];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, message);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
@@ -1160,7 +1159,7 @@ void ToggleCombatMode(void)
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
         CurrentGame().combat.state()->enemies_engaged) {
         if (CurrentGame().combat.state()->round_count != 0) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
         for (group_list_index = 0;
@@ -1169,27 +1168,26 @@ void ToggleCombatMode(void)
             monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
             if (monster_group->members_active && monster_group->fInCombat &&
                 MonsterGroupCanEngage(monster_group)) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END]);
+                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END]);
                 return;
             }
         }
     }
     for (missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
         if ((missile == CurrentGame().combat.state()->engaged_missile ||
-             g_missile_table[missile->missile_table_index].spell_missile != 0) &&
+             Data().missiles[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
             return;
         }
     }
     if (CurrentGame().combat.state()->execution_active != 0) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
                    W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_AUTOMATIC, true);
         return;
     }
     CurrentGame().combat.End(false);
-    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_COMBAT_ENDED]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_ENDED]);
     if (g_level_block->combat_end_notification != -1) {
         DestroySubMenuControls();
     }
@@ -1497,8 +1495,8 @@ void DetectMonsterGroups(void)
                 }
             }
             if (best_slot != -1) {
-                PostCharacterNotice(best_slot, fmt::sprintf(g_localized_strings[0x1ca],
-                                                            GetMonsterGroupName(group)));
+                PostCharacterNotice(
+                    best_slot, fmt::sprintf(Data().strings[0x1ca], GetMonsterGroupName(group)));
                 group->alternate_name = true;
                 bool vowel;
                 switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
@@ -1515,9 +1513,9 @@ void DetectMonsterGroups(void)
                 }
                 std::string article;
                 if (group->MemberCount() == 1) {
-                    article = vowel ? g_localized_strings[0x1cc] : g_localized_strings[0x1cb];
+                    article = vowel ? Data().strings[0x1cc] : Data().strings[0x1cb];
                 } else {
-                    article = g_localized_strings[0x1cd];
+                    article = Data().strings[0x1cd];
                 }
                 ShowNotice(W8_FONT_PALETTE_WHITE,
                            fmt::format("{} {}!", article, GetMonsterGroupName(group)));

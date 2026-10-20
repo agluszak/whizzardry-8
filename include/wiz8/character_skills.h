@@ -6,7 +6,6 @@
 
 struct W8Character;
 struct W8SkillNoticePayload;
-struct W8MonsterRecord;
 
 /* 0x00553F10: add usage points to one skill, roll its increase, and report
    the result; suppress_notification keeps silent practice calls silent. */
@@ -38,12 +37,9 @@ bool CanPartySlotTurnUndead(int party_slot);
 /* 0x00547F40: whether the slot has the priest's pray trait, its combat-state
    use flag is clear, and a live hostile monster is in play. */
 bool CanPartySlotPray(int party_slot);
-float ScaleValueByProfessionLevel(W8Character* character, W8Trait trait, float base);
-float ScaleValueByMonsterLevel(W8MonsterRecord* record, int trait, float base);
 bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
                                const bool* expert_realm_flags);
 void InvalidateAndRecalculateCharacterClassData(W8Character* character);
-bool CharacterHasTrait(const W8Character* character, W8Trait trait);
 int RevealCharacterItemBindingsByProfession(int party_slot, unsigned int target_slot);
 /* 0x00553AD0: propagate a changed attribute base value - the at-maximum
    pseudo-skill flag, the effective value, equipment and derived state. */
@@ -51,13 +47,5 @@ void ApplyAttributeChange(W8Character* character, W8Attribute attribute);
 /* 0x00553C10: propagate a changed skill investment - availability rescan,
    the level rebuild, equipment and derived state. */
 void ApplySkillChange(W8Character* character, W8Skill skill_id);
-void InitializeSkillBaseLevels(W8Character* character);
 void RefreshCharacterSkillAvailability(W8Character* character);
 unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id);
-
-// Profession, race and gender are set; nothing is derived for a character without them.
-bool IsCharacterDefined(const W8Character& character);
-struct W8GameplayModifierBlock;
-// Rebuild modifier blocks, effective attributes, skill levels and hand kinds from the
-// character's equipment, conditions and the supplied party modifiers.
-void EvaluateCharacterInputs(W8Character&, const W8GameplayModifierBlock*);

@@ -1,18 +1,14 @@
 #include "wiz8/local_code/GameplayDatabase.h"
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <iterator>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "asset_paths.h"
-#include "layouts/item_tables.h"
 #include "retail_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
@@ -22,20 +18,8 @@
 #include "wiz8/xstatus.h"
 
 namespace {
-unsigned int item_table_count;
-unsigned int item_table_category_count;
 unsigned int monster_database_count;
 } // namespace
-
-unsigned int ItemTableCount()
-{
-    return item_table_count;
-}
-
-unsigned int ItemTableCategoryCount()
-{
-    return item_table_category_count;
-}
 
 unsigned int MonsterDatabaseCount()
 {
@@ -49,76 +33,8 @@ W8XStatus gXStatus;
    unresolved externals made the runnable image relocate every load/store to
    the PE image base; the first four-byte count read consequently targeted a
    read-only header instead of game state. */
-std::vector<W8FactDatabaseRecord> g_fact_records;
-std::vector<W8ItemDatabaseRecord> g_item_records;
 /* The six item stacks granted by the new-game status reset. */
 unsigned int g_starting_item_ids[6] = {0x14f, 0x14f, 0x15a, 0x15a, 0x15b, 0x155};
-std::vector<W8LevelDatabaseRecord> g_level_records;
-std::vector<W8NpcDatabaseRecord> g_npc_records;
-W8ItemTableRecord* g_item_tables;
-std::string* g_item_table_category_names;
-std::vector<W8SpellRuntimeRecord> g_spell_records;
-
-namespace {
-std::vector<std::string> item_table_categories;
-std::vector<W8ItemTableRecord> item_tables;
-}
-
-bool InitializeItemDatabase(void)
-try {
-    auto handle =
-        wiz8::open_file(wiz8::asset_path("Data\\Databases\\Items.DBS"), wiz8::OpenMode::read);
-    g_item_records = wiz8::retail::read_database<W8ItemDatabaseRecord>(*handle);
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
-/* ItemTables.DBS carries fixed 0x100-byte category names, then table records.
-   The exported views borrow contiguous storage owned here. */
-bool InitializeItemTables(void)
-try {
-    auto handle =
-        wiz8::open_file(wiz8::asset_path("Data\\Databases\\ItemTables.DBS"), wiz8::OpenMode::read);
-    unsigned int category_count;
-    handle->read_exact(&category_count, sizeof(category_count));
-    const auto remaining = handle->size() - handle->tell();
-    if (remaining < std::int64_t(sizeof(unsigned int)) ||
-        category_count > (remaining - std::int64_t(sizeof(unsigned int))) / 0x100) {
-        return false;
-    }
-    std::vector<std::string> categories(category_count);
-    for (auto& category : categories) {
-        std::array<char, 256> bytes;
-        handle->read_exact(bytes.data(), bytes.size());
-        auto end = std::find(bytes.begin(), bytes.end(), '\0');
-        if (end == bytes.end()) return false;
-        category.assign(bytes.begin(), end);
-    }
-
-    unsigned int table_count;
-    handle->read_exact(&table_count, sizeof(table_count));
-    if (table_count > (handle->size() - handle->tell()) / std::int64_t(sizeof(W8ItemTableRecord))) {
-        return false;
-    }
-    std::vector<W8ItemTableRecord> tables(table_count);
-    handle->read_exact(tables.data(), tables.size() * sizeof(W8ItemTableRecord));
-    for (auto& table : tables) {
-        if (std::find(std::begin(table.name), std::end(table.name), '\0') == std::end(table.name)) {
-            return false;
-        }
-    }
-
-    item_table_categories.swap(categories);
-    item_tables.swap(tables);
-    g_item_table_category_names = category_count ? item_table_categories.data() : nullptr;
-    g_item_tables = table_count ? item_tables.data() : nullptr;
-    item_table_category_count = category_count;
-    item_table_count = table_count;
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
 
 /* Seeks straight to one record and strips the four name suffixes. */
 bool LoadMonsterDatabaseRecord(unsigned int uiMonsterIndex, W8MonsterRecord* record)
@@ -138,21 +54,6 @@ try {
     return true;
 } catch (const std::exception&) {
     return false;
-}
-
-void DestroyItemDatabase(void)
-{
-    g_item_records = {};
-}
-
-void DestroyItemTables(void)
-{
-    decltype(item_table_categories){}.swap(item_table_categories);
-    decltype(item_tables){}.swap(item_tables);
-    g_item_table_category_names = nullptr;
-    g_item_tables = nullptr;
-    item_table_category_count = 0;
-    item_table_count = 0;
 }
 
 /* Reads MONSTERS.DBS whole: the count, then - only when the

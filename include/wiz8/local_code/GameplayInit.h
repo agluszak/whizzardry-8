@@ -3,12 +3,6 @@
 #include "wiz8/data/records.h"
 #include "wiz8/layouts/game_status.h"
 
-unsigned char InitializeFactDatabase(void);
-unsigned char InitializeLevelDatabase(void);
-unsigned char InitializeNpcDatabase(void);
-void DestroyFactDatabase(void);
-void DestroyLevelDatabase(void);
-void DestroyNpcDatabase(void);
 void ResetPartySlotRow(int slot);
 void ResetTargetingState(void);
 void ResetForNewGame(void);
