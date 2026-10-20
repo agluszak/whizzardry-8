@@ -99,8 +99,6 @@ the licensed runtime scenarios after every step.
 1. **Finish the game object.** `Game` exists (ARCHITECTURE.md, "The game").
    - Its slot is a static in `game.cpp`. The Application should own it once screens
      receive the game instead of calling `CurrentGame()`.
-   - Move the random stream into the game. Party creation draws from the same stream
-     today, so settle the random-stream research item first.
    - Fold in the reset functions that still clear per-game state:
      `LeaveGameSession` and `ResetMainScreenStateBlock`. Each goes when its state
      moves into the game.
@@ -115,8 +113,8 @@ the licensed runtime scenarios after every step.
    - Give message ids names.
 3. **Inventory and party in `rules`.** They take the `Game` and report through its
    events (ARCHITECTURE.md, "The game"); what remains is moving them behind the boundary.
-   - Replace `Game&` with a `RuleContext` once the random stream is in the game, and
-     take the calls they still make into unmigrated code (conditions, combat targeting,
+   - Replace `Game&` with a `RuleContext`, which carries the game's random stream
+     (`Game::rng`), and take the calls they still make into unmigrated code (conditions, combat targeting,
      NPC states, facts, world drops, sounds) as explicit inputs or events.
    - Presentation is synchronous: the observer shows each event as it is pushed, to keep
      its order among the direct screen calls of unmigrated code. When those are gone,
@@ -266,10 +264,6 @@ before the related refactoring changes behavior.
   - Whether conjuring an item into an occupied hand destroys the held item.
   - What retail does with unusable equipment when every store is full.
   - How the alternate-hand toggle behaves when both hand pairs swap.
-- **Random-stream ordering.** Loot, NPC theft and combat share one seeded stream.
-  Moving notices, events or recalculation can reorder draws. Build a determinism
-  harness (seeded scripted runs comparing draw logs) before the outcome-log and
-  derivation refactorings.
 - **A retail save corpus.** `tests/runtime/fixtures/vi.CHR` was written by the
   port and is not an independent reference. Collect retail saves (start, mid-game,
   late game, NPC-heavy, combat-interrupted) and add round-trip and
