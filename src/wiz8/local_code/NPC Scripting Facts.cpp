@@ -1,4 +1,3 @@
-#include <iterator>
 #include <string>
 #include <vector>
 
@@ -59,7 +58,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
-#include "xstatus.h"
+#include "wiz8/xstatus.h"
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
    ClearScriptedSceneActive's void() entry. */

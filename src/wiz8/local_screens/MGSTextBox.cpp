@@ -46,6 +46,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/message_log.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"

@@ -1,6 +1,5 @@
 #include "wiz8/fact_state.h"
 
-#include <iterator>
 #include <vector>
 
 #include "wiz8/chunk.h"
@@ -21,6 +20,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/story.h"
 
 /* Runs once the new-game level has finished loading: records the two starting
    transcript keywords from string-table entries 0x7e7/0x7e8 and
