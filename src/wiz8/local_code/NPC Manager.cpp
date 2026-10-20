@@ -11,8 +11,8 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/retail_save_records.h" // IWYU pragma: keep - the NPC state codec copies use.
+#include "wiz8/rules/events.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
