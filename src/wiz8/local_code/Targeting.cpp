@@ -16,7 +16,6 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
