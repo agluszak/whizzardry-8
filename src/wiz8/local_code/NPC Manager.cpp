@@ -1199,7 +1199,8 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         existing->location_id = info.location_id;
         existing->level_band = GetLevelBand(world.level_id);
         existing->bound_level = static_cast<unsigned char>(world.level_id);
-        W8NpcState& npc = existing->created ? *existing->created : *source;
+        // Without a created state the slot holds the story's own NPC (source).
+        W8NpcState& npc = existing->created ? *existing->created : *CurrentGame().story.npcs[slot];
         existing->script = LoadNpcScriptResources(npc, info.p3D);
         info.bound_npc_index = slot;
     };
