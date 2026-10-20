@@ -2139,9 +2139,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
     totals[0] = 0;
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         int party_slot = effect->target_indices[index];
-        if (party_slot == -1) {
-            Fail("iChar != -1");
-        }
+        assert(party_slot != -1);
         const auto member = static_cast<unsigned int>(party_slot);
         for (slot = 0; slot < 12; ++slot)
             DestroyItemConsumables({W8ItemStorage::Equipment, member, static_cast<unsigned>(slot)},

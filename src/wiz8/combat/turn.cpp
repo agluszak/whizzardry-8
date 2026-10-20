@@ -1,3 +1,4 @@
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <variant>
@@ -250,15 +251,12 @@ void Combat::step(Game& game)
 
 void Combat::scheduleNextActor(Game& game)
 {
-    if (actor()) {
-        Fail("!actor()");
-    }
+    assert(!actor());
     bool free_turn = false;
     for (;;) {
         if (uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
             uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
             for (int slot = 0; slot < 8; ++slot) {
-                W8PartySlotRow* row = &game.party.rows[slot];
                 if (!game.party.members[slot].has_value()) {
                     continue;
                 }

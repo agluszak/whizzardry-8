@@ -233,8 +233,8 @@ bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemSour
 bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource source,
                                 bool party_first)
 {
-    if (!game.status.game_started) Fail("gStatus.fGameStarted");
-    if (!game.party.members[party_slot].has_value()) Fail("fCHAR_OCCUPIED(uiChar)");
+    assert(game.status.game_started);
+    assert(game.party.members[party_slot].has_value());
 
     std::optional<ItemPlacement> destination;
     if (!IsPartySlotEligible(static_cast<int>(party_slot))) {
@@ -257,10 +257,10 @@ GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_f
 {
     auto& held = game.party.held.item;
     bool stored = party_first;
-    if (held.iItemNo == -1) Fail("gStatus.fItemInCursor");
+    assert(held.iItemNo != -1);
     if (!held.identified) PartyAttemptsToIdentifyItem(&held, 0);
-    if (!game.status.game_started) Fail("gStatus.fGameStarted");
-    if (!game.party.members[party_slot].has_value()) Fail("fCHAR_OCCUPIED(uiChar)");
+    assert(game.status.game_started);
+    assert(game.party.members[party_slot].has_value());
 
     const auto source = PartyItem(game.party, {W8ItemStorage::Hand});
     const bool eligible = IsPartySlotEligible(static_cast<int>(party_slot));
@@ -329,7 +329,7 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
 {
     auto& character = recipient.character;
     const auto notice = [&](unsigned int message, unsigned int pronoun_column) {
-        if (!recipient.slot) Fail("pPC->fInParty", "the class item notice names a member");
+        assert(recipient.slot);
         game.events.push(CharacterNotice{
             *recipient.slot,
             fmt::sprintf(
