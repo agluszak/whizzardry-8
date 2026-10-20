@@ -53,7 +53,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vsg_material.h"
@@ -136,7 +135,7 @@ Texture* MeshInstance::FindMouthTexture()
 {
     Mesh* mesh = static_cast<Mesh*>(getModel());
     for (auto* mesh_part : meshParts(mesh)) {
-        MeshResources<Texture>* textures =
+        std::vector<std::shared_ptr<Texture>>* textures =
             damage_stage == -1 ? mesh_part->getPolygonTextureTable(0, 0, false)
                                : mesh_part->GetTextureTable(damage_stage_tables[damage_stage]);
         if (textures != nullptr) {

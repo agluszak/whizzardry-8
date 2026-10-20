@@ -19,7 +19,6 @@ struct W8Chunk;
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/transform.h"

@@ -20,7 +20,6 @@
 #include "wiz8/math.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -95,8 +94,8 @@ public:
         std::shared_ptr<Material> materials[4][2];
         std::shared_ptr<Texture> textures[4][2];
         DrawShader shaders[4];
-        MeshResources<Material>* vertex_materials[4][2]{};
-        MeshResources<Texture>* poly_textures[4][2]{};
+        std::vector<std::shared_ptr<Material>>* vertex_materials[4][2]{};
+        std::vector<std::shared_ptr<Texture>>* poly_textures[4][2]{};
         DrawShader* poly_shaders[4]{};
         const glm::ivec3* poly_uv[4]{};
         glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
@@ -123,12 +122,13 @@ public:
     void reindexVertices(std::span<const std::uint32_t> indices);
     TriMesh getTriMesh();
     std::shared_ptr<render::MeshAsset> renderAsset();
-    MeshResources<Texture>* getPolygonTextureTable(std::int32_t pass, std::int32_t layer,
-                                                   bool create);
+    std::vector<std::shared_ptr<Texture>>* getPolygonTextureTable(std::int32_t pass,
+                                                                  std::int32_t layer, bool create);
     glm::ivec3* getPolyVertex();
     glm::ivec3* getPolyUVIndex(std::int32_t layer, int table);
     glm::vec2* getVertexTexCoords(std::int32_t vertex, std::int32_t layer, int table);
-    MeshResources<Material>* getVertexMaterialTable(std::int32_t pass, e_side side, bool create);
+    std::vector<std::shared_ptr<Material>>* getVertexMaterialTable(std::int32_t pass, e_side side,
+                                                                   bool create);
     std::uint32_t* getVertexShadeIndex(int table);
     glm::vec3* getVertexNormal();
     glm::vec4* getPolyEq();
@@ -198,11 +198,10 @@ public:
     std::array<std::array<std::shared_ptr<Material>, 2>, MAX_PASSES> materials;
     std::array<std::array<std::shared_ptr<Texture>, 2>, MAX_PASSES> textures;
     std::array<DrawShader, MAX_PASSES> shaders;
-    // Assignment tables are created on demand. Their resource pools own each
-    // distinct material/texture once; vertices and polygons hold only indices.
-    std::array<std::array<MeshResources<Texture>, 2>, MAX_PASSES> poly_textures;
+    // Per-polygon texture and per-vertex material tables are created on demand.
+    std::array<std::array<std::vector<std::shared_ptr<Texture>>, 2>, MAX_PASSES> poly_textures;
     std::array<std::vector<DrawShader>, MAX_PASSES> poly_shaders;
-    std::array<std::array<MeshResources<Material>, 2>, MAX_PASSES> vertex_materials;
+    std::array<std::array<std::vector<std::shared_ptr<Material>>, 2>, MAX_PASSES> vertex_materials;
     std::vector<glm::ivec3> poly_vertices;
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
@@ -244,7 +243,7 @@ public:
     int CreateSkinTable(std::string_view name, int base_table);
     bool replaceSkinTexture(int table, std::string_view old_name,
                             const std::shared_ptr<Texture>& replacement);
-    MeshResources<Texture>* GetTextureTable(int table); /* 0x00473720 */
+    std::vector<std::shared_ptr<Texture>>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin or automap filter is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
@@ -297,7 +296,7 @@ public:
     struct Skin {
         int id;
         std::string name{"anonymous"};
-        MeshResources<Texture> textures;
+        std::vector<std::shared_ptr<Texture>> textures;
         // An absent selection draws all polygons; an engaged empty selection
         // draws none. The checked bit distinguishes that from a pending scan.
         std::optional<std::vector<std::uint32_t>> active_polygons;
