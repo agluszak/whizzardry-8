@@ -1903,7 +1903,25 @@ void NpcDialogueScenario()
     REQUIRE_FALSE(g_modal_owner);
     REQUIRE(TextFieldGroup::Focused() == transcript_fields);
     WaitDialogue(game, "keyword-reply", DialogueAwaitingPlayer);
+
+    // A portrait opens the camp over the conversation; leaving the camp takes it up again.
+    OpenCharacterScreenForPartySlot(PremadeSlot(), false);
+    game.wait_screen("camp-from-dialogue", W8_SCREEN_CAMP);
+    REQUIRE((CurrentGame().activity.conversation_aside && !CurrentGame().activity.conversation));
+    game.key(SDLK_ESCAPE);
+    WaitMainGame(game, "camp-left");
+    WaitDialogue(game, "dialogue-resumed", [&] {
+        return g_npc_interaction_state->dialogue_npc == burz && DialogueAwaitingPlayer();
+    });
+    REQUIRE_FALSE(CurrentGame().activity.conversation_aside);
+
+    // A skill increase that waited out the conversation is shown once the game is idle.
+    auto& deferred = CurrentGame().monster_manager_entries[PremadeSlot()].skill_notice_pending;
+    deferred[W8_SKILL_COMMUNICATION] = true;
+    game.frame();
+    REQUIRE(deferred[W8_SKILL_COMMUNICATION]);
     SayFarewell(game, "second-farewell");
+    game.wait("deferred-skill-notice", [&] { return !deferred[W8_SKILL_COMMUNICATION]; });
     std::printf("npc-dialogue: two visits after %lu frames\n", game.frames());
 }
 

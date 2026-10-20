@@ -2387,6 +2387,8 @@ void MainGameScreen::frame()
     }
     ApplyPendingMouselook();
     ApplyPendingTooltip();
+    if (std::exchange(resume_conversation, false)) SyncDialogueNpcStateAndMarkPending();
+    if (SkillIncreasesShownNow(CurrentGame())) FlushDeferredSkillNotices(CurrentGame());
     if (g_modal_owner && ProcessModalOwner()) RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     SyncWorldAdvancement();
     DrainNpcDialogueDeferralInput();

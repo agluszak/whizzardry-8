@@ -38,6 +38,9 @@ struct MainGameScreen final : Screen {
     bool lock_active = false;
     bool trap_active = false;
     bool resume_world = false;
+    /* The camp closed over a conversation set aside to open it; the next frame takes the
+       conversation up again. */
+    bool resume_conversation = false;
     /* The slot whose NPC the camp just dismissed; its portrait ignores input
        until the screen state is reset. */
     int dismissed_npc_slot = -1;
