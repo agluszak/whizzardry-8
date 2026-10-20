@@ -68,7 +68,7 @@ constexpr double kMissileGravityAcceleration = 0.009800000000000001;
    clamped half-tick delta, fold the returned advance into the elapsed clock,
    steer the representation while the path is unobstructed, and end the flight
    at expiry or an early-impact limit. */
-unsigned char UpdateMissileAI(MissileFlight* record)
+bool UpdateMissileAI(MissileFlight* record)
 {
     Missile* missile;
     glm::vec3 position;
@@ -82,12 +82,12 @@ unsigned char UpdateMissileAI(MissileFlight* record)
     unsigned int delta;
 
     if (record == 0) {
-        return 0;
+        return false;
     }
     missile = record->missile;
     if (missile->impacting) {
         if (!missile->align_explosion) {
-            return 1;
+            return true;
         }
         position = missile->nav.GetPosition();
         pitch = ElevationToTargetCPP(&position);
@@ -97,7 +97,7 @@ unsigned char UpdateMissileAI(MissileFlight* record)
         rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         missile->visual.SetRotation(&rotation);
-        return 1;
+        return true;
     }
     position = missile->nav.GetPosition();
     count = GameClockMilliseconds() >> 1;
@@ -107,7 +107,7 @@ unsigned char UpdateMissileAI(MissileFlight* record)
     }
     record->last_half_tick = count;
     if (CurrentGame().advancement.held) {
-        return 1;
+        return true;
     }
     advance = AdvanceMissileAI(record, &out, delta);
     remaining = missile->duration - record->elapsed + 1.0f;
@@ -135,10 +135,10 @@ unsigned char UpdateMissileAI(MissileFlight* record)
             !missile->nav.CheckNavigatorCollision(&position, &out)) {
             missile->EnterImpactCycle();
         }
-        return 1;
+        return true;
     }
     missile->Land();
-    return 1;
+    return true;
 }
 
 /* Predict the homing missile's next position `steps` half-ticks ahead and

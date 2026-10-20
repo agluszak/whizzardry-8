@@ -88,10 +88,10 @@ struct W8CharacterEvent {
 
     void Complete(); /* 0x0052CED0 */
 
-    unsigned char Dispatch(); /* 0x0052CA60 */
+    bool Dispatch(); /* 0x0052CA60 */
 
-    unsigned char IsConditionMet(unsigned int event_type); /* 0x0052C910 */
-    unsigned char PlayEventSound(std::string_view quote);                        /* 0x0052D260 */
+    bool IsConditionMet(unsigned int event_type); /* 0x0052C910 */
+    bool PlayEventSound(std::string_view quote);                        /* 0x0052D260 */
 };
 
 /* The character-event queue. Construction is at 0x0052D460; QueueEntry and the
@@ -135,7 +135,7 @@ struct W8CharacterEventQueue {
     void SetEventCharacterMask(unsigned int event_type, unsigned int party_slot, bool enabled);
     bool HasEventCharacter(unsigned int event_type, unsigned int party_slot); /* 0x0052DD90 */
     void ProcessDeferredCharacterEvents();                                    /* 0x0052DDD0 */
-    unsigned char TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
+    bool TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
     bool IsMainQueueEmpty() const;                                            /* 0x0052E470 */
     /* Unlink an active event, restart the follow-up clock for it, complete it
        and release it. Retail expands this body in the dispatch helpers as well

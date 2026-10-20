@@ -440,7 +440,7 @@ public:
         void render(const TriInput& input);
         /* the accumulated batch count passed the limit. Only
            immediate (non-sorted) renderers report full. */
-        int isBatchFull() const;
+        bool isBatchFull() const;
         /* Submit the accumulated batch to SDL GPU. */
         void submit();
         /* the immediate (sorted == 0) and
@@ -600,7 +600,7 @@ public:
     e_error getError();
 
     // RECOMP: ?isEnabled@GpuRenderer@@QBEHW4e_enable@1@@Z
-    int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
+    bool isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
 
 private:
     struct TextureCacheData {

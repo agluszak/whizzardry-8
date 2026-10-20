@@ -674,15 +674,14 @@ void ParticleSystem::SetActive(bool active)
     emitting = active;
 }
 
-unsigned char ParticleSystem::ReplaceTexture(std::string_view old_name,
-                                             std::shared_ptr<Texture> replacement)
+bool ParticleSystem::ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement)
 {
     if (texture && (!texture->source_path.empty() || texture->playback) &&
         CompareTextIgnoreAsciiCase(texture->getName(), old_name) == 0) {
         SetTexture(std::move(replacement));
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 void ParticleSystem::SetMaterial(std::shared_ptr<Material> new_material)

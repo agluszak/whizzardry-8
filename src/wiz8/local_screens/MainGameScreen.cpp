@@ -235,7 +235,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
 static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
 void RedrawTextBoxComplete(void);
-unsigned char HandleMouselookInput(const InputEvent* input);
+bool HandleMouselookInput(const InputEvent* input);
 
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot);
 void UpdateFormationPortraitRefresh(void);
@@ -1878,16 +1878,15 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
     m_dirty = false;
 }
 
-unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                              W8DialogueCategory category,
-                                                              char mark)
+bool W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
+                                                     W8DialogueCategory category, char mark)
 {
     int index;
     int added;
 
     for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
         if (CompareTextIgnoreAsciiCase(text_area.GetEntryText(index).value(), text) == 0) {
-            return 0;
+            return false;
         }
     }
     added = text_area.AddEntry({}, text, 0, 7, static_cast<unsigned char>(category));
@@ -1905,7 +1904,7 @@ unsigned char W8NpcDialogueTextController::AddTranscriptEntry(std::string_view t
             }
         }
     }
-    return 1;
+    return true;
 }
 
 bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int party_slot)
@@ -2360,7 +2359,7 @@ void SetMainGameMode(W8MainGameMode mode)
     g_main_game_mode = mode;
 }
 
-unsigned char ProcessMainGameInput(void)
+bool ProcessMainGameInput(void)
 {
     if (IsModalOpen()) return false;
     return PumpUiInput({
@@ -5306,19 +5305,19 @@ void ClearHighlightIfItIs(const int* item)
 /* Whether the screen is in one of the states that takes the player's input
    away. The first flag settles it outright; otherwise one state only counts
    while a further check disagrees, and three more count on their own. */
-int IsScreenInputBlocked(void)
+bool IsScreenInputBlocked(void)
 {
     if (gpSCSV) {
-        return 1;
+        return true;
     }
     if (CurrentGame().activity.conversation &&
         !(CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue)) {
-        return 1;
+        return true;
     }
     if (!IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft()) {
-        return 0;
+        return false;
     }
-    return 1;
+    return true;
 }
 
 /* Whether the screen is idle - none of the six overlays is up. The same six
@@ -5957,7 +5956,7 @@ void LoadMainGameCursorResources(void)
    look flag, and each mouse move accumulates yaw/pitch from the offset off
    the 320x240 anchor before recentering the cursor. Smoothing defers the
    apply to the frame tick; otherwise it applies immediately. */
-unsigned char HandleMouselookInput(const InputEvent* input)
+bool HandleMouselookInput(const InputEvent* input)
 {
     if (!g_camera_path_active &&
         (!CurrentGame().advancement.paused || CurrentGame().combat.has_value())) {
@@ -5965,10 +5964,10 @@ unsigned char HandleMouselookInput(const InputEvent* input)
         switch (us_event) {
         case InputEventType::LeftButtonDown:
             g_mouselook_left_held = true;
-            return 1;
+            return true;
         case InputEventType::LeftButtonUp:
             g_mouselook_left_held = false;
-            return 1;
+            return true;
         case InputEventType::MouseMove:
             g_mouselook_pending_yaw =
                 (input->position.x - 0x140) * g_mouselook_yaw_scale + g_mouselook_pending_yaw;
@@ -5980,12 +5979,12 @@ unsigned char HandleMouselookInput(const InputEvent* input)
             if (g_settings.mouselook_smoothing == 0) {
                 ApplyPendingMouselook();
             }
-            return 1;
+            return true;
         default:
             break;
         }
     }
-    return 0;
+    return false;
 }
 
 void PresentWorldAdvancement(bool held, bool hold_changed)
@@ -6534,7 +6533,7 @@ void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
     InvalidateLayout();
 }
 
-unsigned char HandleWorldResumeInput(const InputEvent* event)
+bool HandleWorldResumeInput(const InputEvent* event)
 {
     const InputEventType us_event = event->type;
 
@@ -6549,12 +6548,12 @@ unsigned char HandleWorldResumeInput(const InputEvent* event)
             goto resume_world;
         }
         if (us_event == InputEventType::MouseMove) {
-            return 1;
+            return true;
         }
     }
 
     if (g_mgs_keyboard.FindCommandForEvent(event) == W8_MGS_COMMAND_NONE) {
-        return 0;
+        return false;
     }
 
 resume_world:
@@ -6562,11 +6561,11 @@ resume_world:
         AcknowledgeSurprise();
     }
     if (!CurrentGame().advancement.paused) {
-        return 1;
+        return true;
     }
     CurrentGame().advancement.paused = false;
     SetWorldResumeInput(false);
-    return 1;
+    return true;
 }
 
 /* Note that the party's state changed. The combat half is only asked for while

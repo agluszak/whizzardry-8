@@ -380,7 +380,7 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
    per region the used-line count followed by each 0x24-byte record and its
    wide string. The record's first word is the string count including its
    terminator; its +0x18 pointer word is unused. */
-unsigned char SaveMessageStorage(wiz8::File& file)
+bool SaveMessageStorage(wiz8::File& file)
 {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -433,7 +433,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Read the four message runs back from the open TEXT chunk: a format dword,

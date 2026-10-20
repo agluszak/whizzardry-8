@@ -488,8 +488,8 @@ bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
 
 /* Push a candidate position clear of static geometry, then reject it when it
    overlaps another world item or monster. */
-unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
-                                           bool check_monsters)
+bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
+                                  bool check_monsters)
 {
     float threshold = radius * g_path_endpoint_scale;
     float angle = 0.0f;
@@ -518,7 +518,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
         second -= *position;
         float first_distance = glm::length(first);
         if (first_distance < threshold && glm::length(second) < threshold) {
-            return 0;
+            return false;
         }
         if (first_distance < threshold) {
             first = glm::dot(first, first) == 0
@@ -544,7 +544,7 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                 const auto other_radius = owner->GetBoundsRadius();
                 glm::vec3 delta = center - *position;
                 if (glm::length(delta) < other_radius + radius) {
-                    return 0;
+                    return false;
                 }
             }
         }
@@ -559,23 +559,23 @@ unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bo
                 float other_radius;
                 if (center && monster->GetAnimationRadius(&other_radius) &&
                     glm::length((*center - *position)) < other_radius + radius) {
-                    return 0;
+                    return false;
                 }
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Try the requested point first, then the two retail half-turn probe points
    around it; only an unobstructed probe is handed to the overlap resolver. */
-unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
-                                     bool check_monsters)
+bool FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
+                            bool check_monsters)
 {
     glm::vec3 candidate = *position;
     if (AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
         *position = candidate;
-        return 1;
+        return true;
     }
 
     float angle = 0.0f;
@@ -594,11 +594,11 @@ unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool che
         if (candidate == unblocked &&
             AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
             *position = candidate;
-            return 1;
+            return true;
         }
         angle += kQuarterTurn;
     } while (angle < g_camera_pi);
-    return 0;
+    return false;
 }
 
 LevelSpatialIndex* World::compiledIndex() const

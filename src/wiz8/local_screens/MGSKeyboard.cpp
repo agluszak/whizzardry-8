@@ -201,32 +201,32 @@ void ResetMGSKeyboardBindings()
    box consume key presses first; the record-mode console gates on its flag;
    everything else resolves to a bound MGS command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
-unsigned char HandleMainGameInputEvent(const InputEvent* input)
+bool HandleMainGameInputEvent(const InputEvent* input)
 {
     auto* text_fields = TextFieldGroup::Focused();
     if (IsTypingEvent(*input) && text_fields && text_fields->HandleInput(*input)) {
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         CurrentGame().activity.conversation) {
         HandleNpcDialogueKeyEvent(input);
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
         IsTrapInteractionActive() && TextBoxHandleKey(input) != 0) {
-        return 1;
+        return true;
     }
 
     if (IsRecordModeActive()) {
         if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
             HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
             ApplyRecordModeLine();
-            return 1;
+            return true;
         }
     } else {
         DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
     }
-    return 1;
+    return true;
 }
 
 void DispatchMGSCommand(W8MGSCommand command)
@@ -738,7 +738,7 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
     return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }
 
-unsigned char BuildKeyboardMenu(void)
+bool BuildKeyboardMenu(void)
 {
     int left, top, unused_4, unused_5, unused_6, unused_7;
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
@@ -801,7 +801,7 @@ unsigned char BuildKeyboardMenu(void)
             return UiResult::Handled;
         });
     RefreshKeyboardMenuRows();
-    return 1;
+    return true;
 }
 
 void EnableKeyboardMenuInput(void)

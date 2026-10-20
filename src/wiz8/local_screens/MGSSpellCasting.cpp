@@ -219,11 +219,11 @@ static void CreateSpellCastingViewControls(void)
 /* Opens the spell-casting view for one party slot: allocates and clears the
    view state, swaps the game mode, builds the panels and redirects the region
    sets the view takes over. */
-unsigned char OpenSpellCastingView(int party_slot)
+bool OpenSpellCastingView(int party_slot)
 {
 
     if (!IsPartySlotEligible(party_slot)) {
-        return 0;
+        return false;
     }
     UpdateScreenOverlays(0);
     gpSCSV = std::make_unique<W8SpellCastingView>();
@@ -248,7 +248,7 @@ unsigned char OpenSpellCastingView(int party_slot)
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     RequestRedrawCombatBar();
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    return 1;
+    return true;
 }
 
 /* Discard the picker, recompute layout and advancement policy, and resume

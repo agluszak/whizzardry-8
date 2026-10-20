@@ -199,12 +199,12 @@ GpuRenderer::Renderer::Renderer(const Parameters& parameters)
     statistics = {};
 }
 
-int GpuRenderer::Renderer::isBatchFull() const
+bool GpuRenderer::Renderer::isBatchFull() const
 {
     if (sorted == 0 && batch_limit < vertices.count) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 ShadedVertexArrays GpuRenderer::Renderer::allocVertexArray(std::uint32_t count)

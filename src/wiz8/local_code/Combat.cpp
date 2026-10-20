@@ -654,12 +654,12 @@ W8PartyAction GetEffectivePartyAction(void)
 /* Whether the party is engaged at all. Being told so outright settles it;
    otherwise, with nothing derived, one conscious character whose combat row is
    flagged is enough. */
-int IsPartyEngaged(void)
+bool IsPartyEngaged(void)
 {
     unsigned int party_slot;
 
     if (CurrentGame().combat->uiCurrentPartyActionStatus != W8_PARTY_ACTION_NOT_STARTED) {
-        return 1;
+        return true;
     }
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE) {
         for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -668,11 +668,11 @@ int IsPartyEngaged(void)
                 CurrentGame().party.characters[party_slot].highest_condition <
                     W8_CONDITION_ASLEEP &&
                 CurrentGame().combat->characters[party_slot].dead) {
-                return 1;
+                return true;
             }
         }
     }
-    return 0;
+    return false;
 }
 
 void RecordCharacterDeath(int party_slot)

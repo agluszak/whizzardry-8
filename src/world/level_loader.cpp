@@ -1204,7 +1204,7 @@ InterfaceBank BuildInterfaces(std::size_t count, const std::vector<ConditionalFa
 }
 }
 
-unsigned char LevelSpatialIndex::ReadWGDList(wiz8::File& file, int poly_type)
+bool LevelSpatialIndex::ReadWGDList(wiz8::File& file, int poly_type)
 {
     if (poly_type < 0 || poly_type > 2) throw std::runtime_error("invalid WGD poly type");
     wiz8::BinaryReader reader(file);
@@ -1214,7 +1214,7 @@ unsigned char LevelSpatialIndex::ReadWGDList(wiz8::File& file, int poly_type)
         VerticesCount() > std::numeric_limits<int>::max() - vertex_count ||
         SurfacesCount() > std::numeric_limits<int>::max() - face_count)
         throw std::runtime_error("invalid WGD record count");
-    if (!vertex_count && !face_count) return 0;
+    if (!vertex_count && !face_count) return false;
     if (!vertex_count || !face_count) throw std::runtime_error("incomplete WGD bank counts");
     if (poly_type == 0 && (VerticesCount() || SurfacesCount()))
         throw std::runtime_error("primary WGD bank already loaded");
@@ -1317,7 +1317,7 @@ unsigned char LevelSpatialIndex::ReadWGDList(wiz8::File& file, int poly_type)
     interface_names.swap(names);
     minimum = bank_min;
     maximum = bank_max;
-    return 1;
+    return true;
 }
 
 /* Answers the 1-based ordinal of the name-table entry matching `name`,
@@ -1430,26 +1430,26 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-unsigned char LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
+bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
 {
     if (reference == 0) {
         float difference = static_cast<float>(fabs(g_navigator_gravity + vector.y));
         if (g_navigator_gravity * kCameraSnapEpsilon < difference) {
-            return 1;
+            return true;
         }
         difference = static_cast<float>(fabs(forward_scale - g_camera_level_forward_scale));
         if (g_camera_level_forward_scale * kCameraSnapEpsilon < difference) {
-            return 1;
+            return true;
         }
         difference = static_cast<float>(fabs(motion_limit - g_default_motion_limit));
         if (g_default_motion_limit * kCameraSnapEpsilon < difference) {
-            return 1;
+            return true;
         }
         difference = static_cast<float>(fabs(momentum_scale - g_default_momentum_scale));
         if (g_default_momentum_scale * kCameraSnapEpsilon < difference) {
-            return 1;
+            return true;
         }
-        return 0;
+        return false;
     }
 
     float scale = g_navigator_gravity / -reference->gravity_y;
@@ -1459,7 +1459,7 @@ unsigned char LevelEnvironment::RescaleToReference(const LevelEnvironment* refer
     forward_scale *= g_camera_level_forward_scale / reference->forward_scale;
     motion_limit *= g_default_motion_limit / reference->motion_limit;
     momentum_scale *= g_default_momentum_scale / reference->momentum_scale;
-    return 0;
+    return false;
 }
 
 /* Read the processed GameData header and all of its variable-size banks. */
@@ -1588,10 +1588,10 @@ void LevelSpatialIndex::initializeCollision()
 /* Build the processed level's spatial index once and publish every surface
    from its primary 0x4c-byte bank.  The constructor expands only local bounds,
    leaving the serialized GameData limits unchanged. */
-unsigned char BuildCollisionIndex(LevelSpatialIndex* game_data)
+bool BuildCollisionIndex(LevelSpatialIndex* game_data)
 {
     if (game_data == 0) {
-        return 0;
+        return false;
     }
 
     glm::vec3 minimum = game_data->minimum;
@@ -1604,10 +1604,10 @@ unsigned char BuildCollisionIndex(LevelSpatialIndex* game_data)
     for (int index = 0; index < game_data->SurfacesCount(); ++index) {
         if (game_data->geometry_index->InsertSurface(&game_data->m_pSurfaces[index],
                                                      game_data->m_pVertices) == 0) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Rebuild one indexed surface plane and derive the runtime classification

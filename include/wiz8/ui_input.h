@@ -35,7 +35,7 @@ bool UiModalActive();
 void ReleaseUiCapture();
 std::size_t LiveUiTargetCount();
 std::size_t LiveUiLayerCount();
-unsigned char InitializeUiHelp();
+bool InitializeUiHelp();
 void UpdateUiHelp();
 void ResetUiHelp(bool delayed);
 void SetUiHelpDelay(int delay_ms);

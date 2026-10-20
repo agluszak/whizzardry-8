@@ -63,8 +63,8 @@ public:
     void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
     void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
     unsigned char LookAt(const glm::vec3* target, bool preserve_pitch); /* 0x00476F90 */
-    unsigned char ComputeTrackingOrientation(const glm::vec3* target, float* angle,
-                                             float* pitch); /* 0x00477180 */
+    bool ComputeTrackingOrientation(const glm::vec3* target, float* angle,
+                                    float* pitch); /* 0x00477180 */
     unsigned char BeginOrientationTransition(float target_pitch, float target_angle,
                                              bool force); /* 0x00477440 */
     void Update(float elapsed); /* 0x004776A0 */

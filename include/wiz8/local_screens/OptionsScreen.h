@@ -244,7 +244,7 @@ public:
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SelectKey(W8OptionsKeyButton* key);
-    unsigned char OnKey(SDL_Keycode key, unsigned short modifiers);
+    bool OnKey(SDL_Keycode key, unsigned short modifiers);
     void OnDialogClosed(bool accepted, int value);
     void ClearDuplicateBinding(SDL_Keycode key);
     void RefreshBindingLabels();

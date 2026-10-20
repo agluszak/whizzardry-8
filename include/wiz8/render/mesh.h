@@ -274,7 +274,7 @@ public:
     void ClearVertexLights();
     void SetAmbientColor(const glm::vec3& color, const glm::vec3& environment = glm::vec3(0),
                          float brightness = 1.0f);
-    unsigned char AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
+    bool AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
     std::span<glm::vec3> GetVertexLights(bool initialize, int table); /* 0x00472100 */
     std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
@@ -283,8 +283,8 @@ public:
     /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
        is not resident. Invalid frames and empty meshes return zero bounds. */
     BoundingBox GetFrameBounds(int frame);
-    unsigned char DecompressFrame(int frame, unsigned char flags,
-                                  std::span<glm::vec3> destination); /* 0x00471930 */
+    bool DecompressFrame(int frame, unsigned char flags,
+                         std::span<glm::vec3> destination); /* 0x00471930 */
     void ComputeFrameNormals(int frame); /* 0x004729F0 */
     void ClearAutomapPolygonFilter();
     void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
@@ -366,4 +366,4 @@ extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
 /* Release least-recently-used decompressed frame caches until `needed` bytes
    have been freed; 0 when the registry cannot supply them. A requesting model
    is retained because its renderer may already hold borrowed frame pointers. */
-unsigned char ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model = nullptr);
+bool ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model = nullptr);

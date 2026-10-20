@@ -958,7 +958,7 @@ bool Monster::HasLineOfSightFromPoint(glm::vec3 point)
     return !GetWorldSpatialIndex()->traceSight(point, monster_position);
 }
 
-int Monster::IsFacingMonster(Monster* monster)
+bool Monster::IsFacingMonster(Monster* monster)
 {
     float bearing;
     float facing;
@@ -975,7 +975,7 @@ int Monster::IsFacingMonster(Monster* monster)
     return fabs(bearing - facing) <= g_monster_facing_tolerance;
 }
 
-int Monster::IsFacingPlayer()
+bool Monster::IsFacingPlayer()
 {
     float bearing;
     float facing;
@@ -1266,33 +1266,33 @@ float Monster::GetPointDistanceToMonster(Monster* monster, glm::vec3 point)
 /* Decide whether a requested cycle can replace the current one. Monster adds
    combat, motionless, and death rules to CyclePlayer's primary-table operation;
    Navigator's distinct slot 3 remains inherited in the secondary table. */
-unsigned char Monster::CanEnterCycle(signed char cycle)
+bool Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
     if (CurrentGame().combat.has_value() && partyCamera().m_transition_active) {
-        return 0;
+        return false;
     }
     if (visual.animation_playing == 0) {
         if (cycle != W8_MONSTER_CYCLE_GET_HIT && cycle != W8_MONSTER_CYCLE_DIE &&
             cycle != W8_MONSTER_CYCLE_BIRTH && monster_info->fMotionless) {
             if (!g_dev_mode) {
-                return 0;
+                return false;
             }
             Fail("FALSE");
-            return 0;
+            return false;
         }
     } else {
         if (!IsCycleInterruptable(static_cast<signed char>(Query(W8_MONSTER_QUERY_CYCLE))) &&
             Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) == 0) {
-            return 0;
+            return false;
         }
         if (cycle == W8_MONSTER_CYCLE_DIE && monster_info->monster_species == 0x199 &&
             Query(W8_MONSTER_QUERY_AT_PLAYBACK_END) == 0) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return true;
 }
 
 /* Report whether a cycle may be interrupted. The original diagnostic names

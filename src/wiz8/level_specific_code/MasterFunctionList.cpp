@@ -413,14 +413,14 @@ int NormalizeMasterFunctionValue(int value)
 
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
-unsigned char ShowLevelMessage(int message_id)
+bool ShowLevelMessage(int message_id)
 {
     const std::string text = GetStringFromStringDatabase(LevelMessagePath(), message_id, 0, 0);
     if (!text.empty()) {
         ShowString(text);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 std::unique_ptr<LevelScript> MakeLevelScript(int level, const ScriptContext& context)

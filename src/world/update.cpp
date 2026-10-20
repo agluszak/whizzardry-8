@@ -107,7 +107,7 @@ void FinalizeStaticScene(World& world)
    faces the light accumulates diffuse attenuated by range into its vertex
    light. "Sun"-prefixed lights bake into the sunlight array instead and are
    skipped here. `walk_chain` limits the light walk to the first sibling. */
-unsigned char BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights)
+bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights)
 {
     auto world = instance->transform.matrix<glm::mat4>();
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
@@ -118,7 +118,7 @@ unsigned char BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light
         if (count <= 0) continue;
         const auto vertex_lights = mesh->GetVertexLights(true, -1);
         mesh->GetVertexSunlight(true);
-        if (vertex_lights.empty()) return 0;
+        if (vertex_lights.empty()) return false;
         if (lights.empty()) continue;
         auto* vertex_materials = mesh->getVertexMaterialTable(0, Mesh::SIDE_FRONT, false);
         auto* base_material = mesh->getMaterial(0, Mesh::SIDE_FRONT);
@@ -161,7 +161,7 @@ unsigned char BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light
             }
         }
     }
-    return 1;
+    return true;
 }
 
 /* Bake the dynamic scene's light children into every not-yet-lit model
@@ -177,7 +177,7 @@ void FinalizeWorldScenes(WorldScene& scene)
 
 /* Bake dynamic-scene lights into one not-yet-lit model instance. render_flags
    bit 1 is the lit marker. */
-unsigned char BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scene)
+bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scene)
 {
     if (!(instance->render_flags & MeshInstance::RENDER_LIGHTING_BAKED)) {
         instance->render_flags |= MeshInstance::RENDER_LIGHTING_BAKED;
@@ -187,7 +187,7 @@ unsigned char BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldSc
             if (light->bake_into_mesh) lights.push_back(light);
         BakeInstanceVertexLighting(instance, lights);
     }
-    return 1;
+    return true;
 }
 
 /* Walk every live world mesh (octree mesh table, or the update-mesh chain when

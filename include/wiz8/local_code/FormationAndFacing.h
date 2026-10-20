@@ -72,7 +72,7 @@ int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the party faces a world point. */
 bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point);
 /* Whether the second monster looks away from the first. */
-int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
+bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the monster sits on the screen side the character
    faces. */
 bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info);
@@ -80,7 +80,7 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info);
 void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info);
 /* Whether the monster is on the side opposite the character's
    facing. */
-int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot);
+bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot);
 /* Face the character toward its committed combat slot's target;
    asserts the slot ids are not BAD_INDEX. */
 void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target);

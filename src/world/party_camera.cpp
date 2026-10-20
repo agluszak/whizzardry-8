@@ -207,8 +207,7 @@ unsigned char PartyCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
     return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false);
 }
 
-unsigned char PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle,
-                                                      float* pitch)
+bool PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle, float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
     if (MainGameHud()->camera_mode == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
@@ -241,12 +240,12 @@ unsigned char PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, f
         if (*pitch > g_camera_pitch_upper || *pitch < g_camera_pitch_lower) {
             *pitch = m_pitch;
         }
-        return 0;
+        return false;
     }
 
     *angle = m_yaw;
     *pitch = m_pitch;
-    return 1;
+    return true;
 }
 
 unsigned char PartyCamera::BeginOrientationTransition(float target_pitch, float target_angle,

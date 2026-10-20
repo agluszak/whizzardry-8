@@ -112,7 +112,7 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 /* Rebuild every logged line's word hit boxes for the current text-box font. */
 void RebuildMessageLogWords(void);
 /* Write the four message runs into the open TEXT chunk. */
-unsigned char SaveMessageStorage(wiz8::File& file);
+bool SaveMessageStorage(wiz8::File& file);
 /* Rebuild the four message runs from the open TEXT chunk, written beside a status record
    of `status_version`. */
 unsigned char LoadMessageStorage(W8Chunk& file, float status_version);

@@ -1,8 +1,8 @@
 #pragma once
 
-/* Creates the combat party-movement panel and its two buttons; returns zero
+/* Creates the combat party-movement panel and its two buttons; returns false
    when an allocation fails. */
-unsigned char CreatePartyMovementPanel(void);
+bool CreatePartyMovementPanel(void);
 /* Releases the party-movement panels and clears the
    combat-UI teardown flag; called when the party regains movement. */
 void ReleasePartyMovement(void);

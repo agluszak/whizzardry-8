@@ -82,7 +82,7 @@ const float g_radar_center_x = 75.0f;
 const float g_radar_max_marker_scale = 38.0f;
 
 static OverlayQuad* AcquireRadarBlip(int sector, bool lit);
-static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit);
+static bool PlaceRadarBlip(glm::vec3* delta, int group, bool lit);
 
 static void ResetRadarBlips()
 {
@@ -377,7 +377,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
     }
 }
 
-static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
+static bool PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
 {
     int ring = 0;
     int left;
@@ -421,7 +421,7 @@ static unsigned char PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
     }
     OverlayQuad* blip = AcquireRadarBlip(ring + group * 3, lit);
     positionOverlay(blip, left, top, false);
-    return 1;
+    return true;
 }
 
 void ToggleRadarMapZoom(void)

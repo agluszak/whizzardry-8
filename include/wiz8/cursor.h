@@ -13,7 +13,7 @@ class WorldScene;
 
 struct OverlayQuad;
 extern std::unique_ptr<OverlayQuad> g_cursor_node;
-unsigned char InitializeMouseCursorScene(void);
+bool InitializeMouseCursorScene(void);
 
 class Texture;
 
@@ -53,7 +53,7 @@ std::uint64_t GetMillisecondsSinceCursorMove(void);
 /* 0x00428520: whether the current cursor hotspot is inside the inclusive
    rectangle (left, top, right, bottom). */
 bool IsCursorInRectangle(int left, int top, int right, int bottom);
-unsigned char GetCursorPositionInViewport(glm::vec2* position);
+bool GetCursorPositionInViewport(glm::vec2* position);
 /* The tracked cursor tip in normalized screen coordinates. */
 glm::vec2 GetCursorScaledPosition();
 void UpdateHeldItemCursor(void);

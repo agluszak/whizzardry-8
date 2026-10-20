@@ -71,7 +71,7 @@ void SetCameraLightMode(W8CameraLightMode mode);
 void RefreshFogRanges(World& world);
 
 void SetViewDistance(float distance);
-unsigned char InitializeEnvironmentColours(void);
+bool InitializeEnvironmentColours(void);
 
 /* Whether day/night lighting is active, fading, or faded out. */
 enum class W8EnvironmentLightingMode : unsigned char { FadedOut, Transition, DayNight };

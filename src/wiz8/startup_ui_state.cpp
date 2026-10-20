@@ -8,10 +8,10 @@
 int g_ui_help_delay;
 uint64_t g_ui_help_clock;
 
-unsigned char InitializeUiHelp(void)
+bool InitializeUiHelp(void)
 {
     g_ui_help_delay = g_settings.tooltip_delay_ms;
     g_ui.ClearPointer();
     g_ui_help_forced = false;
-    return 1;
+    return true;
 }

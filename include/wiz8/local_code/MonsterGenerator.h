@@ -29,7 +29,7 @@ struct MonGen {
        generator's chance. */
     bool CanGenerateEncounter(bool force);
     /* Selects and spawns the encounter table entry at `position`. */
-    unsigned char GenerateEncounter(const glm::vec3* position);
+    bool GenerateEncounter(const glm::vec3* position);
     /* Choose an entry for the current rarity/time/party level, or return null. */
     const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTable& table);
     /* Difficulty-aware group-size roll for one monster database record. */

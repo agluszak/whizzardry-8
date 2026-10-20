@@ -36,9 +36,8 @@ std::unique_ptr<MeshInstance> CreateModelInstance(std::shared_ptr<Mesh> model);
 
 void FinalizeWorldScenes(WorldScene& scene);
 /* Mark an instance lit and bake dynamic-scene lights once (render_flags bit 1). */
-unsigned char BakeInstanceVertexLightingIfNeeded(MeshInstance* instance,
-                                                 WorldScene* scene); /* 0x0046F4A0 */
-unsigned char BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights);
+bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scene); /* 0x0046F4A0 */
+bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights);
 void SetSceneMeshShaderBit3(WorldScene* scene, int argument);
 void SetSceneMeshShaderLowBits(WorldScene* scene, int argument);
 /* 0x0046F760: assign every live world's mesh vertex-light table index and

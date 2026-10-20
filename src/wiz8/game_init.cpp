@@ -28,7 +28,7 @@
 /* The data bring-up gate the native application initializes last. It stamps
    the version string, opens the string data, then walks every database loader
    in turn, abandoning the sequence the moment one fails. */
-unsigned char InitializeGame(bool load_at_startup, const std::string& string_data_override)
+bool InitializeGame(bool load_at_startup, const std::string& string_data_override)
 {
     const auto version = FormatVersionBanner(true, true, true);
 
@@ -37,7 +37,7 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
                                          ? std::string_view(string_data_override)
                                          : "Data\\Strings\\StringData.DAT"));
     } catch (const std::exception&) {
-        return 0;
+        return false;
     }
     const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
@@ -46,13 +46,13 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     SetGameEventObserver(PresentGameEvent);
     SetShadeTablePercent((float)0.66);
     if (!InitializeMenuFonts()) {
-        return 0;
+        return false;
     }
     InitializeButtonImageManager();
     InitializeUiHelp();
     UpdateHeldItemCursor();
     if (!VerifyDataSubdirs()) {
-        return 0;
+        return false;
     }
     if (const auto save = load_at_startup ? FindStartupQuickSave() : std::nullopt) {
         RequestScreen({.id = W8_SCREEN_PLEASE_WAIT,
@@ -66,10 +66,10 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
         ShutdownWithErrorBox("Could not load hit sound database!");
     }
     if (!InitializeMusicPlaylist()) {
-        return 0;
+        return false;
     }
     g_texture_cache_enabled = true;
-    return 1;
+    return true;
 }
 
 void ShutdownGame(bool save_configuration)

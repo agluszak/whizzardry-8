@@ -38,7 +38,7 @@ struct W8WorldItem {
 std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
                                              int entity_flags);
 W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item);
-unsigned char SettleWorldItem(W8WorldItem* item);
+bool SettleWorldItem(W8WorldItem* item);
 std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags);
 
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);

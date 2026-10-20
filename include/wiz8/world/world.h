@@ -170,10 +170,10 @@ void SetWorldScenePosition(World* world, const glm::vec3* position);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
                       glm::vec3* direction);
-unsigned char AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
-                                           bool check_monsters);
-unsigned char FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
-                                     bool check_monsters);
+bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
+                                  bool check_monsters);
+bool FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
+                            bool check_monsters);
 
 // Loaded-level lookup precedes the sky; names retain their exact asset spelling.
 Light* FindWorldLight(World& world, std::string_view name);

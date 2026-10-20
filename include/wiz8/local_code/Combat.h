@@ -85,7 +85,7 @@ bool CreateCharacterBreathEffect(int party_slot);
 ActionStep ExecuteCharacterSpecialAttack(int party_slot);
 void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify);
-int IsPartyEngaged(void);
+bool IsPartyEngaged(void);
 W8PartyAction GetEffectivePartyAction(void);
 void RecordCharacterDeath(int party_slot);
 void DropCharacterFromRound(int party_slot);

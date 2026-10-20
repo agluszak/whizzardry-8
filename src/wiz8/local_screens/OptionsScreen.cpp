@@ -816,17 +816,17 @@ void W8OptionsKeyboardPanel::SetActive(bool active)
     SelectKey(nullptr);
 }
 
-unsigned char W8OptionsKeyboardPanel::OnKey(SDL_Keycode key, unsigned short modifiers)
+bool W8OptionsKeyboardPanel::OnKey(SDL_Keycode key, unsigned short modifiers)
 {
     if (modifiers != 0) {
-        return 0;
+        return false;
     }
     if (key != SDLK_ESCAPE) {
         ClearDuplicateBinding(key);
     }
     m_captured_button->SetKey(key);
     SelectKey(nullptr);
-    return 1;
+    return true;
 }
 
 void W8OptionsKeyboardPanel::OnDialogClosed(bool accepted, int)
