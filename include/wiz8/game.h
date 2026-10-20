@@ -16,6 +16,7 @@
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/story.h"
 
 struct World;
@@ -73,6 +74,9 @@ public:
     W8CharacterEventQueue speech;
     W8GameTimer gameplay_timer{300.0f, false};
     W8MonsterManagerEntry monster_manager_entries[8]{};
+    /* The marching order being planned. The formation panel stages its edits here, and in
+       a fight the party takes it when the round ends. */
+    W8PartyFormationState planned_formation{};
     // A camp or rest may be interrupted by an ambush.
     bool surprise_possible = false;
     // The combat movement phase: the party walks to a new position before acting.
@@ -98,6 +102,9 @@ public:
     // When monster sight and the nearby world items are next refreshed.
     std::uint64_t sight_deadline = 0;
     std::uint64_t world_items_deadline = 0;
+    /* Experience was awarded or the main game entered, so the level-up-ready notices are
+       checked again once the interface is idle. */
+    bool level_up_check_due = false;
     // The timed autosave has announced itself and saves on its next tick.
     bool save_notice_shown = false;
 

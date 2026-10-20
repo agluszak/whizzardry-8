@@ -78,7 +78,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 constexpr int kInfoDialogY = 0x61;
 
@@ -227,8 +226,11 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
         LearnSpellFromItem(screen.reviewed, item);
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
-            gXStatus.item_drag = W8ItemDrag{location, screen.ReviewedPartySlot()};
-            CurrentGame().aging_held = true;
+            if (auto* main_game = MainGame()) {
+                main_game->item_drag =
+                    MainGameScreen::ItemDrag{.item = location, .actor = screen.ReviewedPartySlot()};
+                CurrentGame().aging_held = true;
+            }
         } else {
             if (!(CurrentGame().party.held.item.iItemNo != -1)) {
                 MarkCampCharacterPending(item);
@@ -380,7 +382,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
     if (item_action == W8_CAMP_ITEM_ACTION_NONE) {
         return;
     }
-    switch (gXStatus.iTargetingMode) {
+    switch (TargetingMode()) {
     case W8_TARGET_NEED_ALLY:
         if ((item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&

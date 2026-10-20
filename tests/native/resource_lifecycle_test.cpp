@@ -63,7 +63,6 @@
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 extern SDLSurfaceOwner g_automap_surface;

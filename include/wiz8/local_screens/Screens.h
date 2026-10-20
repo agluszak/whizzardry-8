@@ -13,6 +13,13 @@ void RefreshPartySlotDisplay(unsigned int party_slot);
 void InitializeMainGameLevelBlock(void);
 void SetTargetCursor(int cursor);
 void ApplyCurrentCursor(void);
+/* The main-game cursor-table slot the pointer shows: W8_CURSOR_NONE for the default
+   arrow, W8_CURSOR_INVALID_TARGET also for a custom image. */
+int ShownCursor();
+// A custom image (the held item, a formation drag, an automap tool) replaced the pointer.
+void ShowCustomCursor();
+// Step a multi-frame cursor's animation when its frame is due.
+void AnimateShownCursor();
 void RequestPartySlotRedraw(int bit);
 void RequestExitScreen(void);
 std::unique_ptr<Screen> CreateExitScreen();

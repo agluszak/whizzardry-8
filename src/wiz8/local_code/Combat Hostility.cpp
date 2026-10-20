@@ -50,7 +50,6 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 /* Species 0x224 never counts: both directions answer zero before anything
    else is read. */

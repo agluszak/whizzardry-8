@@ -15,7 +15,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/retail_text_records.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 unsigned int monster_database_count;
@@ -26,9 +25,6 @@ unsigned int MonsterDatabaseCount()
     return monster_database_count;
 }
 
-/* Packed gXStatus named by the database and manager assertions. Record
-   arrays remain separate roots at their own addresses. */
-W8XStatus gXStatus;
 /* Persistent database roots owned by this translation unit.  Leaving these as
    unresolved externals made the runnable image relocate every load/store to
    the PE image base; the first four-byte count read consequently targeted a

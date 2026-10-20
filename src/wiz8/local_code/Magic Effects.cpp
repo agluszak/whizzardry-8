@@ -85,7 +85,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kCameraShakeIntensityBase = 0.7900000214576721f;
 

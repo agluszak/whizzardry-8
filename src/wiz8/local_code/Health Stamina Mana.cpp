@@ -58,7 +58,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
-#include "wiz8/xstatus.h"
 
 /* Local Code\Health Stamina Mana.cpp, named by the assertions these bodies
    embed. The party sweeps in here all share one shape: walk the eight party

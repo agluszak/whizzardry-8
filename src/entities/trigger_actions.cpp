@@ -96,7 +96,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 class W8DialogBase;
 

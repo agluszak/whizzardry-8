@@ -188,7 +188,10 @@ Unlayered code may use the layers.
   way. The game clock (`UpdateGameClock`: turns, aging, recharges, fatigue) runs only in
   the world, fed by the environment clock and by the rounds of a fight there; aging also
   waits while `aging_held`, which the screens set while the camp's Use hands an item to
-  the use-item picker.
+  the use-item picker (`MainGameScreen::item_drag`).
+- **The planned formation.** `Game::planned_formation` is the marching order being
+  planned: the formation panel stages its edits there, and in a fight the party takes it
+  when the round ends. Joins, departures and conditions keep it in step with the party.
 - **Stepping.** `Game::advance` (`game_advance.cpp`) is the world's simulation step, in
   retail order: the surprise sequence, autosave pacing, the worlds' props, the monster
   manager, movement fatigue and the search sweep (or the combat turn in a fight), combat

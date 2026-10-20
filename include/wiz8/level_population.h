@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
 #include <memory>
 #include <vector>
 
@@ -51,3 +52,7 @@ struct W8LevelPopulation {
 };
 
 W8LevelPopulation& CurrentLevelPopulation();
+/* Bounded queries into the current level; absent levels resolve to null. */
+W8MonsterInfo* GetMonsterListEntry(std::ptrdiff_t index);
+W8MonsterInfo* GetUnbornMonsterEntry(int index);
+W8WorldItem* GetWorldItemListEntry(int index);

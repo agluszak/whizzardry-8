@@ -51,7 +51,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static std::vector<unsigned int> ReadFrame()
 {

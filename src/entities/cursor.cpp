@@ -39,7 +39,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 constexpr float kCursorGroundHeightSentinel = -10000000.0f;
 constexpr float kCursorGroundProbeLift = 25.0f;
@@ -416,7 +415,7 @@ void UpdateWorldCursor(void)
     ApplyWorldCursorInput();
     position = cursor.position;
     if (!IsLeftButtonHeld()) {
-        if (cursor.left_held && gXStatus.iTargetingMode == W8_TARGET_NEED_PLACE) {
+        if (cursor.left_held && TargetingMode() == W8_TARGET_NEED_PLACE) {
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 !GetWorldSpatialIndex()->traceSight(camera, resolved)) {

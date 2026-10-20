@@ -39,6 +39,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
@@ -61,7 +62,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 static void DrawDamageSplatOverlay(unsigned int party_slot);
 void DrawPortraitEffectIcon(unsigned int party_slot);
@@ -930,7 +930,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             int highlight_catalog;
 
             highlight_y = menu_y;
-            if (!highlighted || (IsLeftButtonHeld() && !gXStatus.fReviewCharacterMode) ||
+            if (!highlighted || (IsLeftButtonHeld() && !FormationPanelOpen()) ||
                 (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
                  g_level_block->portrait_flash != 0)) {
                 if (CurrentGame().status.selected_character != static_cast<int>(party_slot)) {

@@ -100,7 +100,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -625,7 +624,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         wiz8::sound::play(s_general_magic_sound);
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
-    gXStatus.item_drag.reset();
+    if (auto* main_game = MainGame()) main_game->item_drag.reset();
     CurrentGame().aging_held = false;
     CreatePartyPortraitEventRegions();
     CreateCampInput();
@@ -705,7 +704,7 @@ void CampScreen::frame()
             InvalidateAll();
         }
     }
-    if (gXStatus.level_up_notice && SuspendedScreen() != W8_SCREEN_CHARACTER &&
+    if (CurrentGame().level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
         !CurrentGame().combat.active() && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }

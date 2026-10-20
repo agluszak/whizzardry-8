@@ -48,7 +48,6 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
 

@@ -54,7 +54,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 unsigned short g_action_kind_message_ids[12] = {
     0x050f, 0x0510, 0x0511, 0x0512, 0x0513, 0x0514, 0x0515, 0x0516, 0x0517, 0x0518, 0x0519, 0x051a,
@@ -262,7 +261,7 @@ static void SubMenuPanelCloseButton(W8ButtonWidget* button)
 
 static void SubMenuPanelFormationButton(W8ButtonWidget* button)
 {
-    if (!gXStatus.fReviewCharacterMode) {
+    if (!FormationPanelOpen()) {
         OpenFormationPanel();
     } else {
         CloseFormationPanel();
@@ -350,7 +349,7 @@ void UpdateCombatStanceButtons(void)
     for (index = 0; index < 5; ++index) {
         MainGame()->hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
-    if (!gpSCSV && !ItemUseDraft() && !gXStatus.fReviewCharacterMode) {
+    if (!gpSCSV && !ItemUseDraft() && !FormationPanelOpen()) {
         enabled = true;
     } else {
         enabled = false;
@@ -889,7 +888,7 @@ void UpdateSubMenuPanelButtons(void)
         !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !gpSCSV &&
         !ItemUseDraft() && g_level_block->combat_end_notification == -1 && AnyCharacterEngaged()) {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
-        if (!gXStatus.fReviewCharacterMode) {
+        if (!FormationPanelOpen()) {
             if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {
                 MainGame()->hud_buttons.submenu_panel[1].SetPressed(false);
             }

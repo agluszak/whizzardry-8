@@ -48,8 +48,11 @@
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
@@ -147,7 +150,6 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 
@@ -838,14 +840,14 @@ void FormationUiScenario()
     const int destination_row = (original_row + 1) % 5;
     const auto destination = center(destination_row * 3);
     const auto begin_drag = [&] {
-        const auto& position = gXStatus.edited_formation.positions[slot];
+        const auto& position = CurrentGame().planned_formation.positions[slot];
         const auto source = center(position.bQuadrant * 3 + position.bQuadrantSlot);
         game.press_at(source.x, source.y);
         REQUIRE(g_ui.captured != 0);
         for (int frame = 0; frame < 5; ++frame) game.frame();
         REQUIRE(g_ui.captured != 0); // Below the 250 ms hold threshold.
         REQUIRE(game.within_frames(60, [] { return g_ui.captured == 0; }));
-        REQUIRE(gXStatus.iCurrentCursor == W8_CURSOR_INVALID_TARGET);
+        REQUIRE(ShownCursor() == W8_CURSOR_INVALID_TARGET);
     };
     const auto drop_at = [&](SDL_Point point) {
         game.release_at(point.x - g_cursor_hotspot_x, point.y - g_cursor_hotspot_y);
@@ -853,32 +855,32 @@ void FormationUiScenario()
 
     OpenFormationPanel();
     game.frame();
-    REQUIRE(gXStatus.fReviewCharacterMode);
+    REQUIRE(FormationPanelOpen());
     begin_drag();
     drop_at(destination);
-    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == destination_row);
     REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == original_row);
 
     // Reset preserves the live formation; dropping on the panel edge cancels.
     game.click_at(242, 278);
-    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == original_row);
     begin_drag();
     drop_at({220, 70});
-    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == original_row);
 
     begin_drag();
     drop_at(destination);
     game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
-    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination_row);
     REQUIRE(g_ui.captured == 0);
 
     OpenFormationPanel();
     game.frame();
-    REQUIRE(gXStatus.fReviewCharacterMode);
+    REQUIRE(FormationPanelOpen());
     REQUIRE(OverlayPixel({320, 180}));
     game.click_at(394, 276); // Cancel after re-entry.
-    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
     REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination_row);
 }
@@ -1146,7 +1148,7 @@ void InventoryChestScenario()
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), gXStatus.iTargetingMode, (CurrentGame().party.held.item.iItemNo != -1),
+    CAPTURE(ItemUseDraft(), TargetingMode(), (CurrentGame().party.held.item.iItemNo != -1),
             potion.stack_count, CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
@@ -1303,9 +1305,9 @@ void CheckGameplayUi(GameHarness& game)
     }};
     game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
               {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
-    REQUIRE(gXStatus.edited_formation.positions[slot].bQuadrant == destination / 3);
+    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == destination / 3);
     game.click_at(360, 276);
-    REQUIRE_FALSE(gXStatus.fReviewCharacterMode);
+    REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination / 3);
     CurrentGame().party.formation = original_formation;
     RefreshFormationBoard();
@@ -2141,7 +2143,7 @@ void PrintState(GameHarness& game)
     if (const auto* camp = FindScreen<CampScreen>())
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                     camp->ReviewedPartySlot(), int(camp->page), int(camp->items.action()),
-                    camp->dialog != nullptr, int(gXStatus.iTargetingMode));
+                    camp->dialog != nullptr, int(TargetingMode()));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.rows[slot].fOccupied) {

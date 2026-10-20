@@ -28,7 +28,6 @@
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -83,7 +82,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 // A game in progress with an empty level world.
 struct LevelWorldFixture : ScopedGame {
@@ -229,7 +227,6 @@ static bool gameplayCollectionLifetime()
     REQUIRE(!RemoveMonster(live, W8MonsterRemoval::Unload));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
-    gXStatus = {};
     *GetWorld()->population = {};
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
     REQUIRE(CurrentLevelPopulation().encounter_groups.empty());
@@ -416,7 +413,6 @@ static bool visibilityRecordLifetime()
     ReleaseMonToMonVisibilityList(&observer);
     REQUIRE(!observer.monster_visibility);
     ReleaseMonToMonVisibilityList(&observer);
-    gXStatus = {};
     return true;
 }
 
@@ -1129,8 +1125,6 @@ namespace {
 // The active party as an inventory command sees it outside a running game.
 struct ScopedActiveParty {
     ScopedGame game;
-    int cursor = std::exchange(gXStatus.iCurrentCursor, W8_CURSOR_NONE);
-    ~ScopedActiveParty() { gXStatus.iCurrentCursor = cursor; }
 };
 
 W8Character& PrepareMember(unsigned int slot)

@@ -21,7 +21,6 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/xstatus.h"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into

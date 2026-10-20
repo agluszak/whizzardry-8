@@ -20,7 +20,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/xstatus.h"
 
 char g_submenu_icons_path[] = "Data\\Main Interface\\icons_standard.sti";
 char g_submenu_combat_icons_path[] = "Data\\Main Interface\\icon_combat_toggle.sti";
@@ -132,7 +131,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (IsLockInteractionActive() || IsTrapInteractionActive() || gXStatus.fReviewCharacterMode) {
+    if (IsLockInteractionActive() || IsTrapInteractionActive() || FormationPanelOpen()) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }

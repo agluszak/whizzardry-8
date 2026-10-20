@@ -34,7 +34,6 @@
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
 

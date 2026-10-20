@@ -68,7 +68,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/xstatus.h"
 
 constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 

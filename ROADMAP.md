@@ -134,9 +134,10 @@ the licensed runtime scenarios after every step.
    - With one step, the world's hold can be read once per step instead of being reported
      from every call site of `SyncWorldAdvancement` (ARCHITECTURE.md, "Advancement").
 5. **Presentation owned by screens.**
-   - `g_level_block`, the cursor, the targeting mode, `edited_formation` and `item_drag`
-     become screen members. `gXStatus` is deleted. `Game::aging_held` mirrors a pending
-     `item_drag`; the screen that owns the drag sets it.
+   - `g_level_block` becomes `MainGameScreen::hud`. The shown cursor (`Screens.cpp`) and
+     the targeting mode (`TargetingMode()`) are module state of the UI code that sets
+     them; they become members of the screens that show them once camp and main game
+     share a pointer owner.
    - The HUD panels receive explicit inputs.
    - The main game's redraw bitmask gives way to invalidation by events, as the camp's
      per-page invalidation already does.

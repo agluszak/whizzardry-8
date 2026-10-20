@@ -1,5 +1,6 @@
 #include "wiz8/local_screens/Screens.h"
 
+#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -34,11 +35,11 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
-#include "wiz8/xstatus.h"
 
 std::unique_ptr<Screen> CreateScreen(W8ScreenId id)
 {
@@ -173,19 +174,57 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     }
 }
 
+namespace {
+// The cursor-table slot the pointer shows, its animation frame and when the next is due.
+struct ShownPointer {
+    int cursor = W8_CURSOR_NONE;
+    int frame = 0;
+    std::uint64_t next_frame = 0;
+};
+ShownPointer shown_pointer;
+
+void ShowDefaultCursor()
+{
+    const auto cursor = CatalogArtwork::Load(0);
+    SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
+    RefreshMouseCursorTexture();
+    shown_pointer = {};
+}
+} // namespace
+
+int ShownCursor()
+{
+    return shown_pointer.cursor;
+}
+
+void ShowCustomCursor()
+{
+    shown_pointer.cursor = W8_CURSOR_INVALID_TARGET;
+}
+
+void AnimateShownCursor()
+{
+    const int cursor = shown_pointer.cursor;
+    if (cursor == W8_CURSOR_NONE || cursor == W8_CURSOR_INVALID_TARGET) return;
+    const auto frame_count = static_cast<int>(g_main_game_resource_slots[cursor].frame_count);
+    if (frame_count <= 1 || TimeUntilDeadline(shown_pointer.next_frame)) return;
+    if (++shown_pointer.frame == frame_count) shown_pointer.frame = 0;
+    ApplyCurrentCursor();
+}
+
 /* Install a named cursor, or restore the held-item / default cursor when the
    caller passes W8_CURSOR_NONE (-1). Unchanged ids are ignored; a new id resets
    the frame and applies through ApplyCurrentCursor. */
 void SetTargetCursor(int cursor)
 {
-    if (cursor == gXStatus.iCurrentCursor) {
+    if (cursor == shown_pointer.cursor) {
         return;
     }
     if (cursor == -1) {
         UpdateHeldItemCursor();
     } else {
-        gXStatus.iCurrentCursor = cursor;
-        gXStatus.current_cursor_frame = 0;
+        shown_pointer.cursor = cursor;
+        shown_pointer.frame = 0;
         ApplyCurrentCursor();
     }
 }
@@ -202,39 +241,31 @@ void UpdateHeldItemCursor(void)
             const auto cursor = CatalogArtwork::Load(0);
             BlitToMouseCursor(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
             RefreshMouseCursorTexture();
-            gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+            ShowCustomCursor();
             return;
         }
-    } else if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        const auto cursor = CatalogArtwork::Load(0);
-        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
-        RefreshMouseCursorTexture();
-        gXStatus.iCurrentCursor = W8_CURSOR_NONE;
-        gXStatus.current_cursor_frame = 0;
-        gXStatus.current_cursor_time = 0;
+    } else if (shown_pointer.cursor != W8_CURSOR_NONE) {
+        ShowDefaultCursor();
     }
 }
 
-/* Drive the mouse cursor from gXStatus.iCurrentCursor against the main-game
-   resource-slot table: resize, install the slot's texture anim, select the
-   current frame, and refresh the hotspot. Multi-frame cursors also arm the
-   animation countdown. */
+/* Drive the mouse cursor from the shown cursor's slot in the main-game resource table:
+   resize, install the slot's texture anim, select the current frame, and refresh the
+   hotspot. Multi-frame cursors also arm the animation countdown. */
 void ApplyCurrentCursor(void)
 {
-    if (gXStatus.iCurrentCursor == W8_CURSOR_NONE) {
-        Fail("gXStatus.iCurrentCursor != -1");
+    if (shown_pointer.cursor == W8_CURSOR_NONE) {
+        Fail("ShownCursor() != -1");
     }
-    if (g_main_game_resource_slots[gXStatus.iCurrentCursor].object != 0) {
-        ResizeMouseCursorSurface(g_main_game_resource_slots[gXStatus.iCurrentCursor].size_x,
-                                 g_main_game_resource_slots[gXStatus.iCurrentCursor].size_y);
-        SetMouseCursorTexture(g_main_game_resource_slots[gXStatus.iCurrentCursor].object);
-        g_main_game_resource_slots[gXStatus.iCurrentCursor].object->SetFrame(
-            gXStatus.current_cursor_frame);
-        SetMouseCursorHotspot(g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_x,
-                              g_main_game_resource_slots[gXStatus.iCurrentCursor].hotspot_y);
+    auto& slot = g_main_game_resource_slots[shown_pointer.cursor];
+    if (slot.object != 0) {
+        ResizeMouseCursorSurface(slot.size_x, slot.size_y);
+        SetMouseCursorTexture(slot.object);
+        slot.object->SetFrame(shown_pointer.frame);
+        SetMouseCursorHotspot(slot.hotspot_x, slot.hotspot_y);
     }
-    if (g_main_game_resource_slots[gXStatus.iCurrentCursor].frame_count > 1) {
-        gXStatus.current_cursor_time = w8_get_ticks() + (0xfa);
+    if (slot.frame_count > 1) {
+        shown_pointer.next_frame = w8_get_ticks() + (0xfa);
     }
 }
 
@@ -245,13 +276,8 @@ void ClearHeldItemDisplay(void)
 
     CurrentGame().party.held.item.iItemNo = -1;
 
-    if (gXStatus.iCurrentCursor != W8_CURSOR_NONE) {
-        const auto cursor = CatalogArtwork::Load(0);
-        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
-        RefreshMouseCursorTexture();
-        gXStatus.iCurrentCursor = W8_CURSOR_NONE;
-        gXStatus.current_cursor_frame = 0;
-        gXStatus.current_cursor_time = 0;
+    if (shown_pointer.cursor != W8_CURSOR_NONE) {
+        ShowDefaultCursor();
     }
 }
 
@@ -266,7 +292,7 @@ void SetItemCursor(int overlay_video_object)
         const auto overlay = CatalogArtwork::Load(overlay_video_object);
         BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
         RefreshMouseCursorTexture();
-        gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+        ShowCustomCursor();
     }
 }
 

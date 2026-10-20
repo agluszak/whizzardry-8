@@ -70,7 +70,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 /* The monster and group the target cycling keys last picked. */
@@ -972,12 +971,12 @@ bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id)
     return TargetMatchesNeeded(&monster_info->Target, GetTargetNeededForSpellHostile(spell_id));
 }
 
-/* Map gXStatus.iTargetingMode to a cursor-table index for SetTargetCursor.
+/* Map TargetingMode() to a cursor-table index for SetTargetCursor.
    Returned values are cursor slots (including 10..12), not W8TargetingContext. */
 // FUNCTION: WIZ8 0x0053A3D0
 int GetTargetingCursorForState(bool alternate)
 {
-    switch (gXStatus.iTargetingMode) {
+    switch (TargetingMode()) {
     case W8_TARGET_NEED_ALLY:
     case W8_TARGET_NEED_ITEM:
     case W8_TARGET_NEED_CHARACTER_INDIRECT:

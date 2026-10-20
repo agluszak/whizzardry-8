@@ -59,6 +59,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
@@ -85,7 +86,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static std::vector<std::unique_ptr<W8AutomapNote>> g_automap_notes;
 
@@ -237,7 +237,7 @@ static void SetAutomapCursorImage(int tool)
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), artwork.imageOffset(),
                                   g_automap_cursor_offsets[tool].x,
                                   g_automap_cursor_offsets[tool].y);
-    gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+    ShowCustomCursor();
     RefreshMouseCursorTexture();
 }
 

@@ -37,7 +37,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 bool g_navigator_position_changed;
 

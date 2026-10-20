@@ -67,7 +67,6 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static std::filesystem::path fixture_root;
 

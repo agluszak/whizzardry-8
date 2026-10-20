@@ -32,7 +32,6 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 /* Level Specific Code\Ascension.cpp.
 
