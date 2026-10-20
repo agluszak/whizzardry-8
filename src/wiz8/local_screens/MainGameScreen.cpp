@@ -2212,7 +2212,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         CurrentGame().advancement.held = false;
         CurrentGame().advancement.paused = false;
         CurrentGame().aging_held = false;
-        CurrentGame().gameplay_timer.Restart();
+        CurrentGame().autosave_due = Game::kAutosaveInterval;
         ResetAssayTab();
         ResetTargetingState();
         LoadMainGameCursorResources();
