@@ -267,8 +267,6 @@ Substantial but contained work.
 
 Small, local and low-risk.
 
-- Add regression tests with a light combat fixture: a weapon-set swap toggles
-  `alternate_hand` once, and spending one charge keeps a committed item use.
 - Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep
   them only directly above the definition they name, and remove the rest.
 - Full storage can still lose an item: an unusable item with a full backpack, a

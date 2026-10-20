@@ -4,9 +4,14 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "mutable_game_data.h"
 #include "scoped_combat.h"
 #include "scoped_game.h"
+#include "scoped_records.h"
+#include "wiz8/data/item_records.h"
+#include "wiz8/data/records.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
@@ -14,6 +19,8 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/world.h"
 
@@ -51,6 +58,21 @@ struct CombatFixture {
         monster->pCombat = std::make_unique<W8MonsterCombatState>();
         monster->pCombat->phase = phase;
         return *CurrentLevelPopulation().monster_roster.add(std::move(monster), false);
+    }
+};
+
+/* The fight in a started game with two item records, so inventory edits settle the
+   party. No profession or race data is loaded, so the members derive no statistics. */
+struct InventoryCombatFixture : CombatFixture {
+    ScopedRecords<W8ItemDatabaseRecord> items{MutableData().items, 2};
+
+    InventoryCombatFixture()
+    {
+        game.status.game_started = true;
+        for (int slot = 0; slot < 2; ++slot) {
+            game.party.characters[slot].fInParty = true;
+            game.party.characters[slot].gender = W8_GENDER_UNSET;
+        }
     }
 };
 
@@ -100,4 +122,42 @@ TEST_CASE_METHOD(CombatFixture, "Combat waits on a conscious NPC's queued combat
 
     game.party.characters[1].highest_condition = W8_CONDITION_ASLEEP;
     REQUIRE(CombatWaitFor(game) == CombatWait::none);
+}
+
+TEST_CASE_METHOD(InventoryCombatFixture,
+                 "Swapping both weapon pairs toggles the alternate hand once")
+{
+    auto& character = game.party.characters[0];
+    character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
+    character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 1;
+
+    CommitWeaponSetSwap(game, 0, {.primary = true, .secondary = true});
+
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
+    REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == 1);
+    REQUIRE(combat.characters[0].alternate_hand);
+}
+
+TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed use of the item")
+{
+    auto& wand = MutableData().items[0];
+    wand.quantity_kind = W8_ITEM_QUANTITY_CHARGES;
+    wand.initial_quantity = {.base = 0, .count = 1, .sides = 5};
+    const W8ItemLocation source{W8ItemStorage::Backpack, 0, 0};
+    const W8ItemLocation destination{W8ItemStorage::Backpack, 0, 1};
+    auto& backpack = game.party.characters[0].backpack;
+    backpack[0] = {.iItemNo = 0, .uses_or_charges = 3};
+    backpack[1] = {.iItemNo = 0, .uses_or_charges = 4};
+    auto& committed = game.party.rows[0].committed;
+    committed.kind = W8_ACTION_USE_ITEM;
+    committed.detail_block.item_use.item = source;
+    // The member has acted this round; the use waits for the next one.
+    combat.characters[0].dead = true;
+
+    MergeItemUses(game, 0, destination, source);
+
+    REQUIRE(backpack[0].uses_or_charges == 2);
+    REQUIRE(backpack[1].uses_or_charges == 5);
+    REQUIRE(committed.kind == W8_ACTION_USE_ITEM);
+    REQUIRE(committed.detail_block.item_use.item == source);
 }
