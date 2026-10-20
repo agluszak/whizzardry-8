@@ -19,7 +19,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
@@ -50,7 +49,7 @@ bool IsSpecialItemId(W8ItemInstance* item)
 void KillTrynnieGroups(World& world)
 {
     W8MonsterGroup* group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     MonGen* generator;
     int iOldTable;
     int iNewTable;
@@ -128,12 +127,11 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
     int slot;
     int i;
 
-    roll = CurrentGame().rng.below(100);
+    roll = ctx.game.rng.below(100);
     if (roll < 25) {
         slot = GetRandomCharacter(0, 0, -1, -1);
         if (slot != -1) {
-            SetCharacterCondition(slot, W8_CONDITION_HEXED, CurrentGame().rng.below(5) + 10, 0, 0,
-                                  1);
+            SetCharacterCondition(slot, W8_CONDITION_HEXED, ctx.game.rng.below(5) + 10, 0, 0, 1);
             wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
             return true;
         }

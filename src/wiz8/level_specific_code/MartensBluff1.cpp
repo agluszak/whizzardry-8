@@ -30,7 +30,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/party.h"
@@ -157,9 +156,9 @@ void MartensBluff1Script::setup()
     FindTriggerByName("Gas-Switch");
     door_controller_ = FindTriggerByName("J-Doorcontroller");
     if (door_controller_ != 0 && GetLocationVarIDByName("DialState") == -1) {
-        CurrentGame().rng.below(8);
-        CurrentGame().rng.below(8);
-        CurrentGame().rng.below(8);
+        ctx.game.rng.below(8);
+        ctx.game.rng.below(8);
+        ctx.game.rng.below(8);
         CreateLocationVar("DialState", 0x470111);
     }
     transporter(kMasterToggle);
@@ -417,7 +416,7 @@ bool MartensBluff1Script::teleporter(Trigger* pTrigger)
             static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
     }
     if (state == MartensBluff1TeleporterPad::none) {
-        state = static_cast<MartensBluff1TeleporterPad>(CurrentGame().rng.below(4) + 1);
+        state = static_cast<MartensBluff1TeleporterPad>(ctx.game.rng.below(4) + 1);
     }
     switch (state) {
     case MartensBluff1TeleporterPad::gigas:

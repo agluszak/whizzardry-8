@@ -10,6 +10,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/loaded_game_data.h"
@@ -38,7 +39,8 @@ constexpr int kWorldActionQuoteMin = 'F';
    directly, randomly in [operand0, operand2] when operand1 is 2, or a
    queued QUOTE_ENTRY continuation line when operand2 is 4. Returns the
    response index, -1 when a guard fails, and -2 after queueing. */
-int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int entry_index)
+int W8NpcDialogue::SelectResponse(const ScriptContext& context, W8NpcQuoteEntry* entry,
+                                  int quote_index, int entry_index)
 {
     int index;
     unsigned char expected;
@@ -62,7 +64,7 @@ int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int e
     }
     if (entry->operand1 == 2) {
         response_count = entry->operand2 - entry->operand0 + 1;
-        return CurrentGame().rng.below(response_count) + entry->operand0;
+        return context.game.rng.below(response_count) + entry->operand0;
     }
     return entry->operand0;
 }
@@ -151,11 +153,11 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                         break;
                     }
                     response_count = static_cast<char>(entry->operand2 - entry->operand0 + 1);
-                    response = CurrentGame().rng.below(response_count) + entry->operand0;
+                    response = context.game.rng.below(response_count) + entry->operand0;
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
-                    response = SelectResponse(entry, script_line, entry_index);
+                    response = SelectResponse(context, entry, script_line, entry_index);
                     if (response != -1) {
                         finished = true;
                         break;
@@ -267,7 +269,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
         case W8NpcSubquoteOutcome::presented:
             break;
         case W8NpcSubquoteOutcome::unknown:
-            QueueQuote(CurrentGame().rng.below(100) < 50 ? 0x1c : 0x1d, false, false, false);
+            QueueQuote(context.game.rng.below(100) < 50 ? 0x1c : 0x1d, false, false, false);
             break;
         case W8NpcSubquoteOutcome::classified:
             QueueQuote(0x1e, false, false, false);
