@@ -1,8 +1,8 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -89,8 +89,8 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/targeting.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/screen.h"

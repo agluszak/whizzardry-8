@@ -1,8 +1,8 @@
 #include "wiz8/combat/attack.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <stdexcept>
 #include <string>

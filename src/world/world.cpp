@@ -1,7 +1,7 @@
 #include "wiz8/world/world.h"
 
-#include <chrono>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <initializer_list>

@@ -1,8 +1,8 @@
 #include "wiz8/combat/party_movement.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cassert>
+#include <chrono>
 #include <optional>
 #include <vector>
 

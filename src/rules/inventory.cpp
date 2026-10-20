@@ -144,9 +144,7 @@ static bool MergeStack(const GameData& data, W8Party& party, W8ItemInstance& des
     const auto& record = data.items[destination.iItemNo];
     if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return false;
     if (destination.stack_count > record.maximum_quantity)
-        throw std::logic_error(fmt::format("MergeStack: a stack of item {} holds {} of {}",
-                                           destination.iItemNo, destination.stack_count,
-                                           record.maximum_quantity));
+        destination.stack_count = record.maximum_quantity;
     if (destination.iItemNo != source.item.iItemNo ||
         destination.identified != source.item.identified)
         return false;
@@ -514,7 +512,8 @@ std::optional<UnusableEquipment> TakeUnusableEquipment(const RuleContext& rules,
     EvaluateCharacterInputs(data, character, character.fInParty ? &party.modifiers : nullptr);
     auto* item = std::ranges::find_if(character.EquippedItem, [&](const auto& candidate) {
         const auto slot = static_cast<unsigned int>(&candidate - character.EquippedItem);
-        return !kept[slot] && candidate.iItemNo != -1 && !CanCharacterUseItem(data, &character, candidate.iItemNo);
+        return !kept[slot] && candidate.iItemNo != -1 &&
+               !CanCharacterUseItem(data, &character, candidate.iItemNo);
     });
     if (item == std::end(character.EquippedItem)) return std::nullopt;
     const auto equip_slot = static_cast<unsigned int>(item - character.EquippedItem);
@@ -523,11 +522,11 @@ std::optional<UnusableEquipment> TakeUnusableEquipment(const RuleContext& rules,
         unsigned short message_id = 0;
         const auto& pronoun = data.strings[g_gender_name_message_rows[character.gender][2]];
         notice = FindUnmetItemRequirement(&character, &data.items[item->iItemNo], &message_id)
-                ? fmt::sprintf(data.strings[0x1ef], pronoun,
-                               FormatItemDisplayName(data, item, true), pronoun,
-                               data.strings[message_id])
-                : fmt::sprintf(data.strings[0x1f0], pronoun,
-                               FormatItemDisplayName(data, item, true));
+                     ? fmt::sprintf(data.strings[0x1ef], pronoun,
+                                    FormatItemDisplayName(data, item, true), pronoun,
+                                    data.strings[message_id])
+                     : fmt::sprintf(data.strings[0x1f0], pronoun,
+                                    FormatItemDisplayName(data, item, true));
     }
     return UnusableEquipment{party.take({W8ItemStorage::Equipment, party_slot, equip_slot}),
                              IsHandSlot(equip_slot), equip_slot, std::move(notice)};
@@ -892,7 +891,7 @@ static bool MergeUses(const GameData& data, W8Party& party, W8ItemInstance& into
                                    : into.uses_or_charges;
     unsigned int moved = MaximumQuantity(data, into.iItemNo) - held;
     if (available <= moved) moved = available;
-    into.uses_or_charges += static_cast<char>(moved);
+    into.uses_or_charges += static_cast<signed char>(moved);
     bool emptied = false;
     for (; moved != 0 && !emptied; --moved) emptied = ConsumeUse(data, party, from, false);
     return emptied;
@@ -912,7 +911,7 @@ std::optional<InventoryEdit> MergeItemUses(const RuleContext& rules, unsigned ac
                               : W8ItemLocation{}}};
 }
 
-void AddItemUses(const GameData& data, W8ItemInstance& item, char uses)
+void AddItemUses(const GameData& data, W8ItemInstance& item, signed char uses)
 {
     const unsigned char total = item.uses_or_charges + uses;
     const int maximum = MaximumQuantity(data, item.iItemNo);

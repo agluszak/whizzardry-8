@@ -1,8 +1,8 @@
 #pragma once
 struct W8Chunk;
 
-#include <cstdint>
 #include <cassert>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>

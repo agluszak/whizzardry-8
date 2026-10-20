@@ -1,11 +1,11 @@
 #include "wiz8/combat/fight.h"
 
 #include <algorithm>
-#include <chrono>
-#include <string>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <variant>
 

@@ -1,5 +1,5 @@
-#include <cassert>
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <optional>
 #include <vector>
@@ -466,7 +466,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
 {
     W8MonsterInfo* monster_info = &monster;
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    char tried[11] = {0};
+    bool tried[11] = {};
     unsigned char result = 0;
     unsigned char move_flag = 0;
     bool berserked = false;

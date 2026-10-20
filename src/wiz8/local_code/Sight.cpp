@@ -1,8 +1,8 @@
 #include "wiz8/local_code/Sight.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cassert>
+#include <chrono>
 #include <span>
 #include <unordered_map>
 #include <vector>
