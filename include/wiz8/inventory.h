@@ -122,6 +122,7 @@ W8ItemUseResult UseItem(Game& game, unsigned actor, const W8ItemUse& use);
 
 // ---- Equipment rule
 
-/* Equipment a member can no longer use is announced and stored like a received item.
-   Returns whether a weapon hand changed. Part of settling the party. */
+/* Equipment a member can no longer use is announced and stored like a received item; one
+   that nothing can take stays equipped. Returns whether a weapon hand changed. Part of
+   settling the party. */
 bool UnequipUnusableItems(Game& game, unsigned int party_slot);

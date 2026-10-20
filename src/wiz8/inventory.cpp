@@ -174,17 +174,17 @@ static W8ItemLocation To(const std::optional<ItemPlacement>& placement)
 }
 
 /* What no store takes is dropped at the party's feet unless it may not be discarded, and
-   otherwise goes into an empty hand. A drop leaves the source as it was. */
-static void DropUnstoredItem(Game& game, ItemSource source)
+   otherwise goes into an empty hand. Failure leaves the source intact. */
+static bool DropUnstoredItem(Game& game, ItemSource source)
 {
     if ((Data().items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
             AddWorldItem(CreateWorldItem(&source.item, &*position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            return;
+            return true;
         }
     }
-    PlaceInEmptyHand(game.rules(), source);
+    return PlaceInEmptyHand(game.rules(), source);
 }
 
 ItemRecipient PartyMember(Game& game, unsigned int party_slot)
@@ -296,7 +296,7 @@ void StashDepartingCharacterItems(Game& game, unsigned int party_slot)
         const int item_id = game.party.itemAt(location)->iItemNo;
         const auto source = PartyItem(game.party, location);
         if (StoreInPool(game, source, false, false)) return;
-        DropUnstoredItem(game, source);
+        if (!DropUnstoredItem(game, source)) return;
         game.events.push(
             TextNotice{W8_FONT_PALETTE_RED,
                        fmt::sprintf(Data().strings[0x7d3], Data().items[item_id].display_name)});
@@ -656,12 +656,18 @@ void ReadyPrimaryWeapon(Game& game, unsigned party_slot)
 bool UnequipUnusableItems(Game& game, unsigned int party_slot)
 {
     bool hands_changed = false;
-    while (auto removed = TakeUnusableEquipment(game.rules(), party_slot)) {
-        hands_changed |= removed->weapon_hand;
+    std::bitset<W8_EQUIP_SLOT_COUNT> kept;
+    while (auto removed = TakeUnusableEquipment(game.rules(), party_slot, kept)) {
         const auto source = OwnedItem(removed->item);
         if (!StoreWithCharacter(game, PartyMember(game, party_slot), source, false, false, false) &&
-            !StoreInPool(game, source, false, false))
-            DropUnstoredItem(game, source);
+            !StoreInPool(game, source, false, false) && !DropUnstoredItem(game, source)) {
+            game.party.characters[party_slot].EquippedItem[removed->equip_slot] = removed->item;
+            kept.set(removed->equip_slot);
+            continue;
+        }
+        hands_changed |= removed->weapon_hand;
+        if (!removed->notice.empty())
+            game.events.push(CharacterNotice{party_slot, std::move(removed->notice)});
     }
     return hands_changed;
 }
