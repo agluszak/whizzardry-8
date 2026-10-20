@@ -1634,10 +1634,10 @@ try {
 /* Load a save slot: tear down the live session, make the slot the new
    CurrentGame, apply each section, then re-arm the message countdowns, the
    gameplay timer and the held-item cursor and normalize the loaded items. */
-bool LoadGame(std::string_view slot_name)
+bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
     if (GameInProgress()) LeaveGameSession();
-    auto& game = BeginGame();
+    auto& game = games.begin();
     wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath));
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;

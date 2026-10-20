@@ -232,7 +232,7 @@ public:
         application_.emplace(arguments);
         // Games draw from a stream seeded by the clock. Catch's seed makes a run
         // repeatable: CTest fixes it, and failures print it.
-        SeedGameRandom(Catch::getSeed());
+        application_->games().seed(Catch::getSeed());
         window_ = reinterpret_cast<SDL_Window*>(ghWindow);
         REQUIRE(window_);
         SDL_Event focus{};
@@ -240,6 +240,7 @@ public:
         focus.window.windowID = SDL_GetWindowID(window_);
         HandleGameEvent(focus);
     }
+    GameSession& games() { return application_->games(); }
     ~GameHarness()
     {
         application_.reset();
@@ -787,7 +788,7 @@ void StartPremadeGame(GameHarness& game)
 {
     game.install(fs::path(WIZ8_RUNTIME_FIXTURES) / "vi.CHR", "saves/characters/vi.CHR");
     ReachMainMenu(game);
-    ResetForNewGame();
+    BeginNewGame(game.games());
     W8Character character{};
     REQUIRE(LoadCharacter("vi.CHR", &character, -1));
     REQUIRE((character.record_version == 1 && character.uiExpLevel == 1));

@@ -213,11 +213,14 @@ class PartySelectionScreen final : public Screen {
 public:
     static constexpr W8ScreenId id = W8_SCREEN_PARTY_SELECTION;
 
+    explicit PartySelectionScreen(GameSession& games) : games(games) {}
     bool enter(const ScreenRequest& request) override;
     bool resume(const ScreenRequest& request) override;
     void frame() override;
     bool leave(ScreenDeparture departure) override;
 
+    // Each visit, reset and import begins a new game in party creation here.
+    GameSession& games;
     /* The characters on offer: saved ones, or an imported party. */
     W8PartySelectionCharacterCollection roster;
     void Setup();
@@ -992,7 +995,7 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         return;
     }
     if (!m_reset_button->IsPressed()) {
-        ResetForNewGame();
+        BeginNewGame(games);
         SetMode(W8_PARTY_SELECT_CHARACTERS);
         SetSelection(0, false, true);
         return;
@@ -1167,14 +1170,14 @@ void PartySelectionScreen::ApplyPartySelectionConfirmation(W8PartyConfirmationAc
 
 void PartySelectionScreen::LoadImportedPartyFile(int selection)
 {
-    ResetForNewGame();
+    BeginNewGame(games);
     W8PartySelectionCharacterCollection* collection = &roster;
     if (selection >= 0 && selection < static_cast<int>(collection->names.size())) {
         std::string path;
         path = fmt::format("{}\\{}", "saves\\import", collection->names[selection]);
-        int result = ImportWizardry7Party(path);
+        int result = ImportWizardry7Party(games, path);
         if (result != 0) {
-            ResetForNewGame();
+            BeginNewGame(games);
             OpenNotification(Data().strings[(result == 2 ? 0x1b60 : 0x1b5c) / 4], false,
                              W8_PARTY_CONFIRM_NONE);
         }
@@ -1252,7 +1255,7 @@ void PreparePartySelectionCanvas()
 bool PartySelectionScreen::enter(const ScreenRequest&)
 {
     PreparePartySelectionCanvas();
-    ResetForNewGame();
+    BeginNewGame(games);
     roster.ReloadCharacters();
     Setup();
     StartMusicResource("MainMenu.MPL", 1, 1);
@@ -1358,9 +1361,9 @@ public:
 };
 } // namespace
 
-std::unique_ptr<Screen> CreatePartySelectionScreen()
+std::unique_ptr<Screen> CreatePartySelectionScreen(GameSession& games)
 {
-    return std::make_unique<PartySelectionScreen>();
+    return std::make_unique<PartySelectionScreen>(games);
 }
 
 std::unique_ptr<Screen> CreateGameStartRouterScreen()

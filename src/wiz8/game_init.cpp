@@ -9,6 +9,7 @@
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
@@ -28,22 +29,23 @@
 /* The data bring-up gate the native application initializes last. It stamps
    the version string, opens the string data, then walks every database loader
    in turn, abandoning the sequence the moment one fails. */
-bool InitializeGame(bool load_at_startup, const std::string& string_data_override)
+bool InitializeGame(GameData& data, GameSession& games, bool load_at_startup,
+                    const std::string& string_data_override)
 {
     const auto version = FormatVersionBanner(true, true, true);
 
     try {
-        InstallGameData(LoadGameData(!string_data_override.empty()
-                                         ? std::string_view(string_data_override)
-                                         : "Data\\Strings\\StringData.DAT"));
+        data = LoadGameData(!string_data_override.empty() ? std::string_view(string_data_override)
+                                                          : "Data\\Strings\\StringData.DAT");
     } catch (const std::exception&) {
         return false;
     }
+    InstallGameData(&data);
     const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);
     LoadGameConfiguration();
-    ResetScreenRouting();
-    SetGameEventObserver(PresentGameEvent);
+    ResetScreenRouting(games);
+    games.observe(PresentGameEvent);
     SetShadeTablePercent((float)0.66);
     if (!InitializeMenuFonts()) {
         return false;
@@ -72,14 +74,14 @@ bool InitializeGame(bool load_at_startup, const std::string& string_data_overrid
     return true;
 }
 
-void ShutdownGame(bool save_configuration)
+void ShutdownGame(GameSession& games, bool save_configuration)
 {
-    EndGame();
+    games.end();
     ReleaseHitSoundDatabase();
     g_font_state_palettes = {};
-    ResetScreenRouting();
+    ResetScreenRouting(games);
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
-    InstallGameData({});
+    InstallGameData(nullptr);
     if (save_configuration) SaveGameConfiguration();
 }

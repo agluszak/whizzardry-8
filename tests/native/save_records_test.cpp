@@ -283,7 +283,7 @@ static void unicode_database_contracts()
 
 static void unicode_file_contracts()
 {
-    const ScopedGame game;
+    ScopedGame game;
     wiz8::create_directory(wiz8::asset_path("Data/Strings"));
     auto retail_bytes = [](std::string_view text, bool encrypted) {
         const auto units = wiz8::text::to_utf16(text);
@@ -360,7 +360,7 @@ static void unicode_file_contracts()
     REQUIRE(line.saved_remaining_ms == 87);
     file->close();
     // A save loads into a new game.
-    BeginGame();
+    game.session.begin();
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"));
     // The fixed record starts after format and region count; its obsolete
     // pointer word must never contain a live allocation address.

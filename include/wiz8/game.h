@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -146,9 +147,40 @@ public:
     // What happened, in order, for the UI to present.
     Events events;
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
-       Leaving the level (`LeaveGameSession`) has already emptied it when a game ends
-       in play; destroying a world does no departure bookkeeping. */
+       The main game leaves the level when it is discarded, before a game that ends in
+       play is destroyed; destroying a world does no departure bookkeeping. */
     Level level;
+};
+
+/* The games of one run of the program: the game in progress, if any, and the random
+   stream the next game continues, so a run draws one sequence from one seed, as retail
+   did. The Application owns it, and the router hands it to the screens that begin and
+   end games. One exists at a time; while it does, `CurrentGame()` reads its game. */
+class GameSession {
+public:
+    GameSession();
+    ~GameSession();
+    GameSession(const GameSession&) = delete;
+    GameSession& operator=(const GameSession&) = delete;
+
+    // The game in progress, or null.
+    Game* game() { return game_ ? &*game_ : nullptr; }
+    /* Begin a new game, ending any in progress. It continues the previous game's random
+       stream, and its events go to the observer. */
+    Game& begin();
+    // End the game in progress, if any; the next game continues its random stream.
+    void end();
+    /* Seed the random stream of the game in progress, or of the next game when none is.
+       The stream starts from the clock. */
+    void seed(std::uint32_t seed);
+    /* The composition root's presenter for every game's events; a game begun before one
+       is installed keeps its events pending. */
+    void observe(std::function<void(const Event&)> observer);
+
+private:
+    std::optional<Game> game_;
+    Rng next_stream_;
+    std::function<void(const Event&)> observer_;
 };
 
 /* The game in progress. Transitional: code that does not receive the game yet reaches
@@ -158,13 +190,3 @@ Game& CurrentGame();
 bool GameInProgress();
 // A game is in progress and the party has left party creation.
 bool GameStarted();
-/* Begin a new game, ending any in progress. The new game's events go to the observer
-   the UI installed, and it continues the previous game's random stream. */
-Game& BeginGame();
-void EndGame();
-/* Seeds the random stream of the game in progress, or of the next game when none is.
-   The session's stream starts from the clock. */
-void SeedGameRandom(std::uint32_t seed);
-/* The composition root's presenter for every game's events; a game begun before one is
-   installed keeps its events pending. */
-void SetGameEventObserver(std::function<void(const Event&)> observer);

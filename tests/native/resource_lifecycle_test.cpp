@@ -188,18 +188,18 @@ TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]
 TEST_CASE("A new game releases the previous game's queued events", "[resources][lifecycle]")
 {
     W8Character character{};
-    const ScopedGame game;
+    ScopedGame game;
     CurrentGame().speech.pending_events.push_back(
         std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
     CurrentGame().gameplay_timer.SetDuration(1.0f);
     CurrentGame().level.replacePrimary(std::make_unique<World>());
 
     // Beginning a game destroys the old one, including its nested events and its worlds.
-    BeginGame();
+    game.session.begin();
     REQUIRE(GetWorld() == nullptr);
     REQUIRE(CurrentGame().speech.IsMainQueueEmpty());
     REQUIRE(CurrentGame().gameplay_timer.m_duration_seconds == 300.0f);
-    EndGame();
+    game.session.end();
     REQUIRE_FALSE(GameInProgress());
 }
 

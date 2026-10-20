@@ -42,21 +42,21 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 
-std::unique_ptr<Screen> CreateScreen(W8ScreenId id)
+std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games)
 {
     switch (id) {
     case W8_SCREEN_INTRO:
         return CreateIntroScreen();
     case W8_SCREEN_MAIN_MENU:
-        return std::make_unique<MainMenuScreen>();
+        return std::make_unique<MainMenuScreen>(games);
     case W8_SCREEN_GAME_START_ROUTER:
         return CreateGameStartRouterScreen();
     case W8_SCREEN_CHARACTER:
         return std::make_unique<CharacterScreen>();
     case W8_SCREEN_PLEASE_WAIT:
-        return CreatePleaseWaitScreen();
+        return CreatePleaseWaitScreen(games);
     case W8_SCREEN_PARTY_SELECTION:
-        return CreatePartySelectionScreen();
+        return CreatePartySelectionScreen(games);
     case W8_SCREEN_CAMP:
         return std::make_unique<CampScreen>();
     case W8_SCREEN_MAIN_GAME:

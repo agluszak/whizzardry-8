@@ -107,7 +107,7 @@ TEST_CASE("world graphics")
     const std::array<std::string_view, 1> arguments{"/WINDOW"};
     fprintf(stderr, "world: initialize native application/game\n");
     application = std::make_unique<wiz8::Application>(arguments);
-    ResetForNewGame();
+    BeginNewGame(application->games());
     W8Character character{};
     REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));
     REQUIRE(AddCharacterToParty(character, -1) == 2);
@@ -277,7 +277,7 @@ TEST_CASE("world graphics")
     if (mode && strcmp(mode, "save") == 0) {
         REQUIRE(SaveGame("native-test", nullptr));
         fprintf(stderr, "regression: save succeeded\n");
-        REQUIRE(LoadGame("native-test"));
+        REQUIRE(LoadGame(application->games(), "native-test"));
         fprintf(stderr, "regression: reload succeeded\n");
     }
     if (mode && strcmp(mode, "angles") == 0) {
