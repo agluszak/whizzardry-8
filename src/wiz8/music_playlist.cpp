@@ -11,7 +11,6 @@
 #include <fmt/format.h>
 
 #include "audio_resources.h"
-#include "compat/native.h"
 #include "local_screens/Screens.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/script.h"
@@ -19,6 +18,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/ui_input.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -79,7 +79,7 @@ unsigned char InitializeMusicPlaylist(void)
     if (g_music_playlist) {
         g_music_playlist->setName("Music Playlist");
     }
-    g_music_playlist_tick = w8_get_ticks();
+    g_music_playlist_tick = MonotonicMilliseconds();
     playlist_info.pause_min_seconds = 0;
     playlist_info.pause_max_seconds = 0;
     playlist_info.pause_chance_percent = 0;
@@ -132,14 +132,14 @@ void ServiceMusicPlaylist(void)
     if (g_music_sample_handle != nullptr && wiz8::sound::is_playing(g_music_sample_handle)) {
         return;
     }
-    if (w8_get_ticks() <= g_music_playlist_tick) {
+    if (MonotonicMilliseconds() <= g_music_playlist_tick) {
         return;
     }
 
     if (!g_music_force_next && !CurrentGame().combat.active() &&
         Random(100) <= static_cast<unsigned int>(playlist_info.pause_chance_percent)) {
         g_music_playlist_tick =
-            w8_get_ticks() + playlist_info.pause_min_seconds * 1000 +
+            MonotonicMilliseconds() + playlist_info.pause_min_seconds * 1000 +
             Random(playlist_info.pause_max_seconds * 1000 - playlist_info.pause_min_seconds * 1000);
         return;
     }
@@ -221,7 +221,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         return 1;
     }
 
-    g_music_playlist_tick = w8_get_ticks() - 1;
+    g_music_playlist_tick = MonotonicMilliseconds() - 1;
     playlist_info.pause_min_seconds = 0;
     playlist_info.pause_max_seconds = 0;
     playlist_info.pause_chance_percent = 0;

@@ -18,7 +18,6 @@
 #include <SDL3/SDL_video.h>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float1.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -75,7 +74,7 @@ SDL_GPUBlendFactor destinationFactor(uint32_t blend)
 
 } // namespace
 
-bool GpuRenderer::gpuOpenWindow(w8_ulong target_width, w8_ulong target_height)
+bool GpuRenderer::gpuOpenWindow(std::uint32_t target_width, std::uint32_t target_height)
 {
     gpuCloseWindow();
     gpu_width = target_width;
@@ -190,7 +189,7 @@ void GpuRenderer::gpuUnlockBuffer(bool modified)
     }
 }
 
-void GpuRenderer::gpuSetSwapInterval(w8_ulong interval)
+void GpuRenderer::gpuSetSwapInterval(std::uint32_t interval)
 {
     if (gpu_window != 0) {
         SDL_SetGPUSwapchainParameters(gpu_device, gpu_window, SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
@@ -238,8 +237,9 @@ void GpuRenderer::gpuDeleteTexture(NativeTexture& texture)
     texture.size = 0;
 }
 
-GpuRenderer::NativeTexture GpuRenderer::gpuCreateTexture(w8_ulong gpu_width, w8_ulong gpu_height,
-                                                         w8_ulong levels)
+GpuRenderer::NativeTexture GpuRenderer::gpuCreateTexture(std::uint32_t gpu_width,
+                                                         std::uint32_t gpu_height,
+                                                         std::uint32_t levels)
 {
     auto texture = gpuCreateDeviceTexture(gpu_width, gpu_height, levels);
     if (texture.handle)
@@ -249,9 +249,9 @@ GpuRenderer::NativeTexture GpuRenderer::gpuCreateTexture(w8_ulong gpu_width, w8_
     return texture;
 }
 
-void GpuRenderer::gpuUploadTexture(const NativeTexture& texture, w8_ulong level,
+void GpuRenderer::gpuUploadTexture(const NativeTexture& texture, std::uint32_t level,
                                    GpuTextureRegion region, std::span<const unsigned char> pixels,
-                                   w8_ulong pitch)
+                                   std::uint32_t pitch)
 {
     if (texture.handle == 0 || region.width == 0 || region.height == 0) {
         return;
@@ -279,7 +279,7 @@ void GpuRenderer::gpuUploadTexture(const NativeTexture& texture, w8_ulong level,
                              gpu_upload_pixels.size(),
                              level == 0 && texture.levels > 1};
     gpu_upload_pixels.resize(gpu_upload_pixels.size() + size_t(region.width) * region.height);
-    for (w8_ulong row = 0; row < region.height; ++row) {
+    for (std::uint32_t row = 0; row < region.height; ++row) {
         memcpy(gpu_upload_pixels.data() + pending.offset + size_t(row) * region.width,
                pixels.data() + size_t(region.y + row) * pitch + size_t(region.x) * 4,
                size_t(region.width) * 4);

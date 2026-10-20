@@ -1,8 +1,6 @@
 #ifndef WIZ8_BINK_VIDEO_H
 #define WIZ8_BINK_VIDEO_H
 
-#include "compat/compiler.h"
-
 struct W8NativeVideo;
 struct SDL_Surface;
 

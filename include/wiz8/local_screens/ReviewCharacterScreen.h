@@ -13,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogBase.h"

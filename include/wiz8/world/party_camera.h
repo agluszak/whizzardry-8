@@ -1,11 +1,11 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/camera_motion.h"
@@ -87,7 +87,7 @@ public:
     void GetForwardPoint(float distance, glm::vec3* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled); /* 0x00478E00 */
 
-    w8_ulong m_orientation_flags;
+    std::uint32_t m_orientation_flags;
     float m_yaw; /* 0x004 */
     float m_pitch; /* 0x008 */
     glm::mat3 m_pitch_rotation; /* 0x00c */

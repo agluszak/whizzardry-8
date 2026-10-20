@@ -12,7 +12,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
@@ -152,7 +151,7 @@ void W8Searchable::GetPosition(glm::vec3* position)
 void RunSearchPulse(void)
 {
     if (TimeUntilDeadline(CurrentGame().search_pulse_deadline) == 0) {
-        CurrentGame().search_pulse_deadline = w8_get_ticks() + (500);
+        CurrentGame().search_pulse_deadline = MonotonicMilliseconds() + (500);
         if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
             !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
             !LockInteractionSuspended() && !IsTrapInteractionActive() &&
@@ -316,7 +315,7 @@ void ToggleSearchMode(void)
     if (!CurrentGame().combat.active()) {
         CurrentGame().status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
-        CurrentGame().search_pulse_deadline = w8_get_ticks() + (0x1f4);
+        CurrentGame().search_pulse_deadline = MonotonicMilliseconds() + (0x1f4);
         ClearActiveWorldCursorNode();
     } else {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);

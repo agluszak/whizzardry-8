@@ -21,7 +21,6 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
@@ -38,6 +37,7 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
@@ -53,11 +53,11 @@ W8AmbientTrack::~W8AmbientTrack()
 }
 void W8AmbientTrack::Reschedule()
 {
-    next_at = w8_get_ticks() + RandomRange(time_min, time_max);
+    next_at = MonotonicMilliseconds() + RandomRange(time_min, time_max);
 }
 bool W8AmbientTrack::Due() const
 {
-    return !loops && next_at <= w8_get_ticks() && !wiz8::sound::is_playing(instance);
+    return !loops && next_at <= MonotonicMilliseconds() && !wiz8::sound::is_playing(instance);
 }
 std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t maximum)
 {

@@ -11,6 +11,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
@@ -43,8 +44,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
-#include "wiz8/compat/native.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -394,7 +393,7 @@ unsigned char g_npc_join_races[5] = {W8_RACE_UMPANI, W8_RACE_T_RANG, W8_RACE_RAP
 bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
 {
     int index;
-    const w8_unaligned_short* wanted = npc->record->character.wanted_item_ids;
+    const short* wanted = npc->record->character.wanted_item_ids;
 
     for (index = 0; index < 3; ++index) {
         int wanted_id = wanted[index] - 1;
@@ -1968,19 +1967,19 @@ void UpdateNpcEvents(void)
     /* The ticks live in the serialized status block at 32 bits wide, so the
        elapsed check stays a wrap-tolerant 32-bit difference. */
     if (CurrentGame().status.savant_hack_tick != 0 &&
-        int32_t(uint32_t(w8_get_ticks()) - uint32_t(CurrentGame().status.savant_hack_tick)) >
-            0x32) {
+        int32_t(uint32_t(MonotonicMilliseconds()) -
+                uint32_t(CurrentGame().status.savant_hack_tick)) > 0x32) {
         group = FindFirstMonsterByID(0x1b3);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             MonsterStartsDying(monster_info, true);
         }
         CurrentGame().status.savant_hack_tick = 0;
-        CurrentGame().status.bela_cycle_tick = int(uint32_t(w8_get_ticks()));
+        CurrentGame().status.bela_cycle_tick = int(uint32_t(MonotonicMilliseconds()));
     }
     if (CurrentGame().status.bela_cycle_tick != 0 &&
-        int32_t(uint32_t(w8_get_ticks()) - uint32_t(CurrentGame().status.bela_cycle_tick)) >
-            0x1388) {
+        int32_t(uint32_t(MonotonicMilliseconds()) -
+                uint32_t(CurrentGame().status.bela_cycle_tick)) > 0x1388) {
         group = FindFirstMonsterByID(0x1b6);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);

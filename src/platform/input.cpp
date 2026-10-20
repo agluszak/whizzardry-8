@@ -19,7 +19,7 @@
 #include <SDL3/SDL_scancode.h>
 #include <SDL3/SDL_video.h>
 
-#include "wiz8/compat/native.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/unicode.h"
 
@@ -201,7 +201,7 @@ void HandleInputEvent(const SDL_Event& event)
 
 void PostInputEvent(InputEvent event)
 {
-    event.timestamp = w8_get_ticks();
+    event.timestamp = MonotonicMilliseconds();
     event.modifiers = state.modifiers;
     event.buttons =
         (state.left_button ? SDL_BUTTON_LMASK : 0) | (state.right_button ? SDL_BUTTON_RMASK : 0);
@@ -226,7 +226,7 @@ void PostInputEvent(InputEvent event)
 
 std::optional<InputEvent> PollInputEvent()
 {
-    const std::uint64_t now = w8_get_ticks();
+    const std::uint64_t now = MonotonicMilliseconds();
     queue_button_repeat(state.left_button, state.left_repeat_at, InputEventType::LeftButtonRepeat,
                         now);
     queue_button_repeat(state.right_button, state.right_repeat_at,

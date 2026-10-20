@@ -1,9 +1,9 @@
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <stdexcept>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -19,7 +19,8 @@
 #include "wiz8/render/vertex_shading.h"
 #include "wiz8/spatial/bounding_box.h"
 
-MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, w8_long pass, w8_long material_side)
+MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, std::int32_t pass,
+                              std::int32_t material_side)
 {
     MeshDrawPass result;
     auto* current_record = &result.vertex;
@@ -75,7 +76,7 @@ MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, w8_long pass, w8_long m
         current_record->st_source[1] = mesh.texcoords[pass][1];
     }
 
-    for (w8_long layer = 0; layer < 2; ++layer) {
+    for (std::int32_t layer = 0; layer < 2; ++layer) {
         if (mesh.poly_textures[pass][layer] == 0) {
             Texture* texture = mesh.textures[pass][layer].get();
             current_pass->textures[layer] = texture;
@@ -88,7 +89,7 @@ MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, w8_long pass, w8_long m
 }
 
 void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
-                             w8_long material_side)
+                             std::int32_t material_side)
 {
     if (mesh.vertex_count < 0 || mesh.polygon_count < 0 || mesh.pass_count < 0 ||
         mesh.pass_count > Mesh::MAX_PASSES)
@@ -97,9 +98,9 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
     if (!mesh.vertex_alpha.empty() &&
         mesh.vertex_alpha.size() < static_cast<std::size_t>(mesh.vertex_count))
         throw std::invalid_argument("Incomplete mesh alpha channel");
-    const auto triangle_count = static_cast<w8_ulong>(mesh.polygon_count);
-    const auto vertex_count = static_cast<w8_ulong>(mesh.vertex_count);
-    const auto slot_count = static_cast<w8_ulong>(mesh.pass_count);
+    const auto triangle_count = static_cast<std::uint32_t>(mesh.polygon_count);
+    const auto vertex_count = static_cast<std::uint32_t>(mesh.vertex_count);
+    const auto slot_count = static_cast<std::uint32_t>(mesh.pass_count);
     const auto active_triangles = mesh.active_polygons;
     const auto* triangles = mesh.poly_vertices;
     const auto* positions = mesh.positions;
@@ -109,7 +110,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
     std::array<DrawMaterial, Mesh::MAX_PASSES> records;
     std::array<MeshPass, Mesh::MAX_PASSES> passes;
     std::array<ShadedVertexArrays, Mesh::MAX_PASSES> output_arrays{};
-    for (w8_ulong pass = 0; pass < slot_count; ++pass) {
+    for (std::uint32_t pass = 0; pass < slot_count; ++pass) {
         const auto draw = makeMeshDrawPass(mesh, pass, material_side);
         records[pass] = draw.vertex;
         passes[pass] = draw.render;
@@ -165,14 +166,14 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
     }
 
     const auto total =
-        active_triangles ? static_cast<w8_ulong>(active_triangles->size()) : triangle_count;
-    w8_ulong batch_limit = total;
+        active_triangles ? static_cast<std::uint32_t>(active_triangles->size()) : triangle_count;
+    std::uint32_t batch_limit = total;
     {
         double ratio = static_cast<double>(vertex_count) / triangle_count;
         if (ratio > 3.0f) {
             ratio = 3.0f;
         }
-        batch_limit = static_cast<w8_ulong>(1300.0f / (slot_count * ratio));
+        batch_limit = static_cast<std::uint32_t>(1300.0f / (slot_count * ratio));
         if (cull_mode == FaceCull::None) {
             batch_limit >>= 1;
         }
@@ -181,9 +182,9 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
         }
     }
 
-    w8_ulong processed = 0;
+    std::uint32_t processed = 0;
     while (processed < total) {
-        w8_ulong batch_count = total - processed;
+        std::uint32_t batch_count = total - processed;
         if (batch_count > batch_limit) {
             batch_count = batch_limit;
         }
@@ -212,7 +213,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                 ShadedVertexArrays* vertex_arrays = output_arrays.data();
                 vertex_arrays[0] =
                     renderer->allocVertexArray(slot_count * culler_output.vertexCount());
-                for (w8_ulong slot = 1; slot < slot_count; ++slot) {
+                for (std::uint32_t slot = 1; slot < slot_count; ++slot) {
                     const auto offset = renderer->first_vertex + slot * culler_output.vertexCount();
                     vertex_arrays[slot] = renderer->vertices.bind(offset);
                 }
@@ -240,16 +241,16 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                     for (auto& index : culler_output.indices) index += processed;
                 }
 
-                w8_ulong renderer_disable_mask = 0;
+                std::uint32_t renderer_disable_mask = 0;
                 if (this->getMaxTextureStages() == 1) {
                     renderer_disable_mask =
                         (1UL << VertexChannels::CHANNEL_ST1) | (1UL << VertexChannels::CHANNEL_Q1);
                 }
 
-                for (w8_ulong pass_index = 0; pass_index < slot_count; ++pass_index) {
+                for (std::uint32_t pass_index = 0; pass_index < slot_count; ++pass_index) {
                     passes[pass_index].texcoords = records[pass_index].st_source[0];
 
-                    w8_ulong disable_mask;
+                    std::uint32_t disable_mask;
                     if (passes[pass_index].shaders != 0) {
                         disable_mask = shaderDisabledChannels(passes[pass_index].shaders,
                                                               culler_output.indices.data(),

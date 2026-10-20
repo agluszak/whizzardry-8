@@ -8,9 +8,9 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/texture_animation.h"
@@ -151,7 +151,7 @@ void Texture::setupDefaultValues()
 Texture::Texture(TexturePlayback playback) : Texture()
 {
     this->playback = std::move(playback);
-    this->playback->frame_tick = w8_get_ticks();
+    this->playback->frame_tick = MonotonicMilliseconds();
 }
 Texture::Texture(std::filesystem::path path, bool preload) : Texture()
 {
@@ -165,7 +165,7 @@ Texture::Texture(const Texture& other) : Texture()
     if (playback) {
         playback->frame = 0;
         playback->direction = 1;
-        playback->frame_tick = w8_get_ticks();
+        playback->frame_tick = MonotonicMilliseconds();
     }
 }
 void Texture::releaseSurface()
@@ -200,7 +200,7 @@ void Texture::SetFrame(int frame)
 {
     if (!playback) return;
     playback->frame = frame;
-    playback->frame_tick = w8_get_ticks();
+    playback->frame_tick = MonotonicMilliseconds();
 }
 void Texture::AddTexture(std::shared_ptr<Texture> texture)
 {
@@ -231,7 +231,7 @@ void Texture::UpdateFrame()
             state.running = true;
             state.direction = 0;
             state.frame = 0;
-            state.frame_tick = w8_get_ticks();
+            state.frame_tick = MonotonicMilliseconds();
         }
         if (!state.running) {
             return;
@@ -242,7 +242,7 @@ void Texture::UpdateFrame()
     }
 
     const int elapsed_frames =
-        static_cast<int>((w8_get_ticks() - state.frame_tick) * state.frame_rate * 0.001f);
+        static_cast<int>((MonotonicMilliseconds() - state.frame_tick) * state.frame_rate * 0.001f);
     if (state.animation_mode == W8_TEXTURE_ANIM_LOOP) {
         int next = (state.direction * elapsed_frames) % count;
         if (next < state.frame) {

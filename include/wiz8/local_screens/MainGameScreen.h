@@ -6,7 +6,6 @@
 
 #include <SDL3/SDL_keycode.h>
 
-#include "compat/compiler.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"

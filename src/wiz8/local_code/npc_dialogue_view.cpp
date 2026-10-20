@@ -8,7 +8,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "compat/native.h"
 #include "cursor.h"
 #include "local_code/MonsterManager.h"
 #include "wiz8/audio/mouth_gap.h"
@@ -35,6 +34,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
 
@@ -70,7 +70,7 @@ void ShowNpcScriptNoticeBubble(std::string_view text)
 {
     SetNpcQuoteBubbleVisible(true, text, 0, -1, 0x47);
     g_speech.voice_playing = false;
-    g_speech.voice_started_at = w8_get_ticks();
+    g_speech.voice_started_at = MonotonicMilliseconds();
     HoldNpcSpeech(g_speech, 2000);
 }
 
@@ -278,7 +278,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
 void TryFinishNpcVoicePlayback(bool force)
 {
     if (CurrentGame().status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
-        if (!force && w8_get_ticks() - g_speech.voice_started_at <= 500) {
+        if (!force && MonotonicMilliseconds() - g_speech.voice_started_at <= 500) {
             return;
         }
         FinishNpcVoicePlayback(true);

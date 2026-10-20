@@ -7,7 +7,6 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/image.h"
@@ -216,7 +215,7 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         timer_length = 0x5a;
     }
     if (rearm) {
-        movement->animation_clock = w8_get_ticks() + (timer_length);
+        movement->animation_clock = MonotonicMilliseconds() + (timer_length);
     }
     if (!panel_live) {
         if (advanced) {

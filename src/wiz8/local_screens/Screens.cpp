@@ -9,7 +9,6 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
@@ -267,7 +266,7 @@ void ApplyCurrentCursor(void)
         SetMouseCursorHotspot(slot.hotspot_x, slot.hotspot_y);
     }
     if (slot.frame_count > 1) {
-        shown_pointer.next_frame = w8_get_ticks() + (0xfa);
+        shown_pointer.next_frame = MonotonicMilliseconds() + (0xfa);
     }
 }
 
@@ -441,7 +440,7 @@ void InitializeMainGameLevelBlock(void)
     MainGameHud()->camera_motion_flags = 0;
     MainGameHud()->highlighted_item = -1;
     MainGameHud()->selected_item = -1;
-    MainGameHud()->clock = w8_get_ticks();
+    MainGameHud()->clock = MonotonicMilliseconds();
     MainGameHud()->portrait_flash = 0;
     for (slot = 0; slot < 8; ++slot) {
         MainGameHud()->portrait_refresh_pending[slot] = 0;
@@ -449,17 +448,17 @@ void InitializeMainGameLevelBlock(void)
     }
     MainGameHud()->open_submenu.reset();
     RefreshMainGameLayout();
-    MainGameHud()->countdown0 = w8_get_ticks() + (60000);
-    MainGameHud()->countdown1 = w8_get_ticks() + (0);
+    MainGameHud()->countdown0 = MonotonicMilliseconds() + (60000);
+    MainGameHud()->countdown1 = MonotonicMilliseconds() + (0);
     MainGameHud()->text_box_visible = true;
-    MainGameHud()->tick = w8_get_ticks();
+    MainGameHud()->tick = MonotonicMilliseconds();
     MainGameHud()->group_list_rows = 0;
     MainGameHud()->group_list_width = 0;
     MainGame()->monster_list->setEnabled(false);
     MainGameHud()->action_group = -1;
     MainGameHud()->text_lines[4 + CurrentGame().status.text_line_cursor] = FindStoppedTextLine();
     MainGameHud()->refresh_combat_panel = 1;
-    MainGameHud()->combat_panel_timer = w8_get_ticks() + (0);
+    MainGameHud()->combat_panel_timer = MonotonicMilliseconds() + (0);
     MainGameHud()->text_scroll_drag_idle = 1;
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     for (unsigned int& text_line : MainGameHud()->text_lines) {
@@ -476,16 +475,16 @@ void InitializeMainGameLevelBlock(void)
     MainGameHud()->tooltip_since = 0;
     MainGameHud()->tooltip_pending = false;
     MainGameHud()->pending_highlight = {};
-    MainGameHud()->countdown3 = w8_get_ticks() + (0);
+    MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
     MainGameHud()->combat_slot = -1;
     MainGameHud()->keyboard_menu_open = false;
     MainGameHud()->hover_combat_slot = -1;
     MainGameHud()->cursor_grace = 0;
-    MainGameHud()->countdown4 = w8_get_ticks() + (0);
+    MainGameHud()->countdown4 = MonotonicMilliseconds() + (0);
     MainGameHud()->portrait_right_hold_armed = false;
     MainGameHud()->formation_board_alternate = 0;
     MainGameHud()->radar_map_alternate = 0;
     MainGameHud()->review_transition_active = false;
-    MainGameHud()->countdown5 = w8_get_ticks() + (0);
+    MainGameHud()->countdown5 = MonotonicMilliseconds() + (0);
     RebuildMessageLogWords();
 }

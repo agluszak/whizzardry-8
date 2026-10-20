@@ -2,6 +2,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <stdexcept>
 #include <utility>
@@ -10,7 +11,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "catch2/catch_message.hpp"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -38,7 +38,7 @@ bool coverageFinalization()
 {
     constexpr unsigned count = 65;
     std::array<glm::vec3, count> positions{};
-    std::array<w8_ulong, count> indices;
+    std::array<std::uint32_t, count> indices;
     std::array<glm::vec4, count> eye, diffuse, colors;
     std::array<float, count> alpha;
     std::array<unsigned char, count> attributes{};
@@ -86,7 +86,7 @@ bool surfaceLighting()
 {
     constexpr unsigned count = 65;
     std::array<glm::vec3, count> positions, normals;
-    std::array<w8_ulong, count> indices;
+    std::array<std::uint32_t, count> indices;
     std::array<glm::vec4, count> eye, diffuse, specular;
     std::array<unsigned char, count> attributes{};
     for (unsigned i = 0; i < count; ++i) {
@@ -162,7 +162,7 @@ bool distanceProfiles()
 {
     constexpr unsigned count = 65;
     std::array<glm::vec3, count> positions;
-    std::array<w8_ulong, count> indices;
+    std::array<std::uint32_t, count> indices;
     std::array<glm::vec4, count> eye, specular;
     std::array<unsigned char, count> attributes{};
     for (unsigned i = 0; i < count; ++i) {
@@ -211,7 +211,7 @@ bool materialChannelOperations()
 {
     constexpr unsigned count = 65;
     std::array<glm::vec3, count> positions;
-    std::array<w8_ulong, count> indices;
+    std::array<std::uint32_t, count> indices;
     std::array<glm::vec4, count> eye, diffuse, specular;
     std::array<unsigned char, count> attributes{};
     for (unsigned i = 0; i < count; ++i) {
@@ -344,8 +344,8 @@ bool rendererCornerRemapping()
                 renderer.vertices.q[1][i] = float(i) / 10;
                 renderer.vertices.attributes[i] = i;
             }
-            std::array<w8_ulong, 1> indices{0};
-            std::array<w8_ulong, 3> vertices{2, 0, 1};
+            std::array<std::uint32_t, 1> indices{0};
+            std::array<std::uint32_t, 3> vertices{2, 0, 1};
             std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
             std::array<int, 3> uv;
             for (unsigned corner = 0; corner < 3; ++corner)
@@ -401,7 +401,7 @@ bool meshPassTexcoords()
     std::array<DrawMaterial, 2> records;
     Mesh::TriMesh mesh;
     std::array<glm::vec3, 3> positions{{{0, 0, 1}, {1, 0, 1}, {0, 1, 1}}};
-    std::array<w8_ulong, 3> indices{2, 0, 1};
+    std::array<std::uint32_t, 3> indices{2, 0, 1};
     glm::mat4 identity;
     identity = glm::mat4(1);
     std::array<std::array<glm::vec2, 3>, 4> source;
@@ -458,7 +458,7 @@ bool meshPassTexcoords()
 bool countedGeometryTransforms()
 {
     std::array<glm::vec3, 65> positions, normals;
-    std::array<w8_ulong, 65> indices;
+    std::array<std::uint32_t, 65> indices;
     std::array<glm::vec4, 65> eyes;
     std::array<unsigned char, 65> attributes{};
     for (unsigned index = 0; index < positions.size(); ++index) {
@@ -553,8 +553,8 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     MeshInstance selected;
     const std::array<glm::vec4, 3> positions{{{-1, -1, .4f, 1}, {1, -1, .4f, 1}, {0, 1, .4f, 1}}};
     const std::array<glm::ivec3, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
-    const std::array<w8_ulong, 1> indices{1};
-    const std::array<w8_ulong, 3> remap{2, 0, 1};
+    const std::array<std::uint32_t, 1> indices{1};
+    const std::array<std::uint32_t, 3> remap{2, 0, 1};
     GpuRenderer::Renderer batch({&renderer, 0, 256, 1});
     const glm::mat4 projection(1);
     const MeshPass pass{};
@@ -594,7 +594,7 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     performPick({&direct, 1});
     REQUIRE(direct.selected_model == &selected);
 
-    const std::array<w8_ulong, 2> invalid_selection{1, 2};
+    const std::array<std::uint32_t, 2> invalid_selection{1, 2};
     input.indices = invalid_selection;
     Pick unchanged{.triangle_index = 9};
     REQUIRE_THROWS_AS(performPick({&unchanged, 1}), std::invalid_argument);
@@ -623,7 +623,7 @@ TEST_CASE("Draw material overrides stay local across passes sharing one material
     records[1].emissive_override = .5f;
     const glm::mat4 identity(1);
     const std::array<glm::vec3, 1> positions{glm::vec3(0, 0, 1)};
-    const std::array<w8_ulong, 1> indices{0};
+    const std::array<std::uint32_t, 1> indices{0};
     std::array<glm::vec4, 3> eye, diffuse;
     std::array<unsigned char, 3> attributes{};
     std::array<ShadedVertexArrays, 3> arrays{};

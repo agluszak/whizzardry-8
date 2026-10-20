@@ -5,7 +5,6 @@
 #include <memory>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/vertex_channels.h"
 

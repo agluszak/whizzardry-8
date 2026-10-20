@@ -10,9 +10,9 @@
 
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vertex_stream.h"
@@ -78,8 +78,8 @@ void Compositor::draw(GpuRenderer& renderer, OverlayLayer layer)
     for (auto& quad : frame_quads) {
         if (quad.glow_enabled) {
             const auto period = std::max(quad.glow_period, 1u);
-            const float weight =
-                std::abs(std::sin((w8_get_ticks() % period) * 6.283185307179586f / period));
+            const float weight = std::abs(
+                std::sin((MonotonicMilliseconds() % period) * 6.283185307179586f / period));
             const float alpha = quad.color.a;
             quad.color = quad.glow_colors[0] * (1 - weight) + quad.glow_colors[1] * weight;
             quad.color.a = alpha;

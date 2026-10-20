@@ -14,7 +14,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
@@ -24,6 +23,7 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
@@ -668,7 +668,7 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
                  visible.substr(index, end - index), options);
         index = end;
     }
-    if (editing_ && !IsLeftButtonHeld() && w8_get_ticks() % 1000 < 500) {
+    if (editing_ && !IsLeftButtonHeld() && MonotonicMilliseconds() % 1000 < 500) {
         const SDL_Rect caret{field.Edges().left + field.cursor_x, text_top, 1, font_height};
         SDL_FillSurfaceRect(&target, &caret, style_.cursor_color);
     }

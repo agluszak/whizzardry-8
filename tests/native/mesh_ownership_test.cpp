@@ -1,12 +1,12 @@
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -252,7 +252,7 @@ TEST_CASE("Mesh resource assignments retain one owner per resource and survive r
     materials->set(3, nullptr);
     // Growing the resource pool keeps the already published table view valid.
     REQUIRE((*borrowed.vertex_materials[0][0])[2] == other);
-    const std::array<w8_ulong, 4> permutation{3, 2, 0, 1};
+    const std::array<std::uint32_t, 4> permutation{3, 2, 0, 1};
     mesh.reindexVertices(permutation);
     REQUIRE((*materials)[0] == nullptr);
     REQUIRE((*materials)[1] == other);
@@ -263,7 +263,7 @@ TEST_CASE("Mesh resource assignments retain one owner per resource and survive r
     REQUIRE(lifetime.expired()); // Replacing the last assignment releases ownership.
     REQUIRE(material.use_count() == 2);
     textures->set(1, nullptr);
-    const std::array<w8_ulong, 3> polygons{1, 2, 0};
+    const std::array<std::uint32_t, 3> polygons{1, 2, 0};
     mesh.reindexPolygons(polygons);
     REQUIRE((*textures)[0] == nullptr);
     REQUIRE((*textures)[1] == texture);

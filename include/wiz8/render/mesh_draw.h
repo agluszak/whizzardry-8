@@ -1,4 +1,6 @@
 #pragma once
+#include <cstdint>
+
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/vertex_shading.h"
 
@@ -16,4 +18,5 @@ struct MeshDrawPass {
     DrawMaterial vertex;
     MeshPass render;
 };
-MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, w8_long pass, w8_long material_side);
+MeshDrawPass makeMeshDrawPass(const Mesh::TriMesh& mesh, std::int32_t pass,
+                              std::int32_t material_side);

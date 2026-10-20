@@ -236,11 +236,6 @@ Substantial but contained work.
   hits, but `W8OctreeTrace`, line-of-sight and ground-probe callers still use
   mutable output records and surface-zero sentinels. Convert them end to end to
   explicit inputs and optional typed results, preserving world/prop filtering.
-- **Delete the compatibility layer.** `include/wiz8/compat/` (`compiler.h` is
-  force-included into every game source, plus `native.h`, `unaligned.h` and
-  `video.h`) and `src/compat/native_helpers.cpp` should go. Replace them with
-  native filesystem, SDL event and loop facilities, and explicit byte decoding at
-  the file boundaries.
 - **Remove `-fwrapv` and `-fno-strict-aliasing`.** Fix the arithmetic and aliasing
   assumptions these flags protect, using the integer-sanitizer audit job, then drop
   them from `WIZ8_GAME_OPTIONS`.

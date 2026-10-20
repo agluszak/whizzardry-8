@@ -1,7 +1,5 @@
 #pragma once
 struct W8Chunk;
-
-#include "compat/compiler.h"
 #include "wiz8/platform/game_timer.h"
 
 namespace wiz8 {

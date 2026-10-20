@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "wiz8/math.h"
 #include "wiz8/render/draw_shader.h"
 
@@ -35,7 +37,7 @@ struct MaterialInfo {
     float value_38 = 0;                  /* 0x38 */
     glm::vec4 emissive{0};      /* 0x3c */
     float fog_scale = 0;                 /* 0x4c */
-    w8_ulong disabled_channels = 0; /* 0x50 */
+    std::uint32_t disabled_channels = 0; /* 0x50 */
 };
 
 /* Bit indices for enableChannel. */

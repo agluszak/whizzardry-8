@@ -36,7 +36,6 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
@@ -86,6 +85,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
@@ -1745,8 +1745,9 @@ try {
         }
     });
     chunks.Close();
-    ForEachShownMessage(
-        [](auto& message) { message.clock = w8_get_ticks() + message.saved_remaining_ms; });
+    ForEachShownMessage([](auto& message) {
+        message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
+    });
     CurrentGame().gameplay_timer.Restart();
     ResetMainGameScreenState();
     if (CurrentGame().party.held.item.iItemNo == -1) {

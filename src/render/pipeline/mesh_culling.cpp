@@ -10,7 +10,6 @@
 #include <stdexcept>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -25,7 +24,7 @@ glm::vec4 meshCulling::transformClipPlane(const glm::vec4& plane, const glm::mat
     return planeMath::normalized(plane_matrix * plane);
 }
 
-static void validateClipPlanes(std::span<const glm::vec4> planes, w8_ulong mask)
+static void validateClipPlanes(std::span<const glm::vec4> planes, std::uint32_t mask)
 {
     if (planes.size() < 32 && (mask >> planes.size()) != 0)
         throw std::invalid_argument("Incomplete clip-plane span");
@@ -36,7 +35,7 @@ struct ClipFlagsResult {
     bool clipped;
 };
 
-static ClipFlagsResult SetClipFlags(std::span<w8_ulong> flags, const meshCulling::Input& input)
+static ClipFlagsResult SetClipFlags(std::span<std::uint32_t> flags, const meshCulling::Input& input)
 {
     validateClipPlanes(input.clip_planes, input.clip_mask);
     const auto plane_matrix = glm::transpose(input.model_view);
@@ -49,26 +48,27 @@ static ClipFlagsResult SetClipFlags(std::span<w8_ulong> flags, const meshCulling
         for (std::size_t vertex = 0; vertex < flags.size(); ++vertex) {
             const float distance =
                 glm::dot(input.vertices[vertex], glm::vec3(equation)) + equation.w;
-            const w8_ulong flag = std::signbit(distance) ? 1u << plane : 0;
+            const std::uint32_t flag = std::signbit(distance) ? 1u << plane : 0;
             flags[vertex] = first ? flag : flags[vertex] | flag;
             clipped |= flag != 0;
         }
         first = false;
     }
-    w8_ulong shared = 0xffffffff;
+    std::uint32_t shared = 0xffffffff;
     for (auto flag : flags) shared &= flag;
     return {shared == 0, clipped};
 }
 
 meshCulling::ClipMask meshCulling::getClipMask(const glm::vec3& center, float radius,
-                                               std::span<const glm::vec4> planes, w8_ulong mask)
+                                               std::span<const glm::vec4> planes,
+                                               std::uint32_t mask)
 {
     validateClipPlanes(planes, mask);
-    w8_ulong clip = 0;
+    std::uint32_t clip = 0;
     float visible = 1;
     const glm::vec4 point(center, 1);
     for (unsigned i = 0; i < 32; ++i) {
-        const w8_ulong bit = 1u << i;
+        const std::uint32_t bit = 1u << i;
         if (!(mask & bit)) continue;
         const float distance = glm::dot(planes[i], point);
         if (distance > radius) continue;
@@ -102,7 +102,7 @@ meshCulling::Output meshCulling::cull(const Input& input)
         if (!flags.visible) return {};
         clipped = flags.clipped;
     }
-    const auto keep = [&](w8_ulong index) {
+    const auto keep = [&](std::uint32_t index) {
         if (index >= input.triangles.size())
             throw std::invalid_argument("Active triangle index outside mesh");
         const auto& triangle = input.triangles[index];
@@ -118,7 +118,8 @@ meshCulling::Output meshCulling::cull(const Input& input)
             ? clipMath::selectTriangles(output.indices, *input.active_triangles, keep)
             : clipMath::selectTriangles(
                   output.indices,
-                  std::views::iota(w8_ulong{0}, static_cast<w8_ulong>(input.triangles.size())),
+                  std::views::iota(std::uint32_t{0},
+                                   static_cast<std::uint32_t>(input.triangles.size())),
                   keep);
     output.indices.resize(count);
     if (!count) return {};
@@ -130,9 +131,9 @@ meshCulling::Output meshCulling::cull(const Input& input)
             output.vertex_remap[triangle.z] = 1;
     }
     output.avt.reserve(input.vertices.size());
-    for (w8_ulong vertex = 0; vertex < input.vertices.size(); ++vertex)
+    for (std::uint32_t vertex = 0; vertex < input.vertices.size(); ++vertex)
         if (output.vertex_remap[vertex]) output.avt.push_back(vertex);
-    for (w8_ulong vertex = 0; vertex < output.avt.size(); ++vertex)
+    for (std::uint32_t vertex = 0; vertex < output.avt.size(); ++vertex)
         output.vertex_remap[output.avt[vertex]] = vertex;
     return output;
 }

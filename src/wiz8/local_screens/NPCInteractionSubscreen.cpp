@@ -38,7 +38,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -92,6 +91,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -227,7 +227,7 @@ bool g_pending_notice_queued;
 /* The queued NPC script notice; see the type comment in the
    header. */
 W8PendingNotice g_pending_notice;
-/* w8_get_ticks sample for the trade-item highlight timeout. */
+/* MonotonicMilliseconds sample for the trade-item highlight timeout. */
 static uint64_t g_trade_highlight_tick;
 
 static int g_dialogue_place_keyword_count = 15;
@@ -1153,7 +1153,7 @@ void ServiceNpcDialogue(void)
     }
     if (g_npc_interaction_state->ui != nullptr &&
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].text.m_highlighted != 0 &&
-        w8_get_ticks() - g_trade_highlight_tick > 500) {
+        MonotonicMilliseconds() - g_trade_highlight_tick > 500) {
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].text.m_highlighted = false;
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].text.SetGeometryDirty();
         g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_24].dirty = true;
@@ -2555,7 +2555,7 @@ static void HighlightNpcTradeQuantity()
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_35].text.m_highlighted = true;
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_35].text.SetGeometryDirty();
     g_npc_interaction_state->ui->actions[W8_NPC_CONTROL_TEXT_35].dirty = true;
-    g_trade_highlight_tick = w8_get_ticks();
+    g_trade_highlight_tick = MonotonicMilliseconds();
 }
 
 /* Resolve and select one trade-list row. trade_mode picks the pool: mode 2's

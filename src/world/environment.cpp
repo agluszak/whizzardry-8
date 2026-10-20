@@ -11,7 +11,6 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -24,6 +23,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/frame.h"
@@ -101,7 +101,7 @@ void AdvanceEnvironmentTime(int elapsed)
     if (CurrentGame().activity.in_world()) {
         UpdateGameClock(elapsed);
     }
-    g_tick = w8_get_ticks();
+    g_tick = MonotonicMilliseconds();
 
     if (!GetSecondaryWorld()) return;
     auto& sky = GetSecondaryWorld()->environment;
@@ -154,7 +154,7 @@ void AdvanceEnvironmentTime(int elapsed)
 static void AdvanceEnvironmentClock(void)
 {
     if (CurrentGame().advancement.time_passes) {
-        std::uint64_t now = w8_get_ticks();
+        std::uint64_t now = MonotonicMilliseconds();
         std::uint64_t elapsed = now - g_tick;
         if (elapsed != 0) {
             AdvanceEnvironmentTime(
@@ -170,7 +170,7 @@ void SetEnvironmentTimeEnabled(bool enabled)
 {
     CurrentGame().advancement.time_passes = enabled;
     if (!enabled) return;
-    g_tick = w8_get_ticks();
+    g_tick = MonotonicMilliseconds();
     AdvanceEnvironmentClock();
 }
 
@@ -414,7 +414,7 @@ void BeginWorldLightingFade(float duration)
     }
 
     GetWorld()->environment.transition_rate = 1.0f / duration;
-    GetWorld()->environment.transition_tick = w8_get_ticks();
+    GetWorld()->environment.transition_tick = MonotonicMilliseconds();
     GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::Transition;
     if (duration < 0.0f) {
         GetWorld()->environment.base_intensity = GetWorld()->environment.intensity;
@@ -433,7 +433,7 @@ void BeginWorldLightingFade(float duration)
 void UpdateEnvironmentLighting(void)
 {
     if (!GetWorld()) return;
-    std::uint64_t now = w8_get_ticks();
+    std::uint64_t now = MonotonicMilliseconds();
     std::uint64_t elapsed = now - GetWorld()->environment.transition_tick;
     World* world;
     float scale;
@@ -663,7 +663,7 @@ void SetCameraLightMode(W8CameraLightMode mode)
 void SetGameTimeMilliseconds(int value)
 {
     CurrentGame().status.game_time_ms = value;
-    g_tick = w8_get_ticks();
+    g_tick = MonotonicMilliseconds();
 }
 
 const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Horizon0000.ifl"};

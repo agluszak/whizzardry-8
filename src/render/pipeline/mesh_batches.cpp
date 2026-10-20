@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
@@ -27,8 +26,8 @@
 /* Mark `bit` in output wherever the indexed table value changes between adjacent entries; when
    `initialized` is zero the output chunk is cleared first. */
 template<class Lookup>
-static void markTransitions(w8_ulong* output, const w8_ulong* indices, Lookup lookup, w8_ulong bit,
-                            w8_ulong count, w8_ulong initialized)
+static void markTransitions(std::uint32_t* output, const std::uint32_t* indices, Lookup lookup,
+                            std::uint32_t bit, std::uint32_t count, std::uint32_t initialized)
 {
     if (initialized == 0) {
         std::fill_n(output, count, 0);
@@ -38,7 +37,7 @@ static void markTransitions(w8_ulong* output, const w8_ulong* indices, Lookup lo
     }
     auto previous = lookup(indices[0]);
     output[0] |= bit;
-    for (w8_ulong index = 1; index < count; ++index) {
+    for (std::uint32_t index = 1; index < count; ++index) {
         auto value = lookup(indices[index]);
         if (value != previous) {
             output[index] |= bit;
@@ -48,16 +47,17 @@ static void markTransitions(w8_ulong* output, const w8_ulong* indices, Lookup lo
 }
 
 /* dst[i] = src[i] + offset over `count` dwords. */
-static void offsetIndices(w8_ulong* destination, const w8_ulong* source, w8_ulong offset,
-                          w8_ulong count)
+static void offsetIndices(std::uint32_t* destination, const std::uint32_t* source,
+                          std::uint32_t offset, std::uint32_t count)
 {
     std::transform(source, source + count, destination,
-                   [offset](w8_ulong index) { return index + offset; });
+                   [offset](std::uint32_t index) { return index + offset; });
 }
 
 // Rebase in unsigned GLM arithmetic to retain dword wrap behavior.
-static glm::ivec3 remappedTriangle(const glm::ivec3& triangle, std::span<const w8_ulong> vertices,
-                                   w8_ulong vertex_base)
+static glm::ivec3 remappedTriangle(const glm::ivec3& triangle,
+                                   std::span<const std::uint32_t> vertices,
+                                   std::uint32_t vertex_base)
 {
     const auto mapped = vertices.empty() ? triangle : meshMath::remapTriangle(triangle, vertices);
     const glm::uvec3 indices = glm::uvec3(mapped) + vertex_base;
@@ -67,8 +67,8 @@ static glm::ivec3 remappedTriangle(const glm::ivec3& triangle, std::span<const w
 // An empty order denotes consecutive source triangles; an empty vertex map denotes
 // direct indices. Both gathers and pass replication use the same rebase kernel.
 static void gatherTriangles(std::span<glm::ivec3> destination, std::span<const glm::ivec3> source,
-                            std::span<const w8_ulong> order, w8_ulong vertex_base,
-                            std::span<const w8_ulong> vertices = {})
+                            std::span<const std::uint32_t> order, std::uint32_t vertex_base,
+                            std::span<const std::uint32_t> vertices = {})
 {
     for (std::size_t index = 0; index < destination.size(); ++index) {
         const auto source_index = !order.empty() ? order[index] : index;
@@ -86,14 +86,14 @@ GpuRenderer::Renderer::Statistics GpuRenderer::Renderer::getStatistics() const
     return statistics;
 }
 
-w8_ulong GpuRenderer::Renderer::TextureSetCache::intern(const TextureSetKey& key)
+std::uint32_t GpuRenderer::Renderer::TextureSetCache::intern(const TextureSetKey& key)
 {
     const auto found = map.find(key);
     if (found != map.end()) {
         return found->second;
     }
 
-    const auto index = static_cast<w8_ulong>(sets.size());
+    const auto index = static_cast<std::uint32_t>(sets.size());
     TextureSet& set = sets.emplace_back();
     try {
         map.emplace(key, index);
@@ -124,9 +124,9 @@ w8_ulong GpuRenderer::Renderer::TextureSetCache::intern(const TextureSetKey& key
     return index;
 }
 
-GpuRenderer::Renderer::IndexWrite GpuRenderer::Renderer::IndexBatch::alloc(w8_ulong count)
+GpuRenderer::Renderer::IndexWrite GpuRenderer::Renderer::IndexBatch::alloc(std::uint32_t count)
 {
-    w8_ulong needed = count + 0x40 + this->count;
+    std::uint32_t needed = count + 0x40 + this->count;
     triangles.resize(needed);
     texture_set.resize(needed);
     sort_key.resize(needed);
@@ -165,9 +165,9 @@ void GpuRenderer::Renderer::VertexArrays::reset(int release)
     count = 0;
 }
 
-ShadedVertexArrays GpuRenderer::Renderer::VertexArrays::alloc(w8_ulong count)
+ShadedVertexArrays GpuRenderer::Renderer::VertexArrays::alloc(std::uint32_t count)
 {
-    w8_ulong needed = count + this->count;
+    std::uint32_t needed = count + this->count;
     if (positions.size() < needed) {
         needed += 0x40;
         // Retail constant-fill helper SURRENDER 0x10027BA0 is replaced by typed defaults.
@@ -205,15 +205,15 @@ int GpuRenderer::Renderer::isBatchFull() const
     return 0;
 }
 
-ShadedVertexArrays GpuRenderer::Renderer::allocVertexArray(w8_ulong count)
+ShadedVertexArrays GpuRenderer::Renderer::allocVertexArray(std::uint32_t count)
 {
     first_vertex = vertices.count;
     return vertices.alloc(count);
 }
 
-void GpuRenderer::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices,
-                                              w8_ulong count, const MeshPass* pass,
-                                              w8_long polygon_offset)
+void GpuRenderer::Renderer::assignTextureSets(std::uint32_t* texture_set,
+                                              const std::uint32_t* indices, std::uint32_t count,
+                                              const MeshPass* pass, std::int32_t polygon_offset)
 {
     enum { TABLE_TEXTURE0 = 1u, TABLE_TEXTURE1 = 2u, TABLE_SHADER = 4u };
     TextureSetKey key;
@@ -229,29 +229,29 @@ void GpuRenderer::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ul
         mask |= TABLE_SHADER;
     }
     if (mask == 0) {
-        w8_ulong set = texture_sets.intern(key);
+        std::uint32_t set = texture_sets.intern(key);
         if (count != 0) {
             std::fill_n(texture_set, count, set);
         }
         return;
     }
-    const auto texture0 = [&](w8_ulong polygon) {
+    const auto texture0 = [&](std::uint32_t polygon) {
         return (*pass->texture_tables[0])[polygon].get();
     };
-    const auto texture1 = [&](w8_ulong polygon) {
+    const auto texture1 = [&](std::uint32_t polygon) {
         return (*pass->texture_tables[1])[polygon].get();
     };
-    const auto shader = [&](w8_ulong polygon) { return pass->shaders[polygon].value; };
-    w8_ulong set = texture_sets.intern(key);
-    w8_ulong done = 0;
+    const auto shader = [&](std::uint32_t polygon) { return pass->shaders[polygon].value; };
+    std::uint32_t set = texture_sets.intern(key);
+    std::uint32_t done = 0;
     while (done < count) {
-        w8_ulong chunk = count - done;
+        std::uint32_t chunk = count - done;
         if (chunk > 0x100) {
             chunk = 0x100;
         }
-        const w8_ulong* chunk_indices = indices + done;
-        w8_ulong* out = texture_set + done;
-        w8_ulong initialized = 0;
+        const std::uint32_t* chunk_indices = indices + done;
+        std::uint32_t* out = texture_set + done;
+        std::uint32_t initialized = 0;
         if ((mask & TABLE_TEXTURE0) != 0) {
             markTransitions(out, chunk_indices, texture0, TABLE_TEXTURE0, chunk, initialized);
             initialized = 1;
@@ -264,10 +264,10 @@ void GpuRenderer::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ul
             markTransitions(out, chunk_indices, shader, TABLE_SHADER, chunk, initialized);
         }
         if (chunk != 0) {
-            for (w8_ulong index = 0; index < chunk; index++) {
-                w8_ulong changed = out[index];
+            for (std::uint32_t index = 0; index < chunk; index++) {
+                std::uint32_t changed = out[index];
                 if (changed != 0) {
-                    w8_ulong vertex = chunk_indices[index];
+                    std::uint32_t vertex = chunk_indices[index];
                     if ((changed & TABLE_TEXTURE0) != 0) {
                         key.texture0 = texture0(vertex);
                     }
@@ -288,7 +288,7 @@ void GpuRenderer::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ul
 
 /* Depth-sort keys: each triangle's key is the negated sum of its corner view-space z's plus the
    bias, mapped to a sortable unsigned value. */
-static void sortKeys(std::span<w8_ulong> keys, std::span<const glm::ivec3> triangles,
+static void sortKeys(std::span<std::uint32_t> keys, std::span<const glm::ivec3> triangles,
                      std::span<const glm::vec4> positions, float bias)
 {
     assert(keys.size() == triangles.size());
@@ -296,7 +296,7 @@ static void sortKeys(std::span<w8_ulong> keys, std::span<const glm::ivec3> trian
     std::ranges::transform(triangles, keys.begin(), [&](const glm::ivec3& triangle) {
         const float depth = -(positions[triangle.x].z + positions[triangle.y].z +
                               positions[triangle.z].z + scaled_bias);
-        const auto bits = std::bit_cast<w8_ulong>(depth);
+        const auto bits = std::bit_cast<std::uint32_t>(depth);
         return (bits & 0x80000000u) == 0 ? bits | 0x80000000u : 0x7fffffffu - (bits & 0x7fffffffu);
     });
 }
@@ -305,31 +305,31 @@ void GpuRenderer::Renderer::expandTriangles(const TriInput& input, int sorted)
 {
     const auto write = indices.alloc(input.triangleCount() * input.record_count);
     const MeshPass* passes = input.passes;
-    w8_ulong record = 0;
+    std::uint32_t record = 0;
     while (record < input.record_count && passes[record].poly_uv == 0) {
         record++;
     }
     if (record == input.record_count) {
         /* Flat path: gather the chunk once, then replicate it per record
        with the record's vertex offset. */
-        for (w8_ulong done = 0; done < input.triangleCount(); done += 0x100) {
-            w8_ulong chunk = input.triangleCount() - done;
+        for (std::uint32_t done = 0; done < input.triangleCount(); done += 0x100) {
+            std::uint32_t chunk = input.triangleCount() - done;
             if (chunk > 0x100) {
                 chunk = 0x100;
             }
             gatherTriangles({write.triangles + done, chunk}, input.triangles,
                             input.indices.subspan(done, chunk), first_vertex,
-                            input.direct_vertex_indices ? std::span<const w8_ulong>{}
+                            input.direct_vertex_indices ? std::span<const std::uint32_t>{}
                                                         : input.vertices);
             if (sorted != 0) {
                 sortKeys({write.sort_key + done, chunk}, {write.triangles + done, chunk},
                          vertices.positions, input.sort_bias);
-                for (w8_ulong replica = 1; replica < input.record_count; replica++) {
+                for (std::uint32_t replica = 1; replica < input.record_count; replica++) {
                     offsetIndices(write.sort_key + input.triangleCount() * replica + done,
                                   write.sort_key + done, replica, chunk);
                 }
             }
-            for (w8_ulong replica = 1; replica < input.record_count; replica++) {
+            for (std::uint32_t replica = 1; replica < input.record_count; replica++) {
                 gatherTriangles({write.triangles + input.triangleCount() * replica + done, chunk},
                                 std::span<const glm::ivec3>(write.triangles + done, chunk), {},
                                 replica * input.vertex_count);
@@ -340,29 +340,29 @@ void GpuRenderer::Renderer::expandTriangles(const TriInput& input, int sorted)
            designated source corner's vertex and allocates fresh slots for
            the others; remap carries six dwords per triangle — the new
            vertices' batch positions, then their corner-source indices. */
-        w8_ulong free_vertex = input.record_count * input.vertex_count + first_vertex;
+        std::uint32_t free_vertex = input.record_count * input.vertex_count + first_vertex;
         this->remap.resize(input.triangleCount() * 6);
-        w8_ulong* remap = this->remap.data();
-        w8_ulong* corner_remap = remap + input.triangleCount() * 3;
-        w8_ulong written = 0;
+        std::uint32_t* remap = this->remap.data();
+        std::uint32_t* corner_remap = remap + input.triangleCount() * 3;
+        std::uint32_t written = 0;
         for (record = 0; record < input.record_count; record++) {
             const MeshPass& pass = passes[record];
-            w8_ulong vertex_base = record * input.vertex_count + first_vertex;
+            std::uint32_t vertex_base = record * input.vertex_count + first_vertex;
             if (pass.poly_uv != 0) {
                 const glm::ivec3* poly_uv = pass.poly_uv;
-                w8_ulong new_count = 0;
-                w8_ulong next = free_vertex;
-                w8_ulong base = free_vertex;
-                w8_ulong* remap_out = remap;
-                w8_ulong* corner_out = corner_remap;
-                for (w8_ulong index = 0; index < input.triangleCount(); index++) {
+                std::uint32_t new_count = 0;
+                std::uint32_t next = free_vertex;
+                std::uint32_t base = free_vertex;
+                std::uint32_t* remap_out = remap;
+                std::uint32_t* corner_out = corner_remap;
+                for (std::uint32_t index = 0; index < input.triangleCount(); index++) {
                     const glm::ivec3& triangle = input.triangles[input.indices[index]];
                     const glm::ivec3& uv = poly_uv[input.indices[index]];
                     glm::ivec3& out = write.triangles[written + index];
                     for (int corner = 0; corner < 3; ++corner) {
                         const auto vertex = triangle[corner];
                         const auto texcoord = uv[corner];
-                        const w8_ulong mapped = input.vertices[vertex] + vertex_base;
+                        const std::uint32_t mapped = input.vertices[vertex] + vertex_base;
                         if (vertex == texcoord) {
                             out[corner] = mapped;
                         } else {
@@ -378,7 +378,7 @@ void GpuRenderer::Renderer::expandTriangles(const TriInput& input, int sorted)
                     const auto arrays = vertices.bind(0);
                     const auto gather_stream = [remap, base, new_count](auto* stream) {
                         std::transform(remap, remap + new_count, stream + base,
-                                       [stream](w8_ulong index) { return stream[index]; });
+                                       [stream](std::uint32_t index) { return stream[index]; });
                     };
                     gather_stream(arrays.eye_locations);
                     gather_stream(arrays.diffuse);
@@ -402,7 +402,7 @@ void GpuRenderer::Renderer::expandTriangles(const TriInput& input, int sorted)
             written += input.triangleCount();
         }
     }
-    w8_ulong texture_set_offset = 0;
+    std::uint32_t texture_set_offset = 0;
     for (record = 0; record < input.record_count; record++) {
         assignTextureSets(write.texture_set + texture_set_offset, input.indices.data(),
                           input.triangleCount(), passes + record, input.polygon_offset);
@@ -415,17 +415,17 @@ void GpuRenderer::Renderer::transformVertices(const TriInput& input, unsigned ch
     if (input.vertex_count == 0) return;
     auto* positions = vertices.positions.data() + first_vertex;
     const auto& projection = *input.project_clip_near;
-    for (w8_ulong i = 0; i < input.vertex_count; ++i) positions[i] = projection * positions[i];
+    for (std::uint32_t i = 0; i < input.vertex_count; ++i) positions[i] = projection * positions[i];
     clipMath::clipFlags({clip_flags, input.vertex_count}, {positions, input.vertex_count});
-    for (w8_ulong replica = 1; replica < input.record_count; ++replica)
+    for (std::uint32_t replica = 1; replica < input.record_count; ++replica)
         std::copy_n(positions, input.vertex_count, positions + replica * input.vertex_count);
 }
 
 /* Whether all clip-flag bytes share a clip plane. */
-static int fullyClipped(const unsigned char* flags, w8_ulong count)
+static int fullyClipped(const unsigned char* flags, std::uint32_t count)
 {
     unsigned char mask = vertexStream::FRUSTUM_CLIP_MASK;
-    w8_ulong index;
+    std::uint32_t index;
     for (index = 0; index < (count & ~3UL); index += 4) {
         mask &= flags[index] & flags[index + 1] & flags[index + 2] & flags[index + 3];
         if (mask == 0) {
@@ -439,14 +439,14 @@ static int fullyClipped(const unsigned char* flags, w8_ulong count)
 }
 
 /* OR the per-vertex packed attribute bytes into the aggregate mask. */
-static w8_ulong attributeMask(const unsigned char* packed, w8_ulong count)
+static std::uint32_t attributeMask(const unsigned char* packed, std::uint32_t count)
 {
-    w8_ulong mask = 0;
-    for (w8_ulong i = 0; i < count; ++i) mask |= packed[i];
+    std::uint32_t mask = 0;
+    for (std::uint32_t i = 0; i < count; ++i) mask |= packed[i];
     return mask;
 }
 
-void GpuRenderer::Renderer::drawTriangleRuns(std::span<const w8_ulong> order,
+void GpuRenderer::Renderer::drawTriangleRuns(std::span<const std::uint32_t> order,
                                              const vertexStream::VertexArrayInfo& arrays)
 {
     const auto count = indices.count;
@@ -464,14 +464,15 @@ void GpuRenderer::Renderer::drawTriangleRuns(std::span<const w8_ulong> order,
                 submitted = gathered.data();
             }
             // Positions are already in clip space, so the device applies no transform.
-            gerd->draw({.primitive = vertexStream::PRIMITIVE_TRIANGLES,
-                        .vertices = arrays,
-                        /* reinterpret-ok: each triangle is three packed 32-bit indices. */
-                        .indices = {reinterpret_cast<const w8_ulong*>(submitted), run.count * 3},
-                        .shader = set.shader,
-                        .textures = {set.texture0, set.texture1},
-                        .fog_color = gerd->getFogColor(),
-                        .polygon_offset = set.polygon_offset});
+            gerd->draw(
+                {.primitive = vertexStream::PRIMITIVE_TRIANGLES,
+                 .vertices = arrays,
+                 /* reinterpret-ok: each triangle is three packed 32-bit indices. */
+                 .indices = {reinterpret_cast<const std::uint32_t*>(submitted), run.count * 3},
+                 .shader = set.shader,
+                 .textures = {set.texture0, set.texture1},
+                 .fog_color = gerd->getFogColor(),
+                 .polygon_offset = set.polygon_offset});
         });
 }
 
@@ -492,16 +493,16 @@ void GpuRenderer::Renderer::drawSorted(const vertexStream::VertexArrayInfo& arra
    when only the alpha attribute is present) and per-stage texture
    coordinate and Q streams. */
 vertexStream::VertexArrayInfo GpuRenderer::Renderer::vertexArrays(const ShadedVertexArrays& arrays,
-                                                                  w8_ulong count) const
+                                                                  std::uint32_t count) const
 {
-    w8_ulong attributes = attributeMask(arrays.attributes, count);
+    std::uint32_t attributes = attributeMask(arrays.attributes, count);
     if (texture_stages < 2) {
         /* Single-stage devices cannot take stage-1 st/q streams. */
         attributes &= ~(ShadedVertexArrays::ATTRIBUTE_ST1 | ShadedVertexArrays::ATTRIBUTE_Q1);
     }
     vertexStream::VertexArrayInfo result{};
-    const auto stream = [&](vertexStream::e_vertexArray slot, w8_long components, w8_ulong stride,
-                            const void* values) {
+    const auto stream = [&](vertexStream::e_vertexArray slot, std::int32_t components,
+                            std::uint32_t stride, const void* values) {
         result.mask |= 1u << slot;
         result.components[slot] = components;
         result.strides[slot] = stride;
@@ -521,8 +522,8 @@ vertexStream::VertexArrayInfo GpuRenderer::Renderer::vertexArrays(const ShadedVe
     const std::array coordinates{arrays.st0, arrays.st1};
     const std::array weights{arrays.q0, arrays.q1};
     for (unsigned stage = 0; stage < coordinates.size(); ++stage) {
-        const w8_ulong st_bit = ShadedVertexArrays::ATTRIBUTE_ST0 << stage;
-        const w8_ulong q_bit = ShadedVertexArrays::ATTRIBUTE_Q0 << stage;
+        const std::uint32_t st_bit = ShadedVertexArrays::ATTRIBUTE_ST0 << stage;
+        const std::uint32_t q_bit = ShadedVertexArrays::ATTRIBUTE_Q0 << stage;
         if ((attributes & st_bit) == 0) continue;
         stream(
             static_cast<vertexStream::e_vertexArray>(vertexStream::VERTEX_ARRAY_TEXCOORD0 + stage),
@@ -534,7 +535,7 @@ vertexStream::VertexArrayInfo GpuRenderer::Renderer::vertexArrays(const ShadedVe
 
 void GpuRenderer::Renderer::submit()
 {
-    w8_ulong vertex_count = vertices.count;
+    std::uint32_t vertex_count = vertices.count;
     statistics.device_calls += 1;
     statistics.device_vertices += vertex_count;
     statistics.device_vertex_indices += indices.count;
@@ -565,12 +566,12 @@ void GpuRenderer::Renderer::reset(int release_buffers)
 /* Copy the indices of the not-fully-clipped triangles; a triangle drops out only when all three
    corners share a clip flag. With direct_vertex_indices clear the corners index the flag array
    through the vertices remap. */
-static w8_ulong filterTriangles(w8_ulong* destination, const unsigned char* flags,
-                                const GpuRenderer::Renderer::TriInput& input)
+static std::uint32_t filterTriangles(std::uint32_t* destination, const unsigned char* flags,
+                                     const GpuRenderer::Renderer::TriInput& input)
 {
     const auto* remap = input.direct_vertex_indices ? nullptr : input.vertices.data();
     return clipMath::selectTriangles(
-        {destination, input.triangleCount()}, input.indices, [&](w8_ulong index) {
+        {destination, input.triangleCount()}, input.indices, [&](std::uint32_t index) {
             return clipMath::triangleVisible(input.triangles[index], flags, remap);
         });
 }
@@ -598,7 +599,7 @@ void GpuRenderer::Renderer::render(const TriInput& input)
     }
     const TriInput* batch = &input;
     TriInput filtered;
-    w8_ulong mask = attributeMask(flags, input.vertex_count);
+    std::uint32_t mask = attributeMask(flags, input.vertex_count);
     if (mask != 0) {
         filtered = input;
         dwords.resize(input.triangleCount());
@@ -616,7 +617,7 @@ void GpuRenderer::Renderer::render(const TriInput& input)
         pick.indices = batch->indices;
         pick.triangles = batch->triangles;
         pick.vertices =
-            batch->direct_vertex_indices ? std::span<const w8_ulong>{} : batch->vertices;
+            batch->direct_vertex_indices ? std::span<const std::uint32_t>{} : batch->vertices;
         pick.positions = std::span{vertices.positions}.subspan(first_vertex, batch->vertex_count);
         pick.picks = batch->picks;
         pick.owner = batch->pick_owner;
@@ -626,7 +627,7 @@ void GpuRenderer::Renderer::render(const TriInput& input)
     first_vertex = -1;
 }
 
-ShadedVertexArrays GpuRenderer::Renderer::VertexArrays::bind(w8_ulong base)
+ShadedVertexArrays GpuRenderer::Renderer::VertexArrays::bind(std::uint32_t base)
 {
     return {positions.data() + base, diffuse.data() + base,   specular.data() + base,
             st[0].data() + base,     st[1].data() + base,     q[0].data() + base,

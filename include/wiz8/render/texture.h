@@ -9,7 +9,6 @@
 
 #include <SDL3/SDL_pixels.h>
 
-#include "compat/compiler.h"
 #include "wiz8/texture_animation.h"
 struct SDL_Surface;
 
@@ -37,8 +36,8 @@ class Texture {
 
 public:
     struct Dimensions {
-        w8_ulong width;
-        w8_ulong height;
+        std::uint32_t width;
+        std::uint32_t height;
         SDL_PixelFormat format;
         bool generate_mipmaps = true;
         // UI canvases must bypass power-of-two rounding and world texture reduction.
@@ -100,7 +99,7 @@ public:
 
     Parameters parameters;
     Dimensions texture_dimensions_;
-    w8_ulong texture_flags_;
+    std::uint32_t texture_flags_;
 
 public:
     std::string name{"anonymous"};

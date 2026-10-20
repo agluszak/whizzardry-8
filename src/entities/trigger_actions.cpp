@@ -29,8 +29,6 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/matrix.hpp>
 
-#include "compat/compiler.h"
-#include "compat/native.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -79,6 +77,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
@@ -387,7 +386,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
         glm::vec3 lower;
         glm::vec3 upper;
         glm::vec3 extent;
-        std::vector<w8_ulong> locations;
+        std::vector<std::uint32_t> locations;
         extent = glm::vec3(radius, radius, radius);
         lower = center - extent;
         upper = center + extent;
@@ -674,7 +673,7 @@ Trigger::Trigger(World* world)
     position = glm::vec3(0);
     action_data[0] = 0;
     action_data_mode = W8TriggerActionDataMode::toggle_alternate;
-    item_group_seed = static_cast<unsigned int>(w8_get_ticks() + Random(30000));
+    item_group_seed = static_cast<unsigned int>(MonotonicMilliseconds() + Random(30000));
     gold = 0;
     uses_remaining = 0;
     trigger_id = world ? world->next_trigger_id++ : 0;
@@ -1955,7 +1954,7 @@ void Trigger::Run(int source)
             NextTriggerRecipient(recipient);
             ++count;
         }
-        selected = static_cast<unsigned char>(w8_get_ticks() % count);
+        selected = static_cast<unsigned char>(MonotonicMilliseconds() % count);
         recipient = (recipients.empty() ? nullptr : recipients.c_str());
         do {
             destination = NextTriggerRecipient(recipient);

@@ -24,8 +24,6 @@
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
@@ -1646,8 +1644,7 @@ unsigned int ChoosePowerLevelToRestore(W8Character* character, int spell_id,
 }
 
 /* The worst of the listed conditions: the largest value, ties going to the later entry. */
-static unsigned int worstCondition(const w8_unaligned_uint* conditions,
-                                   std::initializer_list<int> ids)
+static unsigned int worstCondition(const unsigned int* conditions, std::initializer_list<int> ids)
 {
     unsigned int worst = conditions[*ids.begin()];
     for (const int id : ids) {
@@ -1663,7 +1660,7 @@ static unsigned int worstCondition(const w8_unaligned_uint* conditions,
 static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spell_id,
                                                    const W8CombatSlot& target, int identify_context)
 {
-    const w8_unaligned_uint* conditions = 0;
+    const unsigned int* conditions = 0;
     const W8Character* target_character = 0;
     unsigned int power_level;
     unsigned int worst;
@@ -2069,7 +2066,7 @@ static bool CheckAndRestartSpellCooldown(int spell_id)
             if (TimeUntilDeadline(g_spell_cooldown_clocks[index]) != 0) {
                 affected = false;
             }
-            g_spell_cooldown_clocks[index] = w8_get_ticks() + (180000);
+            g_spell_cooldown_clocks[index] = MonotonicMilliseconds() + (180000);
             break;
         }
     }
@@ -2083,7 +2080,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
 {
     unsigned int duration;
     unsigned int index;
-    const w8_unaligned_uint* conditions;
+    const unsigned int* conditions;
     const W8Enchantment* enchantments;
     W8MonsterInfo* monster_info;
     const W8Character* target;

@@ -4,7 +4,6 @@
 #include <string_view>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/platform/input.h"

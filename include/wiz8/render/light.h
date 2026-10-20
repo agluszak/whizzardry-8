@@ -1,6 +1,7 @@
 #pragma once
 class WorldScene;
 class GpuRenderer;
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <span>
@@ -118,7 +119,7 @@ public:
     float far_attenuation;   /* 0x184 */
 
     glm::vec3 opengl_attenuation;    /* 0x188 */
-    w8_ulong enable_flags;           /* 0x194 */
+    std::uint32_t enable_flags;           /* 0x194 */
     glm::vec3 ambient;               /* 0x198 */
     glm::vec3 diffuse;               /* 0x1a4 */
     glm::vec3 specular;              /* 0x1b0 */
@@ -141,8 +142,8 @@ public:
         DERIVED_CONSTANT_ATTENUATION = 0x10u,
         DERIVED_RANGE_CULL = 0x20u
     };
-    w8_ulong derived_flags; /* 0x21c */
-    w8_ulong channel_mask;  /* 0x220 */
+    std::uint32_t derived_flags; /* 0x21c */
+    std::uint32_t channel_mask;  /* 0x220 */
 public:
 public:
     void Reset();                                              /* 0x0049D070 */
@@ -169,14 +170,14 @@ public:
     /* Raised by light-toggle triggers; the save path serializes the names of
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
-    /* w8_get_ticks()/1000 timestamp of the last intensity/color update. */
+    /* MonotonicMilliseconds()/1000 timestamp of the last intensity/color update. */
     float m_level_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */
     float m_level;
     std::optional<KeyframeTrack> path_ai;
     /* Current path entry index, advanced by m_path_direction. */
     int m_path_index;
-    /* w8_get_ticks()/1000 timestamp of the last path advance. */
+    /* MonotonicMilliseconds()/1000 timestamp of the last path advance. */
     float m_path_time;
     /* Path step direction, +1 or -1 under the ping-pong flag. */
     int m_path_direction;
@@ -199,10 +200,10 @@ public:
     Transform3D transform;
     WorldScene* scene = nullptr; // Borrowed typed render membership.
     void setScene(WorldScene* value);
-    w8_ulong group_mask = 0x80000000u;
+    std::uint32_t group_mask = 0x80000000u;
     glm::vec3 eye_location{0};
-    void setGroupMask(w8_ulong value) { group_mask = value; }
-    w8_ulong getGroupMask() const { return group_mask; }
+    void setGroupMask(std::uint32_t value) { group_mask = value; }
+    std::uint32_t getGroupMask() const { return group_mask; }
 };
 void SaveLightStates(wiz8::File& handle);
 struct W8LightState {

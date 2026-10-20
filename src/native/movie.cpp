@@ -2,6 +2,7 @@
    timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
 #include "movie.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -10,8 +11,8 @@
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "wiz8/audio/movie_audio.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/gpu_renderer.h"
@@ -65,7 +66,7 @@ struct W8NativeVideo::State {
     unsigned video_frames = 0;
     uint64_t audio_frames = 0;
     bool eof = false, started = false;
-    uint64_t began = 0; // w8_clock_us
+    uint64_t began = 0; // MonotonicMicroseconds
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
@@ -304,7 +305,7 @@ uint64_t W8NativeVideo::decoded_audio_frames() const
 
 W8NativeVideo::Result W8NativeVideo::update_now()
 {
-    const uint64_t now = w8_clock_us();
+    const uint64_t now = MonotonicMicroseconds();
     if (!state->started) state->began = now;
     return update((now - state->began) / 1e6);
 }

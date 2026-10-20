@@ -10,7 +10,6 @@
 #include "local_code/FormationAndFacing.h"
 #include "monster_spell_icons.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/unaligned.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -521,7 +520,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
                                 true);
         }
         if (monster_info->pCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
-            w8_unaligned_int* hate = &monster_info->pCombat->character_hate[target->iChar];
+            int* hate = &monster_info->pCombat->character_hate[target->iChar];
             record = GetMonsterDataForInfo(monster_info);
             *hate += (record->effective_level * static_cast<unsigned int>(condition)) / 3;
         }

@@ -3,22 +3,22 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <numeric>
 #include <span>
 #include <vector>
 
-#include "compat/compiler.h"
-
 struct TriangleRun {
     std::size_t first;
     std::size_t count;
-    w8_ulong texture_set;
+    std::uint32_t texture_set;
 };
 
 // An empty order uses contiguous input; otherwise runs follow its permutation.
 template<class Visit>
-inline void visitTriangleRuns(std::span<const w8_ulong> texture_sets,
-                              std::span<const w8_ulong> order, std::size_t maximum_run, Visit visit)
+inline void visitTriangleRuns(std::span<const std::uint32_t> texture_sets,
+                              std::span<const std::uint32_t> order, std::size_t maximum_run,
+                              Visit visit)
 {
     assert(maximum_run > 0);
     const auto count = order.empty() ? texture_sets.size() : order.size();
@@ -36,14 +36,14 @@ inline void visitTriangleRuns(std::span<const w8_ulong> texture_sets,
 }
 
 // Preserve equal-depth submission order and the renderer's sorted key table.
-inline std::vector<w8_ulong> sortedTriangleOrder(std::span<w8_ulong> depth_keys)
+inline std::vector<std::uint32_t> sortedTriangleOrder(std::span<std::uint32_t> depth_keys)
 {
-    std::vector<w8_ulong> order(depth_keys.size());
-    std::iota(order.begin(), order.end(), w8_ulong{0});
-    std::stable_sort(order.begin(), order.end(), [&](w8_ulong first, w8_ulong second) {
+    std::vector<std::uint32_t> order(depth_keys.size());
+    std::iota(order.begin(), order.end(), std::uint32_t{0});
+    std::stable_sort(order.begin(), order.end(), [&](std::uint32_t first, std::uint32_t second) {
         return depth_keys[first] < depth_keys[second];
     });
-    std::vector<w8_ulong> sorted_keys;
+    std::vector<std::uint32_t> sorted_keys;
     sorted_keys.reserve(depth_keys.size());
     for (auto index : order) sorted_keys.push_back(depth_keys[index]);
     std::copy(sorted_keys.begin(), sorted_keys.end(), depth_keys.begin());

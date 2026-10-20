@@ -12,7 +12,6 @@
 #include <vector>
 
 #include "application.h"
-#include "compat/compiler.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -192,11 +191,11 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
         ShutdownWithErrorBox("CompiledMesh::Read -- Could not read Sunlight array.\n");
     }
 
-    w8_ulong* shade_indices = model->getVertexShadeIndex(1);
+    std::uint32_t* shade_indices = model->getVertexShadeIndex(1);
     if (vertex_locations == 0) {
         ShutdownWithErrorBox("CompiledMesh::Read -- Could not get vertex location array.\n");
     }
-    for (w8_ulong shade_index = 0; shade_index < static_cast<w8_ulong>(m_vertex_count);
+    for (std::uint32_t shade_index = 0; shade_index < static_cast<std::uint32_t>(m_vertex_count);
          ++shade_index) {
         shade_indices[shade_index] = shade_index;
     }

@@ -8,7 +8,6 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
 #include "local_code/ControlsRect.h"
@@ -294,7 +293,7 @@ void OpenFormationPanel(void)
     g_formation_active_cell = -1;
     g_formation_drag_cell = -1;
     g_formation_drag_slot = -1;
-    g_formation_drag_clock = w8_get_ticks() + (0);
+    g_formation_drag_clock = MonotonicMilliseconds() + (0);
     MainGame()->formation_panel_open = true;
     RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
     CurrentGame().planned_formation = CurrentGame().party.formation;
@@ -393,7 +392,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         case UiPointerAction::Down:
             formation->cells[id].press(SDL_BUTTON_LMASK, cell_policy);
             formation->dirty = true;
-            g_formation_drag_clock = w8_get_ticks() + 250;
+            g_formation_drag_clock = MonotonicMilliseconds() + 250;
             return UiResult::Handled;
         case UiPointerAction::Up:
             if (g_formation_cell_slots[id] != -1) {

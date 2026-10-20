@@ -1,6 +1,4 @@
 #pragma once
-
-#include "compat/compiler.h"
 #include "wiz8/data/records.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/platform/input.h"

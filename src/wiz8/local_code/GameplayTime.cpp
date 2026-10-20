@@ -12,7 +12,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
@@ -57,6 +56,7 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
@@ -450,7 +450,7 @@ void ResolveSurpriseWake(void)
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
         SetPortraitTargetPose(entry, 1);
         if (Random(2) != 0) {
-            entry->portrait.idle_clock = w8_get_ticks() + (Random(5000) + 5000);
+            entry->portrait.idle_clock = MonotonicMilliseconds() + (Random(5000) + 5000);
         }
         entry->portrait.pose_dirty = true;
         RequestRedraw(1 << slot);

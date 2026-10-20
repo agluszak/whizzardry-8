@@ -4,7 +4,6 @@
 #include <cmath>
 #include <variant>
 
-#include "compat/native.h"
 #include "glm/common.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
@@ -12,6 +11,7 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/matrix.hpp"
 #include "wiz8/math.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/vertex_channels.h"
@@ -29,7 +29,7 @@ Light::Light(WorldScene* scene, e_preset preset)
     m_path_direction = 1;
     m_position = glm::vec3(0);
     m_level = 0;
-    m_level_time = m_path_time = w8_get_ticks() * .001f;
+    m_level_time = m_path_time = MonotonicMilliseconds() * .001f;
 
     enable_flags = 0;
     derived_flags = 0;
@@ -74,7 +74,7 @@ Light& Light::operator=(const Light& other)
         m_path_index = other.m_path_index;
         m_path_direction = other.m_path_direction;
         m_level = other.m_level;
-        m_level_time = m_path_time = w8_get_ticks() * .001f;
+        m_level_time = m_path_time = MonotonicMilliseconds() * .001f;
         m_prop = other.m_prop;
         m_save_marked = other.m_save_marked;
         attenuation_model = other.attenuation_model;

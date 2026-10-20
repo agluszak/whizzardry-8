@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <iterator>
 #include <span>
@@ -16,7 +17,6 @@
 #include "monster_spell_icons.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/compiler.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -643,7 +643,7 @@ float HeadingTowardNearestMonster(glm::vec3 point, W8Disposition disposition, in
     glm::vec3 lower;
     glm::vec3 upper;
     glm::vec3 position;
-    std::vector<w8_ulong> location_ids;
+    std::vector<std::uint32_t> location_ids;
     double nearest_distance;
     float distance;
     float range;
@@ -2238,7 +2238,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
     glm::vec3 lower;
     glm::vec3 upper;
     glm::vec3 eye;
-    std::vector<w8_ulong> location_ids;
+    std::vector<std::uint32_t> location_ids;
     std::size_t count;
     unsigned int index;
     float far_clip;

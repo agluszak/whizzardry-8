@@ -8,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/common.hpp"
 #include "glm/ext/vector_double2.hpp"
 #include "glm/ext/vector_float2.hpp"
@@ -25,7 +24,7 @@
 
 std::uint32_t shaderDisabledChannels(const DrawShader& shader)
 {
-    w8_ulong disable = 0;
+    std::uint32_t disable = 0;
     if ((shader.value & DrawShader::MASK_FOG) == 0) {
         disable = 1 << VertexChannels::CHANNEL_FOG;
     }
@@ -56,16 +55,16 @@ std::uint32_t shaderDisabledChannels(const DrawShader& shader)
     return disable;
 }
 
-std::uint32_t shaderDisabledChannels(const DrawShader* shaders, const w8_ulong* indices,
-                                     w8_ulong count)
+std::uint32_t shaderDisabledChannels(const DrawShader* shaders, const std::uint32_t* indices,
+                                     std::uint32_t count)
 {
     std::uint32_t available = 0;
-    for (w8_ulong index = 0; index < count; ++index)
+    for (std::uint32_t index = 0; index < count; ++index)
         available |= ~shaderDisabledChannels(shaders[indices[index]]);
     return ~available;
 }
 
-glm::vec4 DrawMaterial::ColorSource::colorAt(w8_ulong index) const
+glm::vec4 DrawMaterial::ColorSource::colorAt(std::uint32_t index) const
 {
     if (!colors) return glm::vec4(0);
     if (format == FORMAT_ARGB) {
@@ -159,7 +158,7 @@ void shadeVertices(const VertexShadingInput& input)
     if (input.vertex_arrays.empty() || input.vertex_arrays.size() < input.records.size())
         throw std::invalid_argument("Shading requires an output array for every pass");
     // Validate the whole submission before writing output, including direct-index draws.
-    for (w8_ulong vertex = 0; vertex < input.active_vertices.size(); ++vertex) {
+    for (std::uint32_t vertex = 0; vertex < input.active_vertices.size(); ++vertex) {
         const auto index = input.geometryIndex(vertex);
         if (index >= input.positions.size() ||
             (!input.normals.empty() && index >= input.normals.size()))
@@ -176,7 +175,7 @@ void shadeVertices(const VertexShadingInput& input)
         const auto& draw = input.records[pass];
         const auto& output = input.vertex_arrays[pass];
         const unsigned final_channels = ~draw.channels;
-        for (w8_ulong vertex = 0; vertex < input.active_vertices.size(); ++vertex) {
+        for (std::uint32_t vertex = 0; vertex < input.active_vertices.size(); ++vertex) {
             const auto source = input.geometryIndex(vertex);
             const auto attribute = input.active_vertices[vertex];
             const auto eye = input.model_view * glm::vec4(input.positions[source], 1);

@@ -22,11 +22,11 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "asset_paths.h"
-#include "compat/native.h"
 #include "wiz8/audio/native_audio.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 
 namespace wiz8::sound {
 struct AudioClip {
@@ -153,7 +153,7 @@ Playback start(Playback playback, Clip clip, PlayOptions options)
     if (!ok) return {};
     if (clip) ++clip->uses;
     playback->clip = std::move(clip);
-    playback->started_at = w8_get_ticks();
+    playback->started_at = MonotonicMilliseconds();
     playback->on_finished = std::move(options.on_finished);
     service_state.active.push_back(playback);
     return playback;
@@ -360,7 +360,7 @@ void set_position(const Playback& playback, glm::vec3 position)
 
 std::uint32_t elapsed_ms(const Playback& playback)
 {
-    return live(playback) ? std::uint32_t(w8_get_ticks() - playback->started_at) : 0;
+    return live(playback) ? std::uint32_t(MonotonicMilliseconds() - playback->started_at) : 0;
 }
 
 std::optional<PlaybackTime> playback_time(const Playback& playback)

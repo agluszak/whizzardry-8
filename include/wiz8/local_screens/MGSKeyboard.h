@@ -7,7 +7,6 @@ struct W8Chunk;
 
 #include <SDL3/SDL_keycode.h>
 
-#include "compat/compiler.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/platform/input.h"
 

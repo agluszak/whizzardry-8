@@ -4,10 +4,10 @@ struct World;
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/mesh_instance.h"
 
@@ -23,7 +23,7 @@ struct W8WorldCursorNode {
     unsigned int value_08 = 0;
     int parameters[3]{}; /* label values; slot 2 selects the master-function handler */
     std::vector<std::byte> userdata;
-    w8_ulong color = 0;
+    std::uint32_t color = 0;
     char name[0x20]{};
 };
 

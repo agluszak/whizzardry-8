@@ -8,7 +8,6 @@
 
 #include <glm/common.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/AmbientSound.h"
@@ -21,6 +20,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
@@ -124,7 +124,7 @@ void Light::Update()
         return;
     }
 
-    const auto ticks = w8_get_ticks();
+    const auto ticks = MonotonicMilliseconds();
     KeyframeTrack* path = (path_ai ? &*path_ai : nullptr);
     float seconds = ticks * 0.001f;
     auto* definition = std::get_if<ParametricLightAnim>(&animator);
@@ -258,7 +258,7 @@ void Light::Reset()
         if (parametric->flags & W8_PARAM_LIGHT_COLOR) diffuse = parametric->color;
     }
     m_level = 0;
-    m_path_time = m_level_time = w8_get_ticks() * .001f;
+    m_path_time = m_level_time = MonotonicMilliseconds() * .001f;
 }
 
 /* Serialize the trigger-toggled lights of the loaded worlds: a version byte and

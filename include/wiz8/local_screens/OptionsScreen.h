@@ -10,7 +10,6 @@
 
 #include <SDL3/SDL_keycode.h>
 
-#include "compat/compiler.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/difficulty.h"

@@ -8,7 +8,6 @@
 #include <string_view>
 #include <utility>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
 #include "wiz8/audio_resources.h"

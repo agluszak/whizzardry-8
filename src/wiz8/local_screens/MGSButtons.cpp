@@ -17,7 +17,6 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -382,7 +381,7 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
     if (TimeUntilDeadline(CurrentGame().combat.state()->combat_ui_timer) == 0) {
         return;
     }
-    CurrentGame().combat.state()->combat_ui_timer = w8_get_ticks() + (0);
+    CurrentGame().combat.state()->combat_ui_timer = MonotonicMilliseconds() + (0);
 }
 
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
@@ -1066,7 +1065,7 @@ void UpdateSubMenuAutoClose(void)
     if (IsCursorInRectangle(bounds.x, bounds.y, bounds.x + bounds.w - 1, bounds.y + bounds.h - 1)) {
         submenu->close_deadline.reset();
     } else if (!submenu->close_deadline) {
-        submenu->close_deadline = w8_get_ticks() + 500;
+        submenu->close_deadline = MonotonicMilliseconds() + 500;
     } else if (TimeUntilDeadline(*submenu->close_deadline) == 0) {
         DestroySubMenuControls();
     }

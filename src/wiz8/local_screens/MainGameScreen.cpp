@@ -35,7 +35,6 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -2314,10 +2313,10 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
                 return;
             }
         } else {
-            MainGameHud()->countdown0 = w8_get_ticks() + (60000);
+            MainGameHud()->countdown0 = MonotonicMilliseconds() + (60000);
         }
     } else {
-        MainGameHud()->countdown0 = w8_get_ticks() + (60000);
+        MainGameHud()->countdown0 = MonotonicMilliseconds() + (60000);
     }
     CurrentGame().speech.follow_up.reset();
 }
@@ -2500,7 +2499,7 @@ void MainGameScreen::frame()
         if (CurrentGame().combat.active() && MainGameHud()->refresh_combat_panel &&
             !TimeUntilDeadline(MainGameHud()->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
-            MainGameHud()->combat_panel_timer = w8_get_ticks() + (500);
+            MainGameHud()->combat_panel_timer = MonotonicMilliseconds() + (500);
             MainGameHud()->refresh_combat_panel = 0;
         }
         if (gpSCSV) CommitSpellCastingSelection();
@@ -2923,12 +2922,12 @@ void DrawMainGameScreen(void)
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
-        if (w8_get_ticks() - MainGameHud()->tick > 499) {
+        if (MonotonicMilliseconds() - MainGameHud()->tick > 499) {
             if (g_video_inspector_enabled && !gpSCSV && !CurrentGame().activity.conversation &&
                 !ItemUseDraft() && !IsLockInteractionActive() && !IsTrapInteractionActive()) {
                 DrawVideoInspector(0xdc, 0x32);
             }
-            MainGameHud()->tick = w8_get_ticks();
+            MainGameHud()->tick = MonotonicMilliseconds();
         }
         if (MainGameHud()->formation_board_visible) {
             CreateFormationBoardOverlay();
@@ -3128,7 +3127,7 @@ void SelectPartyCharacter(int party_slot)
     if (previous != -1 && (gpSCSV || ItemUseDraft())) {
         ClearSlotTargeting(previous);
     }
-    MainGameHud()->clock = w8_get_ticks() + (500);
+    MainGameHud()->clock = MonotonicMilliseconds() + (500);
     MainGameHud()->portrait_flash = 1;
     if (MainGameHud() != nullptr) {
         if (CurrentGame().combat.active()) {
@@ -3981,19 +3980,19 @@ void UpdateCombatPortraitStatus(void)
                         ++entry->acting_portrait_pulse;
                         if (entry->acting_portrait_pulse == 0xc) {
                             entry->acting_portrait_pulse = 1;
-                            entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
+                            entry->acting_portrait_pulse_clock = MonotonicMilliseconds() + (100);
                         } else if (entry->acting_portrait_pulse < 7) {
                             image = combat_row->portrait_image + 1;
-                            entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
+                            entry->acting_portrait_pulse_clock = MonotonicMilliseconds() + (100);
                         } else {
                             image = combat_row->portrait_image - 1;
-                            entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
+                            entry->acting_portrait_pulse_clock = MonotonicMilliseconds() + (100);
                         }
                     } else {
                         image = combat_row->portrait_image;
                     }
                 } else {
-                    entry->acting_portrait_pulse_clock = w8_get_ticks() + (100);
+                    entry->acting_portrait_pulse_clock = MonotonicMilliseconds() + (100);
                     entry->acting_portrait_pulse = 1;
                 }
             } else {
@@ -4033,12 +4032,12 @@ void UpdateKeyboardMenu(void)
             }
             if (!KeyboardMenuContainsCursor()) {
                 MainGameHud()->cursor_grace = 1;
-                MainGameHud()->countdown3 = w8_get_ticks() + (0x258);
+                MainGameHud()->countdown3 = MonotonicMilliseconds() + (0x258);
                 return;
             }
         } else {
             if (KeyboardMenuContainsCursor()) {
-                MainGameHud()->countdown3 = w8_get_ticks() + (0);
+                MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
                 MainGameHud()->combat_slot = g_selected_party_slot;
                 MainGameHud()->cursor_grace = 0;
             } else if (TimeUntilDeadline(MainGameHud()->countdown3) == 0) {
@@ -4108,7 +4107,7 @@ void SetTooltipSubject(W8PortraitHighlightKind kind, int subject)
     auto& pending = MainGameHud()->pending_highlight;
     if (pending.kind != kind || pending.slot != subject) {
         MainGameHud()->tooltip_pending = true;
-        MainGameHud()->tooltip_since = w8_get_ticks();
+        MainGameHud()->tooltip_since = MonotonicMilliseconds();
         pending = {kind, subject};
     }
 }
@@ -4352,7 +4351,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
             if (MainGameHud()->portrait_refresh_pending[slot] == 0 &&
                 g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
                 MainGameHud()->portrait_overlay_party_slot == -1) {
-                MainGameHud()->countdown5 = w8_get_ticks() + (500);
+                MainGameHud()->countdown5 = MonotonicMilliseconds() + (500);
                 return UiResult::Handled;
             }
         } else if ((event.button == UiPointerButton::Left && event.action == UiPointerAction::Up)) {
@@ -4458,7 +4457,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
 
         if (!targeting && IsNpcDialogueCursorActive() == 0 &&
             !CurrentGame().activity.scripted_scene && !MainGameHud()->portrait_right_hold_armed) {
-            MainGameHud()->countdown4 = w8_get_ticks() + (1000);
+            MainGameHud()->countdown4 = MonotonicMilliseconds() + (1000);
             MainGameHud()->portrait_right_hold_armed = true;
         }
     } else {
@@ -4814,7 +4813,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
         if (event.action == UiPointerAction::Leave) {
             if (!MainGameHud()->keyboard_menu_open) {
                 MainGameHud()->combat_slot = -1;
-                MainGameHud()->countdown3 = w8_get_ticks() + (0);
+                MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
                 MainGameHud()->hover_combat_slot = -1;
             }
             MainGameHud()->combat_action_hover_party_slot = -1;
@@ -5367,9 +5366,9 @@ static void ApplyPendingMouselook(void)
 
     if ((g_mouselook_tick_init & 1) == 0) {
         g_mouselook_tick_init = static_cast<unsigned char>(g_mouselook_tick_init | 1);
-        g_mouselook_last_tick = w8_get_ticks();
+        g_mouselook_last_tick = MonotonicMilliseconds();
     }
-    now = w8_get_ticks();
+    now = MonotonicMilliseconds();
     elapsed = now - g_mouselook_last_tick;
     g_mouselook_last_tick = now;
     scale = g_generator_jitter_fraction;
@@ -5410,7 +5409,8 @@ static void ApplyPendingMouselook(void)
    redraw them), then park the pending subject on the slot its kind selects. */
 void ApplyPendingTooltip(void)
 {
-    if (!MainGameHud()->tooltip_pending || w8_get_ticks() - MainGameHud()->tooltip_since < 0x33) {
+    if (!MainGameHud()->tooltip_pending ||
+        MonotonicMilliseconds() - MainGameHud()->tooltip_since < 0x33) {
         return;
     }
     const W8PortraitHighlight previous = std::exchange(MainGameHud()->highlight, {});
@@ -5494,7 +5494,7 @@ void SetCombatSelection(int value)
     if (delay > 500) {
         delay = 500;
     }
-    MainGameHud()->countdown1 = w8_get_ticks() + (delay);
+    MainGameHud()->countdown1 = MonotonicMilliseconds() + (delay);
 }
 
 /* The world-item twin of SetCombatSelection: a pick change drops the old
@@ -5524,7 +5524,7 @@ void SetCombatTarget(int value)
         if (delay > 500) {
             delay = 500;
         }
-        MainGameHud()->countdown1 = w8_get_ticks() + (delay);
+        MainGameHud()->countdown1 = MonotonicMilliseconds() + (delay);
         return;
     }
     if (current != -1 && !TimeUntilDeadline(MainGameHud()->countdown1) &&
@@ -6613,7 +6613,7 @@ void CreateSurpriseFade(void)
     shader.value = (shader.value & ~0x6040) | 0xa0;
     g_surprise_fade_node->shader = shader;
     g_surprise_fade_node->color.a = 0.0;
-    g_surprise_fade_tick_base = w8_get_ticks();
+    g_surprise_fade_tick_base = MonotonicMilliseconds();
     g_surprise_fade_in = true;
 }
 
@@ -6623,7 +6623,7 @@ void ReverseSurpriseFade(void)
         OverlayQuad* material = g_surprise_fade_node.get();
         float opacity = material->color.a;
 
-        std::uint64_t now = w8_get_ticks();
+        std::uint64_t now = MonotonicMilliseconds();
         g_surprise_fade_in = !g_surprise_fade_in;
         if (g_surprise_fade_in) {
             g_surprise_fade_tick_base =
@@ -6633,7 +6633,7 @@ void ReverseSurpriseFade(void)
         }
     } else {
         g_surprise_fade_node->visible = true;
-        g_surprise_fade_tick_base = w8_get_ticks();
+        g_surprise_fade_tick_base = MonotonicMilliseconds();
         g_surprise_fade_in = true;
     }
 }
@@ -6652,7 +6652,7 @@ unsigned char UpdateSurpriseFade(void)
     bool done = false;
     bool boundary = false;
     float opacity;
-    std::uint64_t now = w8_get_ticks();
+    std::uint64_t now = MonotonicMilliseconds();
 
     if (g_surprise_fade_tick_base + 500 < now) {
         if (!g_surprise_fade_in) {
@@ -6681,7 +6681,7 @@ unsigned char UpdateSurpriseFade(void)
                 std::make_shared<Texture>(g_surprise_snapshot_surface), 1, 1, false, false);
             g_compositor.attach(*g_surprise_snapshot_overlay, OverlayLayer::Fullscreen);
             g_world_render_enabled = 0;
-            g_surprise_fade_tick_base = w8_get_ticks();
+            g_surprise_fade_tick_base = MonotonicMilliseconds();
         } else {
             g_surprise_snapshot_overlay.reset();
             g_surprise_snapshot_surface.reset();

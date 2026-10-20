@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -9,7 +10,6 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/SpellEffect.h"
@@ -418,7 +418,7 @@ bool MartensBluff2MonsterCrusher(int command)
     glm::vec3 upper;
     glm::vec3 centre;
     glm::vec3 position;
-    std::vector<w8_ulong> location_ids;
+    std::vector<std::uint32_t> location_ids;
     std::size_t count;
     unsigned int i;
     W8MonsterInfo* info;

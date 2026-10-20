@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <memory>
 #include <span>
@@ -9,7 +10,6 @@
 #include <string_view>
 #include <vector>
 
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
@@ -68,7 +68,7 @@ int MeshInstance::isAligned() const
     return (int)(alignment_flags & 1);
 }
 
-w8_ulong MeshInstance::getExclusionMask() const
+std::uint32_t MeshInstance::getExclusionMask() const
 {
     return exclusion_mask;
 }
@@ -94,7 +94,7 @@ void MeshInstance::setAlignAxis(const glm::vec3& axis)
     alignment_flags |= 1;
 }
 
-void MeshInstance::setExclusionMask(w8_ulong mask)
+void MeshInstance::setExclusionMask(std::uint32_t mask)
 {
     exclusion_mask = mask;
 }

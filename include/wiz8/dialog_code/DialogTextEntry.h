@@ -2,7 +2,6 @@
 
 #include <string_view>
 
-#include "compat/compiler.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/TextBuffer.h"

@@ -26,7 +26,6 @@
 #include <glm/vector_relational.hpp> // NOLINT(misc-include-cleaner)
 
 #include "asset_paths.h"
-#include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -465,7 +464,7 @@ OctreeCellCoordinates LevelSpatialIndex::projectRegionsAt(const glm::vec3& posit
         span *= 0.5f;
     }
     if (node != 0) {
-        w8_ulong region_offset = m_leaves[node].region_offset;
+        std::uint32_t region_offset = m_leaves[node].region_offset;
         if (region_offset != 0) {
             ProjectLinkedRegionsForLocation(location, m_region_index_stream.data() + region_offset);
             return coordinates;
@@ -638,7 +637,8 @@ try {
     return false;
 }
 
-w8_ulong* PackColourToLong(w8_ulong* color, double alpha, double red, double green, double blue)
+std::uint32_t* PackColourToLong(std::uint32_t* color, double alpha, double red, double green,
+                                double blue)
 {
     unsigned char* bytes =
         reinterpret_cast<unsigned char*>(color); // reinterpret-ok: packed colour storage
@@ -788,11 +788,11 @@ unsigned char LevelSpatialIndex::LinkNavigatorTarget(NavigatorMovement* movement
 const float g_octree_cell_scale = 100.0f;
 /* Follow one child bit per axis and level through the compact 9-word branch
    records.  Zero is the missing-child sentinel; live leaves start at one. */
-w8_ulong LevelSpatialIndex::FindLeaf(const glm::ivec3& point) const
+std::uint32_t LevelSpatialIndex::FindLeaf(const glm::ivec3& point) const
 {
     int level = m_spatial.m_depth;
     int mask = 1 << m_spatial.m_depth;
-    w8_ulong node = 1;
+    std::uint32_t node = 1;
 
     do {
         if (level < 1) {
@@ -965,7 +965,7 @@ LevelSpatialIndex::traceSphereHit(const glm::vec3& from, const glm::vec3& to, in
 {
     PathSearchScratch path_search;
     unsigned int index = 0;
-    std::vector<w8_ulong> ids;
+    std::vector<std::uint32_t> ids;
     unsigned int best_index = 0;
     double best = -1.0;
     float inflate;
@@ -1265,7 +1265,7 @@ std::size_t LevelSpatialIndex::ProbeCellForTrace(const glm::ivec3& cell,
     unsigned int leaf_index = LeafIndexForCell(cell);
     scratch.keys.clear();
     if (leaf_index != 0 && m_leaves[leaf_index].gd_polygon_offset != 0) {
-        const w8_ulong* stream =
+        const std::uint32_t* stream =
             m_gd_surface_index_stream.data() + m_leaves[leaf_index].gd_polygon_offset;
         int remaining = *stream;
         while (remaining != 0) {
@@ -1285,14 +1285,15 @@ std::size_t LevelSpatialIndex::ProbeCellForBlockers(const glm::ivec3& cell,
     unsigned int leaf_index = LeafIndexForCell(cell);
     scratch.keys.clear();
     if (leaf_index != 0 && m_leaves[leaf_index].polygon_offset != 0) {
-        const w8_ulong* stream =
+        const std::uint32_t* stream =
             m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
         AppendBlockerStream(stream, scratch);
     }
     return scratch.keys.size();
 }
 
-void LevelSpatialIndex::AppendBlockerStream(const w8_ulong* stream, OctreeScratch& scratch) const
+void LevelSpatialIndex::AppendBlockerStream(const std::uint32_t* stream,
+                                            OctreeScratch& scratch) const
 {
     for (int remaining = *stream; remaining != 0; --remaining) {
         ++stream;
@@ -1308,7 +1309,7 @@ std::size_t LevelSpatialIndex::ProbeCellForBlockersAppend(const glm::ivec3& cell
 {
     unsigned int leaf_index = LeafIndexForCell(cell);
     if (leaf_index != 0 && m_leaves[leaf_index].polygon_offset != 0) {
-        const w8_ulong* stream =
+        const std::uint32_t* stream =
             m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
         AppendBlockerStream(stream, scratch);
     }
@@ -1318,9 +1319,9 @@ std::size_t LevelSpatialIndex::ProbeCellForBlockersAppend(const glm::ivec3& cell
 /* Ray-test each live, opaque mesh instance's triangle for the buffered
    (mesh<<16)|polygon keys against the segment. */
 bool LevelSpatialIndex::meshPolygonsBlock(const PlaneSegment& segment,
-                                          std::span<const w8_ulong> keys) const
+                                          std::span<const std::uint32_t> keys) const
 {
-    return std::ranges::any_of(keys, [&](w8_ulong key) {
+    return std::ranges::any_of(keys, [&](std::uint32_t key) {
         const unsigned int mesh_index = key >> 0x10;
         if (mesh_index >= m_meshCount || owner_world->psrMeshes[mesh_index] == 0 ||
             TestBit(m_alpha_bits, mesh_index))
@@ -1345,8 +1346,8 @@ bool LevelSpatialIndex::meshPolygonsBlock(const PlaneSegment& segment,
    mesh is gone, alpha-flagged or facing away, and when its triangle fails the
    spatial bounds test. The survivors are compacted, sorted for ordered
    consumption and zero-terminated; the shared buffer is returned. */
-std::vector<w8_ulong> LevelSpatialIndex::polygonsNearPoint(const glm::vec3& position, float radius,
-                                                           float height) const
+std::vector<std::uint32_t> LevelSpatialIndex::polygonsNearPoint(const glm::vec3& position,
+                                                                float radius, float height) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
     scratch.keys.clear();
@@ -1359,7 +1360,7 @@ std::vector<w8_ulong> LevelSpatialIndex::polygonsNearPoint(const glm::vec3& posi
     visitOctreeCellBox(start, end,
                        [&](const glm::ivec3& cell) { ProbeCellForBlockersAppend(cell, scratch); });
 
-    std::vector<w8_ulong> polygons;
+    std::vector<std::uint32_t> polygons;
     polygons.reserve(scratch.keys.size());
     for (const auto key : scratch.keys) {
         const auto mesh_index = key >> 16;
@@ -1470,11 +1471,11 @@ LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner) : owne
         const auto required =
             std::uint64_t{header.m_branch_count} * sizeof(W8OctPreTreeBranch) +
             std::uint64_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf) +
-            std::uint64_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong) +
-            (grid_count < 250000 ? grid_count * sizeof(w8_ulong) : 0) +
-            std::uint64_t{header.m_polygon_count} * sizeof(w8_ulong) +
+            std::uint64_t{header.m_leaf_polygon_stream_len} * sizeof(std::uint32_t) +
+            (grid_count < 250000 ? grid_count * sizeof(std::uint32_t) : 0) +
+            std::uint64_t{header.m_polygon_count} * sizeof(std::uint32_t) +
             std::uint64_t{header.m_region_list_len} * sizeof(unsigned short) +
-            std::uint64_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong) +
+            std::uint64_t{header.m_gd_surface_stream_len} * sizeof(std::uint32_t) +
             std::uint64_t{header.m_trigger_count} * sizeof(unsigned short) +
             (header.m_region_count > 1
                  ? std::uint64_t{header.m_region_count} * sizeof(wiz8::retail::RegionVolume)
@@ -1501,11 +1502,11 @@ LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner) : owne
             (std::uint64_t{header.m_submesh_count} + 1) >
                 std::numeric_limits<std::size_t>::max() / sizeof(W8OctSubmesh) ||
             (std::uint64_t{header.m_polygon_count} + 2) >
-                std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+                std::numeric_limits<std::size_t>::max() / sizeof(std::uint32_t) ||
             (std::uint64_t{header.m_leaf_polygon_stream_len} + 2) >
-                std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+                std::numeric_limits<std::size_t>::max() / sizeof(std::uint32_t) ||
             (std::uint64_t{header.m_gd_surface_stream_len} + 2) >
-                std::numeric_limits<std::size_t>::max() / sizeof(w8_ulong) ||
+                std::numeric_limits<std::size_t>::max() / sizeof(std::uint32_t) ||
             (std::uint64_t{header.m_region_list_len} + 2) >
                 std::numeric_limits<std::size_t>::max() / sizeof(unsigned short) ||
             (std::uint64_t{header.m_trigger_count} + 2) >
@@ -1526,13 +1527,13 @@ LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner) : owne
         hOctFile->read_exact(m_leaves.data(),
                              std::size_t{header.m_leaf_count} * sizeof(W8OctPreTreeLeaf));
         hOctFile->read_exact(m_polygon_index_stream.data(),
-                             std::size_t{header.m_leaf_polygon_stream_len} * sizeof(w8_ulong));
+                             std::size_t{header.m_leaf_polygon_stream_len} * sizeof(std::uint32_t));
         if (grid_count < 250000) {
             m_leaf_lookup.resize(grid_count);
-            hOctFile->read_exact(m_leaf_lookup.data(), grid_count * sizeof(w8_ulong));
+            hOctFile->read_exact(m_leaf_lookup.data(), grid_count * sizeof(std::uint32_t));
         }
         hOctFile->read_exact(m_aulPolyLookup.data(),
-                             std::size_t{header.m_polygon_count} * sizeof(w8_ulong));
+                             std::size_t{header.m_polygon_count} * sizeof(std::uint32_t));
         if (header.m_region_list_len != 0) {
             m_region_index_stream.resize((std::size_t{header.m_region_list_len} + 2));
             hOctFile->read_exact(m_region_index_stream.data(),
@@ -1541,7 +1542,8 @@ LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner) : owne
         if (header.m_gd_surface_stream_len != 0) {
             m_gd_surface_index_stream.resize((std::size_t{header.m_gd_surface_stream_len} + 2));
             hOctFile->read_exact(m_gd_surface_index_stream.data(),
-                                 std::size_t{header.m_gd_surface_stream_len} * sizeof(w8_ulong));
+                                 std::size_t{header.m_gd_surface_stream_len} *
+                                     sizeof(std::uint32_t));
         }
         if (header.m_trigger_count != 0) {
             m_trigger_indices.resize((std::size_t{header.m_trigger_count} + 2));
@@ -1846,9 +1848,10 @@ void LevelSpatialIndex::UnregisterLocationObject(unsigned int location_id, W8Oct
 }
 
 /* Query the expanded segment box and own its ordered, deduplicated IDs. */
-std::vector<w8_ulong> LevelSpatialIndex::queryAlongSegment(const glm::vec3& origin,
-                                                           const glm::vec3& delta, float extent,
-                                                           unsigned short kind) const
+std::vector<std::uint32_t> LevelSpatialIndex::queryAlongSegment(const glm::vec3& origin,
+                                                                const glm::vec3& delta,
+                                                                float extent,
+                                                                unsigned short kind) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
     const auto bounds = segmentMath::sweptBounds(origin, delta, extent);
@@ -1865,8 +1868,8 @@ std::vector<w8_ulong> LevelSpatialIndex::queryAlongSegment(const glm::vec3& orig
 /* The kind-12 convenience query: a zero exclusion maps to -1 (none). OctPath
    uses it to list the location ids near a mover. */
 
-std::vector<w8_ulong> LevelSpatialIndex::locationsInBox(const BoundingBox& bounds,
-                                                        unsigned short exclusion) const
+std::vector<std::uint32_t> LevelSpatialIndex::locationsInBox(const BoundingBox& bounds,
+                                                             unsigned short exclusion) const
 {
     return queryObjects(bounds, W8_OCTREE_KIND_LOCATION, exclusion == 0 ? -1 : exclusion);
 }
@@ -1921,8 +1924,8 @@ unsigned char LevelSpatialIndex::TestBoxOccupied(const glm::vec3* lower,
 
 /* Query the inclusive cell box and copy the deduplicated IDs out of the
    scratch buffer before any subsequent query can overwrite them. */
-std::vector<w8_ulong> LevelSpatialIndex::queryObjects(const BoundingBox& bounds,
-                                                      unsigned short kind, int excluded) const
+std::vector<std::uint32_t> LevelSpatialIndex::queryObjects(const BoundingBox& bounds,
+                                                           unsigned short kind, int excluded) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
     const auto start = cellAt(bounds.minimum);
@@ -1957,7 +1960,7 @@ unsigned int LevelSpatialIndex::CollectObjectsInCell(const glm::ivec3& cell, uns
                                        m_spatial.m_leaf_grid_stride_x * cell.x + cell.z];
         }
         if (leaf_index != 0 && m_leaves[leaf_index].gd_polygon_offset != 0) {
-            const w8_ulong* stream =
+            const std::uint32_t* stream =
                 m_gd_surface_index_stream.data() + m_leaves[leaf_index].gd_polygon_offset;
             found = *stream;
             for (unsigned int index = 0; index < found; ++index) {
@@ -2067,7 +2070,8 @@ unsigned int LevelSpatialIndex::AdvanceNavigator(NavigatorMovement* movement, fl
 /* Release the location-variable names and empty their parallel value and
    level vectors. Trigger.cpp creates the names as copied character arrays. */
 
-std::vector<w8_ulong> LevelSpatialIndex::nearbyLocations(const glm::vec3& position, float spacing)
+std::vector<std::uint32_t> LevelSpatialIndex::nearbyLocations(const glm::vec3& position,
+                                                              float spacing)
 {
     const float expand = spacing * kMonsterProximityRadiusScale;
     return queryObjects({position - expand, position + expand}, W8_OCTREE_KIND_LOCATION, -1);
@@ -2087,9 +2091,9 @@ static constexpr float g_scatter_column_offsets[5] = {0.0f, 1.0f, -1.0f, 2.0f, -
    relaxes the tight vertical bound during search and rewrites every accepted
    y to the original source height afterwards. */
 static bool OverlapsNearbyMonster(const World* world, const glm::vec3& point, float reach,
-                                  std::span<const w8_ulong> locations, bool alternate_radius)
+                                  std::span<const std::uint32_t> locations, bool alternate_radius)
 {
-    return std::ranges::any_of(locations, [&](w8_ulong id) {
+    return std::ranges::any_of(locations, [&](std::uint32_t id) {
         auto* info = world && world->population ? world->population->findMonster(id) : nullptr;
         auto* monster = info ? info->p3D : nullptr;
         if (!monster) return false;
@@ -2109,7 +2113,7 @@ std::vector<glm::vec3> LevelSpatialIndex::scatterPositions(const glm::vec3& posi
     float source_y = position.y;
     std::vector<glm::vec3> positions;
     unsigned int found = 0;
-    std::vector<w8_ulong> candidates;
+    std::vector<std::uint32_t> candidates;
     unsigned int columns = 3;
     if (count > 10) {
         columns = 5;
@@ -2204,7 +2208,7 @@ NavigatorPlacement LevelSpatialIndex::navigatorPositions(const glm::vec3& input,
     int found_i = 9999;
     int found_j = 9999;
     float source_y = source.y;
-    std::vector<w8_ulong> candidates;
+    std::vector<std::uint32_t> candidates;
     float camera_radius = player ? player->radius : 0;
     bool placed = false;
     float separation = (CalcRangeDistance(W8_RANGE_TOUCH) + radius) * 0.5f + camera_radius;

@@ -20,7 +20,6 @@
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "compat/compiler.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -107,11 +106,11 @@ static void OptimizeMeshOrder(Mesh& mesh)
     std::vector<const DrawShader*> shader_tables;
     std::vector<const MeshResources<Texture>*> texture_tables;
     std::vector<const MeshResources<Material>*> material_tables;
-    for (w8_long pass = 0; pass < model->pass_count; ++pass) {
+    for (std::int32_t pass = 0; pass < model->pass_count; ++pass) {
         if (const DrawShader* shaders = model->getPolyShader(pass, 0)) {
             shader_tables.push_back(shaders);
         }
-        for (w8_long layer = 0; layer < 2; ++layer) {
+        for (std::int32_t layer = 0; layer < 2; ++layer) {
             if (const auto* textures = model->getPolygonTextureTable(pass, layer, false)) {
                 texture_tables.push_back(textures);
             }
@@ -124,26 +123,27 @@ static void OptimizeMeshOrder(Mesh& mesh)
         }
     }
 
-    std::vector<w8_ulong> polygons(polygon_count);
+    std::vector<std::uint32_t> polygons(polygon_count);
     std::iota(polygons.begin(), polygons.end(), 0);
-    std::stable_sort(polygons.begin(), polygons.end(), [&](w8_ulong left, w8_ulong right) {
-        for (const DrawShader* shaders : shader_tables) {
-            if (shaders[left].value != shaders[right].value) {
-                return shaders[left].value < shaders[right].value;
+    std::stable_sort(
+        polygons.begin(), polygons.end(), [&](std::uint32_t left, std::uint32_t right) {
+            for (const DrawShader* shaders : shader_tables) {
+                if (shaders[left].value != shaders[right].value) {
+                    return shaders[left].value < shaders[right].value;
+                }
             }
-        }
-        for (const auto* textures : texture_tables) {
-            if ((*textures)[left] != (*textures)[right]) {
-                return std::less<>{}((*textures)[left].get(), (*textures)[right].get());
+            for (const auto* textures : texture_tables) {
+                if ((*textures)[left] != (*textures)[right]) {
+                    return std::less<>{}((*textures)[left].get(), (*textures)[right].get());
+                }
             }
-        }
-        return false;
-    });
+            return false;
+        });
 
-    std::vector<w8_ulong> first_use(vertex_count, 0);
-    w8_ulong used = 0;
+    std::vector<std::uint32_t> first_use(vertex_count, 0);
+    std::uint32_t used = 0;
     const glm::ivec3* polygon_vertices = model->getPolyVertex();
-    for (w8_ulong polygon : polygons) {
+    for (std::uint32_t polygon : polygons) {
         for (int vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y,
                            polygon_vertices[polygon].z}) {
             if (first_use[vertex] == 0) {
@@ -152,22 +152,23 @@ static void OptimizeMeshOrder(Mesh& mesh)
         }
     }
 
-    std::vector<w8_ulong> vertices(vertex_count);
+    std::vector<std::uint32_t> vertices(vertex_count);
     std::iota(vertices.begin(), vertices.end(), 0);
-    std::stable_sort(vertices.begin(), vertices.end(), [&](w8_ulong left, w8_ulong right) {
-        for (const auto* materials : material_tables) {
-            if ((*materials)[left] != (*materials)[right]) {
-                return std::less<>{}((*materials)[left].get(), (*materials)[right].get());
+    std::stable_sort(
+        vertices.begin(), vertices.end(), [&](std::uint32_t left, std::uint32_t right) {
+            for (const auto* materials : material_tables) {
+                if ((*materials)[left] != (*materials)[right]) {
+                    return std::less<>{}((*materials)[left].get(), (*materials)[right].get());
+                }
             }
-        }
-        return first_use[left] < first_use[right];
-    });
+            return first_use[left] < first_use[right];
+        });
 
     model->reindexPolygons(polygons);
     model->reindexVertices(vertices);
-    std::vector<w8_ulong> inverse(vertex_count);
+    std::vector<std::uint32_t> inverse(vertex_count);
     for (std::size_t vertex = 0; vertex < vertices.size(); ++vertex)
-        inverse[vertices[vertex]] = wiz8::checked_integer<w8_ulong>(vertex);
+        inverse[vertices[vertex]] = wiz8::checked_integer<std::uint32_t>(vertex);
     for (auto& [key, vertex] : mesh.mapped_vertices) vertex = static_cast<int>(inverse[vertex]);
 }
 
@@ -467,7 +468,7 @@ std::shared_ptr<Mesh> BuildMeshResource(const SingleLevelMeshRecord& record,
         !(record.flags & W8_LEVEL_MESH_SHORT_LOD_VERTICES))
         throw std::runtime_error("runtime mesh requires short vertex frames");
     const auto materials = LoadMeshMaterials(texture_directory, record.materials);
-    std::vector<w8_ulong> shaders;
+    std::vector<std::uint32_t> shaders;
     std::shared_ptr<Mesh> model;
     for (const auto& material : materials) {
         if (std::ranges::contains(shaders, material.render_flags.value)) continue;

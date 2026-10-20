@@ -17,7 +17,6 @@
 
 #include "asset_paths.h"
 #include "audio_resources.h"
-#include "compat/native.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "wiz8/audio/mouth_gap.h"
@@ -638,7 +637,7 @@ void W8CharacterEventQueue::RecordDispatchedEvent(unsigned int event_type, unsig
         active_event_type = event_type;
         active_party_slot = party_slot;
     }
-    recent_event_clock = w8_get_ticks() + (5000);
+    recent_event_clock = MonotonicMilliseconds() + (5000);
 }
 
 unsigned char W8CharacterEvent::Dispatch()
@@ -893,7 +892,7 @@ void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned i
     record->portrait_event_active = true;
     record->portrait.frame = 7;
     record->portrait.frame_dirty = true;
-    record->portrait.frame_clock = w8_get_ticks() + (0x78);
+    record->portrait.frame_clock = MonotonicMilliseconds() + (0x78);
     int pose_category;
     if (static_cast<int>(g_normal_event_count) < static_cast<int>(event_type)) {
         pose_category = 1;
@@ -987,7 +986,7 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 {
     if (follow_up && entry->IsAmbientExchange()) {
         follow_up->ready_at =
-            w8_get_ticks() +
+            MonotonicMilliseconds() +
             (follow_up->excluded_slot != -1 ? Random(6000) + 2000 : Random(60000) + 300000);
     }
 }
@@ -1186,7 +1185,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
                     return;
                 }
                 if (entry.dispatch_delay_ms != 0 &&
-                    w8_get_ticks() - entry.dispatch_delay_start <=
+                    MonotonicMilliseconds() - entry.dispatch_delay_start <=
                         static_cast<unsigned int>(entry.dispatch_delay_ms)) {
                     return;
                 }
@@ -1594,7 +1593,7 @@ void AdvancePortraitSpeech(W8PortraitAnimation& state, bool mouth_open, bool fix
                 }
                 state.frame = direction;
                 state.frame_dirty = true;
-                state.frame_clock = w8_get_ticks() + (120);
+                state.frame_clock = MonotonicMilliseconds() + (120);
                 state.voice_remaining_ms -= 120;
             }
         }
@@ -1610,7 +1609,7 @@ void AdvancePortraitPose(W8PortraitAnimation& state)
         if (state.pose == state.target_pose) {
             if (state.pose == 1 && TimeUntilDeadline(state.idle_clock) == 0) {
                 state.blink_closing = true;
-                state.idle_clock = w8_get_ticks() + (Random(5000) + 5000);
+                state.idle_clock = MonotonicMilliseconds() + (Random(5000) + 5000);
             }
         } else if (TimeUntilDeadline(state.pose_clock) == 0) {
             int pose = state.pose;
@@ -1618,14 +1617,14 @@ void AdvancePortraitPose(W8PortraitAnimation& state)
                                    g_portrait_pose_transition[pose - 1][state.target_pose - 1]);
             // Reopening and event-pose transitions continue toward the
             // target; only an idle blink enters the closing phase.
-            state.pose_clock = w8_get_ticks() + (Random(50) + 50);
+            state.pose_clock = MonotonicMilliseconds() + (Random(50) + 50);
         }
     } else if (TimeUntilDeadline(state.pose_clock) == 0) {
         int pose = state.pose;
         if (pose != 2) {
             SetCurrentPortraitPose(state, g_portrait_pose_transition[pose - 1][2 - 1]);
             state.blink_closing = true;
-            state.pose_clock = w8_get_ticks() + (Random(50) + 50);
+            state.pose_clock = MonotonicMilliseconds() + (Random(50) + 50);
         }
         if (state.pose == 2) {
             state.blink_closing = false;

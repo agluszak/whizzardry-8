@@ -2,7 +2,6 @@
 #include <optional>
 #include <vector>
 
-#include "compat/native.h"
 #include "layouts/game_status.h"
 #include "layouts/main_game_screen.h"
 #include "local_code/Targeting.h"
@@ -167,7 +166,7 @@ void UpdateActivePartyMovement(void)
         combat.party_move_percent = std::clamp(percent, 0, 100);
         ShowPartyMovementGauge(false);
         if (g_settings.continuous_combat != 0) {
-            combat.party_movement_clock = w8_get_ticks() + (1000);
+            combat.party_movement_clock = MonotonicMilliseconds() + (1000);
         }
     }
 
@@ -516,7 +515,7 @@ void FinishPartyMovementAction(void)
     EnableFreeTurnButton();
     InvalidatePartyMovementPanel();
     if (g_settings.continuous_combat != 0) {
-        CurrentGame().combat.state()->party_movement_clock = w8_get_ticks() + (1000);
+        CurrentGame().combat.state()->party_movement_clock = MonotonicMilliseconds() + (1000);
     }
     TurnPartyTo(CurrentGame().status.party_heading);
     CurrentGame().combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_IN_PROGRESS;

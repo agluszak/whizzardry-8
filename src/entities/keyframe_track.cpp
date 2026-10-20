@@ -14,7 +14,6 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "compat/native.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
@@ -22,6 +21,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/transform.h"
 
 bool PathAIUpdate(KeyframeTrack* record, signed char direction)
@@ -129,7 +129,7 @@ void PathAIEnableTimedMode(KeyframeTrack* path)
 
 void PathAIResetTick(KeyframeTrack* path)
 {
-    path->last_update_tick = w8_get_ticks();
+    path->last_update_tick = MonotonicMilliseconds();
 }
 
 float PathAIGetValue(KeyframeTrack* path)
@@ -274,7 +274,7 @@ bool PathAITick(KeyframeTrack* path, signed char direction)
     if (path == 0) {
         Fail("pPathAI");
     }
-    now = w8_get_ticks();
+    now = MonotonicMilliseconds();
     if (!path->discrete_mode && path->animated) {
         elapsed = now - path->last_update_tick;
         if (path->last_update_tick < now) {
