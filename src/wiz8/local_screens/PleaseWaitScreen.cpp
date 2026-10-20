@@ -34,7 +34,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/world/world.h"
 
 namespace {
 class PleaseWaitScreen final : public Screen {
@@ -87,7 +86,6 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     case W8_PLEASE_WAIT_NEW_GAME:
         SeedNewGameFacts(CurrentGame().status);
         parameter = SelectNewGameStartLevel();
-        wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
         parameter = request.parameter;

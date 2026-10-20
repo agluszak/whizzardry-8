@@ -70,19 +70,34 @@ public:
     FileStatus status() const;
     FileTimes times() const;
     const std::filesystem::path& physical_path() const noexcept;
+    // What a memory writer holds; once closed, what it held when it closed.
+    std::vector<std::byte> written_memory() const;
 
 private:
     File(std::filesystem::path path, OpenMode mode);
+    explicit File(std::vector<std::byte> bytes);
+    struct MemoryWriter {};
+    explicit File(MemoryWriter);
+    void capture_memory();
     SDL_IOStream* require_stream() const;
     SDL_IOStream* stream_ = nullptr;
     std::filesystem::path path_;
     bool writable_ = false;
     std::optional<SDL_Time> writer_create_time_;
+    // A memory reader's bytes, or what a closed memory writer held.
+    std::vector<std::byte> memory_;
+    bool memory_writer_ = false;
     friend std::unique_ptr<File> open_file(const std::filesystem::path&, OpenMode);
+    friend std::unique_ptr<File> open_memory(std::vector<std::byte> bytes);
+    friend std::unique_ptr<File> open_memory_writer();
 };
 
 // Ordinary native paths. Callers select asset_path() or user_path() explicitly.
 std::unique_ptr<File> open_file(const std::filesystem::path& path, OpenMode mode = OpenMode::read);
+// Streams over memory, for data that never reaches the disk: a reader over `bytes` (not
+// empty), which it owns, and a writer that grows as it is written.
+std::unique_ptr<File> open_memory(std::vector<std::byte> bytes);
+std::unique_ptr<File> open_memory_writer();
 std::optional<FileStatus> file_status(const std::filesystem::path& path);
 bool remove_file(const std::filesystem::path& path);
 void create_directory(const std::filesystem::path& path);

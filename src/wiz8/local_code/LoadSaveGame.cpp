@@ -150,7 +150,6 @@ struct SaveVersion {
 constexpr SaveVersion kCurrentSaveVersion{1, 2, 4};
 constexpr SaveVersion kUnversionedSave{1, 0, 0};
 
-constexpr std::string_view kCurrentGamePath = "saves\\CurrentGame.SAV";
 constexpr std::string_view kAutoSaveName = "AutoSave";
 
 std::string SaveSlotPath(std::string_view name)
@@ -169,6 +168,7 @@ bool IsRegularFile(std::string_view path)
     return status && status->info.type == SDL_PATHTYPE_FILE;
 }
 
+// Earlier versions kept their working file among the saves; it is not a slot.
 bool IsCurrentGameFileName(std::string_view name)
 {
     return CompareTextIgnoreAsciiCase(name, "CurrentGame.SAV") == 0;
@@ -784,13 +784,21 @@ void ReadLevelSection(const World& world, W8LoadedLevelStatus::Data& data, W8Chu
     }
 }
 
-/* Copy the other levels' LVLS groups from the running CurrentGame save into a new save. */
-void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
+/* A level's LVLS group as a RIFF image of its own, copied from `source`'s current chunk. */
+std::vector<std::byte> CopyLevelGroupImage(W8Chunk& source)
 {
-    source.ForEachChunk([&](unsigned int id) {
-        if (id != W8_CHUNK_LEVEL_STATUS || PeekGroupLevel(source) == GetLoadedLevelID()) return;
-        RequireSection(destination.CopyCurrentChunkFrom(&source), "save chunk copy");
-    });
+    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
+    W8Chunk image;
+    RequireSection(image.OpenWrite(file), "level image");
+    RequireSection(image.CopyCurrentChunkFrom(&source), "level image copy");
+    image.Close();
+    return file->written_memory();
+}
+
+// Open a level image for reading.
+void OpenLevelImage(W8Chunk& chunk, const std::vector<std::byte>& image)
+{
+    RequireSection(chunk.OpenRead(wiz8::open_memory(image)), "level image");
 }
 
 /* Autosaves wait for a quiet moment: no world-cursor lock, nobody dying, no
@@ -1000,15 +1008,18 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
    LVLS group last. */
 static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot, W8Chunk& chunks)
 {
-    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
-        wiz8::file_status(wiz8::user_path(kCurrentGamePath))) {
-        W8Chunk current_game;
-        if (!current_game.OpenRead(wiz8::user_path(kCurrentGamePath)))
-            throw std::runtime_error("open current game");
-        CopyCurrentGameChunks(current_game, chunks);
-        current_game.Close();
-    }
     auto& game = CurrentGame();
+    // The levels the party left, as they were left; the current level is written live below.
+    for (const auto& [level, image] : game.left_levels) {
+        if (level == GetLoadedLevelID()) continue;
+        W8Chunk source;
+        OpenLevelImage(source, image);
+        source.ForEachChunk([&](unsigned int id) {
+            if (id == W8_CHUNK_LEVEL_STATUS)
+                RequireSection(chunks.CopyCurrentChunkFrom(&source), "save chunk copy");
+        });
+        source.Close();
+    }
     for (const auto& stored : game.stored_characters)
         WriteChunkPayload(chunks, W8_CHUNK_CHARACTER, wiz8::save::encode(stored));
     {
@@ -1073,23 +1084,13 @@ std::string BuildLevelStatusPath(unsigned int level)
     return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
 
-/* Rewrite a status file with the current level's group replaced and every
-   other level's group kept. */
-bool SaveLevelStatus(const char* path)
+bool StoreLeftLevel(Game& game)
 try {
-    if (!path) return false;
-    SaveTransaction transaction(path);
-    if (wiz8::file_status(wiz8::user_path(path))) {
-        W8Chunk source;
-        if (!source.OpenRead(wiz8::user_path(path))) return false;
-        source.ForEachChunk([&](unsigned int id) {
-            if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == GetLoadedLevelID()) return;
-            RequireSection(transaction.chunks.CopyCurrentChunkFrom(&source), "level status copy");
-        });
-        source.Close();
-    }
-    if (!SaveStatusHeader(&transaction.chunks)) return false;
-    transaction.commit();
+    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
+    W8Chunk image;
+    if (!image.OpenWrite(file) || !SaveStatusHeader(&image)) return false;
+    image.Close();
+    game.left_levels[GetLoadedLevelID()] = file->written_memory();
     return true;
 } catch (const std::exception&) {
     return false;
@@ -1160,11 +1161,10 @@ try {
     return false;
 }
 
-std::unique_ptr<W8LoadedLevelStatus>
-ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
+namespace {
+std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chunk, int level,
+                                                     bool from_assets)
 {
-    W8Chunk chunk;
-    if (!chunk.OpenRead(path)) return nullptr;
     auto status = std::make_unique<W8LoadedLevelStatus>();
     auto& data = *status->data;
     const bool found = WithLevelGroup(chunk, level, [&] {
@@ -1220,6 +1220,24 @@ ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool
     if (data.cursors) BuildWorldCursorNodes(world, std::move(*data.cursors));
     PrepareLevelPopulation(world, *status);
     return status;
+}
+} // namespace
+
+std::unique_ptr<W8LoadedLevelStatus>
+ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
+{
+    W8Chunk chunk;
+    if (!chunk.OpenRead(path)) return nullptr;
+    return ReadLevelStatus(world, chunk, level, from_assets);
+}
+
+std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level)
+{
+    const auto left = game.left_levels.find(level);
+    if (left == game.left_levels.end()) return nullptr;
+    W8Chunk chunk;
+    OpenLevelImage(chunk, left->second);
+    return ReadLevelStatus(world, chunk, level, false);
 }
 
 void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
@@ -1451,11 +1469,10 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
                                     : W8ScreenshotCaptureResult::failed;
 }
 
-/* Delete the last-used slot and the CurrentGame save. */
+/* Delete the last-used slot. */
 void DeleteCurrentSaveFiles(void)
 {
     wiz8::remove_file(wiz8::user_path(SaveSlotPath(GetLastSaveName())));
-    wiz8::remove_file(wiz8::user_path(kCurrentGamePath));
 }
 
 /* Save now if autosaving is enabled (or the game is Iron Man) and the moment
@@ -1542,11 +1559,14 @@ try {
     return {};
 }
 
-/* Load one level's world items from the current save without listing them. */
+/* Load the world items of a level the party left, without listing them. */
 bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
+    const auto& left = CurrentGame().left_levels;
+    const auto image = left.find(level);
+    if (image == left.end()) return false;
     W8Chunk chunk;
-    if (!chunk.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
+    OpenLevelImage(chunk, image->second);
     const bool found = WithLevelGroup(chunk, level, [&] {
         chunk.ForEachChunk([&](unsigned int section) {
             if (section != W8_CHUNK_WORLD_ITEMS) return;
@@ -1578,17 +1598,21 @@ try {
     return {};
 }
 
-/* Load a save slot: tear down the live session, make the slot the new
-   CurrentGame, apply each section, then re-arm the message countdowns, the
+/* Load a save slot: begin a new game, apply each section (keeping each level's group
+   undecoded until the party enters the level), then re-arm the message countdowns, the
    gameplay timer and the held-item cursor and normalize the loaded items. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
     auto& game = games.begin();
-    wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath));
     W8Chunk chunks;
-    if (!chunks.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
+    if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return false;
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
+        case W8_CHUNK_LEVEL_STATUS: {
+            const int level = PeekGroupLevel(chunks);
+            game.left_levels[level] = CopyLevelGroupImage(chunks);
+            break;
+        }
         case W8_CHUNK_GAME_STATUS: {
             auto saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks));
             game.status = std::move(saved.status);

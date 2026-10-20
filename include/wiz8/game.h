@@ -2,8 +2,10 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -176,6 +178,10 @@ public:
 
     // What happened, in order, for the UI to present.
     Events events;
+    /* The saved state of each level the party has left (or a load brought), kept undecoded:
+       its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
+       entering one reads it back, and a save writes them beside the current level's. */
+    std::map<int, std::vector<std::byte>> left_levels;
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        The main game leaves the level when it is discarded, before a game that ends in
        play is destroyed; destroying a world does no departure bookkeeping. */

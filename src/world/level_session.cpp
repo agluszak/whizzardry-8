@@ -521,8 +521,8 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    if (GetWorld() && !SaveLevelStatus("saves\\CurrentGame.SAV")) return false;
-    auto status = ReadLevelStatus(*replacement, wiz8::user_path("saves/CurrentGame.SAV"), level);
+    if (GetWorld() && !StoreLeftLevel(CurrentGame())) return false;
+    auto status = ReadLeftLevelStatus(*replacement, CurrentGame(), level);
     if (!status)
         status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
                                  true);
