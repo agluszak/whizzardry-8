@@ -1,8 +1,10 @@
 name: Platforms
 
-# macOS and Windows are not built in CI yet. This checks the first thing they need: a
+# macOS and Windows are not built in CI yet. This reports the first thing they need: a
 # standard library with the C++26 facilities the game uses (cmake/Cxx26LibraryCheck.cpp,
-# the same check CMake runs). It is not a required check.
+# the same check CMake runs), one facility at a time. Each job writes what its toolchain
+# provides to the run summary; a missing facility is a finding, not a failure, so this is
+# not a required check.
 on:
   workflow_dispatch:
   schedule:
@@ -33,30 +35,61 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Compile with Xcode clang
-        if: matrix.toolchain == 'macOS Xcode clang'
+      - name: Prepare the macOS compiler
+        if: runner.os == 'macOS'
         run: |
-          clang++ --version
-          clang++ -std=c++2c cmake/Cxx26LibraryCheck.cpp -o probe && ./probe
-      - name: Compile with Homebrew LLVM
-        if: matrix.toolchain == 'macOS Homebrew LLVM'
+          if [[ '${{ matrix.toolchain }}' == 'macOS Homebrew LLVM' ]]; then
+            brew install llvm
+            llvm="$(brew --prefix llvm)"
+            echo "CXX=$llvm/bin/clang++ -std=c++26 -stdlib=libc++ -nostdinc++ -isystem $llvm/include/c++/v1 -L $llvm/lib/c++ -Wl,-rpath,$llvm/lib/c++" >> "$GITHUB_ENV"
+          else
+            echo "CXX=clang++ -std=c++2c" >> "$GITHUB_ENV"
+          fi
+      - name: Check std::function_ref
+        id: function_ref
+        continue-on-error: true
+        if: runner.os == 'macOS'
         run: |
-          brew install llvm
-          llvm="$(brew --prefix llvm)"
-          "$llvm/bin/clang++" --version
-          "$llvm/bin/clang++" -std=c++26 -stdlib=libc++ -nostdinc++ \
-            -isystem "$llvm/include/c++/v1" -L "$llvm/lib/c++" -Wl,-rpath,"$llvm/lib/c++" \
-            cmake/Cxx26LibraryCheck.cpp -o probe && ./probe
-      - name: Compile with the MSVC standard library
-        if: startsWith(matrix.toolchain, 'Windows')
+          ${CXX%% *} --version
+          $CXX -DWIZ8_CHECK_FUNCTION_REF cmake/Cxx26LibraryCheck.cpp -o probe && ./probe
+      - name: Check std::inplace_vector
+        id: inplace_vector
+        continue-on-error: true
+        if: runner.os == 'macOS'
+        run: $CXX -DWIZ8_CHECK_INPLACE_VECTOR cmake/Cxx26LibraryCheck.cpp -o probe && ./probe
+      - name: Check std::function_ref
+        id: function_ref_windows
+        continue-on-error: true
+        if: runner.os == 'Windows'
         shell: cmd
         run: |
           for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS=%%i
           call "%VS%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
-          if "${{ matrix.toolchain }}"=="Windows clang-cl" (
-            clang-cl --version || exit /b 1
-            clang-cl /std:c++latest /EHsc cmake\Cxx26LibraryCheck.cpp /Fe:probe.exe || exit /b 1
-          ) else (
-            cl /std:c++latest /EHsc cmake\Cxx26LibraryCheck.cpp /Fe:probe.exe || exit /b 1
-          )
+          if "${{ matrix.toolchain }}"=="Windows clang-cl" (set CXX=clang-cl) else (set CXX=cl)
+          %CXX% /std:c++latest /EHsc /DWIZ8_CHECK_FUNCTION_REF cmake\Cxx26LibraryCheck.cpp /Fe:probe.exe || exit /b 1
           probe.exe
+      - name: Check std::inplace_vector
+        id: inplace_vector_windows
+        continue-on-error: true
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set VS=%%i
+          call "%VS%\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
+          if "${{ matrix.toolchain }}"=="Windows clang-cl" (set CXX=clang-cl) else (set CXX=cl)
+          %CXX% /std:c++latest /EHsc /DWIZ8_CHECK_INPLACE_VECTOR cmake\Cxx26LibraryCheck.cpp /Fe:probe.exe || exit /b 1
+          probe.exe
+      - name: Report
+        shell: bash
+        env:
+          FUNCTION_REF: ${{ steps.function_ref.outcome }}${{ steps.function_ref_windows.outcome }}
+          INPLACE_VECTOR: ${{ steps.inplace_vector.outcome }}${{ steps.inplace_vector_windows.outcome }}
+        run: |
+          mark() { [[ $1 == *success* ]] && echo "available" || echo "**missing**"; }
+          {
+            echo "### ${{ matrix.toolchain }}"
+            echo "| Facility | Result |"
+            echo "|---|---|"
+            echo "| \`std::function_ref\` | $(mark "$FUNCTION_REF") |"
+            echo "| \`std::inplace_vector\` | $(mark "$INPLACE_VECTOR") |"
+          } >> "$GITHUB_STEP_SUMMARY"
