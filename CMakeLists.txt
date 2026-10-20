@@ -33,6 +33,7 @@ option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
 option(WIZ8_RENDER_UNITY_BUILD "Unity-build rendering independently of the game" OFF)
 option(WIZ8_INTEGER_SANITIZER "Audit implicit integer truncation at data/image boundaries" OFF)
 option(WIZ8_WARNINGS_AS_ERRORS "Fail first-party compilation on warnings (CI enables this)" OFF)
+option(WIZ8_RENDER_POC "Build the rendering-library evaluation prototypes" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
 if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
     message(FATAL_ERROR "WIZ8_UNITY_BATCH_SIZE must be a positive integer")
@@ -226,6 +227,10 @@ add_subdirectory(src/wiz8)
 
 add_executable(Wiz8Native src/platform/main.cpp)
 target_link_libraries(Wiz8Native PRIVATE wiz8_engine SDL3::SDL3)
+
+if(WIZ8_RENDER_POC)
+    add_subdirectory(tools/render_poc)
+endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
