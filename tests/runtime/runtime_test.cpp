@@ -76,6 +76,7 @@
 
    Run under SDL's X11 video driver under Xvfb (no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
+#include <vsg/io/write.h>
 #include <vsg/state/ViewportState.h>
 
 #include "catch2/catch_message.hpp"
@@ -140,6 +141,7 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/world_scene.h"
@@ -1499,6 +1501,46 @@ void ResourceLifecycleScenario()
     CheckWorldRender(game);
     CheckTwoWorldViews(game);
     CheckGameplayUi(game);
+    // Import a native VSG object into the loaded retail world, in front of its
+    // actual camera. It uses the same world lighting/fog and remains identifiable
+    // through the game's VSG picker without a retail MeshInstance.
+    {
+        ScopedTemporaryDirectory content("wiz8-world-native");
+        auto& world = *GetWorld();
+        const float near = world.camera->getClipRange().first;
+        auto positions = vsg::vec3Array::create(
+            {{-near, -near, near * 1.5f}, {near, -near, near * 1.5f}, {0, near, near * 1.5f}});
+        auto normals = vsg::vec3Array::create(3, vsg::vec3(0, 0, -1));
+        auto source = vsg::VertexIndexDraw::create();
+        source->assignArrays({positions, normals});
+        source->assignIndices(vsg::ushortArray::create({0, 1, 2}));
+        source->indexCount = 3;
+        source->instanceCount = 1;
+        const auto path = content.path / "world-object.vsgt";
+        REQUIRE(vsg::write(source, path.string()));
+        auto material = std::make_shared<Material>();
+        material->setAmbient(glm::vec4(1));
+        material->setDiffuse(glm::vec4(1));
+        material->setEmissive(glm::vec4(0));
+        auto object = render::loadGameContent(path, material);
+        object->matrix = render::toVsg(world.camera->transform.matrix<glm::dmat4>());
+        world.scene->root->addChild(object);
+        g_renderer->beginFrame();
+        auto view =
+            world.scene->createView(g_renderer->context(), world.camera, {},
+                                    vsg::ViewportState::create(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT),
+                                    g_renderer->frameNumber());
+        Pick picked;
+        world.scene->pick(*view->camera, std::span{&picked, 1});
+        REQUIRE(picked.hit);
+        REQUIRE(std::ranges::find(picked.hit->nodePath, object.get()) !=
+                picked.hit->nodePath.end());
+        REQUIRE(render::gameOwner(picked) == nullptr);
+        g_renderer->addView(view);
+        g_renderer->endFrame(false, true);
+        REQUIRE(g_renderer->readback());
+        std::erase(world.scene->root->children, object);
+    }
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
     for (int visit = 0; visit != 2; ++visit) {
