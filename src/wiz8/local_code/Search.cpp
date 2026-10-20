@@ -1,6 +1,5 @@
 #include "wiz8/local_code/Search.h"
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>

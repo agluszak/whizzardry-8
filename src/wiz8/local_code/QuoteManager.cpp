@@ -71,7 +71,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
-#include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 
 constexpr unsigned int kPortraitLowHealthPercent = 20;
