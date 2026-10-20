@@ -775,7 +775,7 @@ bool Navigator::UpdateLinkedPosition(std::optional<BoundingSphere> player)
     movement.yaw = linked_navigator->movement.yaw;
     movement.velocity = linked_navigator->movement.velocity * 0.5f;
     SetPosition(&position);
-    NavigationOctree()->RegisterNavigatorCell(movement.location_id, &position);
+    NavigationOctree()->RegisterNavigatorCell(movement.location_id, position);
     linked_update_time = 0;
     return true;
 }
@@ -1533,7 +1533,7 @@ void Navigator::ClearMovement()
         flags = 0;
     }
     movement.attachment->RecordPosition(&movement.position);
-    NavigationOctree()->RegisterNavigatorCell(movement.location_id, &movement.position);
+    NavigationOctree()->RegisterNavigatorCell(movement.location_id, movement.position);
     movement_complete = true;
 }
 
@@ -1957,7 +1957,7 @@ int Navigator::ResolveMovement()
                 flags = 0;
             }
             movement.attachment->RecordPosition(&movement.position);
-            NavigationOctree()->RegisterNavigatorCell(movement.location_id, &movement.position);
+            NavigationOctree()->RegisterNavigatorCell(movement.location_id, movement.position);
             flags |= 5;
             movement_complete = true;
             return 1;

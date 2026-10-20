@@ -1981,7 +1981,7 @@ unsigned int LevelSpatialIndex::CollectObjectsInCell(const glm::ivec3& cell, uns
 
 /* Register the navigator's world position in the spatial cell registry.
    Navigator IDs are stored with a one-based bias. */
-void LevelSpatialIndex::RegisterNavigatorCell(int id, const glm::vec3* position)
+void LevelSpatialIndex::RegisterNavigatorCell(int id, const glm::vec3& position)
 {
     glm::ivec3 point;
 

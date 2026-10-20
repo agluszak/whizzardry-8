@@ -1504,7 +1504,7 @@ void NavigationMesh::AdjustFinalPathEndpoint(NavigatorMovement* movement, float 
 
         if ((attachment->flags & 0x08000000) == 0) {
             attachment->RecordPosition(&adjusted);
-            owner_octree->RegisterNavigatorCell(movement->location_id, &adjusted);
+            owner_octree->RegisterNavigatorCell(movement->location_id, adjusted);
         }
     }
 }
@@ -1947,7 +1947,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
         attachment->RecordPosition(&movement->position);
         attachment->path[attachment->path_position_index].position = movement->position;
         attachment->path_destination = attachment->path[attachment->path_position_index].position;
-        owner_octree->RegisterNavigatorCell(movement->location_id, &movement->position);
+        owner_octree->RegisterNavigatorCell(movement->location_id, movement->position);
         if (owner_octree->owner_world == GetWorld())
             PartyNavigator()->radius = PartyNavigator()->movement.alternate_radius;
         attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
@@ -2033,7 +2033,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
     if ((attachment->flags & 0x08000000) == 0) {
         attachment->RecordPosition(&nodes[path_search.best_key].position);
         owner_octree->RegisterNavigatorCell(movement->location_id,
-                                            &nodes[path_search.best_key].position);
+                                            nodes[path_search.best_key].position);
     }
     if (movement->target_location_id >= 0 && !explicit_target) {
         AdjustFinalPathEndpoint(movement, radius, separation);

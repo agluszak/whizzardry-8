@@ -513,7 +513,7 @@ public:
        collidable prop below it, starting `limit` above it. */
     GroundProbe settleToGround(const glm::vec3& position, bool test_props,
                                float limit) const; /* 0x00433820 */
-    void RegisterNavigatorCell(int id, const glm::vec3* position);
+    void RegisterNavigatorCell(int id, const glm::vec3& position);
     /* Owned query results remain valid across subsequent octree queries.
        IDs retain cell traversal order and the existing 10,000-entry limit. */
     std::vector<std::uint32_t> queryObjects(const BoundingBox& bounds, unsigned short kind,
