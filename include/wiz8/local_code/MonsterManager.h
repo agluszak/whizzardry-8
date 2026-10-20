@@ -16,6 +16,7 @@
 
 class Monster;
 enum W8AnimationBehaviour : unsigned char;
+struct ScriptContext;
 struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct World;
@@ -466,6 +467,6 @@ void EvaluateCombatDifficulty(void);
    faction fallout, and bank the kill count and experience when it fought. */
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
 /* Record a kill fact for a monster record and the killer party slot. */
-void MonsterKilled(int record_id, int killer_party_slot);
+void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot);
 
 #endif

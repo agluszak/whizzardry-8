@@ -39,6 +39,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -1003,7 +1004,9 @@ bool W8GDSurface::ResolveCollision(PartyMotion& level, LevelEnvironment& environ
     bool crossed = false;
     glm::vec3 crease_a(0);
     if ((flags & W8_GD_SURFACE_WALKABLE) != 0) {
-        if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && g_sea_caves_slope_override_enabled &&
+        const World* world = GetWorld();
+        if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && world != nullptr && world->script &&
+            world->script->slopeOverrideActive() &&
             PartyHasItem(CurrentGame().party, kSlopeOverrideItem, W8ItemReach::Worn)) {
             environ.motion_factor = 1.0f;
         } else if (environ.motion_factor < slope) {

@@ -1,11 +1,12 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x0c (MtGigas1) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-void MtGigas1Setup(void);
-bool MtGigas1Lift1(Trigger* pTrigger);
-bool MtGigas1Lift2(Trigger* pTrigger);
-bool MtGigas1PressurePlate(Trigger* pTrigger);
-bool MtGigas1MudWall(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x0c (MtGigas1): the lifts, the pressure plate and the mud wall. */
+std::unique_ptr<LevelScript> MakeMtGigas1Script(const ScriptContext& context);
+/* The _VOC_EWAXXLIFT1 callback, which MtGigasOuter shares: outside a
+   conversation, queue the lift NPC's notice with the held item, if any. */
+bool QueueGigasLiftNotice(const ScriptContext& context);

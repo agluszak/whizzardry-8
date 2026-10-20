@@ -24,7 +24,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/character_events.h"
@@ -311,7 +311,9 @@ void ToggleSearchMode(void)
         CurrentGame().status.search_mode = true;
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
         CurrentGame().search_sweep_due = std::chrono::milliseconds{500};
-        ClearActiveWorldCursorNode();
+        if (World* world = GetWorld(); world != nullptr && world->script) {
+            world->script->clearActiveCursorNode();
+        }
     } else {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
     }

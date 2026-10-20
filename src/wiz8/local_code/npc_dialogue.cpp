@@ -10,7 +10,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/loaded_game_data.h"
@@ -22,6 +21,8 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/unicode.h"
 
 constexpr int kWorldActionQuoteMax = 'R';
@@ -109,7 +110,7 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
    switches, items, gold, keyword learning or the follow-up quote. Then speak
    the current subquote and queue the continuation line. Quote indices
    'F'..'R' fall outside the scripted world-action dispatch. */
-void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
+void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool force_npc_voice)
 {
     W8NpcScriptQuote* quote;
     W8NpcQuoteEntry* entry;
@@ -244,7 +245,8 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                 case W8_NPC_ENTRY_ITEM_KEYWORD_ALT:
                 case W8_NPC_ENTRY_PLACE_KEYWORD_ALT:
                 case W8_NPC_ENTRY_MISC_KEYWORD_ALT:
-                    ApplyScriptedDialogueKeyword(entry->kind, entry->sub_entries[0].text.c_str());
+                    ApplyScriptedDialogueKeyword(context, entry->kind,
+                                                 entry->sub_entries[0].text.c_str());
                     break;
                 default:
                     break;
@@ -261,7 +263,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
         if (response >= 0) {
             QueueQuote(response, false, false, false);
         }
-        switch (SpeakNpcSubquote(quote, session_.subquote_index, false, force_npc_voice)) {
+        switch (SpeakNpcSubquote(context, quote, session_.subquote_index, false, force_npc_voice)) {
         case W8NpcSubquoteOutcome::presented:
             break;
         case W8NpcSubquoteOutcome::unknown:
@@ -393,7 +395,7 @@ void W8NpcDialogue::Cancel()
 
 /* Run every kind-0x17 consequence entry of the given quote - the reply
    handler's decline path when the party refuses a price offer. */
-void W8NpcDialogue::RunDeclineActions(int quote_index)
+void W8NpcDialogue::RunDeclineActions(const ScriptContext& context, int quote_index)
 {
     W8NpcScriptQuote* quote;
     int index;
@@ -401,7 +403,7 @@ void W8NpcDialogue::RunDeclineActions(int quote_index)
     quote = session_.npc->script_file->quotes.data() + quote_index;
     for (index = 0; index < quote->entry_count; ++index) {
         if (quote->entries[index].kind == W8_NPC_ENTRY_DECLINE_QUOTE) {
-            Speak(quote->entries[index].operand0, false);
+            Speak(context, quote->entries[index].operand0, false);
         }
     }
 }
@@ -409,7 +411,7 @@ void W8NpcDialogue::RunDeclineActions(int quote_index)
 /* Resolve the player's answer to the pending reply: a typed or chosen reply
    selects its script line; a price check spends the price and runs its quote,
    or runs the quote's decline entries. */
-void W8NpcDialogue::Answer(std::string_view text)
+void W8NpcDialogue::Answer(const ScriptContext& context, std::string_view text)
 {
     if (!price_check_) {
         const int line = FindReplyQuote(text);
@@ -419,17 +421,17 @@ void W8NpcDialogue::Answer(std::string_view text)
     } else {
         const W8NpcPriceCheck check = *price_check_;
         if (CompareTextIgnoreAsciiCase(text, Data().strings[0x7df]) == 0) {
-            if (static_cast<unsigned int>(check.price) > CurrentGame().party.gold) {
-                Speak(0x14, false);
+            if (static_cast<unsigned int>(check.price) > context.party.gold) {
+                Speak(context, 0x14, false);
             } else {
-                SpendPartyGold(CurrentGame().party, check.price);
+                SpendPartyGold(context.party, check.price);
                 if (check.tells_fact) {
                     TellNpcFact(check.npc, check.quote_index);
                 }
-                Speak(check.quote_index, false);
+                Speak(context, check.quote_index, false);
             }
         } else {
-            RunDeclineActions(check.quote_index);
+            RunDeclineActions(context, check.quote_index);
         }
         price_check_.reset();
     }

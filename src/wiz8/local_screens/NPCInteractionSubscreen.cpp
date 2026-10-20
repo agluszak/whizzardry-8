@@ -95,6 +95,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/text_input.h"
@@ -140,7 +141,7 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
             if (event.action != UiPointerAction::Up || event.captured_buttons)
                 PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
-                AfterUiDispatch([] { TryFinishNpcVoicePlayback(true); });
+                AfterUiDispatch([] { TryFinishNpcVoicePlayback(CurrentGame().status, true); });
             return UiResult::Handled;
         });
 }
@@ -2923,7 +2924,7 @@ static void HandleNpcDialogueReply(std::string_view text, bool echo)
     if (g_npc_dialogue.reply() == W8NpcReplyState::none) {
         return;
     }
-    g_npc_dialogue.Answer(text);
+    g_npc_dialogue.Answer(MakeScriptContext(CurrentGame()), text);
     if (echo) {
         notice = fmt::format("{}...", text);
         ShowNotice(W8_FONT_PALETTE_BRONZE, notice, 3,
@@ -3196,7 +3197,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             return;
         }
         if (IsNpcScriptSessionActive()) {
-            TryFinishNpcVoicePlayback(true);
+            TryFinishNpcVoicePlayback(CurrentGame().status, true);
             return;
         }
         if (NpcEditingText()) {
@@ -3498,7 +3499,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 }
                 if (AcceptNpcDialogueItem(g_npc_interaction_state->dialogue_npc, item, 1) != 0) {
                     g_npc_dialogue.QueueQuote(0x10, false, false, false);
-                    RemoveNpcScriptItem(item, 0, -1);
+                    RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), item, 0, -1);
                     return result;
                 }
                 g_npc_dialogue.QueueQuote(0x11, false, false, false);
@@ -3506,7 +3507,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 g_npc_dialogue.QueueQuote(match->quote_index, false, false, false);
                 result = false;
                 if (match->consumes_item) {
-                    RemoveNpcScriptItem(item, 0, -1);
+                    RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), item, 0, -1);
                     return result;
                 }
                 if (g_npc_interaction_state->held_item_pending &&
@@ -3539,7 +3540,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 g_npc_dialogue.QueueQuote(match->quote_index, false, false, false);
                 result = false;
             }
-            RemoveNpcScriptItem(item, 0, -1);
+            RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), item, 0, -1);
             return result;
         }
         g_npc_dialogue.QueueQuote(0x11, false, false, false);
@@ -3656,14 +3657,14 @@ void DrainNpcDialogueDeferralInput(void)
                             break;
                         }
                     } else {
-                        TryFinishNpcVoicePlayback(false);
+                        TryFinishNpcVoicePlayback(CurrentGame().status, false);
                     }
                 } else {
                     SetNpcDialogueHidden(0);
                 }
             }
         } else if (input.type == InputEventType::LeftButtonDown) {
-            TryFinishNpcVoicePlayback(false);
+            TryFinishNpcVoicePlayback(CurrentGame().status, false);
         }
     }
 }
@@ -4294,14 +4295,14 @@ bool FinishNpcVoiceIfSessionActive(void)
     if (!IsNpcScriptSessionActive()) {
         return false;
     }
-    TryFinishNpcVoicePlayback(false);
+    TryFinishNpcVoicePlayback(CurrentGame().status, false);
     return true;
 }
 
 bool ProcessPendingEvent(void)
 {
     if (IsNpcScriptSessionActive()) {
-        TryFinishNpcVoicePlayback(true);
+        TryFinishNpcVoicePlayback(CurrentGame().status, true);
         return true;
     }
     if (CurrentGame().speech.HasActiveEvents()) {

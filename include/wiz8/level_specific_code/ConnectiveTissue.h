@@ -1,8 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x1b (ConnectiveTissue, the Arnika-Trynton road) activation
-   callbacks, registered by the case-0x1b block of
-   InitializeLevelMasterFunctions. */
-bool ConnectiveTissueLiche(Trigger* pTrigger); /* 0x004E05F0 */
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x1b (ConnectiveTissue, the Arnika-Trynton road): the lich crypt. */
+std::unique_ptr<LevelScript> MakeConnectiveTissueScript(const ScriptContext& context);

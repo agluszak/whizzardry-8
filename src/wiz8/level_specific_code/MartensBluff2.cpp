@@ -3,6 +3,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -24,11 +26,11 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -44,6 +46,8 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/string_database.h"
@@ -54,44 +58,134 @@
 
    Attribution evidence: the spawn lookups at 0x004DCC5F and 0x004DDE4F pass
    this file's path string to MonsterGetIndexByLocationID, and the
-   Trigger::m_bRepType assertions quote it. The level-6 block of
-   InitializeLevelMasterFunctions registers the surrounding cluster
+   Trigger::m_bRepType assertions quote it. The level-6 script binds the
+   surrounding cluster
    (Arrowtraptrigger, Spikeballtrigger, DoorBolt, DummyLever, Dummy,
    PerfumeBox, StoneIdol, BlueFlowers, SquisherControls, DoorControls). */
+
+namespace {
 
 enum class RavenQuestState : int { not_started, dummy_activated, perfume_used, rapax_scripted };
 enum class W8CrusherState : int { inactive, moving, waiting_for_dummies };
 
-static RavenQuestState GetRavenQuestState()
+RavenQuestState GetRavenQuestState()
 {
     return static_cast<RavenQuestState>(GetLocationVarValueByName("RavenQuest"));
 }
 
-static void SetRavenQuestState(RavenQuestState state)
+void SetRavenQuestState(RavenQuestState state)
 {
     SetTriggerVariableByName("RavenQuest", static_cast<int>(state));
 }
 
-static bool g_idol_gas_armed = true;
-static bool g_crusher_excluded_flag;
-static bool g_crusher_active;
-static std::optional<W8IntervalGate> g_spikeball_gate;
-static int g_spikeball_count;
-static Monster* g_crusher_excluded;
-static Prop* g_squisher3_prop;
-static Prop* g_squisher4_prop;
-static Prop* g_dummy_prop;
-static Prop* g_dummy_rope_prop;
-static Sound3D* g_crusher_sound;
-static W8CrusherState g_crusher_state = W8CrusherState::inactive;
-static std::optional<W8IntervalGate> g_idol_gas_gate;
+/* The master command that toggles a sequence. */
+constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
+
+void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* effect);
+
+/* "DoorBolt": re-arms the side-gate text trigger when the bolt opens. */
+bool DoorBolt(Trigger* pTrigger)
+{
+    Trigger* pText = FindTriggerByName("SideGateText");
+    if (pText != 0) {
+        pText->flags &= ~W8_TRIGGER_ENABLED;
+    }
+    return true;
+}
+
+/* "DummyLever": re-arms itself and reports whether the RavenQuest location
+   variable is still zero. */
+bool DummyLever(Trigger* pTrigger)
+{
+    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
+    return GetRavenQuestState() == RavenQuestState::not_started;
+}
+
+/* "DoorControls": while the control trigger is off, fires the two squisher
+   doors whose door action data is open. */
+bool DoorControls(Trigger* pTrigger)
+{
+    if (pTrigger->state_index == 0) {
+        for (const char* name : {"SquisherDoor", "SquisherDoor1"}) {
+            Trigger* pDoor = FindTriggerByName(name);
+            if (pDoor == nullptr) {
+                continue;
+            }
+            if (const auto* door = pDoor->doorData(); door && door->open) {
+                pDoor->Run(-1);
+            }
+        }
+    }
+    return true;
+}
+
+class MartensBluff2Script final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
+
+    void enter() override;
+
+private:
+    void setup();
+    bool arrowTrap(Trigger* pTrigger);
+    bool spikeball(int command);
+    void captureSpikeball(W8SavedLocationState& state);
+    bool dummy(Trigger* pTrigger);
+    bool perfumeBox(Trigger* pTrigger);
+    bool squisherControls(Trigger* pTrigger);
+    bool monsterCrusher(int command);
+    void captureCrusher(W8SavedLocationState& state);
+    bool stoneIdol(Trigger* pTrigger);
+    bool blueFlowers(Trigger* pTrigger);
+    bool idolGas(int command);
+    void idolGasVictim();
+
+    bool idol_gas_armed_ = true;
+    bool crusher_excluded_flag_ = false;
+    bool crusher_active_ = false;
+    std::optional<W8IntervalGate> spikeball_gate_;
+    int spikeball_count_ = 0;
+    Monster* crusher_excluded_ = nullptr;
+    Prop* squisher3_prop_ = nullptr;
+    Prop* squisher4_prop_ = nullptr;
+    Prop* dummy_prop_ = nullptr;
+    Prop* dummy_rope_prop_ = nullptr;
+    Sound3D* crusher_sound_ = nullptr;
+    W8CrusherState crusher_state_ = W8CrusherState::inactive;
+    std::optional<W8IntervalGate> idol_gas_gate_;
+    // The kill box the crusher sweeps.
+    glm::vec3 crusher_upper_{};
+    glm::vec3 crusher_lower_{};
+    /* Raised while the script runs the raven-quest triggers itself, and left
+       raised by the stone idol until the blue flowers clear it. */
+    bool running_trigger_from_script_ = false;
+};
+
+void MartensBluff2Script::enter()
+{
+    setup();
+    bindTrigger("Arrowtraptrigger", &MartensBluff2Script::arrowTrap);
+    // "Spikeballtrigger": toggles the spikeball launcher sequence.
+    bindTrigger("Spikeballtrigger", [this](Trigger*) {
+        spikeball(kMasterToggle);
+        return true;
+    });
+    bindTrigger("DoorBolt", DoorBolt);
+    bindTrigger("DummyLever", DummyLever);
+    bindTrigger("Dummy", &MartensBluff2Script::dummy);
+    bindTrigger("PerfumeBox", &MartensBluff2Script::perfumeBox);
+    bindTrigger("StoneIdol", &MartensBluff2Script::stoneIdol);
+    bindTrigger("BlueFlowers", &MartensBluff2Script::blueFlowers);
+    bindTrigger("SquisherControls", &MartensBluff2Script::squisherControls);
+    bindTrigger("DoorControls", DoorControls);
+}
 
 /* Level init: creates the RavenQuest location variable, fires the Dummy
    trigger when the quest has not started, re-arms the perfume box and dummy
    lever from the saved quest state, respawns the rapax with its move script
    at state 2, re-arms the side-gate text while the bolt is open and restores
    the spikeball/crusher master functions from their saved counts. */
-void MartensBluff2Setup(void)
+void MartensBluff2Script::setup()
 {
     Trigger* pTrigger;
     W8MonsterGroup* group;
@@ -103,13 +197,12 @@ void MartensBluff2Setup(void)
 
     pTrigger = FindTriggerByName("PerfumeBox");
     quest_state = RavenQuestState::not_started;
-    g_crusher_active = false;
     if (pTrigger != 0) {
         if (GetLocationVarIDByName("RavenQuest") == -1) {
             CreateLocationVar("RavenQuest", 0);
-            g_running_trigger_from_script = true;
+            running_trigger_from_script_ = true;
             FindTriggerByName("Dummy")->Run(-1);
-            g_running_trigger_from_script = false;
+            running_trigger_from_script_ = false;
         } else {
             quest_state = GetRavenQuestState();
         }
@@ -144,18 +237,18 @@ void MartensBluff2Setup(void)
     if (GetLocationVarIDByName("SpikedBallLauncher") != -1) {
         value = GetLocationVarValueByName("SpikedBallLauncher");
         if (value != 0) {
-            MartensBluff2Spikeball(value);
+            spikeball(value);
         }
     }
     if (GetLocationVarIDByName("MonsterCrusher") != -1) {
         value = GetLocationVarValueByName("MonsterCrusher");
         if (value != 0) {
-            MartensBluff2MonsterCrusher(value);
+            monsterCrusher(value);
         }
     }
 }
 
-static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
+void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* effect)
 {
     glm::vec3 position;
     glm::vec3 offset;
@@ -174,14 +267,14 @@ static void FireTrapLauncher(const char* name, W8SpellEffectDefinition* effect)
         offset = position + glm::vec3{rotation * offset};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(effect);
-        CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
+        CreateAndPlaySoundNode(world, "Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
                                15000.0f, false);
     }
 }
 
 /* "Arrowtraptrigger": fires a missile from each named launcher entity along
    its facing direction, rotated by the entity's yaw angle. */
-bool TriggerArrowTrap(Trigger* pTrigger)
+bool MartensBluff2Script::arrowTrap(Trigger* pTrigger)
 {
     W8SpellEffectDefinition effect;
     glm::vec3 position;
@@ -195,9 +288,9 @@ bool TriggerArrowTrap(Trigger* pTrigger)
     effect.magnitude.base = 0;
     effect.magnitude.count = 2;
     effect.magnitude.sides = 6;
-    FireTrapLauncher("Arrowlauncher1", &effect);
-    FireTrapLauncher("Arrowlauncher2", &effect);
-    FireTrapLauncher("Arrowlauncher3", &effect);
+    FireTrapLauncher(world(), "Arrowlauncher1", &effect);
+    FireTrapLauncher(world(), "Arrowlauncher2", &effect);
+    FireTrapLauncher(world(), "Arrowlauncher3", &effect);
     if (FindEntityByName("Arrowlauncher4", &position, &angle, &direction)) {
         offset = glm::vec3(0.0, 0.0, 15000.0);
         rotation = glm::mat3(1);
@@ -206,23 +299,15 @@ bool TriggerArrowTrap(Trigger* pTrigger)
         offset = rotation * offset + position;
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(&effect);
-        CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
-                               15000.0f, false);
+        CreateAndPlaySoundNode(world(), "Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,
+                               1.0f, 15000.0f, false);
     }
     return true;
 }
 
-/* "Spikeballtrigger": toggles the spikeball master function's launcher
-   sequence through its toggle command. */
-bool MartensBluff2Spikeballtrigger(Trigger* pTrigger)
+void MartensBluff2Script::captureSpikeball(W8SavedLocationState& state)
 {
-    MartensBluff2Spikeball(static_cast<int>(0xEFFFFFFF));
-    return true;
-}
-
-static void CaptureSpikeball(W8SavedLocationState& state)
-{
-    state.emplace_back("SpikedBallLauncher", g_spikeball_count > 0xf ? 0 : g_spikeball_count);
+    state.emplace_back("SpikedBallLauncher", spikeball_count_ > 0xf ? 0 : spikeball_count_);
 }
 
 /* The registered spikeball master function. A nonzero command arms it: -1
@@ -230,7 +315,7 @@ static void CaptureSpikeball(W8SavedLocationState& state)
    other small value is the starting shot count. Command 0 is the per-frame
    run; it fires the four Spikeball-launcher entities every two seconds until
    the count reaches sixteen, then unregisters and saves the reset. */
-bool MartensBluff2Spikeball(int command)
+bool MartensBluff2Script::spikeball(int command)
 {
     W8SpellEffectDefinition effect;
     glm::vec3 position;
@@ -241,32 +326,32 @@ bool MartensBluff2Spikeball(int command)
     Missile* missile;
 
     if (command != 0) {
-        if (command == static_cast<int>(0xEFFFFFFF)) {
-            if (g_spikeball_count == 0 || g_spikeball_count > 0xf) {
-                g_spikeball_count = 0;
+        if (command == kMasterToggle) {
+            if (spikeball_count_ == 0 || spikeball_count_ > 0xf) {
+                spikeball_count_ = 0;
             } else {
-                g_spikeball_count = 1;
+                spikeball_count_ = 1;
             }
         } else if (static_cast<unsigned int>(command) <= 0xf) {
-            g_spikeball_count = command;
+            spikeball_count_ = command;
         }
-        if (!g_spikeball_gate) {
-            g_spikeball_gate.emplace(2.0f, false, true);
-            g_master_functions.push_back({MartensBluff2Spikeball, CaptureSpikeball});
+        if (!spikeball_gate_) {
+            spikeball_gate_.emplace(2.0f, false, true);
+            addMaster(&MartensBluff2Script::spikeball, &MartensBluff2Script::captureSpikeball);
         }
     }
-    if (g_spikeball_count < 0x10) {
-        if (!g_spikeball_gate) return true;
-        if (g_spikeball_count == 0 || g_spikeball_gate->PollFinished()) {
-            g_spikeball_gate->Arm();
-            ++g_spikeball_count;
+    if (spikeball_count_ < 0x10) {
+        if (!spikeball_gate_) return true;
+        if (spikeball_count_ == 0 || spikeball_gate_->PollFinished()) {
+            spikeball_gate_->Arm();
+            ++spikeball_count_;
             effect = {};
             effect.magnitude.base = 0;
             effect.magnitude.count = 2;
             effect.magnitude.sides = 6;
-            FireTrapLauncher("Spikeball-launcher1", &effect);
-            FireTrapLauncher("Spikeball-launcher2", &effect);
-            FireTrapLauncher("Spikeball-launcher3", &effect);
+            FireTrapLauncher(world(), "Spikeball-launcher1", &effect);
+            FireTrapLauncher(world(), "Spikeball-launcher2", &effect);
+            FireTrapLauncher(world(), "Spikeball-launcher3", &effect);
             if (FindEntityByName("Spikeball-launcher4", &position, &angle, &direction)) {
                 offset = glm::vec3(0.0, 0.0, 15000.0);
                 rotation = glm::mat3(1);
@@ -278,46 +363,28 @@ bool MartensBluff2Spikeball(int command)
                 offset = rotation * offset + position;
                 missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
                 missile->SetEffectDefinition(&effect);
-                CreateAndPlaySoundNode("Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,
-                                       1.0f, 15000.0f, false);
+                CreateAndPlaySoundNode(world(), "Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav",
+                                       position, 1.0f, 15000.0f, false);
             }
         }
         return false;
     }
-    g_spikeball_gate.reset();
-    g_spikeball_count = 0;
+    spikeball_gate_.reset();
+    spikeball_count_ = 0;
     if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
-        CreateLocationVar("SpikedBallLauncher", g_spikeball_count);
+        CreateLocationVar("SpikedBallLauncher", spikeball_count_);
     } else {
-        SetTriggerVariableByName("SpikedBallLauncher", g_spikeball_count);
+        SetTriggerVariableByName("SpikedBallLauncher", spikeball_count_);
     }
     return true;
-}
-
-/* "DoorBolt": re-arms the side-gate text trigger when the bolt opens. */
-bool MartensBluff2DoorBolt(Trigger* pTrigger)
-{
-    Trigger* pText = FindTriggerByName("SideGateText");
-    if (pText != 0) {
-        pText->flags &= ~W8_TRIGGER_ENABLED;
-    }
-    return true;
-}
-
-/* "DummyLever": re-arms itself and reports whether the RavenQuest location
-   variable is still zero. */
-bool MartensBluff2DummyLever(Trigger* pTrigger)
-{
-    pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    return GetRavenQuestState() == RavenQuestState::not_started;
 }
 
 /* "Dummy": re-arms the PerfumeBox trigger and marks RavenQuest stage 1. The
    shared callback flag suppresses this while the quest state is being driven
    programmatically. */
-bool MartensBluff2Dummy(Trigger* pTrigger)
+bool MartensBluff2Script::dummy(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script) {
+    if (!running_trigger_from_script_) {
         Trigger* pPerfumeBox = FindTriggerByName("PerfumeBox");
         if (pPerfumeBox != 0) {
             pPerfumeBox->flags |= W8_TRIGGER_ENABLED;
@@ -330,7 +397,7 @@ bool MartensBluff2Dummy(Trigger* pTrigger)
 /* "PerfumeBox": while item 0x2ea (the perfume) is on the cursor, consume it,
    spawn the rapax on Ravenz with its move script and post the result string.
    Always returns 0. */
-bool MartensBluff2PerfumeBox(Trigger* pTrigger)
+bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
 {
     glm::vec3 position;
     W8MonsterGroup* group;
@@ -339,14 +406,14 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
 
     RavenQuestState quest_state;
 
-    if (!(CurrentGame().party.held.item.iItemNo != -1)) {
+    if (!(ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
-    if (GetItemInHand(CurrentGame().party) != 0x2ea) {
+    if (GetItemInHand(ctx.party) != 0x2ea) {
         return false;
     }
     g_trigger_feedback = true;
-    (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
+    (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     quest_state = RavenQuestState::perfume_used;
     if (FindEntityByName("Ravenz", &position, 0, 0)) {
@@ -365,37 +432,19 @@ bool MartensBluff2PerfumeBox(Trigger* pTrigger)
     return false;
 }
 
-/* "DoorControls": while the control trigger is off, fires the two squisher
-   doors whose door action data is open. */
-bool MartensBluff2DoorControls(Trigger* pTrigger)
-{
-    if (pTrigger->state_index == 0) {
-        for (const char* name : {"SquisherDoor", "SquisherDoor1"}) {
-            Trigger* pDoor = FindTriggerByName(name);
-            if (pDoor == nullptr) {
-                continue;
-            }
-            if (const auto* door = pDoor->doorData(); door && door->open) {
-                pDoor->Run(-1);
-            }
-        }
-    }
-    return true;
-}
-
 /* "SquisherControls": toggles the monster crusher while it is idle. */
-bool MartensBluff2SquisherControls(Trigger* pTrigger)
+bool MartensBluff2Script::squisherControls(Trigger* pTrigger)
 {
-    if (!g_crusher_active) {
-        MartensBluff2MonsterCrusher(static_cast<int>(0xEFFFFFFF));
+    if (!crusher_active_) {
+        monsterCrusher(kMasterToggle);
         return true;
     }
     return false;
 }
 
-static void CaptureCrusher(W8SavedLocationState& state)
+void MartensBluff2Script::captureCrusher(W8SavedLocationState& state)
 {
-    state.emplace_back("MonsterCrusher", static_cast<int>(g_crusher_state));
+    state.emplace_back("MonsterCrusher", static_cast<int>(crusher_state_));
 }
 
 /* The MonsterCrusher master function. A nonzero command looks up the two
@@ -406,12 +455,8 @@ static void CaptureCrusher(W8SavedLocationState& state)
    with room aside and crushing the rest (species 0x183 pays out through
    AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
    triggers, and once those props finish it unregisters. */
-bool MartensBluff2MonsterCrusher(int command)
+bool MartensBluff2Script::monsterCrusher(int command)
 {
-    /* The bounds box the octree query below sweeps; function-local statics,
-       with the compiler's atexit destructor thunks at 0x004DE500/0x004DE510. */
-    static glm::vec3 crusher_upper;
-    static glm::vec3 crusher_lower;
     Trigger* pTrigger;
     glm::vec3 lower;
     glm::vec3 upper;
@@ -427,96 +472,96 @@ bool MartensBluff2MonsterCrusher(int command)
     float radius;
 
     if (command != 0) {
-        g_squisher3_prop = 0;
-        g_squisher4_prop = 0;
-        g_dummy_prop = 0;
-        g_dummy_rope_prop = 0;
+        squisher3_prop_ = 0;
+        squisher4_prop_ = 0;
+        dummy_prop_ = 0;
+        dummy_rope_prop_ = 0;
         pTrigger = FindTriggerByName("Squisher-3");
         if (pTrigger != 0) {
-            g_squisher3_prop = pTrigger->GetProp();
+            squisher3_prop_ = pTrigger->GetProp();
         }
         pTrigger = FindTriggerByName("Squisher-4");
         if (pTrigger != 0) {
-            g_squisher4_prop = pTrigger->GetProp();
+            squisher4_prop_ = pTrigger->GetProp();
         }
-        if (command != static_cast<int>(0xEFFFFFFF)) {
-            g_crusher_state = static_cast<W8CrusherState>(command);
+        if (command != kMasterToggle) {
+            crusher_state_ = static_cast<W8CrusherState>(command);
         }
-        if (g_squisher3_prop != 0 && g_squisher4_prop != 0) {
-            const auto crusher_bounds = g_squisher3_prop->GetFrameBounds();
-            const auto other_bounds = g_squisher4_prop->GetFrameBounds();
+        if (squisher3_prop_ != 0 && squisher4_prop_ != 0) {
+            const auto crusher_bounds = squisher3_prop_->GetFrameBounds();
+            const auto other_bounds = squisher4_prop_->GetFrameBounds();
             if (!crusher_bounds || !other_bounds) return false;
-            crusher_lower = crusher_bounds->minimum;
-            crusher_upper = crusher_bounds->maximum;
+            crusher_lower_ = crusher_bounds->minimum;
+            crusher_upper_ = crusher_bounds->maximum;
             lower = other_bounds->minimum;
             upper = other_bounds->maximum;
-            crusher_lower.y -= kWorldScale;
-            crusher_upper.x = upper.x;
-            g_crusher_excluded = 0;
-            g_crusher_excluded_flag = false;
-            centre = glm::vec3((crusher_lower.x + crusher_upper.x) * 0.5,
-                               (crusher_lower.y + crusher_upper.y) * 0.5,
-                               (crusher_lower.z + crusher_upper.z) * 0.5);
+            crusher_lower_.y -= kWorldScale;
+            crusher_upper_.x = upper.x;
+            crusher_excluded_ = 0;
+            crusher_excluded_flag_ = false;
+            centre = glm::vec3((crusher_lower_.x + crusher_upper_.x) * 0.5,
+                               (crusher_lower_.y + crusher_upper_.y) * 0.5,
+                               (crusher_lower_.z + crusher_upper_.z) * 0.5);
             if (command != 2) {
-                g_crusher_sound =
-                    CreateAndPlaySoundNode("Data\\Sound\\Ambients\\Hydraulics Squisher Loop.wav",
-                                           centre, 0.7f, 30.0f, true);
+                crusher_sound_ = CreateAndPlaySoundNode(
+                    world(), "Data\\Sound\\Ambients\\Hydraulics Squisher Loop.wav", centre, 0.7f,
+                    30.0f, true);
             }
-            g_crusher_active = true;
-            g_crusher_state = W8CrusherState::moving;
-            g_master_functions.push_back({MartensBluff2MonsterCrusher, CaptureCrusher});
+            crusher_active_ = true;
+            crusher_state_ = W8CrusherState::moving;
+            addMaster(&MartensBluff2Script::monsterCrusher, &MartensBluff2Script::captureCrusher);
         }
         if (command != 1 && GetRavenQuestState() != RavenQuestState::not_started) {
-            g_running_trigger_from_script = true;
+            running_trigger_from_script_ = true;
             FindTriggerByName("Dummy")->Run(-1);
             FindTriggerByName("DummyRope")->Run(-1);
-            g_running_trigger_from_script = false;
+            running_trigger_from_script_ = false;
         }
         return false;
     }
-    if (g_squisher3_prop == 0) {
+    if (squisher3_prop_ == 0) {
         return false;
     }
-    if (g_squisher4_prop == 0) {
+    if (squisher4_prop_ == 0) {
         return false;
     }
-    if (g_dummy_prop != 0) {
-        if (g_dummy_prop->animation_playing != 0) {
+    if (dummy_prop_ != 0) {
+        if (dummy_prop_->animation_playing != 0) {
             return false;
         }
-        if (g_dummy_rope_prop->animation_playing != 0) {
+        if (dummy_rope_prop_->animation_playing != 0) {
             return false;
         }
 
-        g_crusher_active = false;
-        g_crusher_state = W8CrusherState::inactive;
+        crusher_active_ = false;
+        crusher_state_ = W8CrusherState::inactive;
         return true;
     }
-    if (g_squisher3_prop->animation_playing == 0) {
-        if (g_crusher_sound != 0) {
-            g_crusher_sound->Stop();
+    if (squisher3_prop_->animation_playing == 0) {
+        if (crusher_sound_ != 0) {
+            crusher_sound_->Stop();
         }
-        g_crusher_sound = 0;
+        crusher_sound_ = 0;
         pTrigger = FindTriggerByName("Dummy");
         if (GetRavenQuestState() == RavenQuestState::not_started) {
 
-            g_crusher_active = false;
-            g_crusher_state = W8CrusherState::inactive;
+            crusher_active_ = false;
+            crusher_state_ = W8CrusherState::inactive;
             return true;
         }
-        g_running_trigger_from_script = true;
+        running_trigger_from_script_ = true;
         pTrigger->Run(-1);
-        g_dummy_prop = pTrigger->GetProp();
+        dummy_prop_ = pTrigger->GetProp();
         pTrigger = FindTriggerByName("DummyRope");
         pTrigger->Run(-1);
-        g_dummy_rope_prop = pTrigger->GetProp();
-        g_running_trigger_from_script = false;
-        g_crusher_state = W8CrusherState::waiting_for_dummies;
+        dummy_rope_prop_ = pTrigger->GetProp();
+        running_trigger_from_script_ = false;
+        crusher_state_ = W8CrusherState::waiting_for_dummies;
         return false;
     }
-    left = g_squisher3_prop->computeBounds().maximum.x;
-    right = g_squisher4_prop->computeBounds().minimum.x;
-    location_ids = GetWorldSpatialIndex()->locationsInBox({crusher_lower, crusher_upper}, 0);
+    left = squisher3_prop_->computeBounds().maximum.x;
+    right = squisher4_prop_->computeBounds().minimum.x;
+    location_ids = GetWorldSpatialIndex()->locationsInBox({crusher_lower_, crusher_upper_}, 0);
     count = location_ids.size();
     if (count == 0) {
         return false;
@@ -524,7 +569,7 @@ bool MartensBluff2MonsterCrusher(int command)
     for (i = 0; i < count; i++) {
         info = FindMonster(location_ids[i]);
         if (info != 0 && info->p3D != 0 &&
-            (!g_crusher_excluded_flag || info->p3D != g_crusher_excluded) &&
+            (!crusher_excluded_flag_ || info->p3D != crusher_excluded_) &&
             info->p3D->nav.flags != 0x200000) {
             monster = info->p3D;
             position = monster->nav.GetPosition();
@@ -550,14 +595,14 @@ bool MartensBluff2MonsterCrusher(int command)
 
 /* "StoneIdol": while the cursor is free, puts item 0x291 in hand, posts the
    text, activates the IdolGas particle and arms the IdolGas master function. */
-bool MartensBluff2StoneIdol(Trigger* pTrigger)
+bool MartensBluff2Script::stoneIdol(Trigger* pTrigger)
 {
     ParticleSystem* particle;
 
-    if ((CurrentGame().party.held.item.iItemNo != -1)) {
+    if ((ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
-    ReplaceHeldItem(CurrentGame(), MakeItem(0x291, false, false, false));
+    ReplaceHeldItem(ctx.game, MakeItem(0x291, false, false, false));
     SetItemCursor(0);
     ShowString(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
@@ -565,26 +610,26 @@ bool MartensBluff2StoneIdol(Trigger* pTrigger)
         particle->SetActive(true);
     }
     BeginSurprise();
-    MartensBluff2IdolGas(1);
-    g_master_functions.push_back({MartensBluff2IdolGas});
+    idolGas(1);
+    addMaster(&MartensBluff2Script::idolGas);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    g_running_trigger_from_script = true;
+    running_trigger_from_script_ = true;
     SetFact(W8_FACT_QUEST_MARTEN_IDOL, 1, false);
     return true;
 }
 
 /* "BlueFlowers": while the cursor is free, puts item 0x2eb in hand. The
    shared callback flag is cleared on every run. */
-bool MartensBluff2BlueFlowers(Trigger* pTrigger)
+bool MartensBluff2Script::blueFlowers(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script) {
-        if ((CurrentGame().party.held.item.iItemNo != -1)) {
+    if (!running_trigger_from_script_) {
+        if ((ctx.party.held.item.iItemNo != -1)) {
             return false;
         }
-        ReplaceHeldItem(CurrentGame(), MakeItem(0x2eb, false, false, false));
+        ReplaceHeldItem(ctx.game, MakeItem(0x2eb, false, false, false));
         SetItemCursor(0);
     }
-    g_running_trigger_from_script = false;
+    running_trigger_from_script_ = false;
     return true;
 }
 
@@ -593,35 +638,35 @@ bool MartensBluff2BlueFlowers(Trigger* pTrigger)
    the gate, then fades back in, picks a party member to suffer the gas when
    no kind-0x1e NPC is around and stops the particle; the following run
    unregisters. */
-bool MartensBluff2IdolGas(int command)
+bool MartensBluff2Script::idolGas(int command)
 {
     ParticleSystem* particle;
 
     if (command != 0) {
-        g_idol_gas_armed = true;
+        idol_gas_armed_ = true;
         BeginWorldLightingFade(-3000.0f);
-        if (g_idol_gas_gate) {
-            g_idol_gas_gate->Arm();
+        if (idol_gas_gate_) {
+            idol_gas_gate_->Arm();
             return false;
         }
-        g_idol_gas_gate.emplace(4.0f, false, true);
+        idol_gas_gate_.emplace(4.0f, false, true);
         return false;
     }
-    if (!g_idol_gas_armed) {
+    if (!idol_gas_armed_) {
 
-        g_idol_gas_gate.reset();
-        g_idol_gas_armed = true;
+        idol_gas_gate_.reset();
+        idol_gas_armed_ = true;
         ResolveSurpriseWake();
         return true;
     }
-    if (!g_idol_gas_gate) return true;
-    if (!g_idol_gas_gate->PollFinished()) {
+    if (!idol_gas_gate_) return true;
+    if (!idol_gas_gate_->PollFinished()) {
         return false;
     }
-    g_idol_gas_gate->Arm();
-    g_idol_gas_armed = false;
+    idol_gas_gate_->Arm();
+    idol_gas_armed_ = false;
     if (FindNpcOfKind(0x1e) == 0) {
-        MartensBluff2IdolGasVictim();
+        idolGasVictim();
     }
     BeginWorldLightingFade(3000.0f);
     particle = FindParticleByName("IdolGas");
@@ -637,7 +682,7 @@ bool MartensBluff2IdolGas(int command)
    falls back to the first dead member when nothing scored - a retail
    unreachable path, since a nonzero lowest score implies a candidate. The
    winner gets condition 0x13 indefinitely and fact 0x33 records the event. */
-void MartensBluff2IdolGasVictim(void)
+void MartensBluff2Script::idolGasVictim()
 {
     unsigned int severities[8];
     unsigned int lowest;
@@ -648,10 +693,10 @@ void MartensBluff2IdolGasVictim(void)
 
     lowest = 10;
     for (slot = 0; slot < 8; slot++) {
-        if (!CurrentGame().party.rows[slot].fOccupied || slot < 2) {
+        if (!ctx.party.rows[slot].fOccupied || slot < 2) {
             severities[slot] = 10;
         } else {
-            switch (CurrentGame().party.characters[slot].iProfession) {
+            switch (ctx.party.characters[slot].iProfession) {
             case W8_PROFESSION_FIGHTER:
                 severities[slot] = 2;
                 break;
@@ -682,8 +727,8 @@ void MartensBluff2IdolGasVictim(void)
         }
         if (count == 0) {
             slot = 0;
-            while (!CurrentGame().party.rows[slot].fOccupied ||
-                   CurrentGame().party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
+            while (!ctx.party.rows[slot].fOccupied ||
+                   ctx.party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
                 slot++;
                 if (slot > 7) {
                     return;
@@ -700,11 +745,15 @@ void MartensBluff2IdolGasVictim(void)
                 }
             }
         }
-        CurrentGame().status.party_slot = slot;
+        ctx.status.party_slot = slot;
         SetCharacterCondition(slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE, 0, 0, 1);
         SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 1, false);
     }
 }
 
-/* glm::mat3::RotateAroundAxis(double, ...) emitted out-of-line for the
-   arrow trap's rotation math; the primary is in srMath.h. */
+} // namespace
+
+std::unique_ptr<LevelScript> MakeMartensBluff2Script(const ScriptContext& context)
+{
+    return std::make_unique<MartensBluff2Script>(context);
+}

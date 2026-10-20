@@ -1,24 +1,39 @@
 #include "wiz8/level_specific_code/Monastery1.h"
 
+#include <memory>
+
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/render/camera.h"
+#include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Monastery1.cpp (level 8).
 
-   Attribution evidence: InitializeLevelMasterFunctions registers
-   0x004DC8D0 under case 8, the Monastery1 block that also wires the
-   roach_trigger, spider_trigger, Bartrigger and Coffinlide callbacks. The
+   Attribution evidence: the level-8 script runs 0x004DC8D0 and binds the
+   roach_trigger, spider_trigger, Bartrigger and Coffinlide callbacks; the
    function itself is bar-trigger housekeeping for that same set. */
 
-void ClearTextForBarTrigger(void)
+namespace {
+
+class Monastery1Script final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
+
+    void enter() override;
+
+private:
+    bool coffinlidg(Trigger* trigger);
+    bool wheelStar(Trigger* trigger);
+};
+
+void ClearTextForBarTrigger()
 {
     Trigger* trigger = FindTriggerByName("Bartrigger");
     if (trigger != 0 && trigger->state_index == 1) {
@@ -95,13 +110,24 @@ bool OnCoffinlideActivated(Trigger* trigger)
     return true;
 }
 
+void Monastery1Script::enter()
+{
+    ClearTextForBarTrigger();
+    bindTrigger("roach_trigger", OnRoachTriggerActivated);
+    bindTrigger("spider_trigger", OnSpiderTriggerActivated);
+    bindTrigger("Bartrigger", OnBarTriggerActivated);
+    bindTrigger("Coffinlide", OnCoffinlideActivated);
+    bindTrigger("Coffinlidg", &Monastery1Script::coffinlidg);
+    bindTrigger("wheel_star", &Monastery1Script::wheelStar);
+}
+
 /* Activation callback on Coffinlidg: casts spell 0x2a at power 3 onto the
    camera position. */
-bool OnCoffinlidgActivated(Trigger* trigger)
+bool Monastery1Script::coffinlidg(Trigger* trigger)
 {
     glm::vec3 position;
 
-    position = glm::vec3(GetWorld()->camera->transform.getLocation());
+    position = glm::vec3(world().camera->transform.getLocation());
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
     return true;
 }
@@ -109,13 +135,20 @@ bool OnCoffinlidgActivated(Trigger* trigger)
 /* Activation callback on wheel_star: consumes the held star key (item 0x24c);
    anything else in hand plays level message 0x22 and leaves the trigger
    armed. */
-bool OnWheelStarActivated(Trigger* trigger)
+bool Monastery1Script::wheelStar(Trigger* trigger)
 {
-    if (GetItemInHand(CurrentGame().party) != 0x24c) {
+    if (GetItemInHand(ctx.party) != 0x24c) {
         ShowLevelMessage(0x22);
         g_trigger_feedback = true;
         return false;
     }
-    RemovePartyItemByID(CurrentGame(), GetItemInHand(CurrentGame().party), false);
+    RemovePartyItemByID(ctx.game, GetItemInHand(ctx.party), false);
     return true;
+}
+
+} // namespace
+
+std::unique_ptr<LevelScript> MakeMonastery1Script(const ScriptContext& context)
+{
+    return std::make_unique<Monastery1Script>(context);
 }

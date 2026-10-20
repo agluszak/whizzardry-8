@@ -34,6 +34,7 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
@@ -106,8 +107,8 @@ static void UpdateWorld(World& world)
         WorldUpdateLights(&world);
         RunMonsterGenerators();
         UpdateWorldTriggers(&world);
-        if (world.compiledIndex() != 0) {
-            RunMasterFunctions();
+        if (world.compiledIndex() != 0 && world.script) {
+            world.script->runMasters();
         }
         UpdateSpellEffects();
     }

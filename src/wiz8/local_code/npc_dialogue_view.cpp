@@ -12,10 +12,10 @@
 #include "local_code/MonsterManager.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
-#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/loaded_game_data.h"
@@ -34,6 +34,9 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/activity.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
 
@@ -73,7 +76,7 @@ void ShowNpcScriptNoticeBubble(std::string_view text)
     HoldNpcSpeech(g_speech, 2000);
 }
 
-void UpdateNpcDialogueVoiceAndCursor(void)
+void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context)
 {
     W8NpcState* speaker = g_npc_dialogue.speaker();
     if (g_presentation == W8NpcPresentation::portrait_message) {
@@ -89,7 +92,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
         }
     }
 
-    if (CurrentGame().activity.conversation) {
+    if (context.activity.conversation) {
         if (g_npc_interaction_state->dialogue_hidden != 0) {
             SetTargetCursor(1);
             return;
@@ -101,7 +104,7 @@ void UpdateNpcDialogueVoiceAndCursor(void)
                     return;
                 }
             }
-        } else if (!CurrentGame().activity.scripted_scene) {
+        } else if (!context.activity.scripted_scene) {
             SetTargetCursor(W8_CURSOR_MAP_LOAD);
         }
     }
@@ -122,8 +125,9 @@ static void NpcVoiceEosCallback()
    sound with the EOS callback armed, and hang the mouth-gap track on the
    party slot's monster-manager entry or on the dialogue speech for ungrouped
    NPCs. notice_only routes the text through ShowNotice instead. */
-W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char subquote_index,
-                                      bool notice_only, bool force_npc_voice)
+W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, W8NpcScriptQuote* quote,
+                                      unsigned char subquote_index, bool notice_only,
+                                      bool force_npc_voice)
 {
     W8NpcState* const speaker = g_npc_dialogue.speaker();
     const int current_quote = g_npc_dialogue.current_quote();
@@ -199,7 +203,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             return W8NpcSubquoteOutcome::classified;
         }
         if (CompareTextIgnoreAsciiCase(plain_text, "SOUND") != 0 && !speaker->is_grouped) {
-            if (!CurrentGame().activity.conversation && speaker->record->voice_script == 0) {
+            if (!context.activity.conversation && speaker->record->voice_script == 0) {
                 prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
                 display_text = prefixed_text;
             }
@@ -220,7 +224,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(W8NpcScriptQuote* quote, unsigned char sub
             BeginPortraitVoice(speaker->group_index, g_speech.voice_handle, voice_path,
                                g_speech.hold_ms);
             if (voiced) {
-                CurrentGame().party.rows[speaker->group_index].pending_event_type = current_quote;
+                context.party.rows[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
                 g_npc_interaction_state->last_notice_npc_kind = speaker->partner_index;
             }
@@ -274,9 +278,9 @@ static void FinishNpcVoicePlayback(bool resume_script)
 /* Guarded finish entry point: suppressed outright while the level-4 gate
    flag is set; a non-forced call inside 500 ms of the last script tick is a
    no-op, so the tick path can poll without re-finishing. */
-void TryFinishNpcVoicePlayback(bool force)
+void TryFinishNpcVoicePlayback(const GameStatus& status, bool force)
 {
-    if (CurrentGame().status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
+    if (status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
         if (!force && MonotonicMilliseconds() - g_speech.voice_started_at <= 500) {
             return;
         }

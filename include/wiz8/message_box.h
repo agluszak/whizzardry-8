@@ -74,7 +74,7 @@ enum class W8NpcStoryAction : unsigned char {
 
 /* Queued actions that carry no data. */
 enum class W8NpcCommand : unsigned char {
-    close_dialogue,            /* close dialogue; set g_npc_dialogue_closed */
+    close_dialogue,            /* close dialogue; tell the level script */
     close_and_resume_npc,      /* close dialogue; ResumeNpc on the dialogue NPC */
     reopen_transcript,         /* CloseNpcDialogueLayout + transcript layout */
     journal_quote,             /* quote bubble + journal-entry.wav */

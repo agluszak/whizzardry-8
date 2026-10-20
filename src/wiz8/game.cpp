@@ -11,6 +11,7 @@
 #include "wiz8/combat/entity_signals.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -87,4 +88,16 @@ void SetGameEventObserver(std::function<void(const Event&)> observer)
 {
     game_event_observer = std::move(observer);
     if (current_game) current_game->events.observe(game_event_observer);
+}
+
+ScriptContext MakeScriptContext(Game& game)
+{
+    return {.party = game.party,
+            .story = game.story,
+            .status = game.status,
+            .activity = game.activity,
+            .combat = game.combat,
+            .events = game.events,
+            .world = game.level.primary.get(),
+            .game = game};
 }

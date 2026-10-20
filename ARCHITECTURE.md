@@ -145,8 +145,27 @@ Unlayered code may use the layers.
   combat membership are queries over ownership, not maintained counters; retail
   count fields are decoded data, re-derived when saving. Formation linking
   reserves a destination before changing either relationship.
-- Level master callbacks return completion directly. Callbacks appended during a
-  dispatch wait for the next frame.
+- A level's script is part of the level ("Scripts"). Its masters return completion
+  directly; masters armed during a dispatch wait for the next frame.
+
+## Scripts
+
+- **The context.** NPC scripting and the level scripts act on a `ScriptContext`
+  (`script_context.h`): the party, the story, the status record, the activity, combat,
+  the event log, the loaded world (null between levels) and the game, for the commands
+  that still take it. Whoever runs a script passes it in; code that does not receive
+  the game yet builds it with `MakeScriptContext(CurrentGame())`.
+- **Level scripts.** Each loaded level owns a `LevelScript` (`World::script`), made by
+  `MakeLevelScript` when the level is entered and destroyed with the world, so script
+  state never outlives its level or game. A level with level-specific code has a
+  subclass whose members are that state; `enter()` binds its trigger callbacks and
+  restores its saved state from the location variables. The script runs its masters
+  each world update, records their persistent state when the level is left or saved
+  (`captureState`), and dispatches the world-cursor nodes. Trigger activation
+  callbacks are `std::function`s bound to the script.
+- **NPC scripting.** The dialogue (`W8NpcDialogue::Advance`, `Speak`, `Answer`), quote
+  presentation, story actions and fact consequences take the context. Closing a
+  dialogue tells the level script, whose watches wait for it.
 
 ## The game
 

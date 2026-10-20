@@ -141,6 +141,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/string_database.h"
@@ -4419,7 +4420,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                                      false);
                                 }
                             } else {
-                                EndScriptedPortraitPick(slot);
+                                EndScriptedPortraitPick(MakeScriptContext(CurrentGame()), slot);
                             }
                         } else {
                             QueueCharacterEvent(

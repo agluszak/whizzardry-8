@@ -657,7 +657,7 @@ Trigger::Trigger(World* world)
     action_state = W8TriggerActionState::inactive;
     world_item_group = 0;
     items_generated = 0;
-    activation_callback = 0;
+    activation_callback = nullptr;
     running = false;
 
     surface_id = -1;
@@ -1024,7 +1024,7 @@ void Trigger::Run(int source)
     if (!SelectAction()) {
         return;
     }
-    if (callback != 0 && !callback(this)) {
+    if (callback && !callback(this)) {
         return;
     }
 
@@ -2031,7 +2031,7 @@ bool Trigger::SelectAction()
                     required_item_id = -1;
                 }
             } else {
-                if (m_lData2 == 1 && activation_callback != 0) {
+                if (m_lData2 == 1 && activation_callback) {
                     activation_callback(this);
                 }
                 action = fallback_action;
@@ -2072,7 +2072,7 @@ bool Trigger::SelectAction()
 
         if (action_data->locked && action_data->item != -1) {
             if (GetItemInHand(CurrentGame().party) != action_data->item) {
-                if (m_lData2 == 1 && activation_callback != 0) {
+                if (m_lData2 == 1 && activation_callback) {
                     activation_callback(this);
                 }
                 action = fallback_action;

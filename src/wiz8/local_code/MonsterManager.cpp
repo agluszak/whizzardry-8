@@ -79,6 +79,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/ui_input.h"
@@ -379,7 +380,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     if (record->faction_id != W8_FACTION_UNALIGNED && record->faction_id != W8_FACTION_PARTY)
         RecordFactionOffense(static_cast<signed char>(record->faction_id), monster_info);
 done:
-    MonsterKilled(record->record_id, killer_party_slot);
+    MonsterKilled(MakeScriptContext(CurrentGame()), record->record_id, killer_party_slot);
     if (monster_info->pCombat && ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
                                   (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
@@ -1274,7 +1275,8 @@ void ProcessMonsterManagerFrame(void)
                     case W8_MONSTER_CYCLE_DIE:
                         if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
                             monster_info = GetMonsterListEntry(monster_list_index);
-                            HandleScriptedNpcDeath(monster_list_index);
+                            HandleScriptedNpcDeath(MakeScriptContext(CurrentGame()),
+                                                   monster_list_index);
                             if (monster_info->monster_group_id != 0) {
                                 RemoveMonster(monster_info, W8MonsterRemoval::Deactivate);
                             }

@@ -46,6 +46,7 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/level_specific_code/Camp.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -953,9 +954,6 @@ TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigg
     REQUIRE(wiz8::open_file(path)->read_text() == "old");
 }
 
-// Level-script entry point; exercise its saved-item transfer without loading a level.
-void LoadAwayCampChest();
-
 TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat groups",
                  "[loader][items]")
 {
@@ -997,10 +995,10 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
         chunks.Close();
     };
     write_items(true);
-    LoadAwayCampChest();
+    LoadAwayCampChest(*GetWorld());
     REQUIRE(trigger.world_item_group->contents.empty());
     write_items(false);
-    LoadAwayCampChest();
+    LoadAwayCampChest(*GetWorld());
     const auto& contents = trigger.world_item_group->contents;
     REQUIRE(contents.size() == 3);
     REQUIRE(contents[0]->runtime_id == 20);

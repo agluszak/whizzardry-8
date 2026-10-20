@@ -162,11 +162,21 @@ the licensed runtime scenarios after every step.
      - `UpdateCombat`, the scheduler and the action executors reach the game through
        `CurrentGame()` and resolve actions inside `local_code`; they become operations
        of `Combat` that take the game and the rules' context.
-7. **Story state.** `Game::story` and `Game::message_log` hold it (ARCHITECTURE.md,
-   "The game").
-   - NPC scripting and level scripts take a context (the world, the party, story state,
-     events) instead of reaching globals, and level-script statics become per-level
-     script objects.
+7. **Story state.** `Game::story` and `Game::message_log` hold it, and NPC scripting and
+   the level scripts act on a `ScriptContext` (ARCHITECTURE.md, "Scripts").
+   - The fact API (`GetFact`/`SetFact`, about 210 calls) still reaches the game;
+     `SetFact` builds the context for the fact's consequences. Facts should be read
+     from the story and set through the context.
+   - `NPC Manager.cpp` (NPC states, bindings, notices; about 160 `CurrentGame()` uses)
+     and the helpers scripts call (trigger, entity and NPC lookups, location
+     variables, `SpawnMonsters`) still reach the world and story through globals.
+   - The fade and monster-cycle completions are plain function pointers, so the NPC
+     story callbacks they run read `CurrentGame()`.
+   - Dialogue state is still module state: `g_npc_dialogue`, the Al-Sedexus scene and
+     the quote presentation (`npc_dialogue_view.cpp`). The game should own the first
+     two and the dialogue screen the last.
+   - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
+     belongs in `rules`, taking the party.
 8. **Saves over values.** The GSTA section and the STAT record are codecs over values
    (`save_codec.h`; ARCHITECTURE.md, "Saves"), and `W8GlobalStatus` is gone: the game's
    status is a `GameStatus` value that carries its unknown bytes. What remains:

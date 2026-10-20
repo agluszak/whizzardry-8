@@ -1,8 +1,7 @@
 #include "wiz8/level_specific_code/Arnika.h"
 
+#include <memory>
 #include <optional>
-#include <string>
-#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
@@ -16,9 +15,9 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -29,8 +28,11 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
@@ -41,69 +43,45 @@ struct W8NpcState;
 
    Attribution evidence: the missing-trigger assertions quote this file's
    path at lines 752-764, 1026-1038, 1469, 1512, 1520 and 1543, and the
-   assert expressions name the gEl01/gEl02 members. The level-0 block of
-   InitializeLevelMasterFunctions registers the trigger cluster
-   (ChaosMolori, Maddmook, CMbox, AstralDominae, Mookholo, MookFrontDoor,
-   YellowButton, Vaultalarmdoor, Exitbutton, GenVault-2-door, ARN11,
-   RedButton, El1-TopButtons, El1-BottomButtons, GreenButton, Elevator-02,
-   LazerScanner, ScannerDoor). */
+   assert expressions name the gEl01/gEl02 members. The level-0 script binds
+   the trigger cluster (ChaosMolori, Maddmook, CMbox, AstralDominae, Mookholo,
+   MookFrontDoor, YellowButton, Vaultalarmdoor, Exitbutton, GenVault-2-door,
+   ARN11, RedButton, El1-TopButtons, El1-BottomButtons, GreenButton,
+   Elevator-02, LazerScanner, ScannerDoor). */
 
-struct W8Elevator {
-    W8ArnikaElevatorState state; /* 0x00: persisted as El0XState */
-    int moving;                  /* 0x04: persisted as El0XMoving */
-    int button_down;             /* 0x08: persisted as Red/GreenButtonDown */
-    Trigger* pElevator;          /* 0x0c */
-    Trigger* pLift;              /* 0x10 */
-    Trigger* pTopDoor;           /* 0x14 */
-    Trigger* pBottomDoor;        /* 0x18 */
-    Trigger* pTopDoorCollide;    /* 0x1c */
-    Trigger* pBottomDoorCollide; /* 0x20 */
-    Trigger* pButton;            /* 0x24 */
-    Prop* pProp;               /* 0x28: rep the moving master waits on */
+namespace {
+
+enum W8ArnikaElevatorId : unsigned char { W8_ARNIKA_ELEVATOR_ONE = 1, W8_ARNIKA_ELEVATOR_TWO = 2 };
+
+enum W8ArnikaElevatorState : unsigned char {
+    W8_ARNIKA_ELEVATOR_STEP_1 = 1,
+    W8_ARNIKA_ELEVATOR_STEP_2 = 2,
+    W8_ARNIKA_ELEVATOR_STEP_3 = 3,
+    W8_ARNIKA_ELEVATOR_STEP_4 = 4,
+    W8_ARNIKA_ELEVATOR_STEP_5 = 5,
+    W8_ARNIKA_ELEVATOR_STEP_6 = 6,
+    W8_ARNIKA_ELEVATOR_STEP_7 = 7,
+    W8_ARNIKA_ELEVATOR_STEP_8 = 8
 };
 
-static W8Elevator gEl01;
-static W8Elevator gEl02;
+/* The master command that presses a button or re-arms a watch. */
+constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 
-static bool g_red_button_armed = true;
-static Prop* g_el01_button_prop;
-static Prop* g_el02_button_prop;
+struct W8Elevator {
+    W8ArnikaElevatorState state = W8_ARNIKA_ELEVATOR_STEP_1; /* persisted as El0XState */
+    int moving = 0;                /* persisted as El0XMoving */
+    int button_down = 0;           /* persisted as Red/GreenButtonDown */
+    Trigger* pElevator = nullptr;
+    Trigger* pLift = nullptr;
+    Trigger* pTopDoor = nullptr;
+    Trigger* pBottomDoor = nullptr;
+    Trigger* pTopDoorCollide = nullptr;
+    Trigger* pBottomDoorCollide = nullptr;
+    Trigger* pButton = nullptr;
+    Prop* pProp = nullptr; /* the rep the moving master waits on */
+};
 
-static Prop* g_lazer_prop;
-static Prop* g_exit_door_prop;
-static Trigger* g_exit_door_trigger;
-static int g_laser_scanning;
-static Sound3D* g_warning_loop;
-static Sound3D* g_warning_oneshot;
-static std::optional<W8IntervalGate> g_warning_gate;
-static Monster* g_mookholo_monster;
-
-static void CaptureEl1Moving(W8SavedLocationState& state)
-{
-    state.emplace_back("El01Moving", 1);
-}
-static void CaptureEl2Moving(W8SavedLocationState& state)
-{
-    state.emplace_back("El02Moving", 1);
-}
-static void CaptureEl1Button(W8SavedLocationState& state)
-{
-    state.emplace_back("RedButtonDown", gEl01.button_down);
-}
-static void CaptureEl2Button(W8SavedLocationState& state)
-{
-    state.emplace_back("GreenButtonDown", gEl02.button_down);
-}
-static void CaptureLaserScan(W8SavedLocationState& state)
-{
-    state.emplace_back("LaserScanning", g_laser_scanning);
-}
-static void CaptureWarningSound(W8SavedLocationState& state)
-{
-    state.emplace_back("WarningSound", g_warning_gate
-                                           ? static_cast<int>(g_warning_gate->GetElapsedSeconds())
-                                           : 0x3e8);
-}
+class ArnikaScript;
 
 struct ElevatorStateBindings {
     W8ArnikaElevatorId which;
@@ -111,23 +89,166 @@ struct ElevatorStateBindings {
     const char* state_variable;
     const char* moving_variable;
     const char* button_variable;
-    W8MasterFunction moving_master;
-    W8MasterFunction button_master;
+    bool (ArnikaScript::*moving_master)(int);
+    bool (ArnikaScript::*button_master)(int);
     bool open_bottom_on_first_load;
-    void (*moving_state)(W8SavedLocationState&);
-    void (*button_state)(W8SavedLocationState&);
+    void (ArnikaScript::*moving_state)(W8SavedLocationState&);
+    void (ArnikaScript::*button_state)(W8SavedLocationState&);
 };
 
-static constexpr ElevatorStateBindings g_el01_bindings{
-    W8_ARNIKA_ELEVATOR_ONE, W8_ARNIKA_ELEVATOR_STEP_1, "El01State",     "El01Moving",
-    "RedButtonDown",        ArnikaEl1Moving,           ArnikaEl1Button, false,
-    CaptureEl1Moving,       CaptureEl1Button};
-static constexpr ElevatorStateBindings g_el02_bindings{
-    W8_ARNIKA_ELEVATOR_TWO, W8_ARNIKA_ELEVATOR_STEP_7, "El02State",     "El02Moving",
-    "GreenButtonDown",      ArnikaEl2Moving,           ArnikaEl2Button, true,
-    CaptureEl2Moving,       CaptureEl2Button};
+class ArnikaScript final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
 
-static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings)
+    void enter() override;
+
+    bool el1Moving(int command);
+    bool el1Button(int command);
+    bool el2Moving(int command);
+    bool el2Button(int command);
+    void captureEl1Moving(W8SavedLocationState& state);
+    void captureEl2Moving(W8SavedLocationState& state);
+    void captureEl1Button(W8SavedLocationState& state);
+    void captureEl2Button(W8SavedLocationState& state);
+
+private:
+    void setup();
+    void restoreElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings);
+    bool runElevatorButton(W8Elevator& elevator, Prop*& button_prop,
+                           const ElevatorStateBindings& bindings, int command);
+    bool runElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings);
+    void elevator1Setup();
+    void elevator2Setup();
+    void elevatorAdvance(W8ArnikaElevatorId which);
+    int pedestalItem(int* previous_item);
+
+    bool lazerScanner(Trigger* pTrigger);
+    bool laserScanMaster(int command);
+    bool scannerDoor(Trigger* pTrigger);
+    bool warningSound(int command);
+    bool mookholo(Trigger* pTrigger);
+    bool mookholoWatch(int command);
+    bool mookFrontDoor(Trigger* pTrigger);
+    bool yellowButton(Trigger* pTrigger);
+    bool vaultAlarmDoor(Trigger* pTrigger);
+    bool exitButton(Trigger* pTrigger);
+    bool teleportWatch(int command);
+    bool genVaultDoor(Trigger* pTrigger);
+    bool redButton(Trigger* pTrigger);
+    bool el1TopButtons(Trigger* pTrigger);
+    bool greenButton(Trigger* pTrigger);
+    bool elevator02Trigger(Trigger* pTrigger);
+    bool chaosMolori(Trigger* pTrigger);
+    bool maddmook(Trigger* pTrigger);
+    bool astralDominae(Trigger* pTrigger);
+    bool cmBox(Trigger* pTrigger);
+    bool ballSlot(Trigger* pTrigger);
+    bool flightRecorder(Trigger* pTrigger);
+    void captureLaserScan(W8SavedLocationState& state);
+    void captureWarningSound(W8SavedLocationState& state);
+
+    W8Elevator el01_;
+    W8Elevator el02_;
+    bool red_button_armed_ = true;
+    Prop* el01_button_prop_ = nullptr;
+    Prop* el02_button_prop_ = nullptr;
+    Prop* lazer_prop_ = nullptr;
+    Prop* exit_door_prop_ = nullptr;
+    Trigger* exit_door_trigger_ = nullptr;
+    int laser_scanning_ = 0;
+    Sound3D* warning_loop_ = nullptr;
+    Sound3D* warning_oneshot_ = nullptr;
+    std::optional<W8IntervalGate> warning_gate_;
+    Monster* mookholo_monster_ = nullptr;
+    /* Raised while the pedestal runs a relic trigger itself, so the relic
+       callbacks let it through with an item in hand. */
+    bool running_trigger_from_script_ = false;
+};
+
+constexpr ElevatorStateBindings kEl01Bindings{W8_ARNIKA_ELEVATOR_ONE,
+                                              W8_ARNIKA_ELEVATOR_STEP_1,
+                                              "El01State",
+                                              "El01Moving",
+                                              "RedButtonDown",
+                                              &ArnikaScript::el1Moving,
+                                              &ArnikaScript::el1Button,
+                                              false,
+                                              &ArnikaScript::captureEl1Moving,
+                                              &ArnikaScript::captureEl1Button};
+constexpr ElevatorStateBindings kEl02Bindings{W8_ARNIKA_ELEVATOR_TWO,
+                                              W8_ARNIKA_ELEVATOR_STEP_7,
+                                              "El02State",
+                                              "El02Moving",
+                                              "GreenButtonDown",
+                                              &ArnikaScript::el2Moving,
+                                              &ArnikaScript::el2Button,
+                                              true,
+                                              &ArnikaScript::captureEl2Moving,
+                                              &ArnikaScript::captureEl2Button};
+
+// Activation callback that only stops the trigger.
+bool BlockTriggerActivation(Trigger*)
+{
+    return false;
+}
+
+void ArnikaScript::enter()
+{
+    bindTrigger("ChaosMolori", &ArnikaScript::chaosMolori);
+    bindTrigger("Maddmook", &ArnikaScript::maddmook);
+    bindTrigger("CMbox", &ArnikaScript::cmBox);
+    bindTrigger("AstralDominae", &ArnikaScript::astralDominae);
+    bindTrigger("BallSlot", &ArnikaScript::ballSlot);
+    bindTrigger("Flightrecordertrigger", &ArnikaScript::flightRecorder);
+    bindTrigger("ULLspawn", [](Trigger*) { return true; });
+    bindTrigger("Mookholo", &ArnikaScript::mookholo);
+    bindTrigger("MookFrontDoor", &ArnikaScript::mookFrontDoor);
+    bindTrigger("YellowButton", &ArnikaScript::yellowButton);
+    bindTrigger("Vaultalarmdoor", &ArnikaScript::vaultAlarmDoor);
+    bindTrigger("Exitbutton", &ArnikaScript::exitButton);
+    bindTrigger("GenVault-2-door", &ArnikaScript::genVaultDoor);
+    bindTrigger("ARN11", BlockTriggerActivation);
+    bindTrigger("RedButton", &ArnikaScript::redButton);
+    // The bottom call buttons do what the top ones do.
+    bindTrigger("El1-TopButtons", &ArnikaScript::el1TopButtons);
+    bindTrigger("El1-BottomButtons", &ArnikaScript::el1TopButtons);
+    bindTrigger("GreenButton", &ArnikaScript::greenButton);
+    bindTrigger("Elevator-02", &ArnikaScript::elevator02Trigger);
+    bindTrigger("LazerScanner", &ArnikaScript::lazerScanner);
+    Trigger* pTrigger = FindRequiredTriggerByName("ScannerDoor");
+    pTrigger->m_lData1 = 0;
+    pTrigger->activation_callback = callbackOf(&ArnikaScript::scannerDoor);
+    setup();
+}
+
+void ArnikaScript::captureEl1Moving(W8SavedLocationState& state)
+{
+    state.emplace_back("El01Moving", 1);
+}
+void ArnikaScript::captureEl2Moving(W8SavedLocationState& state)
+{
+    state.emplace_back("El02Moving", 1);
+}
+void ArnikaScript::captureEl1Button(W8SavedLocationState& state)
+{
+    state.emplace_back("RedButtonDown", el01_.button_down);
+}
+void ArnikaScript::captureEl2Button(W8SavedLocationState& state)
+{
+    state.emplace_back("GreenButtonDown", el02_.button_down);
+}
+void ArnikaScript::captureLaserScan(W8SavedLocationState& state)
+{
+    state.emplace_back("LaserScanning", laser_scanning_);
+}
+void ArnikaScript::captureWarningSound(W8SavedLocationState& state)
+{
+    state.emplace_back("WarningSound", warning_gate_
+                                           ? static_cast<int>(warning_gate_->GetElapsedSeconds())
+                                           : 0x3e8);
+}
+
+void ArnikaScript::restoreElevator(W8Elevator& elevator, const ElevatorStateBindings& bindings)
 {
     elevator.state = bindings.initial_state;
     elevator.moving = 0;
@@ -171,23 +292,23 @@ static void RestoreArnikaElevator(W8Elevator& elevator, const ElevatorStateBindi
             elevator.pProp = elevator.pBottomDoor->GetProp();
             break;
         }
-        g_master_functions.push_back({bindings.moving_master, bindings.moving_state});
+        addMaster(bindings.moving_master, bindings.moving_state);
     }
     if (elevator.button_down != 0) {
-        bindings.button_master(elevator.button_down);
+        (this->*bindings.button_master)(elevator.button_down);
     }
 }
 
-static bool RunArnikaElevatorButton(W8Elevator& elevator, Prop*& button_prop,
-                                    const ElevatorStateBindings& bindings, int command)
+bool ArnikaScript::runElevatorButton(W8Elevator& elevator, Prop*& button_prop,
+                                     const ElevatorStateBindings& bindings, int command)
 {
     if (command != 0) {
         button_prop = elevator.pButton->GetProp();
         if (button_prop == 0) {
             return false;
         }
-        g_master_functions.push_back({bindings.button_master, bindings.button_state});
-        if (command != static_cast<int>(0xEFFFFFFF)) {
+        addMaster(bindings.button_master, bindings.button_state);
+        if (command != kMasterToggle) {
             elevator.button_down = command;
         } else {
             elevator.button_down = 1;
@@ -211,8 +332,7 @@ static bool RunArnikaElevatorButton(W8Elevator& elevator, Prop*& button_prop,
     return true;
 }
 
-static bool RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings,
-                                    int command)
+bool ArnikaScript::runElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings)
 {
     if (elevator.pProp == 0) {
         return true;
@@ -221,42 +341,37 @@ static bool RunArnikaElevatorMoving(W8Elevator& elevator, const ElevatorStateBin
         return false;
     }
 
-    ArnikaElevatorAdvance(bindings.which);
+    elevatorAdvance(bindings.which);
     return true;
 }
 
-/* Level init: clears the laser-scanner and exit-door caches, runs both
-   elevator setups, then restores the laser scan, the warning sound, the
-   Screg flag and the inside-the-inn NPC teleport from the persisted
-   location variables and fact 0xc1.  An active Screg ambush whose monster
-   is still present ends setup before the teleport. */
-void ArnikaLevelSetup(void)
+/* Level setup: runs both elevator setups, then restores the laser scan, the
+   warning sound, the Screg flag and the inside-the-inn NPC teleport from the
+   persisted location variables and fact 0xc1. An active Screg ambush whose
+   monster is still present ends setup before the teleport. */
+void ArnikaScript::setup()
 {
     glm::vec3 position;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     Trigger* pTrigger;
 
-    g_lazer_prop = 0;
-    g_exit_door_prop = 0;
-    g_exit_door_trigger = 0;
-    ArnikaElevator1Setup();
-    ArnikaElevator2Setup();
-    g_running_trigger_from_script = false;
+    elevator1Setup();
+    elevator2Setup();
     if (GetLocationVarIDByName("LaserScanning") != -1 &&
         GetLocationVarValueByName("LaserScanning") != 0) {
         pTrigger = FindTriggerByName("LazerScanner");
         if (pTrigger != 0) {
-            g_lazer_prop = pTrigger->GetProp();
-            g_laser_scanning = 1;
+            lazer_prop_ = pTrigger->GetProp();
+            laser_scanning_ = 1;
             BeginScriptedWorldAction();
-            g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
+            addMaster(&ArnikaScript::laserScanMaster, &ArnikaScript::captureLaserScan);
         }
     }
     if (GetLocationVarIDByName("WarningSound") != -1) {
         int value = GetLocationVarValueByName("WarningSound");
         if (value != 0) {
-            ArnikaWarningSound(value);
+            warningSound(value);
         }
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&
@@ -281,47 +396,47 @@ void ArnikaLevelSetup(void)
 
 /* LazerScanner trigger: caches the scanner prop, refuses while its rep is
    still animating or the HLL door is already open, then arms the scan. */
-bool ArnikaLazerScanner(Trigger* pTrigger)
+bool ArnikaScript::lazerScanner(Trigger* pTrigger)
 {
-    g_lazer_prop = pTrigger->GetProp();
-    if (g_lazer_prop->animation_playing != 0) {
+    lazer_prop_ = pTrigger->GetProp();
+    if (lazer_prop_->animation_playing != 0) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") != -1) {
         return false;
     }
-    g_laser_scanning = 1;
+    laser_scanning_ = 1;
     BeginScriptedWorldAction();
-    g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
+    addMaster(&ArnikaScript::laserScanMaster, &ArnikaScript::captureLaserScan);
     return true;
 }
 
 /* Laser-scan master: a positive command re-arms the scan; a zero tick drops it once the prop's
    rep stops animating. */
-bool ArnikaLaserScanMaster(int command)
+bool ArnikaScript::laserScanMaster(int command)
 {
     if (command != 0) {
-        g_laser_scanning = 1;
+        laser_scanning_ = 1;
         BeginScriptedWorldAction();
-        g_master_functions.push_back({ArnikaLaserScanMaster, CaptureLaserScan});
+        addMaster(&ArnikaScript::laserScanMaster, &ArnikaScript::captureLaserScan);
         return false;
     }
-    if (g_lazer_prop == 0) {
+    if (lazer_prop_ == 0) {
         return true;
     }
-    if (g_lazer_prop->animation_playing != 0) {
+    if (lazer_prop_->animation_playing != 0) {
         return false;
     }
 
     ClearMainGameTargetState();
-    g_laser_scanning = 0;
+    laser_scanning_ = 0;
     return true;
 }
 
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
-bool ArnikaScannerDoor(Trigger* pTrigger)
+bool ArnikaScript::scannerDoor(Trigger* pTrigger)
 {
-    if (!PartyHasItem(CurrentGame().party, 0x27b)) {
+    if (!PartyHasItem(ctx.party, 0x27b)) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
@@ -333,7 +448,7 @@ bool ArnikaScannerDoor(Trigger* pTrigger)
 /* Warning-sound master: a positive command starts the ULLspawn alarm for
    that many seconds (or just the one-shot above 0x1e); a zero tick runs the countdown and
    stops the looped VOC when it expires. */
-bool ArnikaWarningSound(int command)
+bool ArnikaScript::warningSound(int command)
 {
     glm::vec3 position;
 
@@ -344,37 +459,37 @@ bool ArnikaWarningSound(int command)
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
             return false;
         }
-        g_warning_gate.reset();
+        warning_gate_.reset();
         if (command <= 0x1e) {
-            g_warning_gate.emplace(static_cast<float>(command), false, true);
+            warning_gate_.emplace(static_cast<float>(command), false, true);
         } else {
-            g_warning_oneshot = CreateAndPlaySoundNode(
-                "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", position, 1.0f,
-                100.0f, false);
+            warning_oneshot_ = CreateAndPlaySoundNode(
+                world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", position,
+                1.0f, 100.0f, false);
         }
-        g_warning_loop =
-            CreateAndPlaySoundNode("Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav",
-                                   position, 1.0f, 75.0f, true);
-        if (g_warning_loop != 0 || g_warning_oneshot != 0) {
-            g_master_functions.push_back({ArnikaWarningSound, CaptureWarningSound});
+        warning_loop_ = CreateAndPlaySoundNode(
+            world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", position, 1.0f,
+            75.0f, true);
+        if (warning_loop_ != 0 || warning_oneshot_ != 0) {
+            addMaster(&ArnikaScript::warningSound, &ArnikaScript::captureWarningSound);
         }
     }
-    if (g_warning_oneshot != 0) {
-        if (g_warning_oneshot->IsPlaying()) {
+    if (warning_oneshot_ != 0) {
+        if (warning_oneshot_->IsPlaying()) {
             return false;
         }
-        g_warning_oneshot = 0;
+        warning_oneshot_ = 0;
     }
-    if (!g_warning_gate) {
-        g_warning_gate.emplace(30.0f, false, true);
+    if (!warning_gate_) {
+        warning_gate_.emplace(30.0f, false, true);
         return false;
     }
-    if (!g_warning_gate->PollFinished()) {
+    if (!warning_gate_->PollFinished()) {
         return false;
     }
 
-    if (g_warning_loop) g_warning_loop->Stop();
-    g_warning_gate.reset();
+    if (warning_loop_) warning_loop_->Stop();
+    warning_gate_.reset();
     SetTriggerVariableByName("WarningSound", 0);
     return true;
 }
@@ -382,14 +497,14 @@ bool ArnikaWarningSound(int command)
 /* Mookholo trigger: spawns the Screg ambush once while neither ScregActive
    nor MookDoorOpen is set, then hands the spawned monster to the fade-out
    watch and queues the NPC notice. */
-bool ArnikaMookholo(Trigger* pTrigger)
+bool ArnikaScript::mookholo(Trigger* pTrigger)
 {
     glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
 
-    if (CurrentGame().combat.has_value()) {
+    if (ctx.combat.has_value()) {
         return false;
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&
@@ -411,9 +526,9 @@ bool ArnikaMookholo(Trigger* pTrigger)
         if (location_id != 0) {
             info = FindMonster(location_id);
             if (info != 0) {
-                g_mookholo_monster = info->p3D;
-                g_npc_dialogue_closed = false;
-                g_master_functions.push_back({ArnikaMookholoWatch});
+                mookholo_monster_ = info->p3D;
+                npc_dialogue_closed = false;
+                addMaster(&ArnikaScript::mookholoWatch);
             }
             QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0, -1, false,
                                  0);
@@ -422,22 +537,21 @@ bool ArnikaMookholo(Trigger* pTrigger)
     return true;
 }
 
-/* Mookholo watch: the 0xEFFFFFFF toggle re-arms the wait, and a zero tick
-   fades the spawned monster out once g_npc_dialogue_closed signals the NPC notice
-   finished. */
-bool ArnikaMookholoWatch(int command)
+/* Mookholo watch: the toggle command re-arms the wait, and a zero tick fades
+   the spawned monster out once the NPC dialogue has closed. */
+bool ArnikaScript::mookholoWatch(int command)
 {
     if (command != 0) {
-        if (command == static_cast<int>(0xEFFFFFFF)) {
-            g_npc_dialogue_closed = false;
-            g_master_functions.push_back({ArnikaMookholoWatch});
+        if (command == kMasterToggle) {
+            npc_dialogue_closed = false;
+            addMaster(&ArnikaScript::mookholoWatch);
         }
         return false;
     }
-    if (g_npc_dialogue_closed) {
-        if (g_mookholo_monster != 0) {
-            g_mookholo_monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE);
-            g_mookholo_monster = 0;
+    if (npc_dialogue_closed) {
+        if (mookholo_monster_ != 0) {
+            mookholo_monster_->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE);
+            mookholo_monster_ = 0;
         }
         return true;
     }
@@ -446,7 +560,7 @@ bool ArnikaMookholoWatch(int command)
 
 /* MookFrontDoor trigger: asserts the Mookholo trigger exists and opens the
    Mook door by latching MookDoorOpen. */
-bool ArnikaMookFrontDoor(Trigger* pTrigger)
+bool ArnikaScript::mookFrontDoor(Trigger* pTrigger)
 {
     FindRequiredTriggerByName("Mookholo");
     if (GetLocationVarIDByName("MookDoorOpen") != -1) {
@@ -459,7 +573,7 @@ bool ArnikaMookFrontDoor(Trigger* pTrigger)
 
 /* YellowButton trigger: raises the "nothing happened" flag, spawns the
    bank guards at Bguards and puts the first on the guard script. */
-bool ArnikaYellowButton(Trigger* pTrigger)
+bool ArnikaScript::yellowButton(Trigger* pTrigger)
 {
     glm::vec3 position;
     W8MonsterGroup* group;
@@ -478,7 +592,7 @@ bool ArnikaYellowButton(Trigger* pTrigger)
 
 /* Vaultalarmdoor trigger: raises the "nothing happened" flag, plays the
    vault alarm, turns every guard group hostile and records fact 0xe0. */
-bool ArnikaVaultAlarmDoor(Trigger* pTrigger)
+bool ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
 
@@ -496,20 +610,20 @@ bool ArnikaVaultAlarmDoor(Trigger* pTrigger)
 /* Exitbutton trigger: caches the exit-door trigger and prop, toggles the
    Teleporting location variable, arms the teleport watch when a teleport
    starts and records facts 0xcd and 0xe0. */
-bool ArnikaExitButton(Trigger* pTrigger)
+bool ArnikaScript::exitButton(Trigger* pTrigger)
 {
-    g_exit_door_trigger = pTrigger;
-    g_exit_door_prop = pTrigger->GetProp();
+    exit_door_trigger_ = pTrigger;
+    exit_door_prop_ = pTrigger->GetProp();
     if (GetLocationVarIDByName("Teleporting") != -1) {
         if (GetLocationVarValueByName("Teleporting") == 0) {
             SetTriggerVariableByName("Teleporting", 1);
-            g_master_functions.push_back({ArnikaTeleportWatch});
+            addMaster(&ArnikaScript::teleportWatch);
         } else {
             SetTriggerVariableByName("Teleporting", 0);
         }
     } else {
         CreateLocationVar("Teleporting", 1);
-        g_master_functions.push_back({ArnikaTeleportWatch});
+        addMaster(&ArnikaScript::teleportWatch);
     }
     g_trigger_feedback = true;
     SetFact(W8_FACT_ARNIKA_VAULT_TELEPORT, 1, false);
@@ -519,20 +633,20 @@ bool ArnikaExitButton(Trigger* pTrigger)
 
 /* Teleport watch: once the exit-door prop's rep finishes animating, runs
    the cached trigger and teleports the party to ARN11. */
-bool ArnikaTeleportWatch(int command)
+bool ArnikaScript::teleportWatch(int command)
 {
-    if (g_exit_door_prop->animation_playing != 0) {
+    if (exit_door_prop_->animation_playing != 0) {
         return false;
     }
 
-    g_exit_door_trigger->Run(-1);
-    g_exit_door_trigger->RunDestination("ARN11");
+    exit_door_trigger_->Run(-1);
+    exit_door_trigger_->RunDestination("ARN11");
     return true;
 }
 
 /* GenVault-2-door trigger: spawns the vault golem once at the Golem
    entity. */
-bool ArnikaGenVaultDoor(Trigger* pTrigger)
+bool ArnikaScript::genVaultDoor(Trigger* pTrigger)
 {
     glm::vec3 position;
 
@@ -551,154 +665,148 @@ bool ArnikaGenVaultDoor(Trigger* pTrigger)
    El01Moving and RedButtonDown from the location variables, re-arms the
    moving master against the door or lift prop that was mid-flight and
    re-arms the button master when the red button was down. */
-void ArnikaElevator1Setup(void)
+void ArnikaScript::elevator1Setup()
 {
-    gEl01.pElevator = FindRequiredTriggerByName("Elevator-1");
-    gEl01.pLift = FindRequiredTriggerByName("El1-Lift");
-    gEl01.pTopDoor = FindRequiredTriggerByName("El1-TopGate");
-    gEl01.pBottomDoor = FindRequiredTriggerByName("El1-BottomGate");
-    gEl01.pTopDoorCollide = FindRequiredTriggerByName("El1-TopGateC");
-    gEl01.pBottomDoorCollide = FindRequiredTriggerByName("El1-BottomGateC");
-    gEl01.pButton = FindRequiredTriggerByName("RedButton");
-    RestoreArnikaElevator(gEl01, g_el01_bindings);
+    el01_.pElevator = FindRequiredTriggerByName("Elevator-1");
+    el01_.pLift = FindRequiredTriggerByName("El1-Lift");
+    el01_.pTopDoor = FindRequiredTriggerByName("El1-TopGate");
+    el01_.pBottomDoor = FindRequiredTriggerByName("El1-BottomGate");
+    el01_.pTopDoorCollide = FindRequiredTriggerByName("El1-TopGateC");
+    el01_.pBottomDoorCollide = FindRequiredTriggerByName("El1-BottomGateC");
+    el01_.pButton = FindRequiredTriggerByName("RedButton");
+    restoreElevator(el01_, kEl01Bindings);
 }
 
 /* "RedButton": while the button press is armed it stamps the pressed fact,
    then either starts the lift (states 1/7) or re-arms the button master. */
-bool ArnikaRedButton(Trigger* pTrigger)
+bool ArnikaScript::redButton(Trigger* pTrigger)
 {
-    if (!g_red_button_armed) {
+    if (!red_button_armed_) {
         return false;
     }
-    if (gEl01.button_down == 2) {
+    if (el01_.button_down == 2) {
         return true;
     }
-    if (gEl01.button_down != 0) {
+    if (el01_.button_down != 0) {
         return false;
     }
-    g_red_button_armed = false;
+    red_button_armed_ = false;
     SetFact(W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN, 1, false);
-    g_red_button_armed = true;
+    red_button_armed_ = true;
     g_trigger_feedback = true;
-    if (gEl01.state != W8_ARNIKA_ELEVATOR_STEP_3) {
-        if (gEl01.button_down == 2) {
+    if (el01_.state != W8_ARNIKA_ELEVATOR_STEP_3) {
+        if (el01_.button_down == 2) {
             g_trigger_feedback = true;
-            g_red_button_armed = true;
+            red_button_armed_ = true;
             return false;
         }
-        if (gEl01.state != W8_ARNIKA_ELEVATOR_STEP_1 && gEl01.state != W8_ARNIKA_ELEVATOR_STEP_7) {
+        if (el01_.state != W8_ARNIKA_ELEVATOR_STEP_1 && el01_.state != W8_ARNIKA_ELEVATOR_STEP_7) {
             g_trigger_feedback = true;
-            g_red_button_armed = true;
+            red_button_armed_ = true;
             return false;
         }
-        ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
+        elevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
-    ArnikaEl1Button(static_cast<int>(0xEFFFFFFF));
+    el1Button(kMasterToggle);
     return true;
 }
 
 /* The elevator-1 button master function. A nonzero command re-arms it: -1
-   persists the button state, 0xEFFFFFFF presses the button, and any other
+   persists the button state, the toggle presses the button, and any other
    value is the pending press. The command-0 run waits for the button prop's
    rep to finish, then runs the button trigger once and clears the press. */
-bool ArnikaEl1Button(int command)
+bool ArnikaScript::el1Button(int command)
 {
-    return RunArnikaElevatorButton(gEl01, g_el01_button_prop, g_el01_bindings, command);
+    return runElevatorButton(el01_, el01_button_prop_, kEl01Bindings, command);
 }
 
-/* "El1-TopButtons": advances the lift while no button run is pending and the
-   elevator is in a callable state; always reports handled. */
-bool ArnikaEl1TopButtons(Trigger* pTrigger)
+/* "El1-TopButtons" and "El1-BottomButtons": advances the lift while no button
+   run is pending and the elevator is in a callable state; always reports
+   handled. */
+bool ArnikaScript::el1TopButtons(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
-    if (gEl01.button_down != 2 &&
-        (gEl01.state == W8_ARNIKA_ELEVATOR_STEP_1 || gEl01.state == W8_ARNIKA_ELEVATOR_STEP_3 ||
-         gEl01.state == W8_ARNIKA_ELEVATOR_STEP_7)) {
-        ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
+    if (el01_.button_down != 2 &&
+        (el01_.state == W8_ARNIKA_ELEVATOR_STEP_1 || el01_.state == W8_ARNIKA_ELEVATOR_STEP_3 ||
+         el01_.state == W8_ARNIKA_ELEVATOR_STEP_7)) {
+        elevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
     return true;
 }
 
-/* "El1-BottomButtons": same advance as the top call buttons. */
-bool ArnikaEl1BottomButtons(Trigger* pTrigger)
+/* The El01Moving master function: the command-0 run advances the elevator
+   once the watched door or lift prop's rep has finished playing. */
+bool ArnikaScript::el1Moving(int command)
 {
-    return ArnikaEl1TopButtons(pTrigger);
-}
-
-/* The El01Moving master function: -1 stamps the location variable, and the
-   command-0 run advances the elevator once the watched door or lift prop's
-   rep has finished playing. */
-bool ArnikaEl1Moving(int command)
-{
-    return RunArnikaElevatorMoving(gEl01, g_el01_bindings, command);
+    return runElevatorMoving(el01_, kEl01Bindings);
 }
 
 /* Elevator-02 setup: resolves its triggers, restores El02State, El02Moving
    and GreenButtonDown, opens the bottom doors on a fresh level and re-arms
    the moving and button masters. */
-void ArnikaElevator2Setup(void)
+void ArnikaScript::elevator2Setup()
 {
-    gEl02.pElevator = FindRequiredTriggerByName("Elevator-02");
-    gEl02.pLift = FindRequiredTriggerByName("El-02Lift");
-    gEl02.pTopDoor = FindRequiredTriggerByName("El-02TopDoor");
-    gEl02.pBottomDoor = FindRequiredTriggerByName("El-02BottomDoor");
-    gEl02.pTopDoorCollide = FindRequiredTriggerByName("El-02TopDoorCollide");
-    gEl02.pBottomDoorCollide = FindRequiredTriggerByName("El-02BottomDoorCollide");
-    gEl02.pButton = FindRequiredTriggerByName("GreenButton");
-    gEl02.pProp = 0;
-    RestoreArnikaElevator(gEl02, g_el02_bindings);
+    el02_.pElevator = FindRequiredTriggerByName("Elevator-02");
+    el02_.pLift = FindRequiredTriggerByName("El-02Lift");
+    el02_.pTopDoor = FindRequiredTriggerByName("El-02TopDoor");
+    el02_.pBottomDoor = FindRequiredTriggerByName("El-02BottomDoor");
+    el02_.pTopDoorCollide = FindRequiredTriggerByName("El-02TopDoorCollide");
+    el02_.pBottomDoorCollide = FindRequiredTriggerByName("El-02BottomDoorCollide");
+    el02_.pButton = FindRequiredTriggerByName("GreenButton");
+    el02_.pProp = 0;
+    restoreElevator(el02_, kEl02Bindings);
 }
 
 /* "GreenButton": while no press is pending it plays the acknowledgement,
    runs the elevator unless it is already at the top, and re-arms the button
    master. */
-bool ArnikaGreenButton(Trigger* pTrigger)
+bool ArnikaScript::greenButton(Trigger* pTrigger)
 {
-    if (gEl02.button_down == 2) {
+    if (el02_.button_down == 2) {
         return true;
     }
-    if (gEl02.button_down != 0) {
+    if (el02_.button_down != 0) {
         return false;
     }
     SetFactionDispositionBand(0xa, W8_FACTION_HOSTILE);
     g_trigger_feedback = true;
-    if (gEl02.state != W8_ARNIKA_ELEVATOR_STEP_3) {
-        gEl02.pElevator->Run(-1);
+    if (el02_.state != W8_ARNIKA_ELEVATOR_STEP_3) {
+        el02_.pElevator->Run(-1);
     }
-    ArnikaEl2Button(static_cast<int>(0xEFFFFFFF));
+    el2Button(kMasterToggle);
     return true;
 }
 
-/* The elevator-2 button master function, mirroring ArnikaEl1Button
-   against GreenButtonDown. */
-bool ArnikaEl2Button(int command)
+/* The elevator-2 button master function, mirroring el1Button against
+   GreenButtonDown. */
+bool ArnikaScript::el2Button(int command)
 {
-    return RunArnikaElevatorButton(gEl02, g_el02_button_prop, g_el02_bindings, command);
+    return runElevatorButton(el02_, el02_button_prop_, kEl02Bindings, command);
 }
 
 /* "Elevator-02": steps the lift while no button run is pending and the
    elevator is in a callable state; answers false otherwise. */
-bool ArnikaElevator02Trigger(Trigger* pTrigger)
+bool ArnikaScript::elevator02Trigger(Trigger* pTrigger)
 {
-    if (gEl02.button_down == 2) {
+    if (el02_.button_down == 2) {
         return false;
     }
-    if (gEl02.state != W8_ARNIKA_ELEVATOR_STEP_1 && gEl02.state != W8_ARNIKA_ELEVATOR_STEP_3 &&
-        gEl02.state != W8_ARNIKA_ELEVATOR_STEP_7) {
+    if (el02_.state != W8_ARNIKA_ELEVATOR_STEP_1 && el02_.state != W8_ARNIKA_ELEVATOR_STEP_3 &&
+        el02_.state != W8_ARNIKA_ELEVATOR_STEP_7) {
         return false;
     }
-    ArnikaElevatorAdvance(W8_ARNIKA_ELEVATOR_TWO);
+    elevatorAdvance(W8_ARNIKA_ELEVATOR_TWO);
     return true;
 }
 
-/* The El02Moving master function, mirroring ArnikaEl1Moving. */
-bool ArnikaEl2Moving(int command)
+/* The El02Moving master function, mirroring el1Moving. */
+bool ArnikaScript::el2Moving(int command)
 {
-    return RunArnikaElevatorMoving(gEl02, g_el02_bindings, command);
+    return runElevatorMoving(el02_, kEl02Bindings);
 }
 
 /* Runs a door and its collide trigger for one elevator step and returns the door's prop. */
-static Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
+Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
 {
     Prop* prop = door->GetProp();
     door->Run(-1);
@@ -707,7 +815,7 @@ static Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
 }
 
 /* Runs the lift for one elevator step and returns its prop. */
-static Prop* RunElevatorLift(Trigger* lift)
+Prop* RunElevatorLift(Trigger* lift)
 {
     Prop* prop = lift->GetProp();
     lift->Run(-1);
@@ -719,16 +827,16 @@ static Prop* RunElevatorLift(Trigger* lift)
    moving master will wait on. States 3 and 7 are the door-closed pauses that
    produce no prop. */
 // FUNCTION: WIZ8 0x004E2010
-void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
+void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
 {
     W8Elevator* el;
     /* An invalid state runs nothing and leaves no prop to wait on. */
     Prop* prop = nullptr;
 
     if (which == W8_ARNIKA_ELEVATOR_ONE) {
-        el = &gEl01;
+        el = &el01_;
     } else {
-        el = &gEl02;
+        el = &el02_;
     }
     switch (el->state) {
     case W8_ARNIKA_ELEVATOR_STEP_1:
@@ -766,25 +874,25 @@ void ArnikaElevatorAdvance(W8ArnikaElevatorId which)
     }
     if (which == W8_ARNIKA_ELEVATOR_ONE) {
         SetTriggerVariableByName("El01State", el->state);
-        gEl01.pProp = prop;
+        el01_.pProp = prop;
         if (prop != 0) {
-            g_master_functions.push_back({ArnikaEl1Moving, CaptureEl1Moving});
+            addMaster(&ArnikaScript::el1Moving, &ArnikaScript::captureEl1Moving);
         }
     } else {
         SetTriggerVariableByName("El02State", el->state);
-        gEl02.pProp = prop;
+        el02_.pProp = prop;
         if (prop != 0) {
-            g_master_functions.push_back({ArnikaEl2Moving, CaptureEl2Moving});
+            addMaster(&ArnikaScript::el2Moving, &ArnikaScript::captureEl2Moving);
         }
     }
 }
 
 /* "ChaosMolori": rejects the activation when an item is on the cursor and
-   the shared callback flag is clear; accepts when the cursor is empty or the
-   flag is raised. */
-bool ArnikaChaosMolori(Trigger* pTrigger)
+   the pedestal is not running it; accepts when the cursor is empty or the
+   pedestal runs it. */
+bool ArnikaScript::chaosMolori(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script && (CurrentGame().party.held.item.iItemNo != -1)) {
+    if (!running_trigger_from_script_ && (ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
     return true;
@@ -792,7 +900,7 @@ bool ArnikaChaosMolori(Trigger* pTrigger)
 
 /* "Maddmook": the first time the party has been warned, posts the mook's
    script notice and drops the faction band. */
-bool ArnikaMaddmook(Trigger* pTrigger)
+bool ArnikaScript::maddmook(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
@@ -806,11 +914,11 @@ bool ArnikaMaddmook(Trigger* pTrigger)
     return true;
 }
 
-/* "AstralDominae": same cursor/flag gate as ChaosMolori, then forwards the
+/* "AstralDominae": same cursor gate as ChaosMolori, then forwards the
    activation to the CMBox trigger. */
-bool ArnikaAstralDominae(Trigger* pTrigger)
+bool ArnikaScript::astralDominae(Trigger* pTrigger)
 {
-    if (!g_running_trigger_from_script && (CurrentGame().party.held.item.iItemNo != -1)) {
+    if (!running_trigger_from_script_ && (ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
     pTrigger = FindRequiredTriggerByName("CMBox");
@@ -818,18 +926,17 @@ bool ArnikaAstralDominae(Trigger* pTrigger)
     return true;
 }
 
-/* "CMbox": places the held relic on the pedestal through
-   ArnikaPedestalItem, then runs the matching trigger inside the
-   shared callback flag so the pedestal callbacks stay quiet. */
-bool ArnikaCMbox(Trigger* pTrigger)
+/* "CMbox": places the held relic on the pedestal through pedestalItem, then
+   runs the matching trigger itself so the pedestal callbacks stay quiet. */
+bool ArnikaScript::cmBox(Trigger* pTrigger)
 {
     int previous = -1;
     int item;
 
-    if (g_running_trigger_from_script) {
+    if (running_trigger_from_script_) {
         return false;
     }
-    item = ArnikaPedestalItem(&previous);
+    item = pedestalItem(&previous);
     if (item < -1) {
         return false;
     }
@@ -840,9 +947,9 @@ bool ArnikaCMbox(Trigger* pTrigger)
     } else {
         return previous != -1;
     }
-    g_running_trigger_from_script = true;
+    running_trigger_from_script_ = true;
     pTrigger->Run(-1);
-    g_running_trigger_from_script = false;
+    running_trigger_from_script_ = false;
     return true;
 }
 
@@ -851,7 +958,7 @@ bool ArnikaCMbox(Trigger* pTrigger)
    comes back to the cursor; on the first exchange it also aims the camera at
    the mook and posts the entry notice. Answers the item placed, -1 when the
    pedestal already held one, or -2 when the cursor item was not a relic. */
-int ArnikaPedestalItem(int* previous_item)
+int ArnikaScript::pedestalItem(int* previous_item)
 {
     W8NpcState* npc;
     W8MonsterInfo* info;
@@ -859,15 +966,15 @@ int ArnikaPedestalItem(int* previous_item)
     int item = -1;
     int previous;
 
-    if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        item = GetItemInHand(CurrentGame().party);
+    if ((ctx.party.held.item.iItemNo != -1)) {
+        item = GetItemInHand(ctx.party);
         if (item != 0x244 && item != 0x242 && item != 0x264) {
             return -2;
         }
     }
     FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
-        (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
+        (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
     }
     if (GetLocationVarIDByName("PedestalItem") != -1 &&
         GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -887,7 +994,7 @@ int ArnikaPedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ReplaceHeldItem(CurrentGame(), MakeItem(previous, false, false, false));
+            ReplaceHeldItem(ctx.game, MakeItem(previous, false, false, false));
         }
     } else {
         previous = GetLocationVarValueByName("PedestalItem");
@@ -896,7 +1003,7 @@ int ArnikaPedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ReplaceHeldItem(CurrentGame(), MakeItem(previous, false, false, false));
+            ReplaceHeldItem(ctx.game, MakeItem(previous, false, false, false));
         }
     }
     SetItemCursor(0);
@@ -921,7 +1028,7 @@ int ArnikaPedestalItem(int* previous_item)
 
 /* The "BallSlot" activation callback: on the first ball insert it creates
    item 0x240 and hands it to the kind-0x16 NPC's script notice queue. */
-bool ArnikaBallSlot(Trigger* pTrigger)
+bool ArnikaScript::ballSlot(Trigger* pTrigger)
 {
     W8ItemInstance item;
     W8NpcState* npc;
@@ -939,20 +1046,27 @@ bool ArnikaBallSlot(Trigger* pTrigger)
 /* The "Flightrecordertrigger" activation callback: outside NPC dialogue it
    queues the kind-0x14 NPC's script notice, passing the held item when the
    cursor holds one. */
-bool ArnikaFlightRecorder(Trigger* pTrigger)
+bool ArnikaScript::flightRecorder(Trigger* pTrigger)
 {
     W8ItemInstance* item;
     W8NpcState* npc;
 
-    if (CurrentGame().activity.conversation) {
+    if (ctx.activity.conversation) {
         return false;
     }
     g_trigger_feedback = true;
     npc = GetNpcStateByKind(0x14);
     item = 0;
-    if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        item = &CurrentGame().party.held.item;
+    if ((ctx.party.held.item.iItemNo != -1)) {
+        item = &ctx.party.held.item;
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
     return false;
+}
+
+} // namespace
+
+std::unique_ptr<LevelScript> MakeArnikaScript(const ScriptContext& context)
+{
+    return std::make_unique<ArnikaScript>(context);
 }

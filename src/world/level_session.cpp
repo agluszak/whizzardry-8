@@ -29,6 +29,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -52,6 +53,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
@@ -434,7 +436,9 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     }
     g_camera_path_active = false;
     InitializeLevelEnvironment();
-    InitializeLevelMasterFunctions(level);
+    World& world = *GetWorld();
+    world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
+    world.script->enter();
     RebindNpcLevelTriggers();
     SetWorldCursorNodesVisible(false);
     RebuildPartyEffectBlock();
@@ -485,7 +489,9 @@ static void FinishLevelDeparture()
 
     // These values become durable session history at departure. Saving only
     // observes them; releasing the old world's resources never captures gameplay.
-    for (const auto& [name, value] : CaptureMasterFunctionState()) {
+    const World& world = *GetWorld();
+    for (const auto& [name, value] :
+         world.script ? world.script->captureState() : W8SavedLocationState{}) {
         CreateLocationVar(name.c_str(), value);
         SetTriggerVariableByName(name.c_str(), value);
     }
@@ -564,8 +570,6 @@ void LeaveLevel()
     if (g_world_cleanup_flag) {
         RenderFrame();
     }
-
-    ClearActiveWorldCursorNode();
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request

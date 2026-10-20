@@ -1,24 +1,30 @@
 #include "wiz8/level_specific_code/Rift1.h"
 
+#include <memory>
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
 
    Attribution evidence: 0x004DAFD0 passes this file's path string to
-   MonsterGetIndexByLocationID. The level-0x15 block in
-   InitializeLevelMasterFunctions registers the surrounding cluster
+   MonsterGetIndexByLocationID. The level-0x15 script binds the surrounding
+   cluster
    (Fireantspawn, Sexspawn, Hotstuff, Gate, AshLock, TimeDorado). */
+
+namespace {
 
 /* "Sexspawn": on the first activation after fact 0x15f, mark the
    Al-Sedexus swap, remove the original Al-Sedexus (species 0xd9) and spawn
@@ -112,4 +118,26 @@ bool Rift1TimeDorado(Trigger* pTrigger)
         previous = FindNextExistingMonsterByID(0xfc, previous);
     }
     return true;
+}
+
+class Rift1Script final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
+
+    void enter() override
+    {
+        bindTrigger("Fireantspawn", Rift1Fireantspawn);
+        bindTrigger("Sexspawn", Rift1Sexspawn);
+        bindTrigger("Hotstuff", Rift1Hotstuff);
+        bindTrigger("Gate", Rift1Gate);
+        bindTrigger("AshLock", Rift1AshLock);
+        bindTrigger("TimeDorado", Rift1TimeDorado);
+    }
+};
+
+} // namespace
+
+std::unique_ptr<LevelScript> MakeRift1Script(const ScriptContext& context)
+{
+    return std::make_unique<Rift1Script>(context);
 }

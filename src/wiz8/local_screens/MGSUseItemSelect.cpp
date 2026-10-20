@@ -52,6 +52,7 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
@@ -568,7 +569,7 @@ void SelectUseItemLine(int iTextLine)
     }
     auto* item = use_item->rows[iTextLine].item;
     use_item->draft.detail_block.item_use.item = CurrentGame().party.locateItem(item);
-    if (Trynnie2UseItem(item)) {
+    if (Trynnie2UseItem(MakeScriptContext(CurrentGame()), item)) {
         CloseUseItemSelectView();
         return;
     }

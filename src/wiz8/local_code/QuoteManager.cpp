@@ -65,6 +65,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/string_database.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
@@ -694,7 +695,8 @@ unsigned char W8CharacterEvent::Dispatch()
                 ReloadNpcScriptResources(npc, GetNpcMonster(npc));
             }
             g_npc_dialogue.Begin(npc, true);
-            g_npc_dialogue.Speak(event_type, (flags & W8_EVENT_NPC_SCRIPT) != 0);
+            g_npc_dialogue.Speak(MakeScriptContext(CurrentGame()), event_type,
+                                 (flags & W8_EVENT_NPC_SCRIPT) != 0);
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(0);
                 ReloadNpcScriptResources(npc, GetNpcMonster(npc));
@@ -750,7 +752,7 @@ struct PartyQuoteInput {
                         if (slot > 1 && active)
                             CurrentGame().speech.CompleteActiveEvent(active);
                         else
-                            TryFinishNpcVoicePlayback(true);
+                            TryFinishNpcVoicePlayback(CurrentGame().status, true);
                     });
                 }
                 return UiResult::Handled;
@@ -1160,10 +1162,11 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
     }
 
     if (pending_events.empty()) {
-        UpdateNpcDialogueVoiceAndCursor();
+        const ScriptContext context = MakeScriptContext(CurrentGame());
+        UpdateNpcDialogueVoiceAndCursor(context);
         if (PartyPortraitEventsIdle() != 0) {
-            UpdateSedexusScene();
-            g_npc_dialogue.Advance();
+            UpdateSedexusScene(context);
+            g_npc_dialogue.Advance(context);
         }
         return;
     }

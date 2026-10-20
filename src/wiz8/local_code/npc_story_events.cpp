@@ -47,11 +47,14 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
@@ -118,8 +121,10 @@ static void SetMonsterGroupScript(int species, const char* script)
    ENDGAME2's script notice runs the book sequence. */
 static void NpcScriptQueueEndgame(void)
 {
-    if (CurrentGame().status.endgame2_queued != 0 ||
-        (CurrentGame().status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
+    // A fade completion receives no context; it reads the game in progress.
+    const GameStatus& status = CurrentGame().status;
+    if (status.endgame2_queued != 0 ||
+        (status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
         W8NpcState* npc = GetNpcStateByKind(W8_NPC_ENDGAME2);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, -1, false, 0);
@@ -143,16 +148,16 @@ static void NpcScriptEndgameScreen(void)
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
    vectors, force the single-target mode, and reopen the party-member region
    sets (7 + slot, member region 0x5a + slot) for every occupied slot. */
-void BeginNpcScriptedScene(void)
+void BeginNpcScriptedScene(const ScriptContext& context)
 {
     int party_slot;
 
     g_npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
-    CurrentGame().activity.scripted_scene = true;
+    context.activity.scripted_scene = true;
     SetTargetingMode(W8_TARGET_NEED_ALLY);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied) {
+        if (context.party.rows[party_slot].fOccupied) {
             EnableMainGamePortraitSlot(party_slot);
             MainGame()->edge_targets[party_slot]->setEnabled(true);
         }
@@ -165,7 +170,7 @@ void BeginNpcScriptedScene(void)
    tested for the three 0x1fd-0x1ff items (success leaves fact 0x1c1 at zero
    and fills the alternate-name display), and anything else falls back to
    facts 0x1c1 or 0x227. The party-member region sets reopen on the way out. */
-void EndScriptedPortraitPick(int party_slot)
+void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
 {
     W8Character* character;
     /* 0x00529EDC compares the slot counter as slot - 7 against 8 with a
@@ -173,49 +178,49 @@ void EndScriptedPortraitPick(int party_slot)
     int slot;
     bool other_gender_present;
 
-    if (!CurrentGame().activity.scripted_scene) {
+    if (!context.activity.scripted_scene) {
         return;
     }
-    if (!CurrentGame().combat.has_value() || CurrentGame().party_movement_mode) {
+    if (!context.combat.has_value() || context.game.party_movement_mode) {
         ClearLevelMovementStopped();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (context.party.rows[slot].fOccupied) {
             DisableMainGamePortraitSlot(slot);
             MainGame()->edge_targets[slot]->setEnabled(false);
         }
     }
     g_npc_dialogue.ReleaseScene();
-    CurrentGame().activity.scripted_scene = false;
+    context.activity.scripted_scene = false;
     other_gender_present = false;
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_ALL_WOMAN, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 0, false);
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
-            CurrentGame().party.characters[slot].gender != W8_GENDER_FEMALE) {
+        if (context.party.rows[slot].fOccupied &&
+            context.party.characters[slot].gender != W8_GENDER_FEMALE) {
             other_gender_present = true;
             break;
         }
     }
-    character = &CurrentGame().party.characters[party_slot];
+    character = &context.party.characters[party_slot];
     if (character->gender == W8_GENDER_FEMALE && other_gender_present) {
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1, false);
         QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         return;
     }
-    if (CurrentGame().party.rows[party_slot].npc_index == -1 &&
+    if (context.party.rows[party_slot].npc_index == -1 &&
         character->highest_condition < W8_CONDITION_ASLEEP) {
         if (FindCharacterItem(*character, ItemWithId(0x1fd), W8ItemReach::Worn) &&
             FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
             FindCharacterItem(*character, ItemWithId(0x1ff), W8ItemReach::Worn)) {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
-            CurrentGame().status.monster_name_buffer = fmt::format("Al-{}", character->name);
-            CurrentGame().status.sedexus_party_slot = party_slot;
-            CurrentGame().status.rpc_active = true;
-            CurrentGame().status.infatuation_pending = true;
+            context.status.monster_name_buffer = fmt::format("Al-{}", character->name);
+            context.status.sedexus_party_slot = party_slot;
+            context.status.rpc_active = true;
+            context.status.infatuation_pending = true;
             QueueCharacterEvent(character, g_special_event2, 0, kCharacterEventFullVolume);
         } else {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 1, false);
@@ -224,7 +229,7 @@ void EndScriptedPortraitPick(int party_slot)
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 1, false);
     }
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (context.party.rows[slot].fOccupied) {
             EnableMainGamePortraitSlot(slot);
             MainGame()->edge_targets[slot]->setEnabled(true);
         }
@@ -253,7 +258,7 @@ void ResetSedexusScene(void)
     g_sedexus_scene.capture_active = false;
 }
 
-void UpdateSedexusScene(void)
+void UpdateSedexusScene(const ScriptContext& context)
 {
     if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
         return;
@@ -269,18 +274,18 @@ void UpdateSedexusScene(void)
             wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
     } else {
         ClearMainGameTargetState();
-        int sedexus_party_slot = CurrentGame().status.sedexus_party_slot;
+        int sedexus_party_slot = context.status.sedexus_party_slot;
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
-            const W8PartySlotRow& row = CurrentGame().party.rows[party_slot];
-            const W8Character& character = CurrentGame().party.characters[party_slot];
+            const W8PartySlotRow& row = context.party.rows[party_slot];
+            const W8Character& character = context.party.characters[party_slot];
             if (row.fOccupied &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
                 RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
-                sedexus_party_slot = CurrentGame().status.sedexus_party_slot;
+                sedexus_party_slot = context.status.sedexus_party_slot;
             }
         }
-        W8Character* character = &CurrentGame().party.characters[sedexus_party_slot];
+        W8Character* character = &context.party.characters[sedexus_party_slot];
         if (character->gender == W8_GENDER_MALE) {
             QueueCharacterEvent(character, 43, 0, kCharacterEventFullVolume);
         }
@@ -297,7 +302,7 @@ void UpdateSedexusScene(void)
 /* Al-Sedexus takes her pick: the scripted scene opens, the lighting fades,
    and every still-living occupied slot other than the selected character is
    put under condition 0x11. */
-void BeginSedexusCapture(void)
+void BeginSedexusCapture(const ScriptContext& context)
 {
     unsigned int party_slot;
 
@@ -307,10 +312,10 @@ void BeginSedexusCapture(void)
     g_sedexus_scene.capture_active = true;
     BeginWorldLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied &&
-            (CurrentGame().party.characters[party_slot].hp_current > 0 ||
-             CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
-            party_slot != static_cast<unsigned int>(CurrentGame().status.sedexus_party_slot)) {
+        if (context.party.rows[party_slot].fOccupied &&
+            (context.party.characters[party_slot].hp_current > 0 ||
+             context.party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
+            party_slot != static_cast<unsigned int>(context.status.sedexus_party_slot)) {
             SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
                                   0, 0);
         }
@@ -389,10 +394,11 @@ static void NpcScriptHenchmanDeparted(Monster* monster)
    UpdateNpcEvents retire NPC group 0x1b3 fifty ticks later. */
 static void NpcScriptSavantHackDone(Monster* monster)
 {
+    // A cycle callback receives no context; it stamps the game in progress.
     CurrentGame().status.savant_hack_tick = int(uint32_t(MonotonicMilliseconds()));
 }
 
-void RunNpcStoryAction(W8NpcStoryAction action)
+void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
 {
     W8NpcState* npc;
 
@@ -430,13 +436,13 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::spawn_alfie_chaos:
-        SpawnAlfieChaos(0);
+        SpawnAlfieChaos(context.party);
         break;
     case W8NpcStoryAction::spawn_alfie_life:
-        SpawnAlfieLife(0);
+        SpawnAlfieLife();
         break;
     case W8NpcStoryAction::spawn_alfie_know:
-        SpawnAlfieKnow(0);
+        SpawnAlfieKnow();
         break;
     case W8NpcStoryAction::remove_aletheides_ad: {
         EndNpcDialogueSession(false);
@@ -472,17 +478,15 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         unsigned int eligible = 0;
         int party_slot;
         for (party_slot = 2; party_slot < 8; ++party_slot) {
-            if (CurrentGame().party.rows[party_slot].fOccupied &&
-                CurrentGame().party.characters[party_slot].highest_condition <
-                    W8_CONDITION_ASLEEP) {
+            if (context.party.rows[party_slot].fOccupied &&
+                context.party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
                 ++eligible;
             }
         }
         if (eligible > 1) {
             for (party_slot = 0; party_slot < 8; ++party_slot) {
-                W8Character* character = &CurrentGame().party.characters[party_slot];
-                if (CurrentGame().party.rows[party_slot].fOccupied &&
-                    character->iRace == W8_RACE_MOOK &&
+                W8Character* character = &context.party.characters[party_slot];
+                if (context.party.rows[party_slot].fOccupied && character->iRace == W8_RACE_MOOK &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
                     QueueCharacterEvent(character, 51, kCharacterEventNoNpcDefer,
                                         kCharacterEventFullVolume);
