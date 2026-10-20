@@ -66,9 +66,9 @@ Unlayered code may use the layers.
 | `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState`/`ScenePass` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
-| `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits and release frames to their world's `SimulationSink` instead of resolving them. |
+| `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
-| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world. |
+| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
 
 ## Runtime contracts
 
@@ -260,7 +260,9 @@ Unlayered code may use the layers.
   `CombatActor` (a `PartyActor` slot or a `MonsterActor` location id, looked up when
   used) that is scheduled, resolving or finishing. `UpdateCombat` steps it once per
   frame after `CombatWaitFor` reports nothing to wait on (camera, monster animation,
-  hit sound, retiring spell effect, missile, queued NPC script, in that order).
+  hit sound, retiring spell effect, missile, queued NPC script, in that order). The
+  held hit sound is released by its completion callback; the camera, monsters and
+  missiles are read as they are.
   Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave
   a turn the actor no longer holds alone, so an actor that dies or leaves while its
   action runs is not given its turn back. `action_clock` paces the scheduled actor and

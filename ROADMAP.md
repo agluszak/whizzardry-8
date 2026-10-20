@@ -28,8 +28,8 @@ of it:
 - **Some resets remain.** A game is an object, but leaving one still clears session
   state it does not own yet (`LeaveGameSession`, `ResetForNewGame`,
   `ResetMainGameScreenState`).
-- **Combat is driven by animation.** Combat polls animation state, and missile and
-  monster entities resolve attacks themselves.
+- **Combat waits on presentation.** Each step, combat reads the camera, monster
+  animations and missiles in flight to decide whether its turn may advance.
 
 The target is five layers. Each may depend only on the layers listed above it.
 
@@ -74,8 +74,8 @@ The decisions behind it:
      sight, groups, worlds, the environment clock and NPC events.
    - The screen decides only whether to step (pause, an open modal).
 5. **Combat advances on explicit signals.**
-   - `Combat` owns its participants' choices and its pacing, and steps when the
-     presentation reports its actors idle.
+   - `Combat` owns its pacing and its participants' per-fight state, and steps when
+     the presentation reports its actors idle. Action choices stay with the party.
    - Animation frames and missile impacts post simulation events (`SpellReleased`,
      `MissileHit`) to combat. Entities no longer resolve attacks themselves.
 6. **Saves are codecs over values.**
@@ -147,12 +147,21 @@ the licensed runtime scenarios after every step.
      mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
 6. **Conditions, magic and combat in `rules`.**
    - Conditions, spells and attack resolution return results and emit events.
-   - `Combat` becomes an owned turn system, signalled by animation and missile events.
-     The turn and its waits are values, and missiles and monster animations report hits
-     and release frames through the world's `SimulationSink` (ARCHITECTURE.md, "The
-     game"). `CombatWaitFor` still polls animation, sound and missiles each frame,
-     `monster_script.cpp` and `trigger_actions.cpp` still call combat and magic
-     directly, and actions still resolve inside `local_code`.
+   - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
+     and its turn is a value (ARCHITECTURE.md, "The game"). Entities report missile
+     hits, landings and release frames through the world's `SimulationSink`, monster
+     scripts and triggers issue game commands, and the hit sound releases its wait when
+     it finishes. What remains:
+     - `CombatWaitFor` still reads presentation every step: the camera's transition,
+       each combat monster's cycle, frame and facing (`AnyCombatMonsterBusy`), and the
+       missiles in flight (`BlocksEndingCombat`, which also releases the engaged
+       missile). For the step to read only values, the presentation has to report each
+       transition (a camera transition ending, a monster settling, a missile's impact
+       cycle starting or its flight ending), including those the monster manager
+       causes earlier in the same step, without a maintained count of busy actors.
+     - `UpdateCombat`, the scheduler and the action executors reach the game through
+       `CurrentGame()` and resolve actions inside `local_code`; they become operations
+       of `Combat` that take the game and the rules' context.
 7. **Story state.** `Game::story` and `Game::message_log` hold it (ARCHITECTURE.md,
    "The game").
    - NPC scripting and level scripts take a context (the world, the party, story state,
@@ -179,13 +188,16 @@ the licensed runtime scenarios after every step.
 These items keep their own scope, and are easiest after the migration step named in
 each.
 
-- **The party and actions model.** (After step 1; choices move with `Combat` in
-  step 6.) A `W8PartySlotRow` groups a member's action state into named parts
-  (`remembered` choices, the `committed` action, the action `executing`), but it still
-  mixes them with persistent membership, NPC binding and marching order, UI flags
+- **The party and actions model.** (After step 1.) A `W8PartySlotRow` groups a
+  member's action state into named parts (`remembered` choices, the `committed`
+  action, the action `executing`). They belong to the party, not to `Combat`: the
+  retail party record saves all three, and members choose and carry out actions
+  outside fights too (item uses and spells in the world and in camp). What a fight
+  keeps per member is `Combat::characters`. The row still mixes the action parts with
+  persistent membership, NPC binding and marching order, UI flags
   (`item_action_pending`, `portrait_advance`) and accumulators (`movement_fatigue`).
   Split these by owner:
-  - membership in the party, and the action parts in a turn/combat model;
+  - membership and the action parts in the party;
   - presentation in the screens.
 
   Replace `fOccupied` arrays with real optional members, so that no code asks "is
