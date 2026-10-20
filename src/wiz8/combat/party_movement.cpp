@@ -1,3 +1,5 @@
+#include "wiz8/combat/party_movement.h"
+
 #include <algorithm>
 #include <chrono>
 #include <optional>
@@ -8,13 +10,12 @@
 #include "local_code/Targeting.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/HealthStaminaMana.h"

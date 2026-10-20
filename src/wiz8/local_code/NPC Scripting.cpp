@@ -36,7 +36,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/combat/hostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"

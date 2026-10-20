@@ -1,3 +1,5 @@
+#include "wiz8/combat/range.h"
+
 #include <cmath>
 #include <cstddef>
 #include <optional>
@@ -10,7 +12,9 @@
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "sight_state.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
@@ -18,9 +22,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"

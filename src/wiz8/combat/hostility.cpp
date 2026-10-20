@@ -1,3 +1,5 @@
+#include "wiz8/combat/hostility.h"
+
 #include <span>
 #include <variant>
 #include <vector>
@@ -8,6 +10,8 @@
 #include "character_skills.h"
 #include "monster_actions.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
+#include "wiz8/combat/range.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
@@ -20,9 +24,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"

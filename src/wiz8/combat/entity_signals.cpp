@@ -5,7 +5,9 @@
 #include <fmt/format.h>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
@@ -14,8 +16,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"

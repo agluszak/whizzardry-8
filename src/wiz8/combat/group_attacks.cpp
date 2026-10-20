@@ -1,4 +1,4 @@
-#include "wiz8/local_code/GroupAttacks.h"
+#include "wiz8/combat/group_attacks.h"
 
 #include <stdexcept>
 #include <string>
@@ -9,11 +9,11 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "sight_state.h"
+#include "wiz8/combat/hostility.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"

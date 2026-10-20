@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/range.h"
 #include "wiz8/entities/cursor.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
@@ -11,7 +12,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/CombatRange.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"

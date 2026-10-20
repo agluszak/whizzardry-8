@@ -1,10 +1,10 @@
 #include <chrono>
 
+#include "wiz8/combat/fight.h"
+#include "wiz8/combat/party_movement.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/ItemManager.h"

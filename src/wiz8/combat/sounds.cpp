@@ -1,3 +1,5 @@
+#include "wiz8/combat/sounds.h"
+
 #include <array>
 #include <cstddef>
 #include <cstring>
@@ -22,7 +24,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/assertion.h"

@@ -68,7 +68,7 @@ Unlayered code may use the layers.
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
-| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
+| `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` is the fight: starting, ending and pacing it (`fight`), attack resolution (`attack`), hostility, range, the party's move in a round, group attacks and combat sounds; it resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
 
 ## Runtime contracts
 

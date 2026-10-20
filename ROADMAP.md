@@ -258,9 +258,9 @@ Substantial but contained work.
   data error (an error value or exception at the boundary that read the data), or
   dead. Remove the retail message text.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
-  retail translation-unit names, including fourteen files with spaces (`PC Item.cpp`,
-  `Combat Attack.cpp`, …). Move the remaining code into named modules, as
-  `inventory`, `party`, `party_stats` and `live_party` already are. `PC Item.cpp`
+  retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
+  `Magic Effects.cpp`, …). Move the remaining code into named modules, as
+  `inventory`, `party`, `party_stats`, `live_party` and `combat/` already are. `PC Item.cpp`
   should split into item rules, identification/binding and display.
 ## Easiest follow-ups
 
