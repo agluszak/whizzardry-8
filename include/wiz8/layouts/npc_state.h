@@ -62,7 +62,7 @@ struct W8NpcState {
        belong to a group. */
     std::optional<W8Character> character;
     signed char group_index; /* 0x2b */
-    /* 0x2c: this node's own slot in g_npc_states, written by
+    /* 0x2c: this node's own slot in the story's NPC states, written by
        CreateNpcRuntimeNode; the release pass follows the index a partner
        names. */
     unsigned char partner_index;

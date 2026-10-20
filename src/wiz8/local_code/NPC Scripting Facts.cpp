@@ -1,4 +1,3 @@
-#include <cstring>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -978,14 +977,12 @@ void MonsterKilled(int record_id, int killer_party_slot)
 
 /* Original translation-unit ownership of these helpers is unknown. */
 
-unsigned char g_fact_values[1000];
-
 unsigned char GetFact(W8FactId fact_id)
 {
     unsigned char value;
     std::string display_value;
 
-    if (static_cast<unsigned>(fact_id) >= std::size(g_fact_values)) {
+    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) {
         return 0;
     }
 
@@ -1009,12 +1006,13 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     unsigned char previous_value;
     std::string display_value;
 
-    if (static_cast<unsigned>(fact_id) >= std::size(g_fact_values)) {
+    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) {
         return;
     }
 
-    previous_value = g_fact_values[fact_id];
-    g_fact_values[fact_id] = value;
+    auto& facts = CurrentGame().story.facts;
+    previous_value = facts[fact_id];
+    facts[fact_id] = value;
 
     if (fact_id < static_cast<int>(Data().facts.size())) {
         if (value) {
@@ -1025,7 +1023,7 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 
     if (!suppress_side_effects) {
-        if (g_fact_values[fact_id] != previous_value) {
+        if (facts[fact_id] != previous_value) {
             RecordFactChangeForJournal(fact_id);
         }
         HandleFactChange(fact_id, value);
@@ -1046,18 +1044,17 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 
 void SaveFactState(wiz8::File& save_handle)
 {
-    save_handle.write(g_fact_values, sizeof(g_fact_values));
+    const auto& facts = CurrentGame().story.facts;
+    save_handle.write(facts.data(), facts.size());
 }
 
-/* Clears every fact, then seeds the ones a fresh party starts with. A party
-   imported from Wizardry 7 is the skip-loose-character-check path: ending
-   choice 1/2/other maps to facts 0x4c/0x4b/0x4d, then two independent import
-   bytes can set 0x199 and 0x7b. The 0x7b path unsuppresses and returns; the
-   other imported path and the new-game path unsuppress at the shared exit. */
-void InitializeFactState(void)
+/* Seeds the facts a fresh party starts with. A party imported from Wizardry 7
+   is the skip-loose-character-check path: ending choice 1/2/other maps to facts
+   0x4c/0x4b/0x4d, then two independent import bytes can set 0x199 and 0x7b. The
+   0x7b path unsuppresses and returns; the other imported path and the new-game
+   path unsuppress at the shared exit. */
+void SeedNewGameFacts(void)
 {
-    /* Retail memsets 1000 of the 1001 bytes - index 1000 stays BSS-zeroed. */
-    memset(g_fact_values, 0, 1000);
     g_fact_notifications_suppressed = true;
     if (CurrentGame().status.skip_loose_character_check) {
         SetFact(W8_FACT_IMPORT, 1, false);

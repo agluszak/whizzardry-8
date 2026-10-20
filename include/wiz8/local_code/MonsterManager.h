@@ -369,7 +369,7 @@ struct W8MonsterInfo {
     int action_detail;
     unsigned int spell_power_level;
     unsigned char unknown_2ed[4];
-    /* This script part's bound NPC slot in g_npc_states, released when
+    /* This script part's bound NPC slot in the story's NPC states, released when
        the entry is destroyed. */
     int bound_npc_index;
     /* Remaining noise-hearing margin, refreshed by nearby sounds and

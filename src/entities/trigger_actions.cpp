@@ -113,15 +113,6 @@ static std::string NextTriggerRecipient(const char*& cursor)
 bool g_trigger_action_active;
 glm::vec3 g_trigger_action_scene_offset;
 
-namespace {
-struct LocationVariable {
-    std::string name;
-    int value;
-    int level;
-};
-std::vector<LocationVariable> location_variables;
-}
-
 bool g_trigger_feedback = true;
 
 int g_container_event_alt = kFirstRemappedEvent + 13;
@@ -602,7 +593,7 @@ void SetTriggerVariableByName(std::string_view name, int value)
 {
     const int index = GetLocationVarIDByName(name);
     if (index < 0) Fail("Unknown location variable", name);
-    location_variables[index].value = value;
+    CurrentGame().story.location_variables[index].value = value;
 }
 
 /* Clear the running bit and run every comma-separated recipient trigger once
@@ -871,12 +862,12 @@ void Trigger::CommitActionResult(bool apply_state_changes)
             state_value = 0;
         } else if (state_mod_mode == W8TriggerStateModificationMode::toggle) {
             state_id = FindModifiedLocationVar(state_to_modify.c_str());
-            state_value = location_variables[state_id].value == 0;
+            state_value = CurrentGame().story.location_variables[state_id].value == 0;
             state_id = FindModifiedLocationVar(state_to_modify.c_str());
         } else {
             goto show_action_message;
         }
-        location_variables[state_id].value = state_value;
+        CurrentGame().story.location_variables[state_id].value = state_value;
     }
 
 show_action_message:
@@ -2036,7 +2027,7 @@ bool Trigger::SelectAction()
         while (cursor) {
             const auto state_name = NextTriggerRecipient(cursor);
             const int state_id = FindModifiedLocationVar(state_name.c_str());
-            if (location_variables[state_id].value == 0) {
+            if (CurrentGame().story.location_variables[state_id].value == 0) {
                 action = fallback_action;
                 action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
@@ -2172,36 +2163,36 @@ int ResetNextTriggerId(void)
 
 int GetLocationVarIDByName(std::string_view name)
 {
-    const auto found = std::find_if(location_variables.begin(), location_variables.end(),
-                                    [name](const auto& variable) {
-                                        return variable.level == GetLoadedLevelID() &&
-                                               CompareTextIgnoreAsciiCase(variable.name, name) == 0;
-                                    });
-    return found == location_variables.end() ? -1
-                                             : static_cast<int>(found - location_variables.begin());
+    const auto& variables = CurrentGame().story.location_variables;
+    const auto found = std::ranges::find_if(variables, [name](const auto& variable) {
+        return variable.level == GetLoadedLevelID() &&
+               CompareTextIgnoreAsciiCase(variable.name, name) == 0;
+    });
+    return found == variables.end() ? -1 : static_cast<int>(found - variables.begin());
 }
 
 void CreateLocationVar(std::string_view name, int value)
 {
     if (name.empty()) throw std::invalid_argument("empty location variable name");
     if (GetLocationVarIDByName(name) >= 0) return;
-    if (location_variables.size() >= std::numeric_limits<std::int32_t>::max())
+    auto& variables = CurrentGame().story.location_variables;
+    if (variables.size() >= std::numeric_limits<std::int32_t>::max())
         throw std::length_error("Too many location variables");
-    location_variables.push_back({std::string(name), value, GetLoadedLevelID()});
+    variables.push_back({std::string(name), value, GetLoadedLevelID()});
 }
 
 int GetLocationVarValueByName(std::string_view name)
 {
     const int index = GetLocationVarIDByName(name);
     if (index < 0) Fail("Unknown location variable", name);
-    return location_variables[index].value;
+    return CurrentGame().story.location_variables[index].value;
 }
 
 // Retail records contain a four-byte value, a 128-byte C string, and a four-byte level.
 void SaveLocationVariables(wiz8::File& handle,
                            std::span<const std::pair<std::string, int>> script_state)
 {
-    auto snapshot = location_variables;
+    auto snapshot = CurrentGame().story.location_variables;
     const int current_level = GetLoadedLevelID();
     for (const auto& [name, value] : script_state) {
         const auto found = std::ranges::find_if(snapshot, [&](const auto& variable) {
@@ -2227,15 +2218,15 @@ void SaveLocationVariables(wiz8::File& handle,
 // Append only after the complete section has been decoded and validated.
 bool LoadLocationVariables(W8Chunk& chunk)
 try {
+    auto& variables = CurrentGame().story.location_variables;
     std::int32_t count;
     chunk.ReadBytes(&count, sizeof(count));
     constexpr std::int64_t record_bytes = 4 + 128 + 4;
     const auto remaining = chunk.RemainingBytes();
     if (count < 0 || remaining < 0 || count > remaining / record_bytes ||
-        std::cmp_greater(location_variables.size(),
-                         std::numeric_limits<std::int32_t>::max() - count))
+        std::cmp_greater(variables.size(), std::numeric_limits<std::int32_t>::max() - count))
         return false;
-    std::vector<LocationVariable> loaded;
+    std::vector<W8LocationVariable> loaded;
     loaded.reserve(count);
     for (std::int32_t index = 0; index < count; ++index) {
         std::int32_t value, level;
@@ -2247,8 +2238,8 @@ try {
         if (terminator == name.end()) return false;
         loaded.push_back({std::string(name.begin(), terminator), value, level});
     }
-    location_variables.insert(location_variables.end(), std::make_move_iterator(loaded.begin()),
-                              std::make_move_iterator(loaded.end()));
+    variables.insert(variables.end(), std::make_move_iterator(loaded.begin()),
+                     std::make_move_iterator(loaded.end()));
     return true;
 } catch (const std::exception&) {
     return false;
@@ -2256,12 +2247,7 @@ try {
 
 bool HasLocationVariables()
 {
-    return !location_variables.empty();
-}
-
-void ClearLocationVariables()
-{
-    location_variables.clear();
+    return !CurrentGame().story.location_variables.empty();
 }
 
 /* Index of the prop whose trigger last tested in view; -1 until a prop

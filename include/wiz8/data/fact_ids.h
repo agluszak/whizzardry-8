@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 /* All 807 names and ids come from retail Data\Databases\FACT.DBS.
@@ -814,3 +815,6 @@ enum W8FactId : std::int32_t {
     W8_FACT_QUEST_RAPAX_RAFE_SHE_DEAD = 0x325,
     W8_FACT_LAVALORD_DIE = 0x326,
 };
+
+/* A game stores this many fact values, more than FACT.DBS names; saves keep them all. */
+inline constexpr std::size_t W8_FACT_SLOT_COUNT = 1000;

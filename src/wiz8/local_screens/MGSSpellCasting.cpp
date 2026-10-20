@@ -539,7 +539,7 @@ static void SetSpellListLineColor(int index, char color)
             color = gpSCSV->spells[index].color;
         }
     }
-    line = &g_message_storage[2][index];
+    line = &CurrentGame().message_log[2][index];
     line->highlight_start = 2;
     length = line->text.size();
     line->highlight_color = color;

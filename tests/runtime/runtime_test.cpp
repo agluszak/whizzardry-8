@@ -1447,9 +1447,9 @@ void ResourceLifecycleScenario()
     const std::size_t return_depth = SuspendedScreenCount();
     // Retail saves can retain entries whose fact no longer exists. Opening,
     // painting and toggling the journal must ignore them without deleting them.
-    const auto journal_size = g_fact_journal_entries.size();
+    const auto journal_size = CurrentGame().story.journal.size();
     const auto invalid_fact = static_cast<W8FactId>(-1);
-    g_fact_journal_entries.push_back({GetLoadedLevelID(), invalid_fact, false});
+    CurrentGame().story.journal.push_back({GetLoadedLevelID(), invalid_fact, false});
     game.command(W8_MGS_COMMAND_JOURNAL);
     game.wait_screen("journal", W8_SCREEN_JOURNAL);
     REQUIRE(SuspendedScreenCount() == return_depth + 1);
@@ -1460,9 +1460,9 @@ void ResourceLifecycleScenario()
     game.click_at(600, 450);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
     REQUIRE(SuspendedScreenCount() == return_depth);
-    REQUIRE(g_fact_journal_entries.size() == journal_size + 1);
-    REQUIRE(g_fact_journal_entries.back().fact == invalid_fact);
-    g_fact_journal_entries.pop_back();
+    REQUIRE(CurrentGame().story.journal.size() == journal_size + 1);
+    REQUIRE(CurrentGame().story.journal.back().fact == invalid_fact);
+    CurrentGame().story.journal.pop_back();
     // Returning re-arms the interface buttons; the roof buttons switch views.
     const auto click_roof = [&](int index) {
         const auto& bounds = MainGame()->hud_buttons.roof[index].Bounds();
@@ -2283,13 +2283,13 @@ bool RunScriptCommand(GameHarness& game, const std::string& line)
         // The newest lines of the main message box.
         const unsigned used = CurrentGame().status.text_box_lines_used[0];
         for (unsigned line = used > unsigned(x) ? used - x : 0; line < used; ++line)
-            std::printf("  log: \"%s\"\n", g_message_storage[0][line].text.c_str());
+            std::printf("  log: \"%s\"\n", CurrentGame().message_log[0][line].text.c_str());
     } else if (unsigned seed = 0; op == "monkey" && in >> x >> seed) {
         Monkey(game, x, seed);
     } else if (op == "journal") {
-        std::printf("  journal: %zu entries, %zu facts\n", g_fact_journal_entries.size(),
+        std::printf("  journal: %zu entries, %zu facts\n", CurrentGame().story.journal.size(),
                     MutableData().facts.size());
-        for (const W8JournalEntry& entry : g_fact_journal_entries)
+        for (const W8JournalEntry& entry : CurrentGame().story.journal)
             if (unsigned(entry.fact) >= MutableData().facts.size())
                 std::printf("  journal entry level %d fact %d alternate %d out of range\n",
                             entry.level, int(entry.fact), entry.alternate_text);

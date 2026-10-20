@@ -81,6 +81,7 @@
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -96,12 +97,10 @@
 #include "wiz8/world/update.h"
 #include "wiz8/xstatus.h"
 
-extern std::vector<std::unique_ptr<W8NpcState>> g_npc_states;
-
 static std::vector<W8NpcState*> NpcStatePointers()
 {
     std::vector<W8NpcState*> pointers;
-    for (const auto& state : g_npc_states) pointers.push_back(state.get());
+    for (const auto& state : CurrentGame().story.npcs) pointers.push_back(state.get());
     return pointers;
 }
 
@@ -345,12 +344,9 @@ static void unicode_file_contracts()
     const auto strings = ReadStringTable("Data/Strings/unicode.dat");
     REQUIRE((strings.size() == 1 && strings[0] == "é中😀 %s %hs %s"));
 
-    ReleaseMessageStorage();
-    memset(CurrentGame().status.text_box_lines_used, 0,
-           sizeof(CurrentGame().status.text_box_lines_used));
     CurrentGame().status.text_box_lines_used[0] = 1;
     const std::string message = "é 中 😀";
-    auto& line = g_message_storage[0][0];
+    auto& line = CurrentGame().message_log[0][0];
     line.text = message;
     CurrentGame().status.text_box_lines_shown[0] = 1;
     line.clock = w8_get_ticks() + 600000;
@@ -363,7 +359,8 @@ static void unicode_file_contracts()
     REQUIRE(SaveMessageStorage(*file));
     REQUIRE(line.saved_remaining_ms == 87);
     file->close();
-    ReleaseMessageStorage();
+    // A save loads into a new game.
+    BeginGame();
     CurrentGame().status.save_version = 9.0f;
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"));
     // The fixed record starts after format and region count; its obsolete
@@ -373,14 +370,13 @@ static void unicode_file_contracts()
     for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk); }));
-    REQUIRE(std::string(g_message_storage[0][0].text) == message);
-    REQUIRE(g_message_storage[0][0].saved_remaining_ms > 87);
+    REQUIRE(std::string(CurrentGame().message_log[0][0].text) == message);
+    REQUIRE(CurrentGame().message_log[0][0].saved_remaining_ms > 87);
     CurrentGame().status.text_box_lines_shown[0] = 0;
-    REQUIRE(g_message_storage[0][0].entries.empty());
-    REQUIRE(g_message_storage[0][0].length == 6);
-    REQUIRE((g_message_storage[0][0].highlight_start == 3 &&
-             g_message_storage[0][0].highlight_stop == 6));
-    ReleaseMessageStorage();
+    REQUIRE(CurrentGame().message_log[0][0].entries.empty());
+    REQUIRE(CurrentGame().message_log[0][0].length == 6);
+    REQUIRE((CurrentGame().message_log[0][0].highlight_start == 3 &&
+             CurrentGame().message_log[0][0].highlight_stop == 6));
 }
 
 static void transcript_contracts()
@@ -1198,12 +1194,9 @@ static void camera_angles()
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct NpcGlobalGuard {
     std::vector<W8NpcDatabaseRecord> previous_records = std::exchange(MutableData().npcs, {});
+    const ScopedGame game;
 
-    ~NpcGlobalGuard()
-    {
-        ReleaseNpcStates();
-        MutableData().npcs = std::move(previous_records);
-    }
+    ~NpcGlobalGuard() { MutableData().npcs = std::move(previous_records); }
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
@@ -1285,7 +1278,8 @@ TEST_CASE("Effect slots retain their packed disk representation", "[save][record
 
 TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
 {
-    const auto before = std::to_array(g_fact_values);
+    const ScopedGame game;
+    const auto before = CurrentGame().story.facts;
     for (const auto raw : {-1, 1000, std::numeric_limits<std::int32_t>::min(),
                            std::numeric_limits<std::int32_t>::max()}) {
         const auto fact = static_cast<W8FactId>(raw);
@@ -1293,7 +1287,44 @@ TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
         REQUIRE(EvaluateFact(fact) == 0);
         SetFact(fact, 1, true);
     }
-    REQUIRE(std::ranges::equal(g_fact_values, before));
+    REQUIRE(CurrentGame().story.facts == before);
+}
+
+TEST_CASE_METHOD(SaveFixture, "Faction sections keep every byte", "[save][records]")
+{
+    const ScopedGame game;
+    // The relation matrix, then one fourteen-byte disposition record per faction.
+    constexpr std::size_t relation_bytes = W8_FACTION_COUNT * W8_FACTION_COUNT, record_bytes = 14;
+    std::vector<std::byte> bytes(relation_bytes + W8_FACTION_COUNT * record_bytes);
+    for (std::size_t index = 0; index < bytes.size(); ++index)
+        bytes[index] = static_cast<std::byte>(index * 7 + 3);
+    for (std::size_t faction = 0; faction < W8_FACTION_COUNT; ++faction)
+        bytes[relation_bytes + faction * record_bytes + 10] = static_cast<std::byte>(faction & 1);
+    // Loading re-arms the party's score, so the fixture stores it already armed.
+    bytes[relation_bytes + W8_FACTION_PARTY * record_bytes] = std::byte{100};
+    const auto input = root / "fata.bin", output = root / "fata-copy.bin";
+    {
+        auto file = wiz8::open_file(input, wiz8::OpenMode::replace);
+        file->write(bytes.data(), bytes.size());
+    }
+    {
+        auto file = wiz8::open_file(input);
+        ReadSavePayload(*file, [](W8Chunk& chunk) { LoadFactionState(chunk); });
+    }
+    const auto& mook = CurrentGame().story.factions[W8_FACTION_MOOK];
+    std::int32_t offense_count;
+    std::memcpy(&offense_count, bytes.data() + relation_bytes + W8_FACTION_MOOK * record_bytes + 1,
+                sizeof(offense_count));
+    REQUIRE((mook.offense_count == offense_count && !mook.encountered));
+    REQUIRE(CurrentGame().story.factions[W8_FACTION_PARTY].encountered);
+    {
+        auto file = wiz8::open_file(output, wiz8::OpenMode::replace);
+        SaveFactionState(*file);
+    }
+    std::ifstream saved(output, std::ios::binary);
+    const std::vector<char> roundtrip{std::istreambuf_iterator<char>(saved), {}};
+    REQUIRE(
+        std::ranges::equal(roundtrip, bytes, {}, [](char c) { return static_cast<std::byte>(c); }));
 }
 
 TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effects]")
@@ -1370,9 +1401,9 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         auto file = wiz8::open_file(path);
         REQUIRE(file);
         ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
-        REQUIRE(static_cast<int>(g_npc_states.size()) == 3);
+        REQUIRE(static_cast<int>(CurrentGame().story.npcs.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
-            W8NpcState* npc = g_npc_states[i].get();
+            W8NpcState* npc = CurrentGame().story.npcs[i].get();
             REQUIRE(npc->record == &MutableData().npcs[i]);
             REQUIRE((npc->items.empty() && npc->script_file == 0));
             if (i < 2) {
@@ -1392,9 +1423,9 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
         file->close();
         file = wiz8::open_file(root / "roundtrip.npct");
         ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadNpcStates(chunk); });
-        REQUIRE(g_npc_states.size() == 3);
+        REQUIRE(CurrentGame().story.npcs.size() == 3);
         for (int index = 0; index < 3; ++index) {
-            auto* npc = g_npc_states[index].get();
+            auto* npc = CurrentGame().story.npcs[index].get();
             REQUIRE((npc->record == &MutableData().npcs[index] && npc->items.empty()));
             if (index < 2)
                 REQUIRE((npc->character && npc->character->name[0] == L'A' + index));
@@ -1422,23 +1453,20 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save]
                 rejected = true;
             }
             REQUIRE((rejected && NpcStatePointers() == previous));
-            REQUIRE(g_npc_states[0].get() == previous_npc);
+            REQUIRE(CurrentGame().story.npcs[0].get() == previous_npc);
             REQUIRE(previous_npc->character.value().name[0] == L'A');
             file.reset();
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding
         auto* kept = GetNpcState(1);
-        auto* retired = g_npc_states[0].get();
+        auto* retired = CurrentGame().story.npcs[0].get();
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
         auto* replacement = CreateNpcRuntimeNode(0);
-        REQUIRE((g_npc_states.size() == 3 && GetNpcState(0) == replacement));
+        REQUIRE((CurrentGame().story.npcs.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
         REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
-        ReleaseNpcStates();
-        ReleaseNpcStates();
-        REQUIRE(g_npc_states.empty());
     }
 }
 

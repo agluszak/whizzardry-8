@@ -299,7 +299,9 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
         }
         if (static_cast<unsigned int>(monster_group->hostility_set_at) >=
             static_cast<unsigned int>(
-                (g_factions[(static_cast<signed char>(record->faction_id))].band_changed_clock))) {
+                (CurrentGame()
+                     .story.factions[(static_cast<signed char>(record->faction_id))]
+                     .band_changed_clock))) {
             return;
         }
     }

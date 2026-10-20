@@ -22,7 +22,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
@@ -75,7 +74,6 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     if (!LoadHitSoundDatabase()) {
         ShutdownWithErrorBox("Could not load hit sound database!");
     }
-    ReleaseMessageStorage();
     if (!InitializeMusicPlaylist()) {
         return 0;
     }
@@ -88,14 +86,11 @@ void ShutdownGame(bool save_configuration)
     EndGame();
     ReleaseHitSoundDatabase();
     ReleaseGenericItemNames();
-    ReleaseNpcStates();
     UnloadEncounterTables();
     g_font_state_palettes = {};
     ResetScreenRouting();
-    ClearLocationVariables();
     ClearNpcMessageQueue();
     ClearNpcDialogueTranscript();
-    ReleaseMessageStorage();
     InstallGameData({});
     if (save_configuration) SaveGameConfiguration();
 }

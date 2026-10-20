@@ -119,7 +119,10 @@ Unlayered code may use the layers.
 
 - **What `Game` is.** `Game` (`game.h`) is one play-through. It owns:
   - the party and the status record;
-  - combat;
+  - the story (`story.h`): facts, faction dispositions and relations, the journal, NPC
+    states and level-script variables;
+  - the text boxes' message log;
+  - combat and the spell effects still in progress;
   - the activity;
   - the speech queue;
   - the gameplay timer;
@@ -130,6 +133,11 @@ Unlayered code may use the layers.
   selection, or when a save is loaded; either replaces any game in progress. It ends when
   the main menu is entered and at shutdown. Ending or replacing a game first leaves its level
   and clears the session state it does not own yet (`LeaveGameSession`). Nothing is reset field by field.
+- **A new game's story.** Factions start from their starting dispositions and relations;
+  the other story parts start empty. The opening sequence creates the starting NPC states
+  (`CreateNewGameNpcStates`), and the new-game loading screen seeds the starting facts
+  before the first level and the rest after it. A load fills each part from its save
+  section instead.
 - **Before the opening sequence.** Party selection, import and character creation edit
   the new game's party. `GameStarted()` tells play apart from that party creation.
 - **The activity.** Rules branch on `Game::activity`, never on a screen id or a UI flag.

@@ -16,11 +16,11 @@
 
 #include "asset_paths.h"
 #include "retail_records.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/missile_records.h"
 #include "wiz8/data/records.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/unicode.h"
@@ -204,7 +204,7 @@ GameData LoadGameData(std::string_view string_data_path)
         .spells = ReadSpellDatabase(),
         .npcs = ReadNpcDatabase(),
         .facts = wiz8::retail::read_database<W8FactDatabaseRecord>(*OpenDatabase("FACT.DBS"),
-                                                                   std::size(g_fact_values)),
+                                                                   W8_FACT_SLOT_COUNT),
         .levels = wiz8::retail::read_database<W8LevelDatabaseRecord>(*OpenDatabase("LEVELS.DBS")),
         .missiles = ReadMissileDatabase(),
     };

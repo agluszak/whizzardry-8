@@ -40,7 +40,7 @@ struct W8PartySlotRow {
        into real fatigue via FatigueCharacter. */
     float movement_fatigue;
     /* Historical offset 0x0fa: for a recruited NPC's slot, the index of its W8NpcState in
-       g_npc_states (GetNpcState); -1 for a created character. */
+       the story's NPC states (GetNpcState); -1 for a created character. */
     int npc_index;
     /* Historical offset 0x0fe: cleared by the level-entry NPC-binding reset. */
     /* Historical offset 0xfe: an NPC is bound to this party slot; set when the binding

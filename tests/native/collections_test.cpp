@@ -194,7 +194,6 @@ TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
 
 static bool gameplayCollectionLifetime()
 {
-    const ScopedGame game;
     auto group = std::make_unique<W8MonsterGroup>();
     auto* group_ptr = group.get();
     auto& roster = CurrentLevelPopulation().monster_roster;
@@ -359,9 +358,9 @@ static bool journalSerialization()
         auto file = wiz8::open_file(input_path);
         ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadJournalEntries(chunk); });
     }
-    REQUIRE(g_fact_journal_entries.size() == count);
+    REQUIRE(CurrentGame().story.journal.size() == count);
     for (int i = 0; i < count; ++i) {
-        const auto& actual = g_fact_journal_entries[i];
+        const auto& actual = CurrentGame().story.journal[i];
         // Only the low byte is the flag; the padding must not turn it on.
         REQUIRE((actual.level == disk[i].level && actual.fact == disk[i].fact &&
                  actual.alternate_text == (disk[i].flag[0] != 0)));
@@ -387,7 +386,7 @@ static bool journalSerialization()
         auto file = wiz8::open_file(input_path);
         ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadJournalEntries(chunk); });
     }
-    REQUIRE(g_fact_journal_entries.empty());
+    REQUIRE(CurrentGame().story.journal.empty());
     return true;
 }
 
