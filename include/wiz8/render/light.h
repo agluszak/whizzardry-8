@@ -9,6 +9,7 @@ class GpuRenderer;
 #include <vector>
 
 #include "wiz8/entities/keyframe_track.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/render/vertex_channels.h"
 class Prop;
@@ -90,7 +91,8 @@ public:
 
     Light(const Light& other);
 
-    void beginPass(GpuRenderer& renderer);
+    // Derives the light's eye-space values for one scene view.
+    void beginPass(GpuRenderer& renderer, const DrawTransform& view);
     Light& operator=(const Light& other);
 
 public:

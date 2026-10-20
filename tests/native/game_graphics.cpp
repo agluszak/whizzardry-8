@@ -113,8 +113,6 @@ TEST_CASE("game graphics")
         REQUIRE(error == GpuRenderer::ERROR_NONE);
         g_gerd->setClearColor(0, 0, 0, 1);
         g_gerd->clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
-        g_gerd->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-        g_gerd->loadIdentity();
         g_ui_canvas->draw(g_gerd.get());
         g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
         g_gerd->endFrame();
@@ -230,21 +228,17 @@ TEST_CASE("game graphics")
         REQUIRE(SDL_FillSurfaceRect(green.get(), nullptr, 0xff00ff00));
         std::optional<Texture> texture{std::shared_ptr<SDL_Surface>(std::move(red))};
         const std::array<float, 12> triangle{-1, -1, 0, 1, 3, -1, 0, 1, -1, 3, 0, 1};
-        g_gerd->matrixMode(GpuRenderer::MATRIX_PROJECTION);
-        g_gerd->loadIdentity();
-        g_gerd->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-        g_gerd->loadIdentity();
-        g_gerd->setVertexPointer(4, vertexStream::TYPE_FLOAT, 16, triangle.data(), 3);
-        g_gerd->setVertexArrayMask(1 << vertexStream::VERTEX_ARRAY_POSITIONS);
-        g_gerd->setCullMode(GpuRenderer::CULL_NONE);
+        vertexStream::VertexArrayInfo vertices{.mask = 1 << vertexStream::VERTEX_ARRAY_POSITIONS,
+                                               .count = 3};
+        vertices.components[vertexStream::VERTEX_ARRAY_POSITIONS] = 4;
+        vertices.strides[vertexStream::VERTEX_ARRAY_POSITIONS] = 16;
+        vertices.arrays[vertexStream::VERTEX_ARRAY_POSITIONS] = triangle.data();
         DrawShader shader;
         shader.value = DrawShader::PASS_ALWAYS | DrawShader::MASK_COLOR_WRITE |
                        DrawShader::MASK_TEXTURING |
                        (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
-        g_gerd->setShader(shader);
         const auto draw = [&] {
-            g_gerd->setTexture(&*texture, 0);
-            g_gerd->drawArrays(vertexStream::PRIMITIVE_TRIANGLES, 0, 3);
+            g_gerd->draw({.vertices = vertices, .shader = shader, .textures = {&*texture}});
         };
         draw();
         texture.reset();

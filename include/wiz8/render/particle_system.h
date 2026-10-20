@@ -13,6 +13,7 @@ struct W8Chunk;
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh_resources.h"
@@ -43,7 +44,7 @@ public:
     void SetRenderFlags(DrawShader flags);
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
-    void SubmitToRenderer(GpuRenderer* renderer);
+    void SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view);
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
     void Update(); /* 0x00499FA0 */

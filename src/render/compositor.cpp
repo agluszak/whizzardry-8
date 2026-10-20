@@ -10,6 +10,7 @@
 #include <SDL3/SDL_surface.h>
 
 #include "compat/native.h"
+#include "glm/ext/matrix_clip_space.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/gpu_renderer.h"
@@ -91,27 +92,6 @@ void GpuRenderer::drawOverlayQuad(const OverlayQuad& quad)
 {
     const auto size = quad.scaledSize();
     if (!quad.visible || size.x <= 0 || size.y <= 0) return;
-    const auto old_mode = getMatrixMode();
-    const auto projection = getMatrix(MATRIX_PROJECTION);
-    const auto model_view = getMatrix(MATRIX_MODELVIEW);
-    struct RestoreMatrices {
-        GpuRenderer& renderer;
-        e_matrixMode mode;
-        glm::mat4 projection, model_view;
-        ~RestoreMatrices()
-        {
-            renderer.matrixMode(MATRIX_PROJECTION);
-            renderer.loadMatrix(projection);
-            renderer.matrixMode(MATRIX_MODELVIEW);
-            renderer.loadMatrix(model_view);
-            renderer.matrixMode(mode);
-        }
-    } restore{*this, old_mode, projection, model_view};
-    matrixMode(MATRIX_PROJECTION);
-    loadIdentity();
-    ortho(0, 640, 480, 0, -1, 1);
-    matrixMode(MATRIX_MODELVIEW);
-    loadIdentity();
     const glm::vec2 center = quad.position + size * .5f;
     const float cosine = std::cos(quad.rotation), sine = std::sin(quad.rotation);
     std::array<glm::vec3, 4> positions;
@@ -125,10 +105,19 @@ void GpuRenderer::drawOverlayQuad(const OverlayQuad& quad)
     const std::array<glm::vec2, 4> uv{
         {quad.uv_min, {quad.uv_max.x, quad.uv_min.y}, {quad.uv_min.x, quad.uv_max.y}, quad.uv_max}};
     const std::array<glm::vec4, 4> colors{quad.color, quad.color, quad.color, quad.color};
-    setVertexArrayMask((1u << vertexStream::VERTEX_ARRAY_DIFFUSE) |
-                       (quad.texture ? 1u << vertexStream::VERTEX_ARRAY_TEXCOORD0 : 0));
-    setClipState(0x3f);
-    setCullMode(CULL_NONE);
+    vertexStream::VertexArrayInfo vertices{};
+    const auto stream = [&](vertexStream::e_vertexArray slot, w8_long components, w8_ulong stride,
+                            const void* values) {
+        vertices.components[slot] = components;
+        vertices.strides[slot] = stride;
+        vertices.arrays[slot] = values;
+    };
+    vertices.mask = (1u << vertexStream::VERTEX_ARRAY_DIFFUSE) |
+                    (quad.texture ? 1u << vertexStream::VERTEX_ARRAY_TEXCOORD0 : 0);
+    vertices.count = positions.size();
+    stream(vertexStream::VERTEX_ARRAY_POSITIONS, 3, sizeof(positions[0]), positions.data());
+    stream(vertexStream::VERTEX_ARRAY_DIFFUSE, 4, sizeof(colors[0]), colors.data());
+    stream(vertexStream::VERTEX_ARRAY_TEXCOORD0, 2, sizeof(uv[0]), uv.data());
     auto shader = quad.shader;
     shader.value = (shader.value & ~DrawShader::PASS_MASK) | DrawShader::PASS_ALWAYS;
     shader.value &= ~(DrawShader::MASK_DEPTH_WRITE | DrawShader::MASK_FOG);
@@ -137,14 +126,13 @@ void GpuRenderer::drawOverlayQuad(const OverlayQuad& quad)
     else
         shader.value &= ~DrawShader::MASK_TEXTURING;
     shader.value = (shader.value & ~DrawShader::MASK_GRADIENT) | DrawShader::MASK_GRADIENT_MODULATE;
-    setShader(shader);
-    setDataPtr(vertexStream::VERTEX_ARRAY_DIFFUSE, 4, vertexStream::TYPE_FLOAT, sizeof(colors[0]),
-               colors.data());
-    setTexCoordPointer(2, vertexStream::TYPE_FLOAT, sizeof(uv[0]), uv.data(), 0);
-    setTexture(quad.texture.get(), 0);
-    setVertexPointer(3, vertexStream::TYPE_FLOAT, sizeof(positions[0]), positions.data(), 4);
-    drawArrays(vertexStream::PRIMITIVE_TRIANGLE_STRIP, 0, 4);
-    setTexture(nullptr, 0);
+    // Quads are laid out on the 640x480 design canvas, top-left origin.
+    draw({.primitive = vertexStream::PRIMITIVE_TRIANGLE_STRIP,
+          .vertices = vertices,
+          .clip_transform = glm::ortho(0.0f, 640.0f, 480.0f, 0.0f, -1.0f, 1.0f),
+          .shader = shader,
+          .textures = {quad.texture.get(), nullptr},
+          .fog_color = getFogColor()});
 }
 
 UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)

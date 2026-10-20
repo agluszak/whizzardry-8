@@ -42,8 +42,6 @@ TEST_CASE("Native UI texture preserves pixels, alpha holes, and dirty rectangles
         const auto draw = [&] {
             renderer.setClearColor(0, 0, 1, 1);
             renderer.clear(GpuRenderer::GPU_BUFFER_COLOR | GpuRenderer::GPU_BUFFER_DEPTH);
-            renderer.matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-            renderer.loadIdentity();
             renderer.resetStatistics();
             surface.draw(&renderer);
             REQUIRE(renderer.getStatistics().draw_calls == 1);

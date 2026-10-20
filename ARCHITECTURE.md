@@ -57,6 +57,8 @@ Unlayered code may use the layers.
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
 | `render/` | `GpuRenderer` (SDL GPU pipelines and submissions), `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
+| `render/` | `GpuRenderer` (SDL GPU pipelines, `DrawCall` submissions and the CPU mesh batches), `DrawTransform`/`MeshState` per-draw inputs, `WorldScene` typed draw lists, concrete `Mesh`/`MeshInstance`/`Texture`/`Material`, variant-animated `Light`, particles, ground shadows, fog, picking, and the compositor: one 640×480 UI canvas texture plus flat `OverlayQuad` values. |
+| `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision and traces with per-query scratch, the navigation mesh and `Navigator`. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
@@ -69,6 +71,18 @@ Unlayered code may use the layers.
   reseeding and draw order, so moving a draw changes gameplay.
 - **Pixels.** The software UI framebuffer is fixed ARGB1555. Assets and video
   may use other SDL formats; palette, TGA and STI decoding is explicit.
+- **Renderer inputs.** `GpuRenderer` keeps no current matrix or draw state. A
+  `GpuRenderer::DrawCall` carries its vertex streams, indices, clip transform,
+  shader, textures, fog colour and depth bias; the device never culls. Mesh
+  submissions take a `MeshState`: a `DrawTransform` (model-view, projection and
+  borrowed eye-space user clip planes), software cull mode, winding,
+  reverse-normal and sorted flags, and depth bias. `WorldScene::render` builds the
+  camera's transform once and callers compose instance, light and shadow
+  transforms from it. The batches record each run's textures, shader and depth
+  bias; sorted batches draw at the scene flush without depth bias, as retail did.
+  Scene lighting (ambient, lights, fogs, depth cue), picking and the exclusion
+  mask remain scene-pass state on the renderer, and the viewport and scissor
+  belong to the render target.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
 - **Shaders.** SDL GPU selects Vulkan, Metal or Direct3D 12 using embedded SPIR-V,

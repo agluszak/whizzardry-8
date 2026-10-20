@@ -547,7 +547,7 @@ void ParticleSystem::PrepareRenderer(const glm::mat4& view)
    The retired path is the only one that can drop the system: a particle whose
    activity has run out notifies its shake callback and, when release_when_done marks
    it as self-owned, marks itself finished for its owner to destroy. */
-void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer)
+void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view)
 {
     glm::vec3 position;
 
@@ -579,18 +579,18 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer)
     glm::mat3 rotation;
 
     if (bounds_mode == W8_PARTICLE_BOUNDS_SPHERE) {
-        GpuRenderer::e_visibility visibility;
+        bool visible;
 
         const auto& extent = bounds_origin;
 
         if (extent.x == 0.0f && extent.y == 0.0f && extent.z == 0.0f) {
-            visibility = renderer->testBoundingSphere(position, size_scale * bounds_radius);
+            visible = view.sphereVisible(position, size_scale * bounds_radius);
         } else {
             rotation = this->transform.getRotation<glm::mat3>();
             glm::vec3 center = rotation * extent + position;
-            visibility = renderer->testBoundingSphere(center, size_scale * bounds_radius);
+            visible = view.sphereVisible(center, size_scale * bounds_radius);
         }
-        if (visibility == GpuRenderer::VISIBILITY_OUTSIDE) {
+        if (!visible) {
             return;
         }
     }
@@ -600,8 +600,7 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer)
         glm::mat4 world(rotation);
         world[3] = glm::vec4(position, 1);
         const auto bounds = BoundingBox{lifetime_minimum, lifetime_maximum}.transformed(world);
-        const auto visibility = renderer->testBoundingBox(bounds.minimum, bounds.maximum);
-        if (visibility == GpuRenderer::VISIBILITY_OUTSIDE) {
+        if (!view.boxVisible(bounds.minimum, bounds.maximum)) {
             return;
         }
     }
@@ -619,17 +618,7 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer)
         update_flags &= ~static_cast<unsigned int>(W8_PARTICLE_ACTIVE_TRIANGLES_DIRTY);
     }
 
-    const meshSubmission::EnableScope options(*renderer, requires_sorted_renderer != 0);
-    renderer->matrixMode(GpuRenderer::MATRIX_MODELVIEW);
-
-    auto view = glm::inverse(renderer->getMatrix(GpuRenderer::MATRIX_MODELVIEW));
-    PrepareRenderer(view);
-
-    if (requires_sorted_renderer != 0 &&
-        !renderer->isEnabled(GpuRenderer::ENABLE_SORTED_RENDERING)) {
-        renderer->toggle(GpuRenderer::ENABLE_SORTED_RENDERING);
-    }
-    renderer->setCullMode(GpuRenderer::CULL_NONE);
+    PrepareRenderer(view.inverseModelView());
     renderer->setPickKey(0);
 
     Mesh::TriMesh mesh;
@@ -651,7 +640,9 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer)
         mesh.textures[0][0] = texture;
     {
         const meshSubmission::PickScope picking(*renderer, true);
-        renderer->submitMesh(mesh);
+        renderer->submitMesh(
+            mesh,
+            {.transform = view, .cull = FaceCull::None, .sorted = requires_sorted_renderer != 0});
     }
 }
 

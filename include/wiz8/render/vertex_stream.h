@@ -24,7 +24,7 @@ enum e_primitive {
     PRIMITIVE_TRIANGLES = 5
 };
 /* Clip-mask bit indices: the six frustum planes (X pair, Y pair, then near/far); bits 6+ are
-       user planes from pushClipPlane. */
+       a DrawTransform's user clip planes. */
 enum e_clip {
     CLIP_LEFT = 0,
     CLIP_RIGHT = 1,
@@ -45,13 +45,10 @@ enum e_vertexArray {
     VERTEX_ARRAY_TEXCOORD0 = 4,
     VERTEX_ARRAY_TEXCOORD1 = 5
 };
-/* drawElements passes 2 for the renderer's 32-bit index triples. */
-enum e_indexType { INDEX_ULONG = 2 };
-/* Vertex-stream state handed to GpuRenderer::setVertexArrayInfo before each draw. */
+/* The vertex streams one GpuRenderer::DrawCall reads. */
 struct VertexArrayInfo {
     std::uint32_t mask = 0;
-    w8_ulong count;
-    std::uint32_t clip = 0;
+    w8_ulong count = 0;
     w8_long components[6];
     std::array<e_type, 6> types{TYPE_FLOAT, TYPE_FLOAT, TYPE_FLOAT,
                                 TYPE_FLOAT, TYPE_FLOAT, TYPE_FLOAT};

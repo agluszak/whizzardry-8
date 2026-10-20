@@ -268,19 +268,17 @@ bool rendererOwnership()
 {
     // These checks exercise CPU ownership without a window or GPU context.
     GpuRenderer gerd;
-    auto* immediate = &gerd.batchRenderer();
+    auto* immediate = &gerd.batchRenderer(false);
     immediate->submit();
     REQUIRE(immediate->getStatistics().device_calls == 1);
-    gerd.toggle(GpuRenderer::ENABLE_SORTED_RENDERING);
-    auto* renderer = &gerd.batchRenderer();
+    auto* renderer = &gerd.batchRenderer(true);
     REQUIRE(renderer != immediate);
     renderer->submit();
     REQUIRE(renderer->getStatistics().device_calls == 1);
     gerd.resetStatistics();
     REQUIRE(immediate->getStatistics().device_calls == 0);
     REQUIRE(renderer->getStatistics().device_calls == 0);
-    gerd.toggle(GpuRenderer::ENABLE_SORTED_RENDERING);
-    REQUIRE(&gerd.batchRenderer() == immediate);
+    REQUIRE(&gerd.batchRenderer(false) == immediate);
 
     renderer->indices.alloc(2);
     renderer->vertices.alloc(3);
@@ -313,8 +311,7 @@ bool rendererTextureStages()
                     std::fill(renderer.vertices.attributes.begin(),
                               renderer.vertices.attributes.end(), 0);
                     renderer.vertices.attributes[lane] = attributes;
-                    renderer.programVertexArrays(&arrays, count);
-                    const auto mask = gerd.getVertexArrayMask();
+                    const auto mask = renderer.vertexArrays(arrays, count).mask;
                     for (unsigned stage = 0; stage < 2; ++stage) {
                         const bool enabled =
                             stage < stages &&

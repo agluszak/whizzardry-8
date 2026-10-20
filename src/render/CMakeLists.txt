@@ -5,6 +5,7 @@ set(NATIVE_RENDER_SOURCES
     ../platform/assertion.cpp
     effects/fog.cpp
     pipeline/vertex_shading.cpp
+    pipeline/draw_inputs.cpp
     pipeline/gpu_renderer.cpp
     pipeline/texture_filters.cpp
     resources/image_io.cpp

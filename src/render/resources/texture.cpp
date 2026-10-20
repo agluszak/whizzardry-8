@@ -27,7 +27,6 @@ Texture::Texture(std::shared_ptr<SDL_Surface> pixels) : surface(std::move(pixels
 Texture::~Texture()
 {
     invalidate();
-    GpuRenderer::unbindTexture(this);
 }
 
 Texture& Texture::operator=(const Texture& other)

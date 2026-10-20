@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -151,8 +152,7 @@ void GpuRenderer::gpuClearBuffers(std::uint32_t buffers)
             DrawShader::PASS_ALWAYS | (DrawShader::SRCBLEND_ONE << DrawShader::SRCBLEND_SHIFT);
         if (buffers & GPU_BUFFER_COLOR) clear_shader.value |= DrawShader::MASK_COLOR_WRITE;
         if (buffers & GPU_BUFFER_DEPTH) clear_shader.value |= DrawShader::MASK_DEPTH_WRITE;
-        command.pipeline_key =
-            GpuPipelineKey(clear_shader, GPU_CULL_NONE, PRIMITIVE_CLASS_TRIANGLES, 0);
+        command.pipeline_key = GpuPipelineKey(clear_shader, PRIMITIVE_CLASS_TRIANGLES, 0);
         if (buffers & GPU_BUFFER_STENCIL)
             command.pipeline_key.value |= GpuPipelineKey::STENCIL_REPLACE;
         command.first_index = static_cast<uint32_t>(gpu_indices.size());
@@ -226,31 +226,6 @@ void GpuRenderer::gpuSetClearValues(const GpuClearValues& values)
     gpu_clear_values = values;
 }
 
-void GpuRenderer::gpuSetFogColor(const glm::vec4& color)
-{
-    gpu_fog_color = color;
-}
-
-void GpuRenderer::gpuSetShader(const DrawShader& value)
-{
-    gpu_shader = value;
-}
-
-void GpuRenderer::gpuSetTextureParameters(w8_ulong stage, const GpuTexParms& parms)
-{
-    if (stage < 2) {
-        gpu_parameters[stage] = parms;
-    }
-}
-
-void GpuRenderer::gpuBindTexture(w8_ulong stage, const NativeTexture& texture)
-{
-    if (stage >= 2) {
-        return;
-    }
-    gpu_bound[stage] = texture.handle;
-}
-
 void GpuRenderer::gpuDeleteTexture(NativeTexture& texture)
 {
     auto* handle = texture.handle;
@@ -259,11 +234,6 @@ void GpuRenderer::gpuDeleteTexture(NativeTexture& texture)
     }
     /* Queued draws may still sample it; release after the next flush. */
     gpu_released.push_back(handle);
-    for (int stage = 0; stage < 2; ++stage) {
-        if (gpu_bound[stage] == handle) {
-            gpu_bound[stage] = 0;
-        }
-    }
     texture.handle = 0;
     texture.size = 0;
 }
@@ -392,38 +362,6 @@ void GpuRenderer::gpuDeleteContext()
     gpu_vertex_buffer_size = 0;
 }
 
-void GpuRenderer::gpuSetCullMode(GpuCullMode mode)
-{
-    gpu_cull_mode = mode;
-}
-
-void GpuRenderer::gpuSetProjectionMatrix(const glm::mat4& matrix)
-{
-    /* GLM and GLSL both store matrix columns. */
-    gpu_projection.projection = matrix;
-}
-
-void GpuRenderer::gpuSetVertexArrayInfo(const vertexStream::VertexArrayInfo* info)
-{
-    gpu_vertex_arrays = *info;
-}
-
-void GpuRenderer::gpuDrawElements(vertexStream::e_primitive primitive,
-                                  std::span<const w8_ulong> gpu_indices)
-{
-    gpuDraw(primitive, static_cast<w8_ulong>(gpu_indices.size()), gpu_indices.data(), 0);
-}
-
-void GpuRenderer::gpuDrawArrays(vertexStream::e_primitive primitive, w8_long first, w8_ulong count)
-{
-    gpuDraw(primitive, count, 0, first);
-}
-
-void GpuRenderer::gpuSetPolygonOffset(w8_long offset)
-{
-    gpu_polygon_offset = offset;
-}
-
 SDL_GPUShader* GpuRenderer::gpuCreateShader(SDL_GPUShaderStage stage, uint32_t sampler_count)
 {
     SDL_GPUShaderCreateInfo info = {};
@@ -478,25 +416,24 @@ GpuRenderer::NativeTexture GpuRenderer::gpuCreateDeviceTexture(uint32_t texture_
     return result;
 }
 
+namespace {
 template<class Vector>
-Vector GpuRenderer::gpuFetch(vertexStream::e_vertexArray slot, uint32_t index,
-                             Vector fallback) const
+Vector fetchVertex(const vertexStream::VertexArrayInfo& arrays, vertexStream::e_vertexArray slot,
+                   uint32_t index, Vector fallback)
 {
-    if (((gpu_vertex_arrays.mask >> slot) & 1) == 0 && slot != vertexStream::VERTEX_ARRAY_POSITIONS)
+    if (((arrays.mask >> slot) & 1) == 0 && slot != vertexStream::VERTEX_ARRAY_POSITIONS)
         return fallback;
-    if (gpu_vertex_arrays.arrays[slot] == nullptr) return fallback;
-    const int components =
-        SDL_min(static_cast<int>(gpu_vertex_arrays.components[slot]), Vector::length());
-    const uint32_t stride = gpu_vertex_arrays.strides[slot] != 0
-                                ? gpu_vertex_arrays.strides[slot]
-                                : gpu_vertex_arrays.components[slot] * sizeof(float);
-    const auto* source =
-        static_cast<const char*>(gpu_vertex_arrays.arrays[slot]) + size_t(index) * stride;
+    if (arrays.arrays[slot] == nullptr) return fallback;
+    const int components = SDL_min(static_cast<int>(arrays.components[slot]), Vector::length());
+    const uint32_t stride =
+        arrays.strides[slot] != 0 ? arrays.strides[slot] : arrays.components[slot] * sizeof(float);
+    const auto* source = static_cast<const char*>(arrays.arrays[slot]) + size_t(index) * stride;
     std::memcpy(glm::value_ptr(fallback), source, components * sizeof(float));
     return fallback;
 }
+} // namespace
 
-void GpuRenderer::gpuAppendVertex(uint32_t index)
+void GpuRenderer::gpuAppendVertex(const vertexStream::VertexArrayInfo& arrays, uint32_t index)
 {
     using enum vertexStream::e_vertexArray;
     if (const auto found = gpu_vertex_remap.find(index); found != gpu_vertex_remap.end()) {
@@ -506,25 +443,23 @@ void GpuRenderer::gpuAppendVertex(uint32_t index)
     const auto mapped = static_cast<uint32_t>(gpu_vertices.size());
     gpu_vertex_remap.emplace(index, mapped);
     gpu_indices.push_back(mapped);
-    gpu_vertices.push_back({gpuFetch(VERTEX_ARRAY_POSITIONS, index, glm::vec4(0, 0, 0, 1)),
-                            gpuFetch(VERTEX_ARRAY_DIFFUSE, index, glm::vec4(1)),
-                            gpuFetch(VERTEX_ARRAY_SPECULAR, index, glm::vec4(0)),
-                            gpuFetch(VERTEX_ARRAY_TEXCOORD0, index, glm::vec3(0, 0, 1)),
-                            gpuFetch(VERTEX_ARRAY_TEXCOORD1, index, glm::vec3(0, 0, 1)),
-                            gpuFetch(VERTEX_ARRAY_SPECULAR_ALPHA, index, glm::vec1(0)).x});
-    if ((gpu_vertex_arrays.mask & (1u << VERTEX_ARRAY_TEXCOORD0)) &&
-        gpu_vertex_arrays.texture_weights[0])
-        gpu_vertices.back().texcoord0.z = gpu_vertex_arrays.texture_weights[0][index];
-    if ((gpu_vertex_arrays.mask & (1u << VERTEX_ARRAY_TEXCOORD1)) &&
-        gpu_vertex_arrays.texture_weights[1])
-        gpu_vertices.back().texcoord1.z = gpu_vertex_arrays.texture_weights[1][index];
+    gpu_vertices.push_back(
+        {fetchVertex(arrays, VERTEX_ARRAY_POSITIONS, index, glm::vec4(0, 0, 0, 1)),
+         fetchVertex(arrays, VERTEX_ARRAY_DIFFUSE, index, glm::vec4(1)),
+         fetchVertex(arrays, VERTEX_ARRAY_SPECULAR, index, glm::vec4(0)),
+         fetchVertex(arrays, VERTEX_ARRAY_TEXCOORD0, index, glm::vec3(0, 0, 1)),
+         fetchVertex(arrays, VERTEX_ARRAY_TEXCOORD1, index, glm::vec3(0, 0, 1)),
+         fetchVertex(arrays, VERTEX_ARRAY_SPECULAR_ALPHA, index, glm::vec1(0)).x});
+    if ((arrays.mask & (1u << VERTEX_ARRAY_TEXCOORD0)) && arrays.texture_weights[0])
+        gpu_vertices.back().texcoord0.z = arrays.texture_weights[0][index];
+    if ((arrays.mask & (1u << VERTEX_ARRAY_TEXCOORD1)) && arrays.texture_weights[1])
+        gpu_vertices.back().texcoord1.z = arrays.texture_weights[1][index];
 }
 
-/* Expands every primitive to a list: SDL GPU has no fans, and lists let
-       consecutive draws share one vertex stream. */
-void GpuRenderer::gpuDraw(vertexStream::e_primitive primitive, uint32_t count,
-                          const w8_ulong* elements, uint32_t first)
+void GpuRenderer::gpuDraw(const DrawCall& call, const std::array<GpuStage, 2>& stages)
 {
+    const auto count =
+        call.indices.empty() ? call.vertices.count : static_cast<uint32_t>(call.indices.size());
     if (count == 0) {
         return;
     }
@@ -533,99 +468,101 @@ void GpuRenderer::gpuDraw(vertexStream::e_primitive primitive, uint32_t count,
     const auto start = static_cast<uint32_t>(gpu_indices.size());
     const auto first_vertex = gpu_vertices.size();
     GpuPrimitiveClass primitive_class = PRIMITIVE_CLASS_TRIANGLES;
-#define SR_INDEX(i) (elements != 0 ? elements[(i)] : first + (i))
+    const auto append = [&](uint32_t i) {
+        gpuAppendVertex(call.vertices, call.indices.empty() ? i : call.indices[i]);
+    };
+    const auto primitive = call.primitive;
     switch (primitive) {
     case vertexStream::PRIMITIVE_TRIANGLES:
         for (uint32_t i = 0; i + 2 < count; i += 3) {
-            gpuAppendVertex(SR_INDEX(i));
-            gpuAppendVertex(SR_INDEX(i + 1));
-            gpuAppendVertex(SR_INDEX(i + 2));
+            append(i);
+            append(i + 1);
+            append(i + 2);
         }
         break;
     case vertexStream::PRIMITIVE_TRIANGLE_STRIP:
         for (uint32_t i = 0; i + 2 < count; ++i) {
             const bool odd = (i & 1) != 0;
-            gpuAppendVertex(SR_INDEX(odd ? i + 1 : i));
-            gpuAppendVertex(SR_INDEX(odd ? i : i + 1));
-            gpuAppendVertex(SR_INDEX(i + 2));
+            append(odd ? i + 1 : i);
+            append(odd ? i : i + 1);
+            append(i + 2);
         }
         break;
     case vertexStream::PRIMITIVE_TRIANGLE_FAN:
         for (uint32_t i = 1; i + 1 < count; ++i) {
-            gpuAppendVertex(SR_INDEX(0));
-            gpuAppendVertex(SR_INDEX(i));
-            gpuAppendVertex(SR_INDEX(i + 1));
+            append(0);
+            append(i);
+            append(i + 1);
         }
         break;
     case vertexStream::PRIMITIVE_LINES:
         primitive_class = PRIMITIVE_CLASS_LINES;
         for (uint32_t i = 0; i + 1 < count; i += 2) {
-            gpuAppendVertex(SR_INDEX(i));
-            gpuAppendVertex(SR_INDEX(i + 1));
+            append(i);
+            append(i + 1);
         }
         break;
     case vertexStream::PRIMITIVE_LINE_STRIP:
         primitive_class = PRIMITIVE_CLASS_LINES;
         for (uint32_t i = 0; i + 1 < count; ++i) {
-            gpuAppendVertex(SR_INDEX(i));
-            gpuAppendVertex(SR_INDEX(i + 1));
+            append(i);
+            append(i + 1);
         }
         break;
     case vertexStream::PRIMITIVE_POINTS:
         primitive_class = PRIMITIVE_CLASS_POINTS;
         for (uint32_t i = 0; i < count; ++i) {
-            gpuAppendVertex(SR_INDEX(i));
+            append(i);
         }
         break;
     }
-#undef SR_INDEX
     if (gpu_indices.size() == start) {
         return;
     }
+    const auto& shader = call.shader;
     if (gpu_trace) {
         const GpuVertex& v = gpu_vertices[first_vertex];
-        const auto rows = glm::transpose(gpu_projection.projection);
+        const auto rows = glm::transpose(call.clip_transform);
         const float* m = glm::value_ptr(rows);
-        SDL_Log("GpuRenderer draw prim=%d count=%u shader=%08x cull=%d pos=(%g %g %g %g) "
+        SDL_Log("GpuRenderer draw prim=%d count=%u shader=%08x pos=(%g %g %g %g) "
                 "proj=[%g %g %g %g | %g %g %g %g | %g %g %g %g | %g %g %g %g] "
                 "viewport=(%g %g %g %g) scissor=(%d %d %d %d)",
-                (int)primitive, count, gpu_shader.value, (int)gpu_cull_mode, v.position[0],
-                v.position[1], v.position[2], v.position[3], m[0], m[1], m[2], m[3], m[4], m[5],
-                m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15], gpu_viewport.x,
-                gpu_viewport.y, gpu_viewport.w, gpu_viewport.h, gpu_scissor.x, gpu_scissor.y,
-                gpu_scissor.w, gpu_scissor.h);
+                (int)primitive, count, shader.value, v.position[0], v.position[1], v.position[2],
+                v.position[3], m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10],
+                m[11], m[12], m[13], m[14], m[15], gpu_viewport.x, gpu_viewport.y, gpu_viewport.w,
+                gpu_viewport.h, gpu_scissor.x, gpu_scissor.y, gpu_scissor.w, gpu_scissor.h);
         if (SDL_getenv("WIZ8_SRDD_VERTICES")) {
             for (size_t i = first_vertex; i < gpu_vertices.size(); ++i) {
                 const GpuVertex& p = gpu_vertices[i];
                 SDL_Log("GpuRenderer vertex %08x (%g %g %g %g) uv=(%g %g %g) rgba=(%g %g %g %g)",
-                        gpu_shader.value, p.position[0], p.position[1], p.position[2],
-                        p.position[3], p.texcoord0[0], p.texcoord0[1], p.texcoord0[2], p.diffuse[0],
-                        p.diffuse[1], p.diffuse[2], p.diffuse[3]);
+                        shader.value, p.position[0], p.position[1], p.position[2], p.position[3],
+                        p.texcoord0[0], p.texcoord0[1], p.texcoord0[2], p.diffuse[0], p.diffuse[1],
+                        p.diffuse[2], p.diffuse[3]);
             }
         }
     }
     GpuDrawCommand command = {};
     command.kind = GpuDrawCommand::DRAW;
-    command.pipeline_key =
-        GpuPipelineKey(gpu_shader, gpu_cull_mode, primitive_class, gpu_polygon_offset);
+    command.pipeline_key = GpuPipelineKey(shader, primitive_class, call.polygon_offset);
     command.first_index = start;
     command.index_count = static_cast<uint32_t>(gpu_indices.size()) - start;
-    const bool texturing = (gpu_shader.value & DrawShader::MASK_TEXTURING) != 0;
+    const bool texturing = (shader.value & DrawShader::MASK_TEXTURING) != 0;
     for (int stage = 0; stage < 2; ++stage) {
-        command.textures[stage] =
-            texturing && gpu_bound[stage] != nullptr ? gpu_bound[stage] : gpu_white_texture;
-        command.samplers[stage] = gpuSampler(gpu_parameters[stage]);
+        command.textures[stage] = texturing && stages[stage].texture != nullptr
+                                      ? stages[stage].texture
+                                      : gpu_white_texture;
+        command.samplers[stage] = gpuSampler(stages[stage].parameters);
     }
-    command.vertex_uniforms = gpu_projection;
+    /* GLM and GLSL both store matrix columns. */
+    command.vertex_uniforms.projection = call.clip_transform;
     GpuFragmentUniforms& fragment = command.fragment_uniforms;
-    fragment.fog_color = gpu_fog_color;
-    fragment.mode =
-        glm::ivec4(texturing ? 1 : 0,
-                   (gpu_shader.value & DrawShader::MASK_GRADIENT) >> DrawShader::GRADIENT_SHIFT,
-                   (gpu_shader.value & DrawShader::MASK_SECONDARY_GRADIENT) != 0,
-                   (gpu_shader.value & DrawShader::MASK_FOG) >> DrawShader::FOG_SHIFT);
+    fragment.fog_color = call.fog_color;
+    fragment.mode = glm::ivec4(
+        texturing ? 1 : 0, (shader.value & DrawShader::MASK_GRADIENT) >> DrawShader::GRADIENT_SHIFT,
+        (shader.value & DrawShader::MASK_SECONDARY_GRADIENT) != 0,
+        (shader.value & DrawShader::MASK_FOG) >> DrawShader::FOG_SHIFT);
     fragment.alpha =
-        glm::vec4((gpu_shader.value & DrawShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f, 0, 0, 0);
+        glm::vec4((shader.value & DrawShader::MASK_ALPHATEST) != 0 ? 1.0f : 0.0f, 0, 0, 0);
     command.scissor = gpu_scissor;
     command.viewport = gpu_viewport;
     gpu_commands.push_back(command);
@@ -661,7 +598,6 @@ SDL_GPUGraphicsPipeline* GpuRenderer::gpuPipeline(const GpuPipelineKey& key)
     const bool color_write = (key_value & DrawShader::MASK_COLOR_WRITE) != 0;
     const uint32_t destination = key_value >> DrawShader::DSTBLEND_SHIFT & 7;
     const uint32_t source = key_value >> DrawShader::SRCBLEND_SHIFT & 3;
-    const uint32_t cull = key_value >> 24 & 3;
     const uint32_t primitive = key_value >> 28 & 3;
 
     SDL_GPUVertexBufferDescription buffer = {};
@@ -704,9 +640,7 @@ SDL_GPUGraphicsPipeline* GpuRenderer::gpuPipeline(const GpuPipelineKey& key)
                               ? SDL_GPU_PRIMITIVETYPE_POINTLIST
                               : SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
     info.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
-    info.rasterizer_state.cull_mode = cull == GPU_CULL_BACK    ? SDL_GPU_CULLMODE_BACK
-                                      : cull == GPU_CULL_FRONT ? SDL_GPU_CULLMODE_FRONT
-                                                               : SDL_GPU_CULLMODE_NONE;
+    info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
     info.rasterizer_state.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
     info.rasterizer_state.enable_depth_clip = true;
     // Surrender's positive offset pulls overlays toward the camera.
@@ -825,6 +759,7 @@ void GpuRenderer::gpuUploadPending(SDL_GPUCommandBuffer* command)
 void GpuRenderer::gpuReplay(SDL_GPUCommandBuffer* command)
 {
     SDL_GPURenderPass* pass = 0;
+    std::array<SDL_GPUTexture*, 2> bound{};
     for (size_t index = 0; index < gpu_commands.size(); ++index) {
         const GpuDrawCommand& entry = gpu_commands[index];
         if (entry.kind == GpuDrawCommand::CLEAR) {
@@ -863,6 +798,8 @@ void GpuRenderer::gpuReplay(SDL_GPUCommandBuffer* command)
         for (int stage = 0; stage < 2; ++stage) {
             bindings[stage].texture = entry.textures[stage];
             bindings[stage].sampler = entry.samplers[stage];
+            if (std::exchange(bound[stage], entry.textures[stage]) != entry.textures[stage])
+                ++statistics.texture_binds;
         }
         SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
         SDL_PushGPUVertexUniformData(command, 0, &entry.vertex_uniforms,

@@ -57,7 +57,6 @@
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/material.h"
-#include "wiz8/render/matrix_scope.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/quality.h"
@@ -1551,10 +1550,9 @@ unsigned int MeasureMeshRender(MeshInstance* mesh)
     g_gerd->resetStatistics();
     g_gerd->beginFrame();
     {
-        const MatrixScope model_view(*g_gerd);
-        const MatrixScope projection(*g_gerd, GpuRenderer::MATRIX_PROJECTION);
-        GetWorld()->camera->applyView(g_gerd.get());
-        mesh->draw(*g_gerd);
+        const auto& camera = *GetWorld()->camera;
+        camera.applyEnvironment(*g_gerd);
+        mesh->draw(*g_gerd, camera.drawTransform());
         g_gerd->flushRenderers();
     }
     g_gerd->endFrame();

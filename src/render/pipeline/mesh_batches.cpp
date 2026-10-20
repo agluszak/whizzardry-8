@@ -17,7 +17,6 @@
 #include "wiz8/render/clip.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
-#include "wiz8/render/matrix_scope.h"
 #include "wiz8/render/mesh_draw.h"
 #include "wiz8/render/mesh_math.h"
 #include "wiz8/render/triangle_runs.h"
@@ -105,6 +104,7 @@ w8_ulong GpuRenderer::Renderer::TextureSetCache::intern(const TextureSetKey& key
     set.texture0 = key.texture0;
     set.texture1 = key.texture1;
     set.shader = key.shader;
+    set.polygon_offset = key.polygon_offset;
     switch ((key.shader.value >> DrawShader::DSTBLEND_SHIFT) & 7) {
     case DrawShader::DSTBLEND_ONE:
         set.blend = 2;
@@ -193,12 +193,8 @@ GpuRenderer::Renderer::Renderer(const Parameters& parameters)
     : gerd(parameters.gerd), sorted(parameters.sorted), batch_limit(parameters.batch_limit),
       texture_stages(parameters.texture_stages)
 {
-    clip_state = 0;
     first_vertex = -1;
     statistics = {};
-    texture0 = 0;
-    texture1 = 0;
-    shader = DrawShader();
 }
 
 int GpuRenderer::Renderer::isBatchFull() const
@@ -216,13 +212,15 @@ ShadedVertexArrays GpuRenderer::Renderer::allocVertexArray(w8_ulong count)
 }
 
 void GpuRenderer::Renderer::assignTextureSets(w8_ulong* texture_set, const w8_ulong* indices,
-                                              w8_ulong count, const MeshPass* pass)
+                                              w8_ulong count, const MeshPass* pass,
+                                              w8_long polygon_offset)
 {
     enum { TABLE_TEXTURE0 = 1u, TABLE_TEXTURE1 = 2u, TABLE_SHADER = 4u };
     TextureSetKey key;
     key.texture0 = pass->textures[0];
     key.texture1 = pass->textures[1];
     key.shader = pass->shader;
+    key.polygon_offset = polygon_offset;
     unsigned char mask = pass->texture_tables[0] != 0 ? TABLE_TEXTURE0 : 0;
     if (pass->texture_tables[1] != 0) {
         mask |= TABLE_TEXTURE1;
@@ -407,7 +405,7 @@ void GpuRenderer::Renderer::expandTriangles(const TriInput& input, int sorted)
     w8_ulong texture_set_offset = 0;
     for (record = 0; record < input.record_count; record++) {
         assignTextureSets(write.texture_set + texture_set_offset, input.indices.data(),
-                          input.triangleCount(), passes + record);
+                          input.triangleCount(), passes + record, input.polygon_offset);
         texture_set_offset += input.triangleCount();
     }
 }
@@ -448,85 +446,90 @@ static w8_ulong attributeMask(const unsigned char* packed, w8_ulong count)
     return mask;
 }
 
-void GpuRenderer::Renderer::drawTriangleRuns(std::span<const w8_ulong> order)
+void GpuRenderer::Renderer::drawTriangleRuns(std::span<const w8_ulong> order,
+                                             const vertexStream::VertexArrayInfo& arrays)
 {
     const auto count = indices.count;
     if (count == 0) return;
     const auto triangles = std::span{indices.triangles}.first(count);
     const auto texture_sets = std::span{indices.texture_set}.first(count);
     std::array<glm::ivec3, 512> gathered;
-    visitTriangleRuns(texture_sets, order, order.empty() ? count : gathered.size(),
-                      [&](const TriangleRun& run) {
-                          // Refresh the first set even if another draw changed GERD's state.
-                          bindTextureSet(run.texture_set, run.first == 0);
-                          const glm::ivec3* submitted = triangles.data() + run.first;
-                          if (!order.empty()) {
-                              gatherTriangles(std::span{gathered}.first(run.count), triangles,
-                                              order.subspan(run.first, run.count), 0);
-                              submitted = gathered.data();
-                          }
-                          gerd->drawElements(vertexStream::PRIMITIVE_TRIANGLES,
-                                             static_cast<w8_ulong>(run.count * 3),
-                                             vertexStream::INDEX_ULONG, submitted);
-                      });
+    visitTriangleRuns(
+        texture_sets, order, order.empty() ? count : gathered.size(), [&](const TriangleRun& run) {
+            const TextureSet& set = this->texture_sets.sets[run.texture_set];
+            const glm::ivec3* submitted = triangles.data() + run.first;
+            if (!order.empty()) {
+                gatherTriangles(std::span{gathered}.first(run.count), triangles,
+                                order.subspan(run.first, run.count), 0);
+                submitted = gathered.data();
+            }
+            // Positions are already in clip space, so the device applies no transform.
+            gerd->draw({.primitive = vertexStream::PRIMITIVE_TRIANGLES,
+                        .vertices = arrays,
+                        /* reinterpret-ok: each triangle is three packed 32-bit indices. */
+                        .indices = {reinterpret_cast<const w8_ulong*>(submitted), run.count * 3},
+                        .shader = set.shader,
+                        .textures = {set.texture0, set.texture1},
+                        .fog_color = gerd->getFogColor(),
+                        .polygon_offset = set.polygon_offset});
+        });
 }
 
-void GpuRenderer::Renderer::drawImmediate()
+void GpuRenderer::Renderer::drawImmediate(const vertexStream::VertexArrayInfo& arrays)
 {
-    drawTriangleRuns({});
+    drawTriangleRuns({}, arrays);
 }
 
-void GpuRenderer::Renderer::drawSorted()
+void GpuRenderer::Renderer::drawSorted(const vertexStream::VertexArrayInfo& arrays)
 {
     const auto count = indices.count;
     if (count == 0) return;
     const auto order = sortedTriangleOrder(std::span{indices.sort_key}.first(count));
-    drawTriangleRuns(order);
+    drawTriangleRuns(order, arrays);
 }
 
-/* Program the GERD vertex-array slots from the bound batch: diffuse,
-   specular (+ its w alone when only the alpha attribute is present) and a
-   per-stage texture coordinate and Q streams. */
-void GpuRenderer::Renderer::programVertexArrays(ShadedVertexArrays* arrays, w8_ulong count)
+/* The batch's device streams: positions, diffuse, specular (+ its w alone
+   when only the alpha attribute is present) and per-stage texture
+   coordinate and Q streams. */
+vertexStream::VertexArrayInfo GpuRenderer::Renderer::vertexArrays(const ShadedVertexArrays& arrays,
+                                                                  w8_ulong count) const
 {
-    w8_ulong attributes = attributeMask(arrays->attributes, count);
+    w8_ulong attributes = attributeMask(arrays.attributes, count);
     if (texture_stages < 2) {
         /* Single-stage devices cannot take stage-1 st/q streams. */
         attributes &= ~(ShadedVertexArrays::ATTRIBUTE_ST1 | ShadedVertexArrays::ATTRIBUTE_Q1);
     }
-    std::uint32_t mask = 1u << vertexStream::VERTEX_ARRAY_POSITIONS;
-    gerd->setClipState(clip_state);
-    gerd->setVertexPointer(4, vertexStream::TYPE_FLOAT, 0x10, arrays->eye_locations,
-                           static_cast<w8_long>(count));
-    if ((attributes & ShadedVertexArrays::ATTRIBUTE_DIFFUSE) != 0) {
-        gerd->setDataPtr(vertexStream::VERTEX_ARRAY_DIFFUSE, 4, vertexStream::TYPE_FLOAT, 0x10,
-                         arrays->diffuse);
-        mask |= 1u << vertexStream::VERTEX_ARRAY_DIFFUSE;
-    }
+    vertexStream::VertexArrayInfo result{};
+    const auto stream = [&](vertexStream::e_vertexArray slot, w8_long components, w8_ulong stride,
+                            const void* values) {
+        result.mask |= 1u << slot;
+        result.components[slot] = components;
+        result.strides[slot] = stride;
+        result.arrays[slot] = values;
+    };
+    result.count = count;
+    stream(vertexStream::VERTEX_ARRAY_POSITIONS, 4, 0x10, arrays.eye_locations);
+    if ((attributes & ShadedVertexArrays::ATTRIBUTE_DIFFUSE) != 0)
+        stream(vertexStream::VERTEX_ARRAY_DIFFUSE, 4, 0x10, arrays.diffuse);
     if ((attributes & ShadedVertexArrays::ATTRIBUTE_SPECULAR) != 0) {
-        mask |= 1u << vertexStream::VERTEX_ARRAY_SPECULAR;
-        gerd->setDataPtr(vertexStream::VERTEX_ARRAY_SPECULAR,
-                         ((attributes & ShadedVertexArrays::ATTRIBUTE_SPECULAR_ALPHA) != 0) + 3,
-                         vertexStream::TYPE_FLOAT, 0x10, arrays->specular);
+        stream(vertexStream::VERTEX_ARRAY_SPECULAR,
+               ((attributes & ShadedVertexArrays::ATTRIBUTE_SPECULAR_ALPHA) != 0) + 3, 0x10,
+               arrays.specular);
     } else if ((attributes & ShadedVertexArrays::ATTRIBUTE_SPECULAR_ALPHA) != 0) {
-        mask |= 1u << vertexStream::VERTEX_ARRAY_SPECULAR_ALPHA;
-        gerd->setDataPtr(vertexStream::VERTEX_ARRAY_SPECULAR_ALPHA, 1, vertexStream::TYPE_FLOAT,
-                         0x10, &arrays->specular->w);
+        stream(vertexStream::VERTEX_ARRAY_SPECULAR_ALPHA, 1, 0x10, &arrays.specular->w);
     }
-    const std::array coordinates{arrays->st0, arrays->st1};
-    const std::array weights{arrays->q0, arrays->q1};
+    const std::array coordinates{arrays.st0, arrays.st1};
+    const std::array weights{arrays.q0, arrays.q1};
     for (unsigned stage = 0; stage < coordinates.size(); ++stage) {
         const w8_ulong st_bit = ShadedVertexArrays::ATTRIBUTE_ST0 << stage;
         const w8_ulong q_bit = ShadedVertexArrays::ATTRIBUTE_Q0 << stage;
         if ((attributes & st_bit) == 0) continue;
-        const auto array =
-            static_cast<vertexStream::e_vertexArray>(vertexStream::VERTEX_ARRAY_TEXCOORD0 + stage);
-        mask |= 1u << array;
-        gerd->setDataPtr(array, 2, vertexStream::TYPE_FLOAT, sizeof(glm::vec2), coordinates[stage]);
-        gerd->vertex_arrays.texture_weights[stage] =
-            (attributes & q_bit) != 0 ? weights[stage] : nullptr;
+        stream(
+            static_cast<vertexStream::e_vertexArray>(vertexStream::VERTEX_ARRAY_TEXCOORD0 + stage),
+            2, sizeof(glm::vec2), coordinates[stage]);
+        result.texture_weights[stage] = (attributes & q_bit) != 0 ? weights[stage] : nullptr;
     }
-    gerd->setVertexArrayMask(mask);
+    return result;
 }
 
 void GpuRenderer::Renderer::submit()
@@ -536,22 +539,15 @@ void GpuRenderer::Renderer::submit()
     statistics.device_vertices += vertex_count;
     statistics.device_vertex_indices += indices.count;
     if (gerd != 0 && vertex_count != 0 && indices.count != 0) {
-        const MatrixScope projection(*gerd, MATRIX_PROJECTION);
-        gerd->loadIdentity();
-        auto arrays = vertices.bind(0);
-        programVertexArrays(&arrays, vertex_count);
-        e_cullMode saved_cull = gerd->getCullMode();
-        gerd->setCullMode(CULL_NONE);
+        const auto arrays = vertexArrays(vertices.bind(0), vertex_count);
         if (sorted == 0) {
-            drawImmediate();
+            drawImmediate(arrays);
         } else {
-            drawSorted();
+            drawSorted(arrays);
         }
-        gerd->setCullMode(saved_cull);
     }
     indices.reset(0);
     vertices.count = 0;
-    clip_state = 0;
 }
 
 void GpuRenderer::Renderer::reset(int release_buffers)
@@ -608,7 +604,6 @@ void GpuRenderer::Renderer::render(const TriInput& input)
         dwords.resize(input.triangleCount());
         filtered.indices = std::span{dwords}.first(filterTriangles(dwords.data(), flags, input));
         if (!filtered.indices.empty()) {
-            clip_state |= mask;
             batch = &filtered;
         } else {
             vertices.count += first_vertex - vertices.count;
@@ -634,23 +629,6 @@ ShadedVertexArrays GpuRenderer::Renderer::VertexArrays::bind(w8_ulong base)
     return {positions.data() + base, diffuse.data() + base,   specular.data() + base,
             st[0].data() + base,     st[1].data() + base,     q[0].data() + base,
             q[1].data() + base,      attributes.data() + base};
-}
-
-void GpuRenderer::Renderer::bindTextureSet(w8_ulong index, bool force)
-{
-    const TextureSet& set = texture_sets.sets[index];
-    if (force || set.texture0 != texture0) {
-        texture0 = set.texture0;
-        gerd->setTexture(texture0, 0);
-    }
-    if (force || set.texture1 != texture1) {
-        texture1 = set.texture1;
-        gerd->setTexture(texture1, 1);
-    }
-    if (force || set.shader.value != shader.value) {
-        shader = set.shader;
-        gerd->setShader(shader);
-    }
 }
 
 void clipMath::clipFlags(std::span<std::uint8_t> destination, std::span<const glm::vec4> source)

@@ -19,6 +19,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh_resources.h"
@@ -123,12 +124,11 @@ public:
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    bool isVisible(GpuRenderer& renderer);
-    void render(class GpuRenderer& renderer);
+    bool isVisible(const DrawTransform& transform);
     void reindexPolygons(std::span<const w8_ulong> indices);
     void reindexVertices(std::span<const w8_ulong> indices);
     TriMesh getTriMesh();
-    void renderTriMesh(class GpuRenderer& renderer, const TriMesh& mesh);
+    void renderTriMesh(class GpuRenderer& renderer, const TriMesh& mesh, MeshState state);
     MeshResources<Texture>* getPolygonTextureTable(w8_long pass, w8_long layer, bool create);
     glm::ivec3* getPolyVertex();
     glm::ivec3* getPolyUVIndex(w8_long layer, int table);
@@ -242,7 +242,8 @@ public:
        the software backface pass; other callers supply counted polygon normals used
        to select the active polygons for this submission. */
     void RenderTriMeshWithEquations(class GpuRenderer& renderer, const TriMesh& mesh,
-                                    std::span<const glm::vec3> poly_normals); /* 0x00470380 */
+                                    std::span<const glm::vec3> poly_normals,
+                                    const MeshState& state); /* 0x00470380 */
     static std::vector<w8_ulong> facingPolygons(const TriMesh& mesh,
                                                 std::span<const glm::vec3> normals,
                                                 const glm::vec3& eye, bool positive_winding,

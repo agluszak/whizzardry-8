@@ -12,6 +12,7 @@
 #include "compat/compiler.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -24,7 +25,6 @@
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
-#include "wiz8/render/matrix_scope.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/mesh_submission.h"
@@ -38,34 +38,29 @@ MeshInstance::~MeshInstance()
     setScene(nullptr);
 }
 
-MatrixScope MeshInstance::scopedRenderTransform(GpuRenderer& renderer) const
+DrawTransform MeshInstance::renderTransform(const DrawTransform& view) const
 {
-    if ((alignment_flags & 1) == 0) {
-        MatrixScope scope(renderer);
-        renderer.multMatrix(transform.matrix<glm::mat4>());
-        return scope;
-    } else {
-        MatrixScope transform(renderer);
-        const auto matrix = renderer.getMatrix(GpuRenderer::MATRIX_MODELVIEW);
-        const glm::vec4 position = matrix * glm::vec4(glm::vec3(this->transform.getLocation()), 1);
-        const auto world_scale = glm::vec3(this->transform.magnitudes());
-        glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
-                        glm::length(glm::vec3(matrix[2])));
-        if (glm::determinant(glm::mat3(matrix)) > 0) scale = -scale;
-        renderer.loadIdentity();
-        renderer.translate(glm::vec3(position));
-        if (align_angle != 0.0f) {
-            renderer.rotate(align_angle, align_axis);
-        }
-        scale *= world_scale;
-        renderer.scale(scale.x, scale.y, -scale.z);
-        return transform;
+    if ((alignment_flags & 1) == 0) return view.withModel(transform.matrix<glm::mat4>());
+    const auto& matrix = view.model_view;
+    const glm::vec4 position = matrix * glm::vec4(glm::vec3(this->transform.getLocation()), 1);
+    const auto world_scale = glm::vec3(this->transform.magnitudes());
+    glm::vec3 scale(glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])),
+                    glm::length(glm::vec3(matrix[2])));
+    if (glm::determinant(glm::mat3(matrix)) > 0) scale = -scale;
+    auto model_view = glm::translate(glm::mat4(1), glm::vec3(position));
+    if (align_angle != 0.0f) {
+        // A zero alignment axis discards the translation, as the retail rotation did.
+        model_view = glm::dot(align_axis, align_axis) == 0
+                         ? glm::mat4(1)
+                         : glm::rotate(model_view, align_angle, align_axis);
     }
+    scale *= world_scale;
+    return view.withModelView(glm::scale(model_view, glm::vec3(scale.x, scale.y, -scale.z)));
 }
 
 MeshInstance::RenderScope::RenderScope(const MeshInstance& instance, GpuRenderer& renderer,
                                        bool apply_exclusion)
-    : renderer(renderer), transform(instance.scopedRenderTransform(renderer))
+    : renderer(renderer)
 {
     restore_mask = apply_exclusion && instance.exclusion_mask != 0;
     if (restore_mask) {
@@ -293,14 +288,10 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     return *this;
 }
 
-/* Apply the instance transform for the render pass. Unaligned instances take
-   the ordinary world-space matrix; aligned instances rebuild the model-view
-   matrix from the camera basis so the model stays screen-facing while
-   inheriting the view's translation, scale and handedness. */
-void MeshInstance::draw(GpuRenderer& renderer)
+void MeshInstance::draw(GpuRenderer& renderer, const DrawTransform& view)
 {
     const auto scope = scopedRender(renderer);
-    RenderMeshes(renderer);
+    RenderMeshes(renderer, renderTransform(view));
 }
 
 /* Submit the instance's linked mesh chain. Pass one fills a detached TriMesh
@@ -310,7 +301,7 @@ void MeshInstance::draw(GpuRenderer& renderer)
    RenderTriMeshWithEquations. When the highlight RGBA is configured
    the chain is submitted again inflated along its normals into a shared
    scratch buffer with reversed winding, skipping the linked "blank" skin. */
-void MeshInstance::RenderMeshes(GpuRenderer& renderer)
+void MeshInstance::RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform)
 {
     Mesh::TriMesh mesh;
     mesh.control_flags = 0;
@@ -319,7 +310,7 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer)
     Mesh* first_model = model;
 
     const auto bounds = model->getBounds();
-    if (!model->isVisible(renderer)) return;
+    if (!model->isVisible(transform)) return;
 
     // c-style-cast-ok: the pick key is an opaque void* token
     renderer.setPickKey(
@@ -368,17 +359,18 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer)
         if (const auto active = linked.GetActivePolygons(table, true))
             selected.active_polygons = active;
     };
+    MeshState state{.transform = transform};
     const auto submit = [&](Mesh& linked, const Mesh::TriMesh& submitted,
                             std::span<const glm::vec3> normals) {
         const meshSubmission::PickScope picking(renderer, (render_flags & RENDER_NO_PICK) != 0);
-        linked.RenderTriMeshWithEquations(renderer, submitted, normals);
+        linked.RenderTriMeshWithEquations(renderer, submitted, normals, state);
     };
     drawLinked([&](Mesh* model, bool first_pass) {
         model->SetAmbientColor(ambient_color, renderer.environment_offset,
                                renderer.scene_brightness);
         mesh = model->getTriMesh();
         if ((render_flags & RENDER_SHADOW) != 0 && first_pass) {
-            RenderShadow(renderer, mesh);
+            RenderShadow(renderer, mesh, transform);
         }
 
         std::span<const glm::vec3> poly_normals;
@@ -412,10 +404,7 @@ void MeshInstance::RenderMeshes(GpuRenderer& renderer)
 
     if (highlight_colour.x != 0.0f || highlight_colour.y != 0.0f || highlight_colour.z != 0.0f ||
         highlight_colour.w != 0.0f) {
-        const meshSubmission::WindingScope winding(renderer);
-        if (highlight_pass_mode == 0) {
-            renderer.setWinding(GpuRenderer::WINDING_POSITIONAL_1);
-        }
+        if (highlight_pass_mode == 0) state.winding = Winding::Reversed;
         drawLinked([&](Mesh* model, bool first_pass) {
             mesh = model->getTriMesh();
             if (((model->flags & W8_MESH_SORTED_RENDERING) == 0) || first_pass) {
@@ -492,19 +481,16 @@ static const std::shared_ptr<Material>& ShadowMaterial()
 /* Submit the shared shadow-quad mesh extruded over the source mesh's height:
    front-cull the pass, translate to the mesh's mid-height, scale the unit
    quad by a clamped pitch factor, then feed the pipeline slots directly. */
-void MeshInstance::RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh)
+void MeshInstance::RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh,
+                                const DrawTransform& transform)
 {
     float height = mesh.bounds_maximum.y - mesh.bounds_minimum.y;
-    const meshSubmission::EnableScope enabled(renderer, true);
-    renderer.setCullMode(GpuRenderer::CULL_NONE);
-    const MatrixScope transform(renderer);
-    renderer.translate(0.0, height * 0.5f, 0.0);
+    auto model_view = glm::translate(transform.model_view, glm::vec3(0.0f, height * 0.5f, 0.0f));
     height *= kShadowExtrusionPitchScale;
     if (height < 0.5f) {
         height = 0.5f;
     }
-    double scale = height;
-    renderer.scale(scale, scale, scale);
+    model_view = glm::scale(model_view, glm::vec3(height));
 
     Mesh::TriMesh shadow;
     shadow.polygon_count = std::size(g_shadow_triangles);
@@ -516,5 +502,7 @@ void MeshInstance::RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh)
         (1u << Mesh::CONTROL_SKIP_AUTO_BOX) | (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE);
     shadow.materials[0][0] = ShadowMaterial();
     shadow.shaders[0].value = 0x44b3;
-    renderer.submitMesh(shadow);
+    renderer.submitMesh(
+        shadow,
+        {.transform = transform.withModelView(model_view), .cull = FaceCull::None, .sorted = true});
 }
