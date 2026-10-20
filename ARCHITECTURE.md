@@ -304,12 +304,22 @@ Unlayered code may use the layers.
 - **Voices.** A voice that finishes after its game has ended is dropped.
 - **Saves.** `save_codec.h` holds the save sections that are pure functions between bytes
   and values: `wiz8::save::GameState`, the game's `GameStatus` and party that the GSTA
-  section stores, and `LevelStatusHeader`, a level group's STAT record. A save encodes a
-  copy of the game's status and party, stamped with the camera, difficulty and Iron Man
-  file time; a load decodes one and moves it into the new game. The retail records of
-  these sections exist only in `save_codec.cpp`, and `GameStatus::retail` carries the
-  serialized bytes that are not game state. The other sections are still written from and
-  read into live objects by `LoadSaveGame.cpp`.
+  section stores; the message boxes (TEXT), location variables (TVAR), dialogue
+  transcript (NPCI), NPC states (NPCT), facts (NPCF), factions (FATA), journal (JRNL), the
+  monster-control effect (HYPN) and stored characters (CHAR); and `LevelStatusHeader`, a
+  level group's STAT record. A save captures each value from the game (the GSTA copy is
+  stamped with the camera, difficulty and Iron Man file time, shown messages carry their
+  remaining countdowns, and location variables fold in the level script's state) and
+  writes its payload. A load decodes each payload whole before installing it into the new
+  game, so a malformed section never leaves a half-applied game; a malformed CHAR section
+  is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
+  `GameStatus::retail` carries the serialized bytes that are not game state. A started
+  game keeps character files in `Game::stored_characters`. The level groups are still
+  written from and read into live worlds by `LoadSaveGame.cpp`, and `CurrentGame.SAV`
+  holds the groups of levels the party has left.
+- **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
+  its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
+  the bytes of its unnamed slots.
 
 ## Gameplay operations
 
