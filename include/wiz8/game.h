@@ -3,11 +3,16 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
+#include <glm/ext/vector_float3.hpp>
+
 #include "wiz8/character_event_queue.h"
-#include "wiz8/layouts/combat_state.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -65,6 +70,25 @@ public:
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
 
+    /* Start a fight with the monsters hostile to the party; `surprise` says the party
+       may be ambushed. Declines (returns false) while no member can fight, the party has
+       no footing, or a hostile NPC's combat-start script is still owed. */
+    bool beginCombat(int surprise);
+    /* End the fight: award its experience, restore the formation and the world, and
+       destroy the combat. A forced end (a departure or a scripted end) neither announces
+       nor kills the summoned monsters. */
+    void endCombat(bool forced_cleanup);
+
+    // Commands the level's monster scripts and triggers issue.
+    // A monster's script turns the group of the monster at `location_id` to `disposition`.
+    void setMonsterGroupDisposition(int location_id, W8Disposition disposition);
+    /* A monster's script starts the golem attack: two golem groups turn hostile, and the
+       second joins the fight. */
+    void startGolemAttack();
+    /* A trap or fountain casts `spell` at `position`. Heal All also lifts every condition
+       from the party. */
+    void castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level);
+
     W8Party party{};
     GameStatus status{};
     /* Every gameplay draw, party creation's included. A game continues the stream of the
@@ -73,7 +97,8 @@ public:
     Rng rng;
     Story story;
     W8MessageLog message_log;
-    W8CombatLifecycle combat;
+    // The fight in progress, if any.
+    std::optional<Combat> combat;
     /* What the party is doing. The camp commands set the place; dialogue and story scenes
        set the rest. */
     Activity activity;

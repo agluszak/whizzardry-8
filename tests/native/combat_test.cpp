@@ -8,12 +8,12 @@
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
@@ -38,7 +38,7 @@ struct CombatFixture {
     ScopedGame game_scope;
     ScopedCombat combat_scope{true};
     Game& game = game_scope.game;
-    W8CombatState& combat = *game.combat.state();
+    Combat& combat = *game.combat;
 
     CombatFixture()
     {

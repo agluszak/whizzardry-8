@@ -16,13 +16,13 @@
 #include "sight_state.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/CombatRange.h"
@@ -289,7 +289,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
             bool hostile = false;
 
             const auto mark = presentation.monsters.find(info->location_id);
-            if (CurrentGame().combat.active() && CurrentGame().status.selected_character != -1 &&
+            if (CurrentGame().combat.has_value() && CurrentGame().status.selected_character != -1 &&
                 mark != presentation.monsters.end() &&
                 CurrentGame().party.rows[CurrentGame().status.selected_character].fOccupied != 0 &&
                 (static_cast<unsigned char>(1 << CurrentGame().status.selected_character) &

@@ -9,6 +9,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/spell_ids.h"
@@ -18,7 +19,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -280,7 +280,7 @@ bool MartensBluff1TransportSpawn(void)
     if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
         return false;
     }
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         return true;
     }
     if (!FindEntityByName("ANTRHACAX1", &position_a, 0, 0)) {

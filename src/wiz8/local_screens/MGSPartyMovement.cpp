@@ -11,10 +11,10 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Combat.h"
@@ -73,14 +73,14 @@ unsigned char CreatePartyMovementPanel(void)
         button->SetVisible(index == 1);
     }
     MainGame()->party_movement_panel = true;
-    CurrentGame().combat.state()->party_move_percent = 100;
+    CurrentGame().combat->party_move_percent = 100;
     MainGameHud()->move_percent_shown = 100;
     return 1;
 }
 
 void ShowPartyMovementGauge(bool force)
 {
-    const int percent = CurrentGame().combat.state()->party_move_percent;
+    const int percent = CurrentGame().combat->party_move_percent;
     if (!force && percent == MainGameHud()->move_percent_shown) return;
     InvalidatePartyMovementPanel();
     MainGameHud()->move_percent_shown = percent;
@@ -118,12 +118,12 @@ void DrawPartyMovementPanel(void)
     short right;
     int image;
 
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
-    if ((CurrentGame().combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
-         CurrentGame().combat.state()->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
-        CurrentGame().combat.state()->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
+    if ((CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
+         CurrentGame().combat->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
+        CurrentGame().combat->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
         Fail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
              "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
              "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
@@ -132,14 +132,14 @@ void DrawPartyMovementPanel(void)
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;
     for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
-    if (visible == 1) movement->buttons[1]->SetEnabled(CurrentGame().combat.state()->round_active);
+    if (visible == 1) movement->buttons[1]->SetEnabled(CurrentGame().combat->round_active);
     panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
     if (panel_live) {
         CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
         movement->buttons[visible]->Refresh(true);
         movement->dirty = false;
     }
-    const int percent = CurrentGame().combat.state()->party_move_percent;
+    const int percent = CurrentGame().combat->party_move_percent;
     right = 0x1b9 - percent * 0xf6 / 100;
     if (!CanPartyMove()) {
         if (!IsLevelMovementStopped()) {
@@ -151,12 +151,10 @@ void DrawPartyMovementPanel(void)
         }
     } else {
         image = 0;
-        if (CurrentGame().combat.state()->execution_active != 0 && IsPartyEngaged() == 0) {
-            caption =
-                (CurrentGame().combat.state()->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
+        if (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0) {
+            caption = (CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
         } else {
-            caption =
-                (CurrentGame().combat.state()->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
+            caption = (CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
         }
     }
     if (panel_live) {
@@ -202,11 +200,10 @@ void DrawPartyMovementGauge(short right, short image, bool panel_live, int capti
         frame = 0;
     }
     W8PartyAction action;
-    if (!CanPartyMove() ||
-        (CurrentGame().combat.state()->execution_active != 0 && IsPartyEngaged() == 0)) {
-        action = CurrentGame().combat.state()->uiCurrentPartyAction;
+    if (!CanPartyMove() || (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0)) {
+        action = CurrentGame().combat->uiCurrentPartyAction;
     } else {
-        action = CurrentGame().combat.state()->uiNextPartyAction;
+        action = CurrentGame().combat->uiNextPartyAction;
     }
     if (action == W8_PARTY_ACTION_RUN) {
         timer_length = 0x32;

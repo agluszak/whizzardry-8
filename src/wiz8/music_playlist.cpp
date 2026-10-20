@@ -15,7 +15,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -136,7 +135,7 @@ void ServiceMusicPlaylist(void)
         return;
     }
 
-    if (!g_music_force_next && !CurrentGame().combat.active() &&
+    if (!g_music_force_next && !CurrentGame().combat.has_value() &&
         PresentationRng().below(100) <=
             static_cast<unsigned int>(playlist_info.pause_chance_percent)) {
         g_music_playlist_tick = MonotonicMilliseconds() + playlist_info.pause_min_seconds * 1000 +

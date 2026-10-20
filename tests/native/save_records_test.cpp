@@ -77,13 +77,13 @@
 #include "temporary_directory.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/script.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/Factions.h"
@@ -1396,17 +1396,17 @@ TEST_CASE("Radius-effect updates accept empty and short effect arrays", "[effect
 TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]")
 {
     const ScopedGame game;
-    ScopedCombat combat;
+    ScopedCombat combat{true};
     REQUIRE_FALSE(CombatHasCondition(0x3e));
-    CurrentGame().combat.state()->effect_slots[8].Activate(0x3e, 1, 1);
+    CurrentGame().combat->effect_slots[8].Activate(0x3e, 1, 1);
     REQUIRE(CombatHasCondition(0x3e));
-    CurrentGame().combat.state()->effect_slots[8].Reset();
-    CurrentGame().combat.state()->effect_slots0[5].Activate(0x3e, 1, 1);
+    CurrentGame().combat->effect_slots[8].Reset();
+    CurrentGame().combat->effect_slots0[5].Activate(0x3e, 1, 1);
     REQUIRE(CombatHasCondition(0x3e));
-    CurrentGame().combat.state()->effect_slots0[5].Reset();
+    CurrentGame().combat->effect_slots0[5].Reset();
     // In-flight missile state next to the short array is not an effect slot.
-    CurrentGame().combat.state()->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
-    CurrentGame().combat.state()->TargetHit.iMonsterID = 2;
+    CurrentGame().combat->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
+    CurrentGame().combat->TargetHit.iMonsterID = 2;
     REQUIRE_FALSE(CombatHasCondition(0x3e));
 }
 

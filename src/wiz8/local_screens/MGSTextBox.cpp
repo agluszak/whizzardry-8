@@ -23,12 +23,12 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/loaded_game_data.h"
@@ -179,7 +179,7 @@ static short ResolveNoticeTextBox(short text_box)
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
 
-        return CurrentGame().combat.active();
+        return CurrentGame().combat.has_value();
     }
     return text_box;
 }
@@ -732,10 +732,9 @@ void AdvanceNoticeLine(short text_box)
             g_npc_interaction_state->text_box_collapsed = false;
         } else if (!gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
                    !CurrentGame().activity.conversation_aside) {
-            if (CurrentGame().combat.active() &&
-                CurrentGame().combat.state()->notice_scroll_pending) {
+            if (CurrentGame().combat.has_value() && CurrentGame().combat->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
-                CurrentGame().combat.state()->notice_scroll_pending = false;
+                CurrentGame().combat->notice_scroll_pending = false;
             } else if (shown == 350) {
                 unsigned int scroll = MainGameHud()->text_lines[text_box];
                 if (scroll >= 344) {
@@ -1464,7 +1463,7 @@ void RefreshTextBoxMode(unsigned short mode)
              (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue)) &&
             !CurrentGame().activity.conversation_aside) {
 
-            mode = CurrentGame().combat.active();
+            mode = CurrentGame().combat.has_value();
 
         } else {
             mode = IsNpcDialogueTextBoxActive() ? 0 : 2;

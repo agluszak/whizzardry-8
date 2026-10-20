@@ -1,3 +1,4 @@
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"

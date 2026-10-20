@@ -17,6 +17,7 @@
 #include "monster_actions.h"
 #include "monster_cycles.h"
 #include "wiz8/audio/sound3d.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/entity_assets.h"
@@ -30,17 +31,14 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -487,14 +485,7 @@ void Monster::ProcessScript()
                         disposition = W8_DISPOSITION_HOSTILE;
                     else if (SDL_strcasecmp(token.c_str(), "DISP_FRIENDLY") == 0)
                         disposition = W8_DISPOSITION_FRIENDLY;
-                    monster_info = FindMonster(location_id);
-                    if (monster_info != 0) {
-                        W8MonsterGroup* group =
-                            FindMonsterGroup(monster_info->monster_group_id, false);
-                        if (group != 0) {
-                            SetMonsterGroupHostility(group, disposition, false);
-                        }
-                    }
+                    CurrentGame().setMonsterGroupDisposition(location_id, disposition);
                 }
                 break;
             }
@@ -561,15 +552,7 @@ void Monster::ProcessScript()
                 tokens >> token;
                 if (tokens) {
                     if (SDL_strcasecmp(token.c_str(), "STARTGOLEMATTACK") == 0) {
-                        ClearMainGameTargetState();
-                        W8MonsterGroup* group = FindFirstMonsterByID(0x68);
-                        if (group != 0)
-                            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
-                        group = FindFirstMonsterByID(0x13e);
-                        if (group != 0) {
-                            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
-                            MonsterGroupEnterCombat(group);
-                        }
+                        CurrentGame().startGolemAttack();
                     } else if (SDL_strcasecmp(token.c_str(), "ENDSAVANTWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");

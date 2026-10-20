@@ -18,7 +18,6 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
@@ -338,7 +337,7 @@ static void AcceptFormationChanges(void)
             StartBreathCycle(slot, false);
         }
     }
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
     } else if (CurrentGame().party.formation != CurrentGame().planned_formation) {
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);

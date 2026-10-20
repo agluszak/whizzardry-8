@@ -17,7 +17,6 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/random.h"
@@ -98,7 +97,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
             track_sound = true;
             if (location_id != 0) {
                 monster = GetMonsterByLocationID(location_id);
-                if (CurrentGame().combat.active() || (monster && monster->nearest_to_party)) {
+                if (CurrentGame().combat.has_value() || (monster && monster->nearest_to_party)) {
                     base_volume = footstep_combat_volume;
                 }
             }

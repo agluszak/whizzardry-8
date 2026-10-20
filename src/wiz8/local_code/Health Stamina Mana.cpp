@@ -15,6 +15,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
@@ -24,7 +25,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -336,7 +336,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         ++result_stats->count;
     }
     if (amount != 0) {
-        if (CurrentGame().combat.active() || monster_info->party_threat.visible_to_player) {
+        if (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player) {
             PointCameraAtMonster(monster_info, false, true);
             category = 9;
             if (TargetSourceIsCharacter(source, 0) && source->iChar != -1) {
@@ -946,7 +946,7 @@ unsigned int CharacterActionFatigueCost(int party_slot, W8ActionKind action_kind
     switch (action_kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK: {
-        const auto& combat_row = CurrentGame().combat.state()->characters[party_slot];
+        const auto& combat_row = CurrentGame().combat->characters[party_slot];
         attack_mode = static_cast<W8AttackMode>(
             CurrentGame().party.rows[party_slot].executing.attack_mode[combat_row.current_hand]);
         if (attack_mode == W8_ATTACK_MODE_PUNCH) {
@@ -1065,17 +1065,17 @@ void CharacterDies(int party_slot)
 
     ResetCombatSlot(&row->executing.target);
     ResetCombatSlot(&row->committed.target);
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         RecordCharacterDeath(party_slot);
     }
     QueuePartyDeathReaction(party_slot);
     wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
 
-    if (CurrentGame().combat.active()) {
-        CurrentGame().combat.state()->endTurnOf(PartyActor{party_slot});
+    if (CurrentGame().combat.has_value()) {
+        CurrentGame().combat->endTurnOf(PartyActor{party_slot});
         row->executing.kind = W8_ACTION_NONE;
-        CurrentGame().combat.state()->characters[party_slot].phase = 0;
-        CurrentGame().combat.state()->characters[party_slot].dead = true;
+        CurrentGame().combat->characters[party_slot].phase = 0;
+        CurrentGame().combat->characters[party_slot].dead = true;
         DropCharacterFromRound(party_slot);
     }
 

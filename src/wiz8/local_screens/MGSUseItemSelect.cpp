@@ -15,6 +15,7 @@
 #include "local_code/TextBuffer.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/AssayDialog.h"
@@ -23,7 +24,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
 #include "wiz8/loaded_game_data.h"
@@ -192,7 +192,7 @@ void CloseUseItemSelectView(void)
         SetTargetingMode(W8_TARGET_NEED_NONE);
         ResetEditorStatusLine(-1);
         MainGameHud()->text_box_visible = true;
-        SelectTextBox(CurrentGame().combat.active());
+        SelectTextBox(CurrentGame().combat.has_value());
         use_item.reset();
         RefreshMainGameLayout();
         RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
@@ -230,7 +230,8 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         const auto dragged = MainGame()->item_drag->item;
         if (CurrentGame().party.held.item.iItemNo == -1) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;
-            if (party_pool && CurrentGame().combat.active()) Fail("!CurrentGame().combat.active()");
+            if (party_pool && CurrentGame().combat.has_value())
+                Fail("!CurrentGame().combat.has_value()");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
                                      CurrentGame().party.itemAt(dragged));
         } else {
@@ -250,7 +251,8 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             const bool party_pool =
                 CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item.storage ==
                 W8ItemStorage::Pool;
-            if (party_pool && CurrentGame().combat.active()) Fail("!CurrentGame().combat.active()");
+            if (party_pool && CurrentGame().combat.has_value())
+                Fail("!CurrentGame().combat.has_value()");
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
             if (use_item->selected_line == -1) {
                 Fail("giReuseItemLineNumber != -1");
@@ -319,11 +321,11 @@ static void SelectUseItemPool(ItemPool pool)
 // Both controls project the selected source. Their pressed states never select a source.
 void UpdateUseItemScrollButtons(void)
 {
-    if (CurrentGame().combat.active() && use_item->pool == ItemPool::Party)
+    if (CurrentGame().combat.has_value() && use_item->pool == ItemPool::Party)
         RebuildUseItemSelectList(ItemPool::Character, nullptr);
     const bool hand = use_item->pool == ItemPool::Hand;
     use_item->pools[0]->SetEnabled(!hand);
-    use_item->pools[1]->SetEnabled(!hand && !CurrentGame().combat.active());
+    use_item->pools[1]->SetEnabled(!hand && !CurrentGame().combat.has_value());
     use_item->pools[0]->SetPressed(use_item->pool == ItemPool::Character);
     use_item->pools[1]->SetPressed(use_item->pool == ItemPool::Party);
 }

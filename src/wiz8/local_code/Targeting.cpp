@@ -16,6 +16,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/main_game_screen.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
@@ -26,7 +27,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
@@ -477,7 +477,7 @@ void ApplyTarget(W8CombatSlot* target, bool in_combat)
             continue;
         }
         SetTargetSourceToCharacter(party_slot, &source);
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             if ((row->committed.target == *target)) {
                 action_targets_enemies = CharacterActionTargetsEnemies(
                     CurrentGame().party, character, row->committed.kind, row->committed.detail,
@@ -1220,9 +1220,9 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
     }
     needed = GetTargetNeededForAction(CurrentGame().party, selected_action);
     previous_kind = target->iType;
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         if (context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-            ++CurrentGame().combat.state()->characters[party_slot].pending_action_repick_count;
+            ++CurrentGame().combat->characters[party_slot].pending_action_repick_count;
         }
         is_attack_kind = kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK;
         if ((is_attack_kind || kind == W8_ACTION_CAST_SPELL || kind == W8_ACTION_USE_ITEM) &&
@@ -1268,7 +1268,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
         new_target.iType = W8_TARGET_KIND_NONE;
         AimAtTarget(party_slot, &new_target, context);
     }
-    if (CurrentGame().combat.active() && context == W8_TARGETING_CONTEXT_IN_COMBAT &&
+    if (CurrentGame().combat.has_value() && context == W8_TARGETING_CONTEXT_IN_COMBAT &&
         new_target.iType != previous_kind) {
         RequestPartySlotRedraw(party_slot);
     }
@@ -1310,7 +1310,7 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
 
     if (sighting) {
         needed = W8_TARGET_NEED_NONE;
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             return {W8TargetFailure::Unavailable};
         }
     } else {
@@ -1325,7 +1325,7 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
                 if (needed != W8_TARGET_NEED_NONE) {
                     return {W8TargetFailure::Unavailable};
                 }
-                if (CurrentGame().combat.active()) {
+                if (CurrentGame().combat.has_value()) {
                     return {W8TargetFailure::Unavailable};
                 }
             }
@@ -1613,7 +1613,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     AimAtTarget(party_slot, &target, context);
 
     group->highlighted_member = picked;
-    if (auto* combat = CurrentGame().combat.state()) combat->target_picked = true;
+    if (auto& combat = CurrentGame().combat) combat->target_picked = true;
 
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
@@ -1696,7 +1696,7 @@ void CycleToNextTarget(int party_slot)
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
     PointCameraAtCombatTarget(&source, &target);
-    if (auto* combat = CurrentGame().combat.state()) combat->target_picked = true;
+    if (auto& combat = CurrentGame().combat) combat->target_picked = true;
 }
 
 /* Refresh each slot's selected target after a sight or range change, repicking
@@ -2029,9 +2029,9 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
     const auto& row = CurrentGame().party.rows[party_slot];
     const auto& character = CurrentGame().party.characters[party_slot];
     if (!g_settings.autoswap_weapons || row.item_action_pending ||
-        (CurrentGame().combat.state()->execution_active &&
-         CurrentGame().combat.state()->characters[party_slot].dead &&
-         CurrentGame().combat.state()->characters[party_slot].phase != 0) ||
+        (CurrentGame().combat && CurrentGame().combat->execution_active &&
+         CurrentGame().combat->characters[party_slot].dead &&
+         CurrentGame().combat->characters[party_slot].phase != 0) ||
         IsItemBoundToWearer(&character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON]) ||
         IsItemBoundToWearer(&character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON]))
         return {};

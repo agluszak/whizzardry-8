@@ -36,6 +36,7 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
@@ -57,14 +58,11 @@
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -458,7 +456,7 @@ void TriggerEvent::Update()
     if (action == 2) {
         W8GameTimer::Flags flags = timer.m_flags;
 
-        if (CurrentGame().combat.engineActive()) {
+        if (CurrentGame().combat.has_value()) {
             if (flags.paused || (g_shared_timer_paused && !flags.raw_time) ||
                 g_shared_timer_flag0) {
                 return;
@@ -1695,13 +1693,8 @@ void Trigger::Run(int source)
                 } else {
                     spell_id = W8_SPELL_HEAL_ALL;
                 }
-                PointCastSpell(glm::vec3(static_cast<float>(position.x),
-                                         static_cast<float>(position.y),
-                                         static_cast<float>(position.z)),
-                               spell_id, static_cast<unsigned int>(m_lData3));
-                if (action == 0x2b) {
-                    RemoveAllConditionsFromParty();
-                }
+                CurrentGame().castTriggerSpell(glm::vec3(position), spell_id,
+                                               static_cast<unsigned int>(m_lData3));
             }
         }
 
@@ -2006,7 +1999,7 @@ bool Trigger::SelectAction()
     bool fallback_selected = false;
     bool result = true;
 
-    if (CurrentGame().combat.engineActive() && doorData() != nullptr && doorData()->open) {
+    if (CurrentGame().combat.has_value() && doorData() != nullptr && doorData()->open) {
         return false;
     }
 

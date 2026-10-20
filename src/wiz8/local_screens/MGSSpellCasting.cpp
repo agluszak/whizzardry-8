@@ -19,6 +19,7 @@
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -29,7 +30,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -268,7 +268,7 @@ void CloseSpellCastingView(void)
         ResetEditorStatusLine(-1);
     }
     MainGameHud()->text_box_visible = true;
-    SelectTextBox(CurrentGame().combat.active());
+    SelectTextBox(CurrentGame().combat.has_value());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     location_id = gpSCSV->location_id;
     interact_id = gpSCSV->interact_id;
@@ -413,7 +413,7 @@ static void UpdateSpellPowerPips(void)
             gpSCSV->power_controls[7]->SetVisible(false);
             gpSCSV->power_controls[8]->SetVisible(false);
         } else if (gpSCSV->PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) {
-            gpSCSV->power_controls[7]->SetVisible(!CurrentGame().combat.active());
+            gpSCSV->power_controls[7]->SetVisible(!CurrentGame().combat.has_value());
             RefreshAvailableSpellPowerPips();
             gpSCSV->power_controls[8]->SetVisible(false);
         } else if (gpSCSV->PowerClass() == W8_SPELL_POWER_MAXIMUM) {

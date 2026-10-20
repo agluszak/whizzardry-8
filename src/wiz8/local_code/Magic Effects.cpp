@@ -17,6 +17,7 @@
 #include "monster_spell_icons.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -30,7 +31,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
@@ -363,8 +363,8 @@ void ResetCombatEffects(void)
     int i;
 
     for (i = 0; i < 9; ++i) {
-        if (CurrentGame().combat.state()->effect_slots[i].active) {
-            ResetPartyEffectBlock(&CurrentGame().combat.state()->effect_slots[i]);
+        if (CurrentGame().combat->effect_slots[i].active) {
+            ResetPartyEffectBlock(&CurrentGame().combat->effect_slots[i]);
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
@@ -377,8 +377,8 @@ void ResetCombatEffects(void)
         }
     }
     for (i = 0; i < 6; ++i) {
-        if (CurrentGame().combat.state()->effect_slots0[i].active) {
-            ResetPartyEffectBlock(&CurrentGame().combat.state()->effect_slots0[i]);
+        if (CurrentGame().combat->effect_slots0[i].active) {
+            ResetPartyEffectBlock(&CurrentGame().combat->effect_slots0[i]);
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
@@ -1858,8 +1858,8 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     int index;
 
     spell_id = effect->kind;
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
     duration = RollEffectDuration(&effect->definition);
     if (TargetSourceIsCharacter(&effect->Source, 1)) {
@@ -1878,7 +1878,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         Fail("fFound");
     } else {
         if (!effect->target_indices.empty()) {
-            slot = &CurrentGame().combat.state()->effect_slots[slot_index];
+            slot = &CurrentGame().combat->effect_slots[slot_index];
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
             RebuildPartyEffectBlock();
             RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_COMBAT_EFFECTS);
@@ -1932,8 +1932,8 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
     int index;
 
     spell_id = effect->kind;
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
     duration = RollEffectDuration(&effect->definition);
     slot_index = 0;
@@ -1947,7 +1947,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
         }
     }
     if (!effect->target_indices.empty()) {
-        slot = &CurrentGame().combat.state()->effect_slots0[slot_index];
+        slot = &CurrentGame().combat->effect_slots0[slot_index];
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
         RebuildPartyEffectBlock();
         RequestRedraw(W8_MAIN_REDRAW_ROOF_AND_SPELL_ICONS | W8_MAIN_REDRAW_COMBAT_EFFECTS);
@@ -2255,7 +2255,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         if (monster_info->p3D->IsDying()) {
             continue;
         }
-        if ((!CurrentGame().combat.active() && monster_info->p3D->nav.linked_navigator != 0) ||
+        if ((!CurrentGame().combat.has_value() && monster_info->p3D->nav.linked_navigator != 0) ||
             monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
             continue;
         }
@@ -2277,7 +2277,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         target.iType = W8_TARGET_KIND_MONSTER;
         target.iMonsterID = monster_info->location_id;
         if (!MonsterResistsSpellEffect(&target, effect->definition.power_level)) {
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_LURED);
             } else {
                 SetMonsterGroupControlState(FindMonsterGroup(monster_info->monster_group_id),
@@ -2285,7 +2285,7 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
             }
             effect->applied = true;
         } else {
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_RESISTED);
             } else {
                 SetMonsterGroupControlState(FindMonsterGroup(monster_info->monster_group_id),
@@ -2448,8 +2448,8 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
     int slot_index;
     int index;
 
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
     duration = effect->definition.duration_scale;
     if (duration != W8_CONDITION_INDEFINITE) {
@@ -2480,7 +2480,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
             reduce = Data().spells[W8_SPELL_PURIFY_AIR].spell_level -
                      Data().spells[*table].spell_level + duration;
             if (reduce > 0) {
-                slot = &CurrentGame().combat.state()->effect_slots[slot_index];
+                slot = &CurrentGame().combat->effect_slots[slot_index];
                 if (!effect->target_indices.empty() && slot->active) {
                     if (static_cast<unsigned int>(reduce) < slot->duration) {
                         slot->duration -= reduce;
@@ -2682,7 +2682,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
 }
 
 /* Per-tick upkeep for the first party combat-effect block (the nine slots at
-   W8CombatState+0x7c1).  Each live slot re-applies its spell to the block's
+   Combat+0x7c1).  Each live slot re-applies its spell to the block's
    target: the damage spells roll fresh dice every tick, the 0x5d sleep
    effect retries the condition instead, and 0x4c additionally rolls the
    shared 4/7/0x11 condition bundle on whatever survived the first checks. */
@@ -3096,7 +3096,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         InflictConditionAttack(effect, W8_CONDITION_AFRAID, 100, 0);
         AlertMonsterGroupsToNoise(&effect->target.point,
                                   effect->definition.duration_scale * 15000 + 25000, 0);
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             effect->applied = true;
         }
         break;
@@ -3414,7 +3414,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 
 static void QueueCombatDamageReports(W8SpellEffectResult* result)
 {
-    auto& queued = CurrentGame().combat.state()->attack_report.reports;
+    auto& queued = CurrentGame().combat->attack_report.reports;
     queued.insert(queued.end(), std::make_move_iterator(result->reports.begin()),
                   std::make_move_iterator(result->reports.end()));
     result->reports.clear();
@@ -3441,7 +3441,7 @@ void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchan
         ApplyCharacterDamageReduction(&CurrentGame().party.characters[party_slot], RollDice(&dice));
     if (amount > 0) {
         ApplyDamageToCharacter(party_slot, amount, false, verbose, verbose, &result, false);
-        CurrentGame().combat.state()->attack_report.notice_values[3] += result.amount;
+        CurrentGame().combat->attack_report.notice_values[3] += result.amount;
         QueueCombatDamageReports(&result);
     }
 }
@@ -3467,7 +3467,7 @@ void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sourc
     amount = ApplyDamageReduction(monster_info, record, damage);
     if (amount > 0) {
         ApplyDamageToMonster(monster_info, amount, source, false, verbose, verbose, 0, false);
-        CurrentGame().combat.state()->attack_report.notice_values[3] += amount;
+        CurrentGame().combat->attack_report.notice_values[3] += amount;
     }
 }
 
@@ -3487,7 +3487,7 @@ void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int da
         } else {
             amount =
                 ApplyDamageToCharacter(party_slot, amount, false, false, false, &result, false);
-            CurrentGame().combat.state()->attack_report.notice_values[4] += amount;
+            CurrentGame().combat->attack_report.notice_values[4] += amount;
             QueueCombatDamageReports(&result);
         }
     }
@@ -3511,7 +3511,7 @@ void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sou
         } else {
             amount =
                 ApplyDamageToMonster(monster_info, amount, source, false, 0, 0, &result, false);
-            CurrentGame().combat.state()->attack_report.notice_values[4] += amount;
+            CurrentGame().combat->attack_report.notice_values[4] += amount;
             QueueCombatDamageReports(&result);
         }
     }

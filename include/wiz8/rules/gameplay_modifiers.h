@@ -98,10 +98,10 @@ struct W8GameplayModifierBlock {
    W8GameStatus::effect_slots. */
 extern const int g_being_effect_slot_spells[12];
 /* The combat-state spell per effect slot, walked against
-   W8CombatState::effect_slots and the monster's combat_effects. */
+   Combat::effect_slots and the monster's combat_effects. */
 extern const int g_combat_effect_slot_spells[9];
 /* The same mapping for the second combat effect block, indexed against
-   W8CombatState::effect_slots0 and the monster's combat_effects_2. */
+   Combat::effect_slots0 and the monster's combat_effects_2. */
 extern const int g_combat_effect_slot_spells_and_cast_success[23];
 
 #endif

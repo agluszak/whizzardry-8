@@ -1,8 +1,8 @@
 
 #include "wiz8/npc_interaction.h"
 
+#include "wiz8/combat/combat.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_code/npc_story_events.h"

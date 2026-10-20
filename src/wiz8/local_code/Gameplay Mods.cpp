@@ -1,9 +1,9 @@
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -28,17 +28,17 @@ void RebuildPartyEffectBlock(void)
 {
     W8GameplayModifierBlock modifiers{};
     ApplyPartyEffectSlots(CurrentGame().status.effect_slots.data(), &modifiers);
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         unsigned char value = modifiers.armor_matchup;
 
-        for (auto& effect_slot : CurrentGame().combat.state()->effect_slots) {
+        for (auto& effect_slot : CurrentGame().combat->effect_slots) {
             W8EffectSlot* slot = &effect_slot;
             if (slot->active && slot->effect_id == 0x31) {
                 value -= slot->amount;
                 modifiers.armor_matchup = value;
             }
         }
-        ApplyCombatEffectSlots(CurrentGame().combat.state()->effect_slots0, &modifiers);
+        ApplyCombatEffectSlots(CurrentGame().combat->effect_slots0, &modifiers);
     }
     int active = 0;
     unsigned int slot_byte = 0;

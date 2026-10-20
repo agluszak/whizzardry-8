@@ -14,12 +14,12 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/combat/combat.h"
 #include "wiz8/containers.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -47,7 +47,7 @@ bool g_navigator_position_changed;
 namespace {
 bool NavigationCombatActive(const Navigator& navigator)
 {
-    return CurrentGame().combat.engineActive() &&
+    return CurrentGame().combat.has_value() &&
            (!navigator.owner_world || navigator.owner_world == GetWorld());
 }
 
@@ -211,7 +211,7 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
                                                   group, 0.0f, navigator->movement.yaw, false)) &&
                         (MoveMonsterGroupToPosition(group, &position, navigator->movement.yaw,
                                                     false, true, false, false),
-                         (!CurrentGame().combat.engineActive()) != 0)) {
+                         (!CurrentGame().combat.has_value()) != 0)) {
                         navigator->linked_update_time = 0;
                         for (auto* group_navigator : navigator->CollectGroupNavigators()) {
                             group_navigator->movement.attachment->CopyPathFrom(
@@ -1544,7 +1544,7 @@ void Navigator::UpdateAngles()
     float reverse_distance;
     float direction;
 
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         step = movement.turn_rate;
     }
     step *= g_rate * GameTimeAccumulator().GetFrameDelta();

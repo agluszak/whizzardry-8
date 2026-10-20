@@ -13,6 +13,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogInterface.h"
@@ -23,7 +24,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/Ascension.h"
@@ -176,7 +176,7 @@ void EndScriptedPortraitPick(int party_slot)
     if (!CurrentGame().activity.scripted_scene) {
         return;
     }
-    if (!CurrentGame().combat.active() || CurrentGame().party_movement_mode) {
+    if (!CurrentGame().combat.has_value() || CurrentGame().party_movement_mode) {
         ClearLevelMovementStopped();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);

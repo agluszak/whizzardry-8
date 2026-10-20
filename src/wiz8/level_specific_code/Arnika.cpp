@@ -8,6 +8,7 @@
 #include "monster_actions.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
@@ -17,7 +18,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/Factions.h"
@@ -389,7 +389,7 @@ bool ArnikaMookholo(Trigger* pTrigger)
     W8MonsterInfo* info;
     int location_id;
 
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         return false;
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&

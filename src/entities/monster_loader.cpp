@@ -32,7 +32,6 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/CombatAttack.h"
 #include "wiz8/local_code/Factions.h"

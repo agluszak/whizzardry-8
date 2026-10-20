@@ -12,6 +12,7 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
@@ -23,7 +24,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
@@ -83,7 +83,7 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     auto& advancement = game.advancement;
     advancement.hold = hold;
     const bool held = advancement.paused || hold.covered || hold.world;
-    const bool time_stopped = held || game.combat.active();
+    const bool time_stopped = held || game.combat.has_value();
     const World* world = GetWorld();
     const bool hold_changed = held != advancement.held;
     const bool time_changed = world != advancement.world || time_stopped == advancement.time_passes;
@@ -190,8 +190,8 @@ void UpdateGameClock(int elapsed)
         }
     }
 
-    if ((!CurrentGame().combat.active() || aging_ticks != 0) && g_camera_sway_active) {
-        if (CurrentGame().combat.active()) {
+    if ((!CurrentGame().combat.has_value() || aging_ticks != 0) && g_camera_sway_active) {
+        if (CurrentGame().combat.has_value()) {
             if (aging_ticks == 0) {
                 Fail("uiTurnsElapsed > 0");
             }
@@ -211,7 +211,7 @@ void UpdateGameClock(int elapsed)
         CurrentGame().status.camp_fatigue_count = 0;
     }
 
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         CurrentGame().status.stamina_tick_ms = 0;
     } else {
         CurrentGame().status.stamina_tick_ms += elapsed;
@@ -249,7 +249,7 @@ void RequestCamp(void)
     if (CurrentGame().surprise_possible) {
         return;
     }
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
         return;
     }
@@ -328,7 +328,7 @@ void UpdateSurpriseMode(void)
     case SurprisePhase::fade_out_and_resolve:
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 StopAllNavigators();
             }
         }
@@ -343,7 +343,7 @@ void UpdateSurpriseMode(void)
    sequence to phase 2. */
 void AcknowledgeSurprise(void)
 {
-    if (CurrentGame().surprise.unengaged && !CurrentGame().combat.active()) {
+    if (CurrentGame().surprise.unengaged && !CurrentGame().combat.has_value()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x794]);
         return;
     }
@@ -420,7 +420,7 @@ void RestoreSurpriseView(void)
    posed awake with a randomized idle clock and the button banks re-enable. */
 void ResolveSurpriseWake(void)
 {
-    if (CurrentGame().combat.state() != 0 && CurrentGame().combat.state()->party_surprised) {
+    if (CurrentGame().combat.has_value() && CurrentGame().combat->party_surprised) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
             W8Character* character = &CurrentGame().party.characters[slot];
             if (!CurrentGame().party.rows[slot].fOccupied ||
@@ -535,12 +535,12 @@ void AdvanceTimedEffects(unsigned int minutes)
         }
     }
 
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         W8CombatSlot target;
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_PARTY;
-        TickCombatEffectSlots(CurrentGame().combat.state()->effect_slots, &target);
-        TickRadiusBlastEffectSlots(CurrentGame().combat.state()->effect_slots0);
+        TickCombatEffectSlots(CurrentGame().combat->effect_slots, &target);
+        TickRadiusBlastEffectSlots(CurrentGame().combat->effect_slots0);
     }
 
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
@@ -561,15 +561,15 @@ void AdvanceTimedEffects(unsigned int minutes)
         }
     }
 
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         for (i = 0; i < 9; ++i) {
-            W8EffectSlot* slot = &CurrentGame().combat.state()->effect_slots[i];
+            W8EffectSlot* slot = &CurrentGame().combat->effect_slots[i];
             if (AgePartyEffectSlot(slot, minutes)) {
                 combat_changed = true;
             }
         }
         for (i = 0; i < 6; ++i) {
-            W8EffectSlot* slot = &CurrentGame().combat.state()->effect_slots0[i];
+            W8EffectSlot* slot = &CurrentGame().combat->effect_slots0[i];
             if (AgePartyEffectSlot(slot, minutes)) {
                 combat_changed = true;
             }
@@ -614,7 +614,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (damage != 0) {
         damage *= minutes;
         if (CurrentGame().status.wait_state != W8_GAME_WAIT_STATE_RESTING ||
-            CurrentGame().combat.active()) {
+            CurrentGame().combat.has_value()) {
             damage += damage >> 1;
         }
         ApplyDamageToCharacter(party_slot, damage, true, true, false,
@@ -794,7 +794,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (CurrentGame().surprise_possible) {
         health_scale = 1.0f;
     } else if (CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_RESTING &&
-               !CurrentGame().combat.active()) {
+               !CurrentGame().combat.has_value()) {
         health_scale = 0.5f;
     } else {
         health_scale = 0.0f;
@@ -819,7 +819,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         }
     }
     if (CharacterHasTrait(character, W8_TRAIT_STAMINA_REGENERATION) &&
-        CurrentGame().combat.active()) {
+        CurrentGame().combat.has_value()) {
         stamina_scale = ScaleValueByProfessionLevel(character, W8_TRAIT_STAMINA_REGENERATION, 3.3f);
     }
     if (CharacterHasTrait(character, static_cast<W8Trait>(0x1a)) && spell_scale > 0.0f) {
@@ -1129,8 +1129,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
-            ApplyDamageToMonster(monster_info, amount, &source, true, CurrentGame().combat.active(),
-                                 0, 0, false);
+            ApplyDamageToMonster(monster_info, amount, &source, true,
+                                 CurrentGame().combat.has_value(), 0, 0, false);
         }
     }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -1304,7 +1304,7 @@ void UpdateCampFatigue(int ticks)
                                          static_cast<W8SpellEffectResult*>(0));
                     }
                     bool announce =
-                        !CurrentGame().combat.active() || g_settings.verbose_combat_messages == 0
+                        !CurrentGame().combat.has_value() || g_settings.verbose_combat_messages == 0
                             ? 0
                             : 1;
                     ApplyDamageToCharacter(slot, amount, false, announce, false,
@@ -1393,7 +1393,7 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     }
     if (CharacterHasTrait(character, W8_TRAIT_STAMINA_REGENERATION)) {
         if (scale == 0.0f) {
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 scale = ScaleValueByProfessionLevel(character, W8_TRAIT_STAMINA_REGENERATION, 3.3f);
             }
         } else {

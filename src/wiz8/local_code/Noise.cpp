@@ -6,10 +6,10 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -41,7 +41,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
             continue;
         }
         if (flag == 1) {
-            if (CurrentGame().combat.active() && group->fInCombat) {
+            if (CurrentGame().combat.has_value() && group->fInCombat) {
                 continue;
             }
         } else if (flag == 0 && info->ubDisposition != W8_DISPOSITION_HOSTILE) {
@@ -64,7 +64,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
                 continue;
             }
         }
-        if (flag == 1 && CurrentGame().combat.active()) {
+        if (flag == 1 && CurrentGame().combat.has_value()) {
             const auto path = GetWorldSpatialIndex()->measureNoisePath(
                 monster_position, noise_position, static_cast<float>(radius));
             if (!path) {

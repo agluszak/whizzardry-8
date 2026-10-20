@@ -9,8 +9,8 @@
 #include <fmt/printf.h>
 
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/loaded_game_data.h"
@@ -82,11 +82,11 @@ void RefreshCombatEffectHud()
 {
     left_icons.reset();
     right_icons.reset();
-    if (!CurrentGame().combat.active()) return;
-    PaintEffectStrip(left_icons, CurrentGame().combat.state()->effect_slots, {0x81, 0x14}, 0x15,
-                     0x14, false);
-    PaintEffectStrip(right_icons, CurrentGame().combat.state()->effect_slots0, {0x1eb, 0x14}, -0x15,
-                     0x14, true);
+    if (!CurrentGame().combat.has_value()) return;
+    PaintEffectStrip(left_icons, CurrentGame().combat->effect_slots, {0x81, 0x14}, 0x15, 0x14,
+                     false);
+    PaintEffectStrip(right_icons, CurrentGame().combat->effect_slots0, {0x1eb, 0x14}, -0x15, 0x14,
+                     true);
     left_icons->setEnabled(!MainGameHud()->portrait_refresh_pending[0]);
     right_icons->setEnabled(!MainGameHud()->portrait_refresh_pending[1]);
 }

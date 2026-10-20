@@ -19,6 +19,7 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
@@ -32,7 +33,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_state.h"
@@ -1595,13 +1595,13 @@ bool SwapWeaponSetSlots(Game& game, int party_slot, bool announce)
    the portraits redraw. */
 void BindCharacterItems(Game& game, int party_slot, bool announce)
 {
-    if (game.combat.active()) {
-        if (!game.combat.state()->round_active && !game.party_movement_mode) {
+    if (game.combat.has_value()) {
+        if (!game.combat->round_active && !game.party_movement_mode) {
             game.events.push(TextNotice{W8_FONT_PALETTE_BEIGE,
                                         Data().strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]});
             return;
         }
-        if (game.combat.state()->resolvingTurnOf(PartyActor{party_slot}) &&
+        if (game.combat->resolvingTurnOf(PartyActor{party_slot}) &&
             (game.party.rows[party_slot].executing.kind == W8_ACTION_ATTACK ||
              game.party.rows[party_slot].executing.kind == W8_ACTION_BERSERK)) {
             game.events.push(TextNotice{
@@ -1926,7 +1926,7 @@ static ItemUseOutcome UseItemOnce(Game& game, W8Character* character, W8ItemInst
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_POTION ||
             (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL &&
              record->equip_class < W8_ITEM_EQUIP_CLASS_KEY)) {
-            if (!game.combat.active()) {
+            if (!game.combat.has_value()) {
                 W8CombatSlot* aimed = &game.party.rows[party_slot].executing.target;
                 if (aimed->iType == W8_TARGET_KIND_CHARACTER) {
                     SetTargetSourceToCharacter(aimed->iChar, &target);

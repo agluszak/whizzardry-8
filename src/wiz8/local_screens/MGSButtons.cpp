@@ -17,12 +17,12 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -326,7 +326,7 @@ void UpdateCombatStanceButtons(void)
     unsigned char index;
     bool enabled;
 
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         for (auto& button : MainGame()->hud_buttons.combat_stance) {
             button.SetVisible(false);
         }
@@ -334,11 +334,11 @@ void UpdateCombatStanceButtons(void)
     }
 
     if (g_settings.continuous_combat == 0) {
-        stance = CurrentGame().combat.state()->execution_active != 0 ? 3U : 0U;
-    } else if ((TimeUntilDeadline(CurrentGame().combat.state()->combat_ui_timer) == 0 &&
+        stance = CurrentGame().combat->execution_active != 0 ? 3U : 0U;
+    } else if ((TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) == 0 &&
                 CombatMayAdvanceContinuously()) ||
-               CurrentGame().combat.state()->party_surprised) {
-        stance = CurrentGame().combat.state()->round_active ? 1U : 4U;
+               CurrentGame().combat->party_surprised) {
+        stance = CurrentGame().combat->round_active ? 1U : 4U;
     } else {
         stance = 2;
     }
@@ -367,10 +367,10 @@ void RedrawCombatStanceButtons(void)
 
 static void MainGameCombatConfirmButton(W8ButtonWidget* button)
 {
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         return;
     }
-    if (CurrentGame().combat.state()->execution_active != 0) {
+    if (CurrentGame().combat->execution_active != 0) {
         TogglePartyCombatStance();
         return;
     }
@@ -378,15 +378,15 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
     if (g_settings.continuous_combat == 0) {
         return;
     }
-    if (TimeUntilDeadline(CurrentGame().combat.state()->combat_ui_timer) == 0) {
+    if (TimeUntilDeadline(CurrentGame().combat->combat_ui_timer) == 0) {
         return;
     }
-    CurrentGame().combat.state()->combat_ui_timer = MonotonicMilliseconds() + (0);
+    CurrentGame().combat->combat_ui_timer = MonotonicMilliseconds() + (0);
 }
 
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
 {
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         TogglePartyCombatStance();
     }
 }
@@ -782,7 +782,7 @@ void DrawSubMenuCharacterAction(void)
                        Data().strings[g_profession_name_message_ids[character->iProfession]]);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                           {(0xb9 - g_smfnt_font.textWidth(text)) / 2 + 0x157, 0x1c6}, text);
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
         }
@@ -871,7 +871,7 @@ void UpdateSubMenuPanelButtons(void)
 {
     bool enabled;
 
-    if (!CurrentGame().combat.active() || !CurrentGame().combat.state()->round_active ||
+    if (!CurrentGame().combat.has_value() || !CurrentGame().combat->round_active ||
         CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
         CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
         MainGameHud()->open_submenu) {
@@ -922,7 +922,7 @@ void RedrawSubMenuButtons(void)
     int frame;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 4, 0x1e, 0x1c2);
-    frame = !CurrentGame().combat.active() ? 8 : 9;
+    frame = !CurrentGame().combat.has_value() ? 8 : 9;
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
     for (auto& button : MainGame()->hud_buttons.submenu) {
@@ -1294,7 +1294,7 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
-            if (CurrentGame().combat.active()) {
+            if (CurrentGame().combat.has_value()) {
                 state = CheckSubMenuActionUsable(party_slot);
             }
         } else if (item == 1) {

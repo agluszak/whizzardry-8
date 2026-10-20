@@ -1,17 +1,14 @@
-#include <cstdint>
-#include <string>
-
-#include "wiz8/audio_resources.h"
-#ifndef WIZ8_LAYOUTS_COMBAT_STATE_H
-#define WIZ8_LAYOUTS_COMBAT_STATE_H
+#pragma once
 
 #include <algorithm>
-#include <memory>
+#include <cstdint>
 #include <optional>
+#include <string>
 #include <type_traits>
 #include <variant>
 #include <vector>
 
+#include "wiz8/audio_resources.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/rules/character.h"
@@ -166,8 +163,9 @@ struct W8CombatCharacterRow {
     unsigned char skill_use_flags[0x29];
 };
 
-/* The combat state, allocated when combat starts. */
-struct W8CombatState {
+/* One fight, owned by its game (`Game::combat`) from the moment it starts until it
+   ends. Nothing outlives it: the next fight is a new value. */
+struct Combat {
     /* Historical offset 0x000: raised by BeginCombatExecution and cleared at the round
        boundary. Gates actor scheduling; not the end-of-combat flag. */
     unsigned char execution_active;
@@ -199,8 +197,9 @@ struct W8CombatState {
     /* Historical offset 0x7ac: the pacing clock the scheduler arms as a MonotonicMilliseconds deadline
        before the scheduled actor's action may execute. */
     uint64_t action_clock;
+    /* The hit sound the turn waits on; its completion releases it (an empty playback
+       when none is held). */
     wiz8::sound::Playback hit_sound;
-    bool hit_sound_active;
     W8EffectSlot effect_slots[9];
     W8EffectSlot effect_slots0[6];
     Missile* engaged_missile;
@@ -343,22 +342,3 @@ struct W8CombatState {
 private:
     CombatTurn turn_ = TurnIdle{};
 };
-
-// Engine participation starts before the gameplay mode and ends after restoration.
-// The state remains available throughout restoration.
-class W8CombatLifecycle {
-public:
-    bool Start(int surprise);
-    void End(bool forced_cleanup);
-    bool active() const { return phase_ == Phase::Active; }
-    bool engineActive() const { return phase_ != Phase::Idle; }
-    W8CombatState* state() const { return state_.get(); }
-
-private:
-    friend struct ScopedCombat;
-    enum class Phase { Idle, Entering, Active, Restoring };
-    Phase phase_ = Phase::Idle;
-    std::unique_ptr<W8CombatState> state_;
-};
-
-#endif

@@ -9,12 +9,12 @@
 #include <fmt/printf.h>
 
 #include "local_code/ConditionsAndEnchantments.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -161,14 +161,14 @@ void CheatDeathRevive(Game& game, int party_slot)
             static_cast<int>(ScaleValueByProfessionLevel(character, W8_TRAIT_CHEAT_DEATH, 5.0f)) +
             7,
         0, 0, 1);
-    if (game.combat.state() != 0 && !game.combat.state()->characters[party_slot].cheat_death_used) {
+    if (game.combat.has_value() && !game.combat->characters[party_slot].cheat_death_used) {
         character->hp_current =
             (game.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
                  character, W8_TRAIT_CHEAT_DEATH,
                  static_cast<unsigned int>(character->uiHPMax) * 0.5f))) +
              0x32) *
             character->uiHPMax / 100;
-        game.combat.state()->characters[party_slot].cheat_death_used = true;
+        game.combat->characters[party_slot].cheat_death_used = true;
     } else {
         character->hp_current =
             game.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(

@@ -33,7 +33,6 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -1034,7 +1033,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
         visible_rows = count;
     }
 
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         m_buttons[2]->SetEnabled(false);
     }
     if (m_dirty) {

@@ -28,7 +28,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
@@ -327,7 +326,7 @@ bool MonGen::CanGenerateEncounter(bool force)
     float distance;
 
     if (GetWorld()->encounters.save_flag != 0 || CurrentGame().advancement.held ||
-        CurrentGame().combat.active() || CurrentGame().activity.conversation ||
+        CurrentGame().combat.has_value() || CurrentGame().activity.conversation ||
         !generation_enabled) {
         return false;
     }
@@ -607,7 +606,7 @@ void RunMonsterGenerators(void)
    Retirement and final leader removal own this event, exactly once. */
 void SpendRandomEncounterBudget()
 {
-    if (!CurrentGame().combat.active()) return;
+    if (!CurrentGame().combat.has_value()) return;
     --GetWorld()->encounters.random_budget;
     ClampEncounterBudget(*GetWorld());
 }

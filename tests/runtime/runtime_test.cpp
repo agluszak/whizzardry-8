@@ -82,6 +82,7 @@
 #include "wiz8/asset_paths.h"
 #include "wiz8/audio/audio_test.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -93,7 +94,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_state.h"
@@ -1541,8 +1541,8 @@ void WriteSaveFixture(const fs::path& output, const fs::path& save, const glm::v
 W8MonsterInfo* EnterCombat(GameHarness& game)
 {
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE(game.within_frames(4, [] { return CurrentGame().combat.active() != 0; }));
-    REQUIRE(CurrentGame().combat.state());
+    REQUIRE(game.within_frames(4, [] { return CurrentGame().combat.has_value() != 0; }));
+    REQUIRE(CurrentGame().combat);
     W8MonsterInfo* monster = nullptr;
     for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
         if (candidate->fActive && candidate->p3D && candidate->hp_current &&
@@ -1594,7 +1594,7 @@ void QuickSaveScenario()
     REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
-    REQUIRE(!CurrentGame().combat.active());
+    REQUIRE(!CurrentGame().combat.has_value());
     std::printf("quick-save: %s round-tripped after %lu frames\n", save.filename().string().c_str(),
                 game.frames());
 }
@@ -1944,7 +1944,7 @@ void Approach(GameHarness& game, int location_id, float stop)
         if (key != SDLK_UNKNOWN) game.hold_key(key, true);
         held = key;
     };
-    for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.active(); ++frame) {
+    for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.has_value(); ++frame) {
         const CameraPose camera = cameraState(*GetWorld());
         const glm::vec3 target = monster->p3D->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
@@ -1999,7 +1999,7 @@ void CombatScenario()
 
     const W8Character& fighter = CurrentGame().party.characters[PremadeSlot()];
     Approach(game, kBeachCrab, 700);
-    REQUIRE(CurrentGame().combat.active());
+    REQUIRE(CurrentGame().combat.has_value());
     const std::vector<W8MonsterInfo*> crabs = CombatMonsters();
     REQUIRE(!crabs.empty());
     std::vector<int> crab_ids;
@@ -2021,17 +2021,13 @@ void CombatScenario()
     const int kills = fighter.kill_count;
     CAPTURE(crab_ids, start_distance, health);
 
-    for (int round = 0; round < 8 && CurrentGame().combat.active() &&
+    for (int round = 0; round < 8 && CurrentGame().combat.has_value() &&
                         !(fighter.hp_current < health && remaining_health() < crab_health);
          ++round) {
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
         game.wait(
             "round",
-            [] {
-                return !CurrentGame().combat.state() ||
-                       !CurrentGame().combat.state()->execution_active;
-            },
-            60);
+            [] { return !CurrentGame().combat || !CurrentGame().combat->execution_active; }, 60);
         closest = std::min(closest, NearestCombatMonster());
     }
     CAPTURE(fighter.hp_current, remaining_health(), closest, game.frames());
@@ -2055,23 +2051,23 @@ void CombatScenario()
         REQUIRE((dead && !dead->fActive && dead->hp_current == 0 &&
                  dead->uiCondition[W8_CONDITION_DEAD] != 0));
     }
-    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->execution_active)
+    if (CurrentGame().combat.has_value() && !CurrentGame().combat->execution_active)
         game.command(W8_MGS_COMMAND_START_COMBAT_ROUND);
-    game.wait("leave-combat", [] { return CurrentGame().combat.active() == 0; }, 60);
-    REQUIRE(!CurrentGame().combat.state());
+    game.wait("leave-combat", [] { return CurrentGame().combat.has_value() == 0; }, 60);
+    REQUIRE(!CurrentGame().combat);
     CHECK(fighter.experience == experience + reward);
     CHECK(fighter.kill_count == kills + int(crab_ids.size()));
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    REQUIRE(game.within_frames(4, [] { return CurrentGame().combat.active() != 0; }));
-    REQUIRE((CurrentGame().combat.state() && CurrentGame().combat.state()->round_count == 0));
-    REQUIRE(CurrentGame().combat.state()->attack_report.reports.empty());
+    REQUIRE(game.within_frames(4, [] { return CurrentGame().combat.has_value() != 0; }));
+    REQUIRE((CurrentGame().combat && CurrentGame().combat->round_count == 0));
+    REQUIRE(CurrentGame().combat->attack_report.reports.empty());
     auto& member = CurrentGame().party.characters[PremadeSlot()];
     member.party_weight_share = 123456;
     SettleActiveParty(CurrentGame());
     REQUIRE(CurrentGame().party.redistribution_pending);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
-    game.wait("leave-combat-again", [] { return CurrentGame().combat.active() == 0; }, 10);
-    REQUIRE(!CurrentGame().combat.state());
+    game.wait("leave-combat-again", [] { return CurrentGame().combat.has_value() == 0; }, 10);
+    REQUIRE(!CurrentGame().combat);
     REQUIRE_FALSE(CurrentGame().party.redistribution_pending);
     REQUIRE(member.party_weight_share != 123456);
 
@@ -2106,7 +2102,7 @@ void CombatScenario()
     EnterCombat(game);
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("inventory-in-combat", W8_SCREEN_CAMP);
-    REQUIRE(CurrentGame().combat.active());
+    REQUIRE(CurrentGame().combat.has_value());
     // HP exhaustion from the full live operation must apply death, not lose the result
     // to an earlier duplicate calculation. Teardown still ends combat from camp.
     member.uiHPMax = 100000;
@@ -2134,11 +2130,11 @@ void PrintState(GameHarness& game)
 {
     std::printf("[%lu] screen=%s pending=%s modal=%d combat=%d ui=%d", game.frames(),
                 ScreenName(CurrentScreenState().id), ScreenName(PendingScreen()),
-                g_modal_owner != nullptr, int(CurrentGame().combat.active()),
+                g_modal_owner != nullptr, int(CurrentGame().combat.has_value()),
                 int(g_settings.main_ui_mode));
-    if (CurrentGame().combat.state())
-        std::printf(" round=%u executing=%d", CurrentGame().combat.state()->round_count,
-                    int(CurrentGame().combat.state()->execution_active));
+    if (CurrentGame().combat)
+        std::printf(" round=%u executing=%d", CurrentGame().combat->round_count,
+                    int(CurrentGame().combat->execution_active));
     if (const auto* camp = FindScreen<CampScreen>())
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                     camp->ReviewedPartySlot(), int(camp->page), int(camp->items.action()),
@@ -2182,23 +2178,21 @@ void Trace(GameHarness& game, int location_id, int frames)
         game.frame();
         const Monster& body = *monster->p3D;
         const glm::vec3 at = monster->p3D->nav.GetPosition();
-        std::printf(
-            "  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
-            "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
-            "end=%d\n",
-            game.frames(), location_id, at.x, at.z, int(monster->action_kind),
-            monster->pCombat ? int(monster->pCombat->active) : -1, int(body.nav.movement_complete),
-            int(body.nav.movement_stopped), int(body.nav.halted), unsigned(body.nav.flags),
-            body.nav.movement.callback_progress, body.nav.movement.callback_threshold,
-            body.nav.movement.movement_speed,
-            CurrentGame().combat.state() ? int(CurrentGame().combat.state()->turn().index()) : -1,
-            CurrentGame().combat.state()
-                ? CurrentGame().combat.state()->actingMonster().value_or(-1)
-                : -1,
-            monster->p3D->Query(W8_MONSTER_QUERY_CYCLE),
-            monster->p3D->Query(W8_MONSTER_QUERY_FRAME),
-            monster->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT),
-            monster->p3D->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END));
+        std::printf("  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
+                    "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
+                    "end=%d\n",
+                    game.frames(), location_id, at.x, at.z, int(monster->action_kind),
+                    monster->pCombat ? int(monster->pCombat->active) : -1,
+                    int(body.nav.movement_complete), int(body.nav.movement_stopped),
+                    int(body.nav.halted), unsigned(body.nav.flags),
+                    body.nav.movement.callback_progress, body.nav.movement.callback_threshold,
+                    body.nav.movement.movement_speed,
+                    CurrentGame().combat ? int(CurrentGame().combat->turn().index()) : -1,
+                    CurrentGame().combat ? CurrentGame().combat->actingMonster().value_or(-1) : -1,
+                    monster->p3D->Query(W8_MONSTER_QUERY_CYCLE),
+                    monster->p3D->Query(W8_MONSTER_QUERY_FRAME),
+                    monster->p3D->Query(W8_MONSTER_QUERY_FRAME_COUNT),
+                    monster->p3D->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END));
     }
 }
 

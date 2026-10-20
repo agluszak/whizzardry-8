@@ -25,6 +25,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
@@ -34,7 +35,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/loaded_game_data.h"
@@ -511,7 +511,7 @@ unsigned char W8CharacterEvent::IsConditionMet(unsigned int event_type)
         case 14:
         case 15:
         case 35:
-            return !CurrentGame().combat.active();
+            return !CurrentGame().combat.has_value();
         case 43:
         case 44:
         case 45:
@@ -1717,8 +1717,7 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
             BlitPartyPortraitAnimation(target, portrait, left, top, options, party_slot, true);
         value = !drawn;
     }
-    if ((((CurrentGame().combat.active() &&
-           CurrentGame().combat.state()->characters[party_slot].dead) ||
+    if ((((CurrentGame().combat.has_value() && CurrentGame().combat->characters[party_slot].dead) ||
           CurrentGame().surprise_possible) ||
          CurrentGame().party.characters[party_slot].highest_condition == W8_CONDITION_MISSING) &&
         value != 0) {
@@ -1734,7 +1733,7 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
                                 SpriteDraw options, int party_slot, bool animate)
 {
     const bool dead =
-        CurrentGame().combat.active() && CurrentGame().combat.state()->characters[party_slot].dead;
+        CurrentGame().combat.has_value() && CurrentGame().combat->characters[party_slot].dead;
     const bool drawn = BlitPortraitAnimation(
         target, portrait, left, top, options,
         CurrentGame().monster_manager_entries[party_slot].portrait, animate,

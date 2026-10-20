@@ -29,6 +29,7 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -42,7 +43,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
@@ -419,9 +419,8 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
                 record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
                 return;
             }
-            if (CurrentGame().combat.active() && !IsEquippableItemClass(item) &&
-                (CurrentGame().combat.state()->equip_phase ==
-                     W8CombatEquipPhase::action_selection ||
+            if (CurrentGame().combat.has_value() && !IsEquippableItemClass(item) &&
+                (CurrentGame().combat->equip_phase == W8CombatEquipPhase::action_selection ||
                  CurrentGame().party.rows[PartySlot()].executing.kind != W8_ACTION_EQUIP)) {
                 return;
             }
@@ -481,9 +480,9 @@ void SetHandCursors()
 // FUNCTION: WIZ8 0x005BB010
 void W8CampItemsPage::UnequipBothHands(void)
 {
-    if (CurrentGame().combat.active() && !CurrentGame().combat.state()->round_active &&
+    if (CurrentGame().combat.has_value() && !CurrentGame().combat->round_active &&
         !CurrentGame().party_movement_mode &&
-        CurrentGame().combat.state()->equip_phase == W8CombatEquipPhase::action_selection) {
+        CurrentGame().combat->equip_phase == W8CombatEquipPhase::action_selection) {
         dialogs.ShowNotice(Data().strings[0x903], 0, true, false);
         return;
     }
@@ -1747,7 +1746,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
        A weapon or shield being moved onto a slot it cannot pair with stays
        gated as well. */
     bool gated = true;
-    if (CurrentGame().combat.active() && origin != W8ItemStorage::Pool) {
+    if (CurrentGame().combat.has_value() && origin != W8ItemStorage::Pool) {
         if (!(CurrentGame().party.held.item.iItemNo != -1) ||
             ((Data().items[CurrentGame().party.held.item.iItemNo].equip_class ==
                   W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
@@ -2119,7 +2118,7 @@ void W8CampItemsPage::UpdateActionButtons(bool shown)
                 control->SetEnabled(IsPartySlotEligible(PartySlot()));
                 continue;
             case W8_CAMP_ACTION_BUTTON_MOVE:
-                control->SetEnabled(!CurrentGame().combat.active() &&
+                control->SetEnabled(!CurrentGame().combat.has_value() &&
                                     IsPartySlotEligible(PartySlot()));
                 continue;
             case W8_CAMP_ACTION_BUTTON_SPLIT_STACK:
@@ -2131,9 +2130,8 @@ void W8CampItemsPage::UpdateActionButtons(bool shown)
                     control->SetEnabled(false);
                     continue;
                 }
-                if (!CurrentGame().combat.active() ||
-                    (CurrentGame().combat.state()->equip_phase !=
-                         W8CombatEquipPhase::action_selection &&
+                if (!CurrentGame().combat.has_value() ||
+                    (CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection &&
                      CurrentGame().party.rows[PartySlot()].executing.kind == W8_ACTION_EQUIP)) {
                     control->SetEnabled(true);
                     continue;
@@ -2144,7 +2142,7 @@ void W8CampItemsPage::UpdateActionButtons(bool shown)
                 }
                 break;
             case W8_CAMP_ACTION_BUTTON_USE:
-                if (CurrentGame().combat.active()) {
+                if (CurrentGame().combat.has_value()) {
                     control->SetEnabled(false);
                     continue;
                 }
@@ -2174,7 +2172,7 @@ void W8CampItemsPage::UpdateActionButtons(bool shown)
                 if (character->spell_learned[0x17] != 1) {
                     break;
                 }
-                if (!IsPartySlotEligible(PartySlot()) || CurrentGame().combat.active()) {
+                if (!IsPartySlotEligible(PartySlot()) || CurrentGame().combat.has_value()) {
                     break;
                 }
                 spell = &Data().spells[W8_SPELL_IDENTIFY_ITEM];
@@ -2194,7 +2192,7 @@ void W8CampItemsPage::UpdateActionButtons(bool shown)
                 if (character->spell_learned[0x3a] != 1) {
                     break;
                 }
-                if (!IsPartySlotEligible(PartySlot()) || CurrentGame().combat.active()) {
+                if (!IsPartySlotEligible(PartySlot()) || CurrentGame().combat.has_value()) {
                     break;
                 }
                 spell = &Data().spells[W8_SPELL_REMOVE_CURSE];

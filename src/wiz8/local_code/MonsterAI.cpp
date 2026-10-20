@@ -16,6 +16,7 @@
 #include "sight_state.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -24,7 +25,6 @@
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -103,7 +103,7 @@ const int g_being_effect_slot_spells[12] = {
 };
 
 /* The combat-state spell per effect slot, walked against
-   W8CombatState::effect_slots and the monster's combat_effects. */
+   Combat::effect_slots and the monster's combat_effects. */
 const int g_combat_effect_slot_spells[9] = {
     W8_SPELL_ARMORMELT, W8_SPELL_ACID_BOMB,   W8_SPELL_TOXIC_CLOUD,
     W8_SPELL_FIRESTORM, W8_SPELL_DEATH_CLOUD, W8_SPELL_DRAINING_CLOUD,
@@ -111,7 +111,7 @@ const int g_combat_effect_slot_spells[9] = {
 };
 
 /* The same mapping for the second combat effect block, indexed against
-   W8CombatState::effect_slots0 and the monster's combat_effects_2. One
+   Combat::effect_slots0 and the monster's combat_effects_2. One
    retail array: [0..6) are spell ids, [6..23) — the retail sub-table at
    0x00616DF0 — is the spell-point budget/failure percentage indexed by cost
    band that Magic.cpp's failure and power-level readers consume. */
@@ -154,12 +154,12 @@ static bool g_special_attack_cycle_error_reported;
    when the flag says so, and detection runs while the combat state permits. */
 void UpdateMonsterSight(void)
 {
-    if (!CurrentGame().combat.active() || CurrentGame().sight_refresh_pending) {
+    if (!CurrentGame().combat.has_value() || CurrentGame().sight_refresh_pending) {
         if (CurrentGame().sight_refresh_pending) {
             CurrentGame().sight_refresh_pending = false;
         }
         RefreshOutwardSightForAllMonsters();
-        if (CurrentGame().combat.active() && CurrentGame().combat.state()->round_count == 0) {
+        if (CurrentGame().combat.has_value() && CurrentGame().combat->round_count == 0) {
             CheckMonsterGroupsEnterCombat();
         }
     }
@@ -220,14 +220,14 @@ void UpdateMonsterGroups(bool staggered)
             }
             far_clip = WorldGetFarClip(GetWorld());
             if (nearest_distance <= far_clip + far_clip) {
-                if (!CurrentGame().combat.active() && MonsterGroupCanEngage(monster_group)) {
+                if (!CurrentGame().combat.has_value() && MonsterGroupCanEngage(monster_group)) {
                     MonsterGroupEnterCombat(monster_group);
                 }
             } else {
                 DetachMonsterGroup(monster_group);
             }
         }
-        if (g_out_of_combat_rtai_enabled && !CurrentGame().combat.active()) {
+        if (g_out_of_combat_rtai_enabled && !CurrentGame().combat.has_value()) {
             if (monster_group == 0) {
                 Fail("pMonsterGroup");
             }
@@ -1423,13 +1423,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_BLESS:
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD:
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             return true;
         }
         for (index = 0; index < 9; ++index) {
             if (spell_id == g_combat_effect_slot_spells_and_cast_success[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = CurrentGame().combat.state()->effect_slots0[index].duration;
+                    duration = CurrentGame().combat->effect_slots0[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1589,13 +1589,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_DRAINING_CLOUD:
     case W8_SPELL_FIRESTORM:
     case W8_SPELL_DEATH_CLOUD:
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             return true;
         }
         for (index = 0; index < 9; ++index) {
             if (spell_id == g_combat_effect_slot_spells[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = CurrentGame().combat.state()->effect_slots[index].duration;
+                    duration = CurrentGame().combat->effect_slots[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1634,13 +1634,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         }
         break;
     case W8_SPELL_PURIFY_AIR:
-        if (!CurrentGame().combat.active()) {
+        if (!CurrentGame().combat.has_value()) {
             return false;
         }
         for (index = 0; index < 9; ++index) {
             if (g_combat_effect_slot_spells[index] != 0x31) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = CurrentGame().combat.state()->effect_slots[index].duration;
+                    duration = CurrentGame().combat->effect_slots[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -2232,7 +2232,7 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
         }
         return false;
     }
-    if (CurrentGame().combat.active() && monster_info->pCombat->special_cooldown != 0) {
+    if (CurrentGame().combat.has_value() && monster_info->pCombat->special_cooldown != 0) {
         return false;
     }
     if (static_cast<unsigned int>(monster_info->stamina) <
@@ -2503,7 +2503,7 @@ void UpdateMonsterGroupEngagement(void)
     int allied_index;
     int member_starting;
 
-    if (CurrentGame().combat.state()->combat_update_count <= 2) {
+    if (CurrentGame().combat->combat_update_count <= 2) {
         return;
     }
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
@@ -2616,7 +2616,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                                     monster_group->group_id));
         return false;
     }
-    if (!CurrentGame().combat.active()) {
+    if (!CurrentGame().combat.has_value()) {
         return false;
     }
     if (monster_group->ubDisposition == W8_DISPOSITION_NEUTRAL) {

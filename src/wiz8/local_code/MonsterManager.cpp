@@ -22,6 +22,7 @@
 #include "navigation_flags.h"
 #include "sight_state.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
@@ -37,7 +38,6 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -384,7 +384,7 @@ done:
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
                                   (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
-        ++CurrentGame().combat.state()->combat_result;
+        ++CurrentGame().combat->combat_result;
         if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
             ++CurrentGame().status.level_progress[GetLoadedLevelID()].monster_kill_count;
         }
@@ -415,7 +415,7 @@ done:
                 DebugMessage(0, fmt::format("DATA ERROR: {} is worth 0 XPs", record->name0));
             }
         }
-        CurrentGame().combat.state()->experience_pool += experience;
+        CurrentGame().combat->experience_pool += experience;
         if (CurrentGame().status.status_ints[monster_species] == 0) {
             CurrentGame().status.status_ints[monster_species] = 1;
         }
@@ -860,9 +860,8 @@ void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                 signed char cycle = monster->visual.pending_cycle;
 
                 if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
-                    (CurrentGame().combat.active() &&
-                     CurrentGame().combat.state()->holdsTurn(
-                         MonsterActor{monster_info->location_id}))) {
+                    (CurrentGame().combat.has_value() &&
+                     CurrentGame().combat->holdsTurn(MonsterActor{monster_info->location_id}))) {
                     return;
                 }
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
@@ -943,7 +942,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     };
     if (!owns(roster.live()) && !owns(roster.unborn())) return false;
 
-    if (CurrentGame().combat.active() && monster_info->pCombat) {
+    if (CurrentGame().combat.has_value() && monster_info->pCombat) {
         MonsterInfoLeaveCombat(monster_info);
     }
     if (monster_info->monster_group_id != 0) {
@@ -967,8 +966,8 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         monster_info->monster_group_id = 0;
     }
     DeactivateMonster(monster_info);
-    if (CurrentGame().combat.state()) {
-        CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
+    if (CurrentGame().combat) {
+        CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->p3D) {
@@ -1015,12 +1014,12 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         position = monster_info->p3D->GetRepresentationLocalLocation();
         monster_info->position = position;
         monster_info->fActive = false;
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             RefreshAllSight();
             SetTargetToMonster(monster_info->location_id, false);
             RefreshFlaggedMainGameState();
             RefreshCombatEngagement();
-            CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
+            CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
         }
     }
 }
@@ -1045,7 +1044,7 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
         RefreshCombatEngagement();
     }
-    if (CurrentGame().combat.active()) {
+    if (CurrentGame().combat.has_value()) {
         EndMonsterTurn(monster_info);
     }
 }
@@ -1056,8 +1055,8 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
     unsigned int index;
     W8EffectSlot* entry;
 
-    if (!CurrentGame().combat.active()) {
-        Fail("CurrentGame().combat.active()");
+    if (!CurrentGame().combat.has_value()) {
+        Fail("CurrentGame().combat.has_value()");
     }
     if (monster_info == 0) {
         Fail("pMonsterInfo != NULL");
@@ -1065,7 +1064,7 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
     if (!monster_info->pCombat) {
         Fail("pMonsterInfo->pCombat");
     }
-    CurrentGame().combat.state()->endTurnOf(MonsterActor{monster_info->location_id});
+    CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
     for (index = 0; index < 9; ++index) {
         entry = &monster_info->pCombat->combat_effects[index];
         if (entry->active) {
@@ -1098,10 +1097,9 @@ void TogglePartyCombatStance(void)
     }
     if (g_settings.continuous_combat != 0) {
         g_settings.continuous_combat = 0;
-        if (CurrentGame().combat.active()) {
-            CurrentGame().combat.state()->round_active =
-                (CurrentGame().combat.state()->execution_active == 0);
-            CurrentGame().combat.state()->combat_ready = true;
+        if (CurrentGame().combat.has_value()) {
+            CurrentGame().combat->round_active = (CurrentGame().combat->execution_active == 0);
+            CurrentGame().combat->combat_ready = true;
         }
         if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
             return;
@@ -1109,9 +1107,9 @@ void TogglePartyCombatStance(void)
         message = Data().strings[W8_NOTICE_COMBAT_STANCE_RELAXED];
     } else {
         g_settings.continuous_combat = 1;
-        if (CurrentGame().combat.active() && CurrentGame().combat.state()->combat_ready) {
-            CurrentGame().combat.state()->round_active = true;
-            CurrentGame().combat.state()->combat_ready = false;
+        if (CurrentGame().combat.has_value() && CurrentGame().combat->combat_ready) {
+            CurrentGame().combat->round_active = true;
+            CurrentGame().combat->combat_ready = false;
         }
         if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
             return;
@@ -1136,13 +1134,13 @@ void ToggleCombatMode(void)
     W8MonsterGroup* monster_group;
     Missile* missile;
 
-    if (!CurrentGame().combat.active()) {
-        CurrentGame().combat.Start(1);
+    if (!CurrentGame().combat.has_value()) {
+        CurrentGame().beginCombat(1);
         return;
     }
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
-        CurrentGame().combat.state()->enemies_engaged) {
-        if (CurrentGame().combat.state()->round_count != 0) {
+        CurrentGame().combat->enemies_engaged) {
+        if (CurrentGame().combat->round_count != 0) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
@@ -1158,19 +1156,19 @@ void ToggleCombatMode(void)
         }
     }
     for (missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
-        if ((missile == CurrentGame().combat.state()->engaged_missile ||
+        if ((missile == CurrentGame().combat->engaged_missile ||
              Data().missiles[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
             return;
         }
     }
-    if (CurrentGame().combat.state()->execution_active != 0) {
+    if (CurrentGame().combat->execution_active != 0) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END_PENDING],
                    W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_AUTOMATIC, true);
         return;
     }
-    CurrentGame().combat.End(false);
+    CurrentGame().endCombat(false);
     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_ENDED]);
     CurrentGame().events.push(CombatCalledOff{});
 }
@@ -1198,7 +1196,7 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehavi
         detail = "Trying to set a NEVER_STOP behaviour with an uninterruptable cycle!";
     } else {
         pending = monster->visual.pending_cycle;
-        if (CurrentGame().combat.active()) {
+        if (CurrentGame().combat.has_value()) {
             monster->Query(W8_MONSTER_QUERY_CYCLE);
         }
         if (pending != W8_CYCLE_STOP && pending != W8_CYCLE_NONE &&
@@ -1262,7 +1260,7 @@ void ProcessMonsterManagerFrame(void)
                     static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
                 TryStartMonsterCycle2(monster_info, monster, query_state);
                 if (monster->Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                    if (CurrentGame().combat.active() &&
+                    if (CurrentGame().combat.has_value() &&
                         query_state == W8_MONSTER_CYCLE_ATTACK_SPECIAL) {
                         monster_info->pCombat->special_ready = true;
                     }
@@ -1447,7 +1445,7 @@ void DetectMonsterGroups(void)
          ++group_index) {
         W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
-            (CurrentGame().combat.active() && !group->fInCombat) ||
+            (CurrentGame().combat.has_value() && !group->fInCombat) ||
             !MonsterGroupHasRenderableMember(group, false)) {
             continue;
         }
@@ -1606,7 +1604,7 @@ void EvaluateCombatDifficulty(void)
         StartMusicResource("CombatLousy.MPL", 0, 1);
         break;
     }
-    if ((CurrentGame().combat.state() != 0 && CurrentGame().combat.state()->party_surprised) ||
+    if ((CurrentGame().combat.has_value() && CurrentGame().combat->party_surprised) ||
         TimeUntilDeadline(recent_combat.until) == 0 || difficulty != recent_combat.difficulty) {
         unsigned int event_type;
         switch (difficulty) {
