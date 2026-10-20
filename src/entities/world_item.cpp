@@ -36,7 +36,6 @@ WorldItemEntity::WorldItemEntity()
 {
     flags = W8_ITEM_ENTITY_PULSE_INCREASING;
     pulse_level = static_cast<float>(PresentationRng().below(20) * 0.05);
-    trigger = nullptr;
     AllocateLegacyPropSaveId();
     countdown = MonotonicMilliseconds();
 }

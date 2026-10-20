@@ -26,7 +26,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
