@@ -382,8 +382,12 @@ std::pair<vsg::ref_ptr<vsg::Node>, vsg::ref_ptr<vsg::vec4Array>>
 extrusionShadow(RenderContext& context, const MeshInstance& instance, Mesh& mesh,
                 const ScenePass& pass)
 {
-    const auto bounds = mesh.getTriMesh();
-    const float height = bounds.bounds_maximum.y - bounds.bounds_minimum.y;
+    // An authored box (render control bit 4) does not size the shadow.
+    float height = 0;
+    if (!(mesh.render_control & (1u << Mesh::CONTROL_SKIP_AUTO_BOX))) {
+        const auto box = mesh.getBounds().box;
+        height = box.maximum.y - box.minimum.y;
+    }
     const auto material = std::make_shared<Material>();
     material->setAmbient(glm::vec4(1));
     material->setSpecular(glm::vec4(0));

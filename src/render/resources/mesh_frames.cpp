@@ -124,8 +124,8 @@ BoundingBox Mesh::GetFrameBounds(int frame)
     return boundingBox(std::span<const glm::vec3>(vertices, vertex_location_count));
 }
 
-/* Apply pending vertex DIG lighting when flags bit 1 is set, then return
-   the SurRender TriMesh cache. */
+/* Bake the sunlight, lights, ambient and environment terms into the first
+   vertex colour table. */
 void Mesh::updateBakedLighting()
 {
     const auto& lights = vertex_lights[vertex_light_table];

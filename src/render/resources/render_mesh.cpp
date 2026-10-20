@@ -7,10 +7,12 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <span>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
+#include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
 #include <glm/geometric.hpp>
@@ -37,34 +39,46 @@ vsg::vec3 toVsg(const glm::vec3& value)
     return {value.x, value.y, value.z};
 }
 
-std::uint32_t passFlags(const Mesh::TriMesh& view, int pass, int side)
+// Optional per-vertex and per-polygon tables are empty until a loader creates them.
+template<class T> const T* tableOrNull(const std::vector<T>& table)
+{
+    return table.empty() ? nullptr : table.data();
+}
+
+std::uint32_t passFlags(const Mesh& mesh, int pass, int side)
 {
     std::uint32_t flags = 0;
-    if (view.dig[pass]) flags |= HasColors;
-    if (view.dcg[pass]) flags |= HasDiffuseMultipliers;
-    if (view.scg[pass]) flags |= HasSpecularMultipliers;
-    if (!view.vertex_alpha.empty()) flags |= HasAlpha;
-    if (view.texcoords[pass][0]) flags |= HasTexcoord0;
-    if (view.texcoords[pass][1]) flags |= HasTexcoord1;
-    if (view.vertex_materials[pass][side]) flags |= HasVertexMaterials;
+    if (!mesh.dig[pass].empty()) flags |= HasColors;
+    if (!mesh.dcg[pass].empty()) flags |= HasDiffuseMultipliers;
+    if (!mesh.scg[pass].empty()) flags |= HasSpecularMultipliers;
+    if (!mesh.texcoords[pass][0].empty()) flags |= HasTexcoord0;
+    if (!mesh.texcoords[pass][1].empty()) flags |= HasTexcoord1;
+    if (!mesh.vertex_materials[pass][side].empty()) flags |= HasVertexMaterials;
     return flags;
 }
 
-MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass, int side)
+MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
 {
+    const auto control = mesh.render_control;
+    const auto* texcoords0 = tableOrNull(mesh.texcoords[pass][0]);
+    const auto* texcoords1 = tableOrNull(mesh.texcoords[pass][1]);
+    const auto* dig = tableOrNull(mesh.dig[pass]);
+    const auto* dcg = tableOrNull(mesh.dcg[pass]);
+    const auto* scg = tableOrNull(mesh.scg[pass]);
+    const auto* poly_shaders = tableOrNull(mesh.poly_shaders[pass]);
+
     MeshAsset::Pass result;
     result.pass = static_cast<unsigned>(pass);
     result.side = static_cast<unsigned>(side);
     const bool authored_faces = !mesh.frames.empty();
     result.reverse_normals = side != 0 && !authored_faces;
-    result.cull = !authored_faces &&
-                  (side != 0 || !(view.control_flags & (1u << Mesh::CONTROL_NO_FRONT_CULL)));
+    result.cull =
+        !authored_faces && (side != 0 || !(control & (1u << Mesh::CONTROL_NO_FRONT_CULL)));
     const int material_side =
-        !authored_faces && side && (view.control_flags & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL))
-            ? 0
-            : side;
-    result.draw_flags = passFlags(view, pass, material_side);
-    result.has_texcoord0 = view.texcoords[pass][0] != nullptr;
+        !authored_faces && side && (control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)) ? 0
+                                                                                          : side;
+    result.draw_flags = passFlags(mesh, pass, material_side);
+    result.has_texcoord0 = texcoords0 != nullptr;
 
     std::map<Material*, std::uint32_t> slots;
     const auto slotOf = [&](const std::shared_ptr<Material>& material) {
@@ -73,14 +87,14 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
         if (inserted) result.materials.push_back(material);
         return entry->second;
     };
-    const auto* vertex_materials = view.vertex_materials[pass][material_side];
-    const auto pass_material = vertex_materials ? 0u : slotOf(view.materials[pass][material_side]);
-    const auto* uv_table = view.poly_uv[pass];
+    const auto* vertex_materials = tableOrNull(mesh.vertex_materials[pass][material_side]);
+    const auto pass_material = vertex_materials ? 0u : slotOf(mesh.materials[pass][material_side]);
+    const auto* uv_table = tableOrNull(mesh.poly_uv_indices[pass]);
     std::vector<std::array<glm::vec4, 5>> attributes;
     std::vector<std::uint32_t> indices;
     std::map<std::pair<int, int>, std::uint32_t> vertices;
     const auto renderVertex = [&](int vertex, int uv) {
-        if (vertex < 0 || vertex >= view.vertex_count)
+        if (vertex < 0 || vertex >= mesh.vertex_location_count)
             throw std::invalid_argument("Invalid mesh position index");
         const bool mapped = !uv_table || uv == vertex;
         const auto [entry, inserted] =
@@ -89,24 +103,18 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
         if (!inserted) return entry->second;
         if (uv < 0 || uv >= mesh.uv_count)
             throw std::invalid_argument("Invalid mesh texture-coordinate index");
-        const auto uv0 =
-            view.texcoords[pass][0] ? view.texcoords[pass][0][mapped ? vertex : uv] : glm::vec2(0);
-        const auto uv1 = view.texcoords[pass][1] ? view.texcoords[pass][1][vertex] : glm::vec2(0);
-        const auto material =
-            vertex_materials ? slotOf((*vertex_materials)[vertex]) : pass_material;
-        const auto alpha = view.vertex_alpha.empty() ? 1.f : view.vertex_alpha[vertex];
-        attributes.push_back(
-            {glm::vec4(uv0, uv1),
-             view.dig[pass] ? glm::vec4(view.dig[pass][vertex], 0) : glm::vec4(0),
-             view.dcg[pass] ? view.dcg[pass][vertex] : glm::vec4(1),
-             view.scg[pass] ? view.scg[pass][vertex] : glm::vec4(1),
-             glm::vec4(static_cast<float>(material), mapped ? 1.f : 0.f, alpha, 0)});
+        const auto uv0 = texcoords0 ? texcoords0[mapped ? vertex : uv] : glm::vec2(0);
+        const auto uv1 = texcoords1 ? texcoords1[vertex] : glm::vec2(0);
+        const auto material = vertex_materials ? slotOf(vertex_materials[vertex]) : pass_material;
+        attributes.push_back({glm::vec4(uv0, uv1), dig ? glm::vec4(dig[vertex], 0) : glm::vec4(0),
+                              dcg ? dcg[vertex] : glm::vec4(1), scg ? scg[vertex] : glm::vec4(1),
+                              glm::vec4(static_cast<float>(material), mapped ? 1.f : 0.f, 1.f, 0)});
         result.source_vertices.push_back(static_cast<std::uint32_t>(vertex));
         return entry->second;
     };
     const auto textureAt = [&](int polygon, int layer) {
-        const auto* table = view.poly_textures[pass][layer];
-        return table ? (*table)[polygon] : view.textures[pass][layer];
+        const auto& table = mesh.poly_textures[pass][layer];
+        return table.empty() ? mesh.textures[pass][layer] : table[polygon];
     };
     const auto skinsMatch = [&](std::uint32_t left, std::uint32_t right) {
         if (pass != 0) return true;
@@ -114,15 +122,15 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
             return skin.textures.empty() || skin.textures[left] == skin.textures[right];
         });
     };
-    for (int polygon = 0; polygon < view.polygon_count; ++polygon) {
-        const auto triangle = view.poly_vertices[polygon];
+    const auto* triangles = mesh.getPolyVertex();
+    for (int polygon = 0; polygon < mesh.polygon_count; ++polygon) {
+        const auto triangle = triangles[polygon];
         const auto uv = uv_table ? uv_table[polygon] : triangle;
         for (int corner = 0; corner < 3; ++corner)
             indices.push_back(renderVertex(triangle[corner], uv[corner]));
         result.polygons.push_back(static_cast<std::uint32_t>(polygon));
         const std::array textures{textureAt(polygon, 0), textureAt(polygon, 1)};
-        const auto shader =
-            view.poly_shaders[pass] ? view.poly_shaders[pass][polygon] : view.shaders[pass];
+        const auto shader = poly_shaders ? poly_shaders[polygon] : mesh.shaders[pass];
         if (!result.batches.empty()) {
             auto& previous = result.batches.back();
             if (previous.textures == textures && previous.shader.value == shader.value &&
@@ -133,7 +141,7 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
         }
         result.batches.push_back({textures, shader,
                                   wiz8::checked_integer<std::uint32_t>(indices.size() - 3), 3,
-                                  static_cast<std::uint32_t>(polygon), !view.poly_shaders[pass]});
+                                  static_cast<std::uint32_t>(polygon), !poly_shaders});
     }
     for (std::size_t attribute = 0; attribute < result.attributes.size(); ++attribute) {
         auto array = vsg::vec4Array::create(attributes.size());
@@ -144,12 +152,14 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
         result.attributes[attribute] = std::move(array);
     }
     if (mesh.frames.empty()) {
+        const auto* positions = mesh.getVertexLoc();
+        const auto* normals = mesh.getVertexNormal();
         result.positions = vsg::vec3Array::create(result.source_vertices.size());
         result.normals = vsg::vec3Array::create(result.source_vertices.size());
         for (std::size_t vertex = 0; vertex < result.source_vertices.size(); ++vertex) {
             const auto original = result.source_vertices[vertex];
-            result.positions->at(vertex) = toVsg(view.positions[original]);
-            const auto normal = view.normals ? view.normals[original] : glm::vec3(0);
+            result.positions->at(vertex) = toVsg(positions[original]);
+            const auto normal = normals ? normals[original] : glm::vec3(0);
             result.normals->at(vertex) = toVsg(result.reverse_normals ? -normal : normal);
         }
     }
@@ -162,23 +172,25 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
 
 std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
 {
-    const auto view = mesh.getTriMesh();
+    mesh.applyPendingLighting();
     auto asset = std::make_shared<MeshAsset>();
-    if (view.vertex_count <= 0 || view.polygon_count <= 0) return asset;
-    asset->triangles.assign(view.poly_vertices, view.poly_vertices + view.polygon_count);
-    // Legacy draw controls can suppress the borrowed TriMesh bound fields
-    // (the sky uses both). VSG still needs the actual all-frame model bound.
+    if (mesh.vertex_location_count <= 0 || mesh.polygon_count <= 0) return asset;
+    const auto* triangles = mesh.getPolyVertex();
+    asset->triangles.assign(triangles, triangles + mesh.polygon_count);
+    // VSG needs the actual all-frame model bound even where the draw controls
+    // mark the mesh's own bounds as authored (the sky).
     const auto bounds = mesh.getBounds();
     asset->bounds_center = bounds.sphere.center;
     asset->bounds_radius = bounds.sphere.radius;
-    asset->sort_bias = view.sort_bias;
-    asset->sorted = (view.control_flags & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
+    asset->sort_bias = mesh.sort_bias;
+    const auto control = mesh.render_control;
+    asset->sorted = (control & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();
     for (int side = 1; side >= 0; --side) {
-        if (!(view.control_flags & (1u << side))) continue;
-        for (int pass = 0; pass < view.pass_count; ++pass) {
-            asset->passes.push_back(buildPass(mesh, view, pass, side));
-            if (view.poly_uv[pass]) asset->offset_pass_keys = false;
+        if (!(control & (1u << side))) continue;
+        for (int pass = 0; pass < mesh.pass_count; ++pass) {
+            asset->passes.push_back(buildPass(mesh, pass, side));
+            if (!mesh.poly_uv_indices[pass].empty()) asset->offset_pass_keys = false;
         }
     }
     return asset;
@@ -230,7 +242,7 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
 {
     // Baking may allocate its first colour table and invalidate the asset.
     // Complete that work before testing whether the topology is still shared.
-    mesh.getTriMesh();
+    mesh.applyPendingLighting();
     if (const auto current = mesh.renderAsset(); current != asset) {
         asset = current;
         makeDraws();
@@ -238,13 +250,12 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
     if (sampled_frame_ != frame || sampled_interpolation_ != interpolation) {
         const auto count = static_cast<std::size_t>(mesh.vertex_location_count);
         if (mesh.frames.empty()) {
-            const auto geometry = mesh.getTriMesh();
-            if (geometry.positions)
-                positions.assign(geometry.positions, geometry.positions + count);
+            if (const auto* source = mesh.getVertexLoc())
+                positions.assign(source, source + count);
             else
                 positions.clear();
-            if (geometry.normals)
-                normals.assign(geometry.normals, geometry.normals + count);
+            if (const auto* source = mesh.getVertexNormal())
+                normals.assign(source, source + count);
             else
                 normals.clear();
             polygon_normals.clear();
@@ -283,20 +294,23 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
 
 void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
 {
-    const auto view = mesh.getTriMesh();
-    const auto selection =
-        view.active_polygons ? view.active_polygons : mesh.GetActivePolygons(skin, check_blanking);
+    const auto polygon_count = static_cast<std::size_t>(mesh.polygon_count);
+    Mesh::PolygonSelection selection;
+    if (const auto* active = mesh.getActivePolygonTable(0))
+        selection = std::span<const std::uint32_t>(active, mesh.getActivePolygonCount());
+    else
+        selection = mesh.GetActivePolygons(skin, check_blanking);
     std::vector<std::uint32_t> selected;
     if (selection)
         selected.assign(selection->begin(), selection->end());
     else {
-        selected.resize(static_cast<std::size_t>(view.polygon_count));
+        selected.resize(polygon_count);
         std::iota(selected.begin(), selected.end(), 0u);
     }
     if (selection_initialized_ && selected == selected_polygons_) return;
     selection_initialized_ = true;
     selected_polygons_ = std::move(selected);
-    std::vector<bool> included(static_cast<std::size_t>(view.polygon_count), false);
+    std::vector<bool> included(polygon_count, false);
     for (const auto polygon : selected_polygons_)
         if (polygon < included.size()) included[polygon] = true;
     const bool all = std::ranges::all_of(included, [](bool value) { return value; });

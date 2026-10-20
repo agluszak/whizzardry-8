@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <type_traits>
@@ -19,38 +18,6 @@
 
 static_assert(std::is_same_v<decltype(Mesh::poly_vertices), std::vector<glm::ivec3>>);
 static_assert(std::is_same_v<decltype(Mesh::vertex_locations), std::vector<glm::vec3>>);
-
-static bool defaults()
-{
-    // The vector default constructors do not zero their components. Start on dirty storage so
-    // aggregate/member initialization, not incidental stack contents, must initialize the view.
-    alignas(Mesh::TriMesh) std::array<std::byte, sizeof(Mesh::TriMesh)> storage;
-    storage.fill(std::byte{0xa5});
-    auto* mesh = std::construct_at(reinterpret_cast<Mesh::TriMesh*>(storage.data()));
-    REQUIRE((mesh->vertex_count == 0 && mesh->polygon_count == 0 && mesh->pass_count == 0));
-    REQUIRE((mesh->control_flags == 0 && !mesh->active_polygons));
-    REQUIRE((mesh->poly_vertices == nullptr && mesh->poly_equations == nullptr));
-    REQUIRE((mesh->positions == nullptr && mesh->normals == nullptr && !mesh->active_polygons));
-    REQUIRE(mesh->bounds_minimum == glm::vec3(0, 0, 0));
-    REQUIRE(mesh->bounds_maximum == glm::vec3(0, 0, 0));
-    REQUIRE(mesh->bounds_center == glm::vec3(0, 0, 0));
-    REQUIRE((mesh->bounds_radius == 0 && mesh->sort_bias == 0));
-    for (int pass = 0; pass < Mesh::MAX_PASSES; ++pass) {
-        REQUIRE((mesh->dig[pass] == nullptr && mesh->dcg[pass] == nullptr &&
-                 mesh->scg[pass] == nullptr));
-        REQUIRE((mesh->poly_uv[pass] == nullptr && mesh->poly_shaders[pass] == nullptr));
-        REQUIRE(mesh->shaders[pass].value == DrawShader().value);
-        for (int side = 0; side < 2; ++side) {
-            REQUIRE(
-                (mesh->texcoords[pass][side] == nullptr && mesh->materials[pass][side] == nullptr));
-            REQUIRE(mesh->textures[pass][side] == nullptr);
-            REQUIRE(mesh->vertex_materials[pass][side] == nullptr);
-            REQUIRE(mesh->poly_textures[pass][side] == nullptr);
-        }
-    }
-    std::destroy_at(mesh);
-    return true;
-}
 
 static bool zeroNormals()
 {
@@ -91,7 +58,6 @@ static bool lazyTables()
             REQUIRE(mesh.getVertexTexCoords(pass, side, 0) == nullptr);
         }
     }
-    REQUIRE(mesh.getTriMesh().dig[0] == nullptr);
     auto* locations = mesh.getVertexLoc();
     REQUIRE((locations == mesh.vertex_locations.data() && mesh.vertex_locations.size() == 3));
     REQUIRE(mesh.getVertexLoc() == locations);
@@ -104,15 +70,11 @@ static bool lazyTables()
     auto* uv_indices = mesh.getPolyUVIndex(2, 1);
     REQUIRE((uv_indices != corners && uv_indices[0].x == 0 && uv_indices[0].y == 1 &&
              uv_indices[0].z == 2));
-    REQUIRE(mesh.getTriMesh().poly_uv[2] == uv_indices);
     REQUIRE(mesh.getPolyUVIndex(0, 0) == nullptr);
     auto* active = mesh.getActivePolygonTable(1);
     REQUIRE((active[0] == 0 && active[1] == 1));
-    REQUIRE(mesh.getTriMesh().active_polygons.value().data() == active);
     mesh.setActivePolygonCount(1);
-    REQUIRE(mesh.getTriMesh().active_polygons.value().size() == 1);
     auto* dig = mesh.getVertexDIG(0, 1);
-    REQUIRE(mesh.getTriMesh().dig[0] == dig);
     for (int index = 0; index < 3; ++index) {
         REQUIRE(dig[index] == glm::vec3(0, 0, 0));
         const auto& dcg = mesh.getVertexDCG(0, 1)[index];
@@ -137,12 +99,10 @@ static bool uvGrowth()
     Mesh mesh(1, 3);
     auto* uv = mesh.getVertexTexCoords(1, 1, 1);
     uv[0] = glm::vec2(0.25f, 0.75f);
-    mesh.getTriMesh();
     mesh.setUVCount(12);
     uv = mesh.getVertexTexCoords(1, 1, 0);
     REQUIRE((mesh.texcoords[1][1].size() == 12 && uv[0].x == 0.25f && uv[0].y == 0.75f));
     for (int index = 3; index < 12; ++index) REQUIRE((uv[index].x == 0 && uv[index].y == 0));
-    REQUIRE(mesh.getTriMesh().texcoords[1][1] == uv);
     REQUIRE(mesh.getVertexTexCoords(0, 0, 0) == nullptr);
     mesh.setUVCount(1);
     REQUIRE((mesh.getUVCount() == 3 && mesh.texcoords[1][1].size() == 3));
@@ -177,7 +137,7 @@ static bool reset()
         mesh.setTexture(texture, 0, 0);
         mesh.setSortBias(0.25f);
         mesh.setPassCount(3);
-        REQUIRE(mesh.getTriMesh().texcoords[2][0][6].x == 0.5f);
+        REQUIRE(mesh.texcoords[2][0][6].x == 0.5f);
         mesh.reset(2, 4);
         REQUIRE(
             (mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2));
@@ -187,7 +147,6 @@ static bool reset()
         REQUIRE(mesh.getTexture(0, 0) == texture.get());
         REQUIRE((mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0));
         REQUIRE((mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0));
-        REQUIRE((mesh.tri_mesh.positions == nullptr && mesh.tri_mesh.texcoords[2][0] == nullptr));
         REQUIRE(mesh.getVertexMaterialTable(1, Mesh::SIDE_BACK, false) == nullptr);
         REQUIRE((mesh.getPolygonTextureTable(1, 0, false) == nullptr &&
                  mesh.getActivePolygonTable(0) == nullptr));
@@ -199,7 +158,6 @@ static bool reset()
 
 TEST_CASE("mesh_ownership_test")
 {
-    REQUIRE(defaults());
     REQUIRE(zeroNormals());
     REQUIRE(lazyTables());
     REQUIRE(uvGrowth());

@@ -134,7 +134,7 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube()
 
     model->setTexture(std::move(texture), 0, 0);
 
-    model->setDirty(Mesh::DIRTY_TRI_MESH);
+    model->invalidateRenderAsset();
     model->setDirty(Mesh::DIRTY_BOUNDS);
 
     model->setName("stCube");

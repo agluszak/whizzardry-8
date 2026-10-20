@@ -695,7 +695,7 @@ TEST_CASE("VSG cull bounds enclose sky geometry and animated highlight shells",
     mesh->FinalizeVertexFrame(0);
     mesh->FinalizeVertexFrame(1);
     mesh->setTexture(std::make_shared<Texture>(), 0, 0);
-    // Sky meshes suppress the old borrowed TriMesh bounds. Their VSG nodes
+    // Sky meshes mark their bounds as authored. Their VSG nodes
     // still need to enclose the real geometry, including its later poses.
     mesh->enable(Mesh::CONTROL_SKIP_AUTO_BOX);
     mesh->enable(Mesh::CONTROL_SKIP_AUTO_SPHERE);

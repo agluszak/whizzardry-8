@@ -68,7 +68,7 @@ void Mesh::setShader(DrawShader shader, std::int32_t pass)
 {
     if (pass >= 0 && pass < 4) {
         shaders[pass] = shader;
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
 }
 
@@ -94,7 +94,7 @@ void Mesh::setMaterial(std::shared_ptr<Material> material, std::int32_t pass, e_
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
         materials[pass][side] = std::move(material);
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
 }
 
@@ -110,7 +110,7 @@ void Mesh::setTexture(std::shared_ptr<Texture> texture, std::int32_t pass, std::
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
         textures[pass][layer] = std::move(texture);
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
 }
 
@@ -121,9 +121,8 @@ std::int32_t Mesh::getActivePolygonCount()
 
 void Mesh::setActivePolygonCount(std::int32_t count)
 {
-    active_polygon_count = count;
     // Visibility selects existing triangles; it never changes render topology.
-    dirty_flags |= 1u << DIRTY_TRI_MESH;
+    active_polygon_count = count;
 }
 
 void Mesh::setUVCount(std::int32_t count)
@@ -140,7 +139,7 @@ void Mesh::setUVCount(std::int32_t count)
                 }
             }
         }
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
 }
 
@@ -158,7 +157,7 @@ glm::vec3* Mesh::getVertexLoc()
     }
     if (vertex_locations.empty()) {
         vertex_locations.resize(vertex_location_count, glm::vec3(0.0f, 0.0f, 0.0f));
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     return vertex_locations.data();
 }
@@ -170,7 +169,7 @@ glm::vec3* Mesh::getVertexNormal()
     }
     if (vertex_normals.empty()) {
         vertex_normals.resize(vertex_location_count, glm::vec3(0.0f, 0.0f, 0.0f));
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     if ((dirty_flags & (1UL << DIRTY_VERTEX_NORMALS)) != 0) {
         calculateVertexNormals();
@@ -187,7 +186,7 @@ glm::vec4* Mesh::getPolyEq()
         glm::vec4 zero;
         zero = glm::vec4(0);
         poly_equations.resize(polygon_count, zero);
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     if ((dirty_flags & (1UL << DIRTY_POLYGON_NORMALS)) != 0) {
         calculatePolygonNormals();
@@ -202,7 +201,6 @@ std::uint32_t* Mesh::getActivePolygonTable(int table)
         for (std::int32_t index = 0; index < polygon_count; ++index) {
             active_polygons[index] = index;
         }
-        dirty_flags |= 1u << DIRTY_TRI_MESH;
     }
     return active_polygons.empty() ? nullptr : active_polygons.data();
 }
@@ -214,7 +212,7 @@ glm::ivec3* Mesh::getPolyVertex()
     }
     if (poly_vertices.empty()) {
         poly_vertices.resize(polygon_count, glm::ivec3(0));
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     return poly_vertices.data();
 }
@@ -225,7 +223,7 @@ static T* GetLazyMeshTable(Mesh& mesh, std::vector<T>& slot, std::int32_t count,
 {
     if (slot.empty() && create != 0 && count != 0) {
         slot.resize(count, initial);
-        mesh.setDirty(Mesh::DIRTY_TRI_MESH);
+        mesh.invalidateRenderAsset();
     }
     return slot.empty() ? nullptr : slot.data();
 }
@@ -239,7 +237,7 @@ std::vector<std::shared_ptr<Material>>* Mesh::getVertexMaterialTable(std::int32_
     auto& assignments = vertex_materials[pass][side];
     if (create && assignments.empty() && vertex_location_count) {
         assignments.resize(vertex_location_count);
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     return assignments.empty() ? nullptr : &assignments;
 }
@@ -253,7 +251,7 @@ std::vector<std::shared_ptr<Texture>>* Mesh::getPolygonTextureTable(std::int32_t
     auto& assignments = poly_textures[pass][layer];
     if (create && assignments.empty() && polygon_count) {
         assignments.resize(polygon_count);
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     return assignments.empty() ? nullptr : &assignments;
 }
@@ -275,7 +273,7 @@ glm::ivec3* Mesh::getPolyUVIndex(std::int32_t layer, int table)
     if (slot.empty() && table != 0 && polygon_count != 0) {
         getPolyVertex();
         slot = poly_vertices;
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     return slot.empty() ? nullptr : slot.data();
 }
@@ -324,7 +322,6 @@ void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
     /* Reset really discards table storage and its references; pass-wide material/texture/shader
        state and sort bias survive. Default destruction needs no model reset or client callbacks.
        This includes the former freeAll path at SURRENDER 0x1003DEA0. */
-    tri_mesh = TriMesh{};
     active_polygons = std::vector<std::uint32_t>{};
     poly_vertices = std::vector<glm::ivec3>{};
     poly_equations = std::vector<glm::vec4>{};
@@ -424,67 +421,12 @@ void Mesh::relocateVertices(const glm::vec3& offset)
     setDirtyAll();
 }
 
-Mesh::TriMesh Mesh::getTriMesh()
+void Mesh::applyPendingLighting()
 {
     if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0) {
         updateBakedLighting();
         flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);
     }
-    if ((dirty_flags & (1UL << DIRTY_TRI_MESH)) != 0) {
-        updateTriMesh();
-    }
-    return tri_mesh;
-}
-
-void Mesh::updateTriMesh()
-{
-    tri_mesh = TriMesh{};
-    tri_mesh.vertex_count = vertex_location_count;
-    tri_mesh.polygon_count = polygon_count;
-    tri_mesh.pass_count = pass_count;
-    tri_mesh.control_flags = render_control;
-    tri_mesh.sort_bias = sort_bias;
-    tri_mesh.poly_vertices = getPolyVertex();
-    tri_mesh.poly_equations = getPolyEq();
-    tri_mesh.positions = getVertexLoc();
-    tri_mesh.normals = getVertexNormal();
-    for (std::int32_t pass = 0; pass < 4; pass++) {
-        for (std::int32_t side = 0; side < 2; side++) {
-            tri_mesh.materials[pass][side] =
-                std::static_pointer_cast<Material>(materials[pass][side]);
-            tri_mesh.vertex_materials[pass][side] =
-                getVertexMaterialTable(pass, static_cast<e_side>(side), false);
-        }
-        for (std::int32_t layer = 0; layer < 2; layer++) {
-            tri_mesh.textures[pass][layer] = textures[pass][layer];
-            tri_mesh.poly_textures[pass][layer] = getPolygonTextureTable(pass, layer, false);
-            tri_mesh.texcoords[pass][layer] = getVertexTexCoords(pass, layer, 0);
-        }
-        tri_mesh.shaders[pass] = shaders[pass];
-        tri_mesh.poly_uv[pass] = getPolyUVIndex(pass, 0);
-        tri_mesh.poly_shaders[pass] = getPolyShader(pass, 0);
-        tri_mesh.dig[pass] = getVertexDIG(pass, 0);
-        tri_mesh.dcg[pass] = getVertexDCG(pass, 0);
-        tri_mesh.scg[pass] = getVertexSCG(pass, 0);
-    }
-    constexpr auto manual_bounds =
-        (1UL << CONTROL_SKIP_AUTO_BOX) | (1UL << CONTROL_SKIP_AUTO_SPHERE);
-    if ((tri_mesh.control_flags & manual_bounds) != manual_bounds) {
-        const auto bounds = getBounds();
-        if ((tri_mesh.control_flags & (1UL << CONTROL_SKIP_AUTO_BOX)) == 0) {
-            tri_mesh.bounds_minimum = bounds.box.minimum;
-            tri_mesh.bounds_maximum = bounds.box.maximum;
-        }
-        if ((tri_mesh.control_flags & (1UL << CONTROL_SKIP_AUTO_SPHERE)) == 0) {
-            tri_mesh.bounds_center = bounds.sphere.center;
-            tri_mesh.bounds_radius = bounds.sphere.radius;
-        }
-    }
-    tri_mesh.active_polygons.reset();
-    if (const auto* active = getActivePolygonTable(0)) {
-        tri_mesh.active_polygons = std::span<const std::uint32_t>(active, active_polygon_count);
-    }
-    dirty_flags &= ~(1UL << DIRTY_TRI_MESH);
 }
 
 void Mesh::setBounds(const glm::vec3& minimum, const glm::vec3& maximum, const glm::vec3& center,
@@ -495,7 +437,7 @@ void Mesh::setBounds(const glm::vec3& minimum, const glm::vec3& maximum, const g
     bounds_center = center;
     bounds_radius = radius;
     clearDirty(DIRTY_BOUNDS);
-    setDirty(DIRTY_TRI_MESH);
+    invalidateRenderAsset();
 }
 
 static glm::vec4* GetVertexColorTable(Mesh& mesh,
@@ -582,13 +524,13 @@ float Mesh::getSortBias() const
 void Mesh::disable(e_control control)
 {
     render_control &= ~(1u << control);
-    setDirty(DIRTY_TRI_MESH);
+    invalidateRenderAsset();
 }
 
 void Mesh::setPassCount(std::int32_t count)
 {
     pass_count = std::clamp<std::int32_t>(count, 1, MAX_PASSES);
-    setDirty(DIRTY_TRI_MESH);
+    invalidateRenderAsset();
 }
 
 std::int32_t Mesh::getPassCount() const
