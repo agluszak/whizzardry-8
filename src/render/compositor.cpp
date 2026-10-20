@@ -17,7 +17,6 @@
 #include <vsg/state/Sampler.h>
 #include <vulkan/vulkan_core.h>
 
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
 
 OverlayQuad::~OverlayQuad()
