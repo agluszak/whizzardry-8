@@ -53,7 +53,6 @@ GpuRenderer::GpuRenderer()
     dirty = 0xffffffff;
     setError(ERROR_NONE);
     display.swap_interval = 1;
-    initView();
 }
 
 GpuRenderer::~GpuRenderer()
@@ -236,9 +235,7 @@ GpuRenderer::Renderer& GpuRenderer::batchRenderer(bool sorted)
 {
     auto& renderer = renderers[sorted];
     if (!renderer) {
-        renderer = std::make_unique<Renderer>(
-            Renderer::Parameters{this, int(sorted), int(GpuRenderer::renderer_batch_limit),
-                                 GpuRenderer::max_texture_stages});
+        renderer = std::make_unique<Renderer>(this, sorted);
     }
     return *renderer;
 }
@@ -280,11 +277,6 @@ void GpuRenderer::endFrame()
 }
 
 void GpuRenderer::flipFrame()
-{
-    flipFrame(0, 0, 0);
-}
-
-void GpuRenderer::flipFrame(const Rectangle* first, const Rectangle* second, std::uint32_t count)
 {
     if (isWindowOpen() == 0) {
         setError(ERROR_WINDOW_NOT_OPEN);
@@ -407,20 +399,20 @@ void GpuRenderer::clear(std::uint32_t buffers, const ClearValues& values)
 
 void GpuRenderer::applyViewStateChanges()
 {
-    if ((dirty & (DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE)) != 0) {
+    if ((dirty & DIRTY_VIEWPORT) != 0) {
         GpuRenderer::GpuViewPort viewport;
         viewport.x = state.view_left;
         viewport.y = state.view_top;
         viewport.width = state.view_right - viewport.x;
         viewport.height = state.view_bottom - viewport.y;
-        viewport.min_depth = state.depth_min;
-        viewport.max_depth = state.depth_max;
+        viewport.min_depth = 0;
+        viewport.max_depth = 1;
         if ((state_flags & STATE_CLOSING_WINDOW) == 0) {
             gpuSetViewPort(viewport);
         }
     }
     if ((dirty & DIRTY_SCISSOR) != 0) {
-        recalcScissor();
+        gpuSetScissor(state.scissor);
     }
     dirty &= ~DIRTY_VIEW_STATE;
 }
@@ -444,22 +436,8 @@ void GpuRenderer::setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t wid
     if (state.scissor.bottom >= (std::uint32_t)getHeight()) {
         state.scissor.bottom = getHeight();
     }
-    recalcScissor();
     dirty |= DIRTY_SCISSOR;
 }
-
-void GpuRenderer::recalcScissor()
-{
-    if (state.scissor.left == 0 && state.scissor.right == (std::uint32_t)getWidth() &&
-        state.scissor.top == 0 && state.scissor.bottom == (std::uint32_t)getHeight()) {
-        state.scissor_flags |= 2;
-    } else {
-        state.scissor_flags &= ~2UL;
-    }
-    gpuSetScissor(state.scissor);
-}
-
-void GpuRenderer::assertContext() const {}
 
 void GpuRenderer::checkViewStateChanges()
 {
@@ -540,7 +518,7 @@ GpuRenderer::e_error GpuRenderer::createContext(SDL_Window* window)
 void GpuRenderer::deleteContext()
 {
     if ((state_flags & STATE_CONTEXT_CREATED) != 0) {
-        closeWindow(static_cast<e_closeHint>(0));
+        closeWindow();
         closeTexCache();
         gpuDeleteContext();
         state_flags &= ~STATE_CONTEXT_CREATED;
@@ -574,7 +552,7 @@ void GpuRenderer::unlockBuffer(bool modified)
     gpuUnlockBuffer(modified);
 }
 
-void GpuRenderer::closeWindow(e_closeHint hint)
+void GpuRenderer::closeWindow()
 {
     if (isWindowOpen() != 0) {
         state_flags |= STATE_CLOSING_WINDOW;
@@ -626,7 +604,7 @@ GpuRenderer::e_error GpuRenderer::openWindowInternal(const OpenInfo& info)
     if ((state_flags & STATE_CONTEXT_CREATED) == 0) {
         return ERROR_NO_CONTEXT;
     }
-    closeWindow(static_cast<e_closeHint>(1));
+    closeWindow();
     if (info.width != 0 && info.height != 0 && info.window_width != 0 && info.window_height != 0) {
         if (device.window == nullptr) {
             return ERROR_INVALID_WHANDLE;
@@ -770,10 +748,4 @@ GpuRenderer::e_error GpuRenderer::getError()
     e_error error = last_error;
     setError(ERROR_NONE);
     return error;
-}
-
-void GpuRenderer::initView()
-{
-    state.depth_min = 0.0;
-    state.depth_max = 1.0;
 }

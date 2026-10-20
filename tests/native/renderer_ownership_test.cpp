@@ -297,33 +297,23 @@ bool rendererOwnership()
 
 bool rendererTextureStages()
 {
-    GpuRenderer gerd;
-    for (unsigned stages : {1u, 2u}) {
-        GpuRenderer::Renderer renderer({&gerd, 0, 256, stages});
-        auto arrays = renderer.allocVertexArray(8);
-        for (unsigned stage = 0; stage < 2; ++stage)
-            for (unsigned i = 0; i < 8; ++i) {
-                renderer.vertices.st[stage][i] = glm::vec2(10 * stage + i, 20 + i);
-                renderer.vertices.q[stage][i] = 0.25f * (stage + i + 1);
-            }
-        for (unsigned count : {1u, 3u, 4u, 5u, 8u}) {
-            for (unsigned lane = 0; lane < count; ++lane) {
-                for (unsigned attributes = 0; attributes < 128; ++attributes) {
-                    std::fill(renderer.vertices.attributes.begin(),
-                              renderer.vertices.attributes.end(), 0);
-                    renderer.vertices.attributes[lane] = attributes;
-                    const auto mask = renderer.vertexArrays(arrays, count).mask;
-                    for (unsigned stage = 0; stage < 2; ++stage) {
-                        const bool enabled =
-                            stage < stages &&
-                            (attributes & (ShadedVertexArrays::ATTRIBUTE_ST0 << stage));
-                        REQUIRE(bool(mask & (1u << (vertexStream::VERTEX_ARRAY_TEXCOORD0 +
-                                                    stage))) == enabled);
-                    }
-                }
-            }
-        }
-    }
+    GpuRenderer::Renderer renderer(nullptr, false);
+    auto arrays = renderer.allocVertexArray(3);
+    renderer.vertices.attributes[0] =
+        ShadedVertexArrays::ATTRIBUTE_ST0 | ShadedVertexArrays::ATTRIBUTE_Q0;
+    renderer.vertices.attributes[1] = ShadedVertexArrays::ATTRIBUTE_ST1;
+    renderer.vertices.attributes[2] = ShadedVertexArrays::ATTRIBUTE_DIFFUSE;
+    auto streams = renderer.vertexArrays(arrays, 3);
+    const auto texture_mask =
+        (1u << vertexStream::VERTEX_ARRAY_TEXCOORD0) | (1u << vertexStream::VERTEX_ARRAY_TEXCOORD1);
+    REQUIRE((streams.mask & texture_mask) == texture_mask);
+    REQUIRE(streams.texture_weights[0] == arrays.q0);
+    REQUIRE(streams.texture_weights[1] == nullptr);
+    renderer.vertices.attributes[1] |= ShadedVertexArrays::ATTRIBUTE_Q1;
+    streams = renderer.vertexArrays(arrays, 3);
+    REQUIRE(streams.texture_weights[1] == arrays.q1);
+    std::fill(renderer.vertices.attributes.begin(), renderer.vertices.attributes.end(), 0);
+    REQUIRE((renderer.vertexArrays(arrays, 3).mask & texture_mask) == 0);
     return true;
 }
 
@@ -333,7 +323,7 @@ bool rendererCornerRemapping()
     // a nonzero batch base exercise allocation order and copied vertex streams.
     for (unsigned changed = 0; changed < 8; ++changed) {
         for (int sorted : {0, 1}) {
-            GpuRenderer::Renderer renderer({nullptr, sorted, 256, 2});
+            GpuRenderer::Renderer renderer(nullptr, sorted);
             renderer.vertices.alloc(5);
             renderer.allocVertexArray(6);
             for (unsigned i = 5; i < 11; ++i) {
@@ -555,7 +545,7 @@ TEST_CASE("Picking honors counted selections, direct indices, nearest depth and 
     const std::array<glm::ivec3, 2> triangles{{{0, 0, 0}, {1, 2, 0}}};
     const std::array<std::uint32_t, 1> indices{1};
     const std::array<std::uint32_t, 3> remap{2, 0, 1};
-    GpuRenderer::Renderer batch({&renderer, 0, 256, 1});
+    GpuRenderer::Renderer batch(&renderer, false);
     const glm::mat4 projection(1);
     const MeshPass pass{};
     GpuRenderer::Renderer::TriInput input{};

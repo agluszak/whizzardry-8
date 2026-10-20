@@ -241,12 +241,6 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                     for (auto& index : culler_output.indices) index += processed;
                 }
 
-                std::uint32_t renderer_disable_mask = 0;
-                if (this->getMaxTextureStages() == 1) {
-                    renderer_disable_mask =
-                        (1UL << VertexChannels::CHANNEL_ST1) | (1UL << VertexChannels::CHANNEL_Q1);
-                }
-
                 for (std::uint32_t pass_index = 0; pass_index < slot_count; ++pass_index) {
                     passes[pass_index].texcoords = records[pass_index].st_source[0];
 
@@ -258,7 +252,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                     } else {
                         disable_mask = shaderDisabledChannels(passes[pass_index].shader);
                     }
-                    records[pass_index].channels = disable_mask | renderer_disable_mask;
+                    records[pass_index].channels = disable_mask;
                 }
 
                 shadeVertices(pipe_input);

@@ -49,7 +49,6 @@ public:
     static constexpr std::uint32_t texture_min_dim = 1;
     static constexpr std::uint32_t texture_max_dim = 4096;
     static constexpr std::uint32_t texture_max_aspect = 4096;
-    static constexpr std::uint32_t max_texture_stages = 2;
     static constexpr std::uint32_t renderer_batch_limit = 256;
     // The values one clear writes into the selected buffers.
     struct ClearValues {
@@ -325,13 +324,6 @@ public:
             }
         };
 
-        struct Parameters {
-            GpuRenderer* gerd;
-            std::int32_t sorted;
-            std::int32_t batch_limit;
-            std::uint32_t texture_stages;
-        };
-
         /* The draw inputs of one triangle run. The interned record additionally carries a blend
            class derived from the shader's DSTBLEND field (ZERO -> 0, SRC_ALPHA pair -> 1,
            ONE -> 2, SRC_COLOR pair -> 3). */
@@ -413,7 +405,6 @@ public:
             std::vector<glm::vec2> st[2];
             std::vector<float> q[2];
             std::vector<unsigned char> attributes;
-            /* isBatchFull compares this signed against batch_limit. */
             std::int32_t count;
 
             VertexArrays() : count(0) {}
@@ -422,7 +413,7 @@ public:
             void reset(int release);
         };
 
-        Renderer(const Parameters& parameters);
+        Renderer(GpuRenderer* gerd, bool sorted);
         ShadedVertexArrays allocVertexArray(std::uint32_t count);
         /* intern the pass's {texture0,texture1,shader} key, with the input's
            draw inputs, into texture_set, folding per-vertex texture/shader
@@ -440,7 +431,7 @@ public:
         void render(const TriInput& input);
         /* the accumulated batch count passed the limit. Only
            immediate (non-sorted) renderers report full. */
-        int isBatchFull() const;
+        bool isBatchFull() const;
         /* Submit the accumulated batch to SDL GPU. */
         void submit();
         /* the immediate (sorted == 0) and
@@ -483,9 +474,7 @@ public:
         GpuRenderer* gerd;
         /* flushSort flushes entries where this is 1, flushImmediateRenderers
            where it is 0. */
-        std::int32_t sorted;
-        std::int32_t batch_limit;
-        std::uint32_t texture_stages;
+        bool sorted;
     };
 
     enum e_error {
@@ -499,7 +488,6 @@ public:
         ERROR_CONTEXT_CREATION_FAILED = 7,
         ERROR_NO_CONTEXT = 8
     };
-    enum e_closeHint {};
     /* toggle XORs 1<<option into enable_flags. The constructor sets both options. */
     enum e_enable { ENABLE_AUTO_FLIP = 4, ENABLE_CLEAR_ON_OPEN = 6 };
 
@@ -524,7 +512,7 @@ public:
     /* Number of back buffers in the swap chain (1, 2 or 3). */
     e_error openWindow();
     e_error openWindow(std::int32_t width, std::int32_t height);
-    void closeWindow(e_closeHint hint);
+    void closeWindow();
     int isWindowOpen() const;
     e_error beginFrame();
     void endFrame();
@@ -568,20 +556,12 @@ public:
     Statistics getStatistics();
     std::uint32_t getResidentTextureMemUsed() const;
     void setScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
-    /* Dirty-rectangle pair handed to flipFrame in {x,y,width,height} form;
-       GERD converts each to GpuScissor left/top/right/bottom. */
-    struct Rectangle {
-        std::int32_t x, y, width, height;
-    };
     void flipFrame();
-    void flipFrame(const Rectangle* first, const Rectangle* second, std::uint32_t count);
     void setViewPort(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
     // Rendering and resource updates run on the main thread.
     Renderer& batchRenderer(bool sorted);
     SDL_Surface* lockBuffer();
     void unlockBuffer(bool modified = false);
-    // RECOMP: ?getMaxTextureStages@GpuRenderer@@QBEJXZ
-    std::int32_t getMaxTextureStages() const { return max_texture_stages; }
     void setTextureDefaultMagFilter(Texture::e_filter filter);
     void setTextureDefaultMinFilter(Texture::e_filter filter);
     void setTextureDefaultMipmap(Texture::e_mipmap mipmap);
@@ -639,13 +619,11 @@ private:
     void deleteRenderers();
 
     void setError(e_error error);
-    void assertContext() const;
     void applyViewStateChanges();
     void checkViewStateChanges();
     void checkFrameStateChanges();
     void applyFrameStateChanges();
     void checkAllStateChanges();
-    void recalcScissor();
     // The resident device copy of a resolved texture and the sampler its parameters select.
     GpuStage residentStage(Texture* texture, std::int32_t reduction);
     GpuTexture* createNewTexture(Texture* texture, std::int32_t reduction);
@@ -654,7 +632,6 @@ private:
                                    std::int32_t reduction);
     void initTexCache();
     void closeTexCache();
-    void initView();
     e_error openWindowInternal(const OpenInfo& info);
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
@@ -669,17 +646,11 @@ private:
     };
 
     struct State {
-        /* Depth range forwarded into GpuViewPort by applyViewStateChanges;
-           initView resets it to [0.0, 1.0] and setDepthRange clamps it. */
-        double depth_min;
-        double depth_max;
         GpuScissor scissor;
         std::uint32_t view_left;
         std::uint32_t view_top;
         std::uint32_t view_right;
         std::uint32_t view_bottom;
-        /* Bit 1: recalcScissor marks the scissor as the full view. */
-        std::uint32_t scissor_flags;
     };
 
     struct Display {
@@ -696,7 +667,6 @@ private:
     friend class MeshInstance;
     std::vector<glm::vec3> highlight_vertices;
 
-    unsigned char unknown_0c_[4];
     // Immediate and depth-sorted batches.
     std::array<std::unique_ptr<Renderer>, 2> renderers;
     std::uint32_t enable_flags = 0;
@@ -704,9 +674,8 @@ private:
         DIRTY_SWAP_INTERVAL = 0x4UL,
         DIRTY_SCISSOR = 0x10UL,
         DIRTY_VIEWPORT = 0x80UL,
-        DIRTY_DEPTH_RANGE = 0x100UL,
         DIRTY_FRAME_STATE = DIRTY_SWAP_INTERVAL,
-        DIRTY_VIEW_STATE = DIRTY_SCISSOR | DIRTY_VIEWPORT | DIRTY_DEPTH_RANGE
+        DIRTY_VIEW_STATE = DIRTY_SCISSOR | DIRTY_VIEWPORT
     };
     std::uint32_t dirty;
     enum {
@@ -720,7 +689,6 @@ private:
     e_error last_error;
     State state;
     Display display;
-    unsigned char unknown_19f4_[4];
     Statistics statistics;
 
     TextureState texture_state;
@@ -728,7 +696,6 @@ private:
     Texture fallback_texture;
     std::unordered_map<Texture*, GpuTexture> textures;
     GpuTexture* texture_default;
-    unsigned char unknown_2045_[3];
 
 public:
     /* performPickTest's w-normalized {x,y,z,sign(w)} scratch per vertex;

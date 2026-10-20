@@ -206,7 +206,7 @@ TEST_CASE("game graphics")
     PresentMenuOverlayFrame();
 
     // Reopening must publish the renderer again and rebuild invalidated texture caches.
-    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
+    g_gerd->closeWindow();
     REQUIRE(GpuRenderer::getActive() == nullptr);
     REQUIRE(OpenRendererWindow());
     REQUIRE(GpuRenderer::getActive() == g_gerd.get());

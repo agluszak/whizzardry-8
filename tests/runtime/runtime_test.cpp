@@ -1394,7 +1394,7 @@ void ResourceLifecycleScenario()
     StartPremadeGame(game);
     REQUIRE(g_gerd);
     REQUIRE(GpuRenderer::getActive() == g_gerd.get());
-    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
+    g_gerd->closeWindow();
     REQUIRE(GpuRenderer::getActive() == nullptr);
     REQUIRE(OpenRendererWindow());
     REQUIRE(GpuRenderer::getActive() == g_gerd.get());

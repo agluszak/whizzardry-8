@@ -356,7 +356,7 @@ bool VideoResizeWindow(void)
         return 0;
     }
     g_flush_pending = false;
-    g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(1));
+    g_gerd->closeWindow();
     if (g_gerd->openWindow() == GpuRenderer::ERROR_WINDOW_OPEN_FAILED) {
         return 0;
     }
@@ -370,7 +370,7 @@ void VideoFullScreen(bool enabled)
     g_fullscreen = enabled;
     if (ghWindow && g_gerd && g_flush_pending) {
         g_flush_pending = false;
-        g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(1));
+        g_gerd->closeWindow();
         OpenRendererWindow();
     }
 }
@@ -398,7 +398,7 @@ void SuspendVideoManager(void)
         g_video_active = false;
         if (g_gerd) {
             g_flush_pending = false;
-            g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
+            g_gerd->closeWindow();
         }
         SDL_MinimizeWindow(ghWindow);
         FreeMouseCursor();

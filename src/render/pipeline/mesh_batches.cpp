@@ -191,20 +191,15 @@ ShadedVertexArrays GpuRenderer::Renderer::VertexArrays::alloc(std::uint32_t coun
     return arrays;
 }
 
-GpuRenderer::Renderer::Renderer(const Parameters& parameters)
-    : gerd(parameters.gerd), sorted(parameters.sorted), batch_limit(parameters.batch_limit),
-      texture_stages(parameters.texture_stages)
+GpuRenderer::Renderer::Renderer(GpuRenderer* gerd, bool sorted) : gerd(gerd), sorted(sorted)
 {
     first_vertex = -1;
     statistics = {};
 }
 
-int GpuRenderer::Renderer::isBatchFull() const
+bool GpuRenderer::Renderer::isBatchFull() const
 {
-    if (sorted == 0 && batch_limit < vertices.count) {
-        return 1;
-    }
-    return 0;
+    return !sorted && vertices.count > static_cast<std::int32_t>(renderer_batch_limit);
 }
 
 ShadedVertexArrays GpuRenderer::Renderer::allocVertexArray(std::uint32_t count)
@@ -500,11 +495,7 @@ void GpuRenderer::Renderer::drawSorted(const vertexStream::VertexArrayInfo& arra
 vertexStream::VertexArrayInfo GpuRenderer::Renderer::vertexArrays(const ShadedVertexArrays& arrays,
                                                                   std::uint32_t count) const
 {
-    std::uint32_t attributes = attributeMask(arrays.attributes, count);
-    if (texture_stages < 2) {
-        /* Single-stage devices cannot take stage-1 st/q streams. */
-        attributes &= ~(ShadedVertexArrays::ATTRIBUTE_ST1 | ShadedVertexArrays::ATTRIBUTE_Q1);
-    }
+    const auto attributes = attributeMask(arrays.attributes, count);
     vertexStream::VertexArrayInfo result{};
     const auto stream = [&](vertexStream::e_vertexArray slot, std::int32_t components,
                             std::uint32_t stride, const void* values) {
