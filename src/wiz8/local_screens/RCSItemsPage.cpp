@@ -222,7 +222,7 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
         return;
     }
     if (CanCastFromItem(character, item)) {
-        LearnSpellFromItem(character, item);
+        LearnSpellFromItem(character, location);
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
             if (auto* main_game = MainGame()) {
@@ -287,9 +287,10 @@ void W8CampItemsPage::ReportCastResult(int party_slot)
 }
 
 // FUNCTION: WIZ8 0x005BA740
-void W8CampItemsPage::UseHeldItemOnItem(W8ItemInstance* item)
+void W8CampItemsPage::UseHeldItemOnItem(W8ItemLocation location)
 {
     W8CombatSlot target;
+    W8ItemInstance* item = CurrentGame().party.itemAt(location);
 
     if (pending_item_action.caster_slot < 0) {
         Fail("pending_item_action.caster_slot >= 0");
@@ -304,7 +305,7 @@ void W8CampItemsPage::UseHeldItemOnItem(W8ItemInstance* item)
         if (CanItemLeaveItsSlot(item)) {
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_ITEM;
-            target.item = CurrentGame().party.locateItem(item);
+            target.item = location;
             if (CommitPartySlotSpell(pending_item_action.caster_slot, W8_SPELL_IDENTIFY_ITEM, 8,
                                      &target) == 1) {
                 OpenItemInfoDialog(item);
@@ -1796,9 +1797,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                     [CurrentGame().party.itemAt(row->executing.detail_block.item_use.item)->iItemNo]
                         .spell_id == W8_SPELL_IDENTIFY_ITEM) {
             reidentify = true;
-            result = CommitPartySlotItemUse(
-                party_slot, CurrentGame().party.itemAt(row->executing.detail_block.item_use.item),
-                &target);
+            result =
+                CommitPartySlotItemUse(party_slot, row->executing.detail_block.item_use, &target);
         } else {
             result = CommitPartySlotSpell(party_slot, W8_SPELL_IDENTIFY_ITEM, 8, &target);
         }
@@ -1823,7 +1823,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         return;
     }
     if (item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM) {
-        UseHeldItemOnItem(item);
+        UseHeldItemOnItem(location);
         return;
     }
     if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY) {
@@ -2324,7 +2324,7 @@ void W8CampItemsPage::SelectCampItemAction(W8CampItemActionButton button)
     case W8_CAMP_ACTION_BUTTON_USE_ON_ITEM:
         pending_item_action.caster_slot = PartySlot();
         if ((CurrentGame().party.held.item.iItemNo != -1)) {
-            UseHeldItemOnItem(&CurrentGame().party.held.item);
+            UseHeldItemOnItem({W8ItemStorage::Hand});
             control.SetPressed(false);
             control.m_dirty = true;
             return;

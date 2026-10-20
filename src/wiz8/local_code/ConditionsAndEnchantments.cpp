@@ -152,7 +152,9 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
                        FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
                    condition == W8_CONDITION_INSANE && found.storage != W8ItemStorage::None &&
                    found.storage != W8ItemStorage::Hand) {
-            W8Character* holder = CurrentGame().party.holderOf(found);
+            W8Character* holder = found.storage == W8ItemStorage::Pool
+                                      ? nullptr
+                                      : &CurrentGame().party.characters[found.character];
             if (!holder) {
                 holder = FindPartyMemberWithLowestResistance4();
             }

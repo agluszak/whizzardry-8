@@ -259,7 +259,7 @@ template<> struct Record<W8PartySlotRow> {
               bytes.subspan(offsetof(Disk, action_detail), sizeof(Disk::action_detail)));
         value(&runtime.remembered.spell.detail,
               bytes.subspan(offsetof(Disk, spell_id), sizeof(Disk::spell_id)));
-        value(&runtime.remembered.item_id,
+        value(&runtime.remembered.item_detail.item_use.item_id,
               bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
         constexpr W8ItemStorage storage_kinds[] = {W8ItemStorage::Backpack,
                                                    W8ItemStorage::Equipment, W8ItemStorage::Pool};

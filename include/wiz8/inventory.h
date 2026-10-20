@@ -7,6 +7,7 @@
 #include "wiz8/rules/inventory.h" // IWYU pragma: export - the storage rules the commands apply.
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/targeting.h"
 
 class Game;
 struct W8Character;
@@ -115,8 +116,9 @@ struct W8ItemUseResult {
     // The attempt's own fatigue cost; none leaves the action's ordinary cost.
     std::optional<int> fatigue_cost;
 };
-// Use one item as a character's action.
-W8ItemUseResult UseItem(Game& game, unsigned actor, W8ItemLocation item);
+/* Use one item as a character's action; a use whose location no longer holds its item does
+   nothing. */
+W8ItemUseResult UseItem(Game& game, unsigned actor, const W8ItemUse& use);
 
 // ---- Equipment rule
 

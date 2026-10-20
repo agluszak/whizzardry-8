@@ -10,6 +10,7 @@
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/targeting.h"
 
 struct GameData;
 struct RuleContext;
@@ -69,6 +70,10 @@ unsigned int CountPartyItem(const W8Party& party, int item_id);
 bool EveryCharacterHasItem(const W8Party& party, int item_id, W8ItemReach reach);
 // The held item's id, or -1.
 int GetItemInHand(const W8Party& party);
+// A use of the item at a location, expecting the item that is there now.
+W8ItemUse ItemUseAt(const W8Party& party, W8ItemLocation location);
+// The item a use names, while its location still holds the item the use was chosen for.
+W8ItemInstance* ResolveItemUse(W8Party& party, const W8ItemUse& use);
 
 // ---- Placing items
 

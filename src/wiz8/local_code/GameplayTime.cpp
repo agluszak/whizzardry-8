@@ -743,7 +743,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (const auto found =
             FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
         found.storage != W8ItemStorage::None && found.storage != W8ItemStorage::Hand) {
-        auto* holder = CurrentGame().party.holderOf(found);
+        auto* holder = found.storage == W8ItemStorage::Pool
+                           ? nullptr
+                           : &CurrentGame().party.characters[found.character];
         if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
             if (character->uiCondition[W8_CONDITION_INSANE] < W8_CONDITION_INDEFINITE) {
                 SetCharacterCondition(party_slot, W8_CONDITION_INSANE, W8_CONDITION_INDEFINITE, 0,

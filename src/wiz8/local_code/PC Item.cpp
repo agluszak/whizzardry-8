@@ -55,6 +55,7 @@
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
@@ -1035,7 +1036,7 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
         row.committed.target = action.target;
     else
         row.executing.target = action.target;
-    StagePartySlotItemUse(party_slot, item, &action.target);
+    StagePartySlotItemUse(party_slot, action.detail_block.item_use.item, &action.target);
     if (Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
         OpenCharacterScreenForPartySlot(party_slot, true);
@@ -1046,14 +1047,12 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
 
 /* Stage the slot row's item-use detail block, aimed target and provenance for
    an item use that is about to commit. */
-void StagePartySlotItemUse(int party_slot, W8ItemInstance* item, const W8CombatSlot* target)
+void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    row->remembered.item_detail.item_use.kind = -1;
-    row->remembered.item_detail.item_use.item = CurrentGame().party.locateItem(item);
+    row->remembered.item_detail.item_use = ItemUseAt(CurrentGame().party, location);
     row->remembered.item_target = *target;
-    row->remembered.item_id = item->iItemNo;
 }
 
 /* Cast the spell an item carries and spend the uses it cost. The attempt is

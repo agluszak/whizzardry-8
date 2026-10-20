@@ -1057,8 +1057,9 @@ int g_learn_sound = kFirstRemappedEvent + 16;
    Learning practises three things at once: the learning skill at twice the
    spell's level, the spell's own realm skill at its level, and every spellbook
    skill the spell belongs to at the same. */
-void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
+void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
 {
+    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
     unsigned int spell_id;
     int usage_points;
     unsigned int skill_id;
@@ -1086,7 +1087,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
                                    usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame(), CurrentGame().party.locateItem(item));
+    (void)TakeInventoryItem(CurrentGame(), location);
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -1205,12 +1206,12 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     int spell_id;
     bool normalize;
 
-    const auto location = row->remembered.item_detail.item_use.item;
-    if (location.storage == W8ItemStorage::None || location.storage == W8ItemStorage::Hand ||
-        (location.storage == W8ItemStorage::Pool && CurrentGame().combat.has_value()))
+    const auto& use = row->remembered.item_detail.item_use;
+    if (use.item.storage == W8ItemStorage::None || use.item.storage == W8ItemStorage::Hand ||
+        (use.item.storage == W8ItemStorage::Pool && CurrentGame().combat.has_value()))
         return false;
-    item = CurrentGame().party.itemAt(location);
-    if (item == 0 || item->iItemNo == -1 || item->iItemNo != row->remembered.item_id) {
+    item = ResolveItemUse(CurrentGame().party, use);
+    if (item == 0) {
         return false;
     }
     if (!CanUseItemForAction(party_slot, item)) {

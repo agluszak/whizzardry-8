@@ -30,6 +30,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/rule_context.h"
+#include "wiz8/rules/targeting.h"
 
 // The speech a member makes when a shot weapon or ammunition has no partner to draw from.
 enum { W8_SPEECH_NO_AMMUNITION = 39 };
@@ -297,6 +298,20 @@ bool EveryCharacterHasItem(const W8Party& party, int item_id, W8ItemReach reach)
 int GetItemInHand(const W8Party& party)
 {
     return party.held.item.iItemNo;
+}
+
+W8ItemUse ItemUseAt(const W8Party& party, W8ItemLocation location)
+{
+    const auto* item = party.itemAt(location);
+    return {-1, location, item ? item->iItemNo : -1};
+}
+
+W8ItemInstance* ResolveItemUse(W8Party& party, const W8ItemUse& use)
+{
+    if (use.item.storage == W8ItemStorage::Pool && use.item.slot >= party.item_count)
+        return nullptr;
+    auto* item = party.itemAt(use.item);
+    return item && item->iItemNo != -1 && item->iItemNo == use.item_id ? item : nullptr;
 }
 
 // ---- Placing items

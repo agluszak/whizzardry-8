@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/rules/action_choices.h"
+#include "wiz8/rules/inventory.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
@@ -57,6 +58,19 @@ TEST_CASE("The hand forgets where its item came from once it is emptied", "[part
     REQUIRE(party.take({W8ItemStorage::Hand}).iItemNo == 10);
     REQUIRE(party.held.item.iItemNo == -1);
     REQUIRE((party.held.origin == W8ItemLocation{} && party.held.actor == -1));
+}
+
+TEST_CASE("An item use is abandoned once its pool entry moves", "[party][actions]")
+{
+    auto party = PartyWithPool({10, 11, 12});
+    const auto use = ItemUseAt(party, {W8ItemStorage::Pool, 0, 1});
+    REQUIRE(ResolveItemUse(party, use) == &party.item_pool[1]);
+    // A change of quantity keeps the use.
+    party.item_pool[1].stack_count = 3;
+    REQUIRE(ResolveItemUse(party, use) == &party.item_pool[1]);
+    // Taking an earlier entry closes the pool up and moves item 12 into the use's location.
+    party.take({W8ItemStorage::Pool, 0, 0});
+    REQUIRE(ResolveItemUse(party, use) == nullptr);
 }
 
 TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "[party][actions]")

@@ -730,8 +730,11 @@ GameState decode_game_state(std::span<const std::byte> payload)
         auto& item = row.remembered.item_detail.item_use.item;
         item.character = slot;
         if (!row.fOccupied || !party.itemAt(item)) item = {};
-        if (row.executing.kind == W8_ACTION_USE_ITEM)
+        if (row.executing.kind == W8_ACTION_USE_ITEM) {
             row.executing.detail_block.item_use.item = item;
+            row.executing.detail_block.item_use.item_id =
+                row.remembered.item_detail.item_use.item_id;
+        }
     }
     party.formation.reconcile(party.rows);
     return state;

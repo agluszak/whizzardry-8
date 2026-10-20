@@ -17,7 +17,6 @@ struct ActionChoices {
     // The item-use two-word detail block: the use kind plus the item.
     W8ActionDetailBlock item_detail{.item_use = {-1, {}}};
     W8CombatSlot item_target;
-    int item_id;
     // The last committed action other than a basic action or a move, which the repeat key repeats.
     W8ActionKind repeat_action = W8_ACTION_NONE;
     W8CombatSlot breath_target;

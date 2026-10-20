@@ -117,6 +117,16 @@ enum W8PartyActionStatus : std::uint8_t {
     W8_PARTY_ACTION_FINISHED = 3
 };
 
+/* An item use: its kind and the item, by location in the party, with the id of the item it
+   was chosen for. Removing an item closes the pool up, so a location can come to hold another
+   item; a use whose location no longer holds its item is abandoned. Quantities and
+   identification may change while a use waits. */
+struct W8ItemUse {
+    int kind{};
+    W8ItemLocation item;
+    int item_id = -1;
+};
+
 /* Action-specific inputs, independent of their two-word retail encoding.
    Item relationships are locations resolved against the operation's party. */
 struct W8ActionDetailBlock {
@@ -124,10 +134,7 @@ struct W8ActionDetailBlock {
         int power_level;
         int unused;
     } spell{};
-    struct {
-        int kind;
-        W8ItemLocation item;
-    } item_use{};
+    W8ItemUse item_use{};
 };
 
 /* The combat actions a party slot row's action and the HUD state's

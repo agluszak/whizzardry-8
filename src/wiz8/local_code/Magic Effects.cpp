@@ -72,6 +72,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -2131,9 +2132,9 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     }
 }
 
-static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, unsigned int chance,
-                                   int* totals)
+static void DestroyItemConsumables(W8ItemLocation location, unsigned int chance, int* totals)
 {
+    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
     unsigned int destroyed;
     unsigned int unit;
     if (item->iItemNo != -1 &&
@@ -2154,7 +2155,7 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), destroyed);
+        RemoveInventoryQuantity(CurrentGame(), location, destroyed);
     }
 }
 
@@ -2164,8 +2165,6 @@ static void DestroyItemConsumables(W8ItemInstance* item, W8Character* owner, uns
    their own summary line. */
 void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
 {
-    W8Character* character;
-    W8ItemInstance* item;
     bool verbose;
     unsigned int chance;
     int totals[3];
@@ -2182,21 +2181,19 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
         if (party_slot == -1) {
             Fail("iChar != -1");
         }
-        character = &CurrentGame().party.characters[party_slot];
-        for (slot = 0; slot < 12; ++slot) {
-            item = &character->EquippedItem[slot];
-            DestroyItemConsumables(item, character, chance, totals);
-        }
-        for (slot = 0; slot < 8; ++slot) {
-            item = &character->backpack[slot];
-            DestroyItemConsumables(item, character, chance, totals);
-        }
+        const auto member = static_cast<unsigned int>(party_slot);
+        for (slot = 0; slot < 12; ++slot)
+            DestroyItemConsumables({W8ItemStorage::Equipment, member, static_cast<unsigned>(slot)},
+                                   chance, totals);
+        for (slot = 0; slot < 8; ++slot)
+            DestroyItemConsumables({W8ItemStorage::Backpack, member, static_cast<unsigned>(slot)},
+                                   chance, totals);
     }
     if (!effect->target_indices.empty()) {
         for (index = 0; static_cast<unsigned int>(index) < CurrentGame().party.item_count;
              ++index) {
-            item = &CurrentGame().party.item_pool[index];
-            DestroyItemConsumables(item, 0, chance, totals);
+            DestroyItemConsumables({W8ItemStorage::Pool, 0, static_cast<unsigned>(index)}, chance,
+                                   totals);
         }
     }
     if (totals[2] + totals[1] + totals[0] != 0) {

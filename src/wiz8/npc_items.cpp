@@ -36,6 +36,7 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -517,7 +518,12 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
     if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
     const bool wanted = NpcHasTopic(npc, item->iItemNo);
     if (!SellItemToNpc(npc, item, quantity, wanted)) return {W8TradeOutcome::Refused};
-    RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), quantity);
+    const W8ItemLocation sold =
+        selection.source == W8TradeSource::Backpack
+            ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),
+                             static_cast<unsigned>(selection.slot)}
+            : W8ItemLocation{W8ItemStorage::Pool, 0, static_cast<unsigned>(selection.slot)};
+    RemoveInventoryQuantity(CurrentGame(), sold, quantity);
     wiz8::sound::play(g_sound_cash_transaction);
     return {W8TradeOutcome::Complete, wanted};
 }

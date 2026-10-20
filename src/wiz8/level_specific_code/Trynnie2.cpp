@@ -212,8 +212,9 @@ std::unique_ptr<LevelScript> MakeTrynnie2Script(const ScriptContext& context)
    instance. The retail DispatchWorldCursorNodeCommand call passes only two
    arguments; arg is never dereferenced for command 8, so the callee reads an
    uninitialized stack slot there. */
-bool Trynnie2UseItem(const ScriptContext& context, W8ItemInstance* item)
+bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
 {
+    const W8ItemInstance* item = context.party.itemAt(location);
     glm::vec3 position;
     W8ItemInstance destination;
 
@@ -238,6 +239,6 @@ bool Trynnie2UseItem(const ScriptContext& context, W8ItemInstance* item)
         }
     }
     destination.iItemNo = -1;
-    destination = TakeInventoryItem(context.game, context.party.locateItem(item));
+    destination = TakeInventoryItem(context.game, location);
     return true;
 }

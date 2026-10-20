@@ -73,8 +73,8 @@ static bool IsHandSlot(unsigned int slot)
 
 /* The consequences of one live inventory edit. The edit names the locations whose item it
    replaced or emptied; a change of quantity alone is not a replacement. A committed item
-   use loses its item, a weapon hand change reconciles combat choices, and a changed hand is
-   reported. */
+   use whose item is gone or has moved is abandoned, a weapon hand change reconciles combat
+   choices, and a changed hand is reported. */
 static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> replaced)
 {
     auto& party = game.party;
@@ -87,12 +87,14 @@ static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> repl
         hand |= location.storage == W8ItemStorage::Hand;
         if (location.storage == W8ItemStorage::Equipment && IsHandSlot(location.slot))
             changed_hands.set(location.character);
-        for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            const auto& action = party.rows[slot].committed;
-            if (game.status.game_started && party.rows[slot].fOccupied &&
-                action.kind == W8_ACTION_USE_ITEM && action.detail_block.item_use.item == location)
-                DropCharacterFromRound(slot);
-        }
+    }
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& action = party.rows[slot].committed;
+        const auto& use = action.detail_block.item_use;
+        if (game.status.game_started && party.rows[slot].fOccupied &&
+            action.kind == W8_ACTION_USE_ITEM && use.item.storage != W8ItemStorage::None &&
+            !ResolveItemUse(party, use))
+            DropCharacterFromRound(slot);
     }
     SettleActiveParty(game, changed_hands);
     if (hand) game.events.push(HeldItemChanged{});
@@ -858,10 +860,10 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
     return {{used, own_cost()}, emptied};
 }
 
-W8ItemUseResult UseItem(Game& game, unsigned actor, W8ItemLocation location)
+W8ItemUseResult UseItem(Game& game, unsigned actor, const W8ItemUse& use)
 {
-    auto* item = game.party.itemAt(location);
-    if (actor >= W8_PARTY_SLOT_COUNT || !item || item->iItemNo == -1) return {};
+    const auto location = use.item;
+    if (actor >= W8_PARTY_SLOT_COUNT || !ResolveItemUse(game.party, use)) return {};
     const auto outcome = UseItemOnce(game, actor, location);
     FinishInventoryEdit(game, {outcome.emptied ? location : W8ItemLocation{}});
     return outcome.result;

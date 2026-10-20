@@ -2073,8 +2073,7 @@ void ExecuteCharacterAction(int party_slot)
         result = CanCharacterAttackItsTarget(party_slot);
         break;
     case W8_ACTION_USE_ITEM: {
-        const auto use =
-            UseItem(CurrentGame(), party_slot, slot->executing.detail_block.item_use.item);
+        const auto use = UseItem(CurrentGame(), party_slot, slot->executing.detail_block.item_use);
         fatigue_cost = use.fatigue_cost;
         if (use.effect == 0) {
             result = 0;

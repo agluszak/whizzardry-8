@@ -1063,8 +1063,9 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
    cost (or the standard use-item cost when no use happened). The audio cues
    mirror the spell path: fizzle, learned for a successful identify, general
    magic otherwise. */
-int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* target)
+int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
 {
+    const W8ItemInstance* item = CurrentGame().party.itemAt(use.item);
     int result;
     W8PartySlotRow* row;
     W8ItemInstance* used;
@@ -1072,17 +1073,17 @@ int CommitPartySlotItemUse(int party_slot, W8ItemInstance* item, W8CombatSlot* t
     StartBreathCycle(party_slot, false);
     row = &CurrentGame().party.rows[party_slot];
     row->executing.start(W8_ACTION_USE_ITEM, -1);
-    row->executing.detail_block.item_use.kind = -1;
-    row->executing.detail_block.item_use.item = CurrentGame().party.locateItem(item);
+    use.kind = -1;
+    row->executing.detail_block.item_use = use;
     row->executing.target = *target;
     const auto spell = Data().items[item->iItemNo].spell_id;
-    StagePartySlotItemUse(party_slot, item, target);
-    const auto use = UseItem(CurrentGame(), party_slot, CurrentGame().party.locateItem(item));
-    result = use.effect;
+    StagePartySlotItemUse(party_slot, use.item, target);
+    const auto used_item = UseItem(CurrentGame(), party_slot, use);
+    result = used_item.effect;
     FatigueCharacter(
         party_slot,
-        use.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)), true,
-        0);
+        used_item.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)),
+        true, 0);
     if (result == 1) {
         used = CurrentGame().party.itemAt(target->item);
         if (spell == W8_SPELL_IDENTIFY_ITEM && used && used->iItemNo != -1 && used->identified) {
