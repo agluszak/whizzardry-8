@@ -48,7 +48,7 @@ bool TakePendingSaveFlag(void);
 
 struct W8Chunk;
 
-unsigned char SaveSlotFileExists(std::string_view slot_name);
+bool SaveSlotFileExists(std::string_view slot_name);
 bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);

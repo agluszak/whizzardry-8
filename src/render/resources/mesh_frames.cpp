@@ -327,7 +327,7 @@ int Mesh::ReleaseDecompressedFrames()
 
 /* Evict least-recently-used decompressed frames until `needed` bytes are
    available, or give up when every eligible model has been drained. */
-unsigned char ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model)
+bool ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model)
 {
     unsigned int released = 0;
     while (released < needed) {
@@ -348,11 +348,11 @@ unsigned char ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained
             }
         }
         if (oldest == nullptr) {
-            return 0;
+            return false;
         }
         released += oldest->ReleaseDecompressedFrames();
     }
-    return 1;
+    return true;
 }
 
 int Mesh::FindSkinTable(std::string_view name)
@@ -452,17 +452,16 @@ static void DecompressMeshNormals(const unsigned char* normals, int count, glm::
 
 /* Expand one frame's compressed table into `destination`: bit 1 the vertex
    locations, bit 2 the vertex normals, bit 4 the polygon normals. */
-unsigned char Mesh::DecompressFrame(int frame, unsigned char flags,
-                                    std::span<glm::vec3> destination)
+bool Mesh::DecompressFrame(int frame, unsigned char flags, std::span<glm::vec3> destination)
 {
     if (static_cast<unsigned int>(frame) >= frames.size()) {
-        return 0;
+        return false;
     }
     const auto& storage = frames[frame];
     const auto count = flags & (W8_MESH_FRAME_LOCATIONS | W8_MESH_FRAME_VERTEX_NORMALS)
                            ? vertex_location_count
                            : polygon_count;
-    if (destination.size() < static_cast<std::size_t>(count)) return 0;
+    if (destination.size() < static_cast<std::size_t>(count)) return false;
     if (flags & W8_MESH_FRAME_LOCATIONS) {
         for (int index = 0; index < vertex_location_count; ++index) {
             const short* source = &storage.compressed_locations[index * 3];
@@ -470,28 +469,28 @@ unsigned char Mesh::DecompressFrame(int frame, unsigned char flags,
                                            source[1] * vertex_compression_scale,
                                            source[2] * vertex_compression_scale);
         }
-        return 1;
+        return true;
     }
     if (flags & W8_MESH_FRAME_VERTEX_NORMALS) {
         DecompressMeshNormals(storage.compressed_vertex_normals.data(), vertex_location_count,
                               destination.data());
-        return 1;
+        return true;
     }
     if (flags & W8_MESH_FRAME_POLYGON_NORMALS) {
         DecompressMeshNormals(storage.compressed_polygon_normals.data(), polygon_count,
                               destination.data());
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Allocate one frame's decompressed caches for the tables named by `flags`
    (bit 0 locations, bit 1 vertex normals, bit 2 polygon normals), reclaiming
    least-recently-used frames when the byte budget would overflow. */
-unsigned char Mesh::AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags)
+bool Mesh::AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags)
 {
     if (uiFrame >= frames.size()) {
-        return 0;
+        return false;
     }
     auto& frame = frames[uiFrame];
     auto allocate = [&](auto& cache, int count, unsigned char bit) {
@@ -513,7 +512,7 @@ unsigned char Mesh::AllocateFrameBuffers(unsigned int uiFrame, unsigned char fla
     allocate(frame.vertex_normals, vertex_location_count, W8_MESH_FRAME_VERTEX_NORMALS);
     allocate(frame.polygon_normals, polygon_count, W8_MESH_FRAME_POLYGON_NORMALS);
     last_decompress_release_tick = MonotonicMilliseconds();
-    return 1;
+    return true;
 }
 
 /* Return frame `frame`'s vertex locations, decompressing on demand. When

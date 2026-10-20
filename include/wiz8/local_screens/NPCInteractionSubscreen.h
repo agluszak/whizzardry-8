@@ -268,7 +268,7 @@ void OpenNpcDialogueTranscriptLayout(void);
 void DispatchPendingNpcScriptNotice(void);
 bool IsNpcDialogueTextInputActive(void);
 bool IsNpcDialogueTextBoxActive(void);
-unsigned char SetNpcDialoguePanelVisible(unsigned char value);
+bool SetNpcDialoguePanelVisible(unsigned char value);
 bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
 /* A script notice is staged in g_pending_notice */

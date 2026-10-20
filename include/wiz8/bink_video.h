@@ -12,10 +12,10 @@ public:
     W8BinkVideo(const W8BinkVideo&) = delete;
     W8BinkVideo& operator=(const W8BinkVideo&) = delete;
 
-    unsigned char Open(const char* path, int flags);
+    bool Open(const char* path, int flags);
     unsigned char UpdateFrame();
-    unsigned char CopyFrameToPrimarySurface();
-    unsigned char CopyFrameToTargetSurface();
+    bool CopyFrameToPrimarySurface();
+    bool CopyFrameToTargetSurface();
     void SetTarget(SDL_Surface* target);
 
 private:

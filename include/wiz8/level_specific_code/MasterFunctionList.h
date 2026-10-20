@@ -16,7 +16,7 @@ int NormalizeMasterFunctionValue(int value);
 bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argument = 0);
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
-unsigned char ShowLevelMessage(int message_id);
+bool ShowLevelMessage(int message_id);
 
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
                               bool settle, bool a, bool b); /* 0x004D8F00 */

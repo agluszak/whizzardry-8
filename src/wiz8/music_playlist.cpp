@@ -72,7 +72,7 @@ bool IsCurrentMusicPlaylist(const char* playlist)
     return SDL_strcasecmp(playlist, g_music_playlist->getName().c_str()) == 0;
 }
 
-unsigned char InitializeMusicPlaylist(void)
+bool InitializeMusicPlaylist(void)
 {
     g_music_playlist = new Script();
     if (g_music_playlist) {
@@ -183,12 +183,12 @@ void ServiceMusicPlaylist(void)
     }
 }
 
-unsigned char StartMusicResource(const char* resource, int fade, unsigned char replace_current)
+bool StartMusicResource(const char* resource, int fade, unsigned char replace_current)
 {
     std::string path;
 
     if (resource == 0) {
-        return 0;
+        return false;
     }
     if (g_dev_mode) {
         RequestExitScreen();
@@ -208,17 +208,17 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
                                                  .group = wiz8::sound::Group::music,
                                                  .fade_in_ms = crossfade ? 5000u : 0u});
         if (handle == nullptr) {
-            return 0;
+            return false;
         }
         if (g_music_sample_handle != nullptr) {
             wiz8::sound::stop(g_music_sample_handle, crossfade ? 2000u : 0u);
         }
         g_music_sample_handle = handle;
-        return 1;
+        return true;
     }
 
     if (SDL_strcasecmp(resource, g_music_playlist->getName().c_str()) == 0) {
-        return 1;
+        return true;
     }
 
     g_music_playlist_tick = MonotonicMilliseconds() - 1;
@@ -229,7 +229,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
     g_music_playlist->Load(path.c_str());
 
     if (g_music_playlist->lines.empty()) {
-        return 0;
+        return false;
     }
     if (replace_current != 0) {
         if (g_music_sample_handle != nullptr) {
@@ -248,7 +248,7 @@ unsigned char StartMusicResource(const char* resource, int fade, unsigned char r
         g_music_playlist_active = true;
         g_music_force_next = true;
     }
-    return 1;
+    return true;
 }
 
 void StopMusicPlaylist(bool fade)

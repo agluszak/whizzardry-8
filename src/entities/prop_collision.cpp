@@ -220,17 +220,17 @@ bool Prop::ContainsPathCoordinate(unsigned short x, unsigned short y) const
 /* Record a waypoint index for a grid point that lies inside the path bounds.
    The prop owns a counted waypoint list consumed by
    CheckConditionalWayPtStatus. */
-unsigned char Prop::RegisterPathSurface(unsigned int index, const glm::ivec2& point)
+bool Prop::RegisterPathSurface(unsigned int index, const glm::ivec2& point)
 {
     if (static_cast<unsigned short>(point.x) < m_path_bounds.min_x ||
         static_cast<unsigned short>(point.x) > m_path_bounds.max_x ||
         static_cast<unsigned short>(point.y) < m_path_bounds.min_z ||
         static_cast<unsigned short>(point.y) > m_path_bounds.max_z) {
-        return 0;
+        return false;
     }
 
     m_path_waypoints.push_back(static_cast<unsigned short>(index));
-    return 1;
+    return true;
 }
 
 /* Record a link index when the segment between the two grid points touches
@@ -238,8 +238,7 @@ unsigned char Prop::RegisterPathSurface(unsigned int index, const glm::ivec2& po
    minor bound interpolates the other coordinate, which must land within one
    cell of the rectangle. The vertical branch re-tests its first crossing
    instead of interpolating the second — a faithful retail oddity. */
-unsigned char Prop::RegisterPathVertex(unsigned int index, const glm::ivec2& point,
-                                       const glm::ivec2& second)
+bool Prop::RegisterPathVertex(unsigned int index, const glm::ivec2& point, const glm::ivec2& second)
 {
     const glm::vec2 from(static_cast<unsigned short>(point.x),
                          static_cast<unsigned short>(point.y));
@@ -256,9 +255,9 @@ unsigned char Prop::RegisterPathVertex(unsigned int index, const glm::ivec2& poi
     bool found = false;
     for (float cross : {crossings.x, crossings.y})
         found |= cross > minimum[minor] - 1 && cross < maximum[minor] + 1;
-    if (!found) return 0;
+    if (!found) return false;
     m_path_edges.push_back(static_cast<unsigned short>(index));
-    return 1;
+    return true;
 }
 
 /* Register the item on the collidable prop's sector list, building the path

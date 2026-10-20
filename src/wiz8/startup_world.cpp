@@ -17,7 +17,7 @@ Navigator* PartyNavigator()
 }
 
 /* Original translation-unit ownership of startup navigation and its globals is unknown. */
-unsigned char InitializeStartupNavigation(void)
+bool InitializeStartupNavigation(void)
 {
     InitializeAniMeshCache(-1, -1);
     InitializeRenderQuality();
@@ -29,7 +29,7 @@ unsigned char InitializeStartupNavigation(void)
     navigator->configureStartupDepth(
         g_default_world_height < kStartupNearLimit ? kStartupNearLimit : g_default_world_height,
         g_default_world_height);
-    return 1;
+    return true;
 }
 /* Tears down the startup navigation state InitializeStartupNavigation
    built: the ani-mesh cache, environment globals, and the

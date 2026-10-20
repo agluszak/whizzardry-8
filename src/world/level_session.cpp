@@ -277,17 +277,17 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
     return replacement;
 }
 
-unsigned char LoadSkyWorld(std::string_view sky_path)
+bool LoadSkyWorld(std::string_view sky_path)
 {
     Level& level = CurrentLevel();
     if (level.sky &&
         level.sky->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
-        return 1;
+        return true;
     auto replacement = PrepareSkyWorld(sky_path);
-    if (!sky_path.empty() && !replacement) return 0;
+    if (!sky_path.empty() && !replacement) return false;
     level.replaceSky(std::move(replacement));
     if (!level.sky) ResetEnvironment();
-    return 1;
+    return true;
 }
 
 unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
@@ -501,7 +501,7 @@ static void FinishLevelDeparture()
     }
 }
 
-unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
+bool LoadLevel(int requested_level, int entrance, bool restoring_game)
 {
     int level = NormalizeMasterFunctionValue(requested_level);
     W8LevelInfo level_info;
@@ -510,11 +510,11 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         Fail("iLevel < TEST_LEVEL_COUNT");
     }
     if (!LevelBuildInfoByID(level, &level_info)) {
-        return 0;
+        return false;
     }
 
     auto replacement = LoadWorld(level, level_info.level_path);
-    if (!replacement) return 0;
+    if (!replacement) return false;
     auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
     ambient_path.replace_extension(".SCF");
     ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
@@ -523,8 +523,8 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
         current.sky && current.sky->source_path ==
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
-    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return 0;
-    if (GetWorld() && !SaveLevelStatus("saves\\CurrentGame.SAV")) return 0;
+    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
+    if (GetWorld() && !SaveLevelStatus("saves\\CurrentGame.SAV")) return false;
     auto status = ReadLevelStatus(*replacement, wiz8::user_path("saves/CurrentGame.SAV"), level);
     if (!status)
         status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
@@ -534,7 +534,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
     InstallLevelSessionState(*GetWorld(), status.get());
     EnterLevel(level, entrance, restoring_game, status.get());
-    return 1;
+    return true;
 }
 
 void LeaveLevel()
@@ -575,7 +575,7 @@ void LeaveLevel()
    re-enters the current level through the -1 entrance sentinel, the camera's
    saved yaw/pitch records and position are put back after the load; every
    other request is a plain unload+load. */
-unsigned char ReloadLevelPreservingCamera(int level, int entrance)
+bool ReloadLevelPreservingCamera(int level, int entrance)
 {
     CameraOrientation saved_orientation;
     glm::vec3 saved_position;
@@ -587,11 +587,11 @@ unsigned char ReloadLevelPreservingCamera(int level, int entrance)
         restore = true;
     }
     if (LoadLevel(level, entrance, false) == 0) {
-        return 0;
+        return false;
     }
     if (restore) {
         setCameraOrientation(saved_orientation);
         SetWorldScenePosition(GetWorld(), &saved_position);
     }
-    return 1;
+    return true;
 }

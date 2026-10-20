@@ -5,7 +5,7 @@
 #include "wiz8/canvas/Font.h"
 
 /* Load every game font below; false when one is missing. */
-unsigned char InitializeMenuFonts(void);
+bool InitializeMenuFonts(void);
 void ReleaseMenuFonts();
 /* Drop any notice palette a screen left selected on a font. */
 void ResetMenuFontPalettes();

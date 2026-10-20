@@ -355,13 +355,13 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
     pending_item_action.caster_slot = -1;
 }
 
-int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
+bool CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 {
     if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
         IsUsableItemClass(item)) {
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 bool CanSplitItemStack(const W8ItemInstance* item)

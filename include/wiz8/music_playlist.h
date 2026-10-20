@@ -6,8 +6,8 @@
 extern wiz8::sound::Playback g_music_sample_handle;
 extern bool g_music_playlist_active;
 
-unsigned char InitializeMusicPlaylist(void);
-unsigned char StartMusicResource(const char* resource, int fade, unsigned char replace_current);
+bool InitializeMusicPlaylist(void);
+bool StartMusicResource(const char* resource, int fade, unsigned char replace_current);
 
 void ServiceMusicPlaylist(void);
 void StopMusicPlaylist(bool fade);

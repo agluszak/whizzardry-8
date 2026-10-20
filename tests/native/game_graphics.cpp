@@ -40,7 +40,7 @@ class WorldScene;
 void PresentMenuOverlayFrame();
 void SaveJpegScreenshot();
 extern unsigned char g_fullscreen;
-unsigned char InitializeMouseCursorScene();
+bool InitializeMouseCursorScene();
 void PositionMouseCursor(int, int, bool);
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
 struct FixtureRoot {

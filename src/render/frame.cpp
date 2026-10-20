@@ -204,7 +204,7 @@ void ShutdownVideoScenes(void)
    the horizontal screen metric for both axes is present in the retail body and
    is preserved here; AdjustWindowRect turns the four stored client bounds into
    the outer window rectangle before CreateWindowEx. */
-unsigned char CreateWizardryWindow(void)
+bool CreateWizardryWindow(void)
 {
     ghWindow = CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
     return ghWindow != 0;
@@ -216,13 +216,13 @@ void ReleasePrimarySurface(void)
     primarySurface.reset();
 }
 
-unsigned char InitializePrimarySurface(void)
+bool InitializePrimarySurface(void)
 {
     primarySurface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(640, 480, kFramePixelFormat).release(), SDL_DestroySurface);
-    if (!primarySurface) return 0;
+    if (!primarySurface) return false;
     SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
-    return 1;
+    return true;
 }
 
 /* Starts VSG using the dimensions from the retail five-line
@@ -286,13 +286,13 @@ try {
 }
 
 /* Apply the configured window size and restore VSG presentation. */
-unsigned char OpenRendererWindow(void)
+bool OpenRendererWindow(void)
 {
     if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
-        return 0;
-    if (!g_renderer->reopen()) return 0;
+        return false;
+    if (!g_renderer->reopen()) return false;
     g_flush_pending = !videoSurfaceOwner;
-    return 1;
+    return true;
 }
 
 SDL_Surface* BeginVideoPresentation(void)
@@ -303,12 +303,12 @@ SDL_Surface* BeginVideoPresentation(void)
     return videoSurfaceOwner.get();
 }
 
-unsigned char FinishVideoPresentation(void)
+bool FinishVideoPresentation(void)
 {
     videoSurfaceOwner.reset();
     g_flush_pending = true;
     InvalidateRegion(0, 0, 640, 480);
-    return 1;
+    return true;
 }
 
 /* Render targets follow physical pixels in both window modes. */
@@ -382,10 +382,10 @@ bool RestoreVideoManager(void)
     return true;
 }
 
-unsigned char ClearPrimarySurface(void)
+bool ClearPrimarySurface(void)
 {
     SDL_FillSurfaceRect(primarySurface.get(), nullptr, 0);
-    return 1;
+    return true;
 }
 
 /* The inputs every scene pass of the current frame shares. */
@@ -814,9 +814,9 @@ std::uint64_t GetMillisecondsSinceCursorMove(void)
     return MonotonicMilliseconds() - g_cursor_move_tick;
 }
 
-/* The tracked cursor as viewport-relative 0..1 coordinates, or zero when it
-   lies outside. Same tracked position and viewport as the query above. */
-unsigned char GetCursorPositionInViewport(glm::vec2* position)
+/* Store the tracked cursor as viewport-relative 0..1 coordinates; false when
+   it lies outside. Same tracked position and viewport as the query above. */
+bool GetCursorPositionInViewport(glm::vec2* position)
 {
     int x = g_cursor_hotspot_x + g_cursor_width;
     int y = g_cursor_hotspot_y + g_cursor_height;
@@ -825,9 +825,9 @@ unsigned char GetCursorPositionInViewport(glm::vec2* position)
         position->x =
             (x - g_viewport.left) / static_cast<float>(g_viewport.right - g_viewport.left);
         position->y = (y - g_viewport.top) / static_cast<float>(g_viewport.bottom - g_viewport.top);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
@@ -883,9 +883,9 @@ bool IsCursorInRectangle(int left, int top, int right, int bottom)
 }
 
 /* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
-unsigned char InitializeMouseCursorScene(void)
+bool InitializeMouseCursorScene(void)
 {
-    if (!g_mouse_surface) return 0;
+    if (!g_mouse_surface) return false;
     ClearMouseSurface();
     auto texture = std::make_shared<Texture>(g_mouse_surface);
     g_cursor_node = makeOverlayFromTexture(texture, .2, 128.0 / 480.0, true, false);
@@ -893,7 +893,7 @@ unsigned char InitializeMouseCursorScene(void)
     g_cursor_node->uv_min = glm::vec2(g_texture_inset_pixels / 128.0f);
     g_cursor_node->uv_max = 1.0f + g_cursor_node->uv_min;
     PositionMouseCursor(640, 480, true);
-    return 1;
+    return true;
 }
 
 unsigned char g_world_render_enabled;
@@ -1091,21 +1091,21 @@ void SetUiCanvasAlphaTestEnabled(bool enabled)
     }
 }
 
-unsigned char InitializeMouseSurface(void)
+bool InitializeMouseSurface(void)
 {
     g_mouse_surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(128, 128, kFramePixelFormat).release(), SDL_DestroySurface);
     ClearMouseSurface();
-    return 1;
+    return true;
 }
 
 /* A black, fog-free scene with no parent, used for the 2D overlay layers. */
-unsigned char InitializeRendererSceneObjects(void)
+bool InitializeRendererSceneObjects(void)
 {
     InitializeMouseSurface();
     g_ui_canvas = std::make_unique<UiCanvasTexture>(primarySurface);
     g_viewport = {};
-    return 1;
+    return true;
 }
 
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom)
@@ -1122,16 +1122,16 @@ void EraseRegion(int left, int top, int right, int bottom)
     InvalidateRegion(left, top, right, bottom);
 }
 
-unsigned char DisableCursorScene(void)
+bool DisableCursorScene(void)
 {
     g_cursor_scene_enabled = false;
-    return 1;
+    return true;
 }
 
-unsigned char EnableCursorScene(void)
+bool EnableCursorScene(void)
 {
     g_cursor_scene_enabled = true;
-    return 1;
+    return true;
 }
 
 /* Install a texture (often an Texture) on the mouse-cursor mesh. A null

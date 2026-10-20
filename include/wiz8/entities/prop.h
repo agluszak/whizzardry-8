@@ -87,7 +87,7 @@ public:
 
     // Animation representation operations (now directly on Prop):
     MeshInstance* ToggleAnimation(int argument);
-    unsigned char SelectAnimationSlot(unsigned char tag);
+    bool SelectAnimationSlot(unsigned char tag);
     int FindCurrentAnimationSlot();
     unsigned char AdvanceAnimationSegment();
     bool LoadProp(LevelLoadContext* info, Prop* prop);
@@ -179,9 +179,8 @@ public:
     BoundingBox computeBounds();
     std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
     std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
-    unsigned char RegisterPathSurface(unsigned int index, const glm::ivec2& point);
-    unsigned char RegisterPathVertex(unsigned int index, const glm::ivec2& point,
-                                     const glm::ivec2& second);
+    bool RegisterPathSurface(unsigned int index, const glm::ivec2& point);
+    bool RegisterPathVertex(unsigned int index, const glm::ivec2& point, const glm::ivec2& second);
     glm::vec3 previous_animation_position{0.0f};
 };
 

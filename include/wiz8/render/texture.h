@@ -127,7 +127,7 @@ public:
     int IsFinished() const;
     unsigned char Prepare();
     void UpdateFrame(std::optional<std::uint64_t> visual_frame = {});
-    int isSurfaceLoaded() const { return surface != nullptr; }
+    bool isSurfaceLoaded() const { return surface != nullptr; }
     SDL_Surface* getSurface() const { return surface.get(); }
     bool hasAlpha();
     void loadSurface();

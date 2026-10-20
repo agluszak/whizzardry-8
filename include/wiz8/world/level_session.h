@@ -17,8 +17,8 @@ int FindLevelIdByLocationCode(std::string_view location_code);
 extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
-unsigned char LoadSkyWorld(std::string_view sky_path);
-unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game);
+bool LoadSkyWorld(std::string_view sky_path);
+bool LoadLevel(int requested_level, int entrance, bool restoring_game);
 void LeaveLevel();
 
 void UnloadSkyWorld(void);
@@ -29,7 +29,7 @@ extern float g_default_world_height;
 extern const float g_position_height_epsilon;
 extern unsigned char g_environment_load_flag;
 
-unsigned char ReloadLevelPreservingCamera(int level, int entrance);
+bool ReloadLevelPreservingCamera(int level, int entrance);
 
 /* 0x0042B770: start the saved level's music playlist, falling back to
    Adventure.MPL when the level-specific playlist does not exist. */

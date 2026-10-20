@@ -56,7 +56,7 @@ public:
     vsg::ref_ptr<vsg::Node> renderNode() const;
     void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
                           std::uint64_t frame_number);
-    unsigned char ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement);
+    bool ReplaceTexture(std::string_view old_name, std::shared_ptr<Texture> replacement);
 
     ParticleSystem& operator=(const ParticleSystem&) = delete;
 

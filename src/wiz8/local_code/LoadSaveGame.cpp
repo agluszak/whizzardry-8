@@ -1499,7 +1499,7 @@ bool TakePendingSaveFlag(void)
     return std::exchange(g_save_pending, false);
 }
 
-unsigned char SaveSlotFileExists(std::string_view slot_name)
+bool SaveSlotFileExists(std::string_view slot_name)
 {
     return IsRegularFile(SaveSlotPath(slot_name));
 }

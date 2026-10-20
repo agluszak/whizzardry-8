@@ -205,10 +205,10 @@ bool g_automap_position_initialized;
 W8AutomapNote* g_automap_editing_note; // Non-owning; g_automap_notes owns the note.
 W8AutomapNote* g_automap_hovered_note;
 
-unsigned char HandleAutomapKey(const InputEvent* input);
-unsigned char HandleAutomapNoteInput(const InputEvent* input);
-unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note);
-unsigned char ZoomAutomapIn(const glm::vec2* point);
+bool HandleAutomapKey(const InputEvent* input);
+bool HandleAutomapNoteInput(const InputEvent* input);
+bool ShowAutomapNoteTooltip(W8AutomapNote* note);
+bool ZoomAutomapIn(const glm::vec2* point);
 
 static glm::vec2 AutomapWorldPosition(const glm::vec2& cursor)
 {
@@ -922,7 +922,7 @@ void ResetAutomapZoom(void)
 
 /* Left-click zoom: drop a sight line onto the clicked point, halve the
    remaining height above ground and move the camera there. */
-unsigned char ZoomAutomapIn(const glm::vec2* point)
+bool ZoomAutomapIn(const glm::vec2* point)
 {
     const auto location = AutomapWorldPosition(*point);
     glm::vec3 position(location.x, g_automap_top_y, location.y);
@@ -953,7 +953,7 @@ unsigned char ZoomAutomapIn(const glm::vec2* point)
     position.y = height;
     SetAutomapCameraPoint(&position);
     SetAutomapToolCursor(g_automap_tool);
-    return 1;
+    return true;
 }
 
 /* Zero every world mesh's vertex-light table and flag it dirty, then clear
@@ -1156,11 +1156,11 @@ int RestoreAutomapRect(DesignRect* rect)
 }
 
 /* When the cursor leaves a hovered note, erase its tooltip rectangle and
-   invalidate it for redraw. Returns nonzero when a tooltip was dismissed. */
-unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
+   invalidate it for redraw. Returns true when a tooltip was dismissed. */
+bool ShowAutomapNoteTooltip(W8AutomapNote* note)
 {
     if (note == 0) {
-        return 0;
+        return false;
     }
     float floor_y;
     int layer = note->layer + 1;
@@ -1209,11 +1209,11 @@ unsigned char ShowAutomapNoteTooltip(W8AutomapNote* note)
                 -1 < rect.bottom - rect.top) {
                 RestoreAutomapRect(&rect);
                 InvalidateScreenRects(&rect, 1);
-                return 1;
+                return true;
             }
         }
     }
-    return 0;
+    return false;
 }
 
 /* Persist the visited-cell bitmap and every note's position, layer and text.
@@ -1310,7 +1310,7 @@ void ApplyAutomapNotes(World& world, W8SavedAutomapNotes records)
 /* Convert the cursor position to an automap world position on the layer
    below the current one, defaulting the height to the grid minimum when no
    clip plane exists there. */
-unsigned char GetAutomapPositionUnderCursor(glm::vec3* position)
+bool GetAutomapPositionUnderCursor(glm::vec3* position)
 {
     glm::vec2 point;
 
@@ -1324,9 +1324,9 @@ unsigned char GetAutomapPositionUnderCursor(glm::vec3* position)
         }
         const auto location = AutomapWorldPosition(point);
         *position = glm::vec3(location.x, height, location.y);
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Find the note on the current layer nearest the cursor, limited to a
@@ -1700,7 +1700,7 @@ OverlayQuad* CreateAutomapTextMarker(void)
 }
 /* While a note is being edited, forward key events into its text buffer and
    let left-button-up drop the note at the cursor. */
-unsigned char HandleAutomapNoteInput(const InputEvent* input)
+bool HandleAutomapNoteInput(const InputEvent* input)
 {
     if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat &&
         input->type != InputEventType::Text) {
@@ -1715,7 +1715,7 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
                 g_automap_redraw = true;
             }
         }
-        return 0;
+        return false;
     }
     const bool committed = input->type == InputEventType::Text;
     const char32_t key = committed ? input->text : 0;
@@ -1763,28 +1763,28 @@ unsigned char HandleAutomapNoteInput(const InputEvent* input)
     }
     if (g_automap_editing_note != 0) {
         RenderAutomapMarkers();
-        return 1;
+        return true;
     }
     SetNativeTextInputEnabled(false);
     if (g_automap_tool != W8AutomapTool::Select) {
         g_automap_tool = W8AutomapTool::Select;
         SetAutomapCursorImage(0);
     }
-    return 1;
+    return true;
 }
 
 /* Automap key handling: screen exit, zoom keys, page cycling and the
    per-tool and cheat-gated bindings. */
-unsigned char HandleAutomapKey(const InputEvent* input)
+bool HandleAutomapKey(const InputEvent* input)
 {
     if (input->type != InputEventType::KeyDown) {
-        return 0;
+        return false;
     }
     MGSKeyBinding* binding =
         g_mgs_keyboard.GetBinding(g_mgs_keyboard.FindBinding(W8_MGS_COMMAND_AUTOMAP));
     if (input->key == binding->key && input->modifiers == binding->modifiers) {
         ReturnToPreviousScreen();
-        return 1;
+        return true;
     }
     switch (input->key) {
     case SDLK_BACKSPACE:
@@ -1797,13 +1797,13 @@ unsigned char HandleAutomapKey(const InputEvent* input)
                 SetAutomapCameraPoint(&position);
                 SetAutomapToolCursor(g_automap_tool);
                 SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
-                return 1;
+                return true;
             }
             float floor = g_automap_position.y - g_automap_zoom;
             float height = g_automap_top_y - (g_automap_top_y - floor) * 0.5f;
             if (height < g_automap_position.y) {
                 ResetAutomapZoom();
-                return 1;
+                return true;
             }
             g_automap_position.y = height;
             SetAutomapButtonMode(AutomapZoomMode::Both);
@@ -1811,24 +1811,24 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             SetAutomapCameraPoint(&g_automap_position);
             SetAutomapToolCursor(g_automap_tool);
         }
-        return 1;
+        return true;
     case SDLK_RETURN: {
         AutomapZoomInButton();
-        return 1;
+        return true;
     }
     case SDLK_ESCAPE:
     drop_tool:
         /* Escape drops the tool, or leaves the screen when none is held. */
         if (g_automap_tool == W8AutomapTool::Select) {
             ReturnToPreviousScreen();
-            return 1;
+            return true;
         }
         g_automap_tool = W8AutomapTool::Select;
         SetAutomapToolCursor(W8AutomapTool::Select);
-        return 1;
+        return true;
     case SDLK_SPACE:
         AutomapCyclePageButton();
-        return 1;
+        return true;
     case SDLK_END:
         RestoreAutomapCameraPosition();
         break;
@@ -1844,28 +1844,28 @@ unsigned char HandleAutomapKey(const InputEvent* input)
         }
         SetAutomapToolCursor(g_automap_tool);
         SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
-        return 1;
+        return true;
     }
     case SDLK_INSERT:
         if (g_automap_tool == W8AutomapTool::AddNote) {
-            return 1;
+            return true;
         }
         g_automap_tool = W8AutomapTool::AddNote;
         SetAutomapToolCursor(W8AutomapTool::AddNote);
-        return 1;
+        return true;
     case SDLK_DELETE:
         if (g_automap_tool == W8AutomapTool::EraseNote) {
-            return 1;
+            return true;
         }
         g_automap_tool = W8AutomapTool::EraseNote;
         SetAutomapToolCursor(W8AutomapTool::EraseNote);
-        return 1;
+        return true;
     case SDLK_1:
     case SDLK_2:
     case SDLK_3:
     case SDLK_4:
         SetAutomapLayer(input->key - 0x31);
-        return 1;
+        return true;
     case SDLK_A:
         /* Developer: reveal the whole map. */
         if (g_dev_mode) {
@@ -1886,7 +1886,7 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             SetAutomapToolCursor(g_automap_tool);
             SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
             RenderAutomapFrame();
-            return 1;
+            return true;
         }
         break;
     case SDLK_C:
@@ -1895,21 +1895,21 @@ unsigned char HandleAutomapKey(const InputEvent* input)
             std::ranges::fill(GetWorld()->automap.visited, false);
             g_automap_bounds_dirty = true;
             UpdateAutomapBounds();
-            return 1;
+            return true;
         }
         break;
     case SDLK_I:
         if (g_dev_mode) {
             g_automap_developer_i_toggle = !g_automap_developer_i_toggle;
             g_automap_redraw = true;
-            return 1;
+            return true;
         }
         break;
     case SDLK_S:
         if (g_dev_mode) {
             g_automap_redraw = true;
             g_automap_show_all_monsters = !g_automap_show_all_monsters;
-            return 1;
+            return true;
         }
         break;
     case SDLK_F1:
@@ -1923,11 +1923,11 @@ unsigned char HandleAutomapKey(const InputEvent* input)
     case SDLK_F10:
         if (g_dev_mode) {
             g_automap_state->blink_enabled = !g_automap_state->blink_enabled;
-            return 1;
+            return true;
         }
         break;
     }
-    return 0;
+    return false;
 }
 
 /* Release the previous level's automap query state, then read the cell size

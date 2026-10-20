@@ -643,9 +643,8 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
 /* Setting a character's condition runs poison/immunity gates, the duration
    switch, trait gates, and the same rescan/notify/tail handling as the other
    transitions. */
-unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int duration,
-                                    int poison_strength, char alternate_missing_notice,
-                                    char announce)
+bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, int poison_strength,
+                           char alternate_missing_notice, char announce)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
@@ -660,12 +659,12 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         Fail("(uiPoisonStrength == 0) || (uiCondition == COND_POISONED)");
     }
     if (condition == W8_CONDITION_POISONED && poison_strength == 0) {
-        return 0;
+        return false;
     }
     if (condition == W8_CONDITION_DEAD && CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
         CheatDeathRevive(CurrentGame(), party_slot);
-        return 0;
+        return false;
     }
     switch (condition) {
     case W8_CONDITION_DISEASED:
@@ -676,7 +675,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         break;
     default:
         if (duration == 0) {
-            return 0;
+            return false;
         }
         break;
     }
@@ -684,13 +683,13 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         PostCharacterNotice(party_slot,
                             fmt::sprintf(Data().strings[0x242],
                                          Data().strings[g_condition_notices[condition].name]));
-        return 0;
+        return false;
     }
     switch (condition) {
     case W8_CONDITION_AFRAID:
         if (CharacterHasTrait(character, W8_TRAIT_FEARLESS)) {
             PostCharacterNotice(party_slot, Data().strings[0x180]);
-            return 0;
+            return false;
         }
         [[fallthrough]];
     case W8_CONDITION_DISEASED:
@@ -699,7 +698,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     case W8_CONDITION_POISONED:
     case W8_CONDITION_ASLEEP:
         if (CharacterHasTrait(character, static_cast<W8Trait>(0x1e))) {
-            return 0;
+            return false;
         }
         break;
     case W8_CONDITION_INSANE:
@@ -710,7 +709,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     case W8_CONDITION_TURNCOAT:
         if (CharacterHasTrait(character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY)) {
             PostCharacterNotice(party_slot, Data().strings[0x181]);
-            return 0;
+            return false;
         }
         break;
     default:
@@ -739,7 +738,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
     RebuildConditionModifiers(party_slot);
     SettleActiveParty(CurrentGame());
     if (!handled) {
-        return 0;
+        return false;
     }
     if (condition == W8_CONDITION_DEAD) {
         CharacterDies(party_slot);
@@ -760,7 +759,7 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         }
     }
 
-    return 1;
+    return true;
 }
 
 /* Copy every condition a character is under onto something else in the world.

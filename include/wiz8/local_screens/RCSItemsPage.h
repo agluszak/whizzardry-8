@@ -11,7 +11,7 @@
 struct W8Character;
 struct W8ItemInstance;
 
-int CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
+bool CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
 bool CanSplitItemStack(const W8ItemInstance* item);
 bool IsSpecialItemId(W8ItemInstance* item);
 void SetHandCursors();

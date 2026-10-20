@@ -164,10 +164,10 @@ struct ViewportBounds {
     glm::vec2 maximum;
 };
 ViewportBounds GetScaledViewportBounds();
-unsigned char InitializeRendererSceneObjects(void);
+bool InitializeRendererSceneObjects(void);
 void ResetVideoFrameState(void);
 void SetUiCanvasAlphaTestEnabled(bool enabled);
-unsigned char ClearPrimarySurface(void);
+bool ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 // Advances the render clock by the time since the previous rendered frame.
@@ -180,16 +180,16 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
-unsigned char FinishVideoPresentation(void);
+bool FinishVideoPresentation(void);
 void PublishLightDirection(const glm::vec3* direction);
-unsigned char CreateWizardryWindow(void);
-unsigned char InitializePrimarySurface(void);
+bool CreateWizardryWindow(void);
+bool InitializePrimarySurface(void);
 void ReleasePrimarySurface(void);
 unsigned char InitializeVideoDevice(void);
 bool SetupDisablesAudio();
-unsigned char OpenRendererWindow(void);
-unsigned char DisableCursorScene(void);
-unsigned char EnableCursorScene(void);
+bool OpenRendererWindow(void);
+bool DisableCursorScene(void);
+bool EnableCursorScene(void);
 void SetWorldModelPickingEnabled(bool enabled);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */
 bool IsCursorImageInsideViewport(void); /* 0x00428030 */

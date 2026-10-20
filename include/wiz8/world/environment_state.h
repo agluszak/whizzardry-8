@@ -25,7 +25,7 @@ struct LevelEnvironment {
     float momentum_scale;
     float value_40;
 
-    unsigned char RescaleToReference(const LevelEnvironment* reference);
+    bool RescaleToReference(const LevelEnvironment* reference);
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
     void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */

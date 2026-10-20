@@ -46,7 +46,7 @@ std::unique_ptr<PartyMovementPanel> movement;
 
 void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption);
 
-unsigned char CreatePartyMovementPanel(void)
+bool CreatePartyMovementPanel(void)
 {
     movement = std::make_unique<PartyMovementPanel>();
     const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
@@ -75,7 +75,7 @@ unsigned char CreatePartyMovementPanel(void)
     MainGame()->party_movement_panel = true;
     CurrentGame().combat->party_move_percent = 100;
     MainGameHud()->move_percent_shown = 100;
-    return 1;
+    return true;
 }
 
 void ShowPartyMovementGauge(bool force)

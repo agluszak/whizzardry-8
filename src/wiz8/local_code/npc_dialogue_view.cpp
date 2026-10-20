@@ -9,10 +9,8 @@
 #include <fmt/printf.h>
 
 #include "cursor.h"
-#include "local_code/MonsterManager.h"
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"

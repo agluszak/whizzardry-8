@@ -813,7 +813,7 @@ bool AnyWorldItemVisible(void)
 
 /* Advance one falling world item (flag bit 1) toward the ground for this
    frame. Clears the falling flag once it has landed or the settle misses. */
-unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
+bool AdvanceFallingWorldItem(W8WorldItem* item)
 {
     glm::vec3 probe;
     float ground;
@@ -822,7 +822,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     int sector;
 
     if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-        return 0;
+        return false;
     }
 
     previous_y = item->position.y;
@@ -838,7 +838,7 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
     if (!ground_probe.contact || fabs(ground - previous_y) < kCameraSnapEpsilon) {
         item->flags &= ~W8_WORLD_ITEM_FALLING;
         item->vertical_velocity = 0.0f;
-        return 0;
+        return false;
     }
 
     sector = ground_probe.prop().value_or(-1);
@@ -867,13 +867,13 @@ unsigned char AdvanceFallingWorldItem(W8WorldItem* item)
         item->p3D->SetLocation(&probe);
     }
     item->position = probe;
-    return 1;
+    return true;
 }
 
 /* Drop one item onto the ground below where it is. The search starts one world
    unit up so an item already resting does not settle into the floor; landing
    moves it between sectors and clears its saved-marker flag. */
-unsigned char SettleWorldItem(W8WorldItem* item)
+bool SettleWorldItem(W8WorldItem* item)
 {
     glm::vec3 start;
     int sector;
@@ -886,7 +886,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
     const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
     if (!ground_probe.contact) {
-        return 0;
+        return false;
     }
 
     sector = ground_probe.prop().value_or(-1);
@@ -903,7 +903,7 @@ unsigned char SettleWorldItem(W8WorldItem* item)
         item->p3D->SetLocation(&start);
     }
     item->position = start;
-    return 1;
+    return true;
 }
 
 /* Rebuild every world item's carried instance from its own item id, which

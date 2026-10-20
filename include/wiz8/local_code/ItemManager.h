@@ -29,7 +29,7 @@ void ReleaseItemLists();
 std::optional<glm::vec3> FindItemDropPosition();
 void DropHeldItem(int);
 void UpdateNearbyWorldItems(void);
-unsigned char AdvanceFallingWorldItem(W8WorldItem* item);
+bool AdvanceFallingWorldItem(W8WorldItem* item);
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value);
 

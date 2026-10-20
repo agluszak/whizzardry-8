@@ -26,6 +26,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
@@ -579,7 +580,7 @@ bool MartensBluff2Script::monsterCrusher(int command)
                     position.x = right - radius;
                     monster->nav.SetPositionInternal(&position);
                 }
-            } else if (position.x + radius <= right || CurrentGame().rng.below(100) < 0x24) {
+            } else if (position.x + radius <= right || ctx.game.rng.below(100) < 0x24) {
                 position.x = left + radius;
                 monster->nav.SetPositionInternal(&position);
             } else {
@@ -735,7 +736,7 @@ void MartensBluff2Script::idolGasVictim()
                 }
             }
         } else {
-            pick = CurrentGame().rng.below(count) + 1;
+            pick = ctx.game.rng.below(count) + 1;
             for (slot = 0; slot < 8; slot++) {
                 if (severities[slot] == lowest) {
                     pick--;

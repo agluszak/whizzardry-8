@@ -34,21 +34,21 @@ W8BinkVideo::~W8BinkVideo()
 {
     delete m_handle;
 }
-unsigned char W8BinkVideo::Open(const char* path, int flags)
+bool W8BinkVideo::Open(const char* path, int flags)
 {
     // Retail can open the next intro on the same owner. Stop the old audio first.
     delete m_handle;
     m_handle = nullptr;
-    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.skip_movies) return 0;)
+    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.skip_movies) return false;)
     try {
         if (!path || flags) throw std::runtime_error("Unsupported movie open parameters");
         auto video = std::make_unique<W8NativeVideo>();
         video->open(path);
         m_handle = video.release();
-        return 1;
+        return true;
     } catch (const std::exception& failure) {
         fprintf(stderr, "Wizardry movie: %s\n", failure.what());
-        return 0;
+        return false;
     }
 }
 unsigned char W8BinkVideo::UpdateFrame()
@@ -69,13 +69,13 @@ unsigned char W8BinkVideo::UpdateFrame()
         return 1;
     }
 }
-unsigned char W8BinkVideo::CopyFrameToPrimarySurface()
+bool W8BinkVideo::CopyFrameToPrimarySurface()
 {
-    if (!m_handle || !copy(m_handle->frame(), &GetFrameBufferSurface())) return 0;
+    if (!m_handle || !copy(m_handle->frame(), &GetFrameBufferSurface())) return false;
     InvalidateRegion(0, 0, m_handle->frame().width, m_handle->frame().height);
-    return 1;
+    return true;
 }
-unsigned char W8BinkVideo::CopyFrameToTargetSurface()
+bool W8BinkVideo::CopyFrameToTargetSurface()
 {
     return m_handle && copy(m_handle->frame(), m_target);
 }

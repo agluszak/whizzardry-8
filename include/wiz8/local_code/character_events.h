@@ -42,7 +42,7 @@ std::string GetPartyQuoteText(const W8Character& character, unsigned int event_t
 extern const int g_fact_check_event;
 
 /* True when no occupied party slot has an active portrait/voice record. */
-unsigned char PartyPortraitEventsIdle(void);
+bool PartyPortraitEventsIdle(void);
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
                                                    unsigned int flags);

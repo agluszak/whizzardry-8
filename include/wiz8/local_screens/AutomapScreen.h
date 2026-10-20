@@ -61,7 +61,7 @@ struct W8SavedAutomapNotes {
 };
 W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file, std::size_t cells);
 void ApplyAutomapNotes(World& world, W8SavedAutomapNotes notes);
-unsigned char GetAutomapPositionUnderCursor(glm::vec3* position);
+bool GetAutomapPositionUnderCursor(glm::vec3* position);
 void SetAutomapToolCursor(W8AutomapTool tool);
 W8AutomapNote* FindAutomapNoteUnderCursor(void);
 void CreateAutomapMarkerSprites(void);

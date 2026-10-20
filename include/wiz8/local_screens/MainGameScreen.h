@@ -196,7 +196,7 @@ public:
     /* Add one keyword line to the transcript unless the text is already
        present; a nonzero mark puts the new entry in state 0x60, and any
        leftover "[No Keywords]" placeholder is removed afterwards. */
-    unsigned char AddTranscriptEntry(std::string_view text, W8DialogueCategory category, char mark);
+    bool AddTranscriptEntry(std::string_view text, W8DialogueCategory category, char mark);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -432,7 +432,7 @@ void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation);
 void DrawMainGameScreen(void);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
-int IsScreenInputBlocked(void);
+bool IsScreenInputBlocked(void);
 void DisableCombatRegions(void);
 
 extern bool g_mouselook_active;
@@ -457,7 +457,7 @@ void SetViewportMode(W8ViewportMode mode);
 W8MainUiMode GetEffectiveMainUiMode();
 void SetMainUiPreference(W8MainUiMode mode);
 void RefreshMainGameLayout();
-unsigned char ProcessMainGameInput(void);
+bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
    regions with occupancy, the monster-entry flag and the display mode; the
@@ -584,12 +584,12 @@ void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-unsigned char OpenUseItemSelectView(int slot);
+bool OpenUseItemSelectView(int slot);
 
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);
 
-unsigned char HandleWorldResumeInput(const InputEvent* event);
+bool HandleWorldResumeInput(const InputEvent* event);
 void SetWorldResumeInput(bool enabled);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);

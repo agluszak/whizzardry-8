@@ -311,7 +311,7 @@ MeshInstance* Prop::ToggleAnimation(int argument)
 /* Select the currentAnimation() slot whose second byte carries the requested tag.
    The slot's first byte is the target frame; the current subcycle and that
    frame become the ordered range the currentAnimation() plays through. */
-unsigned char Prop::SelectAnimationSlot(unsigned char tag)
+bool Prop::SelectAnimationSlot(unsigned char tag)
 {
     int index;
 
@@ -322,7 +322,7 @@ unsigned char Prop::SelectAnimationSlot(unsigned char tag)
             signed char selected = slot->frame;
 
             if (selected < 0) {
-                return 0;
+                return false;
             }
             first_frame = subcycle;
             last_frame = static_cast<unsigned char>(selected);
@@ -336,10 +336,10 @@ unsigned char Prop::SelectAnimationSlot(unsigned char tag)
                 frame_direction = W8_ANIMATION_REVERSE;
             }
             animation_playing = 1;
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 /* Which slot carries the current tag. The tag is matched against each slot's
