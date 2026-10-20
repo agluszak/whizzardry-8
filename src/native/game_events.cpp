@@ -9,7 +9,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/spatial/level_spatial_index.h"
 
-// GLOBAL: WIZ8 0x006505a8
 // GLOBAL: WIZ8 0x006f0630
 bool gfApplicationActive = false;
 bool gfProgramIsRunning = false;

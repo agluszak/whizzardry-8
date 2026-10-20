@@ -17,6 +17,9 @@ codecs, including malformed-input replacement and fixed field limits.
 The game only reads compiled OCT/WPT/PVL geometry; there is no level compiler or
 editor. Shipped `.rlk` region links remain readable.
 
+A retail address annotation (`// FUNCTION: WIZ8 0x…`, `// GLOBAL: WIZ8 0x…`) sits
+directly above the definition it names. One that names no definition is deleted.
+
 ## Layers
 
 The target layering is described in [ROADMAP.md](ROADMAP.md). The layers that exist
@@ -251,7 +254,9 @@ Unlayered code may use the layers.
   choices follow a weapon-hand change, a committed item use loses a replaced item,
   and a changed hand is reported. A change of quantity is not a replacement.
   Commands take the `Game` they act on and report notices and display changes as
-  its events; queries take `const W8Party&`. `W8Party` owns storage primitives with
+  its events, except that a player command turned down returns an
+  `InventoryRefusal` the calling screen shows (`ShowRefusal`); queries take
+  `const W8Party&`. `W8Party` owns storage primitives with
   no gameplay; `party_stats.h` derives values from explicit rules; `live_party.h`
   supplies the game's own rules and applies what follows. `PC Item.cpp` keeps per-item rules. Swings read the
   damage bonus left by the previous calculation, as retail does.

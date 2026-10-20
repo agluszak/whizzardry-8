@@ -66,9 +66,6 @@
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
 
-/* Suppress hover sounds on the registered options-row children. */
-
-// GLOBAL: WIZ8 0x0069c138
 // GLOBAL: WIZ8 0x0069c254
 std::string g_options_last_save_name;
 

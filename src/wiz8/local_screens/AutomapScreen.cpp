@@ -202,7 +202,6 @@ float g_automap_near_clip = 1.0f;
 enum class AutomapZoomMode { ZoomInOnly, Both, ZoomOutOnly };
 // GLOBAL: WIZ8 0x0068f278
 static AutomapZoomMode g_automap_zoom_mode = AutomapZoomMode::ZoomInOnly;
-// GLOBAL: WIZ8 0x0068f27c
 
 bool g_automap_position_initialized;
 W8AutomapNote* g_automap_editing_note; // Non-owning; g_automap_notes owns the note.

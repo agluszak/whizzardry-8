@@ -15,6 +15,7 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/Configuration.h"
@@ -309,6 +310,11 @@ void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, b
     default:
         break;
     }
+}
+
+void ShowRefusal(const InventoryRefusal& refusal)
+{
+    ShowNoticeLine(refusal.notice, {}, true, false);
 }
 
 namespace {

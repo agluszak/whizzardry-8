@@ -267,13 +267,6 @@ Substantial but contained work.
 
 Small, local and low-risk.
 
-- `CreateItemIntoHandOrPool` always replaces the hand; rename it to say so.
-- `MergeItems`, `DropItemInHand` and `GiveHeldItemToCharacterOrParty` report refusals
-  as `NoticeDialog` events; return the refusal to the screen instead.
-- Add regression tests with a light combat fixture: a weapon-set swap toggles
-  `alternate_hand` once, and spending one charge keeps a committed item use.
-- Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep
-  them only directly above the definition they name, and remove the rest.
 - Full storage can still lose an item: an unusable item with a full backpack, a
   full 500-entry pool, no drop position and an occupied hand. Pick a deterministic
   outcome and test it.
