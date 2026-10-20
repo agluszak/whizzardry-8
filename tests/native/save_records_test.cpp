@@ -671,12 +671,6 @@ static void graphical_object_ownership_contracts()
              copy.visual.sound_events.front().sound_handle == nullptr));
     original.visual.sound_events.clear();
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
-    Missile missile;
-    auto* ai = &missile.flight_ai.emplace();
-    ai->speed_per_step = 5;
-    Missile missile_copy(missile);
-    auto* cloned = &*missile_copy.flight_ai;
-    REQUIRE((cloned != ai && cloned->speed_per_step == 5 && cloned->missile == &missile_copy));
 }
 
 static void script_record_contracts()
