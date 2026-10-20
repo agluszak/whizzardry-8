@@ -44,21 +44,6 @@ public:
     std::uint32_t alignment_flags = 0;
 
 private:
-    class RenderScope {
-    public:
-        ~RenderScope();
-        RenderScope(const RenderScope&) = delete;
-        RenderScope& operator=(const RenderScope&) = delete;
-
-    private:
-        friend class MeshInstance;
-        RenderScope(const MeshInstance& instance, GpuRenderer& renderer, bool apply_exclusion);
-        GpuRenderer& renderer;
-        w8_ulong previous_mask = 0;
-        bool restore_mask = false;
-    };
-    RenderScope scopedRender(GpuRenderer& renderer, bool apply_exclusion = true) const;
-
     /* The view composed with the instance: unaligned instances take the
        ordinary world-space matrix; aligned instances rebuild the model-view
        matrix from the camera basis so the model stays screen-facing while
@@ -80,10 +65,11 @@ public:
     /* Mesh-chain submit reached from process(): frustum culling, ambient and
        highlight state, the linked Mesh list, then the optional
        highlight shell pass with reversed winding. */
-    void draw(GpuRenderer& renderer, const DrawTransform& view);
-    void RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform);
+    void draw(GpuRenderer& renderer, const DrawTransform& view, const ScenePass& pass);
+    void RenderMeshes(GpuRenderer& renderer, const DrawTransform& transform, const ScenePass& pass);
     /* Shadow-volume extrusion helper for the first mesh in the chain. */
-    void RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh, const DrawTransform& transform);
+    void RenderShadow(GpuRenderer& renderer, Mesh::TriMesh& mesh, const DrawTransform& transform,
+                      const ScenePass& pass);
 
     Texture* FindMouthTexture(); /* 0x00481080 */
     int AddDamageStage(std::string_view name);

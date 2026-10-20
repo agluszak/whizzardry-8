@@ -5,12 +5,10 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_gpu.h>
@@ -30,8 +28,6 @@
 #include "wiz8/surface_storage.h"
 struct SDL_Surface;
 class MeshInstance;
-class Light;
-class FogParams;
 struct ShadedVertexArrays;
 
 struct OverlayQuad;
@@ -305,22 +301,6 @@ public:
     float scene_brightness = 1.0f;
 
 public:
-    struct Pick {
-        /* Normalized pick point the caller fills: x and y are the cursor's
-           viewport-space coordinates, z is the fixed 1.0 far value. */
-        glm::vec3 position{0, 0, 1};
-        MeshInstance* selected_model{};
-        w8_ulong triangle_index{};
-    };
-
-    // Distance and amplitude of the frame depth cue.
-    struct Environment {
-        float minimum;
-        float maximum;
-        float near_scale;
-        float far_scale;
-    };
-
     class Renderer {
     public:
         struct TriInput {
@@ -335,6 +315,9 @@ public:
             float sort_bias;
             // Depth bias recorded with the triangles' texture sets.
             w8_long polygon_offset = 0;
+            // Picks tested against the surviving triangles; a hit records pick_owner.
+            std::span<Pick> picks;
+            MeshInstance* pick_owner = nullptr;
             w8_ulong triangleCount() const { return static_cast<w8_ulong>(indices.size()); }
         };
 
@@ -574,8 +557,6 @@ public:
     void setClearColor(const glm::vec4& color);
     void setClearColor(float red, float green, float blue, float alpha);
     void setClearDepth(double depth);
-    void setAmbientLight(float red, float green, float blue, float alpha);
-    void setAmbientLight(const glm::vec4& light);
     void setFogColor(const glm::vec4& color);
     void setScissor(w8_ulong x, w8_ulong y, w8_ulong width, w8_ulong height);
     /* Dirty-rectangle pair handed to flipFrame in {x,y,width,height} form;
@@ -591,18 +572,9 @@ public:
     Renderer& batchRenderer(bool sorted);
     SDL_Surface* lockBuffer();
     void unlockBuffer(bool modified = false);
-    glm::vec4 getAmbientLight() const;
     glm::vec4 getFogColor() const;
-    std::pair<float, float> getEnvironmentRange() const;
-    std::pair<float, float> getEnvironmentScaleFactor() const;
-    w8_ulong getExclusionMask() const;
-    void setExclusionMask(w8_ulong mask);
     // RECOMP: ?getMaxTextureStages@GpuRenderer@@QBEJXZ
     w8_long getMaxTextureStages() const { return max_texture_stages; }
-    void setPickKey(w8_ulong_ptr key);
-    w8_ulong_ptr getPickKey() const;
-    void setEnvironmentRange(float minimum, float maximum);
-    void setEnvironmentScaleFactor(float scale, float inverse_scale);
     void setTextureDefaultMagFilter(Texture::e_filter filter);
     void setTextureDefaultMinFilter(Texture::e_filter filter);
     void setTextureDefaultMipmap(Texture::e_mipmap mipmap);
@@ -611,8 +583,6 @@ public:
     // Resolves the texture and makes its device copy resident before any draw needs it.
     void prepareTexture(Texture* texture);
     void draw(const DrawCall& call);
-    std::optional<Pick> popPick();
-    void pushPick(const Pick& pick);
     void toggle(e_enable option);
     void invalidateResidentTextures();
     void invalidateTextureCache();
@@ -622,9 +592,6 @@ public:
     /* Releases every GERD on the global list. */
     e_error getError();
     void setClearStencil(w8_ulong stencil);
-
-    // RECOMP: ?isPickStackEmpty@GpuRenderer@@QBEHXZ
-    int isPickStackEmpty() const { return pick.pick_depth == 0; }
 
     // RECOMP: ?isEnabled@GpuRenderer@@QBEHW4e_enable@1@@Z
     int isEnabled(e_enable option) const { return (enable_flags & (1UL << option)) != 0; }
@@ -652,14 +619,16 @@ private:
         // Empty means direct corner indices; otherwise this is the full vertex map.
         std::span<const w8_ulong> vertices;
         std::span<const glm::vec4> positions;
+        std::span<Pick> picks;
+        MeshInstance* owner = nullptr;
     };
 
     GpuRenderer(const GpuRenderer&) = delete;
     GpuRenderer& operator=(const GpuRenderer&) = delete;
 
     friend class Renderer;
-    /* For each queued Pick, w-normalize the batch's positions into pick_vertices and run the
-       edge-function triangle test against the pick ray. */
+    /* For each of the input's picks, w-normalize the batch's positions into pick_vertices and
+       run the edge-function triangle test against the pick ray. */
     void performPickTest(const PickInput& input);
     void deleteRenderers();
 
@@ -680,7 +649,6 @@ private:
     void closeTexCache();
     void initClearColors();
     void initView();
-    void initLights();
     e_error openWindowInternal(const OpenInfo& info);
     enum class RendererDrain { immediate, sorted, reset, statistics };
     void drainRenderers(RendererDrain action);
@@ -710,14 +678,6 @@ private:
 
     struct Display {
         w8_ulong swap_interval;
-    };
-
-    struct PickState {
-        PickState() : pick_depth(0) {}
-
-        Pick pick_stack[32];
-        w8_ulong pick_depth;
-        w8_ulong_ptr pick_key;
     };
 
     struct ClearState {
@@ -763,7 +723,6 @@ private:
     e_error last_error;
     State state;
     Display display;
-    PickState pick;
     unsigned char unknown_19f4_[4];
     Statistics statistics;
 
@@ -776,14 +735,9 @@ private:
     GpuTexture* texture_default;
     w8_long texture_reduction;
     unsigned char unknown_2045_[3];
-    glm::vec4 ambient_light;
-    Environment environment;
 
 public:
-    std::span<Light* const> lights;
-    std::span<FogParams* const> fogs;
     double frame_time = 0;
-    w8_ulong exclusion_mask;
     /* performPickTest's w-normalized {x,y,z,sign(w)} scratch per vertex;
        cleared by closeWindow. */
     std::vector<glm::vec4> pick_vertices;

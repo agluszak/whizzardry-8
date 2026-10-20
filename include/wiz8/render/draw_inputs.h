@@ -11,6 +11,10 @@
 #include "wiz8/math.h"
 #include "wiz8/spatial/bounding_sphere.h"
 
+class FogParams;
+class Light;
+class MeshInstance;
+
 // Eye-space planes: [0, 6) bound the view frustum and [6, 32) are user planes.
 struct ClipPlanes {
     std::array<glm::vec4, 32> planes{};
@@ -50,8 +54,40 @@ glm::vec4 eyeSpaceClipPlane(const glm::mat4& model_view, const glm::vec4& plane)
 enum class FaceCull : std::uint8_t { Back, Front, None };
 enum class Winding : std::uint8_t { Standard, Reversed };
 
-// The caller-supplied inputs of one mesh submission. Scene lighting, fog and
-// picking still come from the renderer's current scene pass.
+// A cursor position tested against the pickable triangles of a scene pass.
+struct Pick {
+    // Normalized pick point: x and y are the cursor's viewport-space
+    // coordinates; z starts at the far value 1.0 and keeps the nearest hit.
+    glm::vec3 position{0, 0, 1};
+    MeshInstance* selected_model{};
+    w8_ulong triangle_index{};
+};
+
+// Distances and clamped amplitudes of the camera's depth cue.
+struct DepthCue {
+    float minimum = 0;
+    float maximum = 0;
+    float near_scale = 0;
+    float far_scale = 0;
+};
+
+// The scene-pass inputs of one submission: lighting, depth cue, light
+// exclusion and picking. A scene pass builds one and each drawable adjusts
+// its own copy; the renderer keeps none of it.
+struct ScenePass {
+    glm::vec4 ambient_light{0};
+    std::span<Light* const> lights;
+    std::span<FogParams* const> fogs;
+    DepthCue depth_cue;
+    // Light and fog groups the submission ignores.
+    w8_ulong exclusion_mask = 0;
+    // Picks the submitted triangles are tested against, borrowed from the
+    // pass's caller. A hit records `pick_owner`; empty disables picking.
+    std::span<Pick> picks;
+    MeshInstance* pick_owner = nullptr;
+};
+
+// The caller-supplied inputs of one mesh submission.
 struct MeshState {
     DrawTransform transform;
     FaceCull cull = FaceCull::Back;
@@ -61,4 +97,5 @@ struct MeshState {
     // Queues the triangles for the depth-sorted pass instead of drawing them in order.
     bool sorted = false;
     w8_long polygon_offset = 0;
+    ScenePass scene;
 };

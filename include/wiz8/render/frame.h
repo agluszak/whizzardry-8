@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string_view>
 
 #include <SDL3/SDL_rect.h>
@@ -15,6 +16,7 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/design_rect.h"
+#include "wiz8/render/draw_inputs.h"
 /* Modified for the Wizardry 8 reconstruction, 2026-09-10.
    Native frame, window and UI-canvas integration.
    Remove the artificial SGP C boundary and unused local configuration include, 2026-10-04.
@@ -93,7 +95,6 @@ std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> tex
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
 bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary);
-void SetPickKey(void* key);
 
 struct W8ControlsRect;
 
@@ -129,12 +130,9 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
                                                    unsigned short start_frame,
                                                    unsigned short frame_count, bool use_argb1555);
 /* 0x00428AA0: mark both renderer mode words dirty. */
-/* 0x00428910 / 0x004289C0 / 0x004289E0: the render-probe bracket the region
-   link builder uses to count a mesh's drawn faces — begin the probe pass,
-   draw the node and return its covered-face count, then end the pass. */
-void BeginRenderProbe(void);
+/* 0x004289C0: the render probe that counts a mesh's drawn pixels — draw the
+   node through the world camera and return the sampled statistic. */
 unsigned int MeasureMeshRender(MeshInstance* mesh);
-void EndRenderProbe(void);
 
 void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 
@@ -185,8 +183,9 @@ void SetPrimarySurfaceTextureHint2Enabled(bool enabled);
 unsigned char ClearPrimarySurface(void);
 void ResetTransientRenderScenes(void);
 void ClearVideoDirtyBlocks(void); /* 0x00423150 */
-void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport,
-                 bool preserve_fog);
+// Draws one scene pass; `picks` are tested against its pickable triangles.
+void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
+                 std::span<Pick> picks = {});
 void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);

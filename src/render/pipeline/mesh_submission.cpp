@@ -217,12 +217,7 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                     vertex_arrays[slot] = renderer->vertices.bind(offset);
                 }
 
-                const auto ambient_light = this->getAmbientLight();
-                const auto [environment_minimum, environment_maximum] = this->getEnvironmentRange();
-                const auto [environment_scale, environment_inverse_scale] =
-                    this->getEnvironmentScaleFactor();
-                w8_ulong exclusion_mask = this->getExclusionMask();
-
+                const auto& scene = state.scene;
                 VertexShadingInput pipe_input(model_view, normal_matrix);
                 pipe_input.active_vertices = culler_output.avt;
                 pipe_input.direct_vertex_indices = false;
@@ -230,16 +225,16 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                 if (vertex_extras) pipe_input.normals = {vertex_extras, vertex_count};
                 pipe_input.eye_bounds = eye_bounds;
                 pipe_input.vertex_arrays = std::span{output_arrays}.first(slot_count);
-                pipe_input.exclusion_mask = exclusion_mask;
-                pipe_input.ambient_light = ambient_light;
+                pipe_input.exclusion_mask = scene.exclusion_mask;
+                pipe_input.ambient_light = scene.ambient_light;
                 pipe_input.records = std::span{records}.first(slot_count);
-                pipe_input.lights = this->lights;
-                pipe_input.fogs = this->fogs;
+                pipe_input.lights = scene.lights;
+                pipe_input.fogs = scene.fogs;
                 pipe_input.frame_time = this->frame_time;
-                pipe_input.environment_minimum = environment_minimum;
-                pipe_input.environment_maximum = environment_maximum;
-                pipe_input.environment_scale = environment_scale;
-                pipe_input.environment_inverse_scale = environment_inverse_scale;
+                pipe_input.environment_minimum = scene.depth_cue.minimum;
+                pipe_input.environment_maximum = scene.depth_cue.maximum;
+                pipe_input.environment_scale = scene.depth_cue.near_scale;
+                pipe_input.environment_inverse_scale = scene.depth_cue.far_scale;
 
                 if (!active_triangles && processed != 0) {
                     for (auto& index : culler_output.indices) index += processed;
@@ -280,6 +275,8 @@ void GpuRenderer::submitMesh(const Mesh::TriMesh& mesh, const MeshState& state,
                 // Sorted batches draw when the scene pass flushes them, after any
                 // caller's depth bias has ended.
                 render_input.polygon_offset = state.sorted ? 0 : state.polygon_offset;
+                render_input.picks = scene.picks;
+                render_input.pick_owner = scene.pick_owner;
                 renderer->render(render_input);
             }
             if (renderer->isBatchFull()) renderer->submit();

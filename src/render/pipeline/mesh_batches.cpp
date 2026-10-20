@@ -611,13 +611,15 @@ void GpuRenderer::Renderer::render(const TriInput& input)
             return;
         }
     }
-    if (gerd->pick.pick_depth != 0) {
+    if (!batch->picks.empty()) {
         PickInput pick;
         pick.indices = batch->indices;
         pick.triangles = batch->triangles;
         pick.vertices =
             batch->direct_vertex_indices ? std::span<const w8_ulong>{} : batch->vertices;
         pick.positions = std::span{vertices.positions}.subspan(first_vertex, batch->vertex_count);
+        pick.picks = batch->picks;
+        pick.owner = batch->pick_owner;
         gerd->performPickTest(pick);
     }
     expandTriangles(*batch, sorted != 0);

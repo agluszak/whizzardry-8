@@ -44,7 +44,7 @@ public:
     void SetRenderFlags(DrawShader flags);
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
-    void SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view);
+    void SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view, const ScenePass& pass);
     /* The per-particle age/cull/move step and billboard-corner expansion used
        by the submitted batch. Their retail names remain unavailable. */
     void Update(); /* 0x00499FA0 */

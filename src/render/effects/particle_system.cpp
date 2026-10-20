@@ -38,7 +38,6 @@
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_submission.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/texture.h"
@@ -548,7 +547,8 @@ void ParticleSystem::PrepareRenderer(const glm::mat4& view)
    The retired path is the only one that can drop the system: a particle whose
    activity has run out notifies its shake callback and, when release_when_done marks
    it as self-owned, marks itself finished for its owner to destroy. */
-void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view)
+void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform& view,
+                                      const ScenePass& pass)
 {
     glm::vec3 position;
 
@@ -620,7 +620,6 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform
     }
 
     PrepareRenderer(view.inverseModelView());
-    renderer->setPickKey(0);
 
     Mesh::TriMesh mesh;
     mesh.active_polygons = std::span(active_triangles).first(active_particle_count * 2);
@@ -639,12 +638,13 @@ void ParticleSystem::SubmitToRenderer(GpuRenderer* renderer, const DrawTransform
         mesh.poly_textures[0][0] = &texture_frames;
     else
         mesh.textures[0][0] = texture;
-    {
-        const meshSubmission::PickScope picking(*renderer, true);
-        renderer->submitMesh(
-            mesh,
-            {.transform = view, .cull = FaceCull::None, .sorted = requires_sorted_renderer != 0});
-    }
+    // Particles are never picked.
+    MeshState state{.transform = view,
+                    .cull = FaceCull::None,
+                    .sorted = requires_sorted_renderer != 0,
+                    .scene = pass};
+    state.scene.picks = {};
+    renderer->submitMesh(mesh, state);
 }
 
 void ParticleSystem::SetTexture(std::shared_ptr<Texture> texture)

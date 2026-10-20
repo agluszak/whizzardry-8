@@ -8,6 +8,7 @@ class GpuRenderer;
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/transform.h"
 
@@ -48,7 +49,8 @@ public:
 
 private:
 public:
-    void draw(GpuRenderer& renderer, const DrawTransform& view); /* 0x004D66A0 */
+    void draw(GpuRenderer& renderer, const DrawTransform& view,
+              const ScenePass& pass); /* 0x004D66A0 */
 
 public:
     std::string name = "anonymous";
