@@ -1,13 +1,24 @@
 #include "wiz8/render/texture.h"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <vsg/core/Array2D.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/state/Image.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/ImageView.h>
+#include <vsg/state/Sampler.h>
+#include <vulkan/vulkan_core.h>
 
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/random.h"
@@ -20,8 +31,8 @@ namespace {
 void copyRgbaPixels(vsg::ubvec4Array2D& destination, const SDL_Surface& source)
 {
     for (std::uint32_t y = 0; y < destination.height(); ++y) {
-        const auto* row = static_cast<const std::uint8_t*>(source.pixels) +
-                          std::size_t(y) * source.pitch;
+        const auto* row =
+            static_cast<const std::uint8_t*>(source.pixels) + std::size_t(y) * source.pitch;
         for (std::uint32_t x = 0; x < destination.width(); ++x) {
             const auto* pixel = row + std::size_t(x) * 4;
             destination.at(x, y) = vsg::ubvec4(pixel[0], pixel[1], pixel[2], pixel[3]);

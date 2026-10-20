@@ -561,6 +561,7 @@ void RenderFrame(void)
 // FUNCTION: WIZ8 0x00426f80
 bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary)
 {
+    if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
     glm::vec3 clear_color{1.0f};
     if (GetWorld() && GetWorld()->environment.fog_enabled)
         clear_color = EnvironmentLightDirection();

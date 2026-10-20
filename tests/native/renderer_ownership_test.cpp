@@ -11,11 +11,12 @@
 #include <vsg/nodes/Group.h>
 #include <vsg/utils/LineSegmentIntersector.h>
 
-#include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/render_mesh.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 
 TEST_CASE("Animated instances share topology and keep independent CPU poses", "[renderer][pose]")
@@ -155,4 +156,67 @@ TEST_CASE("Attached instances inherit graph parent movement and detach in either
     parent.reset();
     child.setScene(nullptr);
     REQUIRE(scene.dynamic_meshes.empty());
+}
+
+TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
+          "[renderer][materials]")
+{
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    auto* positions = mesh->getVertexLoc();
+    positions[0] = {0, 0, 0};
+    positions[1] = {1, 0, 0};
+    positions[2] = {0, 1, 0};
+    auto body = std::make_shared<Texture>();
+    body->source_path = "body.tga";
+    body->setName("Body");
+    auto* base = mesh->getPolygonTextureTable(0, 0, true);
+    base->set(0, body);
+    MeshInstance instance;
+    instance.setModel(mesh);
+    const int damage = instance.AddDamageStage("damaged");
+    REQUIRE(damage == 0);
+    const int skin = instance.damage_stage_tables[damage];
+    render::MeshPose pose(*mesh);
+    pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
+    const auto original_asset = pose.asset;
+
+    auto blank = std::make_shared<Texture>();
+    blank->source_path = "blank-body.tga";
+    blank->setName("blank-body");
+    REQUIRE(instance.ReplaceDamageStageTexture(damage, "BODY", blank));
+    pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.asset != original_asset);
+    REQUIRE(pose.passes[0].draws[0]->indexCount == 0);
+    REQUIRE(mesh->GetActivePolygons(skin, true).value().empty());
+
+    REQUIRE(instance.ReplaceDamageStageTexture(damage, "BLANK-BODY", body));
+    pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
+    REQUIRE(pose.texture(*mesh, 0, 0, skin) == body);
+    REQUIRE((*base)[0] == body);
+}
+
+TEST_CASE("Mapped vertices use the current interpolated pose before the first render",
+          "[renderer][pose]")
+{
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    mesh->InitializeVertexFrames(2);
+    mesh->vertex_compression_scale = 1;
+    const std::array<short, 9> first{0, 0, 0, 1, 0, 0, 0, 1, 0};
+    const std::array<short, 9> second{4, 0, 0, 5, 0, 0, 4, 1, 0};
+    std::ranges::copy(first, mesh->GetVertex(0));
+    std::ranges::copy(second, mesh->GetVertex(1));
+    mesh->FinalizeVertexFrame(0);
+    mesh->FinalizeVertexFrame(1);
+    MeshInstance instance;
+    instance.setModel(mesh);
+    instance.frame_index = 0;
+    instance.frame_interpolation = .5f;
+    REQUIRE(instance.sampledPosition(*mesh, 0) == glm::vec3(2, 0, 0));
+    instance.frame_index = 1;
+    instance.frame_interpolation = 0;
+    REQUIRE(instance.sampledPosition(*mesh, 0) == glm::vec3(4, 0, 0));
 }

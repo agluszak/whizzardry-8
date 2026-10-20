@@ -1,10 +1,23 @@
 #include "wiz8/render/render_mesh.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <map>
+#include <memory>
 #include <numeric>
 #include <stdexcept>
 #include <utility>
+#include <vector>
+
+#include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/Data.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/nodes/VertexIndexDraw.h>
 
 #include "wiz8/checked_integer.h"
 #include "wiz8/render/material.h"
@@ -47,7 +60,8 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
                   (side != 0 || !(view.control_flags & (1u << Mesh::CONTROL_NO_FRONT_CULL)));
     const int material_side =
         !authored_faces && side && (view.control_flags & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL))
-            ? 0 : side;
+            ? 0
+            : side;
     result.draw_flags = passFlags(view, pass, material_side);
     result.has_texcoord0 = view.texcoords[pass][0] != nullptr;
 
@@ -156,7 +170,7 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
     asset->sort_bias = view.sort_bias;
     asset->sorted = (view.control_flags & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();
-    for (int side = 0; side < 2; ++side) {
+    for (int side = 1; side >= 0; --side) {
         if (!(view.control_flags & (1u << side))) continue;
         for (int pass = 0; pass < view.pass_count; ++pass) {
             asset->passes.push_back(buildPass(mesh, view, pass, side));
@@ -338,8 +352,8 @@ std::shared_ptr<Texture> MeshPose::texture(const Mesh& mesh, std::size_t pass, s
 }
 
 bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& positions,
-                         const vsg::uintArray& indices, std::uint32_t first,
-                         const glm::vec3& eye, bool positive_winding)
+                         const vsg::uintArray& indices, std::uint32_t first, const glm::vec3& eye,
+                         bool positive_winding)
 {
     const auto& vertex = positions.at(indices.at(first + 1));
     const auto& normal = normals.at(first / 3);

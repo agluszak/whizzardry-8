@@ -253,6 +253,8 @@ public:
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
+    bool replaceSkinTexture(int table, std::string_view old_name,
+                            const std::shared_ptr<Texture>& replacement);
     MeshResources<Texture>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin or automap filter is changed. */

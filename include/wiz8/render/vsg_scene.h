@@ -43,6 +43,7 @@ public:
     vsg::ref_ptr<vsg::vec3Array> authored_normals;
     bool sorted;
     float sort_bias;
+    std::uint64_t sort_order = ~std::uint64_t{0};
     std::uint32_t pass_key;
     FaceCull cull = FaceCull::Back;
     Winding winding = Winding::Standard;
@@ -70,6 +71,7 @@ public:
 
     MeshInstance* instance;
     bool static_geometry = false;
+    std::uint64_t sort_order = ~std::uint64_t{0};
 
 private:
     void ensureParts();
@@ -84,6 +86,7 @@ public:
     VertexAttachment(vsg::ref_ptr<InstanceNode> parent, short mapped_key,
                      const glm::vec3& fallback = {});
     vsg::dmat4 transform(const vsg::dmat4& model_view) const override;
+    short mappedKey() const { return key; }
 
 private:
     vsg::observer_ptr<InstanceNode> parent;

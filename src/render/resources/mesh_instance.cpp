@@ -54,7 +54,6 @@
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 
 MeshInstance::~MeshInstance()
@@ -207,32 +206,8 @@ unsigned char MeshInstance::ReplaceDamageStageTexture(int stage, std::string_vie
     }
 
     for (auto* mesh_part : meshParts(mesh)) {
-        MeshResources<Texture>* textures = mesh_part->GetTextureTable(damage_stage_tables[stage]);
-        if (textures == 0) {
-            continue;
-        }
-
-        for (int polygon = 0; polygon < mesh_part->polygon_count; ++polygon) {
-            Texture* texture = (*textures)[polygon].get();
-            if (!texture || (texture->source_path.empty() && !texture->playback)) {
-                continue;
-            }
-
-            if (CompareTextIgnoreAsciiCase(texture->getName(), old_name) == 0) {
-                replaced = true;
-                while (polygon < mesh_part->polygon_count &&
-                       (*textures)[polygon].get() == texture) {
-                    textures->set(polygon, replacement);
-                    ++polygon;
-                }
-            } else {
-                while (polygon < mesh_part->polygon_count &&
-                       (*textures)[polygon].get() == texture) {
-                    ++polygon;
-                }
-            }
-            --polygon;
-        }
+        replaced |=
+            mesh_part->replaceSkinTexture(damage_stage_tables[stage], old_name, replacement);
     }
     return replaced;
 }

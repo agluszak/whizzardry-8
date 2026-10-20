@@ -2,19 +2,60 @@
 
 #include <algorithm>
 #include <bit>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
-#include <glm/gtc/matrix_inverse.hpp>
+#include <vsg/app/Camera.h>
+#include <vsg/app/ProjectionMatrix.h>
+#include <vsg/app/RecordTraversal.h>
+#include <vsg/app/View.h>
+#include <vsg/app/ViewMatrix.h>
+#include <vsg/commands/BindIndexBuffer.h>
+#include <vsg/commands/BindVertexBuffers.h>
+#include <vsg/core/Array.h>
+#include <vsg/core/ConstVisitor.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/Inherit.h>
+#include <vsg/core/Object.h>
+#include <vsg/core/Visitor.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/mat4.h>
+#include <vsg/maths/transform.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
+#include <vsg/nodes/StateGroup.h>
+#include <vsg/nodes/Transform.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/DescriptorSet.h>
+#include <vsg/state/StateCommand.h>
+#include <vsg/state/ViewDependentState.h>
+#include <vsg/state/ViewportState.h>
+#include <vsg/utils/LineSegmentIntersector.h>
+#include <vsg/vk/CommandBuffer.h>
+#include <vsg/vk/Context.h>
+#include <vulkan/vulkan.h>
 
+#include "glm/common.hpp"
+#include "glm/ext/matrix_double4x4.hpp"
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "glm/matrix.hpp"
+#include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/ground_shadow.h"
 #include "wiz8/render/light.h"
@@ -186,7 +227,10 @@ public:
                 triangles.push_back({key + item.node->pass_key, draw_index, first});
             }
         }
-        std::ranges::stable_sort(triangles, {}, &Triangle::key);
+        std::ranges::stable_sort(triangles, [&](const Triangle& first, const Triangle& second) {
+            if (first.key != second.key) return first.key < second.key;
+            return sorted[first.draw].node->sort_order < sorted[second.draw].node->sort_order;
+        });
         if (triangles.size() > indices->size() / 3)
             throw std::length_error("Translucent geometry changed after view preparation");
         std::uint32_t destination = 0;
@@ -241,14 +285,14 @@ WorldViewState* viewState(vsg::RecordTraversal& traversal)
 
 class LightNode : public vsg::Inherit<vsg::Node, LightNode> {
 public:
-    explicit LightNode(Light& light) : light(light) {}
+    explicit LightNode(Light& light) : light(&light) {}
     void accept(vsg::RecordTraversal& traversal) const override
     {
-        if (auto* state = viewState(traversal))
-            state->addLight(light, traversal.getState()->modelviewMatrixStack.top() *
-                                       toVsg(light.transform.matrix()));
+        if (auto* state = viewState(traversal); state && light)
+            state->addLight(*light, traversal.getState()->modelviewMatrixStack.top() *
+                                        toVsg(light->transform.matrix()));
     }
-    Light& light;
+    Light* light;
 };
 
 class TranslucentStage : public vsg::Inherit<vsg::Node, TranslucentStage> {
@@ -259,13 +303,24 @@ public:
     }
 };
 
+struct SetSortOrder : vsg::Visitor {
+    explicit SetSortOrder(std::uint64_t order) : order(order) {}
+    std::uint64_t order;
+    void apply(vsg::Object& object) override { object.traverse(*this); }
+    void apply(vsg::StateGroup& group) override
+    {
+        if (auto* draw = dynamic_cast<DrawNode*>(&group)) draw->sort_order = order;
+        group.traverse(*this);
+    }
+};
+
 struct CountIndices : vsg::ConstVisitor {
     std::size_t count = 0;
     std::vector<Light*> lights;
     void apply(const vsg::Node& node) override
     {
-        if (const auto* light = dynamic_cast<const LightNode*>(&node))
-            lights.push_back(&light->light);
+        if (const auto* light = dynamic_cast<const LightNode*>(&node); light && light->light)
+            lights.push_back(light->light);
         node.traverse(*this);
     }
     void apply(const vsg::Object& object) override { object.traverse(*this); }
@@ -427,6 +482,20 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
                          .lights = lights,
                          .fogs = fogs};
     submitted_polygons = 0;
+    // Equal-depth translucent triangles keep the game's submission precedence:
+    // level geometry, reverse ordinary instances, forward sorted instances,
+    // then ground shadows and particles. Parentage stays entirely in VSG.
+    const auto static_count = static_cast<std::uint64_t>(static_meshes.size());
+    const auto dynamic_count = static_cast<std::uint64_t>(dynamic_meshes.size());
+    for (std::size_t index = 0; index < static_meshes.size(); ++index)
+        static_meshes[index]->renderNode()->sort_order = index;
+    for (std::size_t index = 0; index < dynamic_meshes.size(); ++index) {
+        auto* instance = dynamic_meshes[index];
+        const bool sorted =
+            instance->getModel() && (instance->getModel()->flags & W8_MESH_SORTED_RENDERING);
+        instance->renderNode()->sort_order =
+            static_count + (sorted ? dynamic_count + index : dynamic_count - index - 1);
+    }
     struct Prepare : vsg::Visitor {
         render::RenderContext& context;
         const ScenePass& pass;
@@ -446,6 +515,8 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
                 auto instance_pass = pass;
                 if (visual->static_geometry) instance_pass.exclusion_mask = exclusion;
                 visual->prepare(context, instance_pass, frame_number, visual->static_geometry);
+                render::SetSortOrder order(visual->sort_order);
+                visual->traverse(order);
                 if (visual->instance && visual->instance->visible && visual->instance->getModel())
                     polygons += visual->instance->getModel()->polygon_count;
             }
@@ -453,17 +524,22 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
         }
     } prepare_instances(context, pass, frame_number, static_exclusion_mask, submitted_polygons);
     root->accept(prepare_instances);
+    std::uint64_t effect_order = static_count + dynamic_count * 2;
     for (auto* shadow : shadows) {
         auto node = shadow->renderNode(context);
         if (std::ranges::find(objects->children, node) == objects->children.end())
             objects->addChild(node);
         shadow->updateRenderNode(context, frame, frame_number);
+        render::SetSortOrder order(effect_order++);
+        node->accept(order);
     }
     for (auto* particle : particles) {
         auto node = particle->renderNode(context);
         if (std::ranges::find(objects->children, node) == objects->children.end())
             objects->addChild(node);
         particle->updateRenderNode(context, frame, frame_number);
+        render::SetSortOrder order(effect_order++);
+        node->accept(order);
     }
 }
 vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, Camera3D* source,
@@ -667,13 +743,28 @@ void WorldScene::detach(Light& item)
                                          : item.render_node);
     item.render_parent.reset();
     item.render_attachment = {};
+    if (auto* node = dynamic_cast<render::LightNode*>(item.render_node.get()))
+        node->light = nullptr;
     item.render_node = {};
     if (item.scene == this) item.scene = nullptr;
 }
 void Light::setScene(WorldScene* value)
 {
-    if (value == scene) return;
-    if (scene) scene->detach(*this);
+    if (value == scene &&
+        ((value && render_parent.valid()) || (!value && !render_parent.valid() && !render_node)))
+        return;
+    if (scene)
+        scene->detach(*this);
+    else {
+        if (auto parent = render_parent.ref_ptr())
+            std::erase(parent->children, render_attachment
+                                             ? vsg::ref_ptr<vsg::Node>(render_attachment)
+                                             : render_node);
+        if (auto* node = dynamic_cast<render::LightNode*>(render_node.get())) node->light = nullptr;
+        render_node = {};
+        render_attachment = {};
+        render_parent.reset();
+    }
     if (value) value->attach(*this);
 }
 void WorldScene::attach(ParticleSystem& item)
@@ -738,13 +829,15 @@ void FogParams::setScene(WorldScene* value)
 void Light::attachTo(MeshInstance& parent, std::optional<short> mapped_key)
 {
     auto parent_node = parent.renderNode();
-    if (render_parent == parent_node &&
-        static_cast<bool>(render_attachment) == mapped_key.has_value())
+    if (render_parent == parent_node && scene == parent.scene && render_node &&
+        ((!mapped_key && !render_attachment) ||
+         (mapped_key && render_attachment && render_attachment->mappedKey() == *mapped_key)))
         return;
-    if (scene) scene->detach(*this);
-    if (!parent.scene) return;
-    parent.scene->lights.push_back(this);
-    scene = parent.scene;
+    setScene(nullptr);
+    if (parent.scene) {
+        parent.scene->lights.push_back(this);
+        scene = parent.scene;
+    }
     render_node = render::LightNode::create(*this);
     render_parent = parent_node;
     if (mapped_key) {

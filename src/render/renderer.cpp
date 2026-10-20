@@ -3,16 +3,75 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <span>
 #include <stdexcept>
-#include <string>
 #include <vector>
 
-#include <SDL3/SDL.h>
+#include <SDL3/SDL_error.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
 #include <SDL3/SDL_vulkan.h>
-#include <vsg/all.h>
+#include <glm/ext/vector_float2.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <vsg/app/Camera.h>
+#include <vsg/app/CommandGraph.h>
+#include <vsg/app/CompileManager.h>
+#include <vsg/app/ProjectionMatrix.h>
+#include <vsg/app/RenderGraph.h>
+#include <vsg/app/View.h>
+#include <vsg/app/ViewMatrix.h>
+#include <vsg/app/Viewer.h>
+#include <vsg/app/WindowAdapter.h>
+#include <vsg/app/WindowTraits.h>
+#include <vsg/core/Array.h>
+#include <vsg/core/Array2D.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/Exception.h>
+#include <vsg/core/Value.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/StateGroup.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/Buffer.h>
+#include <vsg/state/ColorBlendState.h>
+#include <vsg/state/DepthStencilState.h>
+#include <vsg/state/Descriptor.h>
+#include <vsg/state/DescriptorImage.h>
+#include <vsg/state/DescriptorSet.h>
+#include <vsg/state/DescriptorSetLayout.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/Image.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/ImageView.h>
+#include <vsg/state/InputAssemblyState.h>
+#include <vsg/state/MultisampleState.h>
+#include <vsg/state/PipelineLayout.h>
+#include <vsg/state/RasterizationState.h>
+#include <vsg/state/Sampler.h>
+#include <vsg/state/ShaderModule.h>
+#include <vsg/state/ShaderStage.h>
+#include <vsg/state/VertexInputState.h>
+#include <vsg/state/ViewportState.h>
+#include <vsg/vk/CommandBuffer.h>
+#include <vsg/vk/CommandPool.h>
+#include <vsg/vk/Device.h>
+#include <vsg/vk/DeviceMemory.h>
+#include <vsg/vk/Fence.h>
+#include <vsg/vk/Framebuffer.h>
+#include <vsg/vk/Instance.h>
+#include <vsg/vk/PhysicalDevice.h>
+#include <vsg/vk/RenderPass.h>
+#include <vsg/vk/SubmitCommands.h>
+#include <vsg/vk/Surface.h>
+#include <vulkan/vulkan_core.h>
 
 #include "overlay_frag.spv.h"
 #include "overlay_vert.spv.h"
@@ -200,21 +259,25 @@ vsg::ref_ptr<vsg::View> Renderer::Impl::overlayView()
         auto camera = vsg::Camera::create(vsg::Perspective::create(), vsg::LookAt::create(),
                                           vsg::ViewportState::create(window->extent2D()));
         overlay_views.push_back(
-            vsg::View::create(camera, vsg::Group::create(), vsg::ViewFeatures{}));
+            vsg::View::create(camera, vsg::Group::create(), static_cast<vsg::ViewFeatures>(0)));
     }
     current_overlay = overlay_views[overlay_count++];
     frame_root->addChild(current_overlay);
     return current_overlay;
 }
 
-Renderer::Renderer(SDL_Window* window) : impl(std::make_unique<Impl>(window)) {}
+Renderer::Renderer(SDL_Window* window)
+try : impl(std::make_unique<Impl>(window)) {
+} catch (const vsg::Exception& error) {
+    throw std::runtime_error(error.message);
+}
 Renderer::~Renderer()
 {
     impl->viewer->deviceWaitIdle();
     impl->offscreen_viewer->deviceWaitIdle();
 }
 bool Renderer::reopen()
-{
+try {
     int width = 0, height = 0;
     if (!SDL_GetWindowSizeInPixels(impl->platform_window, &width, &height) || width <= 0 ||
         height <= 0)
@@ -234,6 +297,8 @@ bool Renderer::reopen()
     }
     impl->open = true;
     return true;
+} catch (const vsg::Exception& error) {
+    throw std::runtime_error(error.message);
 }
 void Renderer::close()
 {
@@ -267,12 +332,14 @@ void Renderer::setCaptureEnabled(bool enabled)
     impl->capture_enabled = enabled;
 }
 void Renderer::setVsync(bool enabled)
-{
+try {
     const auto mode = enabled ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
     if (impl->window->traits()->swapchainPreferences.presentMode == mode) return;
     impl->viewer->deviceWaitIdle();
     impl->window->traits()->swapchainPreferences.presentMode = mode;
     impl->window->resize();
+} catch (const vsg::Exception& error) {
+    throw std::runtime_error(error.message);
 }
 void Renderer::beginFrame(const glm::vec4& clear)
 {
@@ -371,11 +438,13 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
         });
     // Swapchain images wrap Vulkan handles; their format is held by the
     // swapchain/ImageView rather than initialized on the Image wrapper.
-    const auto format = image->format == VK_FORMAT_UNDEFINED ? window->surfaceFormat().format
-                                                             : image->format;
-    captured = CreateCpuStorage(static_cast<int>(extent.width), static_cast<int>(extent.height),
-        format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB
-            ? SDL_PIXELFORMAT_BGRA32 : SDL_PIXELFORMAT_RGBA32);
+    const auto format =
+        image->format == VK_FORMAT_UNDEFINED ? window->surfaceFormat().format : image->format;
+    captured =
+        CreateCpuStorage(static_cast<int>(extent.width), static_cast<int>(extent.height),
+                         format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB
+                             ? SDL_PIXELFORMAT_BGRA32
+                             : SDL_PIXELFORMAT_RGBA32);
     auto* memory = buffer->getDeviceMemory(device_id);
     void* mapped = nullptr;
     if (memory->map(buffer->getMemoryOffset(device_id), bytes, 0, &mapped) != VK_SUCCESS)
@@ -387,7 +456,7 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
     memory->unmap();
 }
 void Renderer::endFrame(bool present, bool capture)
-{
+try {
     if (!impl->open) return;
     auto viewer = present ? impl->viewer : impl->offscreen_viewer;
     // New scene views can join after startup. Compile contexts must include
@@ -409,6 +478,8 @@ void Renderer::endFrame(bool present, bool capture)
                               : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     if (present) viewer->present();
     viewer->deviceWaitIdle();
+} catch (const vsg::Exception& error) {
+    throw std::runtime_error(error.message);
 }
 SDL_Surface* Renderer::readback() const
 {

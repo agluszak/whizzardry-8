@@ -3,11 +3,45 @@
 #include <algorithm>
 #include <array>
 #include <bit>
-#include <cmath>
-#include <cstring>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <span>
 #include <stdexcept>
+#include <vector>
 
-#include "wiz8/math.h"
+#include <glm/common.hpp>
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_double2.hpp>
+#include <glm/ext/vector_float2.hpp>
+#include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <glm/ext/vector_uint4.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/ColorBlendState.h>
+#include <vsg/state/DepthStencilState.h>
+#include <vsg/state/DescriptorBuffer.h>
+#include <vsg/state/DescriptorImage.h>
+#include <vsg/state/DescriptorSet.h>
+#include <vsg/state/DescriptorSetLayout.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/InputAssemblyState.h>
+#include <vsg/state/MultisampleState.h>
+#include <vsg/state/PipelineLayout.h>
+#include <vsg/state/RasterizationState.h>
+#include <vsg/state/Sampler.h>
+#include <vsg/state/ShaderModule.h>
+#include <vsg/state/ShaderStage.h>
+#include <vsg/state/VertexInputState.h>
+#include <vsg/state/ViewportState.h>
+#include <vulkan/vulkan.h>
+
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/light.h"
@@ -171,10 +205,10 @@ vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t sh
     depth->depthWriteEnable = (shader & DrawShader::MASK_DEPTH_WRITE) != 0;
     // Retail material comparisons describe forward Z; every VSG view uses
     // reverse Z so ordinary VSG subgraphs share the same depth attachment.
-    static constexpr std::array compare{
-        VK_COMPARE_OP_NEVER, VK_COMPARE_OP_GREATER, VK_COMPARE_OP_EQUAL,
-        VK_COMPARE_OP_GREATER_OR_EQUAL, VK_COMPARE_OP_LESS, VK_COMPARE_OP_NOT_EQUAL,
-        VK_COMPARE_OP_LESS_OR_EQUAL, VK_COMPARE_OP_ALWAYS};
+    static constexpr std::array compare{VK_COMPARE_OP_NEVER,         VK_COMPARE_OP_GREATER,
+                                        VK_COMPARE_OP_EQUAL,         VK_COMPARE_OP_GREATER_OR_EQUAL,
+                                        VK_COMPARE_OP_LESS,          VK_COMPARE_OP_NOT_EQUAL,
+                                        VK_COMPARE_OP_LESS_OR_EQUAL, VK_COMPARE_OP_ALWAYS};
     depth->depthCompareOp = compare[shader & DrawShader::PASS_MASK];
     depth->depthTestEnable =
         depth->depthCompareOp != VK_COMPARE_OP_ALWAYS || depth->depthWriteEnable;
@@ -307,11 +341,13 @@ void store(vsg::vec4Array& destination, std::span<const glm::vec4> values)
 {
     if (values.size() > destination.size())
         throw std::length_error("Render state exceeds compiled buffer");
-    std::memcpy(destination.dataPointer(), values.data(), values.size_bytes());
+    for (std::size_t index = 0; index < values.size(); ++index) {
+        const auto& value = values[index];
+        destination.at(index) = vsg::vec4(value.x, value.y, value.z, value.w);
+    }
     // View light collection may use fewer records than the preallocated count.
-    if (values.size() < destination.size())
-        std::memset(destination.data() + values.size(), 0,
-                    (destination.size() - values.size()) * sizeof(vsg::vec4));
+    for (std::size_t index = values.size(); index < destination.size(); ++index)
+        destination.at(index) = vsg::vec4(0, 0, 0, 0);
     destination.dirty();
 }
 
@@ -326,10 +362,11 @@ vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block)
 
 void store(vsg::vec4Array& destination, const InstanceBlock& block)
 {
-    if (destination.dataSize() < sizeof(block))
-        throw std::length_error("Instance state buffer too small");
-    std::memcpy(destination.dataPointer(), &block, sizeof(block));
-    destination.dirty();
+    const std::array records{
+        block.ambient, block.bounds, block.overrides,
+        glm::vec4(std::bit_cast<float>(block.masks.x), std::bit_cast<float>(block.masks.y),
+                  std::bit_cast<float>(block.masks.z), std::bit_cast<float>(block.masks.w))};
+    store(destination, records);
 }
 
 std::uint32_t fadingShader(std::uint32_t shader)

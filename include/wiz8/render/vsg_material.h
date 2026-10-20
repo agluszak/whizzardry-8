@@ -7,8 +7,21 @@
 #include <tuple>
 #include <vector>
 
-#include <glm/glm.hpp>
-#include <vsg/all.h>
+#include <glm/ext/matrix_float4x4.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <glm/ext/vector_uint4.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/DescriptorSet.h>
+#include <vsg/state/DescriptorSetLayout.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/ImageInfo.h>
+#include <vsg/state/PipelineLayout.h>
+#include <vsg/state/ShaderStage.h>
+#include <vsg/state/ViewportState.h>
+#include <vulkan/vulkan.h>
 
 #include "wiz8/render/draw_inputs.h"
 

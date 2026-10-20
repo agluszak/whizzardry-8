@@ -25,7 +25,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
@@ -422,6 +421,34 @@ int Mesh::CreateSkinTable(std::string_view name, int base_table)
     skins.push_back(std::move(skin));
     render_asset_.reset();
     return table;
+}
+
+bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
+                              const std::shared_ptr<Texture>& replacement)
+{
+    auto skin = std::find_if(skins.begin(), skins.end(),
+                             [table](const auto& entry) { return entry.id == table; });
+    if (skin == skins.end()) return false;
+    bool matched = false;
+    bool changed = false;
+    for (std::size_t polygon = 0; polygon < skin->textures.size(); ++polygon) {
+        const auto& texture = skin->textures[polygon];
+        if (!texture || (texture->source_path.empty() && !texture->playback) ||
+            !MeshNameEquals(texture->getName(), old_name))
+            continue;
+        matched = true;
+        if (texture != replacement) {
+            skin->textures.set(polygon, replacement);
+            changed = true;
+        }
+    }
+    if (changed) {
+        skin->active_polygons.reset();
+        skin->blanking_checked = false;
+        // Skin assignments also participate in the shared batch boundaries.
+        render_asset_.reset();
+    }
+    return matched;
 }
 
 void Mesh::RemoveSkinTable(int index)

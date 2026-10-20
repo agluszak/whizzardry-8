@@ -39,7 +39,6 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/world_scene.h"
