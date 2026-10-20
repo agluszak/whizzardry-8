@@ -515,6 +515,34 @@ static_assert(sizeof(EffectSlot) == 0x11);
 static_assert(offsetof(EffectSlot, effect_id) == 0x01);
 static_assert(offsetof(EffectSlot, amount) == 0x05);
 static_assert(offsetof(EffectSlot, duration) == 0x0d);
+struct ItemInstance {
+    std::int32_t item_id;
+    std::uint8_t stack_count;
+    std::uint8_t uses_or_charges;
+    std::uint8_t identified;
+    std::uint8_t spell_hint;
+    std::uint8_t unknown_08;
+    std::uint8_t effect_used;
+    std::uint8_t bind_announced;
+    std::uint8_t bound;
+};
+static_assert(sizeof(ItemInstance) == 0x0c);
+struct FormationPosition {
+    std::int8_t row;
+    std::int8_t old_row;
+    std::int8_t column;
+    std::int8_t facing;
+    std::uint8_t unknown_04[8];
+};
+static_assert(sizeof(FormationPosition) == 0x0c);
+struct PartyFormation {
+    std::int8_t occupants[5][3];
+    std::uint8_t row_occupants[5];
+    FormationPosition positions[8];
+    std::uint8_t unknown_74[0x10];
+};
+static_assert(sizeof(PartyFormation) == 0x84);
+static_assert(offsetof(PartyFormation, positions) == 0x14);
 struct CharacterSkill {
     std::uint8_t active, reset_flag;
     std::uint32_t points, level, base_level, practice_count;
@@ -666,11 +694,11 @@ struct Character {
     unsigned char flags0[0x20];
     /* 0x0f5d: the twelve worn/held slots, indexed by W8EquipSlot. Slots six
        and seven are the primary hands and eight and nine the alternate pair. */
-    W8ItemInstance EquippedItem[12]; /* 0x0f5d */
+    ItemInstance EquippedItem[12]; /* 0x0f5d */
     unsigned char flags1[0x3c];
     /* 0x1029: the eight per-character carried slots. GetOriginOfCharacterItem
        reports this array as origin zero and the equipment array as origin one. */
-    W8ItemInstance backpack[8]; /* 0x1029 */
+    ItemInstance backpack[8]; /* 0x1029 */
     unsigned char unknown_1089[0xc0];
     /* 0x1149: the two per-hand derived attack blocks. */
     HandAttack Hand[2];
@@ -743,7 +771,7 @@ struct GlobalStatus {
     int total_member_count;
     unsigned int party_gold;
     int selected_character;
-    W8ItemInstance party_item_pool[500];
+    ItemInstance party_item_pool[500];
     unsigned int party_item_count;
     /* 0x1795: text-box line cursor. */
     short text_line_cursor;
@@ -776,7 +804,7 @@ struct GlobalStatus {
     int next_world_item_id;
     int next_trigger_id;
     bool item_in_cursor;
-    W8ItemInstance item_in_hand;
+    ItemInstance item_in_hand;
     /* 0x2367: per-slot flags the character-load path consults. */
     unsigned char flags[0x20];
     unsigned int game_time_ms;
@@ -795,7 +823,7 @@ struct GlobalStatus {
     float frame_elapsed;
     std::uint32_t wait_state;
     unsigned int item_recharge_ms;
-    W8PartyFormationState formation;
+    PartyFormation formation;
     int game_time_days;
     bool iron_man;
     /* 0x242a: world-clock stamp of the last NPC-binding reset; the event

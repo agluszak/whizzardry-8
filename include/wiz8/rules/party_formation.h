@@ -3,8 +3,6 @@
 
 #include <span>
 
-#include <stddef.h>
-
 struct W8PartySlotRow;
 
 struct W8PartyFormationPosition {
@@ -35,8 +33,5 @@ struct W8PartyFormationState {
 
     bool operator==(const W8PartyFormationState&) const = default;
 };
-
-static_assert(sizeof(W8PartyFormationPosition) == 0x0c, "W8PartyFormationPosition_must_be_0x0c");
-static_assert(sizeof(W8PartyFormationState) == 0x84, "W8PartyFormationState_must_be_0x84");
 
 #endif

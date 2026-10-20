@@ -9,13 +9,16 @@
 #include <limits>
 #include <memory>
 #include <stdexcept>
+#include <type_traits>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_records.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/unicode.h"
 
 namespace wiz8::retail {
@@ -115,6 +118,68 @@ template<> struct Record<CameraPose> {
         value(&runtime.retail.pitch, bytes.subspan(offsetof(Disk, pitch) + 4, 20));
         value(&runtime.orientation.yaw, bytes.subspan(offsetof(Disk, yaw), 4));
         value(&runtime.retail.yaw, bytes.subspan(offsetof(Disk, yaw) + 4, 20));
+    }
+};
+template<> struct Record<W8ItemInstance> {
+    using Disk = ItemInstance;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
+    {
+        value(&runtime.iItemNo, bytes.subspan(offsetof(Disk, item_id), sizeof(Disk::item_id)));
+        value(&runtime.stack_count,
+              bytes.subspan(offsetof(Disk, stack_count), sizeof(Disk::stack_count)));
+        value(&runtime.uses_or_charges,
+              bytes.subspan(offsetof(Disk, uses_or_charges), sizeof(Disk::uses_or_charges)));
+        byte_boolean(&runtime.identified,
+                     bytes.subspan(offsetof(Disk, identified), sizeof(Disk::identified)));
+        byte_boolean(&runtime.spell_hint,
+                     bytes.subspan(offsetof(Disk, spell_hint), sizeof(Disk::spell_hint)));
+        value(&runtime.unknown_08,
+              bytes.subspan(offsetof(Disk, unknown_08), sizeof(Disk::unknown_08)));
+        byte_boolean(&runtime.effect_used,
+                     bytes.subspan(offsetof(Disk, effect_used), sizeof(Disk::effect_used)));
+        byte_boolean(&runtime.bind_announced,
+                     bytes.subspan(offsetof(Disk, bind_announced), sizeof(Disk::bind_announced)));
+        byte_boolean(&runtime.bound, bytes.subspan(offsetof(Disk, bound), sizeof(Disk::bound)));
+    }
+};
+/* A run of item records, as character equipment and the party pool store them. */
+template<class Items, class Bytes, class Value, class Text>
+void item_run(Items& items, Bytes bytes, Value value, Text text)
+{
+    for (std::size_t index = 0; index < std::size(items); ++index)
+        nested(items[index], bytes.subspan(index * sizeof(ItemInstance), sizeof(ItemInstance)),
+               value, text);
+}
+template<> struct Record<W8PartyFormationPosition> {
+    using Disk = FormationPosition;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
+    {
+        value(&runtime.bQuadrant, bytes.subspan(offsetof(Disk, row), sizeof(Disk::row)));
+        value(&runtime.bOldQuadrant, bytes.subspan(offsetof(Disk, old_row), sizeof(Disk::old_row)));
+        value(&runtime.bQuadrantSlot, bytes.subspan(offsetof(Disk, column), sizeof(Disk::column)));
+        value(&runtime.facing, bytes.subspan(offsetof(Disk, facing), sizeof(Disk::facing)));
+        value(&runtime.unknown_04,
+              bytes.subspan(offsetof(Disk, unknown_04), sizeof(Disk::unknown_04)));
+    }
+};
+template<> struct Record<W8PartyFormationState> {
+    using Disk = PartyFormation;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
+    {
+        value(&runtime.bOccupantChar,
+              bytes.subspan(offsetof(Disk, occupants), sizeof(Disk::occupants)));
+        value(&runtime.ubQuadrantOccupants,
+              bytes.subspan(offsetof(Disk, row_occupants), sizeof(Disk::row_occupants)));
+        for (std::size_t index = 0; index < std::size(runtime.positions); ++index)
+            nested(runtime.positions[index],
+                   bytes.subspan(offsetof(Disk, positions) + index * sizeof(FormationPosition),
+                                 sizeof(FormationPosition)),
+                   value, text);
+        value(&runtime.unknown_74,
+              bytes.subspan(offsetof(Disk, unknown_74), sizeof(Disk::unknown_74)));
     }
 };
 template<> struct Record<W8TargetSource> {
@@ -921,10 +986,12 @@ template<> struct Record<W8Character> {
         value(&runtime.resistances,
               bytes.subspan(offsetof(Disk, resistances), sizeof(Disk::resistances)));
         value(&runtime.flags0, bytes.subspan(offsetof(Disk, flags0), sizeof(Disk::flags0)));
-        value(&runtime.EquippedItem,
-              bytes.subspan(offsetof(Disk, EquippedItem), sizeof(Disk::EquippedItem)));
+        item_run(runtime.EquippedItem,
+                 bytes.subspan(offsetof(Disk, EquippedItem), sizeof(Disk::EquippedItem)), value,
+                 text);
         value(&runtime.flags1, bytes.subspan(offsetof(Disk, flags1), sizeof(Disk::flags1)));
-        value(&runtime.backpack, bytes.subspan(offsetof(Disk, backpack), sizeof(Disk::backpack)));
+        item_run(runtime.backpack, bytes.subspan(offsetof(Disk, backpack), sizeof(Disk::backpack)),
+                 value, text);
         value(&runtime.unknown_1089,
               bytes.subspan(offsetof(Disk, unknown_1089), sizeof(Disk::unknown_1089)));
         for (std::size_t index = 0; index < std::size(runtime.Hand); ++index)
@@ -1019,8 +1086,9 @@ template<> struct Record<W8SavedGameStatus> {
               bytes.subspan(offsetof(Disk, party_gold), sizeof(Disk::party_gold)));
         value(&runtime.status.selected_character,
               bytes.subspan(offsetof(Disk, selected_character), sizeof(Disk::selected_character)));
-        value(&runtime.party.item_pool,
-              bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool)));
+        item_run(runtime.party.item_pool,
+                 bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool)),
+                 value, text);
         value(&runtime.party.item_count,
               bytes.subspan(offsetof(Disk, party_item_count), sizeof(Disk::party_item_count)));
         value(&runtime.status.text_line_cursor,
@@ -1080,8 +1148,9 @@ template<> struct Record<W8SavedGameStatus> {
         bool held_present = runtime.party.held.item.iItemNo != -1;
         value(&held_present,
               bytes.subspan(offsetof(Disk, item_in_cursor), sizeof(Disk::item_in_cursor)));
-        value(&runtime.party.held.item,
-              bytes.subspan(offsetof(Disk, item_in_hand), sizeof(Disk::item_in_hand)));
+        nested(runtime.party.held.item,
+               bytes.subspan(offsetof(Disk, item_in_hand), sizeof(Disk::item_in_hand)), value,
+               text);
         value(&runtime.status.flags, bytes.subspan(offsetof(Disk, flags), sizeof(Disk::flags)));
         value(&runtime.status.game_time_ms,
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
@@ -1100,8 +1169,8 @@ template<> struct Record<W8SavedGameStatus> {
             bytes.subspan(offsetof(Disk, wait_state), sizeof(Disk::wait_state)));
         value(&runtime.status.item_recharge_ms,
               bytes.subspan(offsetof(Disk, item_recharge_ms), sizeof(Disk::item_recharge_ms)));
-        value(&runtime.party.formation,
-              bytes.subspan(offsetof(Disk, formation), sizeof(Disk::formation)));
+        nested(runtime.party.formation,
+               bytes.subspan(offsetof(Disk, formation), sizeof(Disk::formation)), value, text);
         value(&runtime.status.game_time_days,
               bytes.subspan(offsetof(Disk, game_time_days), sizeof(Disk::game_time_days)));
         value(&runtime.status.iron_man,
@@ -1229,6 +1298,15 @@ template<> struct Record<W8SavedGameStatus> {
     }
 };
 
+/* A field copied verbatim must be exactly as wide as its disk field. Runtime types are
+   free to change shape; one that no longer matches fails here instead of copying a
+   different number of bytes, and needs a codec of its own. */
+template<class Field> void check_field_width(const Field*, std::size_t disk_bytes)
+{
+    static_assert(std::is_trivially_copyable_v<Field>);
+    if (sizeof(Field) != disk_bytes) throw std::logic_error("retail field width mismatch");
+}
+
 template<class T> void decode(std::span<const std::byte> disk, T& runtime)
 {
     if (disk.size() > sizeof(typename Record<T>::Disk))
@@ -1240,7 +1318,10 @@ template<class T> void decode(std::span<const std::byte> disk, T& runtime)
     T decoded{};
     Record<T>::fields(
         decoded, std::span<const std::byte>(image),
-        [](auto* destination, auto bytes) { std::memcpy(destination, bytes.data(), bytes.size()); },
+        [](auto* destination, auto bytes) {
+            check_field_width(destination, bytes.size());
+            std::memcpy(destination, bytes.data(), bytes.size());
+        },
         [](std::string& destination, auto bytes, Encoding encoding) {
             if (encoding == Encoding::utf16)
                 destination = text::from_utf16le(bytes);
@@ -1257,7 +1338,10 @@ template<class T> auto encode(const T& runtime)
     std::array<std::byte, sizeof(typename Record<T>::Disk)> image{};
     Record<T>::fields(
         runtime, std::span<std::byte>(image),
-        [](const auto* source, auto bytes) { std::memcpy(bytes.data(), source, bytes.size()); },
+        [](const auto* source, auto bytes) {
+            check_field_width(source, bytes.size());
+            std::memcpy(bytes.data(), source, bytes.size());
+        },
         [](const std::string& source, auto bytes, Encoding encoding) {
             if (encoding == Encoding::utf16)
                 text::to_utf16le(source, bytes);
