@@ -11,8 +11,11 @@
 #include <vsg/nodes/Group.h>
 #include <vsg/utils/LineSegmentIntersector.h>
 
+#include "glm/ext/matrix_double3x3.hpp"
+#include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/render/light.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/render_mesh.h"
@@ -219,4 +222,37 @@ TEST_CASE("Mapped vertices use the current interpolated pose before the first re
     instance.frame_index = 1;
     instance.frame_interpolation = 0;
     REQUIRE(instance.sampledPosition(*mesh, 0) == glm::vec3(4, 0, 0));
+}
+
+TEST_CASE("Cycle lights preserve authored orientation and range under scaled actor visuals",
+          "[renderer][ownership]")
+{
+    WorldScene scene;
+    MeshInstance actor(&scene);
+    actor.transform.setLocation(10, 20, 30);
+    actor.transform.setRotation(.2, .7, -.1);
+    Light inherited, cycle;
+    inherited.transform.setLocation(2, 3, 4);
+    inherited.transform.setRotation(.4, -.3, .6);
+    inherited.transform.setScale(glm::dvec3(2, 1, 3));
+    cycle.transform = inherited.transform;
+    inherited.attachTo(actor);
+    cycle.attachTo(actor, {}, Light::Attachment::CycleOrigin);
+    const auto authored_basis = glm::dmat3(cycle.transform.matrix());
+    for (const auto& scale : std::array{glm::dvec3(2, 3, 4), glm::dvec3(-2, 0, 4), glm::dvec3(0)}) {
+        actor.transform.setScale(scale);
+        const auto expected =
+            actor.transform.position + actor.transform.rotation * cycle.transform.position;
+        REQUIRE(glm::dvec3(cycle.worldMatrix()[3]) == expected);
+        REQUIRE(glm::dmat3(cycle.worldMatrix()) == authored_basis);
+        REQUIRE(inherited.worldMatrix() == actor.worldMatrix() * inherited.transform.matrix());
+        REQUIRE(glm::dmat3(inherited.worldMatrix()) != authored_basis);
+    }
+    actor.transform.setLocation(-5, 8, 13);
+    const auto moved =
+        actor.transform.position + actor.transform.rotation * cycle.transform.position;
+    REQUIRE(glm::dvec3(cycle.worldMatrix()[3]) == moved);
+    // Changing policy on the same parent restores ordinary graph inheritance.
+    cycle.attachTo(actor);
+    REQUIRE(cycle.worldMatrix() == actor.worldMatrix() * cycle.transform.matrix());
 }

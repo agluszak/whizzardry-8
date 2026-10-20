@@ -90,14 +90,14 @@ TEST_CASE("VSG frame owns submitted overlay resources through completion")
     REQUIRE(fixture.pixel(16, 32) == 0x0000ff);
 }
 
-TEST_CASE("Two VSG views render an ordinary subgraph from one world")
+TEST_CASE("Two VSG views share ordinary and Wizardry geometry in one world")
 {
     Fixture fixture;
     WorldScene scene;
     auto builder = vsg::Builder::create();
     vsg::GeometryInfo geometry;
-    geometry.position = {0, 0, 3};
-    geometry.dx = {-2, 0, 0};
+    geometry.position = {-1.2f, 0, 3};
+    geometry.dx = {-1.5f, 0, 0};
     geometry.dy = {0, 2, 0};
     geometry.color = vsg::vec4(1, 0, 0, 1);
     vsg::StateInfo material;
@@ -105,6 +105,22 @@ TEST_CASE("Two VSG views render an ordinary subgraph from one world")
     material.two_sided = true;
     auto ordinary = builder->createQuad(geometry, material);
     scene.root->addChild(ordinary);
+    auto game_material = std::make_shared<Material>();
+    game_material->setAmbient(glm::vec4(0));
+    game_material->setDiffuse(glm::vec4(0, 0, 0, 1));
+    game_material->setSpecular(glm::vec4(0));
+    game_material->setEmissive(glm::vec4(0, 1, 0, 1));
+    auto game_mesh = std::make_shared<Mesh>(2, 4);
+    game_mesh->getPolyVertex()[0] = {0, 2, 1};
+    game_mesh->getPolyVertex()[1] = {0, 3, 2};
+    auto* positions = game_mesh->getVertexLoc();
+    positions[0] = {.45f, -1, 3};
+    positions[1] = {1.95f, -1, 3};
+    positions[2] = {1.95f, 1, 3};
+    positions[3] = {.45f, 1, 3};
+    game_mesh->setMaterial(game_material, 0, Mesh::SIDE_FRONT);
+    MeshInstance game_instance(&scene);
+    game_instance.setModel(game_mesh);
     scene.camera.setClipRange(1, 10);
     scene.camera.setViewPlane(Camera3D::Rect{-1, -1, 1, 1}, 1);
     fixture.renderer->beginFrame({0, 0, 1, 1});
@@ -116,10 +132,15 @@ TEST_CASE("Two VSG views render an ordinary subgraph from one world")
     fixture.renderer->addView(left);
     fixture.renderer->addView(right);
     fixture.renderer->endFrame(false, true);
-    const auto left_pixel = fixture.pixel(16, 32);
-    REQUIRE((left_pixel >> 16) >= 200);
-    REQUIRE((left_pixel & 0xffff) == 0);
-    REQUIRE(fixture.pixel(48, 32) == left_pixel);
+    // Both material layouts share each view and its depth attachment. VSG's
+    // standard unlit shader multiplies RGB by .9; Wizardry's emissive material
+    // supplies full green without changing the ordinary subgraph's state.
+    const auto ordinary_pixel = fixture.pixel(10, 32);
+    REQUIRE((ordinary_pixel >> 16) >= 200);
+    REQUIRE((ordinary_pixel & 0xffff) == 0);
+    REQUIRE(fixture.pixel(42, 32) == ordinary_pixel);
+    REQUIRE(fixture.pixel(22, 32) == 0x00ff00);
+    REQUIRE(fixture.pixel(54, 32) == 0x00ff00);
     REQUIRE(scene.root->children.back() == ordinary);
 }
 

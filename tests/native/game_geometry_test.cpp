@@ -19,6 +19,9 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <vsg/core/ConstVisitor.h>
+#include <vsg/core/Object.h>
+#include <vsg/nodes/VertexIndexDraw.h>
 
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -30,7 +33,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
 #include "scoped_game.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"

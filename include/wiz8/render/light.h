@@ -210,7 +210,12 @@ public:
     vsg::ref_ptr<vsg::Node> render_node;
     vsg::observer_ptr<vsg::Group> render_parent;
     vsg::ref_ptr<render::VertexAttachment> render_attachment;
-    void attachTo(MeshInstance&, std::optional<short> mapped_key = {});
+    // Authored cycle lights rotate their offset around the actor but keep
+    // their own orientation and range, independent of the model's scale.
+    enum class Attachment { Inherit, CycleOrigin };
+    Attachment attachment = Attachment::Inherit;
+    void attachTo(MeshInstance&, std::optional<short> mapped_key = {},
+                  Attachment policy = Attachment::Inherit);
     glm::dmat4 worldMatrix() const;
     void setScene(WorldScene* value);
     std::uint32_t group_mask = 0x80000000u;

@@ -64,10 +64,8 @@
 #include <vsg/vk/CommandPool.h>
 #include <vsg/vk/Device.h>
 #include <vsg/vk/DeviceMemory.h>
-#include <vsg/vk/Fence.h>
 #include <vsg/vk/Framebuffer.h>
 #include <vsg/vk/Instance.h>
-#include <vsg/vk/PhysicalDevice.h>
 #include <vsg/vk/RenderPass.h>
 #include <vsg/vk/SubmitCommands.h>
 #include <vsg/vk/Surface.h>
@@ -114,6 +112,7 @@ struct Renderer::Impl {
     vsg::ref_ptr<vsg::ImageInfo> white;
     SDLSurfaceOwner captured{nullptr, SDL_DestroySurface};
     std::uint64_t frame_number = 0;
+    int graphics_family = -1;
     bool open = true;
     bool capture_enabled = false;
 };
@@ -156,6 +155,7 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
     render_graph->windowResizeHandler = {};
     render_graph->addChild(frame_root);
     auto commands = vsg::CommandGraph::create(window);
+    graphics_family = commands->queueFamily;
     commands->addChild(render_graph);
     viewer->assignRecordAndSubmitTaskAndPresentation({commands});
     createOffscreen();
@@ -196,8 +196,7 @@ void Renderer::Impl::createOffscreen()
     offscreen_graph->viewportState = vsg::ViewportState::create(extent);
     offscreen_graph->windowResizeHandler = {};
     offscreen_graph->addChild(frame_root);
-    const auto family = window->getOrCreatePhysicalDevice()->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
-    auto commands = vsg::CommandGraph::create(device, family);
+    auto commands = vsg::CommandGraph::create(device, graphics_family);
     commands->addChild(offscreen_graph);
     offscreen_viewer->assignRecordAndSubmitTaskAndPresentation({commands});
 }
@@ -406,11 +405,10 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
     auto buffer = vsg::createBufferAndMemory(
         device, bytes, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE,
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    const auto family = static_cast<std::uint32_t>(
-        window->getOrCreatePhysicalDevice()->getQueueFamily(VK_QUEUE_GRAPHICS_BIT));
-    vsg::submitCommandsToQueue(
-        vsg::CommandPool::create(device, family), vsg::Fence::create(device), 10'000'000'000,
-        device->getQueue(family), [&](vsg::CommandBuffer& commands) {
+    const auto family = static_cast<std::uint32_t>(graphics_family);
+    const auto copied = vsg::submitCommandsToQueue(
+        vsg::CommandPool::create(device, family), device->getQueue(family),
+        [&](vsg::CommandBuffer& commands) {
             const auto barrier = [&](VkImageLayout from, VkImageLayout to, VkAccessFlags source,
                                      VkAccessFlags destination) {
                 VkImageMemoryBarrier info{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -436,6 +434,7 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
             barrier(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, layout, VK_ACCESS_TRANSFER_READ_BIT,
                     VK_ACCESS_MEMORY_READ_BIT);
         });
+    if (copied != VK_SUCCESS) throw std::runtime_error("Cannot copy rendered frame");
     // Swapchain images wrap Vulkan handles; their format is held by the
     // swapchain/ImageView rather than initialized on the Image wrapper.
     const auto format =

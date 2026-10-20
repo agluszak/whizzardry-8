@@ -6,8 +6,10 @@
 #include <vector>
 
 #include <glm/glm.hpp>
+#include <vsg/app/View.h>
 #include <vsg/core/ref_ptr.h>
 #include <vsg/nodes/Group.h>
+#include <vsg/state/ViewportState.h>
 
 #include "wiz8/render/camera.h"
 #include "wiz8/render/draw_inputs.h"
@@ -22,9 +24,7 @@ namespace render {
 class RenderContext;
 }
 namespace vsg {
-class View;
 class Camera;
-class ViewportState;
 }
 
 class WorldScene {

@@ -50,6 +50,7 @@
 #include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
+#include "glm/ext/vector_double4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "glm/geometric.hpp"
@@ -289,9 +290,14 @@ public:
     explicit LightNode(Light& light) : light(&light) {}
     void accept(vsg::RecordTraversal& traversal) const override
     {
-        if (auto* state = viewState(traversal); state && light)
-            state->addLight(*light, traversal.getState()->modelviewMatrixStack.top() *
-                                        toVsg(light->transform.matrix()));
+        if (auto* state = viewState(traversal); state && light) {
+            const auto matrix =
+                light->attachment == Light::Attachment::CycleOrigin
+                    ? state->view->camera->viewMatrix->transform() * toVsg(light->worldMatrix())
+                    : traversal.getState()->modelviewMatrixStack.top() *
+                          toVsg(light->transform.matrix());
+            state->addLight(*light, matrix);
+        }
     }
     Light* light;
 };
@@ -823,10 +829,11 @@ void FogParams::setScene(WorldScene* value)
     if (value) value->attach(*this);
 }
 
-void Light::attachTo(MeshInstance& parent, std::optional<short> mapped_key)
+void Light::attachTo(MeshInstance& parent, std::optional<short> mapped_key, Attachment policy)
 {
     auto parent_node = parent.renderNode();
     if (render_parent == parent_node && scene == parent.scene && render_node &&
+        attachment == policy &&
         ((!mapped_key && !render_attachment) ||
          (mapped_key && render_attachment && render_attachment->mappedKey() == *mapped_key)))
         return;
@@ -835,6 +842,7 @@ void Light::attachTo(MeshInstance& parent, std::optional<short> mapped_key)
         parent.scene->lights.push_back(this);
         scene = parent.scene;
     }
+    attachment = policy;
     render_node = render::LightNode::create(*this);
     render_parent = parent_node;
     if (mapped_key) {
@@ -850,8 +858,15 @@ glm::dmat4 Light::worldMatrix() const
     glm::dmat4 parent_matrix(1);
     if (auto parent = render_parent.ref_ptr())
         if (const auto* node = dynamic_cast<const render::InstanceNode*>(parent.get());
-            node && node->instance)
+            node && node->instance) {
+            if (attachment == Attachment::CycleOrigin) {
+                const auto& actor = node->instance->transform;
+                auto matrix = transform.matrix();
+                matrix[3] = glm::dvec4(actor.position + actor.rotation * transform.position, 1);
+                return matrix;
+            }
             parent_matrix = node->instance->worldMatrix();
+        }
     if (render_attachment)
         parent_matrix =
             glm::dmat4(render::toGlm(render_attachment->transform(render::toVsg(parent_matrix))));

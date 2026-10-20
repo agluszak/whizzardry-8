@@ -771,7 +771,8 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
                 // The light is a child of the visual. VSG composes it for
                 // rendering; the bake query reads that same parentage.
                 light->transform.setLocation(glm::dvec3(light->m_position));
-                if (light->scene) light->attachTo(*current_model_instance);
+                if (light->scene)
+                    light->attachTo(*current_model_instance, {}, Light::Attachment::CycleOrigin);
             } else {
                 const auto placed = rot * light->m_position + origin;
                 light->transform.setLocation(glm::dvec3(placed));
