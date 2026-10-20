@@ -3,6 +3,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -46,7 +47,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/picking.h"
@@ -128,12 +128,10 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
         glm::vec3 monster_position;
 
         party_position = cameraLocation();
-        if (!parameter) {
-            Fail("lsParmList.Length()",
-                 fmt::format("Monscr {} line {:d}: PARTYNEAR expects 1 parameter",
-                             script->getName(), script_line));
-            return false;
-        }
+        if (!parameter)
+            throw std::runtime_error(
+                fmt::format("monster script {} line {}: PARTYNEAR needs a value", script->getName(),
+                            script_line));
 
         glm::vec3 current_position = nav.GetPosition();
         monster_position = current_position;
@@ -143,12 +141,9 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
             return true;
         }
     } else if (CompareTextIgnoreAsciiCase(name.substr(0, 6), "RANDOM") == 0) {
-        if (!parameter) {
-            Fail("lsParmList.Length()",
-                 fmt::format("Monscr {} line {:d}: RANDOM expects 1 parameter", script->getName(),
-                             script_line));
-            return false;
-        }
+        if (!parameter)
+            throw std::runtime_error(fmt::format("monster script {} line {}: RANDOM needs a value",
+                                                 script->getName(), script_line));
         if (CurrentGame().rng.chance(static_cast<unsigned int>(*parameter)) != 0) {
             return true;
         }

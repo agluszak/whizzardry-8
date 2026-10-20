@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -38,7 +39,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/camera.h"
@@ -85,9 +85,7 @@ Prop::Prop()
 
 void Prop::SetFrameMethod(W8AnimationFrameMethod method)
 {
-    if (method < 1 || method > 4) {
-        Fail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST");
-    }
+    assert(method >= 1 && method <= 4);
     frame_method = method;
 }
 
@@ -98,9 +96,7 @@ void UpdateWorldProps(World* world)
     std::size_t count;
     int index;
 
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(count); ++index) {
         Prop* prop = GetWorldProp(world, index);
@@ -374,9 +370,7 @@ unsigned char Prop::AdvanceAnimationSegment()
             break;
         }
     }
-    if (segment == -1) {
-        Fail("lSegment!=(-1)");
-    }
+    assert(segment != -1);
     if (segment == count - 2) {
         segment = 0;
     } else {
@@ -540,9 +534,7 @@ void Prop::ApplyAnimationPaths()
     std::size_t count;
     int index;
 
-    if (GetWorld() == nullptr) {
-        Fail("pWorld");
-    }
+    assert(GetWorld() != nullptr);
     if (this->currentAnimation()->path_lists == 1) {
         count = AnimObjListCount(this->currentAnimation(), 2);
         for (index = 0; index < static_cast<int>(count); ++index) {
@@ -550,9 +542,7 @@ void Prop::ApplyAnimationPaths()
                 AnimObjDispatchList(this->currentAnimation(), 2, static_cast<signed char>(index)));
             KeyframeTrack* path;
 
-            if (mesh == 0) {
-                Fail("psrMesh");
-            }
+            assert(mesh != 0);
             path = AnimObjListEntry(this->currentAnimation(), 2, static_cast<signed char>(index));
             if (path != 0) {
                 glm::vec3 location;
@@ -794,9 +784,7 @@ void Prop::ApplyAnimationFrame(NavigationMesh* pathing)
         } else {
             mesh = AnimObjDispatchList(animation, 2, 0);
         }
-        if (mesh == 0) {
-            Fail("psrMesh");
-        }
+        assert(mesh != 0);
         path = (animation->path ? &*animation->path : nullptr);
         if (path != 0) {
             PathAISetValue(path, static_cast<float>(this->subcycle));
@@ -810,9 +798,7 @@ void Prop::ApplyAnimationFrame(NavigationMesh* pathing)
         MeshInstance* mesh = AnimObjDispatchList(animation, 2, static_cast<signed char>(index));
         KeyframeTrack* path;
 
-        if (mesh == 0) {
-            Fail("psrMesh");
-        }
+        assert(mesh != 0);
         path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
         if (path != 0) {
             glm::vec3 location;
@@ -864,18 +850,14 @@ void Prop::AttachAnimationInstances(World* world)
     if (this->active == 0) {
         return;
     }
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     if (animation->path_lists == 1) {
         has_scales = false;
         count = static_cast<int>(AnimObjListCount(animation, 2));
         for (index = 0; index < count; ++index) {
             instance = static_cast<MeshInstance*>(
                 AnimObjDispatchList(animation, 2, static_cast<signed char>(index)));
-            if (instance == 0) {
-                Fail("psrMesh");
-            }
+            assert(instance != 0);
             instance->visible = true;
             instance->setScene((world->scene.get()));
             instance->light_scale = glm::vec3(0);
@@ -937,9 +919,7 @@ void Prop::AttachAnimationInstances(World* world)
         }
     } else {
         instance = static_cast<MeshInstance*>(this->ToggleAnimation(this->subcycle));
-        if (instance == 0) {
-            Fail("psrMesh");
-        }
+        assert(instance != 0);
         instance->visible = true;
         instance->setScene((world->scene.get()));
         instance->light_scale = glm::vec3(0);
@@ -980,18 +960,14 @@ void Prop::DetachAnimationInstances(World* world)
     std::size_t count;
     int index;
 
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     this->saved_subcycle = this->subcycle;
     if (this->currentAnimation()->path_lists == 1) {
         count = AnimObjListCount(this->currentAnimation(), 2);
         for (index = 0; index < static_cast<int>(count); ++index) {
             instance = static_cast<MeshInstance*>(
                 AnimObjDispatchList(this->currentAnimation(), 2, static_cast<signed char>(index)));
-            if (instance == 0) {
-                Fail("psrMesh");
-            }
+            assert(instance != 0);
             instance->visible = false;
             instance->setScene(0);
         }
@@ -1005,9 +981,7 @@ void Prop::DetachAnimationInstances(World* world)
             instance =
                 static_cast<MeshInstance*>(AnimObjDispatchList(this->currentAnimation(), 2, 0));
         }
-        if (instance == 0) {
-            Fail("psrMesh");
-        }
+        assert(instance != 0);
         instance->visible = false;
         instance->setScene(0);
     }
@@ -1086,9 +1060,7 @@ int Prop::BuildOrRefreshPathingRepresentation(NavigationMesh* pathing)
         ShutdownWithErrorBox("Collideable props should have a single LOD.");
     }
     instance = AnimObjDispatchList(this->currentAnimation(), 2, 0);
-    if (instance == 0) {
-        Fail("pstInstance");
-    }
+    assert(instance != 0);
 
     if (!collision_ready) {
         initializeCollision(pathing, instance, name.c_str(),
@@ -1188,9 +1160,7 @@ try {
     Animation* animation = 0;
     bool result = false;
 
-    if (info == 0 || info->hFile == 0 || prop == 0) {
-        Fail("pInfo && pInfo->hFile && pProp");
-    }
+    assert(info != 0 && info->hFile != 0 && prop != 0);
     hFile = info->hFile;
     success = (hFile->read(&version, 1).bytes == static_cast<std::size_t>(1));
     if (version < 4) {
@@ -1211,23 +1181,22 @@ try {
         if (version < 2) {
             playback_scale = 15.0f;
             if (!ok) {
-                goto fail;
+                return false;
             }
         } else {
             if (!ok) {
-                goto fail;
+                return false;
             }
             success = (hFile->read(&playback_scale, 4).bytes == static_cast<std::size_t>(4));
             if (!success) {
-                goto fail;
+                return false;
             }
         }
         mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
-        result = mesh != nullptr;
-        if (!result) {
-            result = false;
-            goto fail_with_result;
+        if (!mesh) {
+            return false;
         }
+        result = true;
         animation = &this->animation.emplace();
         animation->entries[2] = std::move(mesh);
         animation->group_count = 1;
@@ -1291,13 +1260,9 @@ try {
                 slot.frame = static_cast<signed char>(frame_tmp);
                 hFile->read_exact(&tag_tmp, 2);
                 slot.tag = static_cast<unsigned char>(tag_tmp);
-                if (frame_count <= frame_tmp) {
-                    Fail("(usTemp < (UINT16)ubNumFrames)",
-                         fmt::format(
-                             "{} Prop Error:Segment {:d} frame number is out of range ({:d})",
-                             prop->name, static_cast<unsigned int>(tag_tmp),
-                             static_cast<unsigned int>(frame_tmp)));
-                }
+                if (frame_tmp >= frame_count)
+                    throw std::runtime_error(fmt::format("prop {} segment {} frame {} out of range",
+                                                         prop->name, tag_tmp, frame_tmp));
                 this->slots.push_back(slot);
             }
         }
@@ -1367,15 +1332,11 @@ try {
         MeshInstance* frame = GetAniMeshFrame(mesh, 0);
         unsigned int frame_i;
 
-        if (frame == 0) {
-            Fail("psrMesh");
-        }
+        assert(frame != 0);
         auto box = frame->getModel()->getBounds().box;
         for (frame_i = 0; frame_i < value_count; ++frame_i) {
             frame = GetAniMeshFrame(mesh, frame_i);
-            if (frame == 0) {
-                Fail("psrMesh");
-            }
+            assert(frame != 0);
             box.include(frame->getModel()->getBounds().box);
         }
         bounds_min = box.minimum;
@@ -1460,14 +1421,6 @@ try {
         unsigned int frames = AnimObjValue(animation, 2);
         this->last_frame = static_cast<unsigned char>(frames) - 1;
     }
-    return result;
-
-fail:
-    Fail("fSuccess");
-    return false;
-
-fail_with_result:
-    Fail("fSuccess");
     return result;
 } catch (const std::exception&) {
     return false;

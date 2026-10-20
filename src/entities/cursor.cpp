@@ -1,5 +1,6 @@
 #include "wiz8/entities/cursor.h"
 
+#include <cassert>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -25,7 +26,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/frame.h"
@@ -190,13 +190,9 @@ void ApplyWorldCursorInput(void)
     glm::vec3 lifted;
     glm::vec3 clamped;
 
-    if (WorldCursor() == 0) {
-        Fail("gp3DCursor");
-    }
+    assert(WorldCursor() != 0);
     auto& cursor = *WorldCursor();
-    if (!cursor.enabled) {
-        Fail("gp3DCursor->fEnabled");
-    }
+    assert(cursor.enabled);
     const float saved_y = cursor.position.y;
     delta = glm::vec3(cursor.input_delta.x * 1e+01f, cursor.input_delta.y * 1e+01f,
                       cursor.input_delta.z * 1e+01f);

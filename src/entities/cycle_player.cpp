@@ -1,6 +1,7 @@
 #include "wiz8/entities/cycle_player.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
@@ -35,7 +36,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/camera_shake.h"
@@ -204,9 +204,7 @@ try {
     unsigned char has_particles;
     bool success = true;
 
-    if (info == 0) {
-        Fail("pInfo");
-    }
+    assert(info != 0);
 
     info->hFile->read(&has_path, 1);
     if (has_path != 0) {
@@ -252,9 +250,7 @@ try {
     unsigned char version;
     bool success;
 
-    if (mon_name.empty()) {
-        Fail("pacName && ppCycle");
-    }
+    assert(!mon_name.empty());
 
     const auto mon_path = fmt::format("{}/{}.mon", directory, mon_name);
     const auto bitmap_path = bitmap_directory.empty() ? fmt::format("{}/Bitmaps", directory)
@@ -284,10 +280,6 @@ try {
     if (handle) handle->close();
 
     handle.reset();
-    if (!success) {
-        Fail("fSuccess",
-             fmt::format("GrCycle::Read: ERROR - Read {} in {} failed", mon_path, bitmap_path));
-    }
     return success;
 } catch (const std::exception&) {
     return false;
@@ -389,9 +381,7 @@ glm::mat3 CyclePlayer::GetRotation() const
 
 void CyclePlayer::SetFrameMethod(W8AnimationFrameMethod method)
 {
-    if (method < 1 || method > 4) {
-        Fail("bFrameMethod >= DIR_FIRST && bFrameMethod <= DIR_LAST");
-    }
+    assert(method >= 1 && method <= 4);
     frame_method = method;
 }
 
@@ -491,9 +481,7 @@ void CyclePlayer::finishCycleSelection(const glm::vec3& position)
     if (pending_behaviour != W8_ANIMATION_NO_PENDING_BEHAVIOUR) {
         const auto behaviour = pending_behaviour;
 
-        if (behaviour < BEHAVIOUR_FIRST || behaviour > BEHAVIOUR_LAST) {
-            Fail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)");
-        }
+        assert(behaviour >= BEHAVIOUR_FIRST && behaviour <= BEHAVIOUR_LAST);
         animation_behaviour = behaviour;
         pending_behaviour = W8_ANIMATION_NO_PENDING_BEHAVIOUR;
     }
@@ -563,10 +551,7 @@ unsigned char CyclePlayer::GetAnimationRadius(float* arg_radius)
 {
     AnimationMesh* mesh = AnimObjEntry(active_animation, m_bLOD, 0);
 
-    if (mesh == 0) {
-        Fail("0");
-        return 0;
-    }
+    assert(mesh != 0);
     return AniMeshRadius(mesh, arg_radius);
 }
 
@@ -670,9 +655,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
     glm::vec3 vecPos;
     int index;
 
-    if (pWorld == 0) {
-        Fail("pWorld");
-    }
+    assert(pWorld != 0);
     if (!rep_active) {
         return;
     }
@@ -686,9 +669,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
             KeyframeTrack* path;
             glm::mat3 current;
 
-            if (psrMesh == 0) {
-                Fail("psrMesh");
-            }
+            assert(psrMesh != 0);
             psrMesh->highlight_colour = highlight_colour;
             if (apply_instance_scale) {
                 if (instance_scale == 1.0f) {
@@ -717,9 +698,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
     } else {
         MeshInstance* psrMesh = static_cast<MeshInstance*>(SelectCycleFrameLod(subcycle, m_bLOD));
 
-        if (psrMesh == 0) {
-            Fail("psrMesh");
-        }
+        assert(psrMesh != 0);
         SetAniMeshCacheProtected(AnimObjEntry(active_animation, m_bLOD, 0), true);
         psrMesh->highlight_colour = highlight_colour;
         if (apply_instance_scale) {
@@ -785,9 +764,7 @@ void CyclePlayer::DetachRepresentation(World* world)
         for (int index = 0; index < count; ++index) {
             MeshInstance* mesh =
                 AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index));
-            if (mesh == 0) {
-                Fail("psrMesh");
-            }
+            assert(mesh != 0);
             AnimationMesh* ani_mesh = AnimObjEntry(active_animation, m_bLOD, 0);
             if (ani_mesh != 0) {
                 SetAniMeshCacheProtected(ani_mesh, false);
@@ -796,9 +773,7 @@ void CyclePlayer::DetachRepresentation(World* world)
             mesh->setScene(0);
         }
     } else if (current_model_instance != 0) {
-        if (world == 0) {
-            Fail("pWorld");
-        }
+        assert(world != 0);
         AnimationMesh* ani_mesh = AnimObjEntry(active_animation, m_bLOD, 0);
         SetAniMeshCacheProtected(ani_mesh, false);
         current_model_instance->visible = false;
@@ -986,12 +961,8 @@ MeshInstance* CyclePlayer::GetCurrentModelInstance()
 
 MeshInstance* CyclePlayer::SelectCycleFrameLod(signed char frame, signed char lod)
 {
-    if (lod < 0 || lod >= 3) {
-        Fail("bLOD >= 0 && bLOD < NUM_LODS");
-    }
-    if (frame < 0) {
-        Fail("bFrame >= 0");
-    }
+    assert(lod >= 0 && lod < 3);
+    assert(frame >= 0);
     if (m_pAI.has_value()) {
         PathAIPosition(&*m_pAI, &parent_location);
         location = parent_location;
@@ -1016,9 +987,7 @@ void CyclePlayer::SetSubCycle(unsigned char new_subcycle)
 // FUNCTION: WIZ8 0x004a8460
 void CyclePlayer::SetBehaviour(W8AnimationBehaviour bBehaviour)
 {
-    if (bBehaviour < BEHAVIOUR_FIRST || bBehaviour > BEHAVIOUR_LAST) {
-        Fail("(bBehaviour >= BEHAVIOUR_FIRST) && (bBehaviour <= BEHAVIOUR_LAST)");
-    }
+    assert(bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST);
     animation_behaviour = bBehaviour;
 }
 

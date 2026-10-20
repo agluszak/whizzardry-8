@@ -1,5 +1,6 @@
 #include "wiz8/entities/world_item.h"
 
+#include <cassert>
 #include <exception>
 #include <memory>
 #include <optional>
@@ -18,7 +19,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/legacy_prop_save_ids.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -71,34 +71,26 @@ void WorldItemEntity::SetLocation(const glm::vec3* new_location)
 void WorldItemEntity::DetachMesh()
 {
     MeshInstance* mesh = m_psrMesh.get();
-    if (!mesh) {
-        Fail("psrMesh");
-    }
+    assert(mesh);
     mesh->visible = false;
     mesh->setScene(nullptr);
 }
 
 void WorldItemEntity::ApplyRepTransform()
 {
-    if (!m_psrMesh) {
-        Fail("m_psrMesh");
-    }
+    assert(m_psrMesh);
     m_psrMesh->transform.setLocation(glm::dvec3(location));
     m_psrMesh->transform.setRotation(rotation);
 }
 
 void WorldItemEntity::AttachMesh(World* world)
 {
-    if (!world) {
-        Fail("pWorld");
-    }
+    assert(world);
     if ((flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
     MeshInstance* mesh = m_psrMesh.get();
-    if (!mesh) {
-        Fail("psrMesh");
-    }
+    assert(mesh);
     mesh->visible = true;
     mesh->setScene((world->scene.get()));
     const glm::dvec3 widened(location);

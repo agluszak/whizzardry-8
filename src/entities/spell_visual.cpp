@@ -1,5 +1,6 @@
 #include "wiz8/entities/spell_visual.h"
 
+#include <cassert>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -33,7 +34,6 @@
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
@@ -74,9 +74,7 @@ AnimationMesh* SpellVisual::GetCurrentAniMesh()
 {
     Animation* emitter = this->resources.cycles[this->visual.current_cycle].animation.get();
 
-    if (emitter == 0) {
-        Fail("pao");
-    }
+    assert(emitter != 0);
     return emitter->entries[this->visual.m_bLOD].get();
 }
 
@@ -105,9 +103,7 @@ signed char SpellVisual::GetNumSubCycles()
 
 bool SpellVisual::IsCycleSupported(signed char cycle)
 {
-    if (cycle >= SPELL_NUM_CYCLES) {
-        Fail("bCycle<SPELL_NUM_CYCLES");
-    }
+    assert(cycle < SPELL_NUM_CYCLES);
     return this->resources.cycles[cycle].animation != 0;
 }
 
@@ -119,9 +115,7 @@ void SpellVisual::SetCycle(signed char cycle)
 {
     std::vector<std::unique_ptr<Light>>* lights;
 
-    if (cycle < SPELL_CYCLE_FIRST || cycle > SPELL_CYCLE_LAST) {
-        Fail("bCycle >= SPELL_CYCLE_FIRST && bCycle <= SPELL_CYCLE_LAST");
-    }
+    assert(cycle >= SPELL_CYCLE_FIRST && cycle <= SPELL_CYCLE_LAST);
 
     lights = this->resources.cycles[this->visual.current_cycle].lightView();
     visual.DetachCycleLights(lights);
@@ -244,9 +238,7 @@ static void DestroySpellVisual(World* world, SpellVisual* visual)
    world light boundary, and deletes itself. */
 void UpdateWorldSpellVisuals(World* world)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     int index = 0;
     int count = static_cast<int>(world->spell_visuals.size());
     while (index < count) {
@@ -274,17 +266,12 @@ void UpdateWorldSpellVisuals(World* world)
 
 unsigned char SpellVisual::ReadCycleData(LevelLoadContext* info, int, int emitter_index)
 {
-    if (info == 0 || info->hFile == 0) {
-        Fail("pInfo && pInfo->hFile && pSpell");
-    }
+    assert(info != 0 && info->hFile != 0);
     return ReadEmitterCycle(visual, resources.cycles, info, emitter_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)
 {
-    if (name == 0) {
-        Fail("pacName");
-    }
     for (int index = 0; index < SPELL_NUM_CYCLES; ++index) {
         if (SDL_strncasecmp(name, g_spell_cycle_names[index], strlen(g_spell_cycle_names[index])) ==
             0) {
@@ -305,12 +292,6 @@ std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_v
     SpellVisual* shared = findSpellVisualAsset(*world, name, group);
     if (shared != 0 && shared->mode == group) {
         auto spell = std::make_unique<SpellVisual>(*shared, world);
-        if (spell == 0) {
-            Fail("pSpell");
-        }
-        if (!spell) {
-            Fail("*ppSpell");
-        }
         spell->asset_name = name;
         return spell;
     }
@@ -392,10 +373,6 @@ std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_v
                     W8SoundEvent(kind, sound_cycle, frame, 0, wave.c_str(),
                                  SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
             }
-        }
-        if (!visual) {
-            Fail("*ppSpell",
-                 fmt::format("Spell {} missing cycle of type {:d}", name, fmt::underlying(group)));
         }
         visual->billboard = false;
         visual->visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -518,9 +495,7 @@ static SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode m
 SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view resource_name,
                               int power_level, int value, int flags)
 {
-    if (resource_name.empty()) {
-        Fail("pMLS && strlen(pMLS)");
-    }
+    assert(!resource_name.empty());
     SpellVisual* visual =
         CreateSpellVisual(resource_name, W8_SPELL_VISUAL_EXPLOSION, power_level, value, flags);
     if (visual != 0) {
@@ -536,9 +511,7 @@ SpellVisual* SpawnSpellEffect(const glm::vec3* position, std::string_view resour
    the power level picks the FLASH row. */
 SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int value, int flags)
 {
-    if (name.empty()) {
-        Fail("pMLS && strlen(pMLS)");
-    }
+    assert(!name.empty());
     SpellVisual* visual = CreateSpellVisual(name, W8_SPELL_VISUAL_FLASH, power_level, value, flags);
     if (visual != 0) {
         glm::vec3 position;
@@ -565,12 +538,8 @@ SpellVisual* SpawnCameraSpellEffect(std::string_view name, int power_level, int 
 SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level, Monster* monster,
                                       int value, int flags)
 {
-    if (mls_name.empty()) {
-        Fail("pMLS && strlen(pMLS)");
-    }
-    if (monster == 0) {
-        Fail("pMonster");
-    }
+    assert(!mls_name.empty());
+    assert(monster != 0);
     const auto bounds = monster->GetAnimationBounds();
     if (!bounds) return nullptr;
     SpellVisual* visual =
@@ -604,9 +573,7 @@ SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level
 SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_level, Monster* parent,
                                        int value, int flags)
 {
-    if (mls_name.empty()) {
-        Fail("pMLS && strlen(pMLS)");
-    }
+    assert(!mls_name.empty());
     const auto bounds = parent ? parent->GetAnimationBounds() : std::nullopt;
     if (parent && !bounds) return nullptr;
     SpellVisual* visual =
@@ -649,9 +616,7 @@ SpellVisual* CreateAttachedSpellEffect(std::string_view mls_name, int power_leve
 SpellVisual* CreateAimedSpellEffect(std::string_view mls_name, int power_level, glm::vec3* position,
                                     glm::mat3* rotation, int value, int flags)
 {
-    if (mls_name.empty()) {
-        Fail("pMLS && strlen(pMLS)");
-    }
+    assert(!mls_name.empty());
     SpellVisual* visual =
         CreateSpellVisual(mls_name, W8_SPELL_VISUAL_CONE, power_level, value, flags);
     if (visual != 0) {
@@ -696,9 +661,7 @@ unsigned int SpellVisual::ApplyEmitterSetting(signed char emitter)
 {
     Animation* target = this->resources.cycles[emitter].animation.get();
 
-    if (target == 0) {
-        Fail("pao");
-    }
+    assert(target != 0);
     return AnimObjValue(target, this->visual.m_bLOD);
 }
 

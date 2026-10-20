@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -24,7 +25,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/save_game.h"
@@ -444,9 +444,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
     Trigger* trigger = nullptr;
     unsigned char record_version = 0;
     unsigned char record_type = 0;
-    if (handle == 0) {
-        Fail("hFile");
-    }
+    assert(handle != 0);
     handle->read_exact(&record_version, 1);
     handle->read_exact(&record_type, 1);
     if (record_type < 1 || record_type > 4) throw std::runtime_error("invalid level trigger type");
@@ -911,17 +909,12 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         }
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
-                trigger->m_lData1 >= static_cast<int>(Data().missiles.size())) {
-                Fail("((pTrigger->m_lData1 >= 0) && (pTrigger->m_lData1 < "
-                     "Missile::GetNumTypes()))",
-                     fmt::format("Trigger {}: You must enter a valid missile number",
-                                 trigger->name));
-            }
-            if (trigger->m_lData2 == -1) {
-                Fail(
-                    "(pTrigger->m_lData2!=(-1))",
-                    fmt::format("Trigger {}: You must enter a time value in Data2", trigger->name));
-            }
+                trigger->m_lData1 >= static_cast<int>(Data().missiles.size()))
+                throw std::runtime_error(fmt::format("trigger {}: invalid missile {}",
+                                                     trigger->name, trigger->m_lData1));
+            if (trigger->m_lData2 == -1)
+                throw std::runtime_error(
+                    fmt::format("trigger {}: missile trigger needs a time", trigger->name));
             if (trigger->m_lData2 < 0) {
                 trigger->m_pEvent = std::make_unique<TriggerEvent>();
                 trigger->m_pEvent->action = static_cast<short>(trigger->initial_action);
