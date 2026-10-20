@@ -61,10 +61,8 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -1695,13 +1693,8 @@ void Trigger::Run(int source)
                 } else {
                     spell_id = W8_SPELL_HEAL_ALL;
                 }
-                PointCastSpell(glm::vec3(static_cast<float>(position.x),
-                                         static_cast<float>(position.y),
-                                         static_cast<float>(position.z)),
-                               spell_id, static_cast<unsigned int>(m_lData3));
-                if (action == 0x2b) {
-                    RemoveAllConditionsFromParty();
-                }
+                CurrentGame().castTriggerSpell(glm::vec3(position), spell_id,
+                                               static_cast<unsigned int>(m_lData3));
             }
         }
 

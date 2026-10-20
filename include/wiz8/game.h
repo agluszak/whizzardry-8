@@ -6,9 +6,13 @@
 #include <optional>
 #include <vector>
 
+#include <glm/ext/vector_float3.hpp>
+
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -74,6 +78,16 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+
+    // Commands the level's monster scripts and triggers issue.
+    // A monster's script turns the group of the monster at `location_id` to `disposition`.
+    void setMonsterGroupDisposition(int location_id, W8Disposition disposition);
+    /* A monster's script starts the golem attack: two golem groups turn hostile, and the
+       second joins the fight. */
+    void startGolemAttack();
+    /* A trap or fountain casts `spell` at `position`. Heal All also lifts every condition
+       from the party. */
+    void castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level);
 
     W8Party party{};
     GameStatus status{};
