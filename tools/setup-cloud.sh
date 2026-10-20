@@ -25,15 +25,20 @@ export PATH="$HOME/.local/bin:$PATH"
 
 cd "$repo_dir"
 conan profile detect --exist-ok
-# The session proxy blocks GitHub archives outside the attached repository;
-# ConanCenter mirrors every recipe source by checksum.
-global_conf="$(conan config home)/global.conf"
-grep -q '^core.sources:download_urls' "$global_conf" 2>/dev/null ||
-    echo 'core.sources:download_urls=["origin", "https://c3i.jfrog.io/artifactory/conan-center-backup-sources/"]' \
-        >> "$global_conf"
 conan export conan/recipes/libalsa
-CC=clang-23 CXX=clang++-23 conan install . \
-    -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
-    -s:h build_type=Debug -c tools.system.package_manager:mode=install \
-    --build=missing -of build/linux/conan
+profiles=(-pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 -s:h build_type=Debug)
+
+# The session proxy serves public GitHub repositories over git but blocks
+# their archive tarballs; rebuild those into Conan's download cache.
+download_cache="$(conan config home)/sources-cache"
+global_conf="$(conan config home)/global.conf"
+grep -q '^core.sources:download_cache' "$global_conf" 2>/dev/null ||
+    echo "core.sources:download_cache=$download_cache" >> "$global_conf"
+graph=$(mktemp)
+CC=clang-23 CXX=clang++-23 conan graph info . "${profiles[@]}" --format=json > "$graph"
+python3 tools/prefetch-github-archives.py "$graph" "$download_cache"
+rm -f "$graph"
+
+CC=clang-23 CXX=clang++-23 conan install . "${profiles[@]}" \
+    -c tools.system.package_manager:mode=install --build=missing -of build/linux/conan
 conan cache clean '*'

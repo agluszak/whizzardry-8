@@ -128,8 +128,9 @@ function(wiz8_system_headers)
 endfunction()
 set(UTF8PROC_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(utf8proc
-    URL https://codeload.github.com/JuliaStrings/utf8proc/tar.gz/refs/tags/v2.10.0
-    URL_HASH SHA256=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136)
+    GIT_REPOSITORY https://github.com/JuliaStrings/utf8proc.git
+    GIT_TAG a1b99daa2a3393884220264c927a48ba1251a9c6 # v2.10.0
+    GIT_SHALLOW FALSE)
 FetchContent_MakeAvailable(utf8proc)
 wiz8_system_headers(fmt::fmt utf8proc)
 
