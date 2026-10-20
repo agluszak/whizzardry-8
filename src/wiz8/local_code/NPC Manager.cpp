@@ -88,7 +88,6 @@
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
-#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
@@ -966,7 +965,8 @@ void ProcessNpcPendingEvents(void)
                                          g_npc_services[index].bit) != 0) {
                                         row->npc_bound = true;
                                         bound->event_clock = CurrentGame().status.world_clock;
-                                        RebuildConditionsAndDerivedStats(slot);
+                                        RebuildConditionModifiers(slot);
+                                        SettleActiveParty(CurrentGame());
                                         QueueCharacterEvent(character, 0x56, 0,
                                                             kCharacterEventFullVolume);
                                     }
@@ -1390,8 +1390,6 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
         }
     }
     AdvanceCharacterToLevel(&character, source->level);
-    AccumulateEquipmentModifiers(Data(), &character, &character.equipment_bonus);
-    RebuildCharacterModifierBlock(&character, nullptr);
     CalcCharacterLevelBand(&character);
     RefreshCharacterSkillAvailability(CurrentGame().events, &character);
     RecalculateCharacterDerivedStats(CurrentGame(), character);
@@ -2093,7 +2091,8 @@ void ResetNpcBindingsForParty(void)
         if (row->fOccupied && character->hp_current != 0) {
             GetNpcState(row->npc_index)->incapacitated = 0;
             row->npc_bound = false;
-            RebuildConditionsAndDerivedStats(party_slot);
+            RebuildConditionModifiers(party_slot);
+            SettleActiveParty(CurrentGame());
         }
     }
 }

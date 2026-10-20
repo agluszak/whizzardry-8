@@ -10,9 +10,9 @@ struct W8Enchantment;
 
 void RebuildPartyEffectBlock(void);
 
-/* Rebuild the character's condition/enchantment modifier block at
-   0x16a2 from its live status sources, then the derived block and stats. */
-void RebuildConditionsAndDerivedStats(int party_slot);
+/* Rebuild a member's condition/enchantment modifier block at 0x16a2 from its live
+   status sources. The change settles the party afterwards. */
+void RebuildConditionModifiers(int party_slot);
 /* The monster-side rebuild - refill the monster's modifier block
    from its conditions, enchantments and effect slots, then refresh its
    derived attributes and regeneration rates. */

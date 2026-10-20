@@ -27,7 +27,6 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/rules/party_stats.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)
@@ -162,10 +161,7 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
         PayDownAttributeDebt(character, creation_state);
     }
     CalcCharacterLevelBand(character);
-    RecalculateHitPoints(CurrentGame(), *character);
-    RecalculateCharacterStamina(character);
-    RecalculateRealmSpellPoints(Data(), character);
-    RecalculateArmorClass(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(CurrentGame(), *character);
     FinalizeSpellPointPool(character, creation_state);
 }
 
@@ -484,13 +480,7 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     }
     creation_state->attributes_complete = true;
 complete:
-    RecalculateHitPoints(CurrentGame(), *character);
-    RecalculateCharacterStamina(character);
-    RecalculateCarryingCapacity(character);
-    PresentInventoryWeightChange(*character, RecalculateInventoryWeight(Data(), *character));
-    RecalculateRealmSpellPoints(Data(), character);
-    RecalculateArmorClass(CurrentGame(), *character);
-    RecalculateCharacterResistances(character);
+    RecalculateEditedCharacterStats(CurrentGame(), *character);
     if (character->uiExpLevel == 1) {
         RebuildSkillAllocations(character, creation_state);
     }
@@ -764,7 +754,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                     }
                 }
             }
-            RecalculateRealmSpellPoints(Data(), character);
+            RecalculateEditedCharacterStats(CurrentGame(), *character);
             std::array<std::array<int, 2>, 6> pools;
             for (index = 0; index < 6; ++index) {
                 pools[index][0] = character->sp_max[index];
@@ -780,7 +770,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 for (index = 0; index < 0x72; ++index) {
                     character->spell_learned[index] = saved[index];
                 }
-                RecalculateRealmSpellPoints(Data(), character);
+                RecalculateEditedCharacterStats(CurrentGame(), *character);
             }
         }
         return total;
@@ -812,7 +802,7 @@ void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creat
     }
     if (creation_state->spell_points_remaining == 0) {
     }
-    RecalculateRealmSpellPoints(Data(), character);
+    RecalculateEditedCharacterStats(CurrentGame(), *character);
 }
 
 /* Return one creation spell pick: the spell goes to declined, an auto-added
@@ -833,7 +823,7 @@ void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* cre
             }
         }
         ++creation_state->spell_points_remaining;
-        RecalculateRealmSpellPoints(Data(), character);
+        RecalculateEditedCharacterStats(CurrentGame(), *character);
     }
 }
 
@@ -1011,14 +1001,8 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
                 character->attributes[index].effective = character->attributes[index].base;
             }
         }
-        RecalculateHitPoints(CurrentGame(), *character);
-        RecalculateCharacterStamina(character);
-        RecalculateCarryingCapacity(character);
-        PresentInventoryWeightChange(*character, RecalculateInventoryWeight(Data(), *character));
-        RecalculateRealmSpellPoints(Data(), character);
-        RecalculateArmorClass(CurrentGame(), *character);
     }
-    RecalculateCharacterResistances(character);
+    RecalculateEditedCharacterStats(CurrentGame(), *character);
     if (character->uiExpLevel == 1) {
         if (character->gender != W8_GENDER_UNSET && character->iProfession != W8_PROFESSION_NONE &&
             character->iRace != W8_RACE_NONE) {
@@ -1068,7 +1052,7 @@ complete:
     CountRemainingSpellPoints(character, creation_state);
     RefreshCharacterSkillAvailability(CurrentGame().events, character);
     RecomputeSkillLimits(character, creation_state);
-    RecalculateCharacterResistances(character);
+    RecalculateEditedCharacterStats(CurrentGame(), *character);
 }
 
 /* Finalize a created character: recompute the derived stats, hand out the
@@ -1147,7 +1131,9 @@ void FinalizeCreatedCharacter(W8Character* character, W8CharacterCreationState* 
         }
     }
 
+    const auto spell_point_ceilings = std::to_array(character->sp_max);
     RebuildRealmSpellPointCeilings(Data(), character);
+    FollowSpellPointCeilings(*character, spell_point_ceilings);
     character->experience_previous_goal = character->experience_goal;
     CalcXPGoal(character);
     CalcCharacterLevelBand(character);

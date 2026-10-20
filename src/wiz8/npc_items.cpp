@@ -37,7 +37,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/rules/party_stats.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -689,7 +688,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
         CurrentGame().party.held.origin = {};
         SetItemCursor(0);
     }
-    RedistributePartyEncumbrance(CurrentGame());
+    SettleActiveParty(CurrentGame());
     for (std::size_t slot : acquired) {
         auto* item = &CurrentGame().party.item_pool[slot];
         UpdateFactsAfterAcquiringItem(item);

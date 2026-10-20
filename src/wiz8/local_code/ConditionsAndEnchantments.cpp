@@ -196,7 +196,8 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         default:
             break;
         }
-        RebuildConditionsAndDerivedStats(party_slot);
+        RebuildConditionModifiers(party_slot);
+        SettleActiveParty(CurrentGame());
         QueueConditionClearedReaction(character, condition);
     }
 }
@@ -332,7 +333,7 @@ void RecomputeCharacterHighestCondition(int party_slot)
         UpdateFormationSlotState(&CurrentGame().combat.state()->saved_formation, party_slot);
     }
     if ((previous < W8_CONDITION_DEAD) != (character->highest_condition < W8_CONDITION_DEAD)) {
-        RedistributePartyEncumbrance(CurrentGame());
+        SettleActiveParty(CurrentGame());
     }
     RequestPartySlotRedraw(party_slot);
     int pose = CurrentGame().monster_manager_entries[party_slot].portrait.target_pose;
@@ -390,7 +391,8 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
             CurrentGame().sight_refresh_pending = true;
         }
     }
-    RebuildConditionsAndDerivedStats(party_slot);
+    RebuildConditionModifiers(party_slot);
+    SettleActiveParty(CurrentGame());
 }
 
 /* Setting a monster's condition runs the sameCountdown rescan, group recount
@@ -736,7 +738,8 @@ unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int d
         static_cast<unsigned int>(poison_strength)) {
         character->condition_argument = poison_strength;
     }
-    RebuildConditionsAndDerivedStats(party_slot);
+    RebuildConditionModifiers(party_slot);
+    SettleActiveParty(CurrentGame());
     if (!handled) {
         return 0;
     }
@@ -832,7 +835,8 @@ void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot)
         RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
         RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
     }
-    RebuildConditionsAndDerivedStats(party_slot);
+    RebuildConditionModifiers(party_slot);
+    SettleActiveParty(CurrentGame());
     if (slot == W8_ENCHANTMENT_SUPERMAN) {
         CurrentGame().sight_refresh_pending = true;
     }
@@ -1023,5 +1027,6 @@ void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int depe
     CurrentGame().party.characters[party_slot].conditions[dependence_slot].source_monster =
         monster_id;
     CurrentGame().party.characters[party_slot].conditions[dependence_slot].active = true;
-    RebuildConditionsAndDerivedStats(party_slot);
+    RebuildConditionModifiers(party_slot);
+    SettleActiveParty(CurrentGame());
 }

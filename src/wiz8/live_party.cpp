@@ -63,32 +63,11 @@ static PartyStatRules CaptureLivePartyStatRules(const Game& game)
     return rules;
 }
 
-void RecalculateHitPoints(Game& game, W8Character& character)
+// A member who became overloaded says so.
+static void PresentOverload(W8Character& character)
 {
-    if (!RecalculateCharacterHitPoints(&character)) return;
-    if (const auto slot = game.party.slotOf(character))
-        SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
-}
-
-void RecalculateArmorClass(const Game& game, W8Character& character)
-{
-    CalcArmorClasses(Data(), &character,
-                     CaptureLiveCharacterStatRules(game, character).defensive_action);
-}
-
-void PresentInventoryWeightChange(W8Character& character, InventoryWeightChange change)
-{
-    if (change.became_overloaded) {
-        const int event = CurrentScreenState().id == W8_SCREEN_CAMP ? 8 : g_special_event13;
-        QueueCharacterEvent(&character, event, 0, kCharacterEventFullVolume);
-    }
-}
-
-void RedistributePartyEncumbrance(Game& game)
-{
-    if (game.status.game_started &&
-        RefreshPartyLoad(Data(), game.party, CaptureLivePartyStatRules(game)))
-        game.events.push(PartyLoadChanged{});
+    const int event = CurrentScreenState().id == W8_SCREEN_CAMP ? 8 : g_special_event13;
+    QueueCharacterEvent(&character, event, 0, kCharacterEventFullVolume);
 }
 
 void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
@@ -109,7 +88,7 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
             ReconcileCombatHandChange(game, slot);
             game.events.push(PartySlotChanged{slot});
         }
-        PresentInventoryWeightChange(character, stats.characters[slot].weight);
+        if (stats.characters[slot].became_overloaded) PresentOverload(character);
         if (character.fInParty) game.events.push(PartySlotChanged{slot});
     }
     if (stats.load_redistributed) game.events.push(PartyLoadChanged{});
@@ -119,22 +98,26 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
             SetCharacterCondition(slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
 }
 
-void ApplyPartyModifiers(Game& game, W8GameplayModifierBlock modifiers)
-{
-    game.party.modifiers = modifiers;
-    SettleActiveParty(game);
-}
-
 void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
 {
     if (!IsCharacterDefined(character)) return;
-    if (character.uiExpLevel > 50) character.uiExpLevel = 50;
-    for (auto& level : character.profession_levels)
-        if (static_cast<unsigned int>(level) > 50) level = 50;
     if (const auto member = game.party.slotOf(character);
         member && game.party.rows[*member].fOccupied) {
         SettleActiveParty(game);
         return;
     }
     UpdateStandaloneCharacterStats(Data(), character, {});
+}
+
+void RecalculateEditedCharacterStats(Game& game, W8Character& character)
+{
+    const auto slot = game.party.slotOf(character);
+    const bool member = slot && game.party.rows[*slot].fOccupied;
+    if (!member) character.party_weight_share = 0;
+    const auto update = UpdateCharacterStatsFromInputs(
+        Data(), character,
+        member ? CaptureLiveCharacterStatRules(game, character) : CharacterStatRules{});
+    if (update.became_overloaded) PresentOverload(character);
+    if (member && update.hp_exhausted)
+        SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
 }

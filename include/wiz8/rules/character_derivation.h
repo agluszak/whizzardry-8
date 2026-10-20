@@ -23,11 +23,6 @@ void ApplyModifierBlock(W8GameplayModifierBlock* target, const W8GameplayModifie
 // Fold the worn items' bonuses into one character's equipment bonus block.
 void AccumulateEquipmentModifiers(const GameData& data, W8Character* character,
                                   W8GameplayModifierBlock* equipment_bonus);
-/* Rebuild one character's derived modifier block from the equipment,
-   condition and party blocks without rerunning the derived stats. */
-void RebuildCharacterModifierBlock(W8Character* character,
-                                   const W8GameplayModifierBlock* party_modifiers);
-
 void InitializeSkillBaseLevels(W8Character* character);
 // The skill's points with the profession bonus and the modifier block's adjustment.
 int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id);
@@ -35,6 +30,7 @@ int GetEffectiveSkillLevel(const W8Character* character, W8Skill skill_id);
 void SetHandType(const GameData& data, W8Character* character, W8EquipSlot equip_slot);
 
 // Rebuild modifier blocks, effective attributes, skill levels and hand kinds from the
-// character's equipment, conditions and the supplied party modifiers.
+// character's equipment, condition block and the supplied party modifiers. Levels above
+// fifty are lowered to it first.
 void EvaluateCharacterInputs(const GameData& data, W8Character& character,
                              const W8GameplayModifierBlock* party_modifiers);

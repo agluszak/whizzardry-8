@@ -946,7 +946,22 @@ TEST_CASE("Retail monster combat markers describe ownership without restoring a 
     REQUIRE_FALSE(wiz8::retail::encode_image(monster).fInCombat);
 }
 
-TEST_CASE("Detached party weight uses stable slot ties and drops the odd half-unit",
+namespace {
+// A defined fighter with no equipment and every base attribute at fifty.
+W8Character MakeFighter()
+{
+    W8Character character{};
+    character.iProfession = W8_PROFESSION_FIGHTER;
+    character.original_profession = W8_PROFESSION_FIGHTER;
+    character.iRace = W8_RACE_HUMAN;
+    character.gender = W8_GENDER_MALE;
+    character.uiExpLevel = 1;
+    for (auto& attribute : character.attributes) attribute.base = 50;
+    return character;
+}
+}
+
+TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit",
           "[party][encumbrance]")
 {
     const ScopedRecords items(MutableData().items, 1);
@@ -954,40 +969,33 @@ TEST_CASE("Detached party weight uses stable slot ties and drops the odd half-un
     W8Party party;
     for (int slot : {0, 1}) {
         party.rows[slot].fOccupied = true;
-        party.characters[slot].carrying_capacity = 100;
-        party.characters[slot].load_category = W8_LOAD_NONE;
+        party.characters[slot] = MakeFighter();
     }
     party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
     party.item_count = 1;
-    REQUIRE(RefreshPartyLoad(Data(), party, {}));
+    REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
     REQUIRE(party.characters[0].party_weight_share == 2);
     REQUIRE(party.characters[1].party_weight_share == 1);
     REQUIRE(party.characters[0].total_carried_weight == 2);
     REQUIRE(party.characters[1].total_carried_weight == 1);
     party.rows[0].fOccupied = false;
-    REQUIRE(RefreshPartyLoad(Data(), party, {}));
+    REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
     REQUIRE(party.characters[0].party_weight_share == 0);
     REQUIRE(party.characters[1].party_weight_share == 3);
 }
 
-TEST_CASE("Inventory weight reports overload without scheduling a voice event",
-          "[party][encumbrance]")
+TEST_CASE("A recalculation reports crossing the carrying capacity once", "[party][encumbrance]")
 {
     const ScopedRecords items(MutableData().items, 1);
-    MutableData().items[0].weight = 7;
-    W8Character character{};
-    for (auto& item : character.EquippedItem) item.iItemNo = -1;
-    for (auto& item : character.backpack) item.iItemNo = -1;
-    character.carrying_capacity = 10;
-    character.inventory_weight = 7;
-    character.backpack[0] = {.iItemNo = 0, .stack_count = 2};
-    const auto changed = RecalculateInventoryWeight(Data(), character);
-    REQUIRE(character.inventory_weight == 14);
-    REQUIRE(changed.changed);
-    REQUIRE(changed.became_overloaded);
-    const auto unchanged = RecalculateInventoryWeight(Data(), character);
-    REQUIRE_FALSE(unchanged.changed);
-    REQUIRE_FALSE(unchanged.became_overloaded);
+    MutableData().items[0].weight = 10;
+    auto character = MakeFighter();
+    character.backpack[0] = {.iItemNo = 0, .stack_count = 200};
+    // Strength and vitality of fifty carry (50 + 2 * 50) * 12 = 1800 against 2000.
+    REQUIRE(UpdateStandaloneCharacterStats(Data(), character, {}).became_overloaded);
+    REQUIRE(character.carrying_capacity == 1800);
+    REQUIRE(character.inventory_weight == 2000);
+    REQUIRE(character.load_category == W8_LOAD_EXTREME);
+    REQUIRE_FALSE(UpdateStandaloneCharacterStats(Data(), character, {}).became_overloaded);
 }
 
 TEST_CASE("Party load follows supplied rules independently of the live combat and party",
@@ -1001,23 +1009,21 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     W8Party party;
     party.rows[0].fOccupied = true;
     auto& character = party.characters[0];
-    for (auto& item : character.EquippedItem) item.iItemNo = -1;
-    for (auto& item : character.backpack) item.iItemNo = -1;
+    character = MakeFighter();
     character.fInParty = true;
     character.iRace = W8_RACE_ANDROID;
-    character.carrying_capacity = 10;
-    character.load_category = W8_LOAD_NONE;
     character.party_weight_share = 4;
     party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
     party.item_count = 1;
     PartyStatRules rules;
     rules.load_timing = PartyLoadTiming::AfterCombat;
-    REQUIRE_FALSE(RefreshPartyLoad(Data(), party, rules));
+    REQUIRE_FALSE(UpdatePartyStats(Data(), party, rules).load_redistributed);
     REQUIRE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 4);
+    REQUIRE(character.total_carried_weight == 4);
     rules.load_timing = PartyLoadTiming::Immediate;
     rules.characters[0].defensive_action = true;
-    REQUIRE(RefreshPartyLoad(Data(), party, rules));
+    REQUIRE(UpdatePartyStats(Data(), party, rules).load_redistributed);
     REQUIRE_FALSE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
@@ -1041,23 +1047,48 @@ TEST_CASE("Formation reconciliation repairs only its owning party", "[party][for
     REQUIRE(previous.formation.positions[1].bQuadrantSlot == 1);
 }
 
+TEST_CASE("Pools follow a changed ceiling and keep their level otherwise", "[party][stats]")
+{
+    auto character = MakeFighter();
+    REQUIRE(UpdateStandaloneCharacterStats(Data(), character, {}).valid);
+    // A new character's pools fill as their ceilings rise from zero.
+    REQUIRE(character.uiHPMax > 0);
+    REQUIRE(character.hp_current == static_cast<unsigned int>(character.uiHPMax));
+    REQUIRE(character.uiStaminaMax > 0);
+    REQUIRE(character.stamina == character.uiStaminaMax);
+    REQUIRE(character.fatigue_band == 0);
+
+    // Recalculating with unchanged inputs leaves spent pools alone.
+    character.hp_current = 1;
+    character.stamina = 0;
+    REQUIRE_FALSE(UpdateStandaloneCharacterStats(Data(), character, {}).hp_exhausted);
+    REQUIRE(character.hp_current == 1);
+    REQUIRE(character.stamina == 0);
+    REQUIRE(character.fatigue_band == 4);
+
+    // A raised ceiling carries its gain into the pool.
+    const int ceiling = character.uiHPMax;
+    character.hp_adjustment = 5;
+    UpdateStandaloneCharacterStats(Data(), character, {});
+    REQUIRE(character.uiHPMax == ceiling + 5);
+    REQUIRE(character.hp_current == 6);
+}
+
 TEST_CASE("A detached hit-point calculation reports death without applying live conditions",
           "[party][stats][ownership]")
 {
     const ScopedGame game;
-    W8Character character{};
-    character.iProfession = W8_PROFESSION_FIGHTER;
-    character.original_profession = W8_PROFESSION_FIGHTER;
+    auto character = MakeFighter();
     character.uiHPMax = 1000;
     character.hp_current = 1;
-    character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
     const auto live_hp = CurrentGame().party.characters[0].hp_current;
     const auto live_condition = CurrentGame().party.characters[0].highest_condition;
-    REQUIRE(RecalculateCharacterHitPoints(&character));
+    REQUIRE(UpdateStandaloneCharacterStats(Data(), character, {}).hp_exhausted);
     REQUIRE(character.hp_current == 0);
     REQUIRE(CurrentGame().party.characters[0].hp_current == live_hp);
     REQUIRE(CurrentGame().party.characters[0].highest_condition == live_condition);
-    REQUIRE_FALSE(RecalculateCharacterHitPoints(&character));
+    REQUIRE(character.highest_condition == W8_CONDITION_NONE);
+    REQUIRE_FALSE(UpdateStandaloneCharacterStats(Data(), character, {}).hp_exhausted);
 }
 
 TEST_CASE("Standalone character updates ignore saved membership flags", "[party][stats][ownership]")
@@ -1074,15 +1105,10 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     for (auto& item : foreign.backpack) item.iItemNo = -1;
     foreign.party_weight_share = 12;
     CurrentGame().party.modifiers.damage_bonus = 41;
-    foreign.equipment_bonus.damage_bonus = 2;
-    RebuildCharacterModifierBlock(&foreign, nullptr);
-    REQUIRE(foreign.bonus.damage_bonus == 2);
-    W8Party detached;
-    detached.modifiers.damage_bonus = 7;
-    RebuildCharacterModifierBlock(&foreign, &detached.modifiers);
-    REQUIRE(foreign.bonus.damage_bonus == 9);
+    foreign.condition_modifiers.damage_bonus = 2;
     const auto result = UpdateStandaloneCharacterStats(Data(), foreign, {});
     REQUIRE(result.valid);
+    REQUIRE(foreign.bonus.damage_bonus == 2);
     REQUIRE(foreign.party_weight_share == 0);
     REQUIRE(CurrentGame().party.characters[0].party_weight_share == 99);
     // Character creation uses a party storage slot before that row is occupied.
@@ -1093,30 +1119,33 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     RecalculateCharacterDerivedStats(CurrentGame(), draft);
     REQUIRE(draft.carrying_capacity > 0);
     REQUIRE(draft.party_weight_share == 0);
-    REQUIRE(draft.bonus.damage_bonus == 0);
+    REQUIRE(draft.bonus.damage_bonus == 2);
 }
 
-TEST_CASE("Weapon swings see the damage bonus left by the previous calculation", "[party][stats]")
+TEST_CASE("Weapon swings read the damage bonus the operation started from", "[party][stats]")
 {
     const ScopedRecords items(MutableData().items, 1);
     MutableData().items[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     MutableData().items[0].weapon_skill = W8_SKILL_SWORD;
     W8Character character{};
     character.iProfession = W8_PROFESSION_FIGHTER;
-    for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.attributes[W8_ATTRIBUTE_SPEED].effective = 100;
     character.attributes[W8_ATTRIBUTE_STRENGTH].effective = 50;
     character.skills[W8_SKILL_SWORD].level = 90;
     character.skills[W8_SKILL_CLOSE_COMBAT].level = 90;
     character.Hand[0].damage_bonus = 3;
+    const auto baseline = CaptureCharacterBaseline(character);
 
     // Retail scores swings before resetting the bonus: (100 + 30 + 90) / 3 = 73.
-    CalcAttacks(Data(), &character, false);
+    DeriveCharacterStats(Data(), character, {}, baseline);
     REQUIRE(character.Hand[0].damage_bonus == 0);
     REQUIRE(character.Hand[0].swings == 2);
-    // The next calculation sees this arrangement's bonus: (100 + 0 + 90) / 3 = 63.
-    CalcAttacks(Data(), &character, false);
+    // Another pass of the same operation reads the same baseline.
+    DeriveCharacterStats(Data(), character, {}, baseline);
+    REQUIRE(character.Hand[0].swings == 2);
+    // The next operation starts from this arrangement's bonus: (100 + 0 + 90) / 3 = 63.
+    DeriveCharacterStats(Data(), character, {}, CaptureCharacterBaseline(character));
     REQUIRE(character.Hand[0].swings == 1);
 }
 

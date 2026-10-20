@@ -51,7 +51,6 @@
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
-#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
@@ -590,7 +589,7 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
                                static_cast<unsigned int>(character->uiStaminaMax)));
     character->fatigue_band = band;
     if (band != previous_band) {
-        RecalculateArmorClass(CurrentGame(), *character);
+        SettleActiveParty(CurrentGame());
     }
     if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         character->stamina > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
@@ -708,7 +707,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
             ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x1c4], damage));
         }
         character->hp_adjustment -= damage;
-        RecalculateHitPoints(CurrentGame(), *character);
+        SettleActiveParty(CurrentGame());
         if (character->uiCondition[W8_CONDITION_DRAINED] == 0) {
             SetCharacterCondition(party_slot, W8_CONDITION_DRAINED, W8_CONDITION_INDEFINITE, 0, 0,
                                   0);
@@ -909,7 +908,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
                                static_cast<unsigned int>(character->uiStaminaMax)));
     character->fatigue_band = band;
     if (band != previous_band) {
-        RecalculateArmorClass(CurrentGame(), *character);
+        SettleActiveParty(CurrentGame());
     }
 
     if (character->stamina < 1) {
