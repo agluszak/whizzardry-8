@@ -106,12 +106,13 @@ the licensed runtime scenarios after every step.
      moves into the game.
 2. **Finish `GameData`.** The databases and the string table are one immutable value
    (ARCHITECTURE.md, "Layers").
-   - The Application should own it once screens receive it instead of calling `Data()`.
-   - Tests should build small `GameData` fixtures instead of swapping vectors with
-     `ScopedRecords`.
+   - The Application should own it and hand `const GameData&` to screens and rules,
+     deleting the slot behind `Data()`. What blocks it: about 1,640 `Data()` calls in 90
+     unlayered files (37 in `local_code`, 25 in `local_screens`, 11 in `dialog_code`)
+     reach the data from code that receives neither the data nor the game. They go as
+     screens receive it from the router and rules receive a `RuleContext` (steps 3 and
+     6); until then `InstallGameData` fills the one slot.
    - Give message ids names.
-   - Still outside it: the monster database (read per record), encounter tables (reloaded
-     per level), NPC keyword lists and the generic item name cache.
 3. **Inventory and party in `rules`.** They take the `Game` and report through its
    events (ARCHITECTURE.md, "The game"); what remains is moving them behind the boundary.
    - Replace `Game&` with a `RuleContext` once the random stream is in the game, and

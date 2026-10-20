@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <memory>
 #include <string_view>
 
@@ -13,7 +15,6 @@
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -38,33 +39,22 @@
 namespace {
 }
 
-/* The new-game reset. Begin a new game, then
-   clears the item in hand and the carried pool, and
-   grants the starting items. The pool and the id list are both walked by
-   address against the symbol that follows them, not by index. */
+/* The new-game reset. Begin a new game, then clear the item in hand and the
+   carried pool, and grant the six starting item stacks. */
 void ResetForNewGame(void)
 {
-    W8ItemInstance item;
-    W8ItemInstance* slot;
-    unsigned int* id;
+    static constexpr std::array<unsigned int, 6> starting_items = {0x14f, 0x14f, 0x15a,
+                                                                   0x15a, 0x15b, 0x155};
     unsigned int index;
 
     BeginGame();
-    *(&CurrentGame().party.held.item) = W8ItemInstance{.iItemNo = -1};
-    slot = CurrentGame().party.item_pool;
-    do {
-        *(slot) = W8ItemInstance{.iItemNo = -1};
-        ++slot;
-    } while (slot < CurrentGame().party.item_pool + 500);
-    id = g_starting_item_ids;
-    do {
-        if (*id != 0xffffffff) {
-            item = MakeItem(*id, true, true, true);
-            item.stack_count = 1;
-            AddItemToParty(CurrentGame(), &item, false, false);
-        }
-        ++id;
-    } while (id < g_starting_item_ids + 6);
+    CurrentGame().party.held.item = W8ItemInstance{.iItemNo = -1};
+    std::ranges::fill(CurrentGame().party.item_pool, W8ItemInstance{.iItemNo = -1});
+    for (const auto id : starting_items) {
+        auto item = MakeItem(id, true, true, true);
+        item.stack_count = 1;
+        AddItemToParty(CurrentGame(), &item, false, false);
+    }
     CurrentGame().party.gold = 500;
     CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);
     InitializePartyFormation(&CurrentGame().party.formation);

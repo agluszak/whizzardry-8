@@ -250,25 +250,8 @@ void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, boo
 void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
                           unsigned char arg);
 void FlushPendingNoticeLines(void);
-/* Zero W8NpcInteractionState, write its reset values, and reload the
-   keyword lists through the loader below. */
+/* Zero W8NpcInteractionState and write its reset values. */
 void ResetMainScreenStateBlock(void);
-/* The dialogue keyword tables, one file list per language;
-   element zero is English_Keywords.txt and element one the translated list.
-   A file list holds one line list per line, and a line list one malloc'd wide
-   word per '/'-separated field. */
-using KeywordFile = std::vector<std::vector<std::string>>;
-extern std::vector<KeywordFile> g_keyword_lists;
-/* Both files are loaded and the tables are usable. Raised once the
-   second file loads and lowered whenever the tables are released. */
-extern bool g_keyword_lists_loaded;
-/* Replace the keyword lists with the contents of
-   Data\Strings\English_Keywords.txt and Data\Strings\translated_Keywords.txt. */
-void ReloadKeywordLists(void);
-/* Clear the loaded keyword tables. */
-void ClearKeywordLists(void);
-/* Copy the next '/'-terminated field out of a keyword line into
-   the caller's buffer and return the cursor past it, or null at the end. */
 
 void SyncDialogueNpcState(void);
 /* Store a transcript keyword, inferring its category when category is -1. */

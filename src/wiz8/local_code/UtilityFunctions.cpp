@@ -142,11 +142,6 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
     return SDL_PointInRect(point, &bounds);
 }
 
-void StripMonsterNameSuffix(std::string& name)
-{
-    if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
-}
-
 unsigned int CharacterPointerToPartySlot(const W8Character* character)
 {
     unsigned int slot;

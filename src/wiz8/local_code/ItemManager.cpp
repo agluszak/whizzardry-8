@@ -40,7 +40,6 @@
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -975,7 +974,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
     if (monster_info != 0) {
-        W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         glm::vec3 position = monster_info->p3D->nav.GetPosition();
         std::unique_ptr<W8WorldItem> item;
         int gold = 0;
@@ -989,7 +988,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         int pick;
         if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
             for (slot = 0; slot < 8; ++slot) {
-                W8MonsterTreasureEntry* entry = &record->treasure.slots[slot];
+                const W8MonsterTreasureEntry* entry = &record->treasure.slots[slot];
                 if (entry->count != 0 && Random(100) <= entry->chance) {
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {

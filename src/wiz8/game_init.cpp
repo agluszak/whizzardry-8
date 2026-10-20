@@ -15,12 +15,9 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/monster_generators.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/render/frame.h"
@@ -57,9 +54,6 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     if (!VerifyDataSubdirs()) {
         return 0;
     }
-    if (!LoadMonsterDatabase(0)) {
-        return 0;
-    }
     if (const auto save = load_at_startup ? FindStartupQuickSave() : std::nullopt) {
         RequestScreen({.id = W8_SCREEN_PLEASE_WAIT,
                        .mode = W8_PLEASE_WAIT_LOAD_GAME,
@@ -68,7 +62,6 @@ unsigned char InitializeGame(bool load_at_startup, const std::string& string_dat
     } else {
         RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_SIRTECH});
     }
-    InitializeEncounterTables();
     if (!LoadHitSoundDatabase()) {
         ShutdownWithErrorBox("Could not load hit sound database!");
     }
@@ -83,8 +76,6 @@ void ShutdownGame(bool save_configuration)
 {
     EndGame();
     ReleaseHitSoundDatabase();
-    ReleaseGenericItemNames();
-    UnloadEncounterTables();
     g_font_state_palettes = {};
     ResetScreenRouting();
     ClearNpcMessageQueue();

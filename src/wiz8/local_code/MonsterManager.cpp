@@ -1,7 +1,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 
 #include <algorithm>
-#include <array>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -52,7 +51,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -97,7 +95,7 @@ const float g_monster_record_float_scale = 20.0f;
 enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
 /* The character array the alternate-name form indexes, and the slot it uses. */
 
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
+W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
                                  glm::vec3* position)
 {
     std::unique_ptr<W8MonsterInfo> owner(new (std::nothrow) W8MonsterInfo{});
@@ -174,7 +172,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
 {
     auto* monster_info = &info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     glm::vec3 camera_position;
 
     if (monster_info == 0) {
@@ -259,7 +257,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
 std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
                                                    W8MonsterActivationMode mode)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     record = GetMonsterDataForInfo(monster_info);
 
     auto monster = Monster::ReadAllCycles(&world, record->cycle_name,
@@ -337,7 +335,7 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         Fail("pMonsterInfo != NULL");
     }
     unsigned int monster_species = monster_info->monster_species;
-    W8MonsterRecord* record = MonsterDBFromSpecies(monster_species);
+    const W8MonsterRecord* record = MonsterDBFromSpecies(monster_species);
     unsigned int notice_channel;
     if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
         killer_party_slot = monster_info->condition_target.iChar;
@@ -426,22 +424,12 @@ done:
 }
 
 namespace {
-std::array<std::unique_ptr<W8MonsterRecord>, kMaxMonsterSpecies> monster_record_cache;
-
 struct RecentCombat {
     std::uint64_t until = 0;
     W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
 };
 RecentCombat recent_combat;
 } // namespace
-
-std::unique_ptr<W8MonsterRecord>& CachedMonsterRecord(unsigned int monster_species)
-{
-    if (monster_species >= kMaxMonsterSpecies) {
-        Fail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE");
-    }
-    return monster_record_cache[monster_species];
-}
 
 void RecordCombatStart()
 {
@@ -458,18 +446,26 @@ W8Difficulty LastCombatDifficulty()
     return recent_combat.difficulty;
 }
 
-W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
+/* A species' record, or null for a species the database does not hold. */
+const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species)
 {
-    auto& record = CachedMonsterRecord(monster_species);
-    if (!record) {
-        auto loaded = std::make_unique<W8MonsterRecord>();
-        if (!LoadMonsterDatabaseRecord(monster_species, loaded.get())) return nullptr;
-        record = std::move(loaded);
+    if (monster_species >= kMaxMonsterSpecies) {
+        Fail("uiMonsterSpecies < MAX_MONSTERS_IN_DATABASE");
     }
-    return record.get();
+    const auto& monsters = Data().monsters;
+    return monster_species < monsters.size() ? &monsters[monster_species] : nullptr;
 }
 
-W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
+W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
+                                   unsigned int attack)
+{
+    if (const auto* combat = monster_info.pCombat.get();
+        combat && combat->attack_index == attack && combat->corrected_range)
+        return *combat->corrected_range;
+    return static_cast<W8RangeCategory>(record.attacks[attack].range_category);
+}
+
+const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info)
 {
     if (monster_info == 0) {
         Fail("pMonsterInfo != NULL");
@@ -495,7 +491,7 @@ W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure, std::source_
     return monster;
 }
 
-W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
+const W8MonsterRecord* GetMonsterDataByLocationID(int location_id)
 {
     W8MonsterInfo* monster;
 
@@ -520,7 +516,7 @@ Monster* GetMonsterByLocationID(int location_id)
    0x005ED4F0 before range/path consumers use it. */
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     float result;
 
     if (monster_info == 0) {
@@ -562,7 +558,7 @@ int GetMonsterQuadrant(W8MonsterInfo* monster_info)
 
 int GetMonsterCycleFallbackValue(unsigned int monster_species)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
     record = MonsterDBFromSpecies(monster_species);
     if (record == 0) {
@@ -606,7 +602,7 @@ void ConvertMonsterAttributes(W8MonsterInfo* monster_info)
 {
     for (unsigned int monster_attribute = 0; monster_attribute < W8_MONSTER_ATTR_COUNT;
          ++monster_attribute) {
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
         W8Attribute attribute_index;
         int value;
 
@@ -792,7 +788,7 @@ W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_
 
 static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     int value = RollDice(&record->hit_points);
     monster_info->uiHPMax = value;
     monster_info->hp_current = value;
@@ -832,7 +828,7 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
     if (monster_info == 0) {
         Fail("pMonsterInfo != NULL");
     }
-    W8MonsterRecord* record = MonsterDBFromSpecies(monster_info->monster_species);
+    const W8MonsterRecord* record = MonsterDBFromSpecies(monster_info->monster_species);
     int minimum_hp = record->hit_points.Minimum();
     int maximum_hp = record->hit_points.Maximum();
     float scale =
@@ -1321,7 +1317,7 @@ void ProcessMonsterManagerFrame(void)
    used, and name_form picks the variant within it - the sets are twenty-four
    wide characters apart. A monster with no group at all is a bug unless it is
    already dying, and says so on the debug channel rather than asserting. */
-std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            unsigned char name_form)
 {
     W8MonsterGroup* monster_group;
@@ -1391,7 +1387,7 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     unsigned int health_knowledge;
 
     if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
         W8NpcState* npc;
 
         record = GetMonsterDataForInfo(monster_info);
@@ -1407,7 +1403,7 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         health_knowledge = 125;
     } else {
         float average_party_level = GetAveragePartyMemberLevel();
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
         int best_party_slot;
         int monster_level;
 
@@ -1457,7 +1453,7 @@ void DetectMonsterGroups(void)
             continue;
         }
         if (!group->alternate_name) {
-            W8MonsterRecord* record = MonsterGroupGetRecord(group);
+            const W8MonsterRecord* record = MonsterGroupGetRecord(group);
             int best_slot = -1;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {

@@ -57,7 +57,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -2206,7 +2205,7 @@ void ComputeCharacterActionPhase(int party_slot)
    action first (berserk forces a fresh random choice); the action-kind
    switch executes it and a failed action loops back through the AI for a
    repick until something commits or the monster holds. */
-void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+void ExecuteMonsterAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     char tried[11] = {0};
     unsigned char result = 0;
@@ -2461,7 +2460,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 /* The monster flee action: check the monster can and will run, aim it, play
    its flee cycle unless the special-attack mode table keeps it facing the
    target, then report the attempt. */
-bool MonsterFleeAction(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+bool MonsterFleeAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     if (!CanMonsterFlee(monster_info, record, false)) {
         return false;
@@ -2539,7 +2538,7 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
    lists, fold in every monster hostile to the source, then resolve the group
    attack. Either way the record's cooldown lands in its combat state and the
    attack costs a tenth of its stamina. */
-ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+ActionStep ExecuteMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     W8TargetSource source;
     std::vector<int> char_targets;
@@ -2658,7 +2657,7 @@ void StepMonsterCombatAction(W8MonsterInfo* monster_info)
     /* MonsterChooseTarget fills the target kind and the chosen monster's id. */
     W8CombatSlot chosen;
     int progress_pct;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8MonsterCombatState* combat;
     Monster* monster;
     int action_kind;

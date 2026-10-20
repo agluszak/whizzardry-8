@@ -912,7 +912,7 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         Monster* monster = monster_info->p3D;
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
         glm::vec3 position;
 
         if (!monster_info->fActive || monster_info->hp_current == 0 ||
@@ -1060,7 +1060,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
 {
     Monster* source_monster;
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     float distance;
     float max_distance;
@@ -1295,7 +1295,7 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
                                        bool allow_single_target, bool sighting)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id, false);
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8TargetNeed needed;
 
     if (!monster_info || !monster_info->fActive) {
@@ -1979,7 +1979,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
         auto* monster_info = monster_owner.get();
         if (monster_info->fActive && monster_info->hp_current != 0 &&
             monster_info->uiCondition[W8_CONDITION_DEAD] == 0) {
-            W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+            const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
             if (record->untargetable == 0 &&
                 (monster_info->ubDisposition == disposition || disposition == 3)) {
                 Monster* monster = monster_info->p3D;

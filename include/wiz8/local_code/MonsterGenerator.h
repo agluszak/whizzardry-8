@@ -8,7 +8,7 @@ struct W8Chunk;
 #include "wiz8/geometry.h"
 #include "wiz8/platform/IntervalGate.h"
 
-struct W8EncounterTableRuntime;
+struct W8EncounterTable;
 struct W8EncounterEntry;
 struct W8MonsterRecord;
 struct MonGen {
@@ -18,7 +18,7 @@ struct MonGen {
     short unknown_08;                /* persisted, initialized to -1 */
     /* World position, saved as three dwords and handed to GenerateEncounter. */
     glm::vec3 spawn_position;
-    int encounter_table_index; /* index into g_encounter_tables, -1 means none */
+    int encounter_table_index; /* index into GameData::encounter_tables, -1 means none */
     W8IntervalGate timer;
     char name[32]{};
     bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
@@ -31,9 +31,9 @@ struct MonGen {
     /* Selects and spawns the encounter table entry at `position`. */
     unsigned char GenerateEncounter(const glm::vec3* position);
     /* Choose an entry for the current rarity/time/party level, or return null. */
-    const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTableRuntime& table);
+    const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTable& table);
     /* Difficulty-aware group-size roll for one monster database record. */
-    int RollEncounterGroupSize(W8MonsterRecord* record);
+    int RollEncounterGroupSize(const W8MonsterRecord* record);
     /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
     unsigned char Load(W8Chunk& handle, short default_interval);

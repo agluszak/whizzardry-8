@@ -165,8 +165,6 @@ unsigned short g_item_use_messages[25] = {
     0x4f6, 0x4f7, 0x4f8, 0x4f9, 0x4fa, 0x4fb, 0x4fc, 0x4fd, 0x4fe, 0x4ff, 0x500, 0x501, 0x502,
     0x503, 0x504, 0x505, 0x506, 0x507, 0x508, 0x509, 0x50a, 0x50b, 0x50c, 0x50d, 0x50e,
 };
-/* One lazily built generic name per unidentified-name index. */
-std::string g_generic_item_names[W8_GENERIC_ITEM_NAME_COUNT];
 W8Skill g_item_spell_presentation[11] = {
     W8_SKILL_NONE,        W8_SKILL_ARTIFACTS,      W8_SKILL_ARTIFACTS, W8_SKILL_NONE,
     W8_SKILL_NONE,        W8_SKILL_NONE,           W8_SKILL_MUSIC,     W8_SKILL_THROWING_SLING,
@@ -353,26 +351,11 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id)
     return image;
 }
 
-/* Build the stable display form used by notices and inventory controls.  The
-   generic unidentified names are allocated once, while this returned buffer
-   is shared by the quantity and plain-name forms. */
+/* The display form used by notices and inventory controls, with the stack
+   count when asked for. */
 std::string FormatItemDisplayName(const W8ItemInstance* item, bool include_quantity)
 {
-    std::string name;
-    unsigned int name_index;
-
-    if (item->identified) {
-        name = Data().items[item->iItemNo].display_name;
-    } else {
-        name_index = Data().items[item->iItemNo].unidentified_name_index;
-        if (g_generic_item_names[name_index].empty()) {
-            name = fmt::sprintf(Data().strings[0x1e7],
-                                Data().strings[g_generic_item_name_notice[name_index]]);
-            g_generic_item_names[name_index] = name;
-        }
-        name = g_generic_item_names[name_index];
-    }
-
+    const auto name = GetItemDisplayName(item);
     if (include_quantity && item->stack_count > 1) {
         return fmt::format("{} ({:d})", name, static_cast<unsigned int>(item->stack_count));
     } else {
@@ -777,26 +760,16 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id)
     }
 }
 
-/* What to call an item. An identified one is called by its own name, which
-   leads its record - so the record address is the name address. An
-   unidentified one is called by the generic name its index shares, built once
-   on first use and kept. */
+/* What to call an item: an identified one by its own name, an unidentified one
+   by the generic name of its unidentified-name index. */
 std::string GetItemDisplayName(const W8ItemInstance* item)
 {
-    unsigned int name_index;
-    std::string built;
-
+    const auto& record = Data().items[item->iItemNo];
     if (item->identified) {
-        return Data().items[item->iItemNo].display_name;
+        return record.display_name;
     }
-
-    name_index = Data().items[item->iItemNo].unidentified_name_index;
-    if (g_generic_item_names[name_index].empty()) {
-        built = fmt::sprintf(Data().strings[0x1e7],
-                             Data().strings[g_generic_item_name_notice[name_index]]);
-        g_generic_item_names[name_index] = built;
-    }
-    return g_generic_item_names[name_index];
+    return fmt::sprintf(Data().strings[0x1e7],
+                        Data().strings[g_generic_item_name_notice[record.unidentified_name_index]]);
 }
 
 /* How the interface presents the spell an item carries, drawn from a per
@@ -839,12 +812,6 @@ bool CanItemLeaveItsSlot(const W8ItemInstance* item)
         }
     }
     return false;
-}
-
-/* Throw away every lazily built generic item name. */
-void ReleaseGenericItemNames(void)
-{
-    for (auto& name : g_generic_item_names) name.clear();
 }
 
 /* How many of a character's twenty item slots hold something they could use

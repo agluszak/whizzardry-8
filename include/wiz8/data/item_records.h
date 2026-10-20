@@ -111,8 +111,4 @@ struct W8ItemDatabaseRecord : wiz8::retail::ItemProperties, wiz8::retail::ItemEf
     std::string sound_name;
 };
 
-/* GameplayDatabase.cpp owns the runtime Items.dbs and ItemTables.dbs roots.
-   Keeping their declarations beside the record layouts gives item consumers a
-   direct owner beside the file-format types they index. */
-
 #endif

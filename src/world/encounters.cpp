@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstring>
 #include <exception>
-#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -15,13 +14,12 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "asset_paths.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/encounter_tables.h"
 #include "layouts/levels.h"
 #include "local_code/Factions.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
@@ -35,7 +33,6 @@
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -75,54 +72,6 @@ MonGen* FindMonGenByName(const char* name)
 
 const float g_generator_jitter_fraction = 0.20000000298023224f;
 
-std::vector<W8EncounterTableRuntime> g_encounter_tables;
-std::vector<std::string> g_encounter_names;
-int g_encounter_tables_level = -1;
-
-unsigned int InitializeEncounterTables(void)
-try {
-    auto handle = wiz8::open_file(wiz8::asset_path("Data\\Databases\\EncounterTables.dbs"));
-    UnloadEncounterTables();
-    std::vector<std::string> names;
-    std::vector<W8EncounterTableRuntime> tables;
-    int name_count;
-    int table_count;
-    handle->read_exact(&name_count, sizeof(name_count));
-    if (name_count < 0) return 0;
-    for (int index = 0; index < name_count; ++index) {
-        char name[256];
-        handle->read_exact(name, sizeof(name));
-        names.emplace_back(name, std::find(std::begin(name), std::end(name), '\0'));
-    }
-    handle->read_exact(&table_count, sizeof(table_count));
-    if (table_count < 0) return 0;
-    for (int index = 0; index < table_count; ++index) {
-        W8EncounterTableDiskHeader header;
-        handle->read_exact(&header, sizeof(header));
-        auto& table = tables.emplace_back();
-        std::ranges::copy(header.name, table.name);
-        table.name[sizeof(table.name) - 1] = '\0';
-        table.category = header.unknown_101;
-        table.entries.resize(header.entry_count);
-        // The file stores columns; combine them into records at the boundary.
-        for (auto& entry : table.entries) handle->read_exact(&entry.species, sizeof(entry.species));
-        for (auto& entry : table.entries) handle->read_exact(&entry.rarity_class, 1);
-        for (auto& entry : table.entries) handle->read_exact(&entry.time_condition, 1);
-        for (auto& entry : table.entries) handle->read_exact(&entry.challenge_level, 1);
-        for (auto& entry : table.entries) {
-            handle->read_exact(&entry.script, sizeof(entry.script));
-            entry.script.value[sizeof(entry.script.value) - 1] = '\0';
-        }
-        if (header.version != 1) handle->read_exact(&table.version_two_flags, 1);
-    }
-    g_encounter_names = std::move(names);
-    g_encounter_tables = std::move(tables);
-    g_encounter_tables_level = GetLoadedLevelID();
-    return 1;
-} catch (const std::exception&) {
-    return 0;
-}
-
 /* Flag bits on a generator: bit 0 suppresses spawning, bit 2 is armed, bit 3
    selects the shared default chance and interval, and bit 5 adds the
    story/faction gate. */
@@ -143,7 +92,7 @@ enum { W8_ENCOUNTER_STALE_SECONDS = 36000 };
    scales rarity down as that mismatch grows; when that leaves no candidate,
    retail falls back to raw rarity plus the day/night condition. A random
    candidate is returned to GenerateEncounter. */
-const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableRuntime& table)
+const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTable& table)
 {
     int rarity_roll;
     int rarity_class;
@@ -208,9 +157,9 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTableR
    configured difficulty. Strong encounters are pushed toward the lower half on
    normal difficulty and weak tiny encounters toward the upper half; novice and
    expert take the corresponding fixed extremes in those branches. */
-int MonGen::RollEncounterGroupSize(W8MonsterRecord* record)
+int MonGen::RollEncounterGroupSize(const W8MonsterRecord* record)
 {
-    W8Dice* dice = &record->group_size_dice;
+    const W8Dice* dice = &record->group_size_dice;
     float relative_level = record->display_level / GetAveragePartyMemberLevel();
     int minimum = dice->Minimum();
     int maximum = dice->Maximum();
@@ -255,8 +204,8 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     W8EncounterCompanionRecord companion_records[2];
     bool companion_active[2] = {false, false};
     glm::vec3 spawn_position;
-    W8EncounterTableRuntime* table;
-    W8MonsterRecord* record;
+    const W8EncounterTable* table;
+    const W8MonsterRecord* record;
     W8MonsterGroup* group;
     unsigned int species;
     const char* script;
@@ -276,7 +225,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     species = selected->species;
-    script = selected->script.value;
+    script = selected->script.c_str();
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
     if (record == 0) {
@@ -331,7 +280,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
 
         unsigned int companion_species =
             static_cast<unsigned short>(companion_records[index].species);
-        W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
+        const W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
         if (companion_record == 0) {
             Fail("pMonsterDB",
                  fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
@@ -354,7 +303,7 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     if (g_dev_mode && CurrentScreenState().id != W8_SCREEN_PLEASE_WAIT) {
-        W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
+        const W8MonsterRecord* group_record = MonsterGroupGetRecord(group);
         std::string group_name =
             group->MemberCount() == 1 ? group_record->name0 : group_record->name1;
         const char* companion_word = companion_count == 1 ? "chum" : "chums";
@@ -544,13 +493,11 @@ void CullExpiredEncounters(void)
         if (auto* group = CurrentLevelPopulation().findGroup(id)) DespawnMonsterGroup(group);
 }
 
-/* One loaded encounter table by index. */
-W8EncounterTableRuntime* GetEncounterTable(int index)
+/* One encounter table by index, or null. */
+const W8EncounterTable* GetEncounterTable(int index)
 {
-    if (index >= 0 && index < static_cast<int>(g_encounter_tables.size())) {
-        return &g_encounter_tables[index];
-    }
-    return 0;
+    const auto& tables = Data().encounter_tables;
+    return index >= 0 && index < static_cast<int>(tables.size()) ? &tables[index] : nullptr;
 }
 
 /* Destroy every generator and empty the list. */
@@ -661,14 +608,6 @@ void SpendRandomEncounterBudget()
     if (!CurrentGame().combat.active()) return;
     --GetWorld()->encounters.random_budget;
     ClampEncounterBudget(*GetWorld());
-}
-
-/* Release all encounter tables and names, and mark no level loaded. */
-void UnloadEncounterTables(void)
-{
-    g_encounter_tables.clear();
-    g_encounter_names.clear();
-    g_encounter_tables_level = -1;
 }
 
 /* Writes the world's generators to a save. The record version goes out first,
@@ -847,7 +786,7 @@ void MonGen::SetEncounterTable(int index)
 {
     encounter_table_index = index;
     if (auto* table = GetEncounterTable(index);
-        table && SDL_strncasecmp(table->name, "HARASSMENT", 10) == 0) {
+        table && SDL_strncasecmp(table->name.c_str(), "HARASSMENT", 10) == 0) {
         flags |= W8_MONGEN_STORY_GATED;
     }
 }
@@ -856,9 +795,9 @@ void MonGen::SetEncounterTable(int index)
    ignoring case as the retail _strnicmp import does. */
 int FindEncounterTableByName(const char* name)
 {
-    for (int index = 0; index < static_cast<int>(g_encounter_tables.size()); ++index) {
-        W8EncounterTableRuntime* table = &g_encounter_tables[index];
-        if (SDL_strncasecmp(table->name, name, strlen(name)) == 0) {
+    const auto& tables = Data().encounter_tables;
+    for (int index = 0; index < static_cast<int>(tables.size()); ++index) {
+        if (SDL_strncasecmp(tables[index].name.c_str(), name, strlen(name)) == 0) {
             return index;
         }
     }

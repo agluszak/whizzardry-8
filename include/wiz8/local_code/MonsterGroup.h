@@ -150,7 +150,7 @@ void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode
 std::string GetMonsterGroupName(W8MonsterGroup* monster_group);
 void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 
-W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);
+const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);
 void RefreshMonsterGroup(W8MonsterGroup* monster_group);
 void DetachMonsterGroup(W8MonsterGroup* monster_group);
 

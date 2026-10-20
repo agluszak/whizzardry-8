@@ -27,6 +27,7 @@
 #endif
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -64,7 +65,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -455,6 +455,18 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     }
 }
 
+/* The species an NPC appears as in the world: the first NPC-linked monster record
+   whose kind matches the NPC's name style. */
+static std::optional<unsigned int> NpcMonsterSpecies(const W8NpcState& npc)
+{
+    const auto& monsters = Data().monsters;
+    const auto found = std::ranges::find_if(monsters, [&](const W8MonsterRecord& record) {
+        return (record.flags & W8_MONSTER_FLAG_NPC) != 0 && record.npc_kind == npc.name_style;
+    });
+    if (found == monsters.end()) return std::nullopt;
+    return static_cast<unsigned int>(found - monsters.begin());
+}
+
 int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool neutral)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
@@ -482,19 +494,11 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     row->npc_index = -1;
     auto& dismissed_character = npc->character.value();
     if (dismissed_character.highest_condition != W8_CONDITION_DEAD && !skip_spawn) {
-        std::unique_ptr<W8MonsterRecord[]> records;
-        if (!LoadMonsterDatabase(&records)) return false;
-        unsigned int species;
-        for (species = 0; species < MonsterDatabaseCount(); ++species) {
-            if ((records[species].flags & W8_MONSTER_FLAG_NPC) != 0 &&
-                records[species].npc_kind == npc->name_style) {
-                break;
-            }
-        }
-        if (species == MonsterDatabaseCount()) {
+        const auto species = NpcMonsterSpecies(*npc);
+        if (!species) {
             return 0;
         }
-        W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
+        W8MonsterGroup* group = CreateGroup(*species, 1, &position, true, false, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
             CopyCharacterConditionsToTarget(dismissed_character, &monster->location_id);
@@ -1300,7 +1304,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
 
     if (has_monster) {
         monster_info = FindMonster(location_id);
-        W8MonsterRecord* monster_record = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* monster_record = GetMonsterDataForInfo(monster_info);
         if (monster_record == 0 || (monster_record->flags & W8_MONSTER_FLAG_NPC) == 0) {
             monster_info->bound_npc_index = -1;
             return;
@@ -1567,7 +1571,7 @@ try {
    binding has been released. */
 W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8NpcState* npc;
 
     if (record == 0 || (record->flags & W8_MONSTER_FLAG_NPC) == 0 || record->npc_kind == 0xfa) {
@@ -1584,7 +1588,7 @@ W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info)
    available; `allow_unavailable` also hands back a released binding. */
 W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_unavailable)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8NpcState* npc;
 
     if (record == 0 || (record->flags & W8_MONSTER_FLAG_NPC) == 0 || record->npc_kind == 0xfa) {
@@ -1669,7 +1673,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
     }
     case 1: {
         W8MonsterInfo* monster_info;
-        W8MonsterRecord* monster_record;
+        const W8MonsterRecord* monster_record;
         unsigned int monster_level;
         unsigned int total_level = 0;
         unsigned int count = 0;
@@ -1764,7 +1768,7 @@ static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, 
     score = skill + (GetNpcDisposition(npc) - 0x32) / 4;
     score -= (Random(5) + 10) * static_cast<signed char>(npc->suspicion);
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     unsigned int penalty = character->skills[W8_SKILL_PICKPOCKET].level >> 2;
     score += (character->uiExpLevel - record->effective_level) * 5;
     if (item_id != -1) {
@@ -2203,35 +2207,23 @@ void ReleaseNpcMonsterByKind(int kind)
 }
 
 /* Place or move this NPC's monster at the named world entity. Without a live
-   monster it loads MONSTERS.DBS, finds the NPC-linked species whose name-style
-   byte matches, and asks CreateGroup to create it; with a live monster it
-   repositions the Navigator subobject. */
+   monster it asks CreateGroup to create the NPC's species; with a live monster
+   it repositions the Navigator subobject. */
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
 {
     glm::vec3 position;
     glm::vec3 copied;
 
     if (!npc->has_monster) {
-        std::unique_ptr<W8MonsterRecord[]> records;
-        unsigned int index = 0;
-
-        if (!LoadMonsterDatabase(&records)) return false;
-        if (MonsterDatabaseCount() != 0) {
-            for (; index < MonsterDatabaseCount(); ++index) {
-                if ((records[index].flags & W8_MONSTER_FLAG_NPC) != 0 &&
-                    records[index].npc_kind == npc->name_style) {
-                    break;
-                }
-            }
-        }
-        if (index == MonsterDatabaseCount()) {
+        const auto species = NpcMonsterSpecies(*npc);
+        if (!species) {
             return false;
         }
         if (!FindEntityByName(entity_name, &position, 0, 0)) {
             return false;
         }
         copied = position;
-        CreateGroup(index, 1, &copied, true, false, true);
+        CreateGroup(*species, 1, &copied, true, false, true);
         return true;
     }
     if (!npc->is_present) {

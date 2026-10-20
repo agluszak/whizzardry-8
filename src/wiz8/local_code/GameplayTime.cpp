@@ -33,7 +33,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -1116,7 +1115,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 {
     bool frost_condition = false;
 
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     AgeMonsterMovement(monster_info, minutes);
     {
         unsigned int amount = monster_info->modifiers.damage_per_minute;
@@ -1137,7 +1136,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         frost_condition = true;
     }
     {
-        W8MonsterRecord* data = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* data = GetMonsterDataForInfo(monster_info);
         int amount = (static_cast<int>(data->hp_regeneration) +
                       monster_info->modifiers.health_regen_adjustment) *
                      static_cast<int>(minutes);

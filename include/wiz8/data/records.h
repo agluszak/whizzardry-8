@@ -386,6 +386,9 @@ struct W8LevelDatabaseRecord {
     unsigned char unknown_058[0x80];
 };
 
+/* Monsters.DBS holds at most this many species; saves are bounded by it. */
+constexpr unsigned int kMaxMonsterSpecies = 1000;
+
 /* The one monster record whose alternate name is used in place of its own. */
 enum { W8_MONSTER_RECORD_ALTERNATE_NAME = 397 };
 

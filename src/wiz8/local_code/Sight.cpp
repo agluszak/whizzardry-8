@@ -120,7 +120,7 @@ void RefreshAllSight(void)
 /* Whether one monster can see another in combat once line of sight is clear. */
 bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8VisibilityRecord* record)
 {
-    W8MonsterRecord* target_record;
+    const W8MonsterRecord* target_record;
     Monster* source_monster;
     glm::vec3 observer_position;
     Monster* target_monster;
@@ -128,7 +128,7 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
     float observer_yaw;
     int penalty_modifier;
     float distance;
-    W8MonsterRecord* source_record;
+    const W8MonsterRecord* source_record;
     unsigned char ranged_bonus;
     float threshold;
 
@@ -367,7 +367,7 @@ const float g_sight_threat_scale = 0.6667f;
    the notice and fade state, and ends in the player-to-monster flag pass. */
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     Monster* monster;
     glm::vec3 own_position;
     float viewing_distance;

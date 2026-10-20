@@ -208,7 +208,7 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
    the offense count climbs. */
 void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
     if (CurrentGame().story.factions[faction].offense_count < 0xfa) {
         CurrentGame().story.factions[faction].offense_count++;

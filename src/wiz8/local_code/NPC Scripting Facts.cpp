@@ -31,7 +31,6 @@
 #include "wiz8/local_code/CombatHostility.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -835,7 +834,7 @@ void HandleFactChange(W8FactId fact_id, unsigned char value)
 void HandleScriptedNpcDeath(unsigned int monster_list_index)
 {
     W8MonsterInfo* monster_info = GetMonsterListEntry(monster_list_index);
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     if (record == 0) {
         return;
     }

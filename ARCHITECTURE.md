@@ -27,10 +27,12 @@ are enforced:
 
 - **`data`** (`include/wiz8/data/`, `src/data/`): content ids, database record types,
   the constant profession, race, skill and portrait tables, and `GameData`. `GameData` is
-  the string table and the item, item-table, spell, NPC, fact, level and missile
-  databases. `LoadGameData` reads all of it once at startup, and a malformed file throws.
-  Unlayered code reads the installed data through `Data()`; tests arrange it through
-  `MutableData()`.
+  the string table, the item, item-table, spell, NPC, fact, level, monster and missile
+  databases, the encounter tables and the dialogue keyword lists. `LoadGameData` reads
+  all of it once at startup, and a malformed database throws; missing or malformed
+  keyword lists leave keywords untranslated. Unlayered code reads the installed data
+  through `Data()`; a test installs a small `GameData` it builds for itself with
+  `ScopedGameData`.
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
   party storage (`W8Party`, formation), item rules, character derivation (modifier
   blocks, effective attributes and skills, statistics and the party's shared load) and

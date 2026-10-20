@@ -20,10 +20,14 @@ struct W8ItemTables {
 W8ItemTables ReadItemTables();
 std::vector<W8NpcDatabaseRecord> ReadNpcDatabase();
 std::vector<W8SpellRuntimeRecord> ReadSpellDatabase();
+std::vector<W8MonsterRecord> ReadMonsterDatabase();
+std::vector<W8EncounterTable> ReadEncounterTables();
+// Both keyword files, or no keywords when either is missing or malformed.
+W8DialogueKeywords ReadDialogueKeywords();
 
 /* The game data the program loaded. Transitional: code that does not receive the data
    yet reads it here; `rules` and `game` may not, and this goes with its last caller.
    Before anything is installed it is empty. */
 const GameData& Data();
-// Replace the loaded game data; empty data releases it.
-void InstallGameData(GameData data);
+// Replace the loaded game data and return the previous data; empty data releases it.
+GameData InstallGameData(GameData data);
