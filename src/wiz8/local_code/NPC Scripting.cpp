@@ -42,7 +42,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
@@ -61,6 +60,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -265,7 +265,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
     W8ItemInstance* slot_item;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (!context.party.rows[slot].fOccupied) {
+        if (!context.party.members[slot].has_value()) {
             continue;
         }
         for (index = 0; index < 8; ++index) {
@@ -464,12 +464,12 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
         OpenNpcDialog(entry, continuation_quote);
         break;
     case W8_NPC_ENTRY_GIVE_ITEM:
-        item = MakeItem(entry->operand0, true, true, false);
-        notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(&item));
+        item = MakeItem(Data(), context.game.rng, entry->operand0, true, true, false);
+        notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(Data(), &item));
         if (!context.activity.conversation) {
             context.party.held.item = item;
         } else {
-            AddItemToPartyOrDrop(context.game, &item, false);
+            AddItemToPartyOrDrop(context.game, OwnedItem(item), false);
             DisplayNpcQuote(notice_text, true);
         }
         ClearNpcItemId(session_.npc, entry->operand0);
@@ -597,7 +597,8 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                     return;
                 }
             } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {
-                context.party.rows[level_up->party_slot].portrait_advance = 1;
+                if (auto& member = context.party.members[level_up->party_slot])
+                    member->level_up_announced = true;
                 if (g_settings.skill_increase_messages == 0) {
                     wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
                     return;
@@ -674,7 +675,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             DismissNpcFromParty(dismiss.party_slot, 0, false, false);
             if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
                 for (int party_slot = 0; party_slot < 8; ++party_slot) {
-                    if (context.party.rows[party_slot].fOccupied) {
+                    if (context.party.members[party_slot].has_value()) {
                         DisableMainGamePortraitSlot(party_slot);
                     }
                 }

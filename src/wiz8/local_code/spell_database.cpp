@@ -20,6 +20,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/level_loader.h"
@@ -34,26 +35,6 @@ W8SpellTargetType GetSpellTargetType(int spell_id, bool normalize_single_target)
         target_type = W8_TARGET_TYPE_CASTER;
     }
     return target_type;
-}
-
-int MinimumCasterLevelForSpellLevel(int spell_level)
-{
-    switch (spell_level) {
-    case 2:
-        return 3;
-    case 3:
-        return 5;
-    case 4:
-        return 8;
-    case 5:
-        return 11;
-    case 6:
-        return 14;
-    case 7:
-        return 18;
-    default:
-        return 1;
-    }
 }
 
 int GetMinimumCasterLevelForSpell(int spell_id)

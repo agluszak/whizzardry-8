@@ -23,7 +23,7 @@ bool IsPartySlotEligible(int slot)
     if (slot >= 8) {
         return false;
     }
-    if (!CurrentGame().party.rows[slot].fOccupied) {
+    if (!CurrentGame().party.members[slot].has_value()) {
         return false;
     }
     character = &CurrentGame().party.characters[slot];

@@ -24,6 +24,27 @@ enum W8TextBoxMode : unsigned char {
     W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
 };
 
+/* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
+enum W8FontPaletteIndex {
+    W8_FONT_PALETTE_RED = 0,
+    W8_FONT_PALETTE_GREEN = 1,
+    W8_FONT_PALETTE_PURPLE = 2,
+    W8_FONT_PALETTE_BLUE = 3,
+    W8_FONT_PALETTE_ORANGE = 4,
+    W8_FONT_PALETTE_YELLOW = 5,
+    W8_FONT_PALETTE_PINK = 6,
+    W8_FONT_PALETTE_BROWN = 7,
+    W8_FONT_PALETTE_WHITE = 8,
+    W8_FONT_PALETTE_RUST = 9,
+    W8_FONT_PALETTE_BRONZE = 10,
+    W8_FONT_PALETTE_GRAY = 11,
+    W8_FONT_PALETTE_BEIGE = 12,
+    W8_FONT_PALETTE_OPTIONS_GREEN = 13,
+    W8_FONT_PALETTE_OPTIONS_WHITE = 14,
+    W8_FONT_PALETTE_TEXT_BOX = 15,
+    W8_FONT_PALETTE_COUNT = 16
+};
+
 // A line for the text box in a font palette, or a message dialog when forced.
 struct TextNotice {
     unsigned int palette = 0;
@@ -54,6 +75,13 @@ struct NoticeDialog {
 struct TextBoxModeChange {
     W8TextBoxMode mode = W8_TEXT_BOX_MODE_NOTICE;
     int value = -1;
+};
+
+/* A member says one of their lines (a character event type), as a voice and a portrait
+   quote. */
+struct CharacterSpeech {
+    unsigned int party_slot = 0;
+    int event_type = 0;
 };
 
 // A member's portrait, status or action display changed.
@@ -122,10 +150,10 @@ struct WorldItemRemoved {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, PartySlotChanged,
-                 PartyLoadChanged, CombatPanelChanged, CharacterActionChanged, EquipmentSettled,
-                 SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged, CombatantsMoved,
-                 CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
+                 PartySlotChanged, PartyLoadChanged, CombatPanelChanged, CharacterActionChanged,
+                 EquipmentSettled, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
+                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
                  CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
                  CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved>;
 

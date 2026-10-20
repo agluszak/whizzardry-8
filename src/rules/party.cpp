@@ -9,23 +9,6 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
 
-W8ItemLocation W8Party::locateItem(const W8ItemInstance* item) const
-{
-    if (!item) return {};
-    if (item == &held.item) return {W8ItemStorage::Hand};
-    for (unsigned int slot = 0; slot < 500; ++slot)
-        if (item == &item_pool[slot]) return {W8ItemStorage::Pool, 0, slot};
-    for (unsigned int character = 0; character < W8_PARTY_SLOT_COUNT; ++character) {
-        for (unsigned int slot = 0; slot < 12; ++slot)
-            if (item == &characters[character].EquippedItem[slot])
-                return {W8ItemStorage::Equipment, character, slot};
-        for (unsigned int slot = 0; slot < 8; ++slot)
-            if (item == &characters[character].backpack[slot])
-                return {W8ItemStorage::Backpack, character, slot};
-    }
-    return {};
-}
-
 const W8ItemInstance* W8Party::itemAt(W8ItemLocation location) const
 {
     switch (location.storage) {
@@ -59,12 +42,14 @@ std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const
     return {};
 }
 
-W8Character* W8Party::holderOf(W8ItemLocation location)
+int W8Party::npcIndex(unsigned int slot) const
 {
-    const bool carried =
-        location.storage == W8ItemStorage::Equipment || location.storage == W8ItemStorage::Backpack;
-    return carried && location.character < W8_PARTY_SLOT_COUNT ? &characters[location.character]
-                                                               : nullptr;
+    return members[slot] ? members[slot]->npc_index : -1;
+}
+
+int W8Party::orderIndexOf(unsigned int slot) const
+{
+    return members[slot] ? members[slot]->order_index : 0;
 }
 
 W8ItemInstance W8Party::take(W8ItemLocation location)

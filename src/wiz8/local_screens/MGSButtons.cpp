@@ -48,6 +48,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -782,7 +783,7 @@ void DrawSubMenuCharacterAction(void)
         return;
     }
     row = &CurrentGame().party.rows[slot];
-    g_smfnt_font.setPalette(g_font_state_palettes[row->party_order_index]);
+    g_smfnt_font.setPalette(g_font_state_palettes[CurrentGame().party.orderIndexOf(slot)]);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
     character = &CurrentGame().party.characters[slot];
     text = fmt::format("{} - {}", character->name,
@@ -949,7 +950,7 @@ void RedrawSubMenuButtons(void)
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 5, 0x124, 0x1c2);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
-    if (CurrentGame().party.rows[CurrentGame().status.selected_character].fOccupied) {
+    if (CurrentGame().party.members[CurrentGame().status.selected_character].has_value()) {
         DrawSubMenuCharacterAction();
     }
 
@@ -1221,7 +1222,7 @@ bool BuildSubMenuPanel(short notification)
                 const auto* item =
                     CurrentGame().party.itemAt(row.remembered.item_detail.item_use.item);
                 return fmt::format("{}: {}", Data().strings[0x5d],
-                                   FormatItemDisplayName(item, false));
+                                   FormatItemDisplayName(Data(), item, false));
             });
         }
         submenu->buttons.push_back(std::move(button));

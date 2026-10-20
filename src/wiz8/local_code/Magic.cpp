@@ -79,6 +79,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -143,7 +144,7 @@ bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item)
     if (!item->identified) {
         return false;
     }
-    return CanCharacterUseItem(caster, item->iItemNo);
+    return CanCharacterUseItem(Data(), caster, item->iItemNo);
 }
 
 /* The three monster kinds whose alchemy survives a spellcasting block. */
@@ -1056,8 +1057,9 @@ int g_learn_sound = kFirstRemappedEvent + 16;
    Learning practises three things at once: the learning skill at twice the
    spell's level, the spell's own realm skill at its level, and every spellbook
    skill the spell belongs to at the same. */
-void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
+void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
 {
+    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
     unsigned int spell_id;
     int usage_points;
     unsigned int skill_id;
@@ -1085,7 +1087,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemInstance* item)
                                    usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame(), CurrentGame().party.locateItem(item));
+    (void)TakeInventoryItem(CurrentGame(), location);
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -1204,12 +1206,12 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     int spell_id;
     bool normalize;
 
-    const auto location = row->remembered.item_detail.item_use.item;
-    if (location.storage == W8ItemStorage::None || location.storage == W8ItemStorage::Hand ||
-        (location.storage == W8ItemStorage::Pool && CurrentGame().combat.has_value()))
+    const auto& use = row->remembered.item_detail.item_use;
+    if (use.item.storage == W8ItemStorage::None || use.item.storage == W8ItemStorage::Hand ||
+        (use.item.storage == W8ItemStorage::Pool && CurrentGame().combat.has_value()))
         return false;
-    item = CurrentGame().party.itemAt(location);
-    if (item == 0 || item->iItemNo == -1 || item->iItemNo != row->remembered.item_id) {
+    item = ResolveItemUse(CurrentGame().party, use);
+    if (item == 0) {
         return false;
     }
     if (!CanUseItemForAction(party_slot, item)) {
@@ -1822,8 +1824,9 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         return Data().strings[W8_MESSAGE_TARGET_PLACE / 4];
 
     case 7:
-        return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_ITEM / 4],
-                            FormatItemDisplayName(CurrentGame().party.itemAt(target->item), false));
+        return fmt::sprintf(
+            Data().strings[W8_MESSAGE_TARGET_ITEM / 4],
+            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
 
     case W8_TARGET_KIND_EIGHT:
         return Data().strings[W8_MESSAGE_TARGET_DIRECTION / 4];
@@ -2153,7 +2156,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
             }
             affected = false;
             for (index = 0; index < 8; ++index) {
-                if (CurrentGame().party.rows[index].fOccupied &&
+                if (CurrentGame().party.members[index].has_value() &&
                     CurrentGame()
                                 .party.characters[index]
                                 .enchantments[W8_ENCHANTMENT_RAZOR_CLOAK]
@@ -2183,7 +2186,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_HEAL_ALL:
         for (index = 0; index < 8; ++index) {
             target = &CurrentGame().party.characters[index];
-            if (CurrentGame().party.rows[index].fOccupied &&
+            if (CurrentGame().party.members[index].has_value() &&
                 target->highest_condition <= W8_CONDITION_DEAD &&
                 target->hp_current < static_cast<unsigned int>(target->uiHPMax)) {
                 return true;
@@ -2206,7 +2209,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         if (CurrentGame().combat.has_value()) {
             for (index = 0; index < 8; ++index) {
                 target = &CurrentGame().party.characters[index];
-                if (CurrentGame().party.rows[index].fOccupied &&
+                if (CurrentGame().party.members[index].has_value() &&
                     target->highest_condition <= W8_CONDITION_DEAD &&
                     static_cast<unsigned int>(target->stamina) <
                         static_cast<unsigned int>(target->uiStaminaMax)) {
@@ -3302,7 +3305,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
 
     candidates = 0;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot)) {
             ++candidates;
         }
@@ -3322,7 +3325,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     }
     pick = CurrentGame().rng.below(candidates) + 1;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot) && (--pick == 0)) {
             if (GetSpellTargetType(spell_id, false) == 4) {
                 target->iType = W8_TARGET_KIND_PARTY;

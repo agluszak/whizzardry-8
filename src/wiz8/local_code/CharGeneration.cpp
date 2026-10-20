@@ -26,6 +26,7 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 
 /* Refund every spent skill point through the per-skill commit helper. */
 void RefundAllSkillPoints(W8Character* character, W8CharacterCreationState* creation_state)
@@ -136,7 +137,7 @@ void InitializeCharacterCreation(W8Character* character, W8CharacterCreationStat
     character->unknown_007d = -1;
     character->personality = -1;
     *creation_state = {};
-    EmptyAllCarriedItems(CurrentGame(), character);
+    EmptyAllCarriedItems(CurrentGame(), *character);
 
     InitializeCharacterPointPools(character, creation_state);
 }
@@ -160,7 +161,7 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
         PayDownAttributeDebt(character, creation_state);
     }
     CalcCharacterLevelBand(character);
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
     FinalizeSpellPointPool(character, creation_state);
 }
 
@@ -479,7 +480,7 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     }
     creation_state->attributes_complete = true;
 complete:
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
     if (character->uiExpLevel == 1) {
         RebuildSkillAllocations(character, creation_state);
     }
@@ -753,7 +754,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                     }
                 }
             }
-            RecalculateEditedCharacterStats(CurrentGame(), *character);
+            RecalculateEditedCharacterStats(*character);
             std::array<std::array<int, 2>, 6> pools;
             for (index = 0; index < 6; ++index) {
                 pools[index][0] = character->sp_max[index];
@@ -769,7 +770,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 for (index = 0; index < 0x72; ++index) {
                     character->spell_learned[index] = saved[index];
                 }
-                RecalculateEditedCharacterStats(CurrentGame(), *character);
+                RecalculateEditedCharacterStats(*character);
             }
         }
         return total;
@@ -801,7 +802,7 @@ void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creat
     }
     if (creation_state->spell_points_remaining == 0) {
     }
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
 }
 
 /* Return one creation spell pick: the spell goes to declined, an auto-added
@@ -822,7 +823,7 @@ void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* cre
             }
         }
         ++creation_state->spell_points_remaining;
-        RecalculateEditedCharacterStats(CurrentGame(), *character);
+        RecalculateEditedCharacterStats(*character);
     }
 }
 
@@ -858,7 +859,7 @@ int ComputeStartingEquipmentCost(W8Character* character)
             total += GetItemStackValue(&character->backpack[count]);
         }
     }
-    EmptyAllCarriedItems(CurrentGame(), character);
+    EmptyAllCarriedItems(CurrentGame(), *character);
     return total;
 }
 
@@ -1001,7 +1002,7 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
             }
         }
     }
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
     if (character->uiExpLevel == 1) {
         if (character->gender != W8_GENDER_UNSET && character->iProfession != W8_PROFESSION_NONE &&
             character->iRace != W8_RACE_NONE) {
@@ -1051,7 +1052,7 @@ complete:
     CountRemainingSpellPoints(character, creation_state);
     RefreshCharacterSkillAvailability(CurrentGame().events, character);
     RecomputeSkillLimits(character, creation_state);
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
 }
 
 /* Finalize a created character: recompute the derived stats, hand out the
@@ -1158,43 +1159,45 @@ void AddCharacterStartingEquipment(W8Character* character)
     unsigned int slot;
     unsigned int set;
 
-    EmptyAllCarriedItems(CurrentGame(), character);
+    EmptyAllCarriedItems(CurrentGame(), *character);
 
     set = character->iRace == W8_RACE_FAERIE ? 15 : character->iProfession;
     for (slot = 0; slot < 6; ++slot) {
         if (g_starting_equipment[set][slot] == -1) {
             continue;
         }
-        item = MakeItem(g_starting_equipment[set][slot], true, true, true);
-        AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
+        item =
+            MakeItem(Data(), CurrentGame().rng, g_starting_equipment[set][slot], true, true, true);
+        AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true, false,
+                           false);
     }
 
     switch (character->iProfession) {
     case W8_PROFESSION_PRIEST:
         if (character->skills[W8_SKILL_MACE_FLAIL].level >
             character->skills[W8_SKILL_STAFF_WAND].level) {
-            item = MakeItem(0x16, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 0x16, true, true, true);
         } else {
-            item = MakeItem(0x52, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 0x52, true, true, true);
         }
         break;
     case W8_PROFESSION_FIGHTER:
         if (character->skills[W8_SKILL_AXE].level > character->skills[W8_SKILL_SWORD].level) {
-            item = MakeItem(0x12, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 0x12, true, true, true);
         } else {
-            item = MakeItem(7, true, true, true);
+            item = MakeItem(Data(), CurrentGame().rng, 7, true, true, true);
         }
         break;
     case W8_PROFESSION_GADGETEER:
-        item = MakeItem(599, true, true, true);
+        item = MakeItem(Data(), CurrentGame().rng, 599, true, true, true);
         break;
     case W8_PROFESSION_BARD:
-        item = MakeItem(0x144, true, true, true);
+        item = MakeItem(Data(), CurrentGame().rng, 0x144, true, true, true);
         break;
     default:
         RecalculateCharacterDerivedStats(CurrentGame(), *(character));
         return;
     }
-    AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
+    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true, false, false);
     RecalculateCharacterDerivedStats(CurrentGame(), *(character));
 }

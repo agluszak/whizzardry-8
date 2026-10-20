@@ -399,9 +399,9 @@ template<> struct Record<save::GameState> {
         // Retail stores three counters; runtime membership has one source of truth.
         if constexpr (std::is_const_v<R>) {
             int regular = 0, auxiliary = 0;
-            for (const auto& row : runtime.party.rows) {
-                if (!row.fOccupied) continue;
-                if (row.npc_index == -1)
+            for (const auto& member : runtime.party.members) {
+                if (!member) continue;
+                if (member->npc_index == -1)
                     ++regular;
                 else
                     ++auxiliary;
@@ -750,7 +750,9 @@ std::vector<std::byte> encode(const GameState& state)
     Writer out;
     out.sized(retail::encode(state));
     for (const auto& character : state.party.characters) out.sized(retail::encode(character));
-    for (const auto& row : state.party.rows) out.sized(retail::encode(row));
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        out.sized(retail::encode(
+            retail::SavedPartySlot{state.party.rows[slot], state.party.members[slot]}));
     return out.take();
 }
 
@@ -784,15 +786,20 @@ GameState decode_game_state(std::span<const std::byte> payload)
             character.original_profession = character.iProfession;
     }
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        auto& row = party.rows[slot];
-        retail::decode(records.sized(), row);
+        retail::SavedPartySlot saved{};
+        retail::decode(records.sized(), saved);
+        auto& row = party.rows[slot] = saved.row;
+        party.members[slot] = saved.member;
         auto& item = row.remembered.item_detail.item_use.item;
         item.character = slot;
-        if (!row.fOccupied || !party.itemAt(item)) item = {};
-        if (row.executing.kind == W8_ACTION_USE_ITEM)
+        if (!party.members[slot] || !party.itemAt(item)) item = {};
+        if (row.executing.kind == W8_ACTION_USE_ITEM) {
             row.executing.detail_block.item_use.item = item;
+            row.executing.detail_block.item_use.item_id =
+                row.remembered.item_detail.item_use.item_id;
+        }
     }
-    party.formation.reconcile(party.rows);
+    party.formation.reconcile(party.members);
     return state;
 }
 

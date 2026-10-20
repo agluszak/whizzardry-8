@@ -13,7 +13,6 @@ struct World;
 
 W8SpellTargetType GetSpellTargetType(int spell_id, bool normalize_single_target);
 bool IsCombatEffectSlotSpell(int spell_id);
-int MinimumCasterLevelForSpellLevel(int spell_level);
 int GetMinimumCasterLevelForSpell(int spell_id);
 bool CanSpellBackfire(int spell_id);
 void ClearMonsterSpellIcons(Monster* monster); /* 0x004ACF90 */

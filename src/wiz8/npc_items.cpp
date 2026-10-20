@@ -35,13 +35,15 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 static W8NpcItemEntry MakeNpcItemEntry(int item_id)
 {
     W8NpcItemEntry entry{};
-    entry.item = MakeItem(item_id, true, true, false);
+    entry.item = MakeItem(Data(), CurrentGame().rng, item_id, true, true, false);
     entry.item.stack_count = 0;
     return entry;
 }
@@ -270,7 +272,7 @@ void SortNpcItems(W8NpcState* npc)
 {
     std::ranges::stable_sort(npc->items,
                              [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-                                 return ItemPrecedesInPool(first.item, second.item);
+                                 return ItemPrecedesInPool(Data(), first.item, second.item);
                              });
 }
 
@@ -473,7 +475,7 @@ W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& s
     switch (selection.source) {
     case W8TradeSource::Backpack:
         if (selection.character < 0 || selection.character >= 8 ||
-            !CurrentGame().party.rows[selection.character].fOccupied || selection.slot < 0 ||
+            !CurrentGame().party.members[selection.character].has_value() || selection.slot < 0 ||
             selection.slot >= 8)
             return nullptr;
         item = &CurrentGame().party.characters[selection.character].backpack[selection.slot];
@@ -508,14 +510,19 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
     const auto available = item->stack_count ? item->stack_count : 1;
     if (quantity > available) return {W8TradeOutcome::InvalidSelection};
     if (selection.source == W8TradeSource::Backpack) {
-        const int owner = CurrentGame().party.rows[selection.character].npc_index;
+        const int owner = CurrentGame().party.npcIndex(selection.character);
         auto* owner_npc = owner == -1 ? nullptr : GetNpcState(owner);
         if (owner_npc && NpcWantsItem(owner_npc, item)) return {W8TradeOutcome::WantedByOwner};
     }
     if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
     const bool wanted = NpcHasTopic(npc, item->iItemNo);
     if (!SellItemToNpc(npc, item, quantity, wanted)) return {W8TradeOutcome::Refused};
-    RemoveInventoryQuantity(CurrentGame(), CurrentGame().party.locateItem(item), quantity);
+    const W8ItemLocation sold =
+        selection.source == W8TradeSource::Backpack
+            ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),
+                             static_cast<unsigned>(selection.slot)}
+            : W8ItemLocation{W8ItemStorage::Pool, 0, static_cast<unsigned>(selection.slot)};
+    RemoveInventoryQuantity(CurrentGame(), sold, quantity);
     wiz8::sound::play(g_sound_cash_transaction);
     return {W8TradeOutcome::Complete, wanted};
 }
@@ -617,7 +624,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     unsigned int moved = 0;
     while (moved < quantity) {
         W8ItemInstance hand;
-        hand = MakeItem(stock.iItemNo, true, true, false);
+        hand = MakeItem(Data(), CurrentGame().rng, stock.iItemNo, true, true, false);
         unsigned int unit = 1;
         if (record.quantity_kind == W8_ITEM_QUANTITY_STACK) {
             if (record.maximum_quantity == 0) return {W8TradeOutcome::Refused};

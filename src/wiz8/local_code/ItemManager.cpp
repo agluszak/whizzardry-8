@@ -42,7 +42,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
@@ -51,6 +50,8 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
@@ -913,7 +914,7 @@ void RebuildAllWorldItemInstances(void)
 
     for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
         item = ItemInfo(index);
-        item->item = MakeItem(item->item.iItemNo, false, false, false);
+        item->item = MakeItem(Data(), CurrentGame().rng, item->item.iItemNo, false, false, false);
     }
 }
 
@@ -947,7 +948,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
     if (item_id == -1) {
         item = 0;
     } else {
-        local_item = MakeItem(item_id, false, false, false);
+        local_item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
         item = &local_item;
     }
 

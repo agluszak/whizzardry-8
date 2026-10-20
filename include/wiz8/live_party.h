@@ -15,9 +15,9 @@ struct W8Character;
    unusable equipment comes off, pools follow changed ceilings, a member whose hit points
    run out dies, and combat choices follow changed weapon hands. */
 void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hands = {});
-// An occupied member settles the party; any other character, such as a draft in
-// character creation, is calculated on its own.
+/* A member of the party (its own `fInParty`) settles the party; any other character, such as
+   a draft in character creation, is calculated on its own. */
 void RecalculateCharacterDerivedStats(Game& game, W8Character& character);
-/* The same calculation from the effective attributes and skill levels the character holds,
-   which the creation editor edits directly. */
-void RecalculateEditedCharacterStats(Game& game, W8Character& character);
+/* The calculation for a draft outside the party from the effective attributes and skill
+   levels it holds, which the creation editor edits directly. */
+void RecalculateEditedCharacterStats(W8Character& draft);

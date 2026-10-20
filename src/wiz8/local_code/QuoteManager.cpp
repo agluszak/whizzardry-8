@@ -44,7 +44,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
@@ -65,6 +64,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -90,7 +90,7 @@ void RedrawPortraitQuoteBubbles(void)
     IsModalOpen();
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         slot = &CurrentGame().monster_manager_entries[party_slot];
-        if (!CurrentGame().party.rows[party_slot].fOccupied ||
+        if (!CurrentGame().party.members[party_slot].has_value() ||
             CurrentGame().party.characters[party_slot].hp_current <= 0 ||
             CurrentGame().party.characters[party_slot].highest_condition >= W8_CONDITION_ASLEEP ||
             !slot->portrait_event_active) {
@@ -118,7 +118,7 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
 
     for (int slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.rows[slot].fOccupied && slot != excluded_slot &&
+        if (CurrentGame().party.members[slot].has_value() && slot != excluded_slot &&
             character->hp_current != 0 && character->highest_condition < W8_CONDITION_ASLEEP &&
             !GetPartyQuoteText(*character, event_type).empty()) {
             eligible[count++] = slot;
@@ -390,7 +390,7 @@ std::string GetPartyQuoteText(const W8Character& character, unsigned int event_t
     if (event_type >= 0x92) return {};
     if (character.fInParty && CurrentScreenState().id != W8_SCREEN_CHARACTER) {
         const int slot = CharacterPointerToPartySlot(&character);
-        const int npc_index = CurrentGame().party.rows[slot].npc_index;
+        const int npc_index = CurrentGame().party.npcIndex(slot);
         if (npc_index != -1) {
             const auto text = GetNpcQuoteText(GetNpcState(npc_index), event_type);
             return text.empty() ? std::string{} : fmt::format("\"{}\"", text);
@@ -492,8 +492,8 @@ void W8CharacterEvent::Complete()
             if (item.iItemNo == -1) {
                 PostCharacterNotice(party_slot, Data().strings[0x771]);
             } else {
-                PostCharacterNotice(party_slot,
-                                    fmt::sprintf(Data().strings[0x772], GetItemDisplayName(&item)));
+                PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x772],
+                                                             GetItemDisplayName(Data(), &item)));
             }
         }
     } else if (event_type == 51) {
@@ -557,7 +557,7 @@ static bool CanDispatchCharacterEvent(unsigned int party_slot, unsigned int even
             return false;
         }
     }
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         return false;
     }
     character = &CurrentGame().party.characters[party_slot];
@@ -607,7 +607,7 @@ bool W8CharacterEvent::PlayEventSound(std::string_view quote)
 {
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int sound_event = event_type;
-    int npc_index = CurrentGame().party.rows[party_slot].npc_index;
+    int npc_index = CurrentGame().party.npcIndex(party_slot);
     std::string sound_path;
     std::string npc_sound_name;
     W8NpcState* npc;
@@ -686,7 +686,7 @@ bool W8CharacterEvent::Dispatch()
             SetNpcDialoguePanelVisible(0);
         }
         row = &CurrentGame().party.rows[party_slot];
-        npc_index = row->npc_index;
+        npc_index = CurrentGame().party.npcIndex(party_slot);
         if (npc_index != -1 && event_type < 0x93) {
             npc = GetNpcState(npc_index);
             row->pending_event_type = event_type;
@@ -1401,7 +1401,7 @@ void QueueLastSurvivorEvent(void)
     int last_alive = 0;
 
     for (int slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_DEAD] == 0) {
             ++alive_count;
             last_alive = slot;
@@ -1568,12 +1568,9 @@ void RequeueSelectedPortraitEvent(void)
    flight; trap-trigger follow-up waits until none of those are active. */
 bool PartyPortraitEventsIdle(void)
 {
-    W8PartySlotRow* row = CurrentGame().party.rows;
-    const W8MonsterManagerEntry* current;
-
-    for (current = CurrentGame().monster_manager_entries;
-         current < &CurrentGame().monster_manager_entries[8]; ++current, ++row) {
-        if (row->fOccupied && current->portrait_event_active) {
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (CurrentGame().party.members[slot] &&
+            CurrentGame().monster_manager_entries[slot].portrait_event_active) {
             return false;
         }
     }
@@ -1650,7 +1647,7 @@ void AdvancePartyVoices(void)
         W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[party_slot];
         bool sound_active = false;
 
-        if (!CurrentGame().party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             continue;
         }
         if (record->portrait_event_active) {
@@ -1692,7 +1689,7 @@ void AnimatePartyPortraits(void)
 {
     for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
         W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[party_slot];
-        if (!CurrentGame().party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             continue;
         }
         if (CurrentGame().activity.conversation && (party_slot & 1) != 0 &&

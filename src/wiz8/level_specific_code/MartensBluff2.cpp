@@ -38,7 +38,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -46,6 +45,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -602,7 +602,7 @@ bool MartensBluff2Script::stoneIdol(Trigger* pTrigger)
     if ((ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
-    ReplaceHeldItem(ctx.game, MakeItem(0x291, false, false, false));
+    ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x291, false, false, false));
     ShowString(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
@@ -625,7 +625,7 @@ bool MartensBluff2Script::blueFlowers(Trigger* pTrigger)
         if ((ctx.party.held.item.iItemNo != -1)) {
             return false;
         }
-        ReplaceHeldItem(ctx.game, MakeItem(0x2eb, false, false, false));
+        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x2eb, false, false, false));
     }
     running_trigger_from_script_ = false;
     return true;
@@ -691,7 +691,7 @@ void MartensBluff2Script::idolGasVictim()
 
     lowest = 10;
     for (slot = 0; slot < 8; slot++) {
-        if (!ctx.party.rows[slot].fOccupied || slot < 2) {
+        if (!ctx.party.members[slot].has_value() || slot < 2) {
             severities[slot] = 10;
         } else {
             switch (ctx.party.characters[slot].iProfession) {
@@ -725,7 +725,7 @@ void MartensBluff2Script::idolGasVictim()
         }
         if (count == 0) {
             slot = 0;
-            while (!ctx.party.rows[slot].fOccupied ||
+            while (!ctx.party.members[slot].has_value() ||
                    ctx.party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
                 slot++;
                 if (slot > 7) {

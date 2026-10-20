@@ -17,10 +17,12 @@ struct ActionChoices {
     // The item-use two-word detail block: the use kind plus the item.
     W8ActionDetailBlock item_detail{.item_use = {-1, {}}};
     W8CombatSlot item_target;
-    int item_id;
     // The last committed action other than a basic action or a move, which the repeat key repeats.
     W8ActionKind repeat_action = W8_ACTION_NONE;
     W8CombatSlot breath_target;
+    /* The player locked the member's weapon sets on the camp's items page: neither the swap
+       button nor automatic weapon swapping changes them. */
+    bool weapon_sets_locked = false;
 
     W8Action basic() const { return {basic_kind, basic_detail}; }
     void chooseBasic(W8ActionKind kind, int detail)

@@ -66,6 +66,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -516,7 +517,7 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SELECT_PC_5:
     case W8_MGS_COMMAND_SELECT_PC_6: {
         int slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             break;
         }
         if (CurrentGame().status.selected_character != slot) {
@@ -736,7 +737,8 @@ static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
         if (!row.enabled) return Data().strings[0x5d];
         const auto& party = CurrentGame().party.rows[g_selected_party_slot];
         auto* item = CurrentGame().party.itemAt(party.remembered.item_detail.item_use.item);
-        return fmt::format("{}: {}", Data().strings[0x5d], FormatItemDisplayName(item, false));
+        return fmt::format("{}: {}", Data().strings[0x5d],
+                           FormatItemDisplayName(Data(), item, false));
     }
     return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }

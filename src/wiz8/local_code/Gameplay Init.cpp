@@ -12,13 +12,13 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -27,6 +27,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -45,9 +46,9 @@ Game& BeginNewGame(GameSession& games)
     game.party.held.item = W8ItemInstance{.iItemNo = -1};
     std::ranges::fill(game.party.item_pool, W8ItemInstance{.iItemNo = -1});
     for (const auto id : starting_items) {
-        auto item = MakeItem(id, true, true, true);
+        auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        AddItemToParty(game, &item, false, false);
+        AddItemToParty(game, OwnedItem(item), false, false);
     }
     game.party.gold = 500;
     game.status.selected_character = GetNextCharacter(1, 1, -1);
@@ -155,7 +156,7 @@ void ResetPartySlotRow(int slot)
     W8PartySlotRow* row = &CurrentGame().party.rows[slot];
 
     *row = {};
-    row->fOccupied = true;
+    CurrentGame().party.members[slot].emplace();
     row->remembered.spell = {W8_ACTION_CAST_SPELL, W8_SPELL_NONE};
     row->remembered.chooseBasic(W8_ACTION_ATTACK, -1);
     /* Retail cleared the row to zeros, which leaves a new member's committed

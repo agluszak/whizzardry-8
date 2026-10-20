@@ -80,6 +80,7 @@
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -247,7 +248,7 @@ bool Game::beginCombat(int surprise)
 void ResetPartyCombatRows(void)
 {
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
         auto& row = CurrentGame().party.rows[slot];
@@ -288,9 +289,8 @@ bool CombatMayAdvanceContinuously(void)
 {
     if (CurrentGame().combat.has_value()) {
         for (int slot = 0; slot < 2; ++slot) {
-            W8PartySlotRow* row = &CurrentGame().party.rows[slot];
             W8Character* character = &CurrentGame().party.characters[slot];
-            if (row->fOccupied && character->hp_current != 0 &&
+            if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
                 character->highest_condition < W8_CONDITION_ASLEEP &&
                 CurrentGame().combat->npc_combat_script_pending[slot]) {
                 return false;
@@ -303,7 +303,7 @@ bool CombatMayAdvanceContinuously(void)
     for (int slot = 0; slot < 8; ++slot) {
         W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (row->fOccupied && character->hp_current != 0 &&
+        if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
             CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
             CharacterActionTargetsEnemies(CurrentGame().party, character, row->committed.kind,
                                           row->committed.detail, &row->committed.detail_block)) {
@@ -333,14 +333,13 @@ bool QueueNpcCombatScript(void)
         return false;
     }
     for (int slot = 0; slot < 2; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (!row->fOccupied || character->hp_current == 0 ||
+        if (!CurrentGame().party.members[slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_INSANE ||
             CurrentGame().combat->npc_combat_script_pending[slot]) {
             continue;
         }
-        W8NpcState* npc = GetNpcState(row->npc_index);
+        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
         if (npc == 0) {
             continue;
         }
@@ -390,7 +389,7 @@ bool CombatHasContinuingEffects(void)
 
     for (enchantment = 0; enchantment < 8; ++enchantment) {
         for (slot = 0; slot < 8; ++slot) {
-            if (CurrentGame().party.rows[slot].fOccupied &&
+            if (CurrentGame().party.members[slot].has_value() &&
                 CurrentGame().party.characters[slot].enchantments[enchantment].turns > 0) {
                 return true;
             }
@@ -437,9 +436,8 @@ void ApplyCombatEndEffects(void)
 {
     int slot;
     for (slot = 0; slot < 2; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
-        if (row->fOccupied) {
-            W8NpcState* npc = GetNpcState(row->npc_index);
+        if (CurrentGame().party.members[slot].has_value()) {
+            W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
             if (npc != 0) {
                 W8Character* character = &CurrentGame().party.characters[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
@@ -453,9 +451,9 @@ void ApplyCombatEndEffects(void)
         }
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (row->fOccupied && character->uiCondition[W8_CONDITION_DEAD] == 0 &&
+        if (CurrentGame().party.members[slot].has_value() &&
+            character->uiCondition[W8_CONDITION_DEAD] == 0 &&
             character->uiCondition[W8_CONDITION_MISSING] != 0 &&
             !CurrentGame().monster_manager_entries[slot].condition_19_latch &&
             (!CurrentGame().status.condition13_clock ||
@@ -499,10 +497,9 @@ void BeginCombatExecution(void)
     }
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* party = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
         W8CombatCharacterRow* row = &CurrentGame().combat->characters[slot];
-        if (party->fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             row->alternate_hand = false;
             row->berserk = false;
             row->spot_attempts = 0;
@@ -519,7 +516,7 @@ void BeginCombatExecution(void)
     for (slot = 0; slot < 8; ++slot) {
         W8PartySlotRow* party = &CurrentGame().party.rows[slot];
         W8CombatCharacterRow* row = &CurrentGame().combat->characters[slot];
-        if (party->fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             row->extra_swings[0] = 0;
             if (party->executing.kind == W8_ACTION_ATTACK) {
                 W8Character* character = &CurrentGame().party.characters[slot];
@@ -633,7 +630,7 @@ bool IsPartyEngaged(void)
     }
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE) {
         for (party_slot = 0; party_slot < 8; ++party_slot) {
-            if (CurrentGame().party.rows[party_slot].fOccupied &&
+            if (CurrentGame().party.members[party_slot].has_value() &&
                 CurrentGame().party.characters[party_slot].hp_current != 0 &&
                 CurrentGame().party.characters[party_slot].highest_condition <
                     W8_CONDITION_ASLEEP &&
@@ -751,7 +748,7 @@ int PartyAvoidsSurprise(void)
     if (!CurrentGame().surprise_possible) {
         return 0;
     }
-    while (!CurrentGame().party.rows[party_slot].fOccupied ||
+    while (!CurrentGame().party.members[party_slot].has_value() ||
            CurrentGame().party.characters[party_slot].hp_current == 0 ||
            CurrentGame().party.characters[party_slot].highest_condition > W8_CONDITION_INFATUATED) {
         ++party_slot;
@@ -1115,7 +1112,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
             for (party_slot_index = 0; party_slot_index < 8; ++party_slot_index) {
                 character = &CurrentGame().party.characters[party_slot_index];
                 row = &CurrentGame().combat->characters[party_slot_index];
-                if (CurrentGame().party.rows[party_slot_index].fOccupied &&
+                if (CurrentGame().party.members[party_slot_index].has_value() &&
                     character->hp_current != 0 &&
                     character->highest_condition < W8_CONDITION_ASLEEP && row->dead) {
                     deferred = true;
@@ -1419,7 +1416,7 @@ void AssignCombatPhases(void)
         W8PartySlotRow* party_row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
         W8CombatCharacterRow* row = &CurrentGame().combat->characters[party_slot];
-        if (!party_row->fOccupied || character->hp_current == 0 ||
+        if (!CurrentGame().party.members[party_slot].has_value() || character->hp_current == 0 ||
             character->highest_condition > W8_CONDITION_WEBBED ||
             CurrentGame().combat->party_surprised) {
             party_row->executing.kind = W8_ACTION_NONE;
@@ -1580,7 +1577,7 @@ void AdvanceCombatRound(void)
         }
     }
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied) {
+        if (CurrentGame().party.members[party_slot].has_value()) {
             W8Character* character = &CurrentGame().party.characters[party_slot];
             if (CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_DEFEND ||
                 character->highest_condition == W8_CONDITION_ASLEEP ||
@@ -1666,7 +1663,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x230], 0});
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
             W8Character* character = &CurrentGame().party.characters[party_slot];
-            if (CurrentGame().party.rows[party_slot].fOccupied &&
+            if (CurrentGame().party.members[party_slot].has_value() &&
                 (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
                 SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
                                       1);
@@ -1898,8 +1895,8 @@ int GetConditionInterrupt(W8TargetSource* source)
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (!can_attack) {
             if (!AreAllHandSlotsEmpty(&CurrentGame().party.characters[party_slot]) &&
-                CanUnequipSlotItem(character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
-                CanUnequipSlotItem(character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
+                CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
+                CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
                 SwapWeaponSetSlots(CurrentGame(), party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
@@ -1980,7 +1977,7 @@ short GetCombatActionProgress(int* out_total)
         CurrentGame().combat->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) {
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
             W8Character* character = &CurrentGame().party.characters[party_slot];
-            if (CurrentGame().party.rows[party_slot].fOccupied && character->hp_current != 0 &&
+            if (CurrentGame().party.members[party_slot].has_value() && character->hp_current != 0 &&
                 character->highest_condition < W8_CONDITION_ASLEEP &&
                 !TryCharacterAction(party_slot, W8_ACTION_DEFEND, false) &&
                 !TryCharacterAction(party_slot, W8_ACTION_PROTECT, false) &&
