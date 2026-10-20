@@ -1056,14 +1056,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
         }
         state_->experience_pool /= active;
         AwardPartyExperience(state_->experience_bonus + state_->experience_pool, true);
-        int* entry = CurrentGame().status.status_ints;
-        int* end = entry + 1000;
-        while (entry < end) {
-            if (*entry == 1) {
-                *entry = 2;
-            }
-            ++entry;
-        }
+        std::ranges::replace(CurrentGame().status.status_ints, 1, 2);
     }
     RecordCombatStart();
     if (state_->uiNextPartyAction != W8_PARTY_ACTION_NONE) {

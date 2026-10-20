@@ -43,6 +43,7 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/save_codec.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
 /* Exercise recovered NPCT loading with retail addresses and native handles as
@@ -360,7 +361,6 @@ static void unicode_file_contracts()
     file->close();
     // A save loads into a new game.
     BeginGame();
-    CurrentGame().status.save_version = 9.0f;
     file = wiz8::open_file(wiz8::user_path("saves/text.bin"));
     // The fixed record starts after format and region count; its obsolete
     // pointer word must never contain a live allocation address.
@@ -368,7 +368,7 @@ static void unicode_file_contracts()
     file->read_exact(header.data(), header.size());
     for (std::size_t i = 8 + 0x18; i < 8 + 0x1c; ++i) REQUIRE(header[i] == std::byte{});
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk); }));
+    REQUIRE(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadMessageStorage(chunk, 9.0f); }));
     REQUIRE(std::string(CurrentGame().message_log[0][0].text) == message);
     REQUIRE(CurrentGame().message_log[0][0].saved_remaining_ms > 87);
     CurrentGame().status.text_box_lines_shown[0] = 0;
@@ -813,7 +813,8 @@ static void current_game_character_contracts()
     int visited = 0;
     chunks.ForEachChunk([&](unsigned id) {
         REQUIRE(id == 0x52414843);
-        REQUIRE(chunks.CurrentChunkExtent() == 64 + 4 + W8_CHARACTER_SERIALIZED_SIZE);
+        REQUIRE(chunks.CurrentChunkExtent() ==
+                static_cast<int>(64 + 4 + wiz8::retail::kCharacterBytes));
         ++visited;
     });
     REQUIRE(visited == 2);
@@ -880,7 +881,7 @@ static void current_game_character_contracts()
     // A payload that reaches into the next chunk must leave the destination intact.
     REQUIRE(chunks.OpenWrite(wiz8::user_path("saves\\CurrentGame.SAV")));
     char name[64] = "vi.CHR";
-    const unsigned size = W8_CHARACTER_SERIALIZED_SIZE;
+    const auto size = static_cast<unsigned>(wiz8::retail::kCharacterBytes);
     // Only the first byte of the declared payload is present.
     chunks.WriteChunk(0x52414843, [&] {
         chunks.WriteValue(name);
@@ -937,7 +938,7 @@ static void save_file_contracts(const std::filesystem::path& user)
 
     // SaveGame's unchanged masks apply independently to the packed dwords.
     constexpr unsigned masks[] = {0x6b24e9f0u, 0xe77c28c1u};
-    static_assert(sizeof(CurrentGame().status.save_filetime_xor) == 8);
+    static_assert(sizeof(CurrentGame().status.retail.save_filetime_xor) == 8);
     unsigned words[] = {created.low ^ masks[0], created.high ^ masks[1]};
     file->write(words, sizeof(words));
     REQUIRE(file->tell() == 8);
@@ -968,14 +969,15 @@ static void save_file_contracts(const std::filesystem::path& user)
     const unsigned epoch_masked[] = {epoch.low ^ masks[0], epoch.high ^ masks[1]};
     REQUIRE((epoch_masked[0] == 0xbe1a69f0u && epoch_masked[1] == 0xe6e1991fu));
 
-    const W8SavedGameStatus saved{};
+    const auto status_payload = wiz8::save::encode(wiz8::save::GameState{});
     const auto now = std::filesystem::file_time_type::clock::from_sys(
         sys_days{year{2024} / January / 15} + hours{12});
     for (int slot = 1; slot <= 3; ++slot) {
         const auto name = "Quick " + std::to_string(slot) + ".SAV";
         W8Chunk save;
         REQUIRE(save.OpenWrite(user / "saves" / name));
-        SaveGlobalStatus(save, saved);
+        save.WriteChunk(W8ChunkId("GSTA"),
+                        [&] { save.WriteBytes(status_payload.data(), status_payload.size()); });
         save.Close();
         std::filesystem::last_write_time(user / "saves" / name, now - hours(slot == 1   ? 0
                                                                             : slot == 2 ? 4
@@ -1028,9 +1030,23 @@ static void save_file_contracts(const std::filesystem::path& user)
     chunks.Close();
 }
 
-static void global_status_record()
+static std::uint32_t payload_word(std::span<const std::byte> payload, std::size_t offset)
 {
-    W8SavedGameStatus saved{};
+    std::uint32_t word;
+    std::memcpy(&word, payload.data() + offset, sizeof(word));
+    return word;
+}
+
+// The GSTA payload: the status record, eight characters and eight party rows, each sized.
+constexpr std::size_t kStatusRecordBytes = 0x49c2;
+constexpr std::size_t kPartyRowBytes = 0x106;
+constexpr std::size_t kFirstCharacterOffset = 4 + kStatusRecordBytes;
+constexpr std::size_t kFirstRowOffset =
+    kFirstCharacterOffset + 8 * (4 + wiz8::retail::kCharacterBytes);
+
+static wiz8::save::GameState populated_game_state()
+{
+    wiz8::save::GameState saved{};
     auto& [status, party] = saved;
     auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
@@ -1049,94 +1065,86 @@ static void global_status_record()
     }
     rows[0].executing.kind = W8_ACTION_USE_ITEM;
     rows[0].remembered.item_detail.item_use.item = {W8ItemStorage::Backpack, 0, 3};
-    status.serialized = {0xa5, {0x5a, 0x17}};
+    status.retail.save_version = 1.1f;
+    status.retail.padding_242f = 0xa5;
+    status.retail.padding_49be = {0x5a, 0x17};
+    status.retail.unknown_2013.fill(0x3c);
+    status.retail.save_filetime_xor = {0x01234567, 0x89abcdef};
+    status.text_box_lines_used = {1, 2, 3, 4};
+    status.text_box_lines_shown = {1, 1, 2, 3};
+    status.monster_name_buffer = "Rattkin";
+    status.flags[3] = 1;
+    status.spell_usage[2].cast_count = 5;
+    status.item_spell_usage[7].usable_cast_count = 9;
+    status.wait_state = W8_GAME_WAIT_STATE_RESTING;
+    status.search_mode = true;
     party.gold = 0x12345678;
-    party.item_pool[0] = {.iItemNo = 12, .stack_count = 3};
+    party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
     party.item_count = 1;
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
+    status.pending_move_location.orientation = {.yaw = 0.5f, .pitch = 0.25f};
     for (const int level : {0, W8_LEVEL_COUNT - 1}) {
         status.level_progress[level] = {true, 0x1234, -7, 0x89abcdef, -9, 0x01020304, {}};
         std::fill(std::begin(status.level_progress[level].unknown_11),
                   std::end(status.level_progress[level].unknown_11), 0xa5);
     }
-    const auto path = wiz8::user_path("gsta.bin");
-    W8Chunk chunks;
-    REQUIRE(chunks.OpenWrite(path));
-    SaveGlobalStatus(chunks, saved);
-    chunks.Close();
-    const auto status_image = wiz8::retail::encode(saved);
-    // Visit the single GSTA chunk.
-    const auto read_status_chunk = [&](const auto& visit) {
-        REQUIRE(chunks.OpenRead(path));
-        int visited = 0;
-        chunks.ForEachChunk([&](unsigned id) {
-            REQUIRE(id == 0x41545347);
-            visit();
-            ++visited;
-        });
-        chunks.Close();
-        REQUIRE(visited == 1);
+    return saved;
+}
+
+static void global_status_record()
+{
+    const auto saved = populated_game_state();
+    const auto payload = wiz8::save::encode(saved);
+    // Verify each record's prefix and stride independently of native sizeof.
+    REQUIRE(payload.size() == kFirstRowOffset + 8 * (4 + kPartyRowBytes));
+    REQUIRE(payload_word(payload, 0) == kStatusRecordBytes);
+    const auto bytes = std::span(payload).subspan(4, kStatusRecordBytes);
+    const auto byte_at = [&](std::size_t offset) {
+        return std::to_integer<unsigned>(bytes[offset]);
     };
-    read_status_chunk([&] {
-        REQUIRE(chunks.ReadValue<unsigned>() == 0x49c2);
-        unsigned char bytes[0x49c2];
-        chunks.ReadValue(bytes);
-        REQUIRE(!memcmp(bytes, status_image.data(), sizeof(bytes)));
-        std::array<unsigned char, 0x21> expected_progress{
-            1, 0x34, 0x12, 0xf9, 0xff, 0xef, 0xcd, 0xab, 0x89, 0xf7, 0xff, 0xff, 0xff, 4, 3, 2, 1};
-        std::fill(expected_progress.begin() + 0x11, expected_progress.end(), 0xa5);
-        for (const int level : {0, W8_LEVEL_COUNT - 1})
-            REQUIRE(std::equal(expected_progress.begin(), expected_progress.end(),
-                               bytes + 0x1a04 + level * 0x21));
-        REQUIRE(bytes[0x242f] == 0xa5);
-        REQUIRE(bytes[0x49be] == 0x5a);
-        REQUIRE(bytes[0x49bf] == 0x17);
-        std::array<int, 3> members;
-        memcpy(members.data(), bytes + 0x0d, sizeof(members));
-        REQUIRE((members == std::array<int, 3>{6, 2, 8}));
-        unsigned gold, turns;
-        memcpy(&gold, bytes + 0x19, sizeof(gold));
-        memcpy(&turns, bytes + 0x19d8, sizeof(turns));
-        REQUIRE((gold == 0x12345678 && turns == 0x87654321));
-        float position[3];
-        memcpy(position, bytes + 0x22a7, sizeof(position));
-        REQUIRE((position[0] == 1 && position[1] == 2 && position[2] == 3));
-        // Verify each record's prefix and stride independently of native sizeof.
-        for (int slot = 0; slot < 8; ++slot) {
-            REQUIRE(chunks.ReadValue<unsigned>() == 0x1862);
-            chunks.ReadValue<std::array<std::byte, 0x1862>>();
-        }
-        for (int slot = 0; slot < 8; ++slot) {
-            REQUIRE(chunks.ReadValue<unsigned>() == 0x106);
-            const auto party_bytes = chunks.ReadValue<std::array<std::byte, 0x106>>();
-            int attack_mode;
-            float fatigue;
-            std::memcpy(&attack_mode, party_bytes.data() + 5, 4);
-            std::memcpy(&fatigue, party_bytes.data() + 0xf6, 4);
-            REQUIRE((party_bytes[0] == std::byte{1} && attack_mode == 100 + slot));
-            REQUIRE(fatigue == 1.25f + slot);
-            REQUIRE(party_bytes[0x105] == std::byte(slot % 2));
-        }
-    });
-    W8SavedGameStatus restored{};
-    auto& restored_rows = restored.party.rows;
-    read_status_chunk([&] { restored = DecodeGameStatus(chunks); });
-    auto independent = restored;
-    independent.party.characters[0].name = "independent party";
-    independent.party.rows[0].executing.attack_mode[0] = -123;
-    independent.party.item_pool[0].stack_count = 9;
-    independent.party.gold = 1;
-    REQUIRE(restored.party.characters[0].name != independent.party.characters[0].name);
-    REQUIRE(restored.party.rows[0].executing.attack_mode[0] == 100);
-    REQUIRE(restored.party.gold == party.gold);
-    REQUIRE(restored.party.item_pool[0].stack_count == 3);
+    std::array<unsigned char, 0x21> expected_progress{
+        1, 0x34, 0x12, 0xf9, 0xff, 0xef, 0xcd, 0xab, 0x89, 0xf7, 0xff, 0xff, 0xff, 4, 3, 2, 1};
+    std::fill(expected_progress.begin() + 0x11, expected_progress.end(), 0xa5);
+    for (const int level : {0, W8_LEVEL_COUNT - 1})
+        for (std::size_t index = 0; index < expected_progress.size(); ++index)
+            REQUIRE(byte_at(0x1a04 + level * 0x21 + index) == expected_progress[index]);
+    REQUIRE(byte_at(0x242f) == 0xa5);
+    REQUIRE(byte_at(0x49be) == 0x5a);
+    REQUIRE(byte_at(0x49bf) == 0x17);
+    std::array<int, 3> members;
+    std::memcpy(members.data(), bytes.data() + 0x0d, sizeof(members));
+    REQUIRE((members == std::array<int, 3>{6, 2, 8}));
+    REQUIRE(payload_word(bytes, 0x19) == 0x12345678u);
+    REQUIRE(payload_word(bytes, 0x19d8) == 0x87654321u);
+    // The camera keeps the retail field order: position, then pitch, then yaw.
+    float camera[15];
+    std::memcpy(camera, bytes.data() + 0x22a7, sizeof(camera));
+    REQUIRE((camera[0] == 1 && camera[1] == 2 && camera[2] == 3));
+    REQUIRE((camera[3] == 0.25f && camera[9] == 0.5f));
+    for (int slot = 0; slot < 8; ++slot)
+        REQUIRE(payload_word(payload,
+                             kFirstCharacterOffset + slot * (4 + wiz8::retail::kCharacterBytes)) ==
+                wiz8::retail::kCharacterBytes);
+    for (int slot = 0; slot < 8; ++slot) {
+        const auto offset = kFirstRowOffset + slot * (4 + kPartyRowBytes);
+        REQUIRE(payload_word(payload, offset) == kPartyRowBytes);
+        const auto row = std::span(payload).subspan(offset + 4, kPartyRowBytes);
+        float fatigue;
+        std::memcpy(&fatigue, row.data() + 0xf6, sizeof(fatigue));
+        REQUIRE((row[0] == std::byte{1} && payload_word(row, 5) == 100u + slot));
+        REQUIRE(fatigue == 1.25f + slot);
+        REQUIRE(row[0x105] == std::byte(slot % 2));
+    }
+
+    // decode(encode(x)) == x, and the decoded state encodes to the same bytes.
+    const auto restored = wiz8::save::decode_game_state(payload);
+    REQUIRE(restored.status == saved.status);
+    REQUIRE(wiz8::save::encode(restored) == payload);
+    REQUIRE(restored.party.gold == saved.party.gold);
+    REQUIRE(restored.party.item_pool[0] == saved.party.item_pool[0]);
     REQUIRE(restored.party.item_count == 1);
-    const auto restored_image = wiz8::retail::encode(restored);
-    REQUIRE(std::equal(status_image.begin() + 0x1a04, status_image.begin() + 0x2013,
-                       restored_image.begin() + 0x1a04));
-    for (auto offset : {0x242f, 0x49be, 0x49bf})
-        REQUIRE(restored_image[offset] == status_image[offset]);
+    const auto& restored_rows = restored.party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored_rows[slot].fOccupied);
         const auto& action = restored_rows[slot].committed;
@@ -1153,6 +1161,50 @@ static void global_status_record()
     }
     const auto location = restored.party.rows[0].executing.detail_block.item_use.item;
     REQUIRE(restored.party.itemAt(location) == &restored.party.characters[0].backpack[3]);
+
+    // Unidentified bytes and a fixture character survive decode and encode unchanged.
+    auto edited = payload;
+    constexpr std::pair<unsigned, unsigned> unknown_runs[] = {
+        {0x187b, 0x55}, {0x1904, 0xd4},  {0x19dc, 0x28}, {0x243f, 5},
+        {0x40c2, 0xc},  {0x47de, 0x194}, {0x497b, 4}};
+    for (const auto& [offset, size] : unknown_runs)
+        for (unsigned index = 0; index < size; ++index)
+            edited[4 + offset + index] = std::byte(0x40 + index % 0x31);
+    std::ifstream fixture(WIZ8_CHARACTER_FIXTURE, std::ios::binary);
+    fixture.read(reinterpret_cast<char*>(edited.data() + kFirstCharacterOffset),
+                 static_cast<std::streamsize>(4 + wiz8::retail::kCharacterBytes));
+    REQUIRE(fixture.good());
+    const auto decoded = wiz8::save::decode_game_state(edited);
+    REQUIRE(decoded.party.characters[0].name == "vi");
+    REQUIRE(wiz8::save::encode(decoded) == edited);
+
+    // A payload cut inside a record is malformed.
+    const auto truncated = std::span(payload).first(kFirstRowOffset + 4 + kPartyRowBytes - 1);
+    REQUIRE_THROWS_AS(wiz8::save::decode_game_state(truncated), std::runtime_error);
+}
+
+static void level_status_header_record()
+{
+    wiz8::save::LevelStatusHeader header{.next_group_id = 7,
+                                         .next_monster_location_id = 8,
+                                         .next_world_item_id = 9,
+                                         .next_trigger_id = 10,
+                                         .turns_elapsed = 0x01020304};
+    header.status_prefix.fill(0x11);
+    header.status_suffix.fill(0x22);
+    header.unknown_tail.fill(0x33);
+    const auto payload = wiz8::save::encode(header);
+    REQUIRE(payload.size() == 0x314);
+    float version;
+    std::memcpy(&version, payload.data(), sizeof(version));
+    REQUIRE(version == 2.0f);
+    REQUIRE(payload_word(payload, 4) == 7u);
+    // The turn counter sits inside the status block, after its prefix.
+    REQUIRE(payload_word(payload, 0x14 + 0xd4) == 0x01020304u);
+    REQUIRE(wiz8::save::decode_level_status_header(payload) == header);
+    auto other_version = payload;
+    other_version[3] = std::byte{0};
+    REQUIRE_THROWS_AS(wiz8::save::decode_level_status_header(other_version), std::runtime_error);
 }
 
 static void camera_angles()
@@ -1361,6 +1413,11 @@ TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]"
 TEST_CASE("Global status record", "[save][records]")
 {
     global_status_record();
+}
+
+TEST_CASE("Level status header record", "[save][records]")
+{
+    level_status_header_record();
 }
 
 TEST_CASE_METHOD(SaveFixture, "NPC state versions and failure recovery", "[save][npc]")

@@ -11,6 +11,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -95,8 +96,8 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -160,23 +161,6 @@ constexpr SaveVersion kUnversionedSave{1, 0, 0};
 constexpr std::string_view kCurrentGamePath = "saves\\CurrentGame.SAV";
 constexpr std::string_view kAutoSaveName = "AutoSave";
 
-/* The fixed STAT record. Only the leading counters and the status block are
-   established; the tail is written as zeros and ignored on load. */
-struct W8StatusHeader {
-    float version;
-    int next_group_id;
-    int next_monster_location_id;
-    int next_world_item_id;
-    int next_trigger_id;
-    unsigned char status_block[0x100];
-    unsigned char unknown_114[0x200];
-};
-static_assert(sizeof(W8StatusHeader) == 0x314);
-constexpr float kStatusHeaderVersion = 2.0f;
-/* The status record keeps the status block in three fields; their offsets in the block. */
-constexpr std::size_t kStatusTurnsOffset = 0xd4;
-constexpr std::size_t kStatusSuffixOffset = 0xd8;
-
 std::string SaveSlotPath(std::string_view name)
 {
     return fmt::format("saves\\{}.{}", name, g_save_extension);
@@ -196,6 +180,19 @@ bool IsRegularFile(std::string_view path)
 bool IsCurrentGameFileName(std::string_view name)
 {
     return CompareTextIgnoreAsciiCase(name, "CurrentGame.SAV") == 0;
+}
+
+// The rest of the current chunk, for the codecs that decode a section whole.
+std::vector<std::byte> ReadChunkPayload(W8Chunk& chunk)
+{
+    std::vector<std::byte> payload(static_cast<std::size_t>(chunk.RemainingBytes()));
+    chunk.ReadBytes(payload.data(), payload.size());
+    return payload;
+}
+
+void WriteChunkPayload(W8Chunk& chunks, unsigned int id, std::span<const std::byte> payload)
+{
+    chunks.WriteChunk(id, [&] { chunks.WriteBytes(payload.data(), payload.size()); });
 }
 
 /* Section writers and loaders report failure as false; inside a chunk body
@@ -291,41 +288,31 @@ template<class F> void ForEachShownMessage(F&& visit)
     }
 }
 
-/* The STAT record mirrors the id counters and status block of CurrentGame().status. */
-W8StatusHeader CaptureStatusHeader()
+/* The STAT record mirrors the id counters and status block of the game's status. */
+wiz8::save::LevelStatusHeader CaptureStatusHeader(const GameStatus& status)
 {
-    W8StatusHeader header{};
-    header.version = kStatusHeaderVersion;
-    header.next_group_id = CurrentGame().status.next_group_id;
-    header.next_monster_location_id = CurrentGame().status.next_monster_location_id;
-    header.next_world_item_id = CurrentGame().status.next_world_item_id;
-    header.next_trigger_id = CurrentGame().status.next_trigger_id;
-    std::memcpy(header.status_block, CurrentGame().status.status_header_prefix,
-                sizeof(CurrentGame().status.status_header_prefix));
-    std::memcpy(header.status_block + kStatusTurnsOffset, &CurrentGame().status.uiTurnsElapsed,
-                sizeof(CurrentGame().status.uiTurnsElapsed));
-    std::memcpy(header.status_block + kStatusSuffixOffset,
-                CurrentGame().status.status_header_suffix,
-                sizeof(CurrentGame().status.status_header_suffix));
-    return header;
+    return {
+        .next_group_id = status.next_group_id,
+        .next_monster_location_id = status.next_monster_location_id,
+        .next_world_item_id = status.next_world_item_id,
+        .next_trigger_id = status.next_trigger_id,
+        .turns_elapsed = status.uiTurnsElapsed,
+        .status_prefix = status.retail.status_header_prefix,
+        .status_suffix = status.retail.status_header_suffix,
+    };
 }
 
 /* Publish a STAT record. A zero counter restarts at one. */
-void ApplyStatusHeader(const W8StatusHeader& header)
+void ApplyStatusHeader(const wiz8::save::LevelStatusHeader& header, GameStatus& status)
 {
-    CurrentGame().status.next_group_id = header.next_group_id ? header.next_group_id : 1;
-    CurrentGame().status.next_monster_location_id =
-        header.next_monster_location_id ? header.next_monster_location_id : 1;
-    CurrentGame().status.next_world_item_id =
-        header.next_world_item_id ? header.next_world_item_id : 1;
-    CurrentGame().status.next_trigger_id = header.next_trigger_id ? header.next_trigger_id : 1;
-    std::memcpy(CurrentGame().status.status_header_prefix, header.status_block,
-                sizeof(CurrentGame().status.status_header_prefix));
-    std::memcpy(&CurrentGame().status.uiTurnsElapsed, header.status_block + kStatusTurnsOffset,
-                sizeof(CurrentGame().status.uiTurnsElapsed));
-    std::memcpy(CurrentGame().status.status_header_suffix,
-                header.status_block + kStatusSuffixOffset,
-                sizeof(CurrentGame().status.status_header_suffix));
+    const auto counter = [](int saved) { return saved ? saved : 1; };
+    status.next_group_id = counter(header.next_group_id);
+    status.next_monster_location_id = counter(header.next_monster_location_id);
+    status.next_world_item_id = counter(header.next_world_item_id);
+    status.next_trigger_id = counter(header.next_trigger_id);
+    status.uiTurnsElapsed = header.turns_elapsed;
+    status.retail.status_header_prefix = header.status_prefix;
+    status.retail.status_header_suffix = header.status_suffix;
 }
 
 /* The HYPN record: the monster-control effect's fields in file order. The
@@ -667,7 +654,7 @@ SavedMonster ReadMonster(W8Chunk& chunk)
 } // namespace
 
 struct W8LoadedLevelStatus::Data {
-    std::optional<W8StatusHeader> header;
+    std::optional<wiz8::save::LevelStatusHeader> header;
     std::vector<SavedMonsterGroup> groups;
     std::vector<SavedMonster> monsters;
     std::vector<std::unique_ptr<W8WorldItem>> items;
@@ -692,8 +679,7 @@ void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& ch
 {
     switch (chunk_id) {
     case W8_CHUNK_STATUS_HEADER:
-        data.header = chunk.ReadValue<W8StatusHeader>();
-        RequireSection(data.header->version == kStatusHeaderVersion, "status header version");
+        data.header = wiz8::save::decode_level_status_header(ReadChunkPayload(chunk));
         break;
     case W8_CHUNK_MONSTERS: {
         const auto group_count = chunk.ReadValue<unsigned int>();
@@ -875,7 +861,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path("saves\\" + name))) return nullptr;
     auto slot = std::make_unique<W8SaveSlot>();
-    W8GlobalStatus saved{};
+    GameStatus saved{};
     bool has_status = false;
     slot->screenshot.capture_result = W8ScreenshotCaptureResult::failed;
     slot->version_major = kUnversionedSave.major;
@@ -884,7 +870,7 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS:
-            saved = DecodeGameStatus(chunks).status;
+            saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks)).status;
             has_status = true;
             slot->dev_flagged = saved.dev_flagged;
             break;
@@ -946,11 +932,11 @@ int GetSaveGameLevel(std::string_view slot_name)
 try {
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return 0;
-    W8GlobalStatus saved{};
+    GameStatus saved{};
     bool found = false;
     chunks.ForEachChunk([&](unsigned int id) {
         if (id != W8_CHUNK_GAME_STATUS) return true;
-        saved = DecodeGameStatus(chunks).status;
+        saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks)).status;
         found = true;
         return false;
     });
@@ -960,17 +946,19 @@ try {
     return 0;
 }
 
-static W8SavedGameStatus CaptureStatusForSave(const Game& game, const wiz8::File& file)
+/* A save's copy of the game state, stamped with what the save records about itself: the
+   camera, the status version, the difficulty and an Iron Man save's file time. */
+static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::File& file)
 {
-    W8SavedGameStatus snapshot{game.status, game.party};
+    wiz8::save::GameState snapshot{game.status, game.party};
     auto& status = snapshot.status;
     status.pending_move_location = cameraState(*GetWorld());
-    status.save_version = 1.1f;
+    status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {
         const auto creation_time = file.times().created;
-        status.save_filetime_xor[0] = creation_time.low ^ g_save_filetime_xor_low;
-        status.save_filetime_xor[1] = creation_time.high ^ g_save_filetime_xor_high;
+        status.retail.save_filetime_xor = {creation_time.low ^ g_save_filetime_xor_low,
+                                           creation_time.high ^ g_save_filetime_xor_high};
     }
     return snapshot;
 }
@@ -992,11 +980,11 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     }
     const auto script_state = CaptureMasterFunctionState();
     {
-        auto snapshot = CaptureStatusForSave(CurrentGame(), chunks.WriteStream());
+        auto snapshot = CaptureStateForSave(CurrentGame(), chunks.WriteStream());
         // Normalize transient UI state in the save image, without changing the game.
         if (snapshot.status.text_line_cursor == 2) snapshot.status.text_line_cursor = 0;
         snapshot.status.resume_level = GetLoadedLevelID();
-        SaveGlobalStatus(chunks, snapshot);
+        WriteChunkPayload(chunks, W8_CHUNK_GAME_STATUS, wiz8::save::encode(snapshot));
     }
     chunks.WriteChunk(W8_CHUNK_GAME_VERSION, [&] {
         chunks.WriteValue(kCurrentSaveVersion.major);
@@ -1083,8 +1071,8 @@ try {
     auto& file = chunks->WriteStream();
     chunks->WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
         chunks->WriteValue(GetLoadedLevelID());
-        chunks->WriteChunk(W8_CHUNK_STATUS_HEADER,
-                           [&] { chunks->WriteValue(CaptureStatusHeader()); });
+        WriteChunkPayload(*chunks, W8_CHUNK_STATUS_HEADER,
+                          wiz8::save::encode(CaptureStatusHeader(CurrentGame().status)));
         chunks->WriteChunk(W8_CHUNK_MONSTERS,
                            [&] { RequireSection(SaveMonsterStatus(chunks), "monster status"); });
         chunks->WriteChunk(W8_CHUNK_WORLD_ITEMS, [&] { WriteWorldItems(*chunks); });
@@ -1307,7 +1295,7 @@ void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
     if (MainGameHud()) MainGameHud()->highlighted_item = MainGameHud()->selected_item = -1;
     if (!status) return;
     auto& data = *status->data;
-    if (data.header) ApplyStatusHeader(*data.header);
+    if (data.header) ApplyStatusHeader(*data.header, CurrentGame().status);
     InstallNpcBindings(std::move(data.npc_bindings));
 }
 
@@ -1467,7 +1455,7 @@ try {
             return;
         const bool matches = ReadCharacterNameMatches(chunk, path);
         const auto size = chunk.ReadValue<unsigned int>();
-        if (!matches || size > W8_CHARACTER_SERIALIZED_SIZE || size > chunk.RemainingBytes())
+        if (!matches || size > wiz8::retail::kCharacterBytes || size > chunk.RemainingBytes())
             return;
         W8Character saved{};
         wiz8::retail::read_exact(chunk, saved, size);
@@ -1605,64 +1593,6 @@ try {
     return {};
 }
 
-/* Decode the GSTA section into the status record and the party it stores.
-   Old status blocks get the message-box migration and pre-v2 characters their
-   profession repair. */
-// FUNCTION: WIZ8 0x00515cf0
-W8SavedGameStatus DecodeGameStatus(W8Chunk& chunks)
-{
-    W8SavedGameStatus saved{};
-    wiz8::retail::read_sized(chunks, saved);
-    auto& [status, party] = saved;
-    if (party.item_count > std::size(party.item_pool))
-        throw std::runtime_error("invalid party inventory count");
-    if (status.save_version < 1.1f) {
-        // Before 1.1 there were three message boxes, stored in a legacy pair.
-        for (int box = 0; box < 3; ++box) {
-            status.text_box_lines_used[box] = status.legacy_text_box_lines[0][box];
-            status.text_box_lines_shown[box] = status.legacy_text_box_lines[1][box];
-        }
-        status.text_box_lines_used[3] = 0;
-        status.text_box_lines_shown[3] = 0;
-    }
-    for (int box = 0; box < 4; ++box) {
-        if (status.text_box_lines_used[box] > W8_TEXT_BOX_LINES ||
-            status.text_box_lines_shown[box] > W8_TEXT_BOX_LINES)
-            throw std::runtime_error("invalid message storage count");
-    }
-    for (auto& character : party.characters) {
-        wiz8::retail::read_sized(chunks, character);
-        if (character.record_version < 2 &&
-            character.original_profession == W8_PROFESSION_FIGHTER &&
-            character.profession_levels[W8_PROFESSION_FIGHTER] == 0)
-            character.original_profession = character.iProfession;
-    }
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        auto& row = party.rows[slot];
-        wiz8::retail::read_sized(chunks, row);
-        auto& item = row.remembered.item_detail.item_use.item;
-        item.character = slot;
-        if (!row.fOccupied || !party.itemAt(item)) item = {};
-        if (row.executing.kind == W8_ACTION_USE_ITEM)
-            row.executing.detail_block.item_use.item = item;
-    }
-
-    party.formation.reconcile(party.rows);
-    return saved;
-}
-
-/* Write the GSTA section in the retail field order. */
-// FUNCTION: WIZ8 0x00515fa0
-void SaveGlobalStatus(W8Chunk& chunks, const W8SavedGameStatus& saved)
-{
-    chunks.WriteChunk(W8_CHUNK_GAME_STATUS, [&] {
-        wiz8::retail::write_sized(chunks, saved);
-        for (const auto& character : saved.party.characters)
-            wiz8::retail::write_sized(chunks, character);
-        for (const auto& row : saved.party.rows) wiz8::retail::write_sized(chunks, row);
-    });
-}
-
 /* Load one level's world items from the current save without listing them. */
 bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
@@ -1712,13 +1642,14 @@ try {
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
         case W8_CHUNK_GAME_STATUS: {
-            auto saved = DecodeGameStatus(chunks);
+            auto saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks));
             game.status = std::move(saved.status);
             game.party = std::move(saved.party);
             break;
         }
         case W8_CHUNK_MESSAGE_STORAGE:
-            RequireSection(LoadMessageStorage(chunks), "message storage");
+            RequireSection(LoadMessageStorage(chunks, game.status.retail.save_version),
+                           "message storage");
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
             RequireSection(LoadLocationVariables(chunks), "location variables");

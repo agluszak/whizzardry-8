@@ -3350,13 +3350,13 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         AdjustIntegerByPercent(&amount, effect->definition.percent);
         if (0 < static_cast<int>(effect->target_indices.size())) {
             DrainPartySpellPoints(amount, false);
-            slot = CurrentGame().status.effect_slots;
+            slot = CurrentGame().status.effect_slots.data();
             do {
                 if (slot->active) {
                     ResetPartyEffectBlock(slot);
                 }
                 ++slot;
-            } while (slot < CurrentGame().status.effect_slots + 12);
+            } while (slot < CurrentGame().status.effect_slots.data() + 12);
         }
         effect->reported = true;
         break;

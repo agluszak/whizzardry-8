@@ -8,8 +8,11 @@ This file describes the contracts the code relies on now. Remaining work is in
 Only serialized formats are compatibility contracts: retail saves must load, and
 saves we write must load in retail. Save and game-data records have fixed-width
 disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
-`retail_geometry_records.h`, `retail_text_records.h`). Unknown and padding bytes
-that belong to a file live in `retail_opaque_records.h` and round-trip unchanged.
+`retail_geometry_records.h`, `retail_text_records.h`, `save_codec.cpp`). Unknown and
+padding bytes that belong to a file live in `retail_opaque_records.h` and round-trip
+unchanged. A codec copies a field verbatim only when the runtime field is exactly as wide
+as its disk field, and throws otherwise; items, formations and NPC stock entries have
+codecs of their own, so their runtime types need not match a retail size.
 Runtime types do not mirror retail memory layout. Runtime strings are UTF-8;
 retail UTF-16LE fields are decoded and encoded explicitly by utf8proc-based
 codecs, including malformed-input replacement and fixed field limits.
@@ -249,8 +252,14 @@ Unlayered code may use the layers.
   event to the active screen's notice, redraw, cursor or character-screen call and
   decides there whether a skill increase is shown at once.
 - **Voices.** A voice that finishes after its game has ended is dropped.
-- **Saves.** The GSTA section decodes to `W8SavedGameStatus`, the status record plus the
-  party it stores; a save writes a copy of the game's status and party.
+- **Saves.** `save_codec.h` holds the save sections that are pure functions between bytes
+  and values: `wiz8::save::GameState`, the game's `GameStatus` and party that the GSTA
+  section stores, and `LevelStatusHeader`, a level group's STAT record. A save encodes a
+  copy of the game's status and party, stamped with the camera, difficulty and Iron Man
+  file time; a load decodes one and moves it into the new game. The retail records of
+  these sections exist only in `save_codec.cpp`, and `GameStatus::retail` carries the
+  serialized bytes that are not game state. The other sections are still written from and
+  read into live objects by `LoadSaveGame.cpp`.
 
 ## Gameplay operations
 

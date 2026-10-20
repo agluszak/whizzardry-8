@@ -436,7 +436,7 @@ void TickSpellEffects(void)
 
 bool PartyHasCondition(int effect_id)
 {
-    W8EffectSlot* slot = CurrentGame().status.effect_slots;
+    W8EffectSlot* slot = CurrentGame().status.effect_slots.data();
 
     while (!slot->active || slot->effect_id != effect_id) {
         ++slot;
@@ -3814,9 +3814,9 @@ void TrackItemSpellSource(W8Character* character, int spell_id)
             has_spell[Data().items[item_id].spell_id] = 1;
         }
     }
-    W8ItemSpellUsageRecord* record = CurrentGame().status.item_spell_usage;
+    W8ItemSpellUsageRecord* record = CurrentGame().status.item_spell_usage.data();
     int index = 0;
-    while (record < CurrentGame().status.item_spell_usage + 150) {
+    while (record < CurrentGame().status.item_spell_usage.data() + 150) {
         if (has_spell[index]) {
             ++record->usable_cast_count;
         }

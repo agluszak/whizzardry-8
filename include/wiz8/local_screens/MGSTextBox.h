@@ -113,8 +113,9 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 void RebuildMessageLogWords(void);
 /* Write the four message runs into the open TEXT chunk. */
 unsigned char SaveMessageStorage(wiz8::File& file);
-/* Rebuild the four message runs from the open TEXT chunk. */
-unsigned char LoadMessageStorage(W8Chunk& file);
+/* Rebuild the four message runs from the open TEXT chunk, written beside a status record
+   of `status_version`. */
+unsigned char LoadMessageStorage(W8Chunk& file, float status_version);
 void ShowNotice(unsigned int font_palette, std::string_view text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
