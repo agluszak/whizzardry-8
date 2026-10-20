@@ -394,7 +394,7 @@ void W8CampScreenState::ShowDismissCharacterDialog()
 void W8CampScreenState::OnDismissCharacterDialogClosed(bool accepted)
 {
     if (accepted && g_status.party.rows[ReviewedPartySlot()].npc_index != -1) {
-        gXStatus.review_character_slot = static_cast<unsigned short>(ReviewedPartySlot());
+        if (auto* main_game = MainGame()) main_game->dismissed_npc_slot = ReviewedPartySlot();
         DismissSelectedPartyCharacter();
     }
 }

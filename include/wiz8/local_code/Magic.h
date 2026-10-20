@@ -3,6 +3,9 @@
 
 #include <vector>
 
+/* Forget the three-minute cooldowns of the gated spells. */
+void ResetSpellCooldowns(void);
+
 #include "glm/ext/vector_float3.hpp"
 #include "spell_ids.h"
 #include "wiz8/character_skills.h"

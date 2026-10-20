@@ -36,6 +36,30 @@
 /* PHASES_PER_ROUND, named by the assertion that bounds the phase. */
 enum { W8_PHASES_PER_ROUND = 100 };
 
+namespace {
+/* The movement gauge: how far the party may move this action, and how far
+   it has moved. The update converts them into the panel's percentage. */
+float party_move_limit = 0.0f;
+float party_move_distance = 0.0f;
+
+void ArmPartyMoveGauge(bool running)
+{
+    party_move_limit = GetPartyMovementSpeed();
+    ResetLevelMovement(party_move_limit, false, running);
+}
+} // namespace
+
+void ResetRoundPartyMovement()
+{
+    const auto action = g_combat.state()->uiCurrentPartyAction;
+    if (action == W8_PARTY_ACTION_WALK || action == W8_PARTY_ACTION_RUN) {
+        ArmPartyMoveGauge(action == W8_PARTY_ACTION_RUN);
+    } else {
+        party_move_limit = 0.0f;
+        ResetLevelMovement(party_move_limit, true, false);
+    }
+}
+
 /* Note that the party has started moving. */
 void BeginPartyMovement(void)
 {
@@ -69,21 +93,21 @@ void UpdateActivePartyMovement(void)
     float frame_elapsed;
 
     if (HandlePartyMovement(&real_elapsed, &frame_elapsed) != 0) {
-        gXStatus.party_move_distance += real_elapsed + frame_elapsed;
+        party_move_distance += real_elapsed + frame_elapsed;
     } else if (g_settings.continuous_combat != 0 &&
                TimeUntilDeadline(g_combat.state()->party_movement_clock) == 0) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         step_count = std::clamp(step_count, 10u, 60u);
-        gXStatus.party_move_distance += gXStatus.flPartyMoveDistLimit / step_count;
+        party_move_distance += party_move_limit / step_count;
     } else {
         goto check_completion;
     }
 
-    if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
-        Fail("gXStatus.flPartyMoveDistLimit > 0.0f");
+    if (party_move_limit <= 0.0f) {
+        Fail("party_move_limit > 0.0f");
     }
-    g_level_block->move_percent = static_cast<int>(
-        100.0f - gXStatus.party_move_distance * 100.0f / gXStatus.flPartyMoveDistLimit + 0.5);
+    g_level_block->move_percent =
+        static_cast<int>(100.0f - party_move_distance * 100.0f / party_move_limit + 0.5);
     g_level_block->move_percent = std::clamp(g_level_block->move_percent, 0, 100);
     if (g_level_block->move_percent != g_level_block->move_percent_shown) {
         InvalidatePartyMovementPanel();
@@ -322,8 +346,7 @@ void StartPartyMovementAction(W8PartyAction move_kind)
 
     g_combat.state()->uiCurrentPartyAction = move_kind;
     g_combat.state()->uiCurrentPartyActionStatus = W8_PARTY_ACTION_NOT_STARTED;
-    gXStatus.flPartyMoveDistLimit = GetPartyMovementSpeed();
-    ResetLevelMovement(gXStatus.flPartyMoveDistLimit, false, move_kind == W8_PARTY_ACTION_RUN);
+    ArmPartyMoveGauge(move_kind == W8_PARTY_ACTION_RUN);
     InitializePartyMovementPhase();
     g_combat.state()->uiPartyActionPhase += g_combat.state()->round_counter;
     if (g_combat.state()->uiPartyActionPhase > W8_PHASES_PER_ROUND) {
@@ -448,7 +471,7 @@ void BeginPartyMovementPhase(void)
         g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         gXStatus.fPartyMovementMode = true;
         ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x21b]);
-        gXStatus.party_move_distance = 0.0f;
+        party_move_distance = 0.0f;
     }
     FinishPartyMovementAction();
     g_combat.state()->passive_round = 0;
@@ -462,10 +485,10 @@ bool PartyMovementReachedPhaseLimit(void)
     if (!gXStatus.fPartyMovementMode) {
         Fail("gXStatus.fPartyMovementMode");
     }
-    if (gXStatus.flPartyMoveDistLimit <= 0.0f) {
-        Fail("gXStatus.flPartyMoveDistLimit > 0");
+    if (party_move_limit <= 0.0f) {
+        Fail("party_move_limit > 0");
     }
-    float moved_fraction = gXStatus.party_move_distance / gXStatus.flPartyMoveDistLimit;
+    float moved_fraction = party_move_distance / party_move_limit;
     int remaining_phases = 101 - g_combat.state()->uiPartyActionPhase;
     if (remaining_phases == 0) {
         Fail("uiTotalMovementPhases > 0");

@@ -38,6 +38,9 @@ struct MainGameScreen final : Screen {
     bool lock_active = false;
     bool trap_active = false;
     bool resume_world = false;
+    /* The slot whose NPC the camp just dismissed; its portrait ignores input
+       until the screen state is reset. */
+    int dismissed_npc_slot = -1;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},

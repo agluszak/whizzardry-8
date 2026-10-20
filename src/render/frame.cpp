@@ -1,3 +1,5 @@
+#include "wiz8/render/frame.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
@@ -19,6 +21,7 @@
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <fmt/format.h>
@@ -27,30 +30,16 @@
 #include "asset_paths.h"
 #include "compat/compiler.h"
 #include "compat/native.h"
+#include "compat/video.h"
 #include "glm/common.hpp" // IWYU pragma: keep
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/design_rect.h"
-#include "wiz8/render/compositor.h"
-#include "wiz8/render/matrix_scope.h"
-#include "wiz8/render/texture.h"
-#include "wiz8/surface_storage.h"
-#include "wiz8/world/level_loader.h"
-#include "wiz8/world/party_camera.h"
-#include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
-#ifdef WIZ8_RUNTIME_TESTS
-#include "runtime_instrumentation.h"
-#include "wiz8/world/level_session.h"
-#endif
-#include <SDL3/SDL_stdinc.h>
-
-#include "compat/video.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/cursor.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
@@ -62,20 +51,27 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
+#include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_shader.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/gpu_renderer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/material.h"
+#include "wiz8/render/matrix_scope.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/level_loader.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
+#include "wiz8/xstatus.h"
 
 void SaveJpegScreenshot(void);
 static void FlushUiUpload();
@@ -448,9 +444,6 @@ void UpdateRenderElapsedTime(void);
 /* Render one scene into either the full output or a logical 640x480 viewport.
    Scene fog follows the current world's static scene for ordinary overlays;
    the world passes retain their own fog by selecting preserve_fog. */
-#ifdef WIZ8_RUNTIME_TESTS
-static RuntimeWorldRenderData ObserveWorldRenderState();
-#endif
 
 void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog)
 {
@@ -467,16 +460,6 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
         const auto rect = ToSurfaceRect(*viewport, width, height);
         g_gerd->setViewPort(rect.x, rect.y, rect.w, rect.h);
         g_gerd->setScissor(rect.x, rect.y, rect.w, rect.h);
-#ifdef WIZ8_RUNTIME_TESTS
-        if (GetWorld() != 0 && scene == GetWorld()->scene.get()) {
-            RuntimeWorldRenderData data = ObserveWorldRenderState();
-            data.applied_viewport[0] = rect.x;
-            data.applied_viewport[1] = rect.y;
-            data.applied_viewport[2] = rect.w;
-            data.applied_viewport[3] = rect.h;
-            RuntimeObserveWorld(RUNTIME_WORLD_VIEWPORT_APPLIED, data);
-        }
-#endif
     }
     if (!preserve_fog) {
         const auto fog = GetWorld() ? GetWorld()->scene->getFogColor() : glm::vec3(0);
@@ -489,40 +472,6 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
         g_gerd->setScissor(0, 0, width, height);
     }
 }
-
-#ifdef WIZ8_RUNTIME_TESTS
-static RuntimeWorldRenderData ObserveWorldRenderState()
-{
-    RuntimeWorldRenderData data;
-    memset(&data, 0, sizeof(data));
-    data.level = GetLoadedLevelID();
-    data.flags = (g_world_render_enabled ? 1UL : 0UL) | (g_world_blacked_out ? 2UL : 0UL) |
-                 (g_video_active ? 4UL : 0UL) | (g_monster_shadow_updates_enabled ? 8UL : 0UL) |
-                 (g_render_mesh_sky ? 16UL : 0UL) | (g_world_pick_enabled ? 32UL : 0UL);
-    data.scene_children = GetWorld()->scene->renderableCount();
-    if (GetWorld()->compiledIndex() != 0 && !GetWorld()->psrMeshes.empty()) {
-        for (w8_ulong index = 0; index < GetWorld()->compiledIndex()->m_meshCount; ++index) {
-            MeshInstance* instance = GetWorld()->psrMeshes[index];
-            if (instance != 0 && !(!instance->visible)) {
-                ++data.visible_meshes;
-            }
-        }
-    }
-    data.viewport[0] = g_viewport.left;
-    data.viewport[1] = g_viewport.top;
-    data.viewport[2] = g_viewport.right;
-    data.viewport[3] = g_viewport.bottom;
-    data.renderer_size[0] = g_gerd->getWidth();
-    data.renderer_size[1] = g_gerd->getHeight();
-    const auto statistics = g_gerd->getStatistics();
-    data.draw_calls = statistics.draw_calls;
-    glm::vec3 camera = cameraLocation();
-    data.camera[0] = camera.x;
-    data.camera[1] = camera.y;
-    data.camera[2] = camera.z;
-    return data;
-}
-#endif
 
 /* The central renderer frame transaction. It owns the page flip, every scene
    pass, optional world picking, transient-node retirement, and frame timing;
@@ -568,9 +517,6 @@ void RenderFrame(void)
     }
 
     g_gerd->beginFrame();
-#ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_FRAME_BEGIN, g_fps_frame_count, CurrentScreenState().id, g_video_active);
-#endif
     UpdateRenderElapsedTime();
 
     if (!g_monster_shadow_updates_enabled) {
@@ -597,10 +543,6 @@ void RenderFrame(void)
                     false);
     }
     if (GetWorld() != 0 && g_world_render_enabled) {
-#ifdef WIZ8_RUNTIME_TESTS
-        RuntimeWorldRenderData world_observation = ObserveWorldRenderState();
-        RuntimeObserveWorld(RUNTIME_WORLD_RENDER_BEGIN, world_observation);
-#endif
         g_gerd->setTextureReduction(g_resident_texture_policy);
         if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
@@ -626,28 +568,19 @@ void RenderFrame(void)
             g_current_model_instance = pick.selected_model;
             ResolvePickedProp();
         }
-#ifdef WIZ8_RUNTIME_TESTS
-        RuntimeObserveWorld(RUNTIME_WORLD_RENDER_END, ObserveWorldRenderState());
-#endif
     }
 
     g_gerd->setTextureReduction(0);
-#ifdef WIZ8_RUNTIME_TESTS
-    if (getenv("WIZ8_RUNTIME_HIDE_OVERLAY") == 0)
-#endif
-        if (g_overlay_scenes_enabled) {
-            if (!g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
-            g_compositor.draw(*g_gerd, OverlayLayer::UnderUi);
-            g_ui_canvas->draw(g_gerd.get());
-            g_compositor.draw(*g_gerd, OverlayLayer::OverUi);
-            g_compositor.draw(*g_gerd, OverlayLayer::SquareAspect);
-            if (g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
-            if (g_cursor_scene_enabled) g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
-        }
+    if (g_overlay_scenes_enabled) {
+        if (!g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
+        g_compositor.draw(*g_gerd, OverlayLayer::UnderUi);
+        g_ui_canvas->draw(g_gerd.get());
+        g_compositor.draw(*g_gerd, OverlayLayer::OverUi);
+        g_compositor.draw(*g_gerd, OverlayLayer::SquareAspect);
+        if (g_fullscreen_scene_last) g_compositor.draw(*g_gerd, OverlayLayer::Fullscreen);
+        if (g_cursor_scene_enabled) g_compositor.draw(*g_gerd, OverlayLayer::Cursor);
+    }
     g_gerd->endFrame();
-#ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_FRAME_SUBMITTED, g_fps_frame_count, CurrentScreenState().id, 0);
-#endif
 
     if (g_screenshot_pending) {
         SaveJpegScreenshot();

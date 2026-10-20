@@ -40,6 +40,9 @@
 #include "wiz8/unicode.h"
 #include "wiz8/xstatus.h"
 
+/* A skill-increase notice waits in a slot's skill_notice_pending flags. */
+static bool g_deferred_skill_notices;
+
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 unsigned int GetCharacterSkillNoticeValue(W8Character* character, W8Skill skill_id)
@@ -90,7 +93,7 @@ void FlushDeferredSkillNotices(void)
 
     count = 0;
     have_line = false;
-    if (!gXStatus.deferred_skill_notices) {
+    if (!g_deferred_skill_notices) {
         return;
     }
     text.clear();
@@ -126,7 +129,7 @@ void FlushDeferredSkillNotices(void)
     for (slot = 0; slot < 8; ++slot) {
         memset(&gXStatus.monster_manager_entries[slot].skill_notice_pending[0], 0, W8_SKILL_COUNT);
     }
-    gXStatus.deferred_skill_notices = false;
+    g_deferred_skill_notices = false;
 }
 
 void InvalidateAndRecalculateCharacterClassData(W8Character* character)
@@ -669,7 +672,7 @@ void PracticeCharacterSkill(W8Character* character, W8Skill skill_id, int usage_
                     return;
                 }
                 gXStatus.monster_manager_entries[slot].skill_notice_pending[skill_id] = true;
-                gXStatus.deferred_skill_notices = true;
+                g_deferred_skill_notices = true;
             }
         }
     }

@@ -19,7 +19,7 @@ the licensed runtime scenarios) green after each slice.
 
 - **A game session instead of process globals.** `g_status` (about 1,950 uses;
   a 100-field `W8GlobalStatus` holding the party, clocks, story progress and
-  decoded save fields) and `gXStatus` (about 670 uses; a 50-field grab bag of UI
+  decoded save fields) and `gXStatus` (about 600 uses; a 30-field grab bag of UI
   modes, targeting, timers and flags) are the de facto architecture. Further
   globals include `g_combat`, `g_level_block` (860 uses in 30 files), screen states
   and `g_settings`; headers declare about 340 `extern` globals in all. Introduce a `GameSession` that owns the party, story state

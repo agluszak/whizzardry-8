@@ -35,6 +35,8 @@ void RebuildMonsterRegenRates(W8MonsterInfo* monster_info);
 /* Advance the surprise fade/hold/resolve sequence while
    fSurprisePossible is set. */
 void UpdateSurpriseMode(void);
+/* The surprise sequence is still fading the view in. */
+bool SurpriseFadingIn(void);
 /* The cancel command while surprise runs - reposts the surprise
    notice while the ambush is unengaged, otherwise performs the phase-1
    transition that restores the view, time scale and music. */

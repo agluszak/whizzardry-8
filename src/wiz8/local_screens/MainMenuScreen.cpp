@@ -22,6 +22,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -175,7 +176,7 @@ bool MainMenuScreen::enter(const ScreenRequest&)
                     [this, item](const UiPointerEvent& event) { return handleItem(item, event); });
     }
 
-    if (gXStatus.uiMonstersInDatabase > 1000) {
+    if (MonsterDatabaseCount() > kMaxMonsterSpecies) {
         Fail("gXStatus.uiMonstersInDatabase <= MAX_MONSTERS_IN_DATABASE");
     }
     if (PreviousScreen() != W8_SCREEN_OPTIONS) {

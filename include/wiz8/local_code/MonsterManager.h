@@ -11,6 +11,8 @@
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/difficulty.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 
 class Monster;
 enum W8AnimationBehaviour : unsigned char;
@@ -121,6 +123,14 @@ struct W8MonsterManagerEntry {
 };
 
 W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
+/* The cached database record slot for a species; null until first use. */
+std::unique_ptr<W8MonsterRecord>& CachedMonsterRecord(unsigned int monster_species);
+/* Combat started: for two minutes a new fight at the same difficulty skips
+   the combat-start character reaction. */
+void RecordCombatStart(void);
+/* Forget the recent combat, so the next fight reacts again. */
+void ForgetRecentCombat(void);
+W8Difficulty LastCombatDifficulty(void);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
                                  glm::vec3* position);
 

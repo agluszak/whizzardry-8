@@ -65,6 +65,7 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MagicEffects.h"
@@ -625,7 +626,7 @@ SavedMonsterGroup ReadMonsterGroup(W8Chunk& chunk)
     const bool is_encounter = group.version >= 2 && chunk.ReadValue<unsigned char>() != 0;
     if (group.version < 3) group.forced_neutral = false;
 
-    if (static_cast<unsigned int>(group.monster_id) >= std::size(gXStatus.monster_record_cache))
+    if (static_cast<unsigned int>(group.monster_id) >= kMaxMonsterSpecies)
         throw std::runtime_error("invalid monster group species");
 
     return {std::move(owner), is_encounter};
@@ -655,7 +656,7 @@ SavedMonster ReadMonster(W8Chunk& chunk)
             static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
             throw std::runtime_error("invalid monster status species or effect");
     }
-    if (info.monster_species >= std::size(gXStatus.monster_record_cache))
+    if (info.monster_species >= kMaxMonsterSpecies)
         throw std::runtime_error("invalid monster status species or effect");
     return saved;
 }
@@ -1501,11 +1502,14 @@ void DeleteCurrentSaveFiles(void)
     wiz8::remove_file(wiz8::user_path(kCurrentGamePath));
 }
 
+/* The timed autosave has announced itself and saves on its next tick. */
+static bool g_save_notice_shown;
+
 /* Save now if autosaving is enabled (or the game is Iron Man) and the moment
    allows it. A declined autosave counts as success. */
 bool AutoSaveIfAllowed(bool forced)
 {
-    gXStatus.save_notice_shown = false;
+    g_save_notice_shown = false;
     const bool wanted = (g_settings.auto_save != 0 && !forced) || g_status.iron_man;
     if (!wanted || !CanAutoSaveNow()) return true;
     return SaveGame(AutoSaveSlotName(), nullptr);
@@ -1526,7 +1530,7 @@ unsigned char SaveSlotFileExists(std::string_view slot_name)
 void ReportSaveFailed(bool quiet)
 {
     if (quiet && !g_status.iron_man) return;
-    gXStatus.save_notice_shown = true;
+    g_save_notice_shown = true;
     ShowMainGameNotice(W8_STRING_AUTOSAVE_STARTING);
 }
 
@@ -1536,14 +1540,14 @@ void ReportSaveFailed(bool quiet)
 void ProcessMainGameAutoSave(void)
 {
     if ((g_settings.auto_save == 0 && !g_status.iron_man) || !CanAutoSaveNow()) return;
-    if (!gXStatus.save_notice_shown) {
+    if (!g_save_notice_shown) {
         if (gXStatus.gameplay_timer->GetProgress() <= 1.0f) return;
-        gXStatus.save_notice_shown = true;
+        g_save_notice_shown = true;
         ShowMainGameNotice(W8_STRING_AUTOSAVE_STARTING);
         gXStatus.gameplay_timer->Restart();
         return;
     }
-    gXStatus.save_notice_shown = false;
+    g_save_notice_shown = false;
     const bool saved = SaveGame(AutoSaveSlotName(), nullptr);
     ShowMainGameNotice(saved ? W8_STRING_AUTOSAVE_SUCCEEDED : W8_STRING_AUTOSAVE_FAILED);
 }

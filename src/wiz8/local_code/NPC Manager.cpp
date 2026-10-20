@@ -488,13 +488,13 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         std::unique_ptr<W8MonsterRecord[]> records;
         if (!LoadMonsterDatabase(&records)) return false;
         unsigned int species;
-        for (species = 0; species < gXStatus.uiMonstersInDatabase; ++species) {
+        for (species = 0; species < MonsterDatabaseCount(); ++species) {
             if ((records[species].flags & W8_MONSTER_FLAG_NPC) != 0 &&
                 records[species].npc_kind == npc->name_style) {
                 break;
             }
         }
-        if (species == gXStatus.uiMonstersInDatabase) {
+        if (species == MonsterDatabaseCount()) {
             return 0;
         }
         W8MonsterGroup* group = CreateGroup(species, 1, &position, true, false, true);
@@ -1427,7 +1427,7 @@ static void InitializeNpcItemTable(W8NpcState* npc)
     unsigned int index;
 
     memset(npc->item_ids, 0xff, sizeof(npc->item_ids));
-    if (npc->record->item_table_id >= static_cast<int>(gXStatus.uiItemTablesInDatabase)) {
+    if (npc->record->item_table_id >= static_cast<int>(ItemTableCount())) {
         return;
     }
     if (npc->record->item_table_id == 0) {
@@ -2216,15 +2216,15 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
         unsigned int index = 0;
 
         if (!LoadMonsterDatabase(&records)) return false;
-        if (gXStatus.uiMonstersInDatabase != 0) {
-            for (; index < gXStatus.uiMonstersInDatabase; ++index) {
+        if (MonsterDatabaseCount() != 0) {
+            for (; index < MonsterDatabaseCount(); ++index) {
                 if ((records[index].flags & W8_MONSTER_FLAG_NPC) != 0 &&
                     records[index].npc_kind == npc->name_style) {
                     break;
                 }
             }
         }
-        if (index == gXStatus.uiMonstersInDatabase) {
+        if (index == MonsterDatabaseCount()) {
             return false;
         }
         if (!FindEntityByName(entity_name, &position, 0, 0)) {

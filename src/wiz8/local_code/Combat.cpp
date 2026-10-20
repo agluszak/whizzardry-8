@@ -124,6 +124,8 @@ W8CombatLifecycle g_combat;
 /* The per-character combat rows live at +0x18 of the combat state and run
    0xd4 bytes apart; the state's leading 0x18 bytes are its own header. */
 static bool g_combat_log_enabled;
+/* A hostile NPC's combat-start script notice is queued and not yet shown. */
+static bool g_npc_combat_notice_pending;
 static int g_breath_notice_id = 0x65b;
 
 void ResetPartyCombatRows(void);
@@ -150,7 +152,7 @@ bool W8CombatLifecycle::Start(int surprise)
     if (g_status.world_cursor_gate != 0) {
         ClearMainGameTargetState();
     }
-    if (!gXStatus.npc_combat_notice_pending) {
+    if (!g_npc_combat_notice_pending) {
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             monster_info = GetMonsterListEntry(index);
             if (monster_info->pCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
@@ -159,18 +161,18 @@ bool W8CombatLifecycle::Start(int surprise)
                 npc = GetNpcStateForMonsterInfo(monster_info, false);
                 if (npc != 0 && npc->record->combat_script_notice_enabled != 0) {
                     QueueNpcScriptNotice(npc, 0, -1, false, 0);
-                    gXStatus.npc_combat_notice_pending = true;
+                    g_npc_combat_notice_pending = true;
                     BeginScriptedWorldAction();
                     break;
                 }
             }
         }
     }
-    if (gXStatus.npc_combat_notice_pending) {
+    if (g_npc_combat_notice_pending) {
         if (gXStatus.fNpcDialogueMode || ShouldDeferCharacterEventForNpcScript(false)) {
             return false;
         }
-        gXStatus.npc_combat_notice_pending = false;
+        g_npc_combat_notice_pending = false;
         ClearMainGameTargetState();
     }
     if (g_status.vi_event_stage == 1) {
@@ -547,15 +549,7 @@ void BeginCombatExecution(void)
         ClearCombatSelection();
     }
     ++g_combat.state()->round_count;
-    if (g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
-        g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
-        gXStatus.flPartyMoveDistLimit = GetPartyMovementSpeed();
-        ResetLevelMovement(gXStatus.flPartyMoveDistLimit, false,
-                           g_combat.state()->uiCurrentPartyAction == W8_PARTY_ACTION_RUN);
-    } else {
-        gXStatus.flPartyMoveDistLimit = 0.0f;
-        ResetLevelMovement(gXStatus.flPartyMoveDistLimit, true, false);
-    }
+    ResetRoundPartyMovement();
     g_combat.state()->round_counter = GetPhaseStep();
     if (CombatMayAdvanceContinuously()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, "");
@@ -1092,7 +1086,7 @@ void W8CombatLifecycle::End(bool forced_cleanup)
             ++entry;
         }
     }
-    gXStatus.combat_countdown = w8_get_ticks() + (120000);
+    RecordCombatStart();
     if (state_->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
@@ -1877,7 +1871,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
-            if (gXStatus.combat_difficulty != 0 &&
+            if (LastCombatDifficulty() != W8_DIFFICULTY_NOVICE &&
                 GetRandomPartySlots(0, 0, -1, &party_slot, 1, false) != 0 &&
                 (event = QueueCharacterEvent(&g_status.party.characters[party_slot], 35, 2,
                                              kCharacterEventFullVolume),

@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_mouse.h>
@@ -20,30 +21,18 @@
 #include "conditions.h"
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
-#include "wiz8/canvas/image.h"
-#include "wiz8/canvas/sprite.h"
-#include "wiz8/design_rect.h"
-#include "wiz8/fonts.h"
-#include "wiz8/layouts/party_slot.h"
-#include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
-#include "wiz8/ui_layer.h"
-#include "wiz8/unicode.h"
-#include "wiz8/world/level_session.h"
-#ifdef WIZ8_RUNTIME_TESTS
-#include "runtime_instrumentation.h"
-#endif
-#include <vector>
-
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/character.h"
 #include "wiz8/layouts/combat_state.h"
@@ -51,6 +40,8 @@
 #include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/item_instance.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/layouts/party_slot.h"
+#include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -60,7 +51,9 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/PartySelectionScreen.h"
@@ -74,8 +67,11 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/string_database.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/xstatus.h"
 
 constexpr unsigned int kPortraitLowHealthPercent = 20;
@@ -335,10 +331,6 @@ static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
     if (queue == 0) {
         return;
     }
-#ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_VOICE_FINISHED, CharacterPointerToPartySlot(entry->character),
-                   entry->event_type, 0);
-#endif
     queue->CompleteActiveEvent(entry);
 }
 
@@ -641,17 +633,6 @@ unsigned char W8CharacterEvent::PlayEventSound(std::string_view quote)
     BeginPortraitVoice(party_slot, voice_playback, sound_path,
                        ComputePortraitMessageDuration(
                            event_type > 0x91 ? std::string_view(FALLBACK_VOICE_TEXT) : quote));
-#ifdef WIZ8_RUNTIME_TESTS
-    if (voice_playback) {
-        const auto playback_time =
-            wiz8::sound::playback_time(voice_playback).value_or(wiz8::sound::PlaybackTime{});
-        RuntimeObserve(
-            RUNTIME_VOICE_STARTED, party_slot, true,
-            static_cast<int>(gXStatus.monster_manager_entries[party_slot].mouth_gap.ranges.size()));
-        RuntimeObserve(RUNTIME_VOICE_TIMING, party_slot, playback_time.total_ms,
-                       playback_time.current_ms);
-    }
-#endif
     return 1;
 }
 
@@ -1673,9 +1654,6 @@ bool UpdateCharacterEventState(void)
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         W8MonsterManagerEntry* record = &gXStatus.monster_manager_entries[party_slot];
         bool sound_active = false;
-#ifdef WIZ8_RUNTIME_TESTS
-        int previous_frame = record->portrait.frame;
-#endif
 
         if (!g_status.party.rows[party_slot].fOccupied) {
             continue;
@@ -1686,18 +1664,8 @@ bool UpdateCharacterEventState(void)
                     FinishPortraitSpeech(party_slot);
                 }
             } else {
-#ifdef WIZ8_RUNTIME_TESTS
-                bool previous_mouth = record->mouth_gap.mouth_open;
-#endif
                 UpdateMouthGapTrack(record->voice_sound_handle, record->mouth_gap);
                 sound_active = record->mouth_gap.mouth_open;
-#ifdef WIZ8_RUNTIME_TESTS
-                if (sound_active != previous_mouth) {
-                    RuntimeObserve(RUNTIME_MOUTH_CHANGED, party_slot,
-                                   wiz8::sound::elapsed_ms(record->voice_sound_handle),
-                                   sound_active);
-                }
-#endif
             }
         }
 
@@ -1724,18 +1692,6 @@ bool UpdateCharacterEventState(void)
             }
         }
 
-#ifdef WIZ8_RUNTIME_TESTS
-        if (record->portrait.frame != previous_frame) {
-            RuntimeObserve(RUNTIME_PORTRAIT_FRAME_CHANGED, party_slot, record->portrait.frame,
-                           record->portrait.frame_dirty);
-            RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_STATE, party_slot,
-                           (record->portrait.pose_dirty ? 1UL : 0UL) |
-                               (record->portrait.frame_dirty ? 2UL : 0UL) |
-                               (record->auto_portrait_refresh ? 4UL : 0UL) |
-                               (record->keyboard_menu_open ? 8UL : 0UL),
-                           CurrentScreenState().id);
-        }
-#endif
         if (gXStatus.fNpcDialogueMode && (party_slot & 1) != 0 &&
             IsPortraitObscuredByNpcDialogue(party_slot)) {
             continue;
@@ -1745,10 +1701,6 @@ bool UpdateCharacterEventState(void)
             AdvancePortraitPose(record->portrait);
             if ((record->portrait.pose_dirty || record->portrait.frame_dirty) &&
                 !record->keyboard_menu_open) {
-#ifdef WIZ8_RUNTIME_TESTS
-                RuntimeObserve(RUNTIME_PORTRAIT_REFRESH_REQUESTED, party_slot,
-                               record->portrait.frame, CurrentScreenState().id);
-#endif
                 RefreshPartySlotDisplay(party_slot);
             }
         }
@@ -1794,11 +1746,6 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
          .surprised = bool(gXStatus.fSurprisePossible),
          .missing = g_status.party.characters[party_slot].highest_condition == W8_CONDITION_MISSING,
          .zero_hp = g_status.party.characters[party_slot].hp_current == 0});
-#ifdef WIZ8_RUNTIME_TESTS
-    if (drawn)
-        RuntimeObserve(RUNTIME_PORTRAIT_BLIT, party_slot,
-                       gXStatus.monster_manager_entries[party_slot].portrait.frame, portrait);
-#endif
     return drawn;
 }
 

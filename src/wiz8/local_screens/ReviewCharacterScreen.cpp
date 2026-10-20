@@ -766,9 +766,6 @@ bool CampScreen::leave(ScreenDeparture)
     g_calligraphy_shadow_font.resetPalette();
     g_wiz_text_font.resetPalette();
     state.reset();
-    if (gXStatus.fCampMode) {
-        gXStatus.dialogue_sync_pending = true;
-    }
     return true;
 }
 
