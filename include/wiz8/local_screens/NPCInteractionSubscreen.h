@@ -111,8 +111,11 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
 void FlushPendingNoticeLines(void);
 
 void SyncDialogueNpcState(void);
-/* Store a transcript keyword, inferring its category when category is -1. */
-void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory category);
+/* Learn one keyword into the notebook unless it is already there. Category
+   -1 classifies the text against items, NPC and named-monster names and the
+   place-name table. While the transcript shows the notebook the new line
+   appears there too, marked and with the keyword chime when `chime` is set. */
+void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bool chime);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
@@ -146,10 +149,6 @@ void DrainNpcDialogueDeferralInput(void);
 void FlushInputWhileWorldCursorGate(void);
 void HandleNpcDialogueInput(void);
 void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data);
-/* Learn one keyword into the dialogue transcript. category -1
-   auto-classifies the text against items, NPC/named-monster names and the
-   place-name table; a nonzero play_chime rings the keyword chime. */
-void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int play_chime);
 void CloseNpcDialogueForCamp(void);
 void UpdateNpcDialogueSubMode(void);
 /* Restate the five transcript category buttons so only the

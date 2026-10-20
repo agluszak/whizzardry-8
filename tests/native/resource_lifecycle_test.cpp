@@ -130,9 +130,9 @@ static void npc_script_teardown()
 // A game's transcript and queued NPC messages end with it; the next game starts empty.
 static void queued_state_teardown(GameSession& session)
 {
-    AddDialogueTranscriptKeyword("Monastery", W8_DIALOGUE_CATEGORY_PLACES);
-    AddDialogueTranscriptKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES);
-    REQUIRE((static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size()) == 2));
+    LearnDialogueKeyword("Monastery", W8_DIALOGUE_CATEGORY_PLACES, false);
+    LearnDialogueKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES, false);
+    REQUIRE((static_cast<int>(CurrentGame().story.keywords.size()) == 2));
     auto& dialogue = CurrentGame().npc_dialogue;
     dialogue.QueuePortraitMessage(std::string(80, 't'));
     dialogue.QueuePortraitMessage(std::string(80, 't'), W8ExperienceNoticePayload{});
@@ -140,7 +140,7 @@ static void queued_state_teardown(GameSession& session)
     dialogue.QueuePortraitMessage(std::string(80, 't'), W8LevelUpNotice{});
     REQUIRE(dialogue.has_queued_actions());
     session.begin();
-    REQUIRE(CurrentGame().npc_interaction.dialogue_transcript.empty());
+    REQUIRE(CurrentGame().story.keywords.empty());
     REQUIRE((!CurrentGame().npc_dialogue.has_queued_actions()));
 }
 

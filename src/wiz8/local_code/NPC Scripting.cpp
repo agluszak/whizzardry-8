@@ -119,9 +119,9 @@ void ApplyScriptedDialogueKeyword(const ScriptContext& context, W8NpcQuoteEntryK
         std::string keyword_text;
         keyword_text = text;
         if (!context.activity.conversation || !CurrentGame().npc_interaction.scripted_dialogue) {
-            AddNpcDialogueKeyword(keyword_text, category, 1);
+            LearnDialogueKeyword(keyword_text, category, true);
         } else {
-            AddDialogueTranscriptKeyword(keyword_text, category);
+            LearnDialogueKeyword(keyword_text, category, false);
         }
     }
 }
