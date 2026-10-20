@@ -54,7 +54,7 @@ public:
        The main game screen steps the game between reading input and drawing;
        `hold` says what of it the interface holds this step. */
     struct StepHold {
-        // A picker or level transition is open, so the combat turn waits.
+        // A spell or item picker is open, so the combat turn waits.
         bool combat = false;
     };
     void advance(StepHold hold);

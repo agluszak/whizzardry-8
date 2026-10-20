@@ -198,7 +198,7 @@ Unlayered code may use the layers.
   starts, monster sight and the nearby world items on their own deadlines, monster
   groups, and the worlds. The main game screen is its driver: each frame it reads input
   and moves the camera, steps the game unless a screen transition is pending (telling it
-  whether a picker or a level transition holds the combat turn), then commits pickers,
+  whether a picker holds the combat turn), then commits pickers,
   services dialogue and draws. A navigator that moved during a fight is reported as
   `CombatantsMoved`, and the screen recounts its monster target panel.
 - **The combat turn.** `W8CombatState::turn()` is a `CombatTurn` value: idle, or a

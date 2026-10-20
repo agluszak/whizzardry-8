@@ -450,7 +450,8 @@ enum W8MainGameMode {
 extern W8MainGameMode g_main_game_mode;
 extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
-void BeginLevelTransition(void);
+// Change to `level`, arriving at `entry` (-1 for a saved location).
+void BeginLevelTransition(int level, int entry);
 void SetViewportMode(W8ViewportMode mode);
 /* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
    panels, optionally re-raise them from settings prefs, refresh tooltip and

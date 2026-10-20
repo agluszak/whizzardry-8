@@ -2288,23 +2288,11 @@ bool MainGameScreen::enter(const ScreenRequest&)
 /* The "Enter <level>?" confirmation's completion callback: a cancelled dialog
    restores the camera the trigger cached, a confirmed one runs the pending
    transition teardown. */
-static void OnEnterLevelDialogClosed(bool accepted)
-{
-    if (accepted) {
-        BeginLevelTransition();
-        return;
-    }
-    WorldSetCameraLocation(&g_trigger_camera);
-}
-
-/* Stage the HUD state's pending transition into the screen state and leave
-   modes 3/5/6, then hand the please-wait transition to the state machine.
+/* Leave modes 3/5/6, then hand the level change to the please-wait screen.
    Retail never calls this out-of-line; the same teardown is emitted inline at
    the dialog callback and at RequestLevelTransition's unconfirmed path. */
-void BeginLevelTransition(void)
+void BeginLevelTransition(int level, int entry)
 {
-    const int level = MainGameHud()->pending_level;
-    const int entry = MainGameHud()->pending_entry_id;
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
     RequestScreen({.id = W8_SCREEN_PLEASE_WAIT,
                    .mode = W8_PLEASE_WAIT_CHANGE_LEVEL,
@@ -2508,8 +2496,7 @@ void MainGameScreen::frame()
             UpdateFormationPortraitRefresh();
         }
         if (!IsWorldCursorVisible() && !g_mouselook_active) AnimateShownCursor();
-        CurrentGame().advance(
-            {.combat = MainGameHud()->transition_active || gpSCSV || ItemUseDraft()});
+        CurrentGame().advance({.combat = gpSCSV || ItemUseDraft()});
         if (CurrentGame().combat.active() && MainGameHud()->refresh_combat_panel &&
             !TimeUntilDeadline(MainGameHud()->combat_panel_timer)) {
             RefreshMonsterTargetCounts();
@@ -2530,7 +2517,7 @@ void MainGameScreen::frame()
         }
         SetWorldModelPickingEnabled(active);
         if (CurrentGame().level_up_check_due && !CurrentGame().activity.conversation &&
-            !CurrentGame().combat.active() && !MainGameHud()->transition_active) {
+            !CurrentGame().combat.active()) {
             RefreshLevelUpReadyNotices();
         }
         if (CurrentGame().status.selected_character == -1) {
@@ -3872,17 +3859,16 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
 {
     unsigned int normalized = NormalizeMasterFunctionValue(level);
 
-    MainGameHud()->pending_level = normalized;
-    MainGameHud()->pending_entry_id = entry;
+    const int level_id = static_cast<int>(normalized);
     if (flag != 0) {
+        std::string question;
         if (normalized < 0x2f) {
-            MainGameHud()->text_paint_scratch = fmt::format(
-                "{} {}?", Data().strings[0x799], Data().strings[g_level_name_indices[normalized]]);
+            question = fmt::format("{} {}?", Data().strings[0x799],
+                                   Data().strings[g_level_name_indices[normalized]]);
         } else if (normalized == 0x38) {
-            MainGameHud()->text_paint_scratch = g_text_enter_default_level;
+            question = g_text_enter_default_level;
         } else {
-            MainGameHud()->text_paint_scratch =
-                fmt::format("Enter test level {:c} ?", normalized + 2);
+            question = fmt::format("Enter test level {:c} ?", normalized + 2);
         }
         if (QueueNpcDepartureEvents(normalized)) {
             WorldSetCameraLocation(&g_trigger_camera);
@@ -3891,13 +3877,18 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
         SetMainGameMode(W8_MAIN_GAME_MODAL);
         W8MessageDialogBase* dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 0xc8);
-        dialog->SetMessage(MainGameHud()->text_paint_scratch, 1, 0x32, true, true, true, true, 0,
-                           0x15e);
-        dialog->on_complete = OnEnterLevelDialogClosed;
+        dialog->SetMessage(question, 1, 0x32, true, true, true, true, 0, 0x15e);
+        dialog->on_complete = [level_id, entry](bool accepted) {
+            if (accepted) {
+                BeginLevelTransition(level_id, entry);
+            } else {
+                WorldSetCameraLocation(&g_trigger_camera);
+            }
+        };
         OpenModal(std::unique_ptr<ModalContent>(dialog));
         return;
     }
-    BeginLevelTransition();
+    BeginLevelTransition(level_id, entry);
 }
 
 /* Switch the 3D view to another viewport mode: resize the view region to the
@@ -5980,8 +5971,7 @@ static bool InteractionBlocksWorldAdvancement()
            gpSCSV || ItemUseDraft() || CurrentGame().activity.conversation ||
            FormationPanelOpen() || IsModalOpen() || !IsVideoActive() ||
            TargetingMode() == W8_TARGET_NEED_CONE ||
-           (MainGameHud() &&
-            (MainGameHud()->transition_active || MainGameHud()->review_transition_active));
+           (MainGameHud() && MainGameHud()->review_transition_active);
 }
 
 // Report what the interface holds; the game applies the edges and the screen shows them.
