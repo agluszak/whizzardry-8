@@ -1,15 +1,20 @@
 #pragma once
 
 #include <functional>
+#include <memory>
+#include <vector>
 
 #include "wiz8/character_event_queue.h"
 #include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/message_log.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/story.h"
 
 /* One play-through, from choosing a new game or loading one until the player quits to
    the menu. Starting or loading a game replaces the whole object, so nothing is reset
@@ -24,10 +29,15 @@ public:
 
     W8Party party{};
     W8GlobalStatus status{};
+    Story story;
+    W8MessageLog message_log;
     W8CombatLifecycle combat;
     /* What the party is doing. The screen router sets the place as the world, the camp or
        another screen becomes current; dialogue and story scenes set the rest. */
     Activity activity;
+    /* Spells still taking effect: casts whose missiles are in flight, and the
+       sustained monster control the HYPN section saves. */
+    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech;
     W8GameTimer gameplay_timer{300.0f, false};

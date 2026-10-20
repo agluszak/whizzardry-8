@@ -118,12 +118,6 @@ static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 /* The screen the text box belongs to; its two panels sit at 0x0c
    and 0x14. */
 
-/* Release every heap object owned by the four-by-350 message store, then
-   return each record to its all-zero initial state.  The retail body walks
-   the same record boundary twice: 0x15e records per run and four runs up to
-   the next global at 0x0069B7D0. */
-W8MessageStorageRecord g_message_storage[4][0x15e];
-
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
                              int wrapped_line);
 
@@ -145,25 +139,16 @@ void W8MessageStorageRecord::RebuildEntries()
     }
 }
 
-void ResetMessageStorage(void)
+void RebuildMessageLogWords(void)
 {
-    int row;
-    int index;
-
-    for (row = 0; row < 4; ++row) {
-        for (index = 0; index < 0x15e; ++index) {
-            W8MessageStorageRecord* record = &g_message_storage[row][index];
-            if (record->text.empty()) {
-                continue;
-            }
-            record->RebuildEntries();
-        }
-    }
+    for (auto& box : CurrentGame().message_log)
+        for (auto& record : box)
+            if (!record.text.empty()) record.RebuildEntries();
 }
 
 static void ReleaseMessageRow(int row)
 {
-    for (auto& record : g_message_storage[row]) {
+    for (auto& record : CurrentGame().message_log[row]) {
         record = {};
     }
 }
@@ -216,7 +201,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         return;
     }
     if (CurrentGame().status.text_box_lines_used[text_box] == 350) {
-        W8MessageStorageRecord* first = &g_message_storage[text_box][0];
+        W8MessageStorageRecord* first = &CurrentGame().message_log[text_box][0];
         for (int i = 0; i < 349; ++i) {
             first[i] = std::move(first[i + 1]);
         }
@@ -232,7 +217,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         }
     }
     unsigned int index = CurrentGame().status.text_box_lines_used[text_box];
-    W8MessageStorageRecord* record = &g_message_storage[text_box][index];
+    W8MessageStorageRecord* record = &CurrentGame().message_log[text_box][index];
     record->text.assign(text);
     record->RebuildEntries();
     ++CurrentGame().status.text_box_lines_used[text_box];
@@ -248,7 +233,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         CurrentGame().status.text_box_lines_shown[3] = CurrentGame().status.text_box_lines_used[3];
         g_level_block->text_lines[3] = CurrentGame().status.text_box_lines_used[3];
         W8MessageStorageRecord* last =
-            &g_message_storage[3][CurrentGame().status.text_box_lines_shown[3] - 1];
+            &CurrentGame().message_log[3][CurrentGame().status.text_box_lines_shown[3] - 1];
         auto delay = g_settings.text_display_delay_ms *
                      (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
@@ -397,13 +382,6 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
     }
 }
 
-void ReleaseMessageStorage(void)
-{
-    for (int row = 0; row < 4; ++row) {
-        ReleaseMessageRow(row);
-    }
-}
-
 /* Write the four message runs into the open TEXT chunk: a format dword, then
    per region the used-line count followed by each 0x24-byte record and its
    wide string. The record's first word is the string count including its
@@ -420,7 +398,7 @@ unsigned char SaveMessageStorage(wiz8::File& file)
     for (region = 0; region < 4; ++region) {
         file.write(&CurrentGame().status.text_box_lines_used[region], 4);
         for (index = 0; index < CurrentGame().status.text_box_lines_used[region]; ++index) {
-            live_record = &g_message_storage[region][index];
+            live_record = &CurrentGame().message_log[region][index];
             disk_record.character_count =
                 !live_record->text.empty()
                     ? static_cast<w8_ulong>(wiz8::text::to_utf16(live_record->text).size() + 1)
@@ -479,7 +457,6 @@ try {
     unsigned int region;
     unsigned int index;
 
-    ReleaseMessageStorage();
     file.ReadBytes(&format, 4);
     for (region = 0; region < 4; ++region) {
         if (CurrentGame().status.save_version < g_prepath_link_height && region == 3) {
@@ -490,7 +467,8 @@ try {
         if (CurrentGame().status.text_box_lines_used[region] > 0x15e) return 0;
         for (index = 0; index < CurrentGame().status.text_box_lines_used[region]; ++index) {
             file.ReadBytes(&disk_record, sizeof(disk_record));
-            live_record = &g_message_storage[region][index];
+            live_record = &CurrentGame().message_log[region][index];
+            *live_record = {};
             live_record->font_palette = disk_record.font_palette;
             live_record->highlight_color = disk_record.highlight_color;
             live_record->highlight_start = disk_record.highlight_start;
@@ -569,7 +547,7 @@ void AppendTextBoxLine(std::string_view text, short text_box)
 {
     text_box = ResolveNoticeTextBox(text_box);
     auto& line =
-        g_message_storage[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
+        CurrentGame().message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
     line.length = wiz8::checked_integer<int>(line.text.size());
     line.text.append(text);
 }
@@ -610,7 +588,8 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     if (!(CurrentGame().status.text_box_lines_used[text_box] > 0)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
-    line = &g_message_storage[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
+    line = &CurrentGame()
+                .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
     if (g_level_block->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
         return;
     }
@@ -623,7 +602,8 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
     if (!(CurrentGame().status.text_box_lines_used[text_box] >= 2)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] >= 2");
     }
-    previous = &g_message_storage[text_box][CurrentGame().status.text_box_lines_used[text_box] - 2];
+    previous = &CurrentGame()
+                    .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 2];
     if (start >= g_level_block->text_lines[8 + text_box]) {
         line->highlight_start = start - g_level_block->text_lines[8 + text_box];
     } else {
@@ -660,7 +640,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     if (!(*lines_used > 0)) {
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
-    W8MessageStorageRecord* line = &g_message_storage[text_box][*lines_used - 1];
+    W8MessageStorageRecord* line = &CurrentGame().message_log[text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
     unsigned char channel = line->font_palette;
     int link = line->link;
@@ -681,7 +661,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         HighlightTextBoxRange(color, start, stop, text_box);
     }
     if (link != 0) {
-        W8MessageStorageRecord* last = &g_message_storage[text_box][*lines_used - 1];
+        W8MessageStorageRecord* last = &CurrentGame().message_log[text_box][*lines_used - 1];
         int propagated = 0;
         if (last->link != -1 && last->link + 1 > 0) {
             W8MessageStorageRecord* entry = last;
@@ -746,7 +726,7 @@ void AdvanceNoticeLine(short text_box)
         Fail("gStatus.uiTextBoxLinesShown[iTextBuffer] < MAX_TEXT_BOX_LINES");
     }
     W8MessageStorageRecord* record =
-        &g_message_storage[text_box][CurrentGame().status.text_box_lines_shown[text_box]];
+        &CurrentGame().message_log[text_box][CurrentGame().status.text_box_lines_shown[text_box]];
     auto delay = g_settings.text_display_delay_ms *
                  (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
@@ -1076,7 +1056,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
-            TimeUntilDeadline(g_message_storage[text_box][scroll + rows - 1].clock) == 0) {
+            TimeUntilDeadline(CurrentGame().message_log[text_box][scroll + rows - 1].clock) == 0) {
             return;
         }
     }
@@ -1093,7 +1073,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         for (row = 0; row < rows; ++row) {
             line_index = static_cast<int>(scroll + row);
             if (static_cast<unsigned int>(line_index) < 0x15e) {
-                line = &g_message_storage[text_box][line_index];
+                line = &CurrentGame().message_log[text_box][line_index];
                 if (!line->text.empty()) {
                     if (text_box == 3 || !g_level_block->text_box_visible) {
                         x = g_level_block->text_box_left;
@@ -1223,7 +1203,8 @@ int FindStoppedTextLine(void)
     }
     while (--index >= 0) {
         if (TimeUntilDeadline(
-                g_message_storage[CurrentGame().status.text_line_cursor][index].clock) == 0) {
+                CurrentGame().message_log[CurrentGame().status.text_line_cursor][index].clock) ==
+            0) {
             return index;
         }
     }
@@ -1312,7 +1293,7 @@ static void SelectWrappedTextLine(int line, int box, int (&selection)[4])
         unsigned int first = g_level_block->text_lines[CurrentGame().status.text_line_cursor];
         if (first <= static_cast<unsigned int>(line) &&
             static_cast<unsigned int>(line) < first + 7) {
-            W8MessageStorageRecord* record = &g_message_storage[box][line];
+            W8MessageStorageRecord* record = &CurrentGame().message_log[box][line];
             while (record->link != 0 && line != 0) {
                 --line;
                 --record;
@@ -1368,7 +1349,7 @@ static void DrawNoticeWordOverlays(W8MessageStorageRecord* line, int x, int y)
 
 static void ClearNoticeWordState(int text_box, bool selected, bool redraw)
 {
-    for (auto& line : g_message_storage[text_box]) {
+    for (auto& line : CurrentGame().message_log[text_box]) {
         for (auto& word : line.entries) {
             if ((word.keyword == W8_NOTICE_WORD_SELECTED) == selected) {
                 word.keyword = W8_NOTICE_WORD_NORMAL;
@@ -1397,10 +1378,11 @@ static int GetNoticeLineLeft(int text_box, int line)
     if (CurrentGame().status.text_line_cursor == 3 || !g_level_block->text_box_visible) {
         x_base = g_level_block->text_box_left;
     } else {
-        x_base =
-            g_level_block->text_box_left +
-            ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
-             g_level_block->text_box_font->textWidth(g_message_storage[text_box][line].text) / 2);
+        x_base = g_level_block->text_box_left +
+                 ((g_level_block->text_box_right - g_level_block->text_box_left) / 2 -
+                  g_level_block->text_box_font->textWidth(
+                      CurrentGame().message_log[text_box][line].text) /
+                      2);
     }
     return x_base;
 }
@@ -1417,7 +1399,7 @@ void HighlightNoticeWordAt(int text_box, unsigned short x, unsigned short y)
         if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
-            for (auto& entry : g_message_storage[text_box][line].entries) {
+            for (auto& entry : CurrentGame().message_log[text_box][line].entries) {
                 auto* word = &entry;
                 if (word->x_start <= offset && offset <= word->x_end &&
                     word->keyword != W8_NOTICE_WORD_SELECTED) {
@@ -1440,7 +1422,7 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
         if (line < static_cast<int>(CurrentGame().status.text_box_lines_shown[text_box])) {
             x_base = GetNoticeLineLeft(text_box, line);
             offset = x - x_base;
-            for (auto& entry : g_message_storage[text_box][line].entries) {
+            for (auto& entry : CurrentGame().message_log[text_box][line].entries) {
                 auto* word = &entry;
                 if (word->x_start <= offset && offset <= word->x_end) {
                     *line_out = line;
@@ -1454,7 +1436,8 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 
 std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 {
-    return g_message_storage[text_box][line].text.substr(word->start, word->end - word->start + 1);
+    return CurrentGame().message_log[text_box][line].text.substr(word->start,
+                                                                 word->end - word->start + 1);
 }
 
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
@@ -1500,12 +1483,12 @@ void RefreshTextBoxMode(unsigned short mode)
         Fail("gStatus.uiTextBoxLinesUsed[iTextBuffer] > 0");
     }
     last_line = CurrentGame().status.text_box_lines_used[text_box] - 1;
-    group_lines = g_message_storage[text_box][last_line].link;
+    group_lines = CurrentGame().message_log[text_box][last_line].link;
     if (last_line < group_lines) {
         Fail("uiLastLineIndex >= uiGroupLine");
     }
     first_line = last_line - group_lines;
-    line = &g_message_storage[text_box][first_line];
+    line = &CurrentGame().message_log[text_box][first_line];
     length = 0;
     for (index = first_line; index <= last_line; index++, line++) {
         if (index == first_line) {

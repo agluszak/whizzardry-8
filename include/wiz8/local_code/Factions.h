@@ -9,24 +9,6 @@ namespace wiz8 {
 class File;
 }
 
-#pragma pack(push, 1)
-
-struct W8FactionRuntimeRecord {
-    signed char disposition_score;
-    /* Witnessed offenses against the faction; RecordFactionOffense
-       increments it (cap 0xfa) and reads it for the penalty tiers. */
-    int offense_count;
-    unsigned char unknown_05;
-    /* G_status.world_clock at the last band change. */
-    int band_changed_clock;
-    /* Raised by the sight pass the first time the party sees one of
-       this faction's monsters; the journal lists encountered factions. */
-    bool encountered;
-    unsigned char unknown_0b[3];
-};
-
-#pragma pack(pop)
-
 enum W8FactionDisposition : unsigned char {
     W8_FACTION_HOSTILE = 0,
     W8_FACTION_NEUTRAL = 1,
@@ -39,19 +21,11 @@ enum W8Disposition : unsigned char {
     W8_DISPOSITION_FRIENDLY = 2
 };
 
-extern W8FactionRuntimeRecord g_factions[W8_FACTION_COUNT];
-/* The 21x21 byte relation matrix, one row per faction, saved and
-   loaded whole by the FATA state handlers and reset with g_factions. */
-extern unsigned char g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
 W8FactionDisposition GetFactionDisposition(signed char faction);
 
 /* `other` as the party reads the live score band; any other
    target is answered by the static relation matrix. */
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other);
-
-/* Zero both faction tables and seed the starting dispositions and
-   relations a fresh game begins with. */
-void ResetFactions(void);
 
 void SetFactionDispositionBand(signed char faction, W8FactionDisposition band);
 

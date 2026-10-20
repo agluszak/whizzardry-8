@@ -142,8 +142,6 @@ struct W8SpellEffectEntry {
     W8SpellEffectResult result;
 };
 
-extern std::vector<std::unique_ptr<W8SpellEffectEntry>> g_spell_effects;
-
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void);
 /* Advance every queued spell effect one frame. */
 void UpdateSpellEffects(void);

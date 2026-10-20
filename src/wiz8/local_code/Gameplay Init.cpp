@@ -14,7 +14,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Combat.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayDatabase.h"
 #include "wiz8/local_code/GameplayInit.h"
@@ -24,7 +23,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -54,7 +52,6 @@ void ResetForNewGame(void)
     unsigned int index;
 
     BeginGame();
-    ReleaseMessageStorage();
     *(&CurrentGame().party.held.item) = W8ItemInstance{.iItemNo = -1};
     slot = CurrentGame().party.item_pool;
     do {
@@ -95,9 +92,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     if (notify) {
         ReturnToPreviousScreen();
     }
-    ResetNpcStates();
-    InitializeFactJournal();
-    ResetFactions();
+    CreateNewGameNpcStates();
     ResetMainScreenStateBlock();
     RequestScreen({.id = W8_SCREEN_GAME_START_ROUTER});
 }

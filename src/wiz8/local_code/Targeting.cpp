@@ -264,7 +264,7 @@ signed char FindFactionByName(const char* name)
 
 void SetFactionFlag(signed char faction, bool flag)
 {
-    g_factions[faction].encountered = flag;
+    CurrentGame().story.factions[faction].encountered = flag;
 }
 
 /* Build an empty target block: everything zeroed, then the two ids set to

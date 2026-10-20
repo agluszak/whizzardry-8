@@ -83,14 +83,8 @@ int g_journal_page_count = -1;
 /* The highlight palette, frame 0x1b9 of the catalog, taken while the screen is open. */
 Palette16 g_journal_font_palette;
 std::vector<W8JournalEntry> g_journal_entries;
-std::vector<W8JournalEntry> g_fact_journal_entries;
 
 bool g_fact_notifications_suppressed;
-
-void InitializeFactJournal(void)
-{
-    g_fact_journal_entries.clear();
-}
 
 /* Append one changed fact to the journal and, when notices are not suppressed
    and the fact is visible at the current notice setting, post the fact's own
@@ -101,7 +95,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     entry.level = GetLoadedLevelID();
     entry.fact = fact_id;
     entry.alternate_text = GetFact(fact_id) != 0;
-    g_fact_journal_entries.push_back(entry);
+    CurrentGame().story.journal.push_back(entry);
 
     if (g_fact_notifications_suppressed || static_cast<unsigned>(fact_id) >= Data().facts.size()) {
         return;
@@ -153,29 +147,29 @@ void SaveFactJournal(wiz8::File& file)
     int format = 1;
     int count;
 
-    count = static_cast<int>(g_fact_journal_entries.size());
+    count = static_cast<int>(CurrentGame().story.journal.size());
     file.write(&format, 4);
     file.write(&count, 4);
-    for (const auto& entry : g_fact_journal_entries) {
+    for (const auto& entry : CurrentGame().story.journal) {
         const JournalEntryRecord record{entry.level, static_cast<std::int32_t>(entry.fact),
                                         entry.alternate_text, entry.unknown_09};
         file.write(&record, sizeof(record));
     }
 }
 
-/* Resize the live journal entries before reading the JRNL records. */
+/* Replace the journal with the JRNL records. */
 void LoadJournalEntries(W8Chunk& file)
 {
     int format;
     int count;
 
-    InitializeFactJournal();
     file.ReadBytes(&format, 4);
     file.ReadBytes(&count, 4);
     if (count < 0 || count > file.RemainingBytes() / std::int64_t{sizeof(JournalEntryRecord)})
         throw std::runtime_error("invalid journal count");
-    g_fact_journal_entries.resize(count);
-    for (auto& entry : g_fact_journal_entries) {
+    auto& journal = CurrentGame().story.journal;
+    journal.assign(count, {});
+    for (auto& entry : journal) {
         JournalEntryRecord record;
         file.ReadBytes(&record, sizeof(record));
         entry = {record.level, static_cast<W8FactId>(record.fact), record.alternate_text != 0,
@@ -279,7 +273,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         int y = 0x39;
         for (int index = 0; index < 11; ++index) {
             signed char faction = g_journal_factions[index];
-            if (g_factions[faction].encountered) {
+            if (CurrentGame().story.factions[faction].encountered) {
                 W8FactionDisposition disposition = GetFactionDisposition(faction);
                 std::string disposition_name;
                 switch (disposition) {
@@ -406,7 +400,7 @@ bool JournalScreen::enter(const ScreenRequest&)
     }
 
     g_journal_entries.clear();
-    for (const auto& entry : g_fact_journal_entries) {
+    for (const auto& entry : CurrentGame().story.journal) {
         // Retail saves can name a fact past the end of FACT.DBS; keep it, show nothing.
         if (static_cast<unsigned>(entry.fact) >= Data().facts.size()) continue;
         const W8FactDatabaseRecord* fact = &Data().facts[entry.fact];

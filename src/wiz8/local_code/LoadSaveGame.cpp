@@ -286,7 +286,7 @@ template<class F> void ForEachShownMessage(F&& visit)
 {
     for (int box = 0; box < 4; ++box) {
         for (unsigned int line = 0; line < CurrentGame().status.text_box_lines_shown[box]; ++line) {
-            visit(g_message_storage[box][line]);
+            visit(CurrentGame().message_log[box][line]);
         }
     }
 }
@@ -1332,8 +1332,6 @@ void LeaveGameSession(void)
     ResetMainGameScreenState();
     ClearNpcMessageQueue();
     ResetMainScreenStateBlock();
-    g_spell_effects.clear();
-    ClearLocationVariables();
     ResetSpellCooldowns();
 }
 
@@ -1631,8 +1629,8 @@ W8SavedGameStatus DecodeGameStatus(W8Chunk& chunks)
         status.text_box_lines_shown[3] = 0;
     }
     for (int box = 0; box < 4; ++box) {
-        if (status.text_box_lines_used[box] > std::size(g_message_storage[box]) ||
-            status.text_box_lines_shown[box] > std::size(g_message_storage[box]))
+        if (status.text_box_lines_used[box] > W8_TEXT_BOX_LINES ||
+            status.text_box_lines_shown[box] > W8_TEXT_BOX_LINES)
             throw std::runtime_error("invalid message storage count");
     }
     for (auto& character : party.characters) {
@@ -1774,5 +1772,5 @@ void LoadMonsterControlSpellEffect(W8Chunk* chunks)
         else
             chunks->ReadValue(field);
     });
-    g_spell_effects.push_back(std::move(effect));
+    CurrentGame().spell_effects.push_back(std::move(effect));
 }

@@ -388,7 +388,6 @@ bool CanPartySlotReBreathe(int party_slot)
    distinguished only by its kind; the effect body itself lives elsewhere. */
 enum { W8_PARTY_CONDITION_SLOTS = 12, W8_COMBAT_CONDITION_SLOTS = 9 };
 
-std::vector<std::unique_ptr<W8SpellEffectEntry>> g_spell_effects;
 /* Debug switch: when set, every cast except 0x76 fizzles on a forced 100
    percent failure chance. */
 bool g_force_spell_failure;
@@ -397,8 +396,8 @@ bool AllSpellEffectsStillRunning(void)
 {
     int index;
 
-    for (index = 0; index < static_cast<int>(g_spell_effects.size()); ++index) {
-        if (g_spell_effects[index]->turns_remaining == 0) {
+    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
+        if (CurrentGame().spell_effects[index]->turns_remaining == 0) {
             return false;
         }
     }
@@ -407,7 +406,7 @@ bool AllSpellEffectsStillRunning(void)
 
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 {
-    for (const auto& owned : g_spell_effects) {
+    for (const auto& owned : CurrentGame().spell_effects) {
         auto& effect = *owned;
         if (effect.kind == W8_SPELL_HYPNOTIC_LURE) return &effect;
     }
@@ -430,7 +429,7 @@ static void ReleaseHypnoticLureControl()
 
 void TickSpellEffects(void)
 {
-    for (const auto& effect : g_spell_effects) {
+    for (const auto& effect : CurrentGame().spell_effects) {
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE)
@@ -516,7 +515,7 @@ void StartCharacterBreathAttack(int party_slot)
    the missile; nothing happens if it has already been detached. */
 void AbsorbMissileDamage(Missile* missile)
 {
-    for (const auto& effect : g_spell_effects) {
+    for (const auto& effect : CurrentGame().spell_effects) {
         for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
              ++missile_index) {
             if (effect->missiles[missile_index] == missile) {
@@ -554,11 +553,11 @@ void UpdateSpellEffects(void)
     bool handled = false;
     int index;
 
-    if (static_cast<int>(g_spell_effects.size()) <= 0) {
+    if (static_cast<int>(CurrentGame().spell_effects.size()) <= 0) {
         return;
     }
-    for (index = 0; index < static_cast<int>(g_spell_effects.size()); ++index) {
-        auto& effect = *g_spell_effects[index];
+    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
+        auto& effect = *CurrentGame().spell_effects[index];
         bool alive = true;
 
         for (int visual_index = 0;
@@ -670,7 +669,7 @@ void UpdateSpellEffects(void)
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
         }
-        g_spell_effects.erase(g_spell_effects.begin() + index);
+        CurrentGame().spell_effects.erase(CurrentGame().spell_effects.begin() + index);
         --index;
     }
 }
@@ -679,7 +678,9 @@ void UpdateSpellEffects(void)
    whose missile list contains it drops the entry and stops the walk. */
 void DetachMissileReferences(Missile* missile)
 {
-    for (const auto& effect : g_spell_effects) {
+    // The spell effects end with their game; a missile may outlive it.
+    if (!GameInProgress()) return;
+    for (const auto& effect : CurrentGame().spell_effects) {
         const bool was_removed = wiz8::erase_first(effect->missiles, missile);
         if (was_removed) {
             return;
@@ -3025,8 +3026,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
             owner.sustained = true;
             owner.turns_remaining = RollEffectDuration(&owner.definition);
-            for (index = 0; index < static_cast<int>(g_spell_effects.size()); ++index) {
-                auto& previous = *g_spell_effects[index];
+            for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
+                auto& previous = *CurrentGame().spell_effects[index];
                 if (previous.kind == W8_SPELL_HYPNOTIC_LURE) {
                     previous.turns_remaining = 0;
                     ReleaseHypnoticLureControl();
@@ -3036,7 +3037,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
         if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
             !CurrentGame().activity.conversation_aside) {
-            g_spell_effects.push_back(std::move(pending));
+            CurrentGame().spell_effects.push_back(std::move(pending));
         } else {
             ProcessSpellEffectTargets(&owner);
             // Immediate casts have no queued owner to retire their visuals later.

@@ -74,16 +74,15 @@ static int g_level_backdrops[W8_LEVEL_COUNT] = {
 };
 /* The path the five assertions carry. */
 
-/* New-game mode clears the fact state and deletes the running save; load and
+/* New-game mode seeds the starting facts and deletes the running save; load and
    save modes carry a name; level-change mode carries two parameters. */
 bool PleaseWaitScreen::enter(const ScreenRequest& request)
 {
     mode = std::get<W8PleaseWaitMode>(request.mode);
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        InitializeFactState();
+        SeedNewGameFacts();
         parameter = SelectNewGameStartLevel();
-        ReleaseMessageStorage();
         wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
