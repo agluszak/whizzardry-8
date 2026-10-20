@@ -135,6 +135,10 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games);
 void ResetScreenRouting(GameSession& games, ScreenFactory factory = CreateScreen);
 void RequestScreen(ScreenRequest request, ScreenDeparture departure = ScreenDeparture::Suspend);
 void ReturnToPreviousScreen();
+/* Discard, now and without resuming them, the suspended screens above the most recently
+   suspended one with `id`, or all of them when none has it. Each leaves while it is still
+   suspended, so its teardown can find it. */
+void DiscardSuspendedScreensAbove(W8ScreenId id);
 /* The request the current screen was entered with. */
 const ScreenRequest& CurrentScreenState();
 Screen* CurrentScreen();

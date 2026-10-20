@@ -148,7 +148,6 @@ UiResult MainMenuScreen::handleItem(short item, const UiPointerEvent& event)
 bool MainMenuScreen::enter(const ScreenRequest&)
 {
     ResetVideoFrameState();
-    if (GameInProgress()) LeaveGameSession();
     games_.end();
     has_save_games = SaveGameExists();
     redraw_ = true;

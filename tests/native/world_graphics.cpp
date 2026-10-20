@@ -277,7 +277,11 @@ TEST_CASE("world graphics")
     if (mode && strcmp(mode, "save") == 0) {
         REQUIRE(SaveGame("native-test", nullptr));
         fprintf(stderr, "regression: save succeeded\n");
-        REQUIRE(LoadGame(application->games(), "native-test"));
+        // Load as the game does, so the main game of the saved game is discarded first.
+        RequestScreen(
+            {.id = W8_SCREEN_PLEASE_WAIT, .mode = W8_PLEASE_WAIT_LOAD_GAME, .name = "native-test"});
+        for (int frame = 0; frame < 5; ++frame) GameLoop();
+        REQUIRE(CurrentScreenState().id == W8_SCREEN_MAIN_GAME);
         fprintf(stderr, "regression: reload succeeded\n");
     }
     if (mode && strcmp(mode, "angles") == 0) {

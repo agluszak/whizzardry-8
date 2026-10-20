@@ -21,6 +21,10 @@ struct W8NpcSpeech {
     W8MouthGapTrack gap_track;
 };
 
+/* What the NPC dialogue presentation is showing. A quote stays presented through
+   its voice and the hold after it; a portrait message only through its hold. */
+enum class W8NpcPresentation : unsigned char { none, quote, portrait_message };
+
 /* Start `path` at the voice volume; on_finished runs when it ends by itself.
    Returns whether the voice started. */
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished);

@@ -264,16 +264,16 @@ bool AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var
     if (GetLocationVarValueByName(active_var) != 0) {
         return false;
     }
-    g_npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
-    g_npc_dialogue.Queue(W8NpcPortraitString{0x71e});
+    CurrentGame().npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
+    CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x71e});
     if (!PartyHasItem(ctx.party, relic_item)) {
-        g_npc_dialogue.Queue(W8NpcPortraitString{0x71f});
+        CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName(active_var, 1);
-        g_npc_dialogue.Queue(W8NpcPortraitString{0x720});
-        g_npc_dialogue.Queue(spawn);
+        CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x720});
+        CurrentGame().npc_dialogue.Queue(spawn);
     }
-    g_npc_dialogue.Queue(W8NpcCommand::clear_target_state);
+    CurrentGame().npc_dialogue.Queue(W8NpcCommand::clear_target_state);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     return true;
 }

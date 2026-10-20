@@ -411,7 +411,7 @@ void PresentGameEvent(const Event& event)
     std::visit(GameEventPresentation{}, event);
 }
 
-/* Default the main game's HUD state after ResetMainGameScreenState: clear
+/* Default the main game's HUD state on entry: clear
    selection and text-box state, arm the timers, size the text regions, and
    rebuild the logged lines' word hit boxes. */
 void InitializeMainGameLevelBlock(void)

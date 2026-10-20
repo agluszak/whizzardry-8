@@ -32,6 +32,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/message_log.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
@@ -380,9 +381,8 @@ static void unicode_file_contracts()
 
 static void transcript_contracts()
 {
-    W8NpcInteractionState state{};
-    auto* previous = g_npc_interaction_state;
-    g_npc_interaction_state = &state;
+    ScopedGame game;
+    auto& state = game.game.npc_interaction;
     auto entry = std::make_unique<W8DialogueTranscriptRecord>();
     entry->text = "é中😀";
     entry->category = W8_DIALOGUE_CATEGORY_PLACES;
@@ -407,9 +407,7 @@ static void transcript_contracts()
     REQUIRE(state.dialogue_transcript[0]->category == W8_DIALOGUE_CATEGORY_PLACES);
     REQUIRE(
         (state.dialogue_category_filter == W8_DIALOGUE_CATEGORY_MISC && state.transcript_sorted));
-    ClearNpcDialogueTranscript();
     file->close();
-    g_npc_interaction_state = previous;
 }
 
 static void keyword_file_contracts()

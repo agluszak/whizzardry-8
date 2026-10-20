@@ -21,7 +21,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/quality.h"
@@ -75,7 +74,6 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
         ReturnToPreviousScreen();
     }
     CreateNewGameNpcStates();
-    ResetMainScreenStateBlock();
     RequestScreen({.id = W8_SCREEN_GAME_START_ROUTER});
 }
 

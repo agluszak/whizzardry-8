@@ -91,6 +91,9 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     case W8_PLEASE_WAIT_LOAD_GAME:
         parameter = request.parameter;
         name = request.name;
+        /* The loaded game replaces the one in progress, so that game's screens go first:
+           a suspended main game leaves its level as it is discarded. */
+        DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         break;
     case W8_PLEASE_WAIT_SAVE_GAME:
         parameter = GetLoadedLevelID();
@@ -158,7 +161,6 @@ void PleaseWaitScreen::frame()
 
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        LeaveGameSession();
         int level;
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);

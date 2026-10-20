@@ -44,6 +44,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_log.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
@@ -174,7 +175,7 @@ static short ResolveNoticeTextBox(short text_box)
     if (text_box == W8_NOTICE_TEXT_BOX_AUTOMATIC) {
         if ((CurrentGame().activity.conversation &&
              !(CurrentGame().activity.conversation &&
-               g_npc_interaction_state->scripted_dialogue)) ||
+               CurrentGame().npc_interaction.scripted_dialogue)) ||
             CurrentGame().activity.conversation_aside) {
             return IsNpcDialogueTextBoxActive() ? 0 : 2;
         }
@@ -552,7 +553,7 @@ void ScrollDialogueTextBoxToLine(void)
         return;
     }
     if (CurrentGame().activity.conversation) {
-        offset = g_npc_interaction_state->text_box_collapsed ? 1 : 7;
+        offset = CurrentGame().npc_interaction.text_box_collapsed ? 1 : 7;
     } else {
         offset = !gpSCSV && !ItemUseDraft() && !CurrentGame().activity.conversation_aside ? 1 : 7;
     }
@@ -673,7 +674,7 @@ int GetTextBoxVisibleLineCount(void)
 {
     bool dialogue = CurrentGame().activity.conversation;
     if (dialogue) {
-        if (g_npc_interaction_state->text_box_collapsed) {
+        if (CurrentGame().npc_interaction.text_box_collapsed) {
             return 1;
         }
     }
@@ -727,9 +728,10 @@ void AdvanceNoticeLine(short text_box)
     record->clock = MonotonicMilliseconds() + (delay);
     unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
     if (MainGameHud()->text_scroll_drag_idle) {
-        if (CurrentGame().activity.conversation && g_npc_interaction_state->text_box_collapsed) {
+        if (CurrentGame().activity.conversation &&
+            CurrentGame().npc_interaction.text_box_collapsed) {
             ScrollTextBoxTo(shown);
-            g_npc_interaction_state->text_box_collapsed = false;
+            CurrentGame().npc_interaction.text_box_collapsed = false;
         } else if (!gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
                    !CurrentGame().activity.conversation_aside) {
             if (CurrentGame().combat.has_value() && CurrentGame().combat->notice_scroll_pending) {
@@ -1460,7 +1462,8 @@ void RefreshTextBoxMode(unsigned short mode)
     }
     if (mode == 0xffff) {
         if ((!CurrentGame().activity.conversation ||
-             (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue)) &&
+             (CurrentGame().activity.conversation &&
+              CurrentGame().npc_interaction.scripted_dialogue)) &&
             !CurrentGame().activity.conversation_aside) {
 
             mode = CurrentGame().combat.has_value();

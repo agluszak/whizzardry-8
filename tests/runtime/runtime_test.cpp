@@ -51,6 +51,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -1780,8 +1781,8 @@ void MenuSaveScenario()
 bool DialogueAwaitingPlayer()
 {
     return CurrentGame().activity.conversation && !IsNpcScriptSessionActive() &&
-           !g_npc_dialogue.has_queued_actions() &&
-           g_npc_dialogue.reply() == W8NpcReplyState::none && g_modal_owner == nullptr;
+           !CurrentGame().npc_dialogue.has_queued_actions() &&
+           CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none && g_modal_owner == nullptr;
 }
 
 /* Skip voiced lines with Escape, as the player can, while waiting for input. */
@@ -1801,7 +1802,7 @@ void StartConversation(GameHarness& game, const char* step, W8NpcState* npc)
     REQUIRE(!CurrentGame().activity.conversation);
     ForwardNpcScriptNotice(npc, nullptr, -1, false);
     WaitDialogue(game, step, [&] {
-        return g_npc_interaction_state->dialogue_npc == npc && DialogueAwaitingPlayer();
+        return CurrentGame().npc_interaction.dialogue_npc == npc && DialogueAwaitingPlayer();
     });
 }
 
@@ -1839,10 +1840,10 @@ void ChooseFirstReply(GameHarness& game, const char* step)
 void BuyAnswer(GameHarness& game, const char* step, W8FactId fact)
 {
     WaitDialogue(game, step, [] {
-        return g_modal_owner != nullptr && g_npc_dialogue.price_check().has_value();
+        return g_modal_owner != nullptr && CurrentGame().npc_dialogue.price_check().has_value();
     });
     const unsigned gold = CurrentGame().party.gold;
-    const int price = g_npc_dialogue.price_check().value().price;
+    const int price = CurrentGame().npc_dialogue.price_check().value().price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
     REQUIRE(GetFact(fact) == 0);
@@ -1863,7 +1864,7 @@ void SayFarewell(GameHarness& game, const char* step)
         return false;
     });
     WaitMainGame(game, step);
-    REQUIRE(!g_npc_dialogue.has_queued_actions());
+    REQUIRE(!CurrentGame().npc_dialogue.has_queued_actions());
 }
 
 /* A conversation with Burz, the merchant beside the starting area: the
@@ -1917,7 +1918,7 @@ void NpcDialogueScenario()
     game.key(SDLK_ESCAPE);
     WaitMainGame(game, "camp-left");
     WaitDialogue(game, "dialogue-resumed", [&] {
-        return g_npc_interaction_state->dialogue_npc == burz && DialogueAwaitingPlayer();
+        return CurrentGame().npc_interaction.dialogue_npc == burz && DialogueAwaitingPlayer();
     });
     REQUIRE_FALSE(CurrentGame().activity.conversation_aside);
 

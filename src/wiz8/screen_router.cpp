@@ -127,6 +127,14 @@ void ReturnToPreviousScreen()
     router.return_requested = true;
 }
 
+void DiscardSuspendedScreensAbove(W8ScreenId id)
+{
+    while (!router.suspended.empty() && router.suspended.back().request.id != id) {
+        if (auto& screen = router.suspended.back().screen) screen->leave(ScreenDeparture::Discard);
+        router.suspended.pop_back();
+    }
+}
+
 const ScreenRequest& CurrentScreenState()
 {
     return router.current;

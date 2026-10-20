@@ -62,6 +62,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -388,7 +389,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_OPTIONS:
         if (CurrentGame().activity.conversation ||
-            (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue) ||
+            (CurrentGame().activity.conversation &&
+             CurrentGame().npc_interaction.scripted_dialogue) ||
             IsLockInteractionActive() || IsTrapInteractionActive() ||
             CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
             TrapInteractionSuspended()) {
@@ -403,11 +405,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_JOURNAL);
         break;
     case W8_MGS_COMMAND_INVENTORY:
-        if ((CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue) ||
+        if ((CurrentGame().activity.conversation &&
+             CurrentGame().npc_interaction.scripted_dialogue) ||
             CurrentGame().activity.conversation_aside ||
             CurrentGame().status.selected_character == -1 ||
             (CurrentGame().activity.conversation &&
-             g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
+             CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
         }
         OpenCharacterScreenForPartySlot(CurrentGame().status.selected_character, false);

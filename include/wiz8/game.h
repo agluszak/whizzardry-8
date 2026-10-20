@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -16,8 +17,12 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
+#include "wiz8/npc_interaction_state.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
@@ -108,6 +113,17 @@ public:
     std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech;
+    // The NPC conversation's progress: its speaker, queued script work and owed reply.
+    W8NpcDialogue npc_dialogue;
+    /* The conversation's interface: layouts, trade tables, the saved transcript and the
+       staged script notice. */
+    W8NpcInteractionState npc_interaction{};
+    // The quote or portrait message on screen and the NPC voice that speaks it.
+    W8NpcPresentation npc_presentation = W8NpcPresentation::none;
+    W8NpcSpeech npc_speech;
+    W8SedexusScene sedexus_scene;
+    // The deadline of each shared three-minute spell cooldown (`g_cooldown_gated_spells`).
+    std::array<std::uint64_t, 14> spell_cooldowns{};
     W8GameTimer gameplay_timer{300.0f, false};
     W8MonsterManagerEntry monster_manager_entries[8]{};
     /* The marching order being planned. The formation panel stages its edits here, and in

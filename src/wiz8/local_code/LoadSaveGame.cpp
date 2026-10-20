@@ -32,7 +32,6 @@
 #include "monster_actions.h"
 #include "monster_spell_icons.h"
 #include "wiz8/audio/AmbientSound.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
@@ -61,7 +60,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/ItemManager.h"
-#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -81,7 +79,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
@@ -1310,21 +1307,6 @@ void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
         if (auto* info = FindMonster(id, false)) MonsterStartsDying(info, true);
 }
 
-/* Leave the game's level and clear the session state the game does not own yet,
-   while the game still exists. */
-void LeaveGameSession(void)
-{
-    if (GetLoadedLevelID() != -1) {
-        LeaveLevel();
-        wiz8::sound::release_cache();
-    }
-    if (GameInProgress()) CurrentGame().speech.DestroyAllEvents();
-    ResetMainGameScreenState();
-    ClearNpcMessageQueue();
-    ResetMainScreenStateBlock();
-    ResetSpellCooldowns();
-}
-
 /* Create the writable save directories in the user directory. */
 bool VerifyDataSubdirs(void)
 try {
@@ -1636,7 +1618,6 @@ try {
    gameplay timer and the held-item cursor and normalize the loaded items. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
-    if (GameInProgress()) LeaveGameSession();
     auto& game = games.begin();
     wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath));
     W8Chunk chunks;
@@ -1681,7 +1662,6 @@ try {
         message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
     });
     CurrentGame().gameplay_timer.Restart();
-    ResetMainGameScreenState();
     if (CurrentGame().party.held.item.iItemNo == -1) {
         ClearHeldItemDisplay();
     } else {

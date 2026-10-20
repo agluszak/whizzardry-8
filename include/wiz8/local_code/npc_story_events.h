@@ -1,5 +1,6 @@
 #pragma once
 
+#include "wiz8/audio_resources.h"
 #include "wiz8/message_box.h"
 
 struct ScriptContext;
@@ -14,4 +15,13 @@ void BeginSedexusCapture(const ScriptContext& context);
 bool IsSedexusCaptureActive(void);
 /* Advance a pending Al-Sedexus capture or release; runs each scripting frame. */
 void UpdateSedexusScene(const ScriptContext& context);
-void ResetSedexusScene(void);
+
+/* The Al-Sedexus capture scene. Capture and release are each picked up by
+   the next scripting frame that runs in a suitable environment; the capture
+   stays active, with the moaning ambience streaming, until the release. */
+struct W8SedexusScene {
+    bool capture_pending = false;
+    bool release_pending = false;
+    bool capture_active = false;
+    wiz8::sound::Playback moaning;
+};

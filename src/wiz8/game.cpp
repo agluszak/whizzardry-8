@@ -8,7 +8,9 @@
 #include <stdexcept>
 #include <utility>
 
+#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
@@ -39,11 +41,14 @@ std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
     return std::exchange(sky, std::move(world));
 }
 
-// Finish speech first: its voices complete into the queue and the characters it names.
+/* Finish speech first: its voices complete into the queue and the characters it names.
+   The NPC voice and the Al-Sedexus ambience stop with the game. */
 Game::~Game()
 {
     speech.DestroyAllEvents();
     for (auto& entry : monster_manager_entries) entry.mouth_gap = {};
+    StopNpcVoice(npc_speech);
+    wiz8::sound::stop(sedexus_scene.moaning);
 }
 
 GameSession::GameSession() : next_stream_(static_cast<std::uint32_t>(std::time(nullptr)))

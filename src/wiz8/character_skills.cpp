@@ -85,7 +85,7 @@ void AnnounceSkillIncrease(Game& game, unsigned int party_slot, W8Skill skill_id
     notice.count = 1;
     notice.party_slots[0] = static_cast<signed char>(party_slot);
     notice.skills[0] = static_cast<signed char>(skill_id);
-    g_npc_dialogue.QueuePortraitMessage(
+    CurrentGame().npc_dialogue.QueuePortraitMessage(
         FormatSkillIncreaseNoticeText(game.party, static_cast<int>(party_slot), false, skill_id),
         notice);
 }
@@ -120,7 +120,7 @@ void FlushDeferredSkillNotices(Game& game)
             have_line = true;
             if (count == 8) {
                 extra.count = 8;
-                g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
+                CurrentGame().npc_dialogue.QueuePortraitMessage(std::move(text), extra);
                 count = 0;
                 have_line = false;
                 text.clear();
@@ -130,7 +130,7 @@ void FlushDeferredSkillNotices(Game& game)
     }
     if (have_line) {
         extra.count = static_cast<signed char>(count);
-        g_npc_dialogue.QueuePortraitMessage(std::move(text), extra);
+        CurrentGame().npc_dialogue.QueuePortraitMessage(std::move(text), extra);
     }
     for (auto& entry : game.monster_manager_entries)
         std::ranges::fill(entry.skill_notice_pending, false);

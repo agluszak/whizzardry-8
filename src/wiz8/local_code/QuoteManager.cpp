@@ -490,7 +490,7 @@ void W8CharacterEvent::Complete()
             }
         }
     } else if (event_type == 51) {
-        g_npc_dialogue.Queue(W8NpcMarkMissing{party_slot});
+        CurrentGame().npc_dialogue.Queue(W8NpcMarkMissing{party_slot});
     }
 }
 
@@ -694,9 +694,9 @@ bool W8CharacterEvent::Dispatch()
                 SetNpcScriptEventActive(1);
                 ReloadNpcScriptResources(npc, GetNpcMonster(npc));
             }
-            g_npc_dialogue.Begin(npc, true);
-            g_npc_dialogue.Speak(MakeScriptContext(CurrentGame()), event_type,
-                                 (flags & W8_EVENT_NPC_SCRIPT) != 0);
+            CurrentGame().npc_dialogue.Begin(npc, true);
+            CurrentGame().npc_dialogue.Speak(MakeScriptContext(CurrentGame()), event_type,
+                                             (flags & W8_EVENT_NPC_SCRIPT) != 0);
             if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
                 SetNpcScriptEventActive(0);
                 ReloadNpcScriptResources(npc, GetNpcMonster(npc));
@@ -1166,7 +1166,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         UpdateNpcDialogueVoiceAndCursor(context);
         if (PartyPortraitEventsIdle() != 0) {
             UpdateSedexusScene(context);
-            g_npc_dialogue.Advance(context);
+            CurrentGame().npc_dialogue.Advance(context);
         }
         return;
     }

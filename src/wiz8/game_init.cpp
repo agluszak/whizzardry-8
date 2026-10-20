@@ -17,10 +17,8 @@
 #include "wiz8/local_code/CombatSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/npc_interaction.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -80,8 +78,6 @@ void ShutdownGame(GameSession& games, bool save_configuration)
     ReleaseHitSoundDatabase();
     g_font_state_palettes = {};
     ResetScreenRouting(games);
-    ClearNpcMessageQueue();
-    ClearNpcDialogueTranscript();
     InstallGameData(nullptr);
     if (save_configuration) SaveGameConfiguration();
 }

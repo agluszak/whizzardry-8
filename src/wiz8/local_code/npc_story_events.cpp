@@ -152,7 +152,7 @@ void BeginNpcScriptedScene(const ScriptContext& context)
 {
     int party_slot;
 
-    g_npc_dialogue.HoldForScene();
+    CurrentGame().npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
     context.activity.scripted_scene = true;
     SetTargetingMode(W8_TARGET_NEED_ALLY);
@@ -191,7 +191,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
             MainGame()->edge_targets[slot]->setEnabled(false);
         }
     }
-    g_npc_dialogue.ReleaseScene();
+    CurrentGame().npc_dialogue.ReleaseScene();
     context.activity.scripted_scene = false;
     other_gender_present = false;
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0, false);
@@ -235,32 +235,16 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
         }
     }
 }
-/* The Al-Sedexus capture scene. Capture and release are each picked up by
-   the next scripting frame that runs in a suitable environment; the capture
-   stays active, with the moaning ambience streaming, until the release. */
-struct W8SedexusScene {
-    bool capture_pending = false;
-    bool release_pending = false;
-    bool capture_active = false;
-    wiz8::sound::Playback moaning;
-};
-static W8SedexusScene g_sedexus_scene;
 
 bool IsSedexusCaptureActive(void)
 {
-    return g_sedexus_scene.capture_active;
-}
-
-void ResetSedexusScene(void)
-{
-    g_sedexus_scene.capture_pending = false;
-    g_sedexus_scene.release_pending = false;
-    g_sedexus_scene.capture_active = false;
+    return CurrentGame().sedexus_scene.capture_active;
 }
 
 void UpdateSedexusScene(const ScriptContext& context)
 {
-    if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
+    if (!CurrentGame().sedexus_scene.capture_pending &&
+        !CurrentGame().sedexus_scene.release_pending) {
         return;
     }
     const W8EnvironmentLightingMode environment = EnvironmentLightingMode();
@@ -268,9 +252,9 @@ void UpdateSedexusScene(const ScriptContext& context)
         environment != W8EnvironmentLightingMode::DayNight) {
         return;
     }
-    g_npc_dialogue.ReleaseScene();
-    if (!g_sedexus_scene.release_pending) {
-        g_sedexus_scene.moaning =
+    CurrentGame().npc_dialogue.ReleaseScene();
+    if (!CurrentGame().sedexus_scene.release_pending) {
+        CurrentGame().sedexus_scene.moaning =
             wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
     } else {
         ClearMainGameTargetState();
@@ -289,14 +273,14 @@ void UpdateSedexusScene(const ScriptContext& context)
         if (character->gender == W8_GENDER_MALE) {
             QueueCharacterEvent(character, 43, 0, kCharacterEventFullVolume);
         }
-        g_sedexus_scene.capture_active = false;
-        if (g_sedexus_scene.moaning != nullptr) {
-            wiz8::sound::stop(g_sedexus_scene.moaning);
-            g_sedexus_scene.moaning = nullptr;
+        CurrentGame().sedexus_scene.capture_active = false;
+        if (CurrentGame().sedexus_scene.moaning != nullptr) {
+            wiz8::sound::stop(CurrentGame().sedexus_scene.moaning);
+            CurrentGame().sedexus_scene.moaning = nullptr;
         }
     }
-    g_sedexus_scene.capture_pending = false;
-    g_sedexus_scene.release_pending = false;
+    CurrentGame().sedexus_scene.capture_pending = false;
+    CurrentGame().sedexus_scene.release_pending = false;
 }
 
 /* Al-Sedexus takes her pick: the scripted scene opens, the lighting fades,
@@ -306,10 +290,10 @@ void BeginSedexusCapture(const ScriptContext& context)
 {
     unsigned int party_slot;
 
-    g_npc_dialogue.HoldForScene();
+    CurrentGame().npc_dialogue.HoldForScene();
     BeginScriptedWorldAction();
-    g_sedexus_scene.capture_pending = true;
-    g_sedexus_scene.capture_active = true;
+    CurrentGame().sedexus_scene.capture_pending = true;
+    CurrentGame().sedexus_scene.capture_active = true;
     BeginWorldLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (context.party.rows[party_slot].fOccupied &&
@@ -345,8 +329,8 @@ static void ResolveSedexusCapture(void)
             }
         }
     }
-    g_npc_dialogue.HoldForScene();
-    g_sedexus_scene.release_pending = true;
+    CurrentGame().npc_dialogue.HoldForScene();
+    CurrentGame().sedexus_scene.release_pending = true;
     BeginWorldLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);
     RunNamedTrigger("templargate14", -1);
