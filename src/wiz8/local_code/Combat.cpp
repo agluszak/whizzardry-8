@@ -95,7 +95,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
-#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
@@ -561,9 +560,9 @@ void BeginCombatExecution(void)
                 character->hp_current == 0 || character->highest_condition >= W8_CONDITION_ASLEEP;
             row->phase_clock_stamp = 0;
             row->defend_switched = false;
-            RecalculateArmorClass(CurrentGame(), *character);
         }
     }
+    SettleActiveParty(CurrentGame());
     RepickInvalidCombatTargets();
     for (slot = 0; slot < 8; ++slot) {
         W8PartySlotRow* party = &CurrentGame().party.rows[slot];
@@ -1075,7 +1074,6 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     phase_ = Phase::Restoring;
-    if (CurrentGame().party.redistribution_pending) RedistributePartyEncumbrance(CurrentGame());
     if (state_->search_mode_saved != 0) {
         ToggleSearchMode();
     }
@@ -1104,11 +1102,8 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     phase_ = Phase::Idle;
     SyncWorldAdvancement();
     ResetLivingMonstersAfterCombat();
-    for (int slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
-            RecalculateArmorClass(CurrentGame(), CurrentGame().party.characters[slot]);
-        }
-    }
+    // Armor without the combat actions, and the shared load deferred during combat.
+    SettleActiveParty(CurrentGame());
     if (CurrentGame().advancement.held) {
         SyncWorldAdvancement();
     }
@@ -1274,7 +1269,7 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
                  CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_EQUIP)) {
         PostCharacterNotice(party_slot, Data().strings[0x226]);
     }
-    RecalculateArmorClass(CurrentGame(), *character);
+    SettleActiveParty(CurrentGame());
 }
 
 void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
@@ -1722,9 +1717,9 @@ void AdvanceCombatRound(void)
                 (character->hp_current == 0 || character->highest_condition > W8_CONDITION_WEBBED)
                     ? 1
                     : 0;
-            RecalculateArmorClass(CurrentGame(), *character);
         }
     }
+    SettleActiveParty(CurrentGame());
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);

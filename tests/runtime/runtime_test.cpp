@@ -1061,7 +1061,7 @@ void InventoryChestScenario()
     remainder = original_item;
     std::copy(pool.begin(), pool.end(), std::begin(CurrentGame().party.item_pool));
     CurrentGame().party.item_count = pool_count;
-    RedistributePartyEncumbrance(CurrentGame());
+    SettleActiveParty(CurrentGame());
     for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
     click_button(1); // Take selected items into the party pool.
@@ -2068,7 +2068,7 @@ void CombatScenario()
     REQUIRE(CurrentGame().combat.state()->attack_report.reports.empty());
     auto& member = CurrentGame().party.characters[PremadeSlot()];
     member.party_weight_share = 123456;
-    RedistributePartyEncumbrance(CurrentGame());
+    SettleActiveParty(CurrentGame());
     REQUIRE(CurrentGame().party.redistribution_pending);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return CurrentGame().combat.active() == 0; }, 10);

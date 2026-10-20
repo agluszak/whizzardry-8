@@ -1,6 +1,7 @@
 #include "wiz8/rules/character_stats.h"
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <stdexcept>
 
@@ -81,7 +82,7 @@ static int CalcPhysCombatExperience(const W8Character* character)
     return total;
 }
 
-void CalcInitiative(W8Character* character)
+static void CalcInitiative(W8Character* character)
 {
     character->initiative = ((character->uiExpLevel + 1) >> 1) +
                             character->attributes[W8_ATTRIBUTE_SENSES].effective / 5 - 10 +
@@ -112,7 +113,10 @@ void CalcInitiative(W8Character* character)
     }
 }
 
-void CalcAttacks(const GameData& data, W8Character* character, bool damaged_android)
+/* Retail scores swings with the damage bonus its previous calculation left on the hand
+   (0x004ee5ef reads it before resetting it); the baseline supplies that bonus. */
+static void CalcAttacks(const GameData& data, W8Character* character, bool damaged_android,
+                        const std::array<int, 2>& previous_damage_bonus)
 {
     W8HandAttack* attacks[2];
     const W8ItemDatabaseRecord* records[2];
@@ -219,10 +223,9 @@ void CalcAttacks(const GameData& data, W8Character* character, bool damaged_andr
             attack->attacks = 2;
         }
 
-        /* Retail reads damage_bonus here before it is reset below, so the swing score sees the
-           value left by the previous CalcAttacks pass (0x004ee5ef). */
-        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective + attack->damage_bonus * 10 +
-                 dual_penalty + physical_experience + load_penalty + attack->combined_skill) /
+        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective +
+                 previous_damage_bonus[hand] * 10 + dual_penalty + physical_experience +
+                 load_penalty + attack->combined_skill) /
                 3;
         attack->swings = 1;
         if (score > 66) {
@@ -350,7 +353,7 @@ void CalcAttacks(const GameData& data, W8Character* character, bool damaged_andr
     }
 }
 
-void CalcArmorClasses(const GameData& data, W8Character* character, bool defensive_action)
+static void CalcArmorClasses(const GameData& data, W8Character* character, bool defensive_action)
 {
     int location_slot = 0;
 
@@ -475,42 +478,31 @@ void CalcArmorClasses(const GameData& data, W8Character* character, bool defensi
         weighted_total < 0 ? (weighted_total - 50) / 100 : (weighted_total + 50) / 100;
 }
 
-bool RecalculateCharacterHitPoints(W8Character* character)
+// The hit-point ceiling; a character without a profession keeps the stored one.
+static int HitPointCeiling(const W8Character& character)
 {
+    if (character.iProfession == W8_PROFESSION_NONE) return character.uiHPMax;
     double total = 0.0;
-    int profession;
-    int hit_points;
-    int remaining;
-
-    if (character->iProfession == W8_PROFESSION_NONE) {
-        return false;
-    }
-
-    for (profession = 0; profession < W8_PROFESSION_COUNT; profession++) {
-        unsigned int levels = character->profession_levels[profession];
-        if (profession == character->original_profession) {
+    for (int profession = 0; profession < W8_PROFESSION_COUNT; profession++) {
+        unsigned int levels = character.profession_levels[profession];
+        if (profession == character.original_profession) {
             levels++;
         }
         if (levels > 0) {
-            double vitality = character->attributes[W8_ATTRIBUTE_VITALITY].effective * 0.4;
+            double vitality = character.attributes[W8_ATTRIBUTE_VITALITY].effective * 0.4;
             total += (vitality * 0.02 + 0.6) * g_profession_hit_point_factors[profession] * levels;
         }
     }
+    return std::max(static_cast<int>(total + 0.5) + character.hp_adjustment, 1);
+}
 
-    hit_points = static_cast<int>(total + 0.5) + character->hp_adjustment;
-    if (hit_points < 1) {
-        hit_points = 1;
-    }
-    if (hit_points != character->uiHPMax) {
-        remaining = (hit_points - character->uiHPMax) + static_cast<int>(character->hp_current);
-        if (remaining < 0) {
-            remaining = 0;
-        }
-        character->uiHPMax = hit_points;
-        character->hp_current = remaining;
-        return remaining == 0;
-    }
-    return false;
+bool FollowHitPointCeiling(W8Character& character, int previous_ceiling)
+{
+    if (character.uiHPMax == previous_ceiling) return false;
+    const int remaining =
+        std::max(character.uiHPMax - previous_ceiling + static_cast<int>(character.hp_current), 0);
+    character.hp_current = remaining;
+    return remaining == 0;
 }
 
 unsigned int FatigueArmorPenalty(int fatigue_band)
@@ -531,53 +523,45 @@ unsigned int FatigueArmorPenalty(int fatigue_band)
     }
 }
 
-/* Recompute the stamina ceiling from the three physical attributes and the
-   level, subtract any outstanding penalty, carry the difference into the
-   current pool, and derive the fatigue band from what is left.
-
-   Retail compares the penalty with JNC and divides the scaled pool with DIV,
-   so the ceiling and its delta are unsigned values even though the stored
-   fields are ints. The divisor is unguarded in retail; a zero ceiling would
-   trap there, so here it is treated as full fatigue. */
-void RecalculateCharacterStamina(W8Character* character)
+/* The stamina ceiling from the three physical attributes and the level, less any
+   outstanding penalty. Retail compares the penalty with JNC, so the ceiling is an unsigned
+   value even though the stored field is an int. */
+static int StaminaCeiling(const W8Character& character)
 {
-    unsigned int previous = character->uiStaminaMax;
-    unsigned int value =
-        static_cast<unsigned int>(((character->attributes[W8_ATTRIBUTE_STRENGTH].effective +
-                                    character->attributes[W8_ATTRIBUTE_PIETY].effective +
-                                    character->attributes[W8_ATTRIBUTE_VITALITY].effective) *
+    const auto value =
+        static_cast<unsigned int>(((character.attributes[W8_ATTRIBUTE_STRENGTH].effective +
+                                    character.attributes[W8_ATTRIBUTE_PIETY].effective +
+                                    character.attributes[W8_ATTRIBUTE_VITALITY].effective) *
                                    (1.0f / 3.0f)) *
-                                      (character->uiExpLevel * 0.1f + 2.0f) +
+                                      (character.uiExpLevel * 0.1f + 2.0f) +
                                   0.5);
-    character->uiStaminaMax = value;
-    if (character->fatigue_penalty < value) {
-        character->uiStaminaMax = value - character->fatigue_penalty;
-    } else {
-        character->uiStaminaMax = 0;
-    }
-    value = character->uiStaminaMax;
-    if (value != previous) {
-        character->stamina += value - previous;
-    }
-    // A penalty that consumes the whole ceiling leaves the character fully
-    // fatigued instead of dividing by zero.
+    return character.fatigue_penalty < value ? static_cast<int>(value - character.fatigue_penalty)
+                                             : 0;
+}
+
+/* Retail divides the scaled pool by the ceiling unguarded; a zero ceiling would trap there,
+   so here it is treated as full fatigue. */
+int FatigueBand(int stamina, int stamina_max)
+{
     int fatigue = 100;
-    if (value != 0) {
-        fatigue -= static_cast<int>(static_cast<unsigned int>(character->stamina) * 100 / value);
+    if (stamina_max != 0) {
+        fatigue -= static_cast<int>(static_cast<unsigned int>(stamina) * 100 /
+                                    static_cast<unsigned int>(stamina_max));
     }
-    if (fatigue < 0x32) {
-        character->fatigue_band = 0;
-        return;
+    if (fatigue < 0x32) return 0;
+    if (fatigue < 0x46) return 1;
+    if (fatigue < 0x55) return 2;
+    return (fatigue > 0x5e) + 3;
+}
+
+bool FollowStaminaCeiling(W8Character& character, int previous_ceiling)
+{
+    if (character.uiStaminaMax != previous_ceiling) {
+        character.stamina += character.uiStaminaMax - previous_ceiling;
     }
-    if (fatigue < 0x46) {
-        character->fatigue_band = 1;
-        return;
-    }
-    if (fatigue < 0x55) {
-        character->fatigue_band = 2;
-        return;
-    }
-    character->fatigue_band = (fatigue > 0x5e) + 3;
+    const int previous_band = character.fatigue_band;
+    character.fatigue_band = FatigueBand(character.stamina, character.uiStaminaMax);
+    return character.fatigue_band != previous_band;
 }
 
 /* Recount the learned spells into the six per-realm slots (0x1c..0x21 of
@@ -632,7 +616,6 @@ int RebuildRealmSpellPointCeilings(const GameData& data, W8Character* character)
     }
 
     for (index = 0; index < 6; ++index) {
-        int old = character->sp_max[index];
         unsigned int learned = character->skill_unlocks[0x1c + index];
         int computed =
             static_cast<int>(((weighted + character->skills[W8_SKILL_FIRE_MAGIC + index].level * 3 +
@@ -650,16 +633,24 @@ int RebuildRealmSpellPointCeilings(const GameData& data, W8Character* character)
         if (computed < max_spell_levels[index]) {
             character->sp_max[index] = max_spell_levels[index];
         }
-        if (character->sp_max[index] != old) {
-            character->iSPLeft[index] += character->sp_max[index] - old;
-        }
     }
     return best;
 }
 
+void FollowSpellPointCeilings(W8Character& character,
+                              const std::array<int, W8_SPELL_REALM_COUNT>& previous_ceilings)
+{
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        if (character.sp_max[realm] != previous_ceilings[realm]) {
+            character.iSPLeft[realm] += character.sp_max[realm] - previous_ceilings[realm];
+        }
+    }
+}
+
 /* The resistance bonus skill (36) is derived only for the professions whose
-   bodies can learn spells; a few fixed professions keep it at zero. */
-void RecalculateRealmSpellPoints(const GameData& data, W8Character* character)
+   bodies can learn spells; a few fixed professions keep it at zero, and their
+   spell-point ceilings stay as learning a spell left them. */
+static void DeriveRealmSpellPoints(const GameData& data, W8Character* character)
 {
     W8Profession profession = character->iProfession;
     if (profession != W8_PROFESSION_FIGHTER &&
@@ -674,7 +665,7 @@ void RecalculateRealmSpellPoints(const GameData& data, W8Character* character)
    are one tick of the pool ceiling's share, twenty points of base and a
    twelveth of a minute each; the modifier block's three regeneration-boost flags
    raise their rate by half. */
-void RebuildCharacterRegenRates(W8Character* character)
+static void RebuildCharacterRegenRates(W8Character* character)
 {
     float rate;
     int realm;
@@ -705,7 +696,7 @@ void RebuildCharacterRegenRates(W8Character* character)
     }
 }
 
-void RecalculateCharacterResistances(W8Character* character)
+static void RecalculateCharacterResistances(W8Character* character)
 {
     unsigned int index;
     int channel;
@@ -763,4 +754,95 @@ void RecalculateCharacterResistances(W8Character* character)
             character->resistances[index].total = 100;
         }
     }
+}
+
+static int DamageReduction(const W8Character& character)
+{
+    int reduction = 0;
+    if (CharacterHasTrait(&character, W8_TRAIT_DWARF_DAMAGE_RESISTANCE)) {
+        reduction += character.attributes[W8_ATTRIBUTE_VITALITY].effective / 10;
+    }
+    if (CharacterHasTrait(&character, W8_TRAIT_MONK_DAMAGE_RESISTANCE)) {
+        reduction += static_cast<int>(
+            ScaleValueByProfessionLevel(&character, W8_TRAIT_MONK_DAMAGE_RESISTANCE, 15.0f));
+    }
+    if (character.skills[W8_SKILL_IRON_SKIN].active) {
+        reduction += (character.skills[W8_SKILL_IRON_SKIN].level >> 2) + 5;
+    }
+    return reduction + character.bonus.damage_reduction_adjustment;
+}
+
+/* Carrying capacity from strength and the carrying trait. The two attributes
+   are the third and first effective values, the same pair the stamina
+   ceiling reads. */
+unsigned int CarryingCapacity(const W8Character& character)
+{
+    const int base = character.attributes[W8_ATTRIBUTE_VITALITY].effective +
+                     character.attributes[W8_ATTRIBUTE_STRENGTH].effective * 2;
+    if (CharacterHasTrait(&character, W8_TRAIT_FAERIE_REDUCED_CARRY_CAPACITY)) {
+        return static_cast<unsigned int>(base * 0x18) / 3;
+    }
+    return base * 0xc;
+}
+
+// FUNCTION: WIZ8 0x004edc60
+unsigned int InventoryWeight(const GameData& data, const W8Character& character)
+{
+    unsigned int weight = 0;
+    for (const auto& item : character.EquippedItem) weight += GetItemStackWeight(data, &item);
+    for (const auto& item : character.backpack) weight += GetItemStackWeight(data, &item);
+    return weight;
+}
+
+bool BecameOverloaded(unsigned int previous_inventory_weight, const W8Character& character)
+{
+    return previous_inventory_weight < character.carrying_capacity &&
+           character.carrying_capacity < character.inventory_weight;
+}
+
+// A carrying capacity of zero (attributes not yet chosen) has no room for anything.
+static W8LoadCategory LoadCategory(unsigned int carried, unsigned int capacity)
+{
+    if (capacity == 0) return carried == 0 ? W8_LOAD_NONE : W8_LOAD_EXTREME;
+    const unsigned int percent = carried * 100 / capacity;
+    if (percent < 50) return W8_LOAD_NONE;
+    if (percent < 70) return W8_LOAD_LIGHT;
+    if (percent < 85) return W8_LOAD_MEDIUM;
+    if (percent <= 100) return W8_LOAD_HEAVY;
+    return W8_LOAD_EXTREME;
+}
+
+CharacterBaseline CaptureCharacterBaseline(const W8Character& character)
+{
+    return {.hp_max = character.uiHPMax,
+            .stamina_max = character.uiStaminaMax,
+            .sp_max = std::to_array(character.sp_max),
+            .inventory_weight = character.inventory_weight,
+            .damage_bonus = {character.Hand[0].damage_bonus, character.Hand[1].damage_bonus}};
+}
+
+/* The retail code at 0x004ED9D0 sits in a gap between Local Code\Combat.cpp (upper
+   0x004ED390) and Local Code\GameplayCode.cpp (lower 0x004EE000); it is neither a Combat
+   tail nor a separately named unit. Retail calculated the load-dependent values in a second
+   pass after the load; here the load comes first and every value is calculated once. */
+// FUNCTION: WIZ8 0x004ed9d0
+void DeriveCharacterStats(const GameData& data, W8Character& character, CharacterStatRules rules,
+                          const CharacterBaseline& baseline)
+{
+    character.uiHPMax = HitPointCeiling(character);
+    character.uiStaminaMax = StaminaCeiling(character);
+    DeriveRealmSpellPoints(data, &character);
+    RebuildCharacterRegenRates(&character);
+    character.damage_reduction = DamageReduction(character);
+    RecalculateCharacterResistances(&character);
+
+    character.carrying_capacity = CarryingCapacity(character);
+    character.inventory_weight = InventoryWeight(data, character);
+    character.total_carried_weight = character.party_weight_share + character.inventory_weight;
+    character.load_category =
+        LoadCategory(character.total_carried_weight, character.carrying_capacity);
+
+    CalcInitiative(&character);
+    CalcAttacks(data, &character, rules.damaged_android, baseline.damage_bonus);
+    CalcArmorClasses(data, &character, rules.defensive_action);
 }

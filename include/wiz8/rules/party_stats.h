@@ -2,20 +2,18 @@
 
 #include <array>
 
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/party_slot.h"
 
-/* Derived character statistics and the party's shared load. The calculations take
-   the inputs that come from combat and NPC story state explicitly; live_party.h
-   supplies the active session's. */
+/* Derived character statistics and the party's shared load. Every recalculation goes
+   through these: inputs are evaluated, every statistic is derived once from them
+   (character_stats.h), and the resource transitions that follow are applied or reported.
+   live_party.h supplies the active game's inputs and applies what is reported. */
 
 struct GameData;
 struct W8Character;
 struct W8Party;
 
-struct CharacterStatRules {
-    bool defensive_action = false;
-    bool damaged_android = false;
-};
 // Shared weight is redistributed now, after combat, or not at all before the game starts.
 enum class PartyLoadTiming { Disabled, Immediate, AfterCombat };
 struct PartyStatRules {
@@ -23,30 +21,26 @@ struct PartyStatRules {
     std::array<CharacterStatRules, W8_PARTY_SLOT_COUNT> characters{};
 };
 
-struct InventoryWeightChange {
-    bool changed = false;
-    bool became_overloaded = false;
-};
-// Derived values are written to the character; transitions they imply are reported.
+/* The transitions a recalculation implies. Pools have followed their ceilings; death and
+   the overload notice belong to the caller. */
 struct CharacterStatsUpdate {
     bool valid = false;
-    InventoryWeightChange weight;
+    bool became_overloaded = false;
     // A lowered hit-point ceiling exhausted the current pool.
     bool hp_exhausted = false;
 };
-InventoryWeightChange RecalculateInventoryWeight(const GameData& data, W8Character& character);
-bool RecalculateCarryingCapacity(W8Character* character);
-// Derived values written by a party recalculation, and the transitions they imply.
-// Applying those transitions (death, notices) belongs to the caller.
 struct W8PartyStats {
     std::array<CharacterStatsUpdate, W8_PARTY_SLOT_COUNT> characters{};
     bool load_redistributed = false;
 };
-// Recalculate every occupied member from its equipment, attributes and conditions,
-// then the shared load.
+// Recalculate every occupied member from its equipment, attributes and conditions, with the
+// shared load assigned between evaluating the members' inputs and deriving their statistics.
 W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyStatRules& rules);
-// Redistribute the shared load; false when nothing was redistributed.
-bool RefreshPartyLoad(const GameData& data, W8Party& party, const PartyStatRules& rules);
 // A character outside any party: no party modifiers and no shared load.
 CharacterStatsUpdate UpdateStandaloneCharacterStats(const GameData& data, W8Character& character,
+                                                    CharacterStatRules rules);
+/* Recalculate from the effective attributes and skill levels the character holds, without
+   evaluating them again; the creation editor owns them while it edits them. The party
+   weight share is kept. */
+CharacterStatsUpdate UpdateCharacterStatsFromInputs(const GameData& data, W8Character& character,
                                                     CharacterStatRules rules);

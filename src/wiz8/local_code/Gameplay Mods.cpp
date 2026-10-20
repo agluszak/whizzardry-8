@@ -57,7 +57,8 @@ void RebuildPartyEffectBlock(void)
         modifiers.boost_stamina_regen = 1;
         modifiers.boost_spell_regen = 1;
     }
-    ApplyPartyModifiers(CurrentGame(), modifiers);
+    CurrentGame().party.modifiers = modifiers;
+    SettleActiveParty(CurrentGame());
     if (modifiers.light == 0) {
         SetSkyNodeVisible(false);
         return;
@@ -154,10 +155,9 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
 }
 
 /* Rebuild one party member's condition/enchantment modifier block from the
-   live condition durations, the enchantment slots and the bound-NPC penalty,
-   then its derived block and stats. Every condition and enchantment change
-   funnels through it. */
-void RebuildConditionsAndDerivedStats(int party_slot)
+   live condition durations, the enchantment slots and the bound-NPC penalty.
+   Every condition and enchantment change funnels through it. */
+void RebuildConditionModifiers(int party_slot)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
@@ -166,9 +166,6 @@ void RebuildConditionsAndDerivedStats(int party_slot)
                             &character->condition_modifiers);
     ApplyEnchantmentModifiers(character->enchantments, &character->condition_modifiers);
     ApplyBoundNpcPenalty(character, &character->condition_modifiers);
-    RebuildCharacterModifierBlock(character,
-                                  character->fInParty ? &CurrentGame().party.modifiers : nullptr);
-    RecalculateCharacterDerivedStats(CurrentGame(), *character);
 }
 
 /* The monster-side rebuild: refill the monster's modifier block from its

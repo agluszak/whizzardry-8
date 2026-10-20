@@ -45,7 +45,6 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
-#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_formation.h"
@@ -499,7 +498,6 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         PostCharacterNotice(slot, Data().strings[0x250]);
     }
 
-    RebuildCharacterModifierBlock(destination, &CurrentGame().party.modifiers);
     RecalculateCharacterDerivedStats(CurrentGame(), *destination);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RefreshPartySlotRegions();
@@ -575,7 +573,6 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     }
     PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
     CurrentGame().party.formation.positions[slot].bOldQuadrant = 0xff;
-    RebuildCharacterModifierBlock(character, &CurrentGame().party.modifiers);
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
         unsigned int cost = ComputeStartingEquipmentCost(character);

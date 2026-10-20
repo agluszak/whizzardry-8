@@ -175,19 +175,6 @@ the licensed runtime scenarios after every step.
 These items keep their own scope, and are easiest after the migration step named in
 each.
 
-- **One derivation path for character state.** (After step 3.) Settlement
-  (`SettleActiveParty`) coexists with partial recalculations
-  (`RecalculateArmorClass`, `RecalculateHitPoints`,
-  `RedistributePartyEncumbrance`, `RebuildConditionsAndDerivedStats`,
-  `ApplyPartyModifiers`, direct `CalcInitiative` and `CalcAttacks` calls), so
-  different callers see different subsets updated.
-  - Make derived values (effective attributes, skills, ceilings, armor, attacks,
-    load) a pure function of explicit inputs, recomputed in one place.
-  - Apply resource transitions (current HP/stamina/spell points following a new
-    ceiling, death) as named transitions of the operation that caused them; today
-    they happen inside the statistics calculation.
-  - Make the retail previous-pass damage bonus used by swings an explicit history
-    input, so that a different number of passes cannot change combat results.
 - **The party and actions model.** (After step 1; choices move with `Combat` in
   step 6.) A `W8PartySlotRow` groups a member's action state into named parts
   (`remembered` choices, the `committed` action, the action `executing`), but it still

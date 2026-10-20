@@ -180,8 +180,8 @@ void AccumulateEquipmentModifiers(const GameData& data, W8Character* character,
     }
 }
 
-void RebuildCharacterModifierBlock(W8Character* character,
-                                   const W8GameplayModifierBlock* party_modifiers)
+static void RebuildCharacterModifierBlock(W8Character* character,
+                                          const W8GameplayModifierBlock* party_modifiers)
 {
     character->bonus = {};
     ApplyModifierBlock(&character->bonus, &character->equipment_bonus);
@@ -278,6 +278,9 @@ void SetHandType(const GameData& data, W8Character* character, W8EquipSlot slot)
 void EvaluateCharacterInputs(const GameData& data, W8Character& character,
                              const W8GameplayModifierBlock* party_modifiers)
 {
+    character.uiExpLevel = std::min(character.uiExpLevel, 50u);
+    for (auto& level : character.profession_levels)
+        if (static_cast<unsigned int>(level) > 50) level = 50;
     character.equipment_bonus = {};
     AccumulateEquipmentModifiers(data, &character, &character.equipment_bonus);
     RebuildCharacterModifierBlock(&character, party_modifiers);

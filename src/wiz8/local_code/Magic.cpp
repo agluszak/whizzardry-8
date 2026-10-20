@@ -1033,8 +1033,10 @@ void LearnSpell(W8Character* character, int spell_id, bool announce)
     character->spell_learned[spell_id] = 1;
     realm = Data().spells[spell_id].realm;
     ++character->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm];
+    const auto spell_point_ceilings = std::to_array(character->sp_max);
     character->skill_unlocks[W8_SKILL_IRON_WILL] =
         RebuildRealmSpellPointCeilings(Data(), character);
+    FollowSpellPointCeilings(*character, spell_point_ceilings);
 
     if (!announce) {
         return;
