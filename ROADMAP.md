@@ -7,40 +7,154 @@ formats confined to codecs. [AGENTS.md](AGENTS.md) states the principles;
 single list of remaining work. Delete an item when it is done, rather than
 marking it.
 
-Items are grouped by difficulty, with the ones that first need research kept
-separately. Most of the hardest items overlap; doing them in the listed order
-avoids rewriting the same code twice.
+The target architecture and its migration come first; the steps are ordered so
+that no code is rewritten twice. Contained follow-ups and research questions
+follow.
 
-## Hardest follow-ups
+## Target architecture
 
-These change ownership or data flow across many modules. Each one needs a
-design agreed up front and should land in reviewable slices, with CI (including
-the licensed runtime scenarios) green after each slice.
+Today the architecture is the decompiled program's:
 
-- **A game session instead of process globals.** `g_status` (about 1,950 uses;
-  a 100-field `W8GlobalStatus` holding the party, clocks, story progress and
-  decoded save fields) and `gXStatus` (about 600 uses; a 30-field grab bag of UI
-  modes, targeting, timers and flags) are the de facto architecture. Further
-  globals include `g_combat`, `g_level_block` (860 uses in 30 files), screen states
-  and `g_settings`; headers declare about 340 `extern` globals in all. Introduce a `GameSession` that owns the party, story state
-  (facts, quests, level progress), the clock, the world session and combat; UI
-  state belongs to its screens. Live commands take the session, or the part they
-  need, explicitly. The retail GSTA status block becomes a codec over session
-  parts. Done when `gXStatus` is gone and `W8GlobalStatus` exists only as a
-  decoded record.
-- **Gameplay produces outcomes; presentation consumes them.** Rules call
-  `ShowNotice`/`PostCharacterNotice` (about 360 sites), `RequestRedraw` (about
-  180), cursor updates and screen state directly, so gameplay modules include
-  screen headers. Commands should return outcome values, or append typed events
-  to an ordered outcome log, which screens present in order. Keep the
-  retail-visible order of notices and voices, and never move a random draw.
-  Done when `local_code` gameplay and `inventory`/`party` modules no longer
-  include `local_screens/` headers.
-- **One derivation path for character state.** Settlement
+- **Shared mutable state.** 341 `extern` globals. The largest are `g_status` (about 2,250
+  uses), `g_combat` (1,050), `gXStatus` (630), `g_level_block` (950, 93% of them in
+  screens) and `g_localized_strings` (1,080).
+- **The simulation runs inside a screen.** `MainGameScreen::frame` ticks the simulation,
+  and game time passes only while that screen is current (`environment.cpp:98`).
+- **Rules drive presentation directly.** Rules call it about 500 times (notices,
+  redraws, cursor, screen ids), and 32 of the 57 `local_code` files include screen
+  headers.
+- **Games are reset by hand.** New game and load clear globals one by one
+  (`ResetForNewGame`, `ResetLiveSessionForLoad`, `ResetGameplayStatusBlock`,
+  `DestroyGameplayObjects`, `ResetMainGameScreenState`).
+- **Combat is driven by animation.** Combat polls animation state, and missile and
+  monster entities resolve attacks themselves.
+
+The target is five layers. Each may depend only on the layers listed above it.
+
+| Layer | Owns | May not |
+|---|---|---|
+| `data` | `GameData`: the string table; item, spell, monster, NPC, fact and level databases; missile and encounter tables; profession, race and skill tables. Immutable after loading. Retail record codecs. | change after loading |
+| `rules` | Functions over explicit state: inventory, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take a `RuleContext` (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
+| `game` | `Game`, one play-through. It owns the saved `GameState` value (party, story, clock, message log, level progress), `Rng`, the `Level` (primary and sky worlds, monsters, triggers, encounters), `std::optional<Combat>`, the `Activity`, the speech scheduler and the event log. Commands are its member functions. `Game::advance(elapsed)` is the only simulation step. | include screen headers or call presentation |
+| `ui` | The router and screens. A screen borrows `const GameData&` and `Game*`. It draws from state, issues commands and presents events (notices, voices, portrait flashes, camera cues). It owns all presentation state: the main game's HUD (today's `g_level_block`), text boxes, cursor, targeting mode, the edited formation and the item drag. | change game state except through commands |
+| `app` | The platform (window, GPU, audio device, input), `GameData`, `std::optional<Game>` and the UI. | |
+
+The decisions behind it:
+
+1. **A game is an object.**
+   - A new game is `Game(data, PartyDraft)`, a load is `Game(data, SaveFile)`, and
+     quitting to the menu destroys it.
+   - The reset functions disappear, along with every `Clear*`/`Release*` they call.
+   - Party selection, import and character creation edit a `PartyDraft` they own, so
+     menus never touch live state.
+2. **Rules emit events; the UI presents them.**
+   - Rules append, in order:
+     - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,
+       `RoundStarted`, `GoldChanged`);
+     - narration (`Message{text, speaker}`);
+     - speech requests.
+   - The UI drains the log after each command and each step, and presents it in that
+     order.
+   - `RequestRedraw` and redraw bitmasks disappear: screens repaint what an event
+     invalidated.
+   - The retail order of messages and voices and every random draw are preserved.
+3. **An activity replaces UI modes.**
+   - `Game::activity` is one of: Exploring, Camping, Conversation{npc}, ScriptedScene
+     or Combat.
+   - Rules branch on the activity: Identify works only while camping, and time passes
+     while exploring or fighting.
+   - Rules never branch on a screen id or on `fCampMode`/`fNpcDialogueMode`-style
+     flags. Screens follow the activity.
+4. **The simulation steps in one place.**
+   - `Game::advance` runs, in a fixed order, what `MainGameScreen::frame` runs today:
+     speech, surprise, autosave pacing, monsters, movement fatigue, search, combat,
+     sight, groups, worlds, the environment clock and NPC events.
+   - The screen decides only whether to step (pause, an open modal).
+5. **Combat advances on explicit signals.**
+   - `Combat` owns its participants' choices and its pacing, and steps when the
+     presentation reports its actors idle.
+   - Animation frames and missile impacts post simulation events (`SpellReleased`,
+     `MissileHit`) to combat. Entities no longer resolve attacks themselves.
+6. **Saves are codecs over values.**
+   - A save is `GameState` plus one `LevelState` per visited level.
+   - `W8GlobalStatus` and the other retail records exist only inside the codec.
+   - A save snapshot is a copy of `GameState`.
+7. **The boundaries are enforced.**
+   - `rules` and `game` are separate CMake targets that do not link `ui`, render or SDL.
+   - CI checks their includes and applies `cppcoreguidelines-avoid-non-const-global-variables`
+     to them.
+
+## Migration
+
+Each step lands one subsystem in its final shape and moves its code behind the enforced
+boundary, so a step cannot regress. Code not yet migrated reaches the game through
+`CurrentGame()`. That accessor returns null while no game exists, `rules` and `game` may
+not call it, and it is deleted with its last caller. Run the licensed runtime scenarios
+after every step.
+
+1. **Layers and enforcement.**
+   - Create the `data`, `rules` and `game` targets, the include check and the lint.
+   - Seed `rules` with the pure modules: `party`, `party_stats`, `item_rules`,
+     `character_stats`.
+2. **The game object.**
+   - The Application holds `std::optional<Game>`, created by a new game or a load and
+     destroyed on quit.
+   - The game owns the party, the status, combat, `Rng`, the speech queue, the gameplay
+     timer and the monster-manager entries.
+   - `g_status`, `g_combat`, the random state and the gameplay half of `gXStatus` are
+     deleted, along with the reset functions.
+   - Party selection, import and character creation edit a `PartyDraft`.
+3. **Inventory and party in `rules`.**
+   - Inventory commands, settlement, encumbrance and equipment rules take a
+     `RuleContext` and emit events, and the camp and main game screens present them.
+   - Done when `inventory`, `live_party`, `character_skills` and their notices no longer
+     include `local_screens/`.
+   - This absorbs "characters by slot, items by location" below.
+4. **Activity.** Replace `fCampMode`, `fNpcDialogueMode`, `fPartyMovementMode`,
+   `scripted_scene` and the screen-id checks in rules (about 130 reads) with
+   `Game::activity`.
+5. **One step.**
+   - Move the frame's simulation order into `Game::advance`, and move the primary and sky
+     worlds into the game's `Level`.
+   - Game time follows the activity, not the screen.
+6. **Presentation owned by screens.**
+   - `g_level_block`, the cursor, the targeting mode, `edited_formation` and `item_drag`
+     become screen members. `gXStatus` is deleted.
+   - Camp, character and options state folds into their screens, and the HUD panels
+     receive explicit inputs.
+   - Redraw bitmasks give way to invalidation by events.
+   - Camp pages take explicit inputs instead of reaching back through `screen.`, and
+     the item-action buttons belong to the items page.
+   - The held-item cursor is derived every frame from the hand and the interaction
+     mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
+7. **`GameData`.**
+   - The databases, string table and rule tables become one immutable object that the
+     Application loads and rules receive.
+   - Tests build small `GameData` fixtures instead of swapping globals (`ScopedRecords`).
+   - Message ids get names here.
+8. **Conditions, magic and combat in `rules`.**
+   - Conditions, spells and attack resolution return results and emit events.
+   - `Combat` becomes an owned turn system, signalled by animation and missile events.
+9. **Story state.**
+   - Facts, factions, the journal, NPC states, location variables and the message log
+     move into `GameState`.
+   - NPC scripting and level scripts take a context (the world, the party, story state,
+     events) instead of reaching globals, and level-script statics become per-level
+     script objects.
+10. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
+    `decode(...)`. Then delete `W8GlobalStatus` as a runtime type.
+
+## Within the layers
+
+These items keep their own scope, and are easiest after the migration step named in
+each.
+
+- **One derivation path for character state.** (After step 3.) Settlement
   (`SettleActiveParty`) coexists with partial recalculations
-  (`RecalculateArmorClass`, `RecalculateHitPoints`, `RedistributePartyEncumbrance`,
-  `RebuildConditionsAndDerivedStats`, `ApplyPartyModifiers`, direct `CalcInitiative`
-  and `CalcAttacks` calls), so different callers see different subsets updated.
+  (`RecalculateArmorClass`, `RecalculateHitPoints`,
+  `RedistributePartyEncumbrance`, `RebuildConditionsAndDerivedStats`,
+  `ApplyPartyModifiers`, direct `CalcInitiative` and `CalcAttacks` calls), so
+  different callers see different subsets updated.
   - Make derived values (effective attributes, skills, ceilings, armor, attacks,
     load) a pure function of explicit inputs, recomputed in one place.
   - Apply resource transitions (current HP/stamina/spell points following a new
@@ -48,8 +162,8 @@ the licensed runtime scenarios) green after each slice.
     they happen inside the statistics calculation.
   - Make the retail previous-pass damage bonus used by swings an explicit history
     input, so that a different number of passes cannot change combat results.
-- **The party and actions model.** `W8PartySlotRow` mixes several unrelated
-  kinds of state:
+- **The party and actions model.** (After step 2; choices move with `Combat` in
+  step 8.) `W8PartySlotRow` mixes several unrelated kinds of state:
   - persistent membership, NPC binding and marching order;
   - combat choices (pending, committed, remembered and spell actions, targets);
   - UI flags (`item_action_pending`, `portrait_advance`) and accumulators
@@ -59,56 +173,33 @@ the licensed runtime scenarios) green after each slice.
   - membership in the party, and choices in a turn/combat model;
   - presentation in the screens.
 
-  Replace `fOccupied` arrays with real optional members. Give character-creation
-  and import drafts their own owner instead of unoccupied party slots, so that no
-  code asks "is this character an occupied member" by address (`slotOf`).
-- **Characters by slot, items by location or value.** Inventory commands still
-  take `W8Character*` and `W8ItemInstance*` and resolve sources by scanning party
-  storage (`locateItem`). Callers should pass party slots, `W8ItemLocation`
-  sources and owned values. Split pure placement (onto `W8Party`, returning where
-  items went) from acquisition effects (notices, story facts, exceptional-item
-  reactions), which the commands that owe them apply explicitly. Committed and
-  pending item uses should record the expected item contents, as trade rows do,
-  and abandon on mismatch, because pool compaction can silently retarget a
-  location.
-- **Runtime types with semantic shape; retail layout only in codecs.**
-  `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation state still
-  carry retail field names and sizes: about 1,230 uses of Hungarian names such as
-  `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size `static_assert`s.
-  Twenty-eight `wiz8::retail::Record` codecs already exist. Finish the move:
+  Replace `fOccupied` arrays with real optional members, so that no code asks "is
+  this character an occupied member" by address (`slotOf`).
+- **Characters by slot, items by location or value.** (Part of step 3.) Inventory
+  commands still take `W8Character*` and `W8ItemInstance*` and resolve sources by
+  scanning party storage (`locateItem`). Callers should pass party slots,
+  `W8ItemLocation` sources and owned values. Split pure placement (onto `W8Party`,
+  returning where items went) from acquisition effects (notices, story facts,
+  exceptional-item reactions), which the commands that owe them apply explicitly.
+  Committed and pending item uses should record the expected item contents, as
+  trade rows do, and abandon on mismatch, because pool compaction can silently
+  retarget a location.
+- **Runtime types with semantic shape; retail layout only in codecs.** (Finished
+  by step 10.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
+  state still carry retail field names and sizes: about 1,230 uses of Hungarian
+  names such as `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size
+  `static_assert`s. Twenty-eight `wiz8::retail::Record` codecs already exist.
+  Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members,
     and no runtime size asserts;
   - codecs own every byte, including unknown fields;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
-- **Screen state behind its screen.** The router owns `Screen` objects, but
-  the camp, character and options screens still wrap a per-visit state object
-  (`W8CampScreenState`, `W8CharacterScreenState`, `W8OptionsScreenState`) that
-  other modules reach through `CampScreenState()`-style accessors, the main
-  game's companion files reach `MainGame()` for HUD state, and the automap and
-  use-item picker keep module statics. Make each state class re-enterable and
-  fold it into its screen, and give the main game's companions explicit inputs.
-  In the camp:
-  - pages reach back through `screen.` for redraw bits, the reviewed character
-    and dialogs;
-  - the item-action buttons belong to the items page;
-  - redraw state is still retail bitmasks (`0x7ff`, `0x10000`).
-
-  Replace these with per-page invalidation and explicit page inputs. Derive the
-  held-item cursor every frame from the hand and the interaction mode instead of
-  calling `UpdateHeldItemCursor`/`SetItemCursor` after commands.
-- **Combat as an owned turn system.** `Combat.cpp` and `Combat Attack.cpp`
-  (about 6,000 lines) operate on global party rows and monster records:
-  - fatigue costs travel through a `-1` sentinel;
-  - equipment changes reach combat through `ReconcileHandChange`, a repair of
-    berserk, targets and the alternate-hand toggle.
-
-  Combat should own its participants' choices and respond to an equipment
-  change as a combat-side rule; costs and outcomes are values.
-- **Actor references.** About 500 uses of raw `p3D` actor pointers survive. The
-  location-ID review fixed some unloaded-actor cases. Replace borrowed pointers
-  with world-owned handles or explicit lookups resolved at use, including
-  trigger-driven reactivation, and add regressions for each bug the audit finds.
+- **Actor references.** (After step 5, when the game owns the level.) About 500
+  uses of raw `p3D` actor pointers survive. The location-ID review fixed some
+  unloaded-actor cases. Replace borrowed pointers with world-owned handles or
+  explicit lookups resolved at use, including trigger-driven reactivation, and add
+  regressions for each bug the audit finds.
 
 ## Remaining follow-ups
 
@@ -121,9 +212,6 @@ Substantial but contained work.
 - **Explicit renderer inputs.** Matrix-mode/load operations and mutable current
   draw state remain in `GpuRenderer`. Replace the implicit protocol with per-draw
   inputs and migrate callers, including `compositor.cpp`.
-- **World and session ownership.** Review the remaining borrowed camera and
-  static-mesh aliases against their owners, and move persistent cursor
-  selection/projection state into the owning world or session.
 - **Delete the compatibility layer.** `include/wiz8/compat/` (`compiler.h` is
   force-included into every game source, plus `native.h`, `unaligned.h` and
   `video.h`) and `src/compat/native_helpers.cpp` should go. Replace them with
@@ -146,10 +234,6 @@ Substantial but contained work.
   should split into item rules, identification/binding and display.
 - **Value initialization instead of `memset`/`memcpy`.** About 100 calls remain on
   runtime objects; use value initialization and assignment.
-- **Level scripts.** `level_specific_code/` reads and writes the level block,
-  story facts and the party through globals. Once the session exists, give scripts
-  an explicit context (the world, the party, story state and outcomes).
-
 ## Easiest follow-ups
 
 Small, local and low-risk.
