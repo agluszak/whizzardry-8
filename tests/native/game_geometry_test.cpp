@@ -2363,6 +2363,7 @@ TEST_CASE("Recycled particles restart texture playback at their new birth", "[ge
                          std::make_shared<Texture>()};
     ParticleSystem particles(nullptr, 1);
     particles.emitting = false;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
     particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
