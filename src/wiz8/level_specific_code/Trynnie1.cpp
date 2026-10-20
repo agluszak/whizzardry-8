@@ -96,7 +96,6 @@ void Trynnie1Script::enter()
 {
     glm::vec3 vPos;
     glm::vec3 vPos2;
-    W8MonsterGroup* group;
 
     bindTrigger("Fount_randomFX", &Trynnie1Script::fountRandomFX);
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
@@ -105,7 +104,7 @@ void Trynnie1Script::enter()
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))
                 throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
             vPos2 = vPos;
-            group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
+            [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, false, true);
             assert(group != 0);
             CreateLocationVar("Trynnie1Killed", 1);
         }
