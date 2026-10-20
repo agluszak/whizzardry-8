@@ -473,7 +473,9 @@ void Renderer::drawOverlayQuad(const OverlayQuad& quad)
     draw->assignIndices(indices);
     draw->indexCount = 6;
     draw->instanceCount = 1;
-    auto image = quad.texture ? quad.texture->imageInfo(0, impl->frame_number) : impl->white;
+    auto image = quad.image     ? quad.image
+                 : quad.texture ? quad.texture->imageInfo(0, impl->frame_number)
+                                : impl->white;
     if (!image) image = impl->white;
     auto state = vsg::StateGroup::create();
     state->add(impl->overlayPipeline(quad.shader));

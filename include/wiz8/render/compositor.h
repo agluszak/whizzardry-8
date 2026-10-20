@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
+#include <vsg/core/Array2D.h>
 
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -33,6 +34,7 @@ struct OverlayQuad {
     ~OverlayQuad();
 
     std::shared_ptr<Texture> texture;
+    vsg::ref_ptr<vsg::ImageInfo> image;
     glm::vec2 position{0};
     glm::vec2 size{0};
     glm::vec2 scale{1};
@@ -85,8 +87,8 @@ public:
 
 private:
     std::shared_ptr<SDL_Surface> source;
-    std::shared_ptr<SDL_Surface> published;
-    std::shared_ptr<Texture> texture;
+    vsg::ref_ptr<vsg::ubvec4Array2D> pixels;
+    OverlayQuad quad;
     float pixel_offset = 0;
     bool alpha_test = false;
 };

@@ -4,14 +4,16 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <vsg/state/Sampler.h>
 
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
@@ -26,6 +28,7 @@ OverlayQuad& OverlayQuad::operator=(const OverlayQuad& other)
 {
     if (this == &other) return *this;
     texture = other.texture;
+    image = other.image;
     position = other.position;
     size = other.size;
     scale = other.scale;
@@ -90,28 +93,24 @@ void Compositor::draw(Renderer& renderer, OverlayLayer layer)
 }
 
 UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)
-    : source(std::move(surface)), published(CreateCpuStorage(source->w, source->h, source->format)),
-      texture(std::make_shared<Texture>(published))
+    : source(std::move(surface)),
+      pixels(vsg::ubvec4Array2D::create(source->w, source->h,
+                                        vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}))
 {
-    const auto bytes = SDL_BYTESPERPIXEL(source->format);
-    for (int row = 0; row < source->h; ++row)
-        std::memcpy(static_cast<std::uint8_t*>(published->pixels) + row * published->pitch,
-                    static_cast<const std::uint8_t*>(source->pixels) + row * source->pitch,
-                    std::size_t(source->w) * bytes);
-    auto dimensions = texture->getDimensions();
-    dimensions.native_size = true;
-    texture->setDimensions(dimensions);
-    texture->setMipmap(Texture::MIPMAP_NONE);
-    texture->setWrapS(Texture::WRAP_CLAMP);
-    texture->setWrapT(Texture::WRAP_CLAMP);
+    if (SDL_ISPIXELFORMAT_INDEXED(source->format))
+        throw std::invalid_argument("UI canvases require a non-indexed pixel format");
+    pixels->properties.dataVariance = vsg::DYNAMIC_DATA;
+    auto sampler = vsg::Sampler::create();
+    sampler->addressModeU = sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler->magFilter = sampler->minFilter = VK_FILTER_LINEAR;
+    sampler->maxLod = 0;
+    quad.image = vsg::ImageInfo::create(sampler, pixels);
+    quad.size = {640, 480};
+    updateRectangle(nullptr, 0, 0, source->w, source->h);
 }
 void UiCanvasTexture::draw(Renderer* renderer)
 {
-    OverlayQuad quad;
-    quad.texture = texture;
-    quad.size = {640, 480};
-    const auto dimensions = texture->getDimensions();
-    quad.uv_min = {pixel_offset / dimensions.width, pixel_offset / dimensions.height};
+    quad.uv_min = {pixel_offset / source->w, pixel_offset / source->h};
     quad.uv_max = quad.uv_min + 1.0f;
     quad.shader.value = 0x100a017 | (alpha_test ? DrawShader::MASK_ALPHATEST : 0);
     renderer->drawOverlayQuad(quad);
@@ -121,12 +120,12 @@ void UiCanvasTexture::updateRectangle(Renderer*, int left, int top, int right, i
     SDL_Rect rectangle{left, top, right - left, bottom - top};
     const SDL_Rect bounds{0, 0, source->w, source->h};
     if (!SDL_GetRectIntersection(&rectangle, &bounds, &rectangle)) return;
-    const auto bytes = SDL_BYTESPERPIXEL(source->format);
-    for (int row = rectangle.y; row < rectangle.y + rectangle.h; ++row)
-        std::memcpy(static_cast<std::uint8_t*>(published->pixels) + row * published->pitch +
-                        rectangle.x * bytes,
-                    static_cast<const std::uint8_t*>(source->pixels) + row * source->pitch +
-                        rectangle.x * bytes,
-                    std::size_t(rectangle.w) * bytes);
-    texture->publish();
+    const auto* input = static_cast<const std::uint8_t*>(source->pixels) +
+                        std::size_t(rectangle.y) * source->pitch +
+                        rectangle.x * SDL_BYTESPERPIXEL(source->format);
+    auto* output = &pixels->at(rectangle.x, rectangle.y);
+    if (!SDL_ConvertPixels(rectangle.w, rectangle.h, source->format, input, source->pitch,
+                           SDL_PIXELFORMAT_RGBA32, output, source->w * 4))
+        throw std::runtime_error(SDL_GetError());
+    pixels->dirty();
 }

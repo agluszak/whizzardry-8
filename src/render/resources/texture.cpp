@@ -216,18 +216,6 @@ vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
     return image_info;
 }
 
-void Texture::publish()
-{
-    if (!image_info || !surface) return;
-    auto pixels = image_info->imageView->image->data.cast<vsg::ubvec4Array2D>();
-    if (!pixels) return;
-    auto rgba = CreateCpuStorage(static_cast<int>(pixels->width()),
-                                 static_cast<int>(pixels->height()), SDL_PIXELFORMAT_RGBA32);
-    StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_NEAREST);
-    copyRgbaPixels(*pixels, *rgba);
-    pixels->dirty();
-}
-
 void Texture::setSurfacePtr(std::shared_ptr<SDL_Surface> pixels)
 {
     if (pixels == surface) return;

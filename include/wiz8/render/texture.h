@@ -94,8 +94,6 @@ public:
     // their current image here rather than freezing a frame at asset load time.
     vsg::ref_ptr<vsg::ImageInfo> imageInfo(int reduction = 0,
                                            std::optional<std::uint64_t> visual_frame = {});
-    // Publish CPU canvas pixels explicitly; ordinary drawing does not upload.
-    void publish();
     void setSurfacePtr(std::shared_ptr<SDL_Surface> pixels);
     SDL_Surface* getSurfacePtr() const { return surface.get(); }
     std::shared_ptr<SDL_Surface> surface;
