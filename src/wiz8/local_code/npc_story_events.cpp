@@ -56,7 +56,6 @@
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static void ResolveSedexusCapture(void);
 static void NpcScriptHenchmanArrives(Monster* monster);
@@ -150,7 +149,7 @@ void BeginNpcScriptedScene(void)
 
     g_npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
-    gXStatus.scripted_scene = true;
+    CurrentGame().activity.scripted_scene = true;
     SetTargetingMode(W8_TARGET_NEED_ALLY);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (CurrentGame().party.rows[party_slot].fOccupied) {
@@ -174,7 +173,7 @@ void EndScriptedPortraitPick(int party_slot)
     int slot;
     bool other_gender_present;
 
-    if (!gXStatus.scripted_scene) {
+    if (!CurrentGame().activity.scripted_scene) {
         return;
     }
     if (!CurrentGame().combat.active() || CurrentGame().party_movement_mode) {
@@ -188,7 +187,7 @@ void EndScriptedPortraitPick(int party_slot)
         }
     }
     g_npc_dialogue.ReleaseScene();
-    gXStatus.scripted_scene = false;
+    CurrentGame().activity.scripted_scene = false;
     other_gender_present = false;
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_ALL_WOMAN, 0, false);

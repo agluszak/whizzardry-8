@@ -126,9 +126,9 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetVisible(!CurrentGame().combat.active());
         break;
     }
-    if (gXStatus.fNpcDialogueMode &&
+    if (CurrentGame().activity.conversation &&
         (index != 0 || IsNpcDialogueCursorActive() != 0 ||
-         (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue))) {
+         (CurrentGame().activity.conversation && g_npc_interaction_state->scripted_dialogue))) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -144,7 +144,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (CurrentGame().surprise_possible || gXStatus.fCampMode) {
+    if (CurrentGame().surprise_possible || CurrentGame().activity.conversation_aside) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -256,8 +256,8 @@ static void SubMenuButtonPendingScreen(W8ButtonWidget* button)
 {
     button->SetPressed(false);
     button->m_dirty = true;
-    if (gXStatus.fNpcDialogueMode) {
-        gXStatus.fCampMode = true;
+    if (CurrentGame().activity.conversation) {
+        CurrentGame().activity.conversation_aside = true;
     }
     RequestScreen({.id = W8_SCREEN_JOURNAL});
 }

@@ -34,7 +34,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 struct W8NpcState;
 
@@ -945,7 +944,7 @@ bool ArnikaFlightRecorder(Trigger* pTrigger)
     W8ItemInstance* item;
     W8NpcState* npc;
 
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         return false;
     }
     g_trigger_feedback = true;

@@ -1361,7 +1361,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        return !CurrentGame().combat.active() && !gXStatus.fCampMode &&
+        return !CurrentGame().combat.active() && !CurrentGame().activity.conversation_aside &&
                !LockInteractionSuspended() && !TrapInteractionSuspended();
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
@@ -1384,8 +1384,8 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
         record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
-        if (CurrentGame().combat.active() || gXStatus.fCampMode || LockInteractionSuspended() ||
-            TrapInteractionSuspended()) {
+        if (CurrentGame().combat.active() || CurrentGame().activity.conversation_aside ||
+            LockInteractionSuspended() || TrapInteractionSuspended()) {
             ShowNoticeLine(Data().strings[0x7a6], callback, true, false);
             return true;
         }

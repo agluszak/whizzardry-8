@@ -31,9 +31,7 @@ struct W8ItemDrag {
 };
 
 struct W8XStatus {
-    bool fNpcDialogueMode;
     bool fReviewCharacterMode;
-    bool fCampMode;
     /* Re-check level-up notices when the UI is idle again. */
     bool level_up_notice;
     bool fPartyMovementUi;
@@ -48,9 +46,6 @@ struct W8XStatus {
     bool world_update_blocked;
     /* Explicit user-pause choice; closing an interaction does not clear it. */
     bool world_paused;
-    /* Raised by BeginNpcScriptedScene until EndScriptedPortraitPick;
-       gates the dialogue-cursor and NPC-script input paths. */
-    bool scripted_scene;
     /* An item the camp's Use action hands to the main game's use-item picker. */
     std::optional<W8ItemDrag> item_drag;
 };

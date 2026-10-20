@@ -323,7 +323,7 @@ struct GameEventPresentation {
     }
     void operator()(const PartyLoadChanged&) const
     {
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !gXStatus.fNpcDialogueMode) {
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !CurrentGame().activity.conversation) {
             RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
         } else if (auto* camp = CampScreenState();
                    camp && CurrentScreenState().id == W8_SCREEN_CAMP) {

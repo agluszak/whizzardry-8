@@ -86,7 +86,6 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -258,8 +257,8 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         Fail("uiSpellUsableWhen < SPELL_USAGE_COUNT");
     }
 
-    if (CurrentScreenState().id == W8_SCREEN_CAMP && !CurrentGame().combat.active() &&
-        gXStatus.fCampMode &&
+    if (CurrentGame().activity.in_camp() && !CurrentGame().combat.active() &&
+        CurrentGame().activity.conversation_aside &&
         (spell_id == W8_SPELL_IDENTIFY_ITEM || spell_id == W8_SPELL_REMOVE_CURSE)) {
         return true;
     }
@@ -280,7 +279,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         }
         break;
     case W8_SPELL_USABLE_WHILE_CAMPED:
-        if (!gXStatus.fCampMode) {
+        if (!CurrentGame().activity.conversation_aside) {
             return false;
         }
         return !lock_or_trap;
@@ -297,7 +296,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         return allow_out_of_combat;
     }
 
-    if (!gXStatus.fCampMode) {
+    if (!CurrentGame().activity.conversation_aside) {
         return !lock_or_trap;
     }
     return false;
@@ -3035,8 +3034,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 }
             }
         }
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !gXStatus.fNpcDialogueMode &&
-            !gXStatus.fCampMode) {
+        if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
+            !CurrentGame().activity.conversation_aside) {
             g_spell_effects.push_back(std::move(pending));
         } else {
             ProcessSpellEffectTargets(&owner);

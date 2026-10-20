@@ -101,7 +101,6 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
-#include "wiz8/xstatus.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);
 static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
@@ -2383,7 +2382,7 @@ bool NotifyNpcTriggerActivation(Trigger* trigger)
 {
     W8ItemInstance* item = 0;
 
-    if (!gXStatus.fNpcDialogueMode) {
+    if (!CurrentGame().activity.conversation) {
         W8NpcState* npc = g_npc_states[trigger->m_lData1].get();
 
         if ((trigger->flags & W8_TRIGGER_ENABLED) != 0 || npc->name_style == '{') {

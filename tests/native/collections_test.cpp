@@ -701,6 +701,7 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
 
 TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
 {
+    const ScopedGame game;
     struct Restore {
         std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
         W8MainUiMode mode = g_settings.main_ui_mode;

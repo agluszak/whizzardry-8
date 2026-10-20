@@ -34,7 +34,6 @@
 #include "wiz8/render/vertex_channels.h"
 #include "wiz8/render/vertex_shading.h"
 #include "wiz8/render/world_scene.h"
-#include "wiz8/screen.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -97,7 +96,7 @@ void AdvanceEnvironmentTime(int elapsed)
     }
     CurrentGame().status.game_time_ms = time % 86400000U;
 
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentGame().activity.in_world()) {
         UpdateGameClock(elapsed);
     }
     g_tick = w8_get_ticks();
