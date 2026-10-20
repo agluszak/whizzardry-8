@@ -718,7 +718,7 @@ void CampScreen::frame()
                     }
                 } else if (input.key == SDLK_P) {
                     if (GameStarted()) {
-                        SortPartyItemPool(CurrentGame());
+                        SortPartyItemPool(CurrentGame().rules());
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&

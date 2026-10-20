@@ -3516,8 +3516,8 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (g_npc_interaction_state->held_item_pending &&
                     g_npc_interaction_state->pending_item.iItemNo == item->iItemNo) {
                     g_npc_interaction_state->held_item_pending = false;
-                    AddItemToParty(CurrentGame(), &g_npc_interaction_state->pending_item, true,
-                                   false);
+                    AddItemToParty(CurrentGame(), OwnedItem(g_npc_interaction_state->pending_item),
+                                   true, false);
                     (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
                     return 0;
                 }
@@ -3945,12 +3945,13 @@ static void ResolveNpcPickpocket(int party_slot)
             fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), &item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
-                AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
+                AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), party_slot),
+                                   OwnedItem(item), false, false, false);
                 DisplayNpcQuote(text, true);
                 return;
             }
         }
-        AddItemToParty(CurrentGame(), &item, false, false);
+        AddItemToParty(CurrentGame(), OwnedItem(item), false, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:

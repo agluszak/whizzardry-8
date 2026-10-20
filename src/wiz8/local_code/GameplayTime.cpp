@@ -173,19 +173,19 @@ void UpdateGameClock(int elapsed)
             int i;
             for (i = 0; i < 0xc; ++i) {
                 if (character->EquippedItem[i].iItemNo == 0x266) {
-                    AddItemUses(&character->EquippedItem[i], uses);
+                    AddItemUses(Data(), character->EquippedItem[i], uses);
                 }
             }
             for (i = 0; i < 8; ++i) {
                 if (character->backpack[i].iItemNo == 0x266) {
-                    AddItemUses(&character->backpack[i], uses);
+                    AddItemUses(Data(), character->backpack[i], uses);
                 }
             }
         }
         for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
             W8ItemInstance* item = &CurrentGame().party.item_pool[index];
             if (item->iItemNo == 0x266) {
-                AddItemUses(item, static_cast<char>(hours));
+                AddItemUses(Data(), *item, static_cast<char>(hours));
             }
         }
     }

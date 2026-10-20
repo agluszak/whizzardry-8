@@ -238,7 +238,8 @@ void BrewAlchemistPotion(Game& game, W8Character* character)
         game.events.push(
             TextNotice{slot, fmt::sprintf(Data().strings[0x183], character->name,
                                           FormatItemDisplayName(Data(), &item, true))});
-        StoreItemWithCharacterOrParty(game, character, &item, false, false, false);
+        StoreItemWithCharacterOrParty(game, PartyMember(game, slot), OwnedItem(item), false, false,
+                                      false);
         made = 1;
     }
     if (made != 0) {

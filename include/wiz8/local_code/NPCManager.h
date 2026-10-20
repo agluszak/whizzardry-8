@@ -122,7 +122,7 @@ W8NpcState* GetNpcStateByKind(int kind);
 /* Whether the NPC wants the offered item - it matches one of the
    record's wanted entries by id or by the shared 0x83 name kind, and a grouped
    NPC whose member already carries more than one declines. */
-bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item);
+bool NpcWantsItem(W8NpcState* npc, const W8ItemInstance* item);
 bool NpcHasTopic(W8NpcState* npc, int topic);
 bool NpcLeadHasNameStyle(W8NpcId kind);
 /* Clear one NPC binding's monster link and hand the handle to the

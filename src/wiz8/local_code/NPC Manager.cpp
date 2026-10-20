@@ -389,7 +389,7 @@ unsigned char g_npc_join_races[5] = {W8_RACE_UMPANI, W8_RACE_T_RANG, W8_RACE_RAP
 /* Whether the NPC wants the offered item: it matches one of the record's
    three wanted entries by id or by the shared 0x83 name kind, and a grouped
    NPC whose member already carries more than one declines. */
-bool NpcWantsItem(W8NpcState* npc, W8ItemInstance* item)
+bool NpcWantsItem(W8NpcState* npc, const W8ItemInstance* item)
 {
     int index;
     const short* wanted = npc->record->character.wanted_item_ids;
@@ -429,7 +429,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         if (item->iItemNo != -1 &&
             CanUnequipSlotItem(Data(), &character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), item, false)) {
+            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
                 returned = true;
             } else {
                 dropped = true;
@@ -439,7 +439,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     for (slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), item, false)) {
+            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
                 returned = true;
             } else {
                 dropped = true;
@@ -537,7 +537,7 @@ void UpdateNpcPartyMember(int party_slot)
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
-        StashDepartingCharacterItems(CurrentGame(), character);
+        StashDepartingCharacterItems(CurrentGame(), party_slot);
         RemoveCharacterFromParty(party_slot);
         return;
     }

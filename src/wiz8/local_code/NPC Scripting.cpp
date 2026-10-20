@@ -471,7 +471,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
             context.party.held.item = item;
             SetItemCursor(0);
         } else {
-            AddItemToPartyOrDrop(context.game, &item, false);
+            AddItemToPartyOrDrop(context.game, OwnedItem(item), false);
             DisplayNpcQuote(notice_text, true);
         }
         ClearNpcItemId(session_.npc, entry->operand0);

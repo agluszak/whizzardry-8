@@ -32,17 +32,15 @@
 #include "wiz8/screen.h"
 
 // The game's inputs to statistic calculations: combat actions and NPC story state.
-static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game,
-                                                        const W8Character& character)
+static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game, unsigned int slot)
 {
     CharacterStatRules rules;
-    const auto slot = game.party.slotOf(character);
-    if (!slot) return rules;
+    const auto& character = game.party.characters[slot];
     if (game.combat.has_value())
-        rules.defensive_action = TryCharacterAction(*slot, W8_ACTION_DEFEND, false) ||
-                                 TryCharacterAction(*slot, W8_ACTION_PROTECT, false);
+        rules.defensive_action = TryCharacterAction(slot, W8_ACTION_DEFEND, false) ||
+                                 TryCharacterAction(slot, W8_ACTION_PROTECT, false);
     if (character.fInParty && character.iRace == W8_RACE_ANDROID) {
-        const auto* npc = GetNpcState(game.party.rows[*slot].npc_index);
+        const auto* npc = GetNpcState(game.party.rows[slot].npc_index);
         rules.damaged_android =
             npc && npc->name_style == W8_NPC_RFS81_A && !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED);
     }
@@ -58,8 +56,7 @@ static PartyStatRules CaptureLivePartyStatRules(const Game& game)
         rules.load_timing = PartyLoadTiming::AfterCombat;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (game.party.rows[slot].fOccupied)
-            rules.characters[slot] =
-                CaptureLiveCharacterStatRules(game, game.party.characters[slot]);
+            rules.characters[slot] = CaptureLiveCharacterStatRules(game, slot);
     return rules;
 }
 
@@ -101,23 +98,16 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
 void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
 {
     if (!IsCharacterDefined(character)) return;
-    if (const auto member = game.party.slotOf(character);
-        member && game.party.rows[*member].fOccupied) {
+    if (character.fInParty) {
         SettleActiveParty(game);
         return;
     }
     UpdateStandaloneCharacterStats(Data(), character, {});
 }
 
-void RecalculateEditedCharacterStats(Game& game, W8Character& character)
+void RecalculateEditedCharacterStats(W8Character& draft)
 {
-    const auto slot = game.party.slotOf(character);
-    const bool member = slot && game.party.rows[*slot].fOccupied;
-    if (!member) character.party_weight_share = 0;
-    const auto update = UpdateCharacterStatsFromInputs(
-        Data(), character,
-        member ? CaptureLiveCharacterStatRules(game, character) : CharacterStatRules{});
-    if (update.became_overloaded) PresentOverload(character);
-    if (member && update.hp_exhausted)
-        SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
+    draft.party_weight_share = 0;
+    const auto update = UpdateCharacterStatsFromInputs(Data(), draft, {});
+    if (update.became_overloaded) PresentOverload(draft);
 }

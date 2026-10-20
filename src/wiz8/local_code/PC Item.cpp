@@ -540,29 +540,6 @@ bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item
     return false;
 }
 
-/* Bind one worn item to its wearer. A binding that has not been announced yet
-   is announced as it takes hold; one already announced just takes hold. A slot
-   with no interface position binds nothing. */
-void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot)
-{
-    W8ItemInstance* item = &character->EquippedItem[equip_slot];
-
-    if (item->iItemNo == -1) {
-        return;
-    }
-    if (Data().items[item->iItemNo].binds_on_equip == 0 || item->bind_announced) {
-        if (HasPaperDollPosition(equip_slot) && !item->bound) {
-            item->bound = true;
-        }
-        return;
-    }
-    if (HasPaperDollPosition(equip_slot) && !item->bound) {
-        item->bound = true;
-        ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(Data().strings[0x1ea], FormatItemDisplayName(Data(), item, true)));
-    }
-}
-
 /* The spell an item carries, with both bounds on the item id asserted - the
    second names the database count as Data().items.size(). */
 int GetItemSpell(const W8ItemInstance* item)

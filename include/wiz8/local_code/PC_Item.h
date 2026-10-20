@@ -52,7 +52,7 @@ bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
 bool CanItemLeaveItsSlot(const W8ItemInstance* item);
 bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item);
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item);
-void BindEquippedItem(W8Character* character, W8EquipSlot equip_slot);
+
 bool AreAllHandSlotsEmpty(const W8Character* character);
 
 /* Same equipment class, and same unidentified display name. */

@@ -514,7 +514,7 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo = 2;
-    const auto choice = PlanWeaponSetSwap(character);
+    const auto choice = PlanWeaponSetSwap(Data(), character);
     REQUIRE(choice);
     REQUIRE(choice.value().primary);
     REQUIRE(choice.value().secondary);
@@ -526,7 +526,7 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE_FALSE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].bound);
     const ScopedGameData bound(std::move(binding));
-    REQUIRE_FALSE(PlanWeaponSetSwap(character));
+    REQUIRE_FALSE(PlanWeaponSetSwap(Data(), character));
     REQUIRE_FALSE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].bound);
 }
 

@@ -460,7 +460,7 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 
     counts[0] = 0;
     counts[1] = 0;
-    EmptyAllCarriedItems(CurrentGame(), character);
+    EmptyAllCarriedItems(CurrentGame(), *character);
     for (slot = 0; slot < 2; ++slot) {
         source = imported->items[slot];
         for (index = 0; index < 10; ++index) {
@@ -488,10 +488,12 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                     }
                     item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
                     if (Data().items[item_index].binds_on_equip == 0) {
-                        StoreItemWithCharacterOrParty(CurrentGame(), character, &item, false, false,
+                        StoreItemWithCharacterOrParty(CurrentGame(), Outsider(*character),
+                                                      OwnedItem(item), false, false,
                                                       static_cast<unsigned int>(slot == 0));
                     } else {
-                        AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
+                        AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item),
+                                           false, false, false);
                     }
                 }
             }
@@ -528,10 +530,11 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
                 item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
                 if (Data().items[item_index].binds_on_equip == 0) {
-                    StoreItemWithCharacterOrParty(CurrentGame(), character, &item, false, false,
-                                                  true);
+                    StoreItemWithCharacterOrParty(CurrentGame(), Outsider(*character),
+                                                  OwnedItem(item), false, false, true);
                 } else {
-                    AddItemToCharacter(CurrentGame(), character, &item, false, false, false);
+                    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), false,
+                                       false, false);
                 }
                 --maximum[slot];
                 candidates[slot][best_index] = empty_item;
@@ -548,10 +551,12 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
             item = MakeItem(Data(), CurrentGame().rng, item_id, true, true, true);
             equip_slot = GetItemDefaultEquipSlot(Data(), item_id, GameStarted());
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
-                if (!FindCharacterItem(*character,
-                                       ItemOfKind(Data().items[item_id].unidentified_name_index),
-                                       W8ItemReach::Carried)) {
-                    AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
+                if (!FindCharacterItem(
+                        *character,
+                        ItemOfKind(Data(), Data().items[item_id].unidentified_name_index),
+                        W8ItemReach::Carried)) {
+                    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true,
+                                       false, false);
                 }
             } else {
                 if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
@@ -559,7 +564,8 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                     equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (character->EquippedItem[equip_slot].iItemNo == -1) {
-                    AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
+                    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true,
+                                       false, false);
                 }
             }
         }
@@ -582,7 +588,8 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
         }
         if (give != -1) {
             item = MakeItem(Data(), CurrentGame().rng, give, true, true, true);
-            AddItemToCharacter(CurrentGame(), character, &item, true, false, false);
+            AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true, false,
+                               false);
         }
     }
     RecalculateCharacterDerivedStats(CurrentGame(), *(character));

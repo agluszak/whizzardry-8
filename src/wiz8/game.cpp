@@ -9,8 +9,10 @@
 #include <utility>
 
 #include "wiz8/combat/entity_signals.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/rules/rule_context.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
@@ -88,6 +90,15 @@ void SetGameEventObserver(std::function<void(const Event&)> observer)
 {
     game_event_observer = std::move(observer);
     if (current_game) current_game->events.observe(game_event_observer);
+}
+
+RuleContext Game::rules()
+{
+    return {.data = Data(),
+            .party = party,
+            .rng = rng,
+            .events = events,
+            .game_started = status.game_started};
 }
 
 ScriptContext MakeScriptContext(Game& game)

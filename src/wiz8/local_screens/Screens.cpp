@@ -14,6 +14,7 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -21,6 +22,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
@@ -335,6 +337,11 @@ struct GameEventPresentation {
     void operator()(const TextBoxModeChange& change) const
     {
         SetTextBoxMode(change.mode, change.value);
+    }
+    void operator()(const CharacterSpeech& speech) const
+    {
+        QueueCharacterEvent(&CurrentGame().party.characters[speech.party_slot], speech.event_type,
+                            0, kCharacterEventFullVolume);
     }
     void operator()(const PartySlotChanged& change) const
     {

@@ -52,7 +52,7 @@ void ResetForNewGame(void)
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        AddItemToParty(CurrentGame(), &item, false, false);
+        AddItemToParty(CurrentGame(), OwnedItem(item), false, false);
     }
     CurrentGame().party.gold = 500;
     CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);

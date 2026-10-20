@@ -124,8 +124,8 @@ void TryGiveHeldItemToCampPortrait(int slot)
     if (!IsCampActionAllowed(slot)) {
         return;
     }
-    AddItemToCharacter(CurrentGame(), character, &CurrentGame().party.held.item, false, false,
-                       false);
+    AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), slot),
+                       PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), false, false, false);
 }
 
 bool CanSelectRcsPartySlot(int ui_slot)
