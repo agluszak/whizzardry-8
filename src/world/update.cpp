@@ -218,32 +218,26 @@ void SetWorldMeshVertexLightTable(int table)
 bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds)
 {
     const glm::vec3 from(eye);
-    for (const auto& sample : bounds.visibilitySamples()) {
-        if (!projectsToCamera(sample)) continue;
-        glm::vec3 point(sample);
-        if (GetWorldSpatialIndex()->hasLineOfSight(from, point)) return true;
-    }
-    return false;
+    return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
+        return projectsToCamera(sample) &&
+               GetWorldSpatialIndex()->hasLineOfSight(from, glm::vec3(sample));
+    });
 }
 
 bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
 {
     const glm::vec3 from(origin);
-    for (const auto& sample : bounds.visibilitySamples()) {
-        glm::vec3 point(sample);
-        if (!GetWorldSpatialIndex()->traceSight(from, point)) return true;
-    }
-    return false;
+    return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
+        return !GetWorldSpatialIndex()->traceSight(from, glm::vec3(sample));
+    });
 }
 
 bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
 {
     const glm::vec3 from(origin);
-    for (const auto& sample : bounds.visibilitySamples()) {
-        glm::vec3 point(sample);
-        if (GetWorldSpatialIndex()->hasLineOfSight(from, point)) return true;
-    }
-    return false;
+    return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
+        return GetWorldSpatialIndex()->hasLineOfSight(from, glm::vec3(sample));
+    });
 }
 
 /* Build the concrete first-party instance used for an already-created mesh. */

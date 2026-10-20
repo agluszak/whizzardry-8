@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <variant>
 #include <vector>
 
 #include <glm/common.hpp>
