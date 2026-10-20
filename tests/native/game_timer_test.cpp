@@ -229,15 +229,23 @@ TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it i
 TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-bit tick rollover",
                  "[timers]")
 {
-    g_runtime_test_hooks.clock_us = ((std::uint64_t{1} << 32) + 250) * 1000;
+    const std::chrono::milliseconds epoch{(std::uint64_t{1} << 32) + 250};
     TexturePlayback playback;
     playback.textures.resize(3);
     playback.frame_rate = 1.0f;
     Texture animation(std::move(playback));
-    animation.UpdateFrame(std::chrono::milliseconds{0});
-    animation.UpdateFrame(std::chrono::milliseconds{1000});
+    animation.UpdateFrame(epoch);
+    animation.UpdateFrame(epoch + std::chrono::milliseconds{1000});
     REQUIRE(animation.playback->frame == 1);
     animation.SetFrame(0);
-    animation.UpdateFrame(std::chrono::milliseconds{2000});
+    animation.UpdateFrame(epoch + std::chrono::milliseconds{2000});
+    REQUIRE(animation.playback->frame == 1);
+    // An owner cannot accidentally advance a world texture on UI time.
+    animation.SetFrame(0);
+    animation.UpdateFrame(epoch + std::chrono::milliseconds{3000}, TextureClock::Presentation);
+    REQUIRE(animation.playback->frame == 0);
+    animation.setAnimationClock(TextureClock::Presentation);
+    animation.UpdateFrame(epoch + std::chrono::milliseconds{3000}, TextureClock::Presentation);
+    animation.UpdateFrame(epoch + std::chrono::milliseconds{4000}, TextureClock::Presentation);
     REQUIRE(animation.playback->frame == 1);
 }
