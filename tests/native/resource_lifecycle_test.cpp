@@ -44,7 +44,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
-#include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
