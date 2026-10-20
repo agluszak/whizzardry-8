@@ -34,6 +34,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 namespace {
 class PleaseWaitScreen final : public Screen {
