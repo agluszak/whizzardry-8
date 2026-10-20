@@ -514,7 +514,7 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SELECT_PC_5:
     case W8_MGS_COMMAND_SELECT_PC_6: {
         int slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             break;
         }
         if (CurrentGame().status.selected_character != slot) {

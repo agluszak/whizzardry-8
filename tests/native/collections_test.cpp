@@ -540,7 +540,7 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
     data.items[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     data.items[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
     const ScopedGameData installed(std::move(data));
-    CurrentGame().party.rows[0].fOccupied = true;
+    CurrentGame().party.members[0].emplace();
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
@@ -564,7 +564,7 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
     data.strings[0x1ec] = "changes weapons.";
     for (auto& record : data.items) record.equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     const ScopedGameData installed(std::move(data));
-    game.party.rows[0].fOccupied = true;
+    game.party.members[0].emplace();
     auto& character = game.party.characters[0];
     character.fInParty = true;
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
@@ -637,7 +637,7 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
     auto& characters = CurrentGame().party.characters;
     auto& row = rows[0];
     auto& character = characters[0];
-    row.fOccupied = true;
+    CurrentGame().party.members[0].emplace();
     row.committed.kind = W8_ACTION_NONE;
     character.hp_current = 1;
     character.highest_condition = W8_CONDITION_NONE;
@@ -661,7 +661,7 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
         std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
         ~RestoreState() { gpSCSV = std::move(view); }
     } restore;
-    rows[0].fOccupied = true;
+    CurrentGame().party.members[0].emplace();
     characters[0].hp_current = 1;
     rows[0].committed.kind = W8_ACTION_CAST_SPELL;
     rows[0].committed.detail = 5;
@@ -690,9 +690,8 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
 TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[trade]")
 {
     const ScopedGame game;
-    auto& rows = CurrentGame().party.rows;
     auto& characters = CurrentGame().party.characters;
-    rows[0].fOccupied = true;
+    CurrentGame().party.members[0].emplace();
     auto& item = characters[0].backpack[3];
     item = {.iItemNo = 17, .stack_count = 4};
     const W8TradeSelection selected{W8TradeSource::Backpack, 0, 3, item};
@@ -989,7 +988,7 @@ TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit
     const ScopedGameData installed(std::move(data));
     W8Party party;
     for (int slot : {0, 1}) {
-        party.rows[slot].fOccupied = true;
+        party.members[slot].emplace();
         party.characters[slot] = MakeFighter();
     }
     party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
@@ -999,7 +998,7 @@ TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit
     REQUIRE(party.characters[1].party_weight_share == 1);
     REQUIRE(party.characters[0].total_carried_weight == 2);
     REQUIRE(party.characters[1].total_carried_weight == 1);
-    party.rows[0].fOccupied = false;
+    party.members[0].reset();
     REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
     REQUIRE(party.characters[0].party_weight_share == 0);
     REQUIRE(party.characters[1].party_weight_share == 3);
@@ -1032,7 +1031,7 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     const ScopedGameData installed(std::move(data));
     CurrentGame().party.characters[0].party_weight_share = 123;
     W8Party party;
-    party.rows[0].fOccupied = true;
+    party.members[0].emplace();
     auto& character = party.characters[0];
     character = MakeFighter();
     character.fInParty = true;
@@ -1062,9 +1061,9 @@ TEST_CASE("Formation reconciliation repairs only its owning party", "[party][for
     W8Party party;
     party.formation.setPosition(0, 0, 0, false, true);
     party.formation.setPosition(1, 0, 1, false, true);
-    party.rows[1].fOccupied = true;
+    party.members[1].emplace();
     const auto previous = party;
-    party.formation.reconcile(party.rows);
+    party.formation.reconcile(party.members);
     REQUIRE(party.formation.positions[0].bQuadrant == -1);
     REQUIRE(party.formation.positions[1].bQuadrantSlot == 0);
     REQUIRE(party.formation.ubQuadrantOccupants[0] == 1);
@@ -1184,7 +1183,7 @@ struct ScopedActiveParty {
 
 W8Character& PrepareMember(unsigned int slot)
 {
-    CurrentGame().party.rows[slot].fOccupied = true;
+    CurrentGame().party.members[slot].emplace();
     auto& character = CurrentGame().party.characters[slot];
     character.iProfession = W8_PROFESSION_FIGHTER;
     character.original_profession = W8_PROFESSION_FIGHTER;

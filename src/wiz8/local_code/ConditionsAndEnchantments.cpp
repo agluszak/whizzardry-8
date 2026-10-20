@@ -136,7 +136,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
     W8Character* character = &CurrentGame().party.characters[party_slot];
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
     if (character->uiCondition[condition] != 0 || !CurrentGame().status.world_suspended) {
-        if (!row->fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             Fail("fCHAR_OCCUPIED(uiChar)");
         }
         if (character->uiCondition[condition] == 0) {
@@ -261,7 +261,7 @@ void SanitizeLoadedItems(void)
 
     SettleActiveParty(CurrentGame());
     for (slot = 0; slot < 8; ++slot) {
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
         character = &CurrentGame().party.characters[slot];
@@ -316,7 +316,7 @@ W8ConditionImmunity g_condition_immunities[3] = {
    portrait page if it is up. */
 void RecomputeCharacterHighestCondition(int party_slot)
 {
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
     W8Character* character = &CurrentGame().party.characters[party_slot];
@@ -404,9 +404,8 @@ void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argumen
    roll covering the fractional part when the quotient floors to zero. */
 void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    if (!row->fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiSlot)");
     }
     if (CurrentGame().party.characters[party_slot].uiCondition[condition] == 0) {
@@ -649,12 +648,11 @@ bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, 
                            char alternate_missing_notice, char announce)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
     W8Condition old_highest;
     unsigned int old_duration;
     bool handled;
 
-    if (!row->fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
     if (poison_strength != 0 && condition != W8_CONDITION_POISONED) {
@@ -925,7 +923,7 @@ void RemoveConditionFromParty(W8Condition condition)
     unsigned int party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             CurrentGame().party.characters[party_slot].uiCondition[condition] != 0) {
             RemoveCharacterCondition(party_slot, condition, true);
         }
@@ -961,7 +959,7 @@ void RemoveAllEnchantments(void)
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
             W8Character* character = &CurrentGame().party.characters[party_slot];
 
-            if (CurrentGame().party.rows[party_slot].fOccupied &&
+            if (CurrentGame().party.members[party_slot].has_value() &&
                 character->enchantments[enchantment].turns != 0) {
                 ClearCharacterEnchantmentSlot(party_slot,
                                               static_cast<W8EnchantmentSlot>(enchantment));

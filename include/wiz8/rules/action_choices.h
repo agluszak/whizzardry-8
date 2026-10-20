@@ -20,6 +20,9 @@ struct ActionChoices {
     // The last committed action other than a basic action or a move, which the repeat key repeats.
     W8ActionKind repeat_action = W8_ACTION_NONE;
     W8CombatSlot breath_target;
+    /* The player locked the member's weapon sets on the camp's items page: neither the swap
+       button nor automatic weapon swapping changes them. */
+    bool weapon_sets_locked = false;
 
     W8Action basic() const { return {basic_kind, basic_detail}; }
     void chooseBasic(W8ActionKind kind, int detail)

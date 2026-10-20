@@ -557,7 +557,7 @@ bool CharacterScreen::ValidateName()
         }
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-        if (CurrentGame().party.rows[index].fOccupied &&
+        if (CurrentGame().party.members[index].has_value() &&
             strcmp(CurrentGame().party.characters[index].name.c_str(), m_character.name.c_str()) ==
                 0) {
             ShowMessage(Data().strings[0xd5], 0, 0);

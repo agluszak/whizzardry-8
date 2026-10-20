@@ -40,7 +40,7 @@ static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game, unsign
         rules.defensive_action = TryCharacterAction(slot, W8_ACTION_DEFEND, false) ||
                                  TryCharacterAction(slot, W8_ACTION_PROTECT, false);
     if (character.fInParty && character.iRace == W8_RACE_ANDROID) {
-        const auto* npc = GetNpcState(game.party.rows[slot].npc_index);
+        const auto* npc = GetNpcState(game.party.npcIndex(slot));
         rules.damaged_android =
             npc && npc->name_style == W8_NPC_RFS81_A && !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED);
     }
@@ -55,7 +55,7 @@ static PartyStatRules CaptureLivePartyStatRules(const Game& game)
     else if (game.combat.has_value())
         rules.load_timing = PartyLoadTiming::AfterCombat;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (game.party.rows[slot].fOccupied)
+        if (game.party.members[slot].has_value())
             rules.characters[slot] = CaptureLiveCharacterStatRules(game, slot);
     return rules;
 }
@@ -71,12 +71,12 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
 {
     auto& party = game.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (party.rows[slot].fOccupied && IsCharacterDefined(party.characters[slot]) &&
+        if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
             UnequipUnusableItems(game, slot))
             changed_hands.set(slot);
     const auto stats = UpdatePartyStats(Data(), party, CaptureLivePartyStatRules(game));
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.rows[slot].fOccupied) continue;
+        if (!party.members[slot].has_value()) continue;
         auto& character = party.characters[slot];
         // Combat choices that depend on the weapons in hand follow a change of them.
         if (changed_hands[slot] && character.fInParty && game.status.game_started) {

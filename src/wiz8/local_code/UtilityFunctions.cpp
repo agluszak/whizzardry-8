@@ -18,7 +18,6 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/utility.h"
 
@@ -199,7 +198,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
         for (relaxed = false; !relaxed;) {
             for (slot = skip_first_two ? 2u : 0u; slot < 8; ++slot) {
                 W8Character* character = &CurrentGame().party.characters[slot];
-                if (CurrentGame().party.rows[slot].fOccupied && slot != excluded_slot &&
+                if (CurrentGame().party.members[slot].has_value() && slot != excluded_slot &&
                     claimed[slot] == 0 && (character->hp_current != 0 || require_primary == 2) &&
                     (character->highest_condition < W8_CONDITION_DEAD || require_secondary == 2)) {
                     eligible[found] = slot;
@@ -257,7 +256,8 @@ retry:
     slot = 0;
     do {
         matched = false;
-        if (CurrentGame().party.rows[slot].fOccupied && static_cast<int>(slot) != excluded_slot) {
+        if (CurrentGame().party.members[slot].has_value() &&
+            static_cast<int>(slot) != excluded_slot) {
             character = &CurrentGame().party.characters[slot];
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
                 require_primary == 2) {
@@ -299,7 +299,6 @@ int GetNextCharacter(int require_primary, int require_secondary, int previous_sl
 {
     int start_slot = (previous_slot + 1) % 8;
     W8Character* characters = CurrentGame().party.characters;
-    W8PartySlotRow* rows = CurrentGame().party.rows;
     int slot;
     unsigned int scanned;
 
@@ -308,7 +307,7 @@ retry:
     scanned = 0;
 
     do {
-        if (rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             W8Character* character = &characters[slot];
 
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||

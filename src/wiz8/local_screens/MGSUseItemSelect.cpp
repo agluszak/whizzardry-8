@@ -470,8 +470,8 @@ static bool IsUseItemFilteredOut(W8ItemInstance* item)
         }
         if ((CurrentGame().status.selected_character == 0 ||
              CurrentGame().status.selected_character == 1) &&
-            (npc = GetNpcState(
-                 CurrentGame().party.rows[CurrentGame().status.selected_character].npc_index),
+            (npc =
+                 GetNpcState(CurrentGame().party.npcIndex(CurrentGame().status.selected_character)),
              npc != 0) &&
             NpcWantsItem(npc, item)) {
             return true;

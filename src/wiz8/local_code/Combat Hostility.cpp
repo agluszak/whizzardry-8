@@ -606,7 +606,7 @@ int CharacterPrayAction(int party_slot)
         case 1:
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &CurrentGame().party.characters[index];
-                if (CurrentGame().party.rows[index].fOccupied && member->hp_current != 0 &&
+                if (CurrentGame().party.members[index].has_value() && member->hp_current != 0 &&
                     member->stamina < member->uiStaminaMax) {
                     AppendToLastTextLine(Data().strings[0x179], -1);
                     CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,

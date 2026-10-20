@@ -1050,8 +1050,7 @@ static wiz8::save::GameState populated_game_state()
     auto& [status, party] = saved;
     auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
-        rows[slot].fOccupied = true;
-        rows[slot].npc_index = slot < 2 ? slot : -1;
+        party.members[slot].emplace().npc_index = slot < 2 ? slot : -1;
         rows[slot].executing.kind = W8_ACTION_ATTACK;
         rows[slot].committed = {W8_ACTION_CAST_SPELL, 20 + slot};
         rows[slot].committed.detail_block.spell.power_level = slot % 7 + 1;
@@ -1059,8 +1058,8 @@ static wiz8::save::GameState populated_game_state()
         rows[slot].remembered.spell = {W8_ACTION_CAST_SPELL, 40 + slot};
         rows[slot].remembered.spell.detail_block.spell.power_level = 7;
         rows[slot].executing.attack_mode[0] = 100 + slot;
-        rows[slot].movement_fatigue = 1.25f + slot;
-        rows[slot].party_order_index = slot;
+        party.members[slot]->movement_fatigue = 1.25f + slot;
+        party.members[slot]->order_index = slot;
         rows[slot].weapon_swap_pending = slot % 2;
     }
     rows[0].executing.kind = W8_ACTION_USE_ITEM;
@@ -1146,7 +1145,7 @@ static void global_status_record()
     REQUIRE(restored.party.item_count == 1);
     const auto& restored_rows = restored.party.rows;
     for (int slot = 0; slot < 8; ++slot) {
-        REQUIRE(restored_rows[slot].fOccupied);
+        REQUIRE(restored.party.members[slot].has_value());
         const auto& action = restored_rows[slot].committed;
         REQUIRE(action.kind == W8_ACTION_CAST_SPELL);
         REQUIRE(action.detail == 20 + slot);
@@ -1156,7 +1155,7 @@ static void global_status_record()
         REQUIRE(restored_rows[slot].remembered.spell.detail == 40 + slot);
         REQUIRE(restored_rows[slot].remembered.spell.detail_block.spell.power_level == 7);
         REQUIRE(restored_rows[slot].executing.attack_mode[0] == 100 + slot);
-        REQUIRE(restored_rows[slot].movement_fatigue == 1.25f + slot);
+        REQUIRE(restored.party.members[slot]->movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
     const auto location = restored.party.rows[0].executing.detail_block.item_use.item;

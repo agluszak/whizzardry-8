@@ -162,7 +162,7 @@ char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* targ
         return 8;
     }
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        return CurrentGame().party.rows[target->iChar].party_order_index;
+        return CurrentGame().party.orderIndexOf(target->iChar);
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
         return 9;
@@ -596,9 +596,8 @@ bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed)
 void RepickInvalidCombatTargets(void)
 {
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (!row->fOccupied || character->hp_current == 0 ||
+        if (!CurrentGame().party.members[party_slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT ||
             !CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
             continue;
@@ -820,7 +819,7 @@ bool IsTargetStillPresent(const W8CombatSlot* target)
         if (target->iChar == BAD_INDEX) {
             Fail("pTarget->iChar != BAD_INDEX");
         }
-        if (CurrentGame().party.rows[target->iChar].fOccupied == 0 ||
+        if (CurrentGame().party.members[target->iChar].has_value() == 0 ||
             CurrentGame().party.characters[target->iChar].hp_current != 0 ||
             CurrentGame()
                     .party.characters[target->iChar]
@@ -1125,7 +1124,7 @@ void SelectSpellCastingPartySlot(int party_slot)
    beyond reach. */
 bool IsDeadCharacterTargetable(int party_slot)
 {
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         return false;
     }
     W8Character* character = &CurrentGame().party.characters[party_slot];
@@ -1140,7 +1139,7 @@ bool IsDeadCharacterTargetable(int party_slot)
    terminal character-state threshold. */
 bool CanPartySlotParticipate(int party_slot)
 {
-    return CurrentGame().party.rows[party_slot].fOccupied &&
+    return CurrentGame().party.members[party_slot].has_value() &&
            CurrentGame().party.characters[party_slot].hp_current != 0 &&
            CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD;
 }
@@ -1468,7 +1467,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
 
     case W8_TARGET_NEED_CHARACTER_INDIRECT:
         for (index = 0; index < 8; ++index) {
-            if (CurrentGame().party.rows[index].fOccupied &&
+            if (CurrentGame().party.members[index].has_value() &&
                 CurrentGame().party.characters[index].hp_current == 0 &&
                 CurrentGame()
                         .party.characters[index]
@@ -1707,7 +1706,7 @@ void RefreshAllPartyTargets(void)
         W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
 
-        if (row->fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
             const auto context = GetEditedActionContext(party_slot);
             const auto selected = SelectCombatAction(party_slot, context);
@@ -2028,7 +2027,8 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
 {
     const auto& row = CurrentGame().party.rows[party_slot];
     const auto& character = CurrentGame().party.characters[party_slot];
-    if (!g_settings.autoswap_weapons || row.item_action_pending ||
+    if (!g_settings.autoswap_weapons ||
+        CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked ||
         (CurrentGame().combat && CurrentGame().combat->execution_active &&
          CurrentGame().combat->characters[party_slot].dead &&
          CurrentGame().combat->characters[party_slot].phase != 0) ||
@@ -2079,10 +2079,10 @@ void ReconcilePartyEquipmentAfterCombat(void)
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (row->fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_TURNCOAT) &&
             row->weapon_swap_pending && g_settings.autoswap_weapons != 0 &&
-            !row->item_action_pending) {
+            !CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
             SwapWeaponSetSlots(CurrentGame(), party_slot, false);
             row->weapon_swap_pending = false;
         }

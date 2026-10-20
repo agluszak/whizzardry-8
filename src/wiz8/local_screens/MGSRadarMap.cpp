@@ -33,7 +33,6 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/party_formation.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
@@ -194,14 +193,13 @@ void RefreshRadarMap(void)
     if (!map_surface) return;
     if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
-            W8PartySlotRow* row = &CurrentGame().party.rows[slot];
             W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
 
-            if (row->fOccupied && position->bQuadrant != -1) {
+            if (CurrentGame().party.members[slot].has_value() && position->bQuadrant != -1) {
                 int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
-                CatalogArtwork::Load(0xa5, 0).draw(*map_surface, row->party_order_index,
-                                                   g_radar_cell_offsets[cell].x,
-                                                   g_radar_cell_offsets[cell].y);
+                CatalogArtwork::Load(0xa5, 0).draw(
+                    *map_surface, CurrentGame().party.orderIndexOf(slot),
+                    g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);
             }
         }
     }
@@ -291,7 +289,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
             const auto mark = presentation.monsters.find(info->location_id);
             if (CurrentGame().combat.has_value() && CurrentGame().status.selected_character != -1 &&
                 mark != presentation.monsters.end() &&
-                CurrentGame().party.rows[CurrentGame().status.selected_character].fOccupied != 0 &&
+                CurrentGame().party.members[CurrentGame().status.selected_character].has_value() &&
                 (static_cast<unsigned char>(1 << CurrentGame().status.selected_character) &
                  mark->second.party_targets) != 0) {
                 hostile = true;

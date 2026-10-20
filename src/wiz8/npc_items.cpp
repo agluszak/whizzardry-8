@@ -476,7 +476,7 @@ W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& s
     switch (selection.source) {
     case W8TradeSource::Backpack:
         if (selection.character < 0 || selection.character >= 8 ||
-            !CurrentGame().party.rows[selection.character].fOccupied || selection.slot < 0 ||
+            !CurrentGame().party.members[selection.character].has_value() || selection.slot < 0 ||
             selection.slot >= 8)
             return nullptr;
         item = &CurrentGame().party.characters[selection.character].backpack[selection.slot];
@@ -511,7 +511,7 @@ W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selectio
     const auto available = item->stack_count ? item->stack_count : 1;
     if (quantity > available) return {W8TradeOutcome::InvalidSelection};
     if (selection.source == W8TradeSource::Backpack) {
-        const int owner = CurrentGame().party.rows[selection.character].npc_index;
+        const int owner = CurrentGame().party.npcIndex(selection.character);
         auto* owner_npc = owner == -1 ? nullptr : GetNpcState(owner);
         if (owner_npc && NpcWantsItem(owner_npc, item)) return {W8TradeOutcome::WantedByOwner};
     }

@@ -97,9 +97,8 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
     PartyMotionElapsed elapsed;
     if (ConsumeLevelElapsedTime(&elapsed.real, &elapsed.frame) == 0) return std::nullopt;
     for (unsigned int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow& row = game.party.rows[party_slot];
         const W8Character& character = game.party.characters[party_slot];
-        if (!row.fOccupied || character.stamina <= 0 ||
+        if (!game.party.members[party_slot].has_value() || character.stamina <= 0 ||
             character.highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
@@ -128,12 +127,12 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
         }
         if (game.combat.has_value()) multiplier += multiplier;
         if (character.uiCondition[W8_CONDITION_DISEASED] != 0) multiplier *= 1.5f;
-        row.movement_fatigue = multiplier * amount + row.movement_fatigue;
-        if (row.movement_fatigue > g_position_height_epsilon) {
-            const auto ticks =
-                static_cast<unsigned int>(row.movement_fatigue * kMovementFatigueTickScale);
+        auto& fatigue = game.party.members[party_slot]->movement_fatigue;
+        fatigue = multiplier * amount + fatigue;
+        if (fatigue > g_position_height_epsilon) {
+            const auto ticks = static_cast<unsigned int>(fatigue * kMovementFatigueTickScale);
             FatigueCharacter(static_cast<int>(party_slot), static_cast<int>(ticks), false, 0);
-            row.movement_fatigue = row.movement_fatigue - (ticks * 0x9c4);
+            fatigue = fatigue - (ticks * 0x9c4);
         }
     }
     return elapsed;
@@ -258,7 +257,7 @@ std::optional<unsigned int> GetPartyHasteSteps()
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         W8Character* character;
 
-        if (!CurrentGame().party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             continue;
         }
         character = &CurrentGame().party.characters[party_slot];
@@ -313,7 +312,7 @@ void CompletePartyMovementTurns(void)
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8PartySlotRow* party_row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (!party_row->fOccupied || character->hp_current == 0 ||
+        if (!CurrentGame().party.members[party_slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
@@ -340,9 +339,8 @@ void InitializePartyMovementPhase(void)
     int minimum_initiative = 90;
 
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (row->fOccupied && character->hp_current != 0) {
+        if (CurrentGame().party.members[party_slot].has_value() && character->hp_current != 0) {
             int initiative = character->initiative + CurrentGame().rng.below(4);
             if (initiative < minimum_initiative) {
                 minimum_initiative = initiative;
@@ -475,7 +473,7 @@ void InterruptActivePartyMovement(void)
     CurrentGame().combat->uiCurrentPartyAction = W8_PARTY_ACTION_NONE;
     for (int party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8PartySlotRow* party_row = &CurrentGame().party.rows[party_slot];
-        if (!party_row->fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             continue;
         }
         W8CombatCharacterRow* row = &CurrentGame().combat->characters[party_slot];

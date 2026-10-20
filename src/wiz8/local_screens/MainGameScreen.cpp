@@ -2434,7 +2434,7 @@ void MainGameScreen::frame()
     }
     if (CurrentGame().combat.has_value()) {
         for (int slot = 0; slot < 8; ++slot) {
-            if (!CurrentGame().party.rows[slot].fOccupied ||
+            if (!CurrentGame().party.members[slot].has_value() ||
                 CurrentGame().party.characters[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
                 (MainGameHud()->keyboard_menu_open && MainGameHud()->combat_slot == slot)) {
                 MainGame()->combat_targets[slot]->setEnabled(false);
@@ -2467,7 +2467,7 @@ void MainGameScreen::frame()
                 UpdateUiPointer(point.x, point.y);
         } else {
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied &&
+                if (CurrentGame().party.members[slot].has_value() &&
                     (MainGame()->portrait_targets[slot][2]->hitAt(point) ||
                      MainGame()->edge_targets[slot]->hitAt(point))) {
                     UpdateUiPointer(point.x, point.y);
@@ -3124,7 +3124,7 @@ void SelectPartyCharacter(int party_slot)
     W8Character* character;
     int previous;
 
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("gStatus.XChar[uiChar].fOccupied");
     }
     character = &CurrentGame().party.characters[party_slot];
@@ -3349,8 +3349,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
         row_y_pos += 6;
     }
 
-    g_wiz_text_font.setPalette(
-        g_font_state_palettes[CurrentGame().party.rows[party_slot].party_order_index]);
+    g_wiz_text_font.setPalette(g_font_state_palettes[CurrentGame().party.orderIndexOf(party_slot)]);
     int font_height = g_wiz_text_font.height();
     int name_width = g_wiz_text_font.textWidth(name);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
@@ -3717,7 +3716,8 @@ void RequestRefreshPartyState(void)
 void FallbackFromUnreachableAction(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    if (!row->fOccupied || CurrentGame().combat->characters[party_slot].dead) {
+    if (!CurrentGame().party.members[party_slot].has_value() ||
+        CurrentGame().combat->characters[party_slot].dead) {
         return;
     }
     switch (row->committed.kind) {
@@ -3972,7 +3972,7 @@ void UpdateCombatPortraitStatus(void)
         int alternate = -1;
         W8CombatPortraitStatus status = W8_COMBAT_PORTRAIT_EMPTY;
 
-        if (row->fOccupied && character->hp_current > 0 &&
+        if (CurrentGame().party.members[slot].has_value() && character->hp_current > 0 &&
             character->highest_condition <= W8_CONDITION_UNCONSCIOUS) {
             if (CurrentGame().combat->actingSlot() != slot ||
                 TimeUntilDeadline(CurrentGame().combat->action_clock) > 800) {
@@ -4046,7 +4046,7 @@ void UpdateKeyboardMenu(void)
     }
     if (MainGameHud()->keyboard_menu_open) {
         if (MainGameHud()->cursor_grace == 0) {
-            if (CurrentGame().party.rows[MainGameHud()->combat_slot].fOccupied == 0) {
+            if (CurrentGame().party.members[MainGameHud()->combat_slot].has_value() == 0) {
                 CloseKeyboardMenu();
                 return;
             }
@@ -4082,7 +4082,7 @@ void UpdateFormationPortraitRefresh(void)
                 RefreshSelectedPartyPortrait(party_slot);
                 entry->auto_portrait_refresh = true;
             }
-        } else if (!CurrentGame().party.rows[party_slot].fOccupied) {
+        } else if (!CurrentGame().party.members[party_slot].has_value()) {
             ClearPortraitRefreshSlot(static_cast<int>(party_slot));
             entry->auto_portrait_refresh = false;
             MainGame()->edge_targets[party_slot]->setEnabled(false);
@@ -4236,7 +4236,7 @@ void RefreshPartySlotRegions(void)
 {
     if (!MainGame()) return;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        const bool available = CurrentGame().party.rows[slot].fOccupied &&
+        const bool available = CurrentGame().party.members[slot].has_value() &&
                                !CurrentGame().monster_manager_entries[slot].keyboard_menu_open;
         const bool full = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                           MainGameHud()->portrait_refresh_pending[slot] != 0;
@@ -4809,7 +4809,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
     }
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
-            CurrentGame().party.rows[slot].fOccupied) {
+            CurrentGame().party.members[slot].has_value()) {
             if (MainGameHud()->keyboard_menu_open && slot != MainGameHud()->combat_slot) {
                 CloseKeyboardMenu();
             }
@@ -4993,7 +4993,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
 
         if (event.action != UiPointerAction::Leave && g_modal_owner == 0) {
             for (slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied &&
+                if (CurrentGame().party.members[slot].has_value() &&
                     MainGameHud()->portrait_refresh_pending[slot] != 0 &&
                     IsPartyPortraitUnderCursor(slot)) {
                     return UiResult::Pass;
@@ -5149,7 +5149,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             assign = false;
         } else if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
             for (slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied &&
+                if (CurrentGame().party.members[slot].has_value() &&
                     CurrentGame().party.characters[slot].hp_current != 0) {
                     AimAtMonsterLocation(slot, MainGameHud()->highlighted_item, false);
                 }
@@ -6194,7 +6194,7 @@ void ConfirmNpcTradeItem(void)
             !ResolveTradeSelection(state.dialogue_npc, selection))
             return;
         if (selection.source == W8TradeSource::Backpack) {
-            const int owner = CurrentGame().party.rows[selection.character].npc_index;
+            const int owner = CurrentGame().party.npcIndex(selection.character);
             auto* npc = owner == -1 ? nullptr : GetNpcState(owner);
             auto* item = ResolveTradeSelection(state.dialogue_npc, selection);
             if (npc && item && NpcWantsItem(npc, item)) {

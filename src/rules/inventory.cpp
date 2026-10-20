@@ -242,7 +242,7 @@ W8ItemLocation FindPartyItem(const W8Party& party, W8ItemMatch match, W8ItemReac
 {
     if (party.held.item.iItemNo != -1 && match(party.held.item)) return {W8ItemStorage::Hand};
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (party.rows[slot].fOccupied)
+        if (party.members[slot].has_value())
             if (const auto found = FindMemberItem(party, slot, match, reach);
                 found.storage != W8ItemStorage::None)
                 return found;
@@ -279,7 +279,7 @@ unsigned int CountPartyItem(const W8Party& party, int item_id)
     if (party.held.item.iItemNo != -1 && party.held.item.iItemNo == item_id)
         total = party.held.item.stack_count;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (party.rows[slot].fOccupied)
+        if (party.members[slot].has_value())
             total += CountCharacterItem(party.characters[slot], item_id, W8ItemReach::Carried);
     for (const auto& item : std::span{party.item_pool}.first(party.item_count))
         if (item.iItemNo == item_id) total += item.stack_count == 0 ? 1 : item.stack_count;
@@ -289,7 +289,7 @@ unsigned int CountPartyItem(const W8Party& party, int item_id)
 bool EveryCharacterHasItem(const W8Party& party, int item_id, W8ItemReach reach)
 {
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (party.rows[slot].fOccupied &&
+        if (party.members[slot].has_value() &&
             !FindCharacterItem(party.characters[slot], ItemWithId(item_id), reach))
             return false;
     return true;
@@ -548,7 +548,7 @@ InventoryEdit RemovePartyItemByID(const RuleContext& rules, int item_id, bool re
         if (!remove_all) return edit;
     }
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.rows[slot].fOccupied) continue;
+        if (!party.members[slot].has_value()) continue;
         const auto found = FindMemberItem(party, slot, ItemWithId(item_id), W8ItemReach::Carried);
         if (found.storage == W8ItemStorage::None) continue;
         removed.push_back(found);

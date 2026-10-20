@@ -569,7 +569,7 @@ bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int)
         return false;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             CurrentGame().party.characters[party_slot].hp_current != 0 &&
             CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_INSANE) {
             if (!result) {
@@ -724,7 +724,7 @@ void BindEveryPartyItem(void)
         return;
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (!CurrentGame().party.rows[party_slot].item_action_pending) {
+        if (!CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
             BindCharacterItems(CurrentGame(), party_slot, false);
         }
     }

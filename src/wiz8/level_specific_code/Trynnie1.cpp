@@ -141,7 +141,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
         return true;
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-            if (ctx.party.rows[i].fOccupied) {
+            if (ctx.party.members[i].has_value()) {
                 HealCharacter(i, 100, false);
             }
         }
@@ -149,7 +149,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
         return true;
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-            if (ctx.party.rows[i].fOccupied) {
+            if (ctx.party.members[i].has_value()) {
                 RestoreCharacterStamina(i, 100, false);
             }
         }

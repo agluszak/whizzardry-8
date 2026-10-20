@@ -698,7 +698,7 @@ void PostCharacterNotice(int party_slot, std::string_view text, int context)
             ++stop;
         }
     }
-    HighlightTextBoxRange(CurrentGame().party.rows[party_slot].party_order_index, 0, stop, context);
+    HighlightTextBoxRange(CurrentGame().party.orderIndexOf(party_slot), 0, stop, context);
 }
 
 bool CurrentDialogueLineHasContent(void)

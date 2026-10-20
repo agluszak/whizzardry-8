@@ -266,7 +266,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
     W8ItemInstance* slot_item;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (!context.party.rows[slot].fOccupied) {
+        if (!context.party.members[slot].has_value()) {
             continue;
         }
         for (index = 0; index < 8; ++index) {
@@ -599,7 +599,8 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                     return;
                 }
             } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {
-                context.party.rows[level_up->party_slot].portrait_advance = 1;
+                if (auto& member = context.party.members[level_up->party_slot])
+                    member->level_up_announced = true;
                 if (g_settings.skill_increase_messages == 0) {
                     wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
                     return;
@@ -676,7 +677,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             DismissNpcFromParty(dismiss.party_slot, 0, false, false);
             if (g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
                 for (int party_slot = 0; party_slot < 8; ++party_slot) {
-                    if (context.party.rows[party_slot].fOccupied) {
+                    if (context.party.members[party_slot].has_value()) {
                         DisableMainGamePortraitSlot(party_slot);
                     }
                 }

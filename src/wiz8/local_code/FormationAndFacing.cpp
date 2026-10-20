@@ -59,7 +59,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
         signed char row;
         bool row_changed;
 
-        if (!CurrentGame().party.rows[slot].fOccupied || character->hp_current <= 0 ||
+        if (!CurrentGame().party.members[slot].has_value() || character->hp_current <= 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
@@ -82,7 +82,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
         W8PartyFormationPosition* live_position = &live->positions[slot];
         W8PartyFormationPosition* edited_position = &edited->positions[slot];
 
-        if (!CurrentGame().party.rows[slot].fOccupied ||
+        if (!CurrentGame().party.members[slot].has_value() ||
             (character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT)) {
             continue;
         }

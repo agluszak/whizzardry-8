@@ -396,7 +396,7 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
         W8Character* character = &CurrentGame().party.characters[party_slot];
 
-        if (!CurrentGame().party.rows[party_slot].fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             continue;
         }
         if (character->hp_current == 0) {

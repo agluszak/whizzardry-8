@@ -1467,14 +1467,14 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
         }
     } else if (effect->kind == W8_SPELL_LIFESTEAL) {
         unsigned int slot = FindPartySlotWithLowestHitPoints();
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             CurrentGame().party.characters[slot].hp_current <
                 static_cast<unsigned int>(CurrentGame().party.characters[slot].uiHPMax)) {
             HealCharacter(slot, (drained * 7) / 10, announce);
         }
     } else if (effect->kind == W8_SPELL_MIGHT_TO_MAGIC) {
         unsigned int slot = FindPartySlotWithLowestSpellPoints();
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             W8Character* character = &CurrentGame().party.characters[slot];
             if (SumCharacterSpellPointsLeft(character) < SumCharacterSpellPoints(character)) {
                 RestoreCharacterSpellPointsEvenly(slot, drained);
@@ -1539,7 +1539,7 @@ char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition
                             turns = 1;
                         }
                         character->stamina = turns;
-                        int npc_index = CurrentGame().party.rows[character_index].npc_index;
+                        int npc_index = CurrentGame().party.npcIndex(character_index);
                         if (npc_index != -1 &&
                             (npc_state = GetNpcState(npc_index), npc_state != 0)) {
                             npc_state->spawned = 0;
@@ -2747,7 +2747,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                         fmt::sprintf(Data().strings[0x1ae], Data().spells[spell_id].display_name));
                 }
                 do {
-                    if (CurrentGame().party.rows[party_slot].fOccupied &&
+                    if (CurrentGame().party.members[party_slot].has_value() &&
                         CurrentGame().party.characters[party_slot].highest_condition <
                             W8_CONDITION_DEAD) {
                         char_target.iType = W8_TARGET_KIND_CHARACTER;

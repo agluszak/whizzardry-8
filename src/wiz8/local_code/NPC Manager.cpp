@@ -167,9 +167,9 @@ static char GetNpcDisposition(W8NpcState* npc)
     }
     if (npc->record->allied_faction != 0) {
         for (slot = 0; slot < 2; ++slot) {
-            if (CurrentGame().party.rows[slot].fOccupied &&
+            if (CurrentGame().party.members[slot].has_value() &&
                 CurrentGame().party.characters[slot].hp_current > 0) {
-                bound_index = CurrentGame().party.rows[slot].npc_index;
+                bound_index = CurrentGame().party.npcIndex(slot);
                 if (auto* bound = GetNpcState(bound_index);
                     bound && bound->record->faction == npc->record->allied_faction) {
                     return 0x32;
@@ -274,15 +274,15 @@ W8NpcState* GetNpcStateByKind(int kind)
    under level fifteen. */
 bool NpcLeadHasNameStyle(W8NpcId kind)
 {
-    if (CurrentGame().party.rows[0].fOccupied) {
-        W8NpcState* npc = GetNpcState(CurrentGame().party.rows[0].npc_index);
+    if (CurrentGame().party.members[0].has_value()) {
+        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(0));
         if (npc->name_style == kind &&
             CurrentGame().party.characters[0].highest_condition < W8_CONDITION_ASLEEP) {
             return true;
         }
     }
-    if (CurrentGame().party.rows[1].fOccupied) {
-        W8NpcState* npc = GetNpcState(CurrentGame().party.rows[1].npc_index);
+    if (CurrentGame().party.members[1].has_value()) {
+        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(1));
         if (npc->name_style == kind &&
             CurrentGame().party.characters[1].highest_condition < W8_CONDITION_ASLEEP) {
             return true;
@@ -343,15 +343,15 @@ bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item)
    tests rather than a count, which is why the first slot is read twice. */
 unsigned char CountLeadingPartySlots(void)
 {
-    if (CurrentGame().party.rows[0].fOccupied) {
-        if (CurrentGame().party.rows[1].fOccupied) {
+    if (CurrentGame().party.members[0].has_value()) {
+        if (CurrentGame().party.members[1].has_value()) {
             return 2;
         }
-        if (CurrentGame().party.rows[0].fOccupied) {
+        if (CurrentGame().party.members[0].has_value()) {
             return 1;
         }
     }
-    if (CurrentGame().party.rows[1].fOccupied) {
+    if (CurrentGame().party.members[1].has_value()) {
         return 1;
     }
     return 0;
@@ -471,7 +471,7 @@ static std::optional<unsigned int> NpcMonsterSpecies(const W8NpcState& npc)
 int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool neutral)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    if (row->npc_index == -1) {
+    if (CurrentGame().party.npcIndex(party_slot) == -1) {
         return 0;
     }
     glm::vec3 position;
@@ -480,7 +480,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         ProbeNpcPlacementNearParty(party_slot, 1, &placement);
         position = placement;
     }
-    W8NpcState* npc = GetNpcState(row->npc_index);
+    W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(party_slot));
     if (npc == 0 || npc->binding_unavailable) {
         return 0;
     }
@@ -492,7 +492,6 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
     *character = W8Character{};
     *row = {};
     CurrentGame().monster_manager_entries[party_slot] = {};
-    row->npc_index = -1;
     auto& dismissed_character = npc->character.value();
     if (dismissed_character.highest_condition != W8_CONDITION_DEAD && !skip_spawn) {
         const auto species = NpcMonsterSpecies(*npc);
@@ -531,7 +530,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
    ambient event. */
 void UpdateNpcPartyMember(int party_slot)
 {
-    W8NpcState* npc = GetNpcState(CurrentGame().party.rows[party_slot].npc_index);
+    W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(party_slot));
     W8Character* character = &CurrentGame().party.characters[party_slot];
     glm::vec3 position;
 
@@ -746,7 +745,7 @@ bool CanNpcJoinParty(W8NpcState* npc)
         count = 0;
         average = 0;
         for (index = 0; index < 8; ++index) {
-            if (CurrentGame().party.rows[index].fOccupied &&
+            if (CurrentGame().party.members[index].has_value() &&
                 CurrentGame().party.characters[index].hp_current > 0 &&
                 CurrentGame().party.characters[index].highest_condition < W8_CONDITION_ASLEEP) {
                 ++count;
@@ -916,23 +915,23 @@ void ProcessNpcPendingEvents(void)
                     }
                 }
                 for (int slot = 0; slot < 2; ++slot) {
-                    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
                     W8Character* character = &CurrentGame().party.characters[slot];
-                    if (!row->fOccupied || character->hp_current == 0) {
+                    if (!CurrentGame().party.members[slot].has_value() ||
+                        character->hp_current == 0) {
                         continue;
                     }
-                    W8NpcState* npc = GetNpcState(row->npc_index);
+                    W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
                     if (character->highest_condition < W8_CONDITION_ASLEEP) {
                         int event = 0;
                         if (GetLevelBand(GetLoadedLevelID()) != 0xd) {
                             if (npc->name_style == W8_NPC_RODAN &&
-                                (!CurrentGame().party.rows[0].fOccupied ||
-                                 GetNpcState(CurrentGame().party.rows[0].npc_index)->name_style !=
+                                (!CurrentGame().party.members[0].has_value() ||
+                                 GetNpcState(CurrentGame().party.npcIndex(0))->name_style !=
                                      W8_NPC_DRAZIC ||
                                  CurrentGame().party.characters[0].highest_condition >=
                                      W8_CONDITION_ASLEEP) &&
-                                (!CurrentGame().party.rows[1].fOccupied ||
-                                 GetNpcState(CurrentGame().party.rows[1].npc_index)->name_style !=
+                                (!CurrentGame().party.members[1].has_value() ||
+                                 GetNpcState(CurrentGame().party.npcIndex(1))->name_style !=
                                      W8_NPC_DRAZIC ||
                                  CurrentGame().party.characters[1].highest_condition >=
                                      W8_CONDITION_ASLEEP)) {
@@ -948,7 +947,7 @@ void ProcessNpcPendingEvents(void)
                             g_npc_dialogue.Queue(W8NpcDismiss{slot});
                             continue;
                         }
-                        W8NpcState* bound = GetNpcState(row->npc_index);
+                        W8NpcState* bound = GetNpcState(CurrentGame().party.npcIndex(slot));
                         if (bound != 0 && bound->service_flags[service] == 0) {
                             bound->service_flags[service] = 1;
                             if (!NpcOffersService(bound, GetLevelBand(GetLoadedLevelID())) &&
@@ -959,7 +958,7 @@ void ProcessNpcPendingEvents(void)
                                     kCharacterEventFullVolume);
                             }
                         }
-                        bound = GetNpcState(row->npc_index);
+                        bound = GetNpcState(CurrentGame().party.npcIndex(slot));
                         if (bound != 0) {
                             char band = GetLevelBand(GetLoadedLevelID());
                             for (int index = 0; g_npc_services[index].service_id != 0xffffffff;
@@ -968,7 +967,7 @@ void ProcessNpcPendingEvents(void)
                                     static_cast<unsigned int>(band)) {
                                     if ((bound->record->service_flags &
                                          g_npc_services[index].bit) != 0) {
-                                        row->npc_bound = true;
+                                        CurrentGame().party.members[slot]->npc_bound = true;
                                         bound->event_clock = CurrentGame().status.world_clock;
                                         RebuildConditionModifiers(slot);
                                         SettleActiveParty(CurrentGame());
@@ -1701,7 +1700,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
         }
         for (index = 0; index < 8; ++index) {
             W8Character* character = &CurrentGame().party.characters[index];
-            if (CurrentGame().party.rows[index].fOccupied && character->hp_current != 0 &&
+            if (CurrentGame().party.members[index].has_value() && character->hp_current != 0 &&
                 character->highest_condition < W8_CONDITION_ASLEEP) {
                 ++count;
                 total_level += character->uiExpLevel;
@@ -1799,7 +1798,7 @@ static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
                 static_cast<signed char>(npc->suspicion) * 7;
     unsigned int seed = 0;
     for (int index = 2; index < 8; ++index) {
-        if (CurrentGame().party.rows[index].fOccupied) {
+        if (CurrentGame().party.members[index].has_value()) {
             seed += CurrentGame().party.characters[index].experience;
         }
     }
@@ -2048,12 +2047,11 @@ void UpdateNpcEvents(void)
 
     if (!CurrentGame().surprise_possible) {
         for (int slot = 0; slot < 2; ++slot) {
-            W8PartySlotRow* row = &CurrentGame().party.rows[slot];
             W8Character* character = &CurrentGame().party.characters[slot];
 
-            if (row->fOccupied && character->hp_current != 0) {
-                W8NpcState* npc_state = GetNpcState(row->npc_index);
-                if (row->npc_bound && npc_state &&
+            if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0) {
+                W8NpcState* npc_state = GetNpcState(CurrentGame().party.npcIndex(slot));
+                if (CurrentGame().party.members[slot]->npc_bound && npc_state &&
                     (CurrentGame().status.world_clock - npc_state->event_clock) > 0x168) {
                     if (CurrentGame().rng.below(2) == 0) {
                         npc_state->event_clock =
@@ -2092,12 +2090,11 @@ void ResetNpcBindingsForParty(void)
     CurrentGame().status.binding_reset_clock = CurrentGame().status.world_clock;
     CurrentGame().status.binding_reset_pending = true;
     for (int party_slot = 0; party_slot < 2; ++party_slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
 
-        if (row->fOccupied && character->hp_current != 0) {
-            GetNpcState(row->npc_index)->incapacitated = 0;
-            row->npc_bound = false;
+        if (CurrentGame().party.members[party_slot].has_value() && character->hp_current != 0) {
+            GetNpcState(CurrentGame().party.npcIndex(party_slot))->incapacitated = 0;
+            CurrentGame().party.members[party_slot]->npc_bound = false;
             RebuildConditionModifiers(party_slot);
             SettleActiveParty(CurrentGame());
         }
@@ -2111,7 +2108,8 @@ void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* targe
 {
     unsigned int index;
 
-    if (CurrentGame().party.rows[CharacterPointerToPartySlot(character)].npc_bound == 0) {
+    const auto& member = CurrentGame().party.members[CharacterPointerToPartySlot(character)];
+    if (!member || !member->npc_bound) {
         return;
     }
     for (index = 0; index < 7; ++index) {
@@ -2439,15 +2437,15 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
 
 static bool HasHealthyNpcPartner(unsigned char kind)
 {
-    if (CurrentGame().party.rows[0].fOccupied) {
-        W8NpcState* lead = GetNpcState(CurrentGame().party.rows[0].npc_index);
+    if (CurrentGame().party.members[0].has_value()) {
+        W8NpcState* lead = GetNpcState(CurrentGame().party.npcIndex(0));
         if (lead->name_style == kind &&
             CurrentGame().party.characters[0].highest_condition < W8_CONDITION_ASLEEP) {
             return true;
         }
     }
-    if (CurrentGame().party.rows[1].fOccupied) {
-        W8NpcState* lead = GetNpcState(CurrentGame().party.rows[1].npc_index);
+    if (CurrentGame().party.members[1].has_value()) {
+        W8NpcState* lead = GetNpcState(CurrentGame().party.npcIndex(1));
         if (lead->name_style == kind &&
             CurrentGame().party.characters[1].highest_condition < W8_CONDITION_ASLEEP) {
             return true;
@@ -2466,13 +2464,12 @@ bool QueueNpcDepartureEvents(int destination_level)
     bool queued = false;
 
     for (int slot = 0; slot < 2; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
 
-        if (!row->fOccupied || character->hp_current == 0) {
+        if (!CurrentGame().party.members[slot].has_value() || character->hp_current == 0) {
             continue;
         }
-        W8NpcState* npc = GetNpcState(row->npc_index);
+        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
         if (character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
@@ -2553,13 +2550,12 @@ void QueueNpcTravelRefusals(int destination_level)
 {
     ClearLevelMovementStopped();
     for (int slot = 0; slot < 2; ++slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
 
-        if (!row->fOccupied || character->hp_current == 0) {
+        if (!CurrentGame().party.members[slot].has_value() || character->hp_current == 0) {
             continue;
         }
-        W8NpcState* npc = GetNpcState(row->npc_index);
+        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
         if (character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }

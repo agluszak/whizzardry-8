@@ -648,7 +648,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection) {
         if (CurrentGame().combat->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
+                if (CurrentGame().party.members[slot].has_value() && IsPartySlotEligible(slot) &&
                     CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     text = fmt::format("{} {}", CurrentGame().party.characters[slot].name,
                                        Data().strings[0x919]);
@@ -658,7 +658,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         } else {
             unsigned char count = 0;
             for (int slot = 0; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied && IsPartySlotEligible(slot) &&
+                if (CurrentGame().party.members[slot].has_value() && IsPartySlotEligible(slot) &&
                     CurrentGame().party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
@@ -839,8 +839,7 @@ done:
 
 void CampScreen::SyncReviewCharInputRegion(void)
 {
-    if (ReviewedPartySlot() != -1 &&
-        CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
+    if (ReviewedPartySlot() != -1 && CurrentGame().party.npcIndex(ReviewedPartySlot()) != -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
@@ -872,7 +871,7 @@ void CampScreen::ActivateCampPage(void)
         for (index = 0; index < 8; ++index) {
             main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
-    } else if (CurrentGame().party.rows[ReviewedPartySlot()].npc_index == -1) {
+    } else if (CurrentGame().party.npcIndex(ReviewedPartySlot()) == -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);

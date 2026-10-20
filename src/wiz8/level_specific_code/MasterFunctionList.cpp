@@ -277,7 +277,7 @@ bool LevelScript::showMessageOnce(int command, W8WorldCursorNode* node)
     if (enabled != 0 && !ctx.status.search_mode && ctx.party.modifiers.detect_secrets == 0) {
         bool searcher = false;
         for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            if (ctx.party.rows[slot].fOccupied &&
+            if (ctx.party.members[slot].has_value() &&
                 CharacterHasTrait(ctx.party.characters + slot, W8_TRAIT_SEARCH)) {
                 searcher = true;
                 break;

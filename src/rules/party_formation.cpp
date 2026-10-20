@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <optional>
 #include <span>
 #include <stdexcept>
 
@@ -102,10 +103,10 @@ void W8PartyFormationState::setPosition(int slot, signed char new_row, signed ch
     }
 }
 
-void W8PartyFormationState::reconcile(std::span<const W8PartySlotRow, 8> rows)
+void W8PartyFormationState::reconcile(std::span<const std::optional<W8PartyMember>, 8> members)
 {
     for (int slot = 0; slot < 8; ++slot)
-        if (!rows[slot].fOccupied && positions[slot].bQuadrant != -1 &&
+        if (!members[slot] && positions[slot].bQuadrant != -1 &&
             positions[slot].bQuadrantSlot != -1)
             setPosition(slot, -1, -1, true, true);
 }

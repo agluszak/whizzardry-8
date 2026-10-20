@@ -8,6 +8,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <type_traits>
@@ -20,6 +21,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/unicode.h"
 
 namespace wiz8::retail {
@@ -237,15 +239,20 @@ template<> struct Record<W8CombatSlot> {
             runtime.item = {};
     }
 };
-template<> struct Record<W8PartySlotRow> {
+/* A party slot as the retail row saves it: the slot's action state and, for an occupied slot,
+   its member. An empty slot saves a cleared member. */
+struct SavedPartySlot {
+    W8PartySlotRow row;
+    std::optional<W8PartyMember> member;
+};
+template<> struct Record<SavedPartySlot> {
     using Disk = PartySlot;
-    template<class Runtime, class Bytes, class Value, class Text>
-    static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
+    template<class Saved, class Bytes, class Value, class Text>
+    static void fields(Saved& saved, Bytes bytes, Value value, Text)
     {
-        if constexpr (!std::is_const_v<Runtime>)
-            runtime.remembered.spell.kind = W8_ACTION_CAST_SPELL;
-        value(&runtime.fOccupied,
-              bytes.subspan(offsetof(Disk, fOccupied), sizeof(Disk::fOccupied)));
+        auto& runtime = saved.row;
+        if constexpr (!std::is_const_v<Saved>) runtime.remembered.spell.kind = W8_ACTION_CAST_SPELL;
+        members(saved, bytes, value);
         value(&runtime.executing.kind,
               bytes.subspan(offsetof(Disk, pending_action), sizeof(Disk::pending_action)));
         value(&runtime.executing.attack_mode,
@@ -281,20 +288,11 @@ template<> struct Record<W8PartySlotRow> {
         enum_value<signed char>(
             &runtime.remembered.repeat_action,
             bytes.subspan(offsetof(Disk, queued_action), sizeof(Disk::queued_action)));
-        value(&runtime.party_order_index,
-              bytes.subspan(offsetof(Disk, party_order_index), sizeof(Disk::party_order_index)));
-        value(&runtime.item_action_pending, bytes.subspan(offsetof(Disk, item_action_pending),
-                                                          sizeof(Disk::item_action_pending)));
-        value(&runtime.movement_fatigue,
-              bytes.subspan(offsetof(Disk, movement_fatigue), sizeof(Disk::movement_fatigue)));
-        value(&runtime.npc_index,
-              bytes.subspan(offsetof(Disk, npc_index), sizeof(Disk::npc_index)));
-        value(&runtime.npc_bound,
-              bytes.subspan(offsetof(Disk, npc_bound), sizeof(Disk::npc_bound)));
+        value(
+            &runtime.remembered.weapon_sets_locked,
+            bytes.subspan(offsetof(Disk, item_action_pending), sizeof(Disk::item_action_pending)));
         value(&runtime.pending_event_type,
               bytes.subspan(offsetof(Disk, pending_event_type), sizeof(Disk::pending_event_type)));
-        value(&runtime.portrait_advance,
-              bytes.subspan(offsetof(Disk, portrait_advance), sizeof(Disk::portrait_advance)));
         value(&runtime.remembered.wants_berserk,
               bytes.subspan(offsetof(Disk, action_is_berserk), sizeof(Disk::action_is_berserk)));
         value(&runtime.weapon_swap_pending, bytes.subspan(offsetof(Disk, weapon_swap_pending),
@@ -329,6 +327,36 @@ template<> struct Record<W8PartySlotRow> {
                bytes.subspan(offsetof(Disk, item_target), sizeof(CombatTarget)));
         target(runtime.remembered.breath_target,
                bytes.subspan(offsetof(Disk, breath_target), sizeof(CombatTarget)));
+    }
+
+    template<class Saved, class Bytes, class Value>
+    static void members(Saved& saved, Bytes bytes, Value value)
+    {
+        const auto codec = [&](auto& occupied, auto& member) {
+            value(&occupied, bytes.subspan(offsetof(Disk, fOccupied), sizeof(Disk::fOccupied)));
+            value(&member.order_index, bytes.subspan(offsetof(Disk, party_order_index),
+                                                     sizeof(Disk::party_order_index)));
+            value(&member.movement_fatigue,
+                  bytes.subspan(offsetof(Disk, movement_fatigue), sizeof(Disk::movement_fatigue)));
+            value(&member.npc_index,
+                  bytes.subspan(offsetof(Disk, npc_index), sizeof(Disk::npc_index)));
+            value(&member.npc_bound,
+                  bytes.subspan(offsetof(Disk, npc_bound), sizeof(Disk::npc_bound)));
+            byte_boolean(&member.level_up_announced, bytes.subspan(offsetof(Disk, portrait_advance),
+                                                                   sizeof(Disk::portrait_advance)));
+        };
+        if constexpr (std::is_const_v<Saved>) {
+            W8PartyMember cleared{};
+            cleared.npc_index = 0;
+            const bool occupied = saved.member.has_value();
+            const W8PartyMember member = saved.member.value_or(cleared);
+            codec(occupied, member);
+        } else {
+            bool occupied = false;
+            W8PartyMember member{};
+            codec(occupied, member);
+            saved.member = occupied ? std::optional{member} : std::nullopt;
+        }
     }
 };
 

@@ -44,7 +44,7 @@ void RebuildPartyEffectBlock(void)
     unsigned int slot_byte = 0;
     while (slot_byte <= 0x82f) {
         W8Character* character = &CurrentGame().party.characters[active];
-        if (CurrentGame().party.rows[active].fOccupied && character->hp_current != 0 &&
+        if (CurrentGame().party.members[active].has_value() && character->hp_current != 0 &&
             character->highest_condition == W8_CONDITION_NONE &&
             CharacterHasTrait(character, W8_TRAIT_CAMP_RECOVERY_BONUS)) {
             break;

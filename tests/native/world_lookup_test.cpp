@@ -311,8 +311,7 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
         ~Restore() { ClearNpcMessageQueue(); }
     } restore;
     auto& characters = CurrentGame().party.characters;
-    auto& rows = CurrentGame().party.rows;
-    rows[0].fOccupied = true;
+    CurrentGame().party.members[0].emplace();
     characters[0].hp_current = 1;
     CurrentGame().status.resume_level = 8;
     game.game.level.replacePrimary(std::make_unique<World>(3));

@@ -513,10 +513,10 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     sight_override = 0;
                 }
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
                     W8Character* character = &CurrentGame().party.characters[slot];
 
-                    if (row->fOccupied && character->hp_current != 0 &&
+                    if (CurrentGame().party.members[slot].has_value() &&
+                        character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP &&
                         character->uiExpLevel < minimum_level) {
                         minimum_level = character->uiExpLevel;
@@ -622,10 +622,10 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 }
                 seen_by_party = false;
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8PartySlotRow* row = &CurrentGame().party.rows[slot];
                     W8Character* character = &CurrentGame().party.characters[slot];
 
-                    if (row->fOccupied && character->hp_current != 0 &&
+                    if (CurrentGame().party.members[slot].has_value() &&
+                        character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
                         glm::vec3 observer_position;
                         glm::vec3 target_position;

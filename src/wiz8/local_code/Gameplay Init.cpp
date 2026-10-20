@@ -162,7 +162,7 @@ void ResetPartySlotRow(int slot)
     W8PartySlotRow* row = &CurrentGame().party.rows[slot];
 
     *row = {};
-    row->fOccupied = true;
+    CurrentGame().party.members[slot].emplace();
     row->remembered.spell = {W8_ACTION_CAST_SPELL, W8_SPELL_NONE};
     row->remembered.chooseBasic(W8_ACTION_ATTACK, -1);
     /* Retail cleared the row to zeros, which leaves a new member's committed

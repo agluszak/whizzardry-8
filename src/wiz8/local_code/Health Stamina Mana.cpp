@@ -70,7 +70,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     unsigned int absorbed;
     unsigned int applied;
 
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
     if (character->hp_current == 0) {
@@ -168,7 +168,7 @@ void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* res
     int party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) {
             ApplyDamageToCharacter(party_slot, RollDice(dice), false, announce, false, result,
                                    false);
@@ -188,7 +188,7 @@ void HealPartyByDice(unsigned char count, unsigned char sides, short base)
     dice.count = count;
     dice.sides = sides;
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied) {
+        if (CurrentGame().party.members[party_slot].has_value()) {
             HealCharacter(party_slot, RollDice(&dice), true);
         }
     }
@@ -204,7 +204,7 @@ void RestorePartyStaminaByDice(unsigned char count, unsigned char sides, short b
     dice.count = count;
     dice.sides = sides;
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied) {
+        if (CurrentGame().party.members[party_slot].has_value()) {
             RestoreCharacterStamina(party_slot, RollDice(&dice), false);
         }
     }
@@ -245,7 +245,7 @@ void DrainPartySpellPoints(int amount, bool announce)
     unsigned int party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied) {
+        if (CurrentGame().party.members[party_slot].has_value()) {
             DrainCharacterSpellPoints(party_slot, amount, announce);
         }
     }
@@ -260,7 +260,7 @@ void RestorePartySpellPoints(int amount)
     int granted;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.rows[party_slot].fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD &&
             CurrentGame().party.characters[party_slot].hp_current != 0) {
             granted = amount;
@@ -513,7 +513,7 @@ void HealCharacter(int party_slot, int amount, bool announce)
     unsigned int hp_max;
     unsigned int fraction;
 
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
 
@@ -697,7 +697,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    if (!CurrentGame().party.rows[party_slot].fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
 
@@ -1050,7 +1050,7 @@ void CharacterDies(int party_slot)
     unsigned int condition;
     int animation;
 
-    if (!row->fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         Fail("fCHAR_OCCUPIED(uiChar)");
     }
 
@@ -1079,7 +1079,7 @@ void CharacterDies(int party_slot)
         DropCharacterFromRound(party_slot);
     }
 
-    animation = row->npc_index;
+    animation = CurrentGame().party.npcIndex(party_slot);
     if (animation != -1) {
         W8NpcState* npc = GetNpcState(animation);
         if (npc != 0) {
@@ -1106,7 +1106,7 @@ unsigned int FindPartySlotWithLowestHitPoints(void)
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             character->highest_condition < W8_CONDITION_DEAD) {
             unsigned int percent =
                 (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
@@ -1129,7 +1129,7 @@ unsigned int FindPartySlotWithLowestSpellPoints(void)
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             character->highest_condition < W8_CONDITION_DEAD) {
             unsigned int pool_max = SumCharacterSpellPoints(character);
             if (pool_max > 0) {
@@ -1166,7 +1166,7 @@ W8Character* FindPartyMemberWithLowestResistance4(void)
     int selected = 0;
     for (int party_slot = 0; party_slot < 8; ++party_slot) {
         W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (CurrentGame().party.rows[party_slot].fOccupied &&
+        if (CurrentGame().party.members[party_slot].has_value() &&
             character->highest_condition < W8_CONDITION_DEAD &&
             character->resistances[4].total < lowest) {
             selected = party_slot;

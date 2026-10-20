@@ -166,7 +166,7 @@ void UpdateGameClock(int elapsed)
         CurrentGame().status.item_recharge_ms %= 3600000;
         for (unsigned int slot = 0; slot < 8; ++slot) {
             char uses = static_cast<char>(hours);
-            if (!CurrentGame().party.rows[slot].fOccupied) {
+            if (!CurrentGame().party.members[slot].has_value()) {
                 continue;
             }
             W8Character* character = &CurrentGame().party.characters[slot];
@@ -276,7 +276,7 @@ void BeginSurprise(void)
 
     CurrentGame().speech.CompleteAllActiveEvents();
     for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-        if (CurrentGame().party.rows[i].fOccupied) {
+        if (CurrentGame().party.members[i].has_value()) {
             SetPortraitTargetPose(&CurrentGame().monster_manager_entries[i], 2);
         }
     }
@@ -423,7 +423,7 @@ void ResolveSurpriseWake(void)
     if (CurrentGame().combat.has_value() && CurrentGame().combat->party_surprised) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
             W8Character* character = &CurrentGame().party.characters[slot];
-            if (!CurrentGame().party.rows[slot].fOccupied ||
+            if (!CurrentGame().party.members[slot].has_value() ||
                 character->highest_condition >= W8_CONDITION_DEAD) {
                 continue;
             }
@@ -442,7 +442,7 @@ void ResolveSurpriseWake(void)
     }
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
@@ -511,8 +511,8 @@ void AdvanceTimedEffects(unsigned int minutes)
         if (CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_FAST_MOVEMENT ||
             CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_MOVING) {
             CurrentGame().status.wait_state = W8_GAME_WAIT_STATE_INITIAL_REST;
-            for (unsigned int slot = 0; slot < 8; ++slot) {
-                CurrentGame().party.rows[slot].movement_fatigue = 0;
+            for (auto& member : CurrentGame().party.members) {
+                if (member) member->movement_fatigue = 0;
             }
         } else if (CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_INITIAL_REST) {
             CurrentGame().status.wait_state = W8_GAME_WAIT_STATE_RESTING;
@@ -527,7 +527,7 @@ void AdvanceTimedEffects(unsigned int minutes)
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             (character->highest_condition < W8_CONDITION_DEAD ||
              (character->uiCondition[W8_CONDITION_DEAD] == 0 &&
               GetConditionRecordFlag(slot, W8_DEPENDENCE_SWALLOWED)))) {
@@ -1344,7 +1344,7 @@ void UpdatePartyStamina(int ticks)
     }
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
         W8Character* character = &CurrentGame().party.characters[slot];

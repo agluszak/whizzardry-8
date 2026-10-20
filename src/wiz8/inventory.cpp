@@ -91,7 +91,7 @@ static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> repl
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         const auto& action = party.rows[slot].committed;
         const auto& use = action.detail_block.item_use;
-        if (game.status.game_started && party.rows[slot].fOccupied &&
+        if (game.status.game_started && party.members[slot].has_value() &&
             action.kind == W8_ACTION_USE_ITEM && use.item.storage != W8ItemStorage::None &&
             !ResolveItemUse(party, use))
             DropCharacterFromRound(slot);
@@ -237,7 +237,7 @@ bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource 
                                 bool party_first)
 {
     if (!game.status.game_started) Fail("gStatus.fGameStarted");
-    if (!game.party.rows[party_slot].fOccupied) Fail("fCHAR_OCCUPIED(uiChar)");
+    if (!game.party.members[party_slot].has_value()) Fail("fCHAR_OCCUPIED(uiChar)");
 
     std::optional<ItemPlacement> destination;
     if (!IsPartySlotEligible(static_cast<int>(party_slot))) {
@@ -263,7 +263,7 @@ GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_f
     if (held.iItemNo == -1) Fail("gStatus.fItemInCursor");
     if (!held.identified) PartyAttemptsToIdentifyItem(&held, 0);
     if (!game.status.game_started) Fail("gStatus.fGameStarted");
-    if (!game.party.rows[party_slot].fOccupied) Fail("fCHAR_OCCUPIED(uiChar)");
+    if (!game.party.members[party_slot].has_value()) Fail("fCHAR_OCCUPIED(uiChar)");
 
     const auto source = PartyItem(game.party, {W8ItemStorage::Hand});
     const bool eligible = IsPartySlotEligible(static_cast<int>(party_slot));
@@ -543,7 +543,7 @@ bool ExchangeInventoryItems(Game& game, W8ItemLocation first, W8ItemLocation sec
 bool EquipHeldItemAndStowPartner(Game& game, unsigned actor, W8EquipSlot slot)
 {
     const auto npc_keeps = [&](const W8ItemInstance& partner) {
-        auto* npc = actor < 2 ? GetNpcState(game.party.rows[actor].npc_index) : nullptr;
+        auto* npc = actor < 2 ? GetNpcState(game.party.npcIndex(actor)) : nullptr;
         return npc && NpcWantsItem(npc, &partner);
     };
     const auto stowed = EquipHeldItemAndStowPartner(game.rules(), actor, slot, npc_keeps);
@@ -734,7 +734,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         /* The one item that is not used on anybody: it hands the level's NPC
            over to the fact that says the party has met them. */
         if (item->iItemNo == 0x29f) {
-            W8NpcState* npc = GetNpcState(game.party.rows[party_slot].npc_index);
+            W8NpcState* npc = GetNpcState(game.party.npcIndex(party_slot));
             if (npc == 0) {
                 Fail("pNPC");
             }

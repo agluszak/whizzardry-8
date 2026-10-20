@@ -60,7 +60,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -104,9 +103,8 @@ void W8PartySelectionCharacterCollection::ClearCharacters()
 void W8PartySelectionCharacterCollection::ReloadCharacters()
 {
     ClearCharacters();
-    W8PartySlotRow* rows = CurrentGame().party.rows;
     for (int slot = 2; slot < 8; ++slot) {
-        if (rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             characters.push_back(&CurrentGame().party.characters[slot]);
         }
     }
@@ -141,9 +139,8 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 {
     W8Character* character = GetCharacter(index);
     if (character && character->fInParty) {
-        W8PartySlotRow* rows = CurrentGame().party.rows;
         for (int slot = 0; slot < 6; ++slot) {
-            if (rows[slot + 2].fOccupied &&
+            if (CurrentGame().party.members[slot + 2].has_value() &&
                 &CurrentGame().party.characters[slot + 2] == character) {
                 return slot;
             }
@@ -176,7 +173,7 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
         } else {
             int slot;
             for (slot = 2; slot < 8; ++slot) {
-                if (CurrentGame().party.rows[slot].fOccupied &&
+                if (CurrentGame().party.members[slot].has_value() &&
                     strcmp(CurrentGame().party.characters[slot].name.c_str(),
                            character->name.c_str()) == 0) {
                     break;
@@ -305,7 +302,7 @@ void PartySelectionScreen::RefreshRows()
 void PartySelectionScreen::RefreshSlots()
 {
     for (int slot = 0; slot < 6; ++slot) {
-        const bool occupied = CurrentGame().party.rows[slot + 2].fOccupied;
+        const bool occupied = CurrentGame().party.members[slot + 2].has_value();
         slots[slot]->setEnabled(m_mode <= W8_PARTY_SELECT_IMPORT && occupied);
         advance[slot]->SetVisible(m_mode == W8_PARTY_SELECT_IMPORT && occupied &&
                                   IsCharacterReadyToAdvance(slot + 2));
@@ -366,7 +363,7 @@ void PartySelectionScreen::DrawSlots(SDL_Surface& target)
         const auto size = CatalogArtwork::Load(0x101, 0).size(0);
         const SDL_Rect area{left, top, size.x, size.y};
         const W8Character* character = nullptr;
-        if (!CurrentGame().party.rows[row + 2].fOccupied)
+        if (!CurrentGame().party.members[row + 2].has_value())
             SDL_FillSurfaceRect(&target, &area, 0x8000);
         else {
             character = &CurrentGame().party.characters[row + 2];
@@ -853,7 +850,7 @@ void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool ref
             int selected_slot = -1;
             if (m_character && m_character->fInParty) {
                 for (int slot = 0; slot < 6; ++slot) {
-                    if (CurrentGame().party.rows[slot + 2].fOccupied &&
+                    if (CurrentGame().party.members[slot + 2].has_value() &&
                         &CurrentGame().party.characters[slot + 2] == m_character) {
                         selected_slot = slot;
                         break;
@@ -874,7 +871,7 @@ void PartySelectionScreen::SetSelection(int selection, bool party_slot, bool ref
         }
         if (m_mode == W8_PARTY_SELECT_CHARACTERS) {
             int character_index = -1;
-            if (selection >= 0 && CurrentGame().party.rows[selection + 2].fOccupied) {
+            if (selection >= 0 && CurrentGame().party.members[selection + 2].has_value()) {
                 for (int index = 0; index < static_cast<int>(roster.characters.size()); ++index) {
                     if (roster.GetCharacter(index) == m_character) {
                         character_index = index;
@@ -1219,7 +1216,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
                     break;
                 }
             }
-            if (CurrentGame().party.rows[next_slot + 2].fOccupied) {
+            if (CurrentGame().party.members[next_slot + 2].has_value()) {
                 found = true;
                 break;
             }

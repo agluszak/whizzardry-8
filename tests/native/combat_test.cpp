@@ -46,7 +46,7 @@ struct CombatFixture {
         g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
         g_settings.verbose_combat_messages = 0;
         for (int slot = 0; slot < 2; ++slot) {
-            game.party.rows[slot].fOccupied = true;
+            game.party.members[slot].emplace();
             game.party.characters[slot].hp_current = 10;
         }
     }

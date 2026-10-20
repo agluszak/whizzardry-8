@@ -562,8 +562,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (npc->name_style == 0xf || npc->name_style == 0x12) {
         characters = CurrentGame().party.characters;
         for (slot = 0; slot < 2; ++slot) {
-            if (CurrentGame().party.rows[slot].fOccupied) {
-                bound = GetNpcState(CurrentGame().party.rows[slot].npc_index);
+            if (CurrentGame().party.members[slot].has_value()) {
+                bound = GetNpcState(CurrentGame().party.npcIndex(slot));
                 if ((bound->name_style == W8_NPC_RODAN || bound->name_style == W8_NPC_DRAZIC) &&
                     characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
                     for (condition = 0; condition <= 0x12; ++condition) {
@@ -820,7 +820,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     }
     state->camera_redirected = false;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             if (speaker == -1) {
                 speaker = slot;
             }
@@ -832,7 +832,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     }
     g_npc_interaction_state->dialogue_speaker = speaker;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             SetPortraitTargetPose(&CurrentGame().monster_manager_entries[slot], 1);
         }
     }
@@ -1957,7 +1957,7 @@ void OpenNpcDialogueTranscriptLayout(void)
     }
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     for (index = 0; index < 8; ++index) {
-        if (CurrentGame().party.rows[index].fOccupied) {
+        if (CurrentGame().party.members[index].has_value()) {
             DisableMainGamePortraitSlot(index);
 
             MainGame()->edge_targets[index]->setEnabled(false);
@@ -1994,7 +1994,7 @@ static void CloseNpcDialogueTranscriptLayout(void)
     g_npc_interaction_state->ui->transcript->ClearBackground();
     EraseRegion(0x1dc, 0x11b, 0x269, 0x1c2);
     for (index = 0; index < 8; ++index) {
-        if (CurrentGame().party.rows[index].fOccupied) {
+        if (CurrentGame().party.members[index].has_value()) {
             EnableMainGamePortraitSlot(index);
 
             MainGame()->edge_targets[index]->setEnabled(true);
@@ -3882,7 +3882,7 @@ static void SetNpcDialogueHidden(char value)
         g_npc_interaction_state->ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
         for (index = 0; index < 8; ++index) {
-            if (CurrentGame().party.rows[index].fOccupied) {
+            if (CurrentGame().party.members[index].has_value()) {
                 EnableMainGamePortraitSlot(index);
             }
         }
@@ -3900,7 +3900,7 @@ static void SetNpcDialogueHidden(char value)
     } else {
         RefreshMainGameLayout();
         for (index = 0; index < 8; ++index) {
-            if (CurrentGame().party.rows[index].fOccupied) {
+            if (CurrentGame().party.members[index].has_value()) {
                 DisableMainGamePortraitSlot(index);
             }
         }
@@ -4118,7 +4118,8 @@ static void HandleNpcDialogueDeparture(unsigned char value)
                 g_npc_interaction_state->dialogue_npc->record->merchant == 0) {
                 for (index = 0; index < 8; ++index) {
                     character = &CurrentGame().party.characters[index];
-                    if (CurrentGame().party.rows[index].fOccupied && character->hp_current != 0 &&
+                    if (CurrentGame().party.members[index].has_value() &&
+                        character->hp_current != 0 &&
                         character->highest_condition < W8_CONDITION_ASLEEP) {
                         PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_COMMUNICATION,
                                                0xf, false);

@@ -114,7 +114,7 @@ void SyncPartyPortraitVitalsBars(void)
         unsigned int spell_bar = 0;
         W8Character* character;
 
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
 
@@ -318,7 +318,7 @@ void TickPartyPortraitFx(void)
         bool clock_expired;
         bool dirty = false;
 
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
 
@@ -364,7 +364,7 @@ void ResetPartyPortraitFx(void)
     for (slot = 0; slot < 8; ++slot) {
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
 
-        if (!CurrentGame().party.rows[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
         entry->effect_icon_active = false;
@@ -426,8 +426,8 @@ void RedrawCombatPortraits(void)
         } else if (party_row->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
             CatalogArtwork::Load(0x8c, 0).drawAndInvalidate(
                 GetFrameBufferSurface(),
-                CurrentGame().party.rows[party_row->committed.target.iChar].party_order_index,
-                badge_x, row_y + 0x38);
+                CurrentGame().party.orderIndexOf(party_row->committed.target.iChar), badge_x,
+                row_y + 0x38);
         }
         entry->combat_portrait_dirty = false;
     }
@@ -688,7 +688,7 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
          (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_FORMATION &&
           GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_RADAR) ||
          MainGameHud()->portrait_refresh_pending[party_slot] != 0) &&
-        CurrentGame().party.rows[party_slot].fOccupied) {
+        CurrentGame().party.members[party_slot].has_value()) {
         W8Character* character = &CurrentGame().party.characters[party_slot];
         if (character->hp_current != 0) {
             int portrait = character->portrait_index;
@@ -725,7 +725,6 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
     int grid_row;
     int column_x;
     W8Character* character;
-    W8PartySlotRow* party_row;
     W8MonsterManagerEntry* entry;
     SpriteDraw portrait_draw{};
     int portrait_catalog;
@@ -748,16 +747,15 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
     GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
                            &grid_row, &column_x, slot_enabled);
 
-    party_row = &CurrentGame().party.rows[party_slot];
     character = &CurrentGame().party.characters[party_slot];
     entry = &CurrentGame().monster_manager_entries[party_slot];
 
-    if (!party_row->fOccupied) {
+    if (!CurrentGame().party.members[party_slot].has_value()) {
         CatalogArtwork::Load(0x31, 0).draw(GetFrameBufferSurface(), 0, menu_x + 0x14, menu_y);
     }
 
     if (overlay_ready) {
-        if (!party_row->fOccupied) {
+        if (!CurrentGame().party.members[party_slot].has_value()) {
             portrait_catalog = 0x34;
             portrait_draw = {};
             CatalogArtwork::Load(portrait_catalog, 0)
@@ -789,7 +787,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
 
     CatalogArtwork::Load(0x82, 0).draw(GetFrameBufferSurface(), 0x10, menu_x + 0x17, menu_y);
 
-    if (party_row->fOccupied) {
+    if (CurrentGame().party.members[party_slot].has_value()) {
         if (overlay_ready) {
             if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                 MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
@@ -876,7 +874,8 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
 
             text = Data().strings[g_profession_name_message_ids[character->iProfession + 16]];
             if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-                g_smfnt_font.setPalette(g_font_state_palettes[party_row->party_order_index]);
+                g_smfnt_font.setPalette(
+                    g_font_state_palettes[CurrentGame().party.orderIndexOf(party_slot)]);
             }
             text_width = g_smfnt_font.textWidth(text);
             DrawText(GetFrameBufferSurface(), g_smfnt_font,
@@ -971,7 +970,8 @@ draw_condition_icons:
     CatalogArtwork::Load(enchantment_frame, 0)
         .draw(GetFrameBufferSurface(), 0, right_condition_x, menu_y + 3);
 
-    if (party_row->fOccupied && CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
+    if (CurrentGame().party.members[party_slot].has_value() &&
+        CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         if (MainGameHud()->highlight.SlotFor(W8_HIGHLIGHT_CONDITION) ==
             static_cast<int>(party_slot)) {
             CatalogArtwork::Load(0x60, 0).draw(GetFrameBufferSurface(), 0, left_condition_x - 1,
@@ -1049,7 +1049,8 @@ portrait_fx:
             .draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
     }
 
-    if (!CurrentGame().combat.has_value() && party_slot < 8 && party_row->fOccupied) {
+    if (!CurrentGame().combat.has_value() && party_slot < 8 &&
+        CurrentGame().party.members[party_slot].has_value()) {
         portrait_buttons->buttons[party_slot]->m_dirty = true;
     }
 
@@ -1145,12 +1146,13 @@ void EnablePortraitAdvanceRegions()
     portrait_buttons->input.setEnabled(true);
     for (int slot = 0; slot < 8; ++slot)
         portrait_buttons->buttons[slot]->SetEnabled(
-            IsCharacterReadyToAdvance(slot) && CurrentGame().party.rows[slot].portrait_advance);
+            IsCharacterReadyToAdvance(slot) &&
+            CurrentGame().party.members[slot]->level_up_announced);
 }
 
 void InvalidatePortraitControl(unsigned int party_slot)
 {
-    if (party_slot < 8 && CurrentGame().party.rows[party_slot].fOccupied)
+    if (party_slot < 8 && CurrentGame().party.members[party_slot].has_value())
         portrait_buttons->buttons[party_slot]->m_dirty = true;
 }
 
@@ -1164,7 +1166,7 @@ void UpdatePortraitAdvanceButtons()
     for (int slot = 0; slot < 8; ++slot) {
         auto& button = *portrait_buttons->buttons[slot];
         button.SetVisible(IsCharacterReadyToAdvance(slot) && !CurrentGame().activity.conversation &&
-                          CurrentGame().party.rows[slot].portrait_advance);
+                          CurrentGame().party.members[slot]->level_up_announced);
         button.Refresh();
     }
 }
@@ -1231,7 +1233,7 @@ void UpdateConditionButtons()
         auto& icon = condition_icons->icons[slot];
         const auto& entry = CurrentGame().monster_manager_entries[slot];
         int catalog = 0;
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             MainGameHud()->portrait_refresh_pending[slot] == 0 && !entry.keyboard_menu_open) {
             const auto& character = CurrentGame().party.characters[slot];
             if (character.highest_condition)

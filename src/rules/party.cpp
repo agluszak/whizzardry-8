@@ -42,6 +42,16 @@ std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const
     return {};
 }
 
+int W8Party::npcIndex(unsigned int slot) const
+{
+    return members[slot] ? members[slot]->npc_index : -1;
+}
+
+int W8Party::orderIndexOf(unsigned int slot) const
+{
+    return members[slot] ? members[slot]->order_index : 0;
+}
+
 W8ItemInstance W8Party::take(W8ItemLocation location)
 {
     auto* item = itemAt(location);

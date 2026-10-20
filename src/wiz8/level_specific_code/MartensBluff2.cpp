@@ -694,7 +694,7 @@ void MartensBluff2Script::idolGasVictim()
 
     lowest = 10;
     for (slot = 0; slot < 8; slot++) {
-        if (!ctx.party.rows[slot].fOccupied || slot < 2) {
+        if (!ctx.party.members[slot].has_value() || slot < 2) {
             severities[slot] = 10;
         } else {
             switch (ctx.party.characters[slot].iProfession) {
@@ -728,7 +728,7 @@ void MartensBluff2Script::idolGasVictim()
         }
         if (count == 0) {
             slot = 0;
-            while (!ctx.party.rows[slot].fOccupied ||
+            while (!ctx.party.members[slot].has_value() ||
                    ctx.party.characters[slot].highest_condition != W8_CONDITION_DEAD) {
                 slot++;
                 if (slot > 7) {

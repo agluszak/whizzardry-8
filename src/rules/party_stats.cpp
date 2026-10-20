@@ -23,13 +23,12 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
     int unassigned[8];
     float load_ratio[8];
     W8Character* characters = party.characters;
-    W8PartySlotRow* active = party.rows;
 
     unsigned int slot;
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &characters[slot];
         character->party_weight_share = 0;
-        if (active[slot].fOccupied && character->highest_condition < W8_CONDITION_DEAD) {
+        if (party.members[slot].has_value() && character->highest_condition < W8_CONDITION_DEAD) {
             capacity[slot] = static_cast<int>(CarryingCapacity(*character));
             unassigned[slot] = capacity[slot] - static_cast<int>(InventoryWeight(data, *character));
             load_ratio[slot] = unassigned[slot] * 100.0f / capacity[slot];
@@ -46,8 +45,8 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
         float best_ratio = -999999.0f;
         for (slot = 0; slot < 8; ++slot) {
             W8Character* character = &characters[slot];
-            if (active[slot].fOccupied && character->highest_condition < W8_CONDITION_DEAD &&
-                load_ratio[slot] > best_ratio) {
+            if (party.members[slot].has_value() &&
+                character->highest_condition < W8_CONDITION_DEAD && load_ratio[slot] > best_ratio) {
                 best_ratio = load_ratio[slot];
                 best_slot = slot;
             }
@@ -116,7 +115,7 @@ W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyS
     auto& characters = party.characters;
     // Every member's inputs come before the shared pool is allocated by capacity.
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.rows[slot].fOccupied || !IsCharacterDefined(characters[slot])) continue;
+        if (!party.members[slot].has_value() || !IsCharacterDefined(characters[slot])) continue;
         baselines[slot] = CaptureCharacterBaseline(characters[slot]);
         EvaluateCharacterInputs(data, characters[slot],
                                 characters[slot].fInParty ? &party.modifiers : nullptr);

@@ -101,7 +101,7 @@ void TryGiveHeldItemToCampPortrait(int slot)
 {
     W8Character* character;
 
-    if (!CurrentGame().party.rows[slot].fOccupied) {
+    if (!CurrentGame().party.members[slot].has_value()) {
         return;
     }
     character = &CurrentGame().party.characters[slot];
@@ -130,7 +130,7 @@ void TryGiveHeldItemToCampPortrait(int slot)
 
 bool CanSelectRcsPartySlot(int ui_slot)
 {
-    if (!CurrentGame().party.rows[ui_slot].fOccupied) {
+    if (!CurrentGame().party.members[ui_slot].has_value()) {
         Fail("gStatus.XChar[uiSlot].fOccupied");
     }
 
@@ -198,7 +198,7 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 // FUNCTION: WIZ8 0x005b6630
 void CampScreen::OpenLevelUpCharacterScreen()
 {
-    if (!CurrentGame().party.rows[ReviewedPartySlot()].fOccupied) {
+    if (!CurrentGame().party.members[ReviewedPartySlot()].has_value()) {
         Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
     }
     RequestScreen({.id = W8_SCREEN_CHARACTER,
@@ -237,7 +237,7 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
         (CurrentGame().party.held.item.iItemNo != -1))
         AfterUiDispatch([target_slot] { TryGiveHeldItemToCampPortrait(target_slot); });
     if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
-        CurrentGame().party.rows[target_slot].fOccupied) {
+        CurrentGame().party.members[target_slot].has_value()) {
         AfterUiDispatch([this, target_slot] {
             if (TargetingMode() == W8_TARGET_NEED_ALLY) {
                 if (page != W8_CAMP_PAGE_ITEMS ||
@@ -354,7 +354,7 @@ void CampScreen::UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(ReviewedPartySlot());
     if (!enabled || CurrentGame().combat.has_value() ||
-        (!CurrentGame().party.rows[ReviewedPartySlot()].portrait_advance && GameStarted()) ||
+        (!CurrentGame().party.members[ReviewedPartySlot()]->level_up_announced && GameStarted()) ||
         CurrentGame().activity.conversation_aside) {
         if (header_buttons.level_up->IsVisible()) {
             header_buttons.level_up->SetVisible(false);
@@ -369,7 +369,7 @@ void CampScreen::UpdateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6950
 void CampScreen::ShowDismissCharacterDialog()
 {
-    if (!CurrentGame().party.rows[ReviewedPartySlot()].fOccupied) {
+    if (!CurrentGame().party.members[ReviewedPartySlot()].has_value()) {
         Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
     }
 
@@ -396,7 +396,7 @@ void CampScreen::ShowDismissCharacterDialog()
 // FUNCTION: WIZ8 0x005b6a60
 void CampScreen::OnDismissCharacterDialogClosed(bool accepted)
 {
-    if (accepted && CurrentGame().party.rows[ReviewedPartySlot()].npc_index != -1) {
+    if (accepted && CurrentGame().party.npcIndex(ReviewedPartySlot()) != -1) {
         if (auto* main_game = MainGame()) main_game->dismissed_npc_slot = ReviewedPartySlot();
         DismissSelectedPartyCharacter();
     }
@@ -571,7 +571,7 @@ void CampScreen::DrawCampHeader(void)
             band_x = (slot & 1) * 0x30;
             left = band_x + 6;
             top = band_y + 5;
-            if (ReviewedPartySlot() == -1 || !CurrentGame().party.rows[slot].fOccupied) {
+            if (ReviewedPartySlot() == -1 || !CurrentGame().party.members[slot].has_value()) {
                 CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5,
                                                     band_y + 4);
             } else {
@@ -703,7 +703,7 @@ void CampScreen::DrawCampVitals(void)
     if (!GameStarted()) {
         text.SetFontStateIndex(8);
     } else {
-        text.SetFontStateIndex(CurrentGame().party.rows[ReviewedPartySlot()].party_order_index);
+        text.SetFontStateIndex(CurrentGame().party.orderIndexOf(ReviewedPartySlot()));
     }
     text.RenderString(Data().strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
                       g_smfnt_font, false, GetFrameBufferSurface());

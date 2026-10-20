@@ -131,7 +131,7 @@ TEST_CASE("world graphics")
             GameLoop();
         }
         int slot = 0;
-        while (!CurrentGame().party.rows[slot].fOccupied) ++slot;
+        while (!CurrentGame().party.members[slot].has_value()) ++slot;
         auto& portrait = CurrentGame().monster_manager_entries[slot];
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
@@ -266,7 +266,7 @@ TEST_CASE("world graphics")
         attacker.iType = W8_TARGET_SOURCE_CHARACTER;
         attacker.iChar = 0;
         while (attacker.iChar < W8_PARTY_SLOT_COUNT &&
-               !CurrentGame().party.rows[attacker.iChar].fOccupied)
+               !CurrentGame().party.members[attacker.iChar].has_value())
             ++attacker.iChar;
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
         attacker.iMonsterID = -1;

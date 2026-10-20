@@ -776,7 +776,7 @@ void DrawSubMenuCharacterAction(void)
         return;
     }
     row = &CurrentGame().party.rows[slot];
-    g_smfnt_font.setPalette(g_font_state_palettes[row->party_order_index]);
+    g_smfnt_font.setPalette(g_font_state_palettes[CurrentGame().party.orderIndexOf(slot)]);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
     character = &CurrentGame().party.characters[slot];
     text = fmt::format("{} - {}", character->name,
@@ -943,7 +943,7 @@ void RedrawSubMenuButtons(void)
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 5, 0x124, 0x1c2);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
-    if (CurrentGame().party.rows[CurrentGame().status.selected_character].fOccupied) {
+    if (CurrentGame().party.members[CurrentGame().status.selected_character].has_value()) {
         DrawSubMenuCharacterAction();
     }
 

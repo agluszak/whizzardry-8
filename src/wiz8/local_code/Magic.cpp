@@ -2160,7 +2160,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
             }
             affected = false;
             for (index = 0; index < 8; ++index) {
-                if (CurrentGame().party.rows[index].fOccupied &&
+                if (CurrentGame().party.members[index].has_value() &&
                     CurrentGame()
                                 .party.characters[index]
                                 .enchantments[W8_ENCHANTMENT_RAZOR_CLOAK]
@@ -2190,7 +2190,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_HEAL_ALL:
         for (index = 0; index < 8; ++index) {
             target = &CurrentGame().party.characters[index];
-            if (CurrentGame().party.rows[index].fOccupied &&
+            if (CurrentGame().party.members[index].has_value() &&
                 target->highest_condition <= W8_CONDITION_DEAD &&
                 target->hp_current < static_cast<unsigned int>(target->uiHPMax)) {
                 return true;
@@ -2213,7 +2213,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         if (CurrentGame().combat.has_value()) {
             for (index = 0; index < 8; ++index) {
                 target = &CurrentGame().party.characters[index];
-                if (CurrentGame().party.rows[index].fOccupied &&
+                if (CurrentGame().party.members[index].has_value() &&
                     target->highest_condition <= W8_CONDITION_DEAD &&
                     static_cast<unsigned int>(target->stamina) <
                         static_cast<unsigned int>(target->uiStaminaMax)) {
@@ -3300,7 +3300,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
 
     candidates = 0;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot)) {
             ++candidates;
         }
@@ -3320,7 +3320,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     }
     pick = CurrentGame().rng.below(candidates) + 1;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot) && (--pick == 0)) {
             if (GetSpellTargetType(spell_id, false) == 4) {
                 target->iType = W8_TARGET_KIND_PARTY;

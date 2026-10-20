@@ -1014,9 +1014,9 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, char on)
         }
     } else {
         if (rep->objects[party_slot] == 0) {
-            path = fmt::format("Data\\Monsters\\Bitmaps\\{}",
-                               g_party_target_marker_bitmaps
-                                   [CurrentGame().party.rows[party_slot].party_order_index]);
+            path = fmt::format(
+                "Data\\Monsters\\Bitmaps\\{}",
+                g_party_target_marker_bitmaps[CurrentGame().party.orderIndexOf(party_slot)]);
             rep->objects[party_slot] = CreateMonsterIconItem(*info->p3D->owner_world, path.c_str());
             ++rep->icon_count;
         }

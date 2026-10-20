@@ -111,15 +111,23 @@ the licensed runtime scenarios after every step.
      screens receive it from the router and rules receive a `RuleContext` (steps 3 and
      6); until then `InstallGameData` fills the one slot.
    - Give message ids names.
-3. **Inventory and party in `rules`.** They take the `Game` and report through its
-   events (ARCHITECTURE.md, "The game"); what remains is moving them behind the boundary.
-   - Replace `Game&` with a `RuleContext`, which carries the game's random stream
-     (`Game::rng`), and take the calls they still make into unmigrated code (conditions, combat targeting,
-     NPC states, facts, world drops, sounds) as explicit inputs or events.
+3. **Inventory and party in `rules`.** The storage and item rules are behind the
+   boundary and take a `RuleContext` (ARCHITECTURE.md, "Inventory"). What remains:
+   - The commands in `wiz8/inventory.h` (about 30) still take `Game&`, because what
+     they owe after a rule reaches unmigrated code: settlement applies death and
+     combat's hand changes (`SettleActiveParty`, `SetCharacterCondition`,
+     `ReconcileCombatHandChange`), acquisition updates story facts and runs
+     exceptional-item reactions, an unstored item drops into the world, and `UseItem`
+     and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
+     members once conditions (step 6) and facts (step 7) take explicit state.
+   - Unmigrated code still finds a member's slot from its address:
+     `CharacterPointerToPartySlot` (35 uses in 16 files) and the camp's reviewed
+     character (`CampPartySlot` through `W8Party::slotOf`, since the camp also shows
+     characters outside the party). Pass party slots, and give the camp a slot or an
+     outsider value instead of a `W8Character*`.
    - Presentation is synchronous: the observer shows each event as it is pushed, to keep
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
-   - This absorbs "characters by slot, items by location" below.
 4. **One step.** `Game::advance(elapsed)` is the game's step (ARCHITECTURE.md,
    "Stepping"); its own countdowns, the frame delta and the environment clock take the
    elapsed time it is given. What it calls still reads the monotonic clock: the surprise
@@ -198,32 +206,14 @@ the licensed runtime scenarios after every step.
 These items keep their own scope, and are easiest after the migration step named in
 each.
 
-- **The party and actions model.** (After step 1.) A `W8PartySlotRow` groups a
-  member's action state into named parts (`remembered` choices, the `committed`
-  action, the action `executing`). They belong to the party, not to `Combat`: the
-  retail party record saves all three, and members choose and carry out actions
-  outside fights too (item uses and spells in the world and in camp). What a fight
-  keeps per member is `Combat::characters`. The row still mixes the action parts with
-  persistent membership, NPC binding and marching order, UI flags
-  (`item_action_pending`, `portrait_advance`) and accumulators (`movement_fatigue`).
-  Split these by owner:
-  - membership and the action parts in the party;
-  - presentation in the screens.
-
-  Replace `fOccupied` arrays with real optional members, so that no code asks "is
-  this character an occupied member" by address (`slotOf`).
-- **Characters by slot, items by location or value.** (Part of step 3.) Inventory
-  commands still take `W8Character*` and `W8ItemInstance*` and resolve sources by
-  scanning party storage (`locateItem`). Callers should pass party slots,
-  `W8ItemLocation` sources and owned values. Split pure placement (onto `W8Party`,
-  returning where items went) from acquisition effects (notices, story facts,
-  exceptional-item reactions), which the commands that owe them apply explicitly.
-  Committed and pending item uses should record the expected item contents, as
-  trade rows do, and abandon on mismatch, because pool compaction can silently
-  retarget a location.
+- **The party and actions model.** Membership is `W8Party::members`
+  (ARCHITECTURE.md, "Membership"), and `W8PartySlotRow` keeps the action parts. The
+  row still holds `pending_event_type`, the character event last queued for the slot's
+  portrait, which the speech scheduler and NPC dialogue write; it belongs to the
+  speech scheduler.
 - **Runtime types with semantic shape; retail layout only in codecs.** (After step 8.)
-  `W8Character`, `W8PartySlotRow` and `W8ItemInstance` still carry retail field names:
-  about 1,230 uses of Hungarian names such as `iItemNo`, `fOccupied`, `uiHPMax` and
+  `W8Character` and `W8ItemInstance` still carry retail field names:
+  about 1,230 uses of Hungarian names such as `iItemNo`, `fInParty`, `uiHPMax` and
   `uiCondition`. Verbatim codec copies check field widths, and items, formations and
   NPC stock entries have their own disk records, so those types may change shape. Retail
   disk records still embed other runtime types, which therefore keep their retail

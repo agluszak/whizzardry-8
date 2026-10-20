@@ -775,7 +775,7 @@ int PremadeSlot()
 {
     REQUIRE(CountActiveCharacters() == 1);
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             REQUIRE(CurrentGame().party.characters[slot].fInParty);
             return slot;
         }
@@ -1368,9 +1368,9 @@ void CheckGameplayUi(GameHarness& game)
     RefreshSpellIconHudRows();
 
     const auto original_experience = character.experience;
-    const auto original_notice = CurrentGame().party.rows[slot].portrait_advance;
+    const auto original_notice = CurrentGame().party.members[slot]->level_up_announced;
     character.experience = character.experience_goal;
-    CurrentGame().party.rows[slot].portrait_advance = true;
+    CurrentGame().party.members[slot]->level_up_announced = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
     game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
@@ -1381,7 +1381,7 @@ void CheckGameplayUi(GameHarness& game)
     game.key(SDLK_RETURN); // Confirm abandoning the level-up edit.
     game.wait_screen("cancel-level-up", W8_SCREEN_MAIN_GAME);
     character.experience = original_experience;
-    CurrentGame().party.rows[slot].portrait_advance = original_notice;
+    CurrentGame().party.members[slot]->level_up_announced = original_notice;
     UpdatePortraitAdvanceButtons();
 }
 
@@ -2141,7 +2141,7 @@ void PrintState(GameHarness& game)
                     camp->dialogs.open() != nullptr, int(TargetingMode()));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (CurrentGame().party.rows[slot].fOccupied) {
+        if (CurrentGame().party.members[slot].has_value()) {
             const auto& character = CurrentGame().party.characters[slot];
             std::printf("  pc %d %s hp=%u xp=%u kills=%d\n", slot, character.name.c_str(),
                         character.hp_current, character.experience, character.kill_count);

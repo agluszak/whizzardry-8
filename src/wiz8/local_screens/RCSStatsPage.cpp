@@ -689,7 +689,7 @@ void W8CampSkillsPage::Deactivate()
 static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 {
     for (int slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.rows[slot].fOccupied &&
+        if (CurrentGame().party.members[slot].has_value() &&
             level < CurrentGame().party.characters[slot].skills[skill].level) {
             return false;
         }

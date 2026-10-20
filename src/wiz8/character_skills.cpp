@@ -66,8 +66,8 @@ std::string FormatSkillIncreaseNoticeText(const W8Party& party, int party_slot, 
     const auto& character = party.characters[party_slot];
     std::string text = continue_line ? " \n  " : " ";
     wiz8::text::append(text, 0xb4);
-    wiz8::text::append(text, GetPartyOrderTextColor(static_cast<signed char>(
-                                 party.rows[party_slot].party_order_index)));
+    wiz8::text::append(
+        text, GetPartyOrderTextColor(static_cast<signed char>(party.orderIndexOf(party_slot))));
     text += " " + fmt::format("{}'s", character.name) + " ";
     wiz8::text::append(text, 0xb5);
     text += " " + fmt::sprintf(Data().strings[0x1db],
@@ -105,7 +105,7 @@ void FlushDeferredSkillNotices(Game& game)
     text.clear();
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &game.party.characters[slot];
-        if (!game.party.rows[slot].fOccupied || character->hp_current == 0 ||
+        if (!game.party.members[slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_DEAD) {
             continue;
         }
@@ -215,7 +215,7 @@ void BrewAlchemistPotion(Game& game, W8Character* character)
     unsigned int recipes;
     unsigned int pick;
 
-    if (game.party.rows[slot].fOccupied &&
+    if (game.party.members[slot].has_value() &&
         character->highest_condition < W8_CONDITION_UNCONSCIOUS &&
         CharacterHasTrait(character, W8_TRAIT_MAKE_POTIONS)) {
         alchemy = character->profession_levels[W8_PROFESSION_ALCHEMIST];
