@@ -514,7 +514,8 @@ std::optional<UnusableEquipment> TakeUnusableEquipment(const RuleContext& rules,
     EvaluateCharacterInputs(data, character, character.fInParty ? &party.modifiers : nullptr);
     auto* item = std::ranges::find_if(character.EquippedItem, [&](const auto& candidate) {
         const auto slot = static_cast<unsigned int>(&candidate - character.EquippedItem);
-        return !kept[slot] && candidate.iItemNo != -1 && !CanCharacterUseItem(data, &character, candidate.iItemNo);
+        return !kept[slot] && candidate.iItemNo != -1 &&
+               !CanCharacterUseItem(data, &character, candidate.iItemNo);
     });
     if (item == std::end(character.EquippedItem)) return std::nullopt;
     const auto equip_slot = static_cast<unsigned int>(item - character.EquippedItem);
@@ -523,11 +524,11 @@ std::optional<UnusableEquipment> TakeUnusableEquipment(const RuleContext& rules,
         unsigned short message_id = 0;
         const auto& pronoun = data.strings[g_gender_name_message_rows[character.gender][2]];
         notice = FindUnmetItemRequirement(&character, &data.items[item->iItemNo], &message_id)
-                ? fmt::sprintf(data.strings[0x1ef], pronoun,
-                               FormatItemDisplayName(data, item, true), pronoun,
-                               data.strings[message_id])
-                : fmt::sprintf(data.strings[0x1f0], pronoun,
-                               FormatItemDisplayName(data, item, true));
+                     ? fmt::sprintf(data.strings[0x1ef], pronoun,
+                                    FormatItemDisplayName(data, item, true), pronoun,
+                                    data.strings[message_id])
+                     : fmt::sprintf(data.strings[0x1f0], pronoun,
+                                    FormatItemDisplayName(data, item, true));
     }
     return UnusableEquipment{party.take({W8ItemStorage::Equipment, party_slot, equip_slot}),
                              IsHandSlot(equip_slot), equip_slot, std::move(notice)};

@@ -751,7 +751,8 @@ std::vector<std::byte> encode(const GameState& state)
     out.sized(retail::encode(state));
     for (const auto& character : state.party.characters) out.sized(retail::encode(character));
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        out.sized(retail::encode(retail::SavedPartySlot{state.party.rows[slot], state.party.members[slot]}));
+        out.sized(retail::encode(
+            retail::SavedPartySlot{state.party.rows[slot], state.party.members[slot]}));
     return out.take();
 }
 

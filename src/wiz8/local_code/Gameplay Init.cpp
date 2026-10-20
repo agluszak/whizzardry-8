@@ -13,7 +13,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/combat/fight.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
