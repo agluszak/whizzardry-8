@@ -1,7 +1,6 @@
 #include "wiz8/entities/monster.h"
 
 #include <cmath>
-#include <cstring>
 #include <memory>
 #include <optional>
 #include <span>
@@ -35,7 +34,6 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/Font.h"
-#include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
@@ -65,7 +63,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/location_variables.h"
