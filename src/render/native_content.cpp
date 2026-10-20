@@ -1,6 +1,7 @@
 #include "wiz8/render/native_content.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <memory>

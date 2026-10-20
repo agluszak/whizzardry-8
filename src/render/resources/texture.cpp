@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <exception>
 #include <memory>
-#include <optional>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
