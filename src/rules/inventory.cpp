@@ -857,7 +857,8 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
         held = remaining_held;
         *destination = remaining_target;
         if (held.iItemNo == -1) party.held = {};
-        ItemCombination made{true, InventoryEdit{{{W8ItemStorage::Hand}, target}}};
+        ItemCombination made{.merged = true,
+                             .edit = InventoryEdit{{{W8ItemStorage::Hand}, target}}};
         if (recipe.merge_skill != -1) {
             made.practised_skill = static_cast<W8Skill>(recipe.merge_skill);
             made.practice = recipe.merge_skill_level / 10;
@@ -868,9 +869,9 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
         bool partial = false;
         const bool merged = MergeStack(data, party, *destination,
                                        PartyItem(party, {W8ItemStorage::Hand}), &partial);
-        return ItemCombination{
-            merged || partial,
-            InventoryEdit{{merged ? W8ItemLocation{W8ItemStorage::Hand} : W8ItemLocation{}}}};
+        return ItemCombination{.merged = merged || partial,
+                               .edit = InventoryEdit{{merged ? W8ItemLocation{W8ItemStorage::Hand}
+                                                             : W8ItemLocation{}}}};
     }
     return std::unexpected(InventoryRefusal{data.strings[0x161]});
 }

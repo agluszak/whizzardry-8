@@ -42,6 +42,7 @@ enum W8CampItemFilterButton {
 
 struct W8Character;
 struct W8CombatSlot;
+struct W8ItemUse;
 
 enum CampMainRegionOffset {
     kCampPartyPortraitRegionOffset = 1,

@@ -60,6 +60,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"

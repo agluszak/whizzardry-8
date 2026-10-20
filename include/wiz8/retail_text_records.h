@@ -271,7 +271,7 @@ template<> struct Record<SavedPartySlot> {
         constexpr W8ItemStorage storage_kinds[] = {W8ItemStorage::Backpack,
                                                    W8ItemStorage::Equipment, W8ItemStorage::Pool};
         auto& location = runtime.remembered.item_detail.item_use.item;
-        if constexpr (std::is_const_v<Runtime>) {
+        if constexpr (std::is_const_v<Saved>) {
             const auto found = std::ranges::find(storage_kinds, location.storage);
             const unsigned char origin =
                 found == std::end(storage_kinds) ? 0xff : found - std::begin(storage_kinds);
@@ -301,7 +301,7 @@ template<> struct Record<SavedPartySlot> {
             if (item_use) {
                 value(&live.item_use.kind, field.first(4));
                 // Retail stores an address here; locations are reconstructed from provenance.
-                if constexpr (std::is_const_v<Runtime>)
+                if constexpr (std::is_const_v<Saved>)
                     std::fill(field.begin() + 4, field.end(), std::byte{});
             } else {
                 value(&live.spell.power_level, field.first(4));
