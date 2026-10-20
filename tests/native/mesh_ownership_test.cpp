@@ -1,6 +1,4 @@
-#include <algorithm>
 #include <array>
-#include <cstdint>
 #include <memory>
 #include <type_traits>
 #include <vector>
@@ -162,40 +160,4 @@ TEST_CASE("mesh_ownership_test")
     REQUIRE(lazyTables());
     REQUIRE(uvGrowth());
     REQUIRE(reset());
-}
-
-TEST_CASE("Mesh resource assignments keep resources until their last use and survive reindexing")
-{
-    Mesh mesh(3, 4);
-    auto material = std::make_shared<Material>();
-    auto texture = std::make_shared<Texture>();
-    auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
-    auto* textures = mesh.getPolygonTextureTable(0, 0, true);
-    std::ranges::fill(*materials, material);
-    std::ranges::fill(*textures, texture);
-    auto other = std::make_shared<Material>();
-    (*materials)[2] = other;
-    (*materials)[3] = nullptr;
-    const std::array<std::uint32_t, 4> permutation{3, 2, 0, 1};
-    mesh.reindexVertices(permutation);
-    REQUIRE((*materials)[0] == nullptr);
-    REQUIRE((*materials)[1] == other);
-    REQUIRE((*materials)[2] == material);
-    std::weak_ptr<Material> material_lifetime = other;
-    other.reset();
-    (*materials)[1] = material;
-    REQUIRE(material_lifetime.expired()); // Replacing the last assignment releases ownership.
-    (*textures)[1] = nullptr;
-    const std::array<std::uint32_t, 3> polygons{1, 2, 0};
-    mesh.reindexPolygons(polygons);
-    REQUIRE((*textures)[0] == nullptr);
-    REQUIRE((*textures)[1] == texture);
-    REQUIRE((*textures)[2] == texture);
-    // Shrinking releases a resource only once no remaining polygon uses it.
-    std::weak_ptr<Texture> texture_lifetime = texture;
-    texture.reset();
-    textures->resize(2);
-    REQUIRE_FALSE(texture_lifetime.expired());
-    textures->resize(1);
-    REQUIRE(texture_lifetime.expired());
 }

@@ -80,8 +80,6 @@ public:
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    void reindexPolygons(std::span<const std::uint32_t> indices);
-    void reindexVertices(std::span<const std::uint32_t> indices);
     /* Bakes pending vertex lighting into the first colour table. Rendering calls
        this before it reads the mesh's tables. */
     void applyPendingLighting();

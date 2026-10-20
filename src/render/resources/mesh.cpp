@@ -7,7 +7,6 @@
 #include <cstdio>
 #include <memory>
 #include <span>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -26,41 +25,6 @@
 
 #include "wiz8/math.h"
 #include "wiz8/render/mesh_math.h"
-
-// A validated permutation carries both directions for attribute-table reorder
-// and references that point into those tables. Validate before mutating a mesh.
-class MeshPermutation {
-public:
-    MeshPermutation(std::span<const std::uint32_t> order, std::int32_t count)
-        : order(order), inverse(order.size())
-    {
-        if (order.size() != static_cast<std::size_t>(count))
-            throw std::invalid_argument("Mesh permutation length mismatch");
-        std::vector<bool> seen(order.size());
-        for (std::size_t i = 0; i < order.size(); ++i) {
-            if (order[i] >= order.size() || seen[order[i]])
-                throw std::invalid_argument("Invalid mesh permutation");
-            seen[order[i]] = true;
-            inverse[order[i]] = static_cast<std::uint32_t>(i);
-        }
-    }
-
-    template<class T> void apply(T* table) const
-    {
-        if (!table || order.empty()) return;
-        const std::vector<T> original(table, table + order.size());
-        for (std::size_t i = 0; i < order.size(); ++i) table[i] = original[order[i]];
-    }
-
-    void remapCorners(std::span<glm::ivec3> triangles, bool retain_external) const
-    {
-        for (auto& triangle : triangles)
-            triangle = meshMath::remapTriangle(triangle, inverse, retain_external);
-    }
-
-    std::span<const std::uint32_t> order;
-    std::vector<std::uint32_t> inverse;
-};
 
 /* Bounds-checked pass/side slots; out-of-range indices are ignored. */
 void Mesh::setShader(DrawShader shader, std::int32_t pass)
@@ -456,62 +420,6 @@ glm::vec4* Mesh::getVertexSCG(std::int32_t vertex, int table)
 glm::vec4* Mesh::getVertexDCG(std::int32_t vertex, int table)
 {
     return GetVertexColorTable(*this, dcg, vertex, table);
-}
-
-void Mesh::reindexPolygons(std::span<const std::uint32_t> indices)
-{
-    const MeshPermutation permutation(indices, polygon_count);
-    if (!polygon_count) return;
-    permutation.apply(getPolyEq());
-    permutation.apply(getPolyVertex());
-    for (std::int32_t pass = 0; pass < pass_count; ++pass) {
-        permutation.apply(getPolyUVIndex(pass, 0));
-        permutation.apply(getPolyShader(pass, 0));
-        for (std::int32_t layer = 0; layer < 2; ++layer)
-            if (auto* table = getPolygonTextureTable(pass, layer, false))
-                permutation.apply(table->data());
-    }
-    if (active_polygon_count && getActivePolygonTable(0)) {
-        auto* table = getActivePolygonTable(1);
-        for (std::int32_t i = 0; i < active_polygon_count; ++i)
-            table[i] = permutation.inverse[table[i]];
-    }
-    setDirtyAll();
-}
-
-void Mesh::reindexVertices(std::span<const std::uint32_t> indices)
-{
-    const MeshPermutation permutation(indices, vertex_location_count);
-    if (!vertex_location_count) return;
-    permutation.apply(getVertexNormal());
-    permutation.apply(getVertexLoc());
-    if (auto* shade = getVertexShadeIndex(0)) {
-        permutation.apply(shade);
-        for (std::int32_t i = 0; i < vertex_location_count; ++i)
-            shade[i] = permutation.inverse[shade[i]];
-        for (std::int32_t i = 0; i < vertex_location_count; ++i) {
-            const auto value = shade[i];
-            if (value < static_cast<std::uint32_t>(i)) {
-                shade[i] = shade[value];
-                shade[value] = value;
-            }
-        }
-    }
-    for (std::int32_t pass = 0; pass < pass_count; ++pass) {
-        for (std::int32_t side = 0; side < 2; ++side)
-            if (auto* table = getVertexMaterialTable(pass, static_cast<e_side>(side), false))
-                permutation.apply(table->data());
-        for (std::int32_t table = 0; table < 2; ++table)
-            permutation.apply(getVertexTexCoords(pass, table, 0));
-        permutation.apply(getVertexDIG(pass, 0));
-        permutation.apply(getVertexSCG(pass, 0));
-        permutation.apply(getVertexDCG(pass, 0));
-        if (getPolyUVIndex(pass, 0))
-            permutation.remapCorners(
-                {getPolyUVIndex(pass, 1), static_cast<std::size_t>(polygon_count)}, true);
-    }
-    permutation.remapCorners({getPolyVertex(), static_cast<std::size_t>(polygon_count)}, false);
-    setDirtyAll();
 }
 
 float Mesh::getSortBias() const

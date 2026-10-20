@@ -1838,69 +1838,6 @@ TEST_CASE(
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
 }
 
-TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygons aligned",
-          "[geometry][rendering]")
-{
-    Mesh mesh(2, 3);
-    mesh.setPassCount(2);
-    const std::array<glm::vec3, 3> positions{{{1, 0, 0}, {0, 2, 0}, {0, 0, 3}}};
-    std::ranges::copy(positions, mesh.getVertexLoc());
-    auto* triangles = mesh.getPolyVertex();
-    triangles[0] = {0, 1, 2};
-    triangles[1] = {2, 0, 1};
-    auto* shades = mesh.getVertexShadeIndex(1);
-    shades[0] = shades[1] = 0;
-    shades[2] = 2;
-    mesh.setActivePolygonCount(1);
-    mesh.getActivePolygonTable(1)[0] = 0;
-    for (int pass = 0; pass < 2; ++pass) {
-        auto* uv = mesh.getPolyUVIndex(pass, 1);
-        uv[0] = {0, 7, 2}; // Separate UV indices outside the vertex range remain intact.
-        uv[1] = {1, 2, 0};
-        for (int i = 0; i < 3; ++i) {
-            mesh.getVertexDIG(pass, 1)[i] = glm::vec3(10 * pass + i);
-            mesh.getVertexDCG(pass, 1)[i] = glm::vec4(20 * pass + i);
-            mesh.getVertexSCG(pass, 1)[i] = glm::vec4(30 * pass + i);
-            for (int layer = 0; layer < 2; ++layer)
-                mesh.getVertexTexCoords(pass, layer, 1)[i] = glm::vec2(40 * pass + 5 * layer + i);
-        }
-    }
-    const std::array<std::uint32_t, 2> polygon_order{1, 0};
-    const std::array<std::uint32_t, 3> vertex_order{2, 0, 1};
-    mesh.reindexPolygons(polygon_order);
-    mesh.reindexVertices(vertex_order);
-    REQUIRE(mesh.getActivePolygonTable(0)[0] == 1);
-    REQUIRE(triangles[0].x == 0);
-    REQUIRE(triangles[0].y == 1);
-    REQUIRE(triangles[0].z == 2);
-    REQUIRE(triangles[1].x == 1);
-    REQUIRE(triangles[1].y == 2);
-    REQUIRE(triangles[1].z == 0);
-    REQUIRE(shades[0] == 0);
-    REQUIRE(shades[1] == 1);
-    REQUIRE(shades[2] == 1);
-    for (int pass = 0; pass < 2; ++pass) {
-        const auto* uv = mesh.getPolyUVIndex(pass, 0);
-        REQUIRE(uv[1].x == 1);
-        REQUIRE(uv[1].y == 7);
-        REQUIRE(uv[1].z == 0);
-        for (int i = 0; i < 3; ++i) {
-            REQUIRE(mesh.getVertexLoc()[i] == positions[vertex_order[i]]);
-            REQUIRE(mesh.getVertexDIG(pass, 0)[i] == glm::vec3(10 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexDCG(pass, 0)[i] == glm::vec4(20 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexSCG(pass, 0)[i] == glm::vec4(30 * pass + vertex_order[i]));
-            for (int layer = 0; layer < 2; ++layer)
-                REQUIRE(mesh.getVertexTexCoords(pass, layer, 0)[i] ==
-                        glm::vec2(40 * pass + 5 * layer + vertex_order[i]));
-        }
-    }
-    const std::array<std::uint32_t, 3> duplicate{0, 0, 2};
-    REQUIRE_THROWS_AS(mesh.reindexVertices(duplicate), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
-    REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
-}
-
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",
           "[geometry]")
 {
