@@ -1,6 +1,5 @@
 #include <cassert>
 #include <chrono>
-#include <cmath>
 #include <variant>
 
 #include "wiz8/combat/attack.h"
@@ -21,7 +20,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_actions.h"
-#include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
