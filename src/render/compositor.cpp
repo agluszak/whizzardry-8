@@ -21,7 +21,6 @@
 
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
-#include "wiz8/render/texture.h"
 
 OverlayQuad::OverlayQuad(const OverlayQuad& other)
 {
