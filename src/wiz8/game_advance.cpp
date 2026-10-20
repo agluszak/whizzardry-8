@@ -1,6 +1,6 @@
 #include <chrono>
-#include <initializer_list>
 
+#include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
@@ -17,7 +17,9 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/render/particle_system.h"
+#include "wiz8/render/quality.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/environment.h"
@@ -92,8 +94,10 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         DetachAllWorldItems();
     }
     if (!advancement.paused || combat.has_value()) UpdateWorlds();
-    // Particle clocks keep running while world advancement is held. Placement
-    // and activation have settled before effects advance, once for all views.
-    for (auto* world : {level.sky.get(), level.primary.get()})
-        if (world) AdvanceWorldParticles(*world);
+    // Preserve the game's scene-activity gates and sky-before-world order.
+    // Particle clocks keep running while world advancement is held; additional
+    // camera views consume these results without advancing them again.
+    if (level.sky && g_render_mesh_sky && g_monster_shadow_updates_enabled)
+        AdvanceWorldParticles(*level.sky);
+    if (level.primary && g_world_render_enabled) AdvanceWorldParticles(*level.primary);
 }

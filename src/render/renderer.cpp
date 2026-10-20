@@ -283,8 +283,8 @@ void Renderer::beginFrame(const glm::vec4& clear)
     impl->overlay_count = 0;
     for (auto& view : impl->overlay_views)
         view->children.front().cast<vsg::Group>()->children.clear();
-    impl->render_graph->setClearValues({{clear.r, clear.g, clear.b, clear.a}}, {1, 0});
-    impl->offscreen_graph->setClearValues({{clear.r, clear.g, clear.b, clear.a}}, {1, 0});
+    impl->render_graph->setClearValues({{clear.r, clear.g, clear.b, clear.a}}, {0, 0});
+    impl->offscreen_graph->setClearValues({{clear.r, clear.g, clear.b, clear.a}}, {0, 0});
 }
 void Renderer::addView(vsg::ref_ptr<vsg::View> view)
 {
@@ -369,9 +369,13 @@ void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkImageLayout layou
             barrier(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, layout, VK_ACCESS_TRANSFER_READ_BIT,
                     VK_ACCESS_MEMORY_READ_BIT);
         });
+    // Swapchain images wrap Vulkan handles; their format is held by the
+    // swapchain/ImageView rather than initialized on the Image wrapper.
+    const auto format = image->format == VK_FORMAT_UNDEFINED ? window->surfaceFormat().format
+                                                             : image->format;
     captured = CreateCpuStorage(static_cast<int>(extent.width), static_cast<int>(extent.height),
-                                image->format == VK_FORMAT_B8G8R8A8_UNORM ? SDL_PIXELFORMAT_BGRA32
-                                                                          : SDL_PIXELFORMAT_RGBA32);
+        format == VK_FORMAT_B8G8R8A8_UNORM || format == VK_FORMAT_B8G8R8A8_SRGB
+            ? SDL_PIXELFORMAT_BGRA32 : SDL_PIXELFORMAT_RGBA32);
     auto* memory = buffer->getDeviceMemory(device_id);
     void* mapped = nullptr;
     if (memory->map(buffer->getMemoryOffset(device_id), bytes, 0, &mapped) != VK_SUCCESS)

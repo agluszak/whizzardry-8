@@ -150,8 +150,9 @@ vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t sh
                               : cull == FaceCull::Back ? VK_CULL_MODE_BACK_BIT
                                                        : VK_CULL_MODE_FRONT_BIT;
     rasterization->depthBiasEnable = polygon_offset != 0;
-    rasterization->depthBiasConstantFactor = -static_cast<float>(polygon_offset);
-    rasterization->depthBiasSlopeFactor = -static_cast<float>(polygon_offset);
+    // VSG uses reverse Z: increasing depth moves an overlay toward the eye.
+    rasterization->depthBiasConstantFactor = static_cast<float>(polygon_offset);
+    rasterization->depthBiasSlopeFactor = static_cast<float>(polygon_offset);
     rasterization->frontFace =
         winding == Winding::Standard ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
     VkPipelineColorBlendAttachmentState blend{};
@@ -168,7 +169,13 @@ vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t sh
                                : 0;
     auto depth = vsg::DepthStencilState::create();
     depth->depthWriteEnable = (shader & DrawShader::MASK_DEPTH_WRITE) != 0;
-    depth->depthCompareOp = static_cast<VkCompareOp>(shader & DrawShader::PASS_MASK);
+    // Retail material comparisons describe forward Z; every VSG view uses
+    // reverse Z so ordinary VSG subgraphs share the same depth attachment.
+    static constexpr std::array compare{
+        VK_COMPARE_OP_NEVER, VK_COMPARE_OP_GREATER, VK_COMPARE_OP_EQUAL,
+        VK_COMPARE_OP_GREATER_OR_EQUAL, VK_COMPARE_OP_LESS, VK_COMPARE_OP_NOT_EQUAL,
+        VK_COMPARE_OP_LESS_OR_EQUAL, VK_COMPARE_OP_ALWAYS};
+    depth->depthCompareOp = compare[shader & DrawShader::PASS_MASK];
     depth->depthTestEnable =
         depth->depthCompareOp != VK_COMPARE_OP_ALWAYS || depth->depthWriteEnable;
     vsg::GraphicsPipelineStates states{
@@ -328,18 +335,6 @@ void store(vsg::vec4Array& destination, const InstanceBlock& block)
 std::uint32_t fadingShader(std::uint32_t shader)
 {
     return (shader & 0xffffd7bfu) | 0x44a0u;
-}
-
-std::uint32_t effectiveShader(const MeshInstance& instance, std::uint32_t shader)
-{
-    return instance.diffuse_scale_enabled ? fadingShader(shader) : shader;
-}
-
-bool drawsSorted(const MeshInstance& instance)
-{
-    const auto* mesh = instance.getModel();
-    return instance.diffuse_scale_enabled ||
-           (mesh && (mesh->render_control & (1u << Mesh::CONTROL_SORTED_RENDERING)));
 }
 
 void prepareLightAt(Light& light, const glm::mat4& model_view, float brightness)

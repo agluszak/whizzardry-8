@@ -4,14 +4,17 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <span>
 #include <string>
 #include <vector>
 
+#include <glm/common.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
 
 #include "effect_geometry.h"
-#include "glm/ext/vector_float2.hpp"
 #include "wiz8/asset_paths.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
@@ -21,7 +24,9 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_material.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/world.h"
@@ -34,33 +39,39 @@ struct ShadowRenderData {
     explicit ShadowRenderData(render::RenderContext& context) : context(&context) {}
 };
 
-static std::shared_ptr<Texture> g_ground_shadow_texture;
-static std::shared_ptr<Material> g_ground_shadow_material;
-/* A default-constructed DrawShader: retail's dynamic initializer (0x004D61A0)
-   stores the DrawShader default 0x0100241b before the constructor masks in
-   the shadow bits, so the 0x13 bits survive into the shadow shader. */
-static DrawShader g_ground_shadow_shader;
+struct GroundShadowAsset {
+    std::shared_ptr<Texture> texture;
+    std::shared_ptr<Material> material = std::make_shared<Material>();
+    DrawShader shader;
 
-GroundShadow::GroundShadow(WorldScene* scene)
-{
-    angle = 0;
-    depth = 500.0f;
-    width = 500.0f;
-    setScene(scene);
-
-    if (g_ground_shadow_texture == 0) {
-        g_ground_shadow_texture = LoadTextureFromPath(
-            wiz8::asset_path("data/monsters/bitmaps/Shadow.tga"), nullptr, true);
-        g_ground_shadow_texture->setMipmap(Texture::MIPMAP_NONE);
-        g_ground_shadow_texture->setWrapS(Texture::WRAP_CLAMP);
-        g_ground_shadow_texture->setWrapT(Texture::WRAP_CLAMP);
-
-        g_ground_shadow_material = std::make_shared<Material>();
-        g_ground_shadow_shader.value = (g_ground_shadow_shader.value & 0xfeff9277UL) | 0x00808260UL;
+    GroundShadowAsset()
+    {
+        texture = LoadTextureFromPath(wiz8::asset_path("data/monsters/bitmaps/Shadow.tga"), nullptr,
+                                      true);
+        texture->setMipmap(Texture::MIPMAP_NONE);
+        texture->setWrapS(Texture::WRAP_CLAMP);
+        texture->setWrapT(Texture::WRAP_CLAMP);
+        // Preserve the default shader's low bits when applying the blob-shadow rules.
+        shader.value = (shader.value & 0xfeff9277u) | 0x00808260u;
     }
+};
+
+static std::shared_ptr<GroundShadowAsset> shadowAsset()
+{
+    // The last shadow releases its image and device references with the world.
+    static std::weak_ptr<GroundShadowAsset> shared;
+    if (auto asset = shared.lock()) return asset;
+    auto asset = std::make_shared<GroundShadowAsset>();
+    shared = asset;
+    return asset;
 }
 
-GroundShadow::GroundShadow(const GroundShadow& other)
+GroundShadow::GroundShadow(WorldScene* scene) : asset(shadowAsset())
+{
+    setScene(scene);
+}
+
+GroundShadow::GroundShadow(const GroundShadow& other) : asset(other.asset)
 {
     transform = other.transform;
     visible = other.visible;
@@ -72,14 +83,16 @@ GroundShadow::GroundShadow(const GroundShadow& other)
 
 vsg::ref_ptr<vsg::Node> GroundShadow::renderNode(render::RenderContext& context)
 {
-    if (!render_data || render_data->context != &context)
+    if (!render_data || render_data->context != &context) {
         render_data = std::make_unique<ShadowRenderData>(context);
+    }
     return render_data->root;
 }
 
 vsg::ref_ptr<vsg::Node> GroundShadow::renderNode() const
 {
-    return render_data ? render_data->root : vsg::ref_ptr<vsg::Node>{};
+    if (!render_data) return {};
+    return render_data->root;
 }
 
 void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
@@ -118,7 +131,7 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         if (mesh.dig[0]) flags |= render::HasColors;
         if (mesh.dcg[0]) flags |= render::HasDiffuseMultipliers;
         if (mesh.scg[0]) flags |= render::HasSpecularMultipliers;
-        render::EffectGeometry geometry(context, count, g_ground_shadow_material, flags,
+        render::EffectGeometry geometry(context, count, asset->material, flags,
                                         mesh.normals != nullptr, frame.time);
         auto indices = vsg::uintArray::create(count);
         std::uint32_t written = 0;
@@ -164,11 +177,10 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
             auto block = instance;
             block.masks.y = side;
             draw->stateCommands = {
-                context.pipeline(g_ground_shadow_shader.value, cull, Winding::Standard, 2),
+                context.pipeline(asset->shader.value, cull, Winding::Standard, 2),
                 context.descriptor(1, render::makeInstanceArray(block)), geometry.pass_bind,
-                context.batchSet(
-                    g_ground_shadow_shader.value,
-                    context.texture(g_ground_shadow_texture.get(), frame.texture_reduction))};
+                context.batchSet(asset->shader.value,
+                                 context.texture(asset->texture.get(), frame.texture_reduction))};
             data.root->addChild(draw);
         }
     }

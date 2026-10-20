@@ -144,10 +144,7 @@ static void ResetVideoDirtyState()
     InvalidateRegion(0, 0, 640, 480);
 }
 
-/* Clear the software-facing frame and retire every transient 2D overlay.
-   The four scene walks are the same typed operation used during renderer
-   bring-up; keeping the reset here avoids reproducing SurRender's node ABI at
-   the menu call site. */
+/* Clear the CPU canvas and publish the reset at the next frame. */
 void ResetVideoFrameState(void)
 {
     const auto& description = *primarySurface;
@@ -245,7 +242,7 @@ unsigned char CreateWizardryWindow(void)
     return ghWindow != 0;
 }
 
-/* SDL owns the 640x480 CPU frame used as SurRender color output. */
+/* SDL owns the 640x480 CPU UI canvas. */
 void ReleasePrimarySurface(void)
 {
     primarySurface.reset();
@@ -260,7 +257,7 @@ unsigned char InitializePrimarySurface(void)
     return 1;
 }
 
-/* Starts the SDL GPU renderer using the dimensions from the legacy five-line
+/* Starts VSG using the dimensions from the retail five-line
    3DVideo.CFG file. Its driver and depth lines are ignored; the final audio
    line still accepts "none" to disable sound. */
 // The 3DSetup configuration's audio device line; "none" disables sound.
@@ -310,20 +307,17 @@ try {
         }
     }
 
-    g_renderer = std::make_unique<Renderer>(ghWindow);
-
-    if (!OpenRendererWindow()) {
-        g_renderer.reset();
+    if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
         return 0;
-    }
+    g_renderer = std::make_unique<Renderer>(ghWindow);
+    g_flush_pending = true;
     s_setup_disables_audio = SDL_strncasecmp(audio_setting, "none", 4) == 0;
     return 1;
 } catch (const std::exception&) {
     return false;
 }
 
-/* Applies the configured window style, asks SurRender for the matching display
-   mode in fullscreen operation, and opens the renderer output window. */
+/* Apply the configured window size and restore VSG presentation. */
 unsigned char OpenRendererWindow(void)
 {
     if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
@@ -349,9 +343,7 @@ unsigned char FinishVideoPresentation(void)
     return 1;
 }
 
-/* WM_SIZE only rebuilds the SurRender output in windowed mode.  Full-screen
-   startup receives the same Windows notification while the device already
-   owns its configured 640x480 mode, so there is no resize operation to do. */
+/* Rebuild window-sized render targets after a windowed resize. */
 bool VideoResizeWindow(void)
 {
     if (g_fullscreen || !ghWindow || !g_renderer || !g_flush_pending) {

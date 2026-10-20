@@ -1,7 +1,6 @@
 #include "wiz8/render/texture.h"
 
 #include <algorithm>
-#include <cstring>
 #include <exception>
 #include <memory>
 #include <utility>
@@ -16,6 +15,20 @@
 #include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
+
+namespace {
+void copyRgbaPixels(vsg::ubvec4Array2D& destination, const SDL_Surface& source)
+{
+    for (std::uint32_t y = 0; y < destination.height(); ++y) {
+        const auto* row = static_cast<const std::uint8_t*>(source.pixels) +
+                          std::size_t(y) * source.pitch;
+        for (std::uint32_t x = 0; x < destination.width(); ++x) {
+            const auto* pixel = row + std::size_t(x) * 4;
+            destination.at(x, y) = vsg::ubvec4(pixel[0], pixel[1], pixel[2], pixel[3]);
+        }
+    }
+}
+}
 
 Texture::Parameters Texture::defaults{
     .mag = FILTER_GOOD, .min = FILTER_GOOD, .mipmap = MIPMAP_FASTEST};
@@ -171,10 +184,7 @@ vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
     StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_LINEAR);
     auto pixels =
         vsg::ubvec4Array2D::create(width, height, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
-    for (std::uint32_t y = 0; y < height; ++y)
-        std::memcpy(pixels->data() + std::size_t(y) * width,
-                    static_cast<const std::uint8_t*>(rgba->pixels) + std::size_t(y) * rgba->pitch,
-                    std::size_t(width) * 4);
+    copyRgbaPixels(*pixels, *rgba);
     if (dimensions.native_size) pixels->properties.dataVariance = vsg::DYNAMIC_DATA;
     auto sampler = vsg::Sampler::create();
     const auto filter = [](e_filter value) {
@@ -192,6 +202,7 @@ vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
     sampler->addressModeV = effective.wrap_t == WRAP_CLAMP ? VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
                                                            : VK_SAMPLER_ADDRESS_MODE_REPEAT;
     image_info = vsg::ImageInfo::create(sampler, pixels);
+    image_info->computeNumMipMapLevels();
     image_parameters = effective;
     image_reduction = reduction;
     return image_info;
@@ -205,10 +216,7 @@ void Texture::publish()
     auto rgba = CreateCpuStorage(static_cast<int>(pixels->width()),
                                  static_cast<int>(pixels->height()), SDL_PIXELFORMAT_RGBA32);
     StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_NEAREST);
-    for (std::uint32_t y = 0; y < pixels->height(); ++y)
-        std::memcpy(pixels->data() + std::size_t(y) * pixels->width(),
-                    static_cast<const std::uint8_t*>(rgba->pixels) + std::size_t(y) * rgba->pitch,
-                    std::size_t(pixels->width()) * 4);
+    copyRgbaPixels(*pixels, *rgba);
     pixels->dirty();
 }
 

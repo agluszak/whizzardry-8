@@ -137,6 +137,9 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/particle_system.h"
+#include "wiz8/render/world_scene.h"
+#include <vsg/state/ViewportState.h>
 #include "wiz8/render/renderer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -1270,6 +1273,52 @@ void CheckWorldRender(GameHarness& game)
     REQUIRE(changed > viewport / 4);
 }
 
+// Both cameras traverse the same retail graph in one visual frame. Neither
+// view may age particles or advance a creature's animation a second time.
+void CheckTwoWorldViews(GameHarness& game)
+{
+    auto& scene = *GetWorld()->scene;
+    struct ParticleState {
+        ParticleSystem* system;
+        unsigned active, emitted, integration_tick, emission_tick;
+        std::vector<glm::vec3> positions;
+    };
+    std::vector<ParticleState> particles;
+    for (auto* system : scene.particles)
+        particles.push_back({system, system->active_particle_count, system->emission_count,
+                             system->last_integration_tick, system->last_emission_tick,
+                             system->particle_positions});
+    std::vector<std::pair<MeshInstance*, std::pair<unsigned, float>>> poses;
+    for (auto* mesh : scene.dynamic_meshes)
+        poses.push_back({mesh, {mesh->frame_index, mesh->frame_interpolation}});
+    g_renderer->beginFrame({0, 0, 0, 1});
+    const auto stamp = g_renderer->frameNumber();
+    const SceneFrame frame{.time = RenderClockSeconds()};
+    for (int x : {0, SCREEN_WIDTH / 2})
+        g_renderer->addView(scene.createView(g_renderer->context(), GetWorld()->camera, frame,
+                            vsg::ViewportState::create(x, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT), stamp));
+    g_renderer->endFrame(false, true);
+    const auto pixels = game.read_frame();
+    unsigned colored = 0;
+    for (int y = 0; y < SCREEN_HEIGHT; ++y)
+        for (int x = 0; x < SCREEN_WIDTH / 2; ++x) {
+            REQUIRE(pixels[y * SCREEN_WIDTH + x] == pixels[y * SCREEN_WIDTH + x + SCREEN_WIDTH / 2]);
+            colored += pixels[y * SCREEN_WIDTH + x] != 0;
+        }
+    REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
+    for (const auto& saved : particles) {
+        REQUIRE(saved.system->active_particle_count == saved.active);
+        REQUIRE(saved.system->emission_count == saved.emitted);
+        REQUIRE(saved.system->last_integration_tick == saved.integration_tick);
+        REQUIRE(saved.system->last_emission_tick == saved.emission_tick);
+        REQUIRE(saved.system->particle_positions == saved.positions);
+    }
+    for (const auto& [mesh, pose] : poses) {
+        REQUIRE(mesh->frame_index == pose.first);
+        REQUIRE(mesh->frame_interpolation == pose.second);
+    }
+}
+
 // Exercise the screen-template behaviours that generic widget dispatch cannot replace.
 void CheckGameplayUi(GameHarness& game)
 {
@@ -1394,6 +1443,7 @@ void ResourceLifecycleScenario()
     REQUIRE(g_renderer->isOpen());
     // Rendering must retain the world graph when presentation is reopened.
     CheckWorldRender(game);
+    CheckTwoWorldViews(game);
     CheckGameplayUi(game);
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.

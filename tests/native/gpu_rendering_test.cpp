@@ -7,7 +7,9 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
-#include <vsg/all.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/state/ViewportState.h>
+#include <vsg/utils/Builder.h>
 
 #include "surface_pixels.h"
 #include "wiz8/render/camera.h"
@@ -83,7 +85,7 @@ TEST_CASE("Two VSG views render an ordinary subgraph from one world")
     geometry.position = {0, 0, 3};
     geometry.dx = {-2, 0, 0};
     geometry.dy = {0, 2, 0};
-    geometry.color = {1, 0, 0, 1};
+    geometry.color = vsg::vec4(1, 0, 0, 1);
     vsg::StateInfo material;
     material.lighting = false;
     material.two_sided = true;

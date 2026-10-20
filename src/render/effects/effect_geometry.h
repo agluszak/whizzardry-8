@@ -5,12 +5,19 @@
 #include <cstdint>
 #include <memory>
 
-#include <vsg/all.h>
+#include <vsg/core/Array.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
 
-#include "wiz8/render/material.h"
-#include "wiz8/render/render_mesh.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/vsg_material.h"
 #include "wiz8/render/vsg_scene.h"
+
+class Material;
 
 namespace render {
 
@@ -39,10 +46,10 @@ struct EffectGeometry {
         }
         for (std::size_t index = 0; index < count; ++index) {
             normals->at(index) = vsg::vec3(0, 0, 1);
-            attributes[0]->at(index) = vsg::vec4(0);
-            attributes[1]->at(index) = vsg::vec4(0);
-            attributes[2]->at(index) = vsg::vec4(1);
-            attributes[3]->at(index) = vsg::vec4(1);
+            attributes[0]->at(index) = vsg::vec4(0, 0, 0, 0);
+            attributes[1]->at(index) = vsg::vec4(0, 0, 0, 0);
+            attributes[2]->at(index) = vsg::vec4(1, 1, 1, 1);
+            attributes[3]->at(index) = vsg::vec4(1, 1, 1, 1);
             attributes[4]->at(index) = vsg::vec4(0, 1, 1, 0);
         }
         instance_bind = context.descriptor(1, instance);
@@ -56,6 +63,7 @@ struct EffectGeometry {
                                              attributes[2], attributes[3], attributes[4]});
         geometry->assignIndices(indices);
         geometry->indexCount = static_cast<std::uint32_t>(indices->size());
+        geometry->instanceCount = 1;
         auto node = DrawNode::create(geometry, positions, sorted);
         node->cull = FaceCull::None;
         node->pickable = false;

@@ -109,7 +109,7 @@ void FinalizeStaticScene(World& world)
    skipped here. `walk_chain` limits the light walk to the first sibling. */
 unsigned char BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights)
 {
-    auto world = instance->transform.matrix<glm::mat4>();
+    auto world = glm::mat4(instance->worldMatrix());
     const auto normal_matrix = glm::transpose(glm::inverse(glm::mat3(world)));
     std::vector<glm::vec3> world_vertices, world_normals, material_colors;
 
@@ -421,6 +421,7 @@ void SetSceneMeshShaderBit3(WorldScene* scene, int argument)
                         polygon_shader[index].value |= DrawShader::MASK_DEPTH_WRITE;
                     }
                 }
+                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
             }
         }
     }
@@ -458,6 +459,7 @@ void SetSceneMeshShaderLowBits(WorldScene* scene, int argument)
                             (polygon_shader[index].value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
                     }
                 }
+                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
             }
         }
     }

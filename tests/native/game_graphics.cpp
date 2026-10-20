@@ -1,7 +1,6 @@
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
@@ -12,17 +11,13 @@
 /* Real SLF/STI -> immutable sprites and SDL surfaces -> UiCanvasTexture -> VSG.
    Also checks a movie-owned surface and restoration of the game primary. */
 
-#include <array>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-#include <memory>
-#include <optional>
 #include <string>
 #include <system_error>
-#include <utility>
 #include <vector>
 
 #include <wiz8/asset_paths.h>
@@ -36,12 +31,9 @@
 #include "wiz8/cursor.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/compositor.h"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/renderer.h"
-#include "wiz8/render/texture.h"
-#include "wiz8/surface_storage.h"
 
 class WorldScene;
 

@@ -55,7 +55,6 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
-#include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/ground_shadow.h"
@@ -1427,6 +1426,20 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.updateRenderNode(context, {}, 1);
     REQUIRE(particles.particle_positions == centers);
     REQUIRE(particles.emission_count == 2);
+    struct CheckParticleDraws : vsg::ConstVisitor {
+        std::uint32_t index_count = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::VertexIndexDraw& draw) override
+        {
+            if (!draw.indexCount) return;
+            // A valid index range with VSG's default zero instance count
+            // silently renders nothing through the ordinary draw path.
+            REQUIRE(draw.instanceCount == 1);
+            index_count += draw.indexCount;
+        }
+    } draws;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 6);
 
     particles.release_when_done = true;
     particles.birth_ticks[1] = GameClockMilliseconds() - 1;
@@ -1434,6 +1447,10 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.AdvanceSimulation();
     REQUIRE(particles.active_particle_count == 0);
     REQUIRE(particles.finished);
+    particles.updateRenderNode(context, {}, 2);
+    draws.index_count = 0;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 0);
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")

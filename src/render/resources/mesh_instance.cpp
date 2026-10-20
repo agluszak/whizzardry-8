@@ -1,26 +1,45 @@
 #include "wiz8/render/mesh_instance.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
+#include <vsg/app/RecordTraversal.h>
+#include <vsg/core/Array.h>
+#include <vsg/core/ConstVisitor.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/Visitor.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/mat4.h>
+#include <vsg/maths/transform.h>
+#include <vsg/nodes/CullNode.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/MatrixTransform.h>
+#include <vsg/nodes/Node.h>
+#include <vsg/nodes/Switch.h>
+#include <vsg/nodes/Transform.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+
 #include "../effects/effect_geometry.h"
+#include "glm/ext/matrix_double4x4.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/matrix_transform.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/ext/vector_int3.hpp"
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
+#include "glm/vector_relational.hpp"
 #include "wiz8/math.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
@@ -356,11 +375,35 @@ void InstanceNode::accept(vsg::RecordTraversal& visitor) const
 {
     if (instance && instance->visible) visitor.apply(static_cast<const vsg::Transform&>(*this));
 }
-std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::size_t index) const
+void InstanceNode::ensureParts()
 {
+    if (!instance || !instance->getModel()) {
+        parts.clear();
+        return;
+    }
+    std::vector<Mesh*> models;
+    for (auto* mesh : meshParts(instance->getModel(), instance->draw_parts)) models.push_back(mesh);
+    if (parts.size() != models.size() ||
+        !std::equal(models.begin(), models.end(), parts.begin(),
+                    [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
+        parts.clear();
+        for (auto* mesh : models) parts.push_back(std::make_unique<Part>(*mesh));
+    }
+}
+
+std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::size_t index)
+{
+    ensureParts();
     for (const auto& part : parts)
-        if (part->mesh == &mesh && index < part->pose.positions.size())
-            return part->pose.positions[index];
+        if (part->mesh == &mesh) {
+            const int skin = instance->damage_stage >= 0
+                                 ? instance->damage_stage_tables.at(instance->damage_stage)
+                                 : -1;
+            part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
+                              skin);
+            if (index < part->pose.positions.size()) return part->pose.positions[index];
+            break;
+        }
     return {};
 }
 
@@ -409,17 +452,9 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     if (prepared_frame == frame_number) return;
     prepared_frame = frame_number;
     geometry->children.clear();
+    ensureParts();
     if (!instance || !instance->getModel()) {
-        parts.clear();
         return;
-    }
-    std::vector<Mesh*> models;
-    for (auto* mesh : meshParts(instance->getModel(), instance->draw_parts)) models.push_back(mesh);
-    if (parts.size() != models.size() ||
-        !std::equal(models.begin(), models.end(), parts.begin(),
-                    [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
-        parts.clear();
-        for (auto* mesh : models) parts.push_back(std::make_unique<Part>(*mesh));
     }
     const bool highlighted = glm::any(glm::notEqual(instance->highlight_colour, glm::vec4(0)));
     if (highlighted) {
@@ -432,6 +467,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         }
         instance->highlight_material->setEmissive(instance->highlight_colour);
     }
+    const bool highlight_body = highlighted && instance->highlight_pass_mode == 1;
     const int skin =
         instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
     if (instance->render_flags & MeshInstance::RENDER_SHADOW)
@@ -441,33 +477,45 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         auto& mesh = *part->mesh;
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
-        part->pose.update(mesh, instance->frame_index, instance->frame_interpolation,
-                          pass.frame.time, skin, !static_geometry);
+        part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
+                          !static_geometry);
         auto& pose = part->pose;
         const auto& asset = *pose.asset;
         for (std::size_t pass_index = 0; pass_index < asset.passes.size(); ++pass_index) {
             const auto& source = asset.passes[pass_index];
             auto& sampled = pose.passes[pass_index];
-            const auto instance_data = makeInstanceArray(packInstance(*instance, mesh, pass));
+            auto instance_block = packInstance(*instance, mesh, pass);
+            if (highlight_body) instance_block.overrides = glm::vec4(0);
+            const auto instance_data = makeInstanceArray(instance_block);
             auto materials = source.materials;
-            if (highlighted && instance->highlight_pass_mode == 1)
+            const bool front_material =
+                source.side == 0 ||
+                (!asset.animated &&
+                 (mesh.render_control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)));
+            if (highlight_body && source.pass == 0 && front_material)
                 std::ranges::fill(materials, instance->highlight_material);
             const auto pass_data = makeArray(
                 packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time));
             auto body = vsg::Group::create();
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
                 const auto& batch = source.batches[batch_index];
-                auto shader = effectiveShader(*instance, batch.shader.value);
+                const auto shader = !highlight_body && instance->diffuse_scale_enabled &&
+                                            source.pass == 0 && batch.inherits_shader
+                                        ? fadingShader(batch.shader.value)
+                                        : batch.shader.value;
                 const auto cull =
                     source.cull ? (source.side ? FaceCull::Front : FaceCull::Back) : FaceCull::None;
-                const auto sorted = asset.sorted || drawsSorted(*instance);
+                const auto sorted =
+                    asset.sorted || (!highlight_body && instance->diffuse_scale_enabled);
                 auto leaf =
                     DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
                                      asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
+                leaf->authored_normals = sampled.authored_normals;
                 leaf->cull = cull;
                 leaf->pickable = !(instance->render_flags & MeshInstance::RENDER_NO_PICK) &&
                                  !(static_geometry && asset.sorted);
-                leaf->add(context.pipeline(shader, cull));
+                leaf->setPipeline(context.pipeline(shader, cull),
+                                  context.pipeline(shader, cull, Winding::Reversed));
                 leaf->add(context.descriptor(1, instance_data));
                 leaf->add(context.descriptor(2, pass_data));
                 auto texture = pose.texture(mesh, pass_index, batch_index, skin);
@@ -477,8 +525,13 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     context.texture(texture2.get(), pass.frame.texture_reduction)));
                 body->addChild(leaf);
 
-                if (highlighted && (source.side == 0) &&
-                    (!texture || !texture->getName().starts_with("blank"))) {
+                const bool shell_part =
+                    part.get() == parts.front().get() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
+                const bool shell_texture =
+                    !mesh.poly_textures[0][0].empty() ||
+                    (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
+                if (highlighted && source.pass == 0 && source.side == 0 && shell_part &&
+                    shell_texture) {
                     auto expanded = vsg::vec3Array::create(sampled.positions->size());
                     const auto scale_y = instance->transform.getScale().y;
                     const float amount =
@@ -491,19 +544,24 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                             sampled.positions->at(vertex) + sampled.normals->at(vertex) * amount;
                     auto draw = vsg::VertexIndexDraw::create(*sampled.draws[batch_index]);
                     vsg::DataList arrays;
-                    arrays.push_back(expanded);
+                    arrays.emplace_back(expanded);
                     for (std::size_t binding = 1; binding < draw->arrays.size(); ++binding)
                         arrays.push_back(draw->arrays[binding]->data);
                     draw->assignArrays(arrays);
                     auto shell = DrawNode::create(draw, expanded, true, asset.sort_bias,
                                                   asset.offset_pass_keys ? source.pass : 0);
+                    shell->authored_normals = sampled.authored_normals;
                     shell->pickable = leaf->pickable;
                     const auto shell_shader = (shader & 0xffff5cb7u) | 0x40a0u;
                     const auto winding =
                         instance->highlight_pass_mode == 0 ? Winding::Reversed : Winding::Standard;
                     shell->cull = cull;
                     shell->winding = winding;
-                    shell->add(context.pipeline(shell_shader, cull, winding));
+                    shell->setPipeline(context.pipeline(shell_shader, cull, winding),
+                                       context.pipeline(shell_shader, cull,
+                                                        winding == Winding::Standard
+                                                            ? Winding::Reversed
+                                                            : Winding::Standard));
                     shell->add(context.descriptor(1, instance_data));
                     std::vector<std::shared_ptr<Material>> shell_materials(
                         source.materials.size(), instance->highlight_material);

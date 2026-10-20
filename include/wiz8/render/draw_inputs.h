@@ -60,7 +60,6 @@ struct Pick {
     // coordinates; z starts at the far value 1.0 and keeps the nearest hit.
     glm::vec3 position{0, 0, 1};
     MeshInstance* selected_model{};
-    std::uint32_t triangle_index{};
 };
 
 // Distances and clamped amplitudes of the camera's depth cue.

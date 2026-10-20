@@ -74,7 +74,7 @@ target_link_libraries(native_render_data_test PRIVATE wiz8_engine wiz8_native_se
 add_test(NAME native_render_data COMMAND native_render_data_test)
 
 add_executable(native_unicode_test "${PROJECT_SOURCE_DIR}/tests/native/unicode_test.cpp")
-target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings)
+target_link_libraries(native_unicode_test PRIVATE wiz8_native_settings vsg::vsg)
 catch_discover_tests(native_unicode_test
     TEST_PREFIX "native_unicode/")
 
@@ -180,7 +180,8 @@ target_link_libraries(native_gpu_rendering_test PRIVATE wiz8_engine wiz8_native_
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
     set_tests_properties(native_gpu_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30)
+        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30
+        FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endif()
 
 add_executable(native_surface_rendering_test native/surface_rendering_test.cpp)
@@ -188,7 +189,8 @@ target_link_libraries(native_surface_rendering_test PRIVATE wiz8_engine SDL3::SD
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     add_test(NAME native_surface_rendering COMMAND native_surface_rendering_test)
     set_tests_properties(native_surface_rendering PROPERTIES
-        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30)
+        ENVIRONMENT "SDL_VIDEODRIVER=x11" TIMEOUT 30
+        FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endif()
 
 add_executable(native_movie_test "${PROJECT_SOURCE_DIR}/tests/native/movie_test.cpp")
@@ -233,7 +235,8 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "SDL_VIDEODRIVER=x11;SDL_AUDIO_DRIVER=dummy"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
-        RESOURCE_LOCK game_gpu LABELS runtime)
+        RESOURCE_LOCK game_gpu LABELS runtime
+        FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endforeach()
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.

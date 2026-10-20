@@ -19,6 +19,7 @@ namespace render {
 class RenderContext;
 }
 struct ShadowRenderData;
+struct GroundShadowAsset;
 
 struct GroundShadowProjection {
     glm::mat2 matrix;
@@ -51,9 +52,9 @@ public:
 
     /* GrCycle's 0x004A7470 stores the navigator's facing angle here with
        fstp, which is what types it. */
-    float angle;
-    float depth;
-    float width;
+    float angle = 0;
+    float depth = 500;
+    float width = 500;
 
 public:
     vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
@@ -62,6 +63,7 @@ public:
                           std::uint64_t frame_number);
 
 private:
+    std::shared_ptr<GroundShadowAsset> asset;
     std::unique_ptr<ShadowRenderData> render_data;
 
 public:

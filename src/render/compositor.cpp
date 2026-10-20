@@ -9,6 +9,8 @@
 #include <utility>
 
 #include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
 
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"

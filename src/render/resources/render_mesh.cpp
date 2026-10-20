@@ -41,10 +41,13 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
     MeshAsset::Pass result;
     result.pass = static_cast<unsigned>(pass);
     result.side = static_cast<unsigned>(side);
-    result.reverse_normals = side != 0;
-    result.cull = side != 0 || !(view.control_flags & (1u << Mesh::CONTROL_NO_FRONT_CULL));
+    const bool authored_faces = !mesh.frames.empty();
+    result.reverse_normals = side != 0 && !authored_faces;
+    result.cull = !authored_faces &&
+                  (side != 0 || !(view.control_flags & (1u << Mesh::CONTROL_NO_FRONT_CULL)));
     const int material_side =
-        side && (view.control_flags & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)) ? 0 : side;
+        !authored_faces && side && (view.control_flags & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL))
+            ? 0 : side;
     result.draw_flags = passFlags(view, pass, material_side);
     result.has_texcoord0 = view.texcoords[pass][0] != nullptr;
 
@@ -115,7 +118,7 @@ MeshAsset::Pass buildPass(const Mesh& mesh, const Mesh::TriMesh& view, int pass,
         }
         result.batches.push_back({textures, shader,
                                   wiz8::checked_integer<std::uint32_t>(indices.size() - 3), 3,
-                                  static_cast<std::uint32_t>(polygon)});
+                                  static_cast<std::uint32_t>(polygon), !view.poly_shaders[pass]});
     }
     for (std::size_t attribute = 0; attribute < result.attributes.size(); ++attribute) {
         auto array = vsg::vec4Array::create(attributes.size());
@@ -181,10 +184,12 @@ void MeshPose::makeDraws()
             pass.normals = vsg::vec3Array::create(source.source_vertices.size());
             pass.positions->properties.dataVariance = vsg::DYNAMIC_DATA;
             pass.normals->properties.dataVariance = vsg::DYNAMIC_DATA;
+            pass.authored_normals = vsg::vec3Array::create(source.polygons.size());
         } else {
             pass.positions = source.positions;
             pass.normals = source.normals;
         }
+        pass.source_polygons = source.polygons;
         vsg::DataList arrays{pass.positions, pass.normals};
         arrays.insert(arrays.end(), source.attributes.begin(), source.attributes.end());
         for (const auto& batch : source.batches) {
@@ -199,11 +204,10 @@ void MeshPose::makeDraws()
         passes.push_back(std::move(pass));
     }
     sampled_frame_ = ~0u;
-    sampled_time_ = -1;
     selection_initialized_ = false;
 }
 
-void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double visual_time, int skin,
+void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
                       bool check_blanking)
 {
     // Baking may allocate its first colour table and invalidate the asset.
@@ -213,8 +217,7 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double vi
         asset = current;
         makeDraws();
     }
-    if (sampled_frame_ != frame || sampled_interpolation_ != interpolation ||
-        (asset->animated && sampled_time_ != visual_time)) {
+    if (sampled_frame_ != frame || sampled_interpolation_ != interpolation) {
         const auto count = static_cast<std::size_t>(mesh.vertex_location_count);
         if (mesh.frames.empty()) {
             const auto geometry = mesh.getTriMesh();
@@ -250,9 +253,13 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, double vi
         }
         sampled_frame_ = frame;
         sampled_interpolation_ = interpolation;
-        sampled_time_ = visual_time;
     }
     selectPolygons(mesh, skin, check_blanking);
+    for (auto& pass : passes)
+        if (pass.authored_normals)
+            for (std::size_t triangle = 0; triangle < pass.source_polygons.size(); ++triangle)
+                pass.authored_normals->at(triangle) =
+                    toVsg(polygon_normals[pass.source_polygons[triangle]]);
     refreshColors(mesh);
 }
 
@@ -278,6 +285,7 @@ void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
     for (std::size_t i = 0; i < passes.size(); ++i) {
         const auto& source = asset->passes[i];
         auto& pass = passes[i];
+        pass.source_polygons = source.polygons;
         if (!all && !selected_indices_[i]) {
             selected_indices_[i] = vsg::uintArray::create(source.indices->size());
             selected_indices_[i]->properties.dataVariance = vsg::DYNAMIC_DATA;
@@ -291,6 +299,8 @@ void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
             for (std::uint32_t offset = 0; offset < batch.index_count; offset += 3) {
                 const auto triangle = (batch.first_index + offset) / 3;
                 if (!included[source.polygons[triangle]]) continue;
+                pass.source_polygons[(batch.first_index + draw->indexCount) / 3] =
+                    source.polygons[triangle];
                 for (std::uint32_t corner = 0; corner < 3; ++corner)
                     selected_indices_[i]->at(batch.first_index + draw->indexCount + corner) =
                         source.indices->at(batch.first_index + offset + corner);
@@ -325,6 +335,17 @@ std::shared_ptr<Texture> MeshPose::texture(const Mesh& mesh, std::size_t pass, s
             return found->textures[draw.first_polygon];
     }
     return draw.textures.at(layer);
+}
+
+bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& positions,
+                         const vsg::uintArray& indices, std::uint32_t first,
+                         const glm::vec3& eye, bool positive_winding)
+{
+    const auto& vertex = positions.at(indices.at(first + 1));
+    const auto& normal = normals.at(first / 3);
+    const float facing = glm::dot(eye - glm::vec3(vertex.x, vertex.y, vertex.z),
+                                  glm::vec3(normal.x, normal.y, normal.z));
+    return positive_winding ? facing >= 0 : facing <= 0;
 }
 
 } // namespace render

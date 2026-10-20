@@ -33,11 +33,14 @@ public:
     void accept(vsg::RecordTraversal& traversal) const override;
     void traverse(vsg::Visitor& visitor) override;
     void traverse(vsg::ConstVisitor& visitor) const override;
+    void setPipeline(vsg::ref_ptr<vsg::BindGraphicsPipeline> pipeline,
+                     vsg::ref_ptr<vsg::BindGraphicsPipeline> reflected);
     void recordSorted(vsg::RecordTraversal&, const vsg::BindIndexBuffer&, std::uint32_t first,
                       std::uint32_t count) const;
 
     vsg::ref_ptr<vsg::VertexIndexDraw> draw;
     vsg::ref_ptr<vsg::vec3Array> positions;
+    vsg::ref_ptr<vsg::vec3Array> authored_normals;
     bool sorted;
     float sort_bias;
     std::uint32_t pass_key;
@@ -46,6 +49,8 @@ public:
     bool pickable = true;
 
 private:
+    vsg::StateCommands recordState(vsg::RecordTraversal&) const;
+    vsg::ref_ptr<vsg::BindGraphicsPipeline> reflected_pipeline;
     vsg::ref_ptr<vsg::BindVertexBuffers> vertices;
 };
 
@@ -61,11 +66,13 @@ public:
     void accept(vsg::RecordTraversal&) const override;
     void prepare(RenderContext&, const ScenePass&, std::uint64_t frame_number,
                  bool static_geometry = false);
-    std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index) const;
+    std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index);
 
     MeshInstance* instance;
+    bool static_geometry = false;
 
 private:
+    void ensureParts();
     struct Part;
     std::vector<std::unique_ptr<Part>> parts;
     vsg::ref_ptr<vsg::Switch> geometry;

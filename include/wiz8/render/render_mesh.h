@@ -38,6 +38,7 @@ struct MeshAsset {
         std::uint32_t first_index = 0;
         std::uint32_t index_count = 0;
         std::uint32_t first_polygon = 0;
+        bool inherits_shader = true;
     };
     struct Pass {
         unsigned pass = 0;
@@ -76,11 +77,16 @@ public:
     struct Pass {
         vsg::ref_ptr<vsg::vec3Array> positions;
         vsg::ref_ptr<vsg::vec3Array> normals;
+        // Authored integer-frame polygon normals, mapped to the currently
+        // selected index buffer's triangle slots. CPU view filtering uses
+        // these directly; they are not a shader input.
+        vsg::ref_ptr<vsg::vec3Array> authored_normals;
+        std::vector<std::uint32_t> source_polygons;
         std::vector<vsg::ref_ptr<vsg::VertexIndexDraw>> draws;
     };
 
     explicit MeshPose(Mesh& mesh);
-    void update(Mesh& mesh, unsigned frame, float interpolation, double visual_time, int skin = -1,
+    void update(Mesh& mesh, unsigned frame, float interpolation, int skin = -1,
                 bool check_blanking = true);
     // Refresh live baked colours without rebuilding topology or batch nodes.
     void refreshColors(const Mesh& mesh);
@@ -98,12 +104,14 @@ private:
     void selectPolygons(Mesh& mesh, int skin, bool check_blanking);
     unsigned sampled_frame_ = ~0u;
     float sampled_interpolation_ = -1;
-    double sampled_time_ = -1;
     std::vector<std::uint32_t> selected_polygons_;
     bool selection_initialized_ = false;
     std::vector<vsg::ref_ptr<vsg::uintArray>> selected_indices_;
 };
 
 std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh);
+bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& positions,
+                         const vsg::uintArray& indices, std::uint32_t first,
+                         const glm::vec3& eye, bool positive_winding);
 
 } // namespace render

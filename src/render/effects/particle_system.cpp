@@ -12,8 +12,14 @@
 #include <utility>
 #include <vector>
 
+#include <glm/common.hpp>
 #include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/CullNode.h>
+#include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
 
 #include "effect_geometry.h"
 #include "glm/ext/matrix_double4x4.hpp"
@@ -23,7 +29,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "glm/ext/vector_int3.hpp"
 #include "glm/gtx/rotate_vector.hpp"
 #include "wiz8/chunk.h"
 #include "wiz8/entities/monster.h"
@@ -37,7 +42,10 @@
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -556,7 +564,8 @@ vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode(render::RenderContext& contex
 
 vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode() const
 {
-    return render_data ? render_data->root : vsg::ref_ptr<vsg::Node>{};
+    if (!render_data) return {};
+    return render_data->root;
 }
 
 void ParticleSystem::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,

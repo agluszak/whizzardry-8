@@ -78,8 +78,6 @@ vsg::ref_ptr<vsg::vec4Array> makeInstanceArray(const InstanceBlock& block);
 void store(vsg::vec4Array& destination, const InstanceBlock& block);
 
 std::uint32_t fadingShader(std::uint32_t shader);
-std::uint32_t effectiveShader(const MeshInstance& instance, std::uint32_t shader);
-bool drawsSorted(const MeshInstance& instance);
 
 // Derive a light for the current graph-composed model-view matrix. The copy
 // belongs to a view, so a second camera cannot overwrite another view's data.
