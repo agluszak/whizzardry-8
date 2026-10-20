@@ -26,6 +26,7 @@
 #include <vsg/nodes/CullNode.h>
 #include <vsg/nodes/Group.h>
 #include <vsg/nodes/MatrixTransform.h>
+#include <vsg/nodes/Node.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/Switch.h>
 #include <vsg/nodes/VertexIndexDraw.h>
@@ -51,6 +52,7 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/particle_system.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vsg_material.h"
@@ -597,10 +599,20 @@ TEST_CASE("A scene refreshes scoped material bindings when its render context is
 {
     struct Bindings : vsg::ConstVisitor {
         const vsg::PipelineLayout* expected;
+        const vsg::Node* current_particle;
+        unsigned particle_roots = 0;
         unsigned views = 0;
         unsigned pipelines = 0;
-        explicit Bindings(const vsg::PipelineLayout* expected) : expected(expected) {}
+        Bindings(const vsg::PipelineLayout* expected, const vsg::Node* current_particle)
+            : expected(expected), current_particle(current_particle)
+        {
+        }
         void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::Node& node) override
+        {
+            if (&node == current_particle) ++particle_roots;
+            node.traverse(*this);
+        }
         void apply(const vsg::BindViewDescriptorSets& bind) override
         {
             REQUIRE(bind.layout.get() == expected);
@@ -620,17 +632,26 @@ TEST_CASE("A scene refreshes scoped material bindings when its render context is
     positions[0] = {-1, -1, 5};
     positions[1] = {0, 1, 5};
     positions[2] = {1, -1, 5};
+    ParticleSystem particle(&scene, 1);
+    particle.particle_active[0] = true;
+    particle.active_particle_count = 1;
+    particle.particle_positions[0] = {0, 0, 5};
     auto original = std::make_unique<render::RenderContext>(VkExtent2D{640, 480});
     const auto viewport = vsg::ViewportState::create(0, 0, 640, 480);
     scene.createView(*original, &scene.camera, {}, viewport, 1);
+    const auto previous_particle = particle.renderNode();
     original.reset();
     render::RenderContext replacement({640, 480});
+    // An external owner may request the new graphics state before the scene.
+    REQUIRE(particle.renderNode(replacement) == previous_particle);
     // A new renderer restarts its frame counter, too.
     const auto view = scene.createView(replacement, &scene.camera, {}, viewport, 1);
-    Bindings bindings(replacement.layout.get());
+    REQUIRE(particle.renderNode() == previous_particle);
+    Bindings bindings(replacement.layout.get(), particle.renderNode().get());
     view->accept(bindings);
     REQUIRE(bindings.views == 2);
-    REQUIRE(bindings.pipelines == 2);
+    REQUIRE(bindings.pipelines == 3);
+    REQUIRE(bindings.particle_roots == 1);
 }
 
 TEST_CASE("VSG cull bounds enclose sky geometry and animated highlight shells",

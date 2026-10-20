@@ -25,10 +25,14 @@
 #include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Object.h>
+#include <vsg/nodes/Node.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
 #include <vsg/state/DescriptorBuffer.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/PipelineLayout.h>
+#include <vulkan/vulkan_core.h>
 
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -110,6 +114,33 @@
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {
     return glm::length(actual - expected) < tolerance;
+}
+
+static void requireEffectLayout(const vsg::Node& root, const vsg::PipelineLayout* expected)
+{
+    struct Check : vsg::ConstVisitor {
+        explicit Check(const vsg::PipelineLayout* expected) : expected(expected) {}
+        const vsg::PipelineLayout* expected;
+        unsigned pipelines = 0;
+        unsigned descriptors = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            for (const auto& command : group.stateCommands) {
+                if (const auto* bind = command->cast<vsg::BindGraphicsPipeline>()) {
+                    REQUIRE(bind->pipeline->layout.get() == expected);
+                    ++pipelines;
+                } else if (const auto* bind = command->cast<vsg::BindDescriptorSet>()) {
+                    REQUIRE(bind->layout.get() == expected);
+                    ++descriptors;
+                }
+            }
+            group.traverse(*this);
+        }
+    } check(expected);
+    root.accept(check);
+    REQUIRE(check.pipelines > 0);
+    REQUIRE(check.descriptors >= 3);
 }
 
 static void bounds()
@@ -726,8 +757,9 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     } setting;
     g_settings.monster_shadows = true;
     GroundShadow shadow(world.scene.get());
-    render::RenderContext context({640, 480});
-    shadow.updateRenderNode(context, {}, 0);
+    std::optional<render::RenderContext> context;
+    context.emplace(VkExtent2D{640, 480});
+    shadow.updateRenderNode(*context, {}, 0);
     struct ShadingBounds : vsg::ConstVisitor {
         std::vector<glm::vec4> bounds;
         void apply(const vsg::Object& object) override { object.traverse(*this); }
@@ -756,10 +788,22 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
 
     mesh->setBounds({-20, -30, -40}, {20, 30, 40}, {5, 6, 7}, 80);
     shadow.width *= 2;
-    shadow.updateRenderNode(context, {}, 1);
+    shadow.updateRenderNode(*context, {}, 1);
     ShadingBounds after;
     shadow.renderNode()->accept(after);
     REQUIRE(after.bounds == std::vector<glm::vec4>{glm::vec4(5, 6, 7, 80)});
+
+    const auto previous_root = shadow.renderNode();
+    const auto* address = &*context;
+    context.reset();
+    context.emplace(VkExtent2D{640, 480});
+    REQUIRE(&*context == address);
+    REQUIRE(shadow.renderNode(*context) == previous_root);
+    shadow.updateRenderNode(*context, {}, 1);
+    requireEffectLayout(*previous_root, context->layout.get());
+    ShadingBounds recreated;
+    shadow.renderNode()->accept(recreated);
+    REQUIRE(recreated.bounds == after.bounds);
 }
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
@@ -1447,9 +1491,10 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     const auto centers = particles.particle_positions;
     // Constructing VSG state and arrays needs no graphics device. Preparing
     // additional views must consume the current simulation without advancing it.
-    render::RenderContext context({640, 480});
-    particles.updateRenderNode(context, {}, 0);
-    particles.updateRenderNode(context, {}, 1);
+    std::optional<render::RenderContext> context;
+    context.emplace(VkExtent2D{640, 480});
+    particles.updateRenderNode(*context, {}, 0);
+    particles.updateRenderNode(*context, {}, 1);
     REQUIRE(particles.particle_positions == centers);
     REQUIRE(particles.emission_count == 2);
     struct CheckParticleDraws : vsg::ConstVisitor {
@@ -1467,13 +1512,27 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.renderNode()->accept(draws);
     REQUIRE(draws.index_count == 6);
 
+    // Reconstructing a renderer can reuse the C++ context's storage. Resource
+    // identity and its frame guard must still restart with the new layout.
+    const auto previous_root = particles.renderNode();
+    const auto* address = &*context;
+    context.reset();
+    context.emplace(VkExtent2D{640, 480});
+    REQUIRE(&*context == address);
+    REQUIRE(particles.renderNode(*context) == previous_root);
+    particles.updateRenderNode(*context, {}, 1);
+    requireEffectLayout(*previous_root, context->layout.get());
+    draws.index_count = 0;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 6);
+
     particles.release_when_done = true;
     particles.birth_ticks[1] = GameClockMilliseconds() - 1;
     particles.lifetime_ms = 0;
     particles.AdvanceSimulation();
     REQUIRE(particles.active_particle_count == 0);
     REQUIRE(particles.finished);
-    particles.updateRenderNode(context, {}, 2);
+    particles.updateRenderNode(*context, {}, 2);
     draws.index_count = 0;
     particles.renderNode()->accept(draws);
     REQUIRE(draws.index_count == 0);

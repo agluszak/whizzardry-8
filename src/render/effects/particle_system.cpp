@@ -21,6 +21,7 @@
 #include <vsg/nodes/Group.h>
 #include <vsg/nodes/Node.h>
 #include <vsg/state/ImageInfo.h>
+#include <vsg/state/PipelineLayout.h>
 
 #include "effect_geometry.h"
 #include "glm/ext/matrix_double4x4.hpp"
@@ -64,7 +65,7 @@ struct ParticleRenderData {
         vsg::ref_ptr<vsg::ImageInfo> image;
         std::uint32_t shader = ~std::uint32_t{0};
     };
-    render::RenderContext* context;
+    vsg::ref_ptr<vsg::PipelineLayout> layout;
     vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     vsg::ref_ptr<vsg::Group> particles = vsg::Group::create();
     vsg::ref_ptr<vsg::CullNode> cull;
@@ -73,7 +74,7 @@ struct ParticleRenderData {
     std::uint64_t frame_number = ~std::uint64_t{0};
 
     ParticleRenderData(render::RenderContext& context, const ParticleSystem& source)
-        : context(&context),
+        : layout(context.layout),
           geometry(context, source.particle_count * 4, source.material,
                    render::HasAlpha | render::HasTexcoord0 | render::ParticleBillboard, false, 0)
     {
@@ -565,8 +566,14 @@ void ParticleSystem::AdvanceSimulation()
 
 vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode(render::RenderContext& context)
 {
-    if (!render_data || render_data->context != &context)
-        render_data = std::make_unique<ParticleRenderData>(context, *this);
+    if (!render_data || render_data->layout != context.layout) {
+        auto replacement = std::make_unique<ParticleRenderData>(context, *this);
+        if (render_data) {
+            render_data->root->children = std::move(replacement->root->children);
+            replacement->root = render_data->root;
+        }
+        render_data = std::move(replacement);
+    }
     return render_data->root;
 }
 

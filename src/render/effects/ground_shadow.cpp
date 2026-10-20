@@ -7,6 +7,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
@@ -18,6 +19,7 @@
 #include <vsg/nodes/Node.h>
 #include <vsg/state/BindDescriptorSet.h>
 #include <vsg/state/ImageInfo.h>
+#include <vsg/state/PipelineLayout.h>
 
 #include "effect_geometry.h"
 #include "wiz8/asset_paths.h"
@@ -107,14 +109,14 @@ struct ShadowRenderData {
         }
     };
 
-    render::RenderContext* context;
+    vsg::ref_ptr<vsg::PipelineLayout> layout;
     vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     std::vector<std::unique_ptr<Part>> parts;
     vsg::ref_ptr<vsg::ImageInfo> image;
     vsg::ref_ptr<vsg::BindDescriptorSet> batch;
     std::uint64_t frame_number = ~std::uint64_t{0};
 
-    explicit ShadowRenderData(render::RenderContext& context) : context(&context) {}
+    explicit ShadowRenderData(render::RenderContext& context) : layout(context.layout) {}
 };
 
 static std::shared_ptr<GroundShadowAsset> shadowAsset()
@@ -144,8 +146,13 @@ GroundShadow::GroundShadow(const GroundShadow& other) : asset(other.asset)
 
 vsg::ref_ptr<vsg::Node> GroundShadow::renderNode(render::RenderContext& context)
 {
-    if (!render_data || render_data->context != &context) {
-        render_data = std::make_unique<ShadowRenderData>(context);
+    if (!render_data || render_data->layout != context.layout) {
+        auto replacement = std::make_unique<ShadowRenderData>(context);
+        if (render_data) {
+            render_data->root->children = std::move(replacement->root->children);
+            replacement->root = render_data->root;
+        }
+        render_data = std::move(replacement);
     }
     return render_data->root;
 }
