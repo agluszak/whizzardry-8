@@ -117,8 +117,11 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         }
     }
 
+    missile.deflected = hit_result == W8_MISSILE_HIT_DEFLECTED;
     if (missile.missile_table_index == kStoredSpellMissile) {
-        CurrentGame().combat->missile_hit_result = hit_result;
+        if (CurrentGame().combat && CurrentGame().combat->engaged_missile == &missile) {
+            CurrentGame().combat->missile_hit_result = hit_result;
+        }
     } else if (CurrentGame().combat.has_value() && CurrentGame().combat->engaged_missile != 0) {
         CurrentGame().combat->missile_hit_result = hit_result;
         CurrentGame().combat->TargetHit = missile.combat_slot;
@@ -153,13 +156,11 @@ void DetonateStoredSpell(Missile& missile)
                         W8SpellCastKind::Standard, 0, 0);
 }
 
-/* A stored-spell missile releases its spell unless the fight recorded it as deflected,
+/* A stored-spell missile releases its spell unless its collision was deflected,
    and a spell missile hands what it did to the spell that cast it. */
 void CombatSignals::missileLanded(Missile& missile)
 {
-    if (missile.missile_table_index == kStoredSpellMissile &&
-        (!CurrentGame().combat.has_value() ||
-         CurrentGame().combat->missile_hit_result != W8_MISSILE_HIT_DEFLECTED)) {
+    if (missile.missile_table_index == kStoredSpellMissile && !missile.deflected) {
         DetonateStoredSpell(missile);
     }
     if (Data().missiles[missile.missile_table_index].spell_missile != 0) {

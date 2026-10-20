@@ -11,7 +11,10 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
+#include "wiz8/data/missile_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/entities/missile.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
@@ -23,6 +26,8 @@
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/spatial/navigator.h"
+#include "wiz8/world/simulation_sink.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -162,4 +167,41 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     REQUIRE(backpack[1].uses_or_charges == 5);
     REQUIRE(committed.kind == W8_ACTION_USE_ITEM);
     REQUIRE(committed.detail_block.item_use.item == source);
+}
+
+TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
+{
+    const ScopedGame game_scope;
+    Game& game = game_scope.game;
+    const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
+    game.level.replacePrimary(std::make_unique<World>());
+    World& world = *game.level.primary;
+    Monster target(&world);
+    target.location_id = 7;
+    target.nav.movement.location_id = target.location_id;
+    auto info = std::make_unique<W8MonsterInfo>();
+    info->location_id = target.location_id;
+    info->hp_current = 10;
+    info->modifiers.missile_deflect_chance = 100;
+    world.population->monster_roster.add(std::move(info), false);
+
+    Missile missile(&world);
+    missile.missile_table_index = 0x23;
+    missile.m_Source = {.iType = W8_TARGET_SOURCE_CHARACTER, .iChar = 0};
+    missile.combat_slot.iType = W8_TARGET_KIND_MONSTER;
+    missile.combat_slot.iMonsterID = target.location_id;
+
+    REQUIRE(world.simulation->missileReached(missile, target.nav));
+    REQUIRE(missile.deflected);
+    REQUIRE_FALSE(game.combat);
+
+    SECTION("The flight ends without a fight") {}
+    SECTION("A fight starts with a different missile outcome")
+    {
+        game.combat.emplace().missile_hit_result = W8_MISSILE_HIT;
+    }
+
+    // Deflection prevents Rocket Blast even without a fight to remember the hit.
+    missile.Land();
+    REQUIRE(missile.flight_done);
 }

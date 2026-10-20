@@ -129,6 +129,8 @@ public:
        folded into the owning spell effect by 0x00500460. */
     W8SpellEffectResult result;
     bool retargeted; /* the missile struck something other than its intended target */
+    // The collision outcome survives combat ending before the missile lands.
+    bool deflected = false;
 };
 
 /* Secondary vftable 0x005ecdf4 keeps the Navigator subobject at +0x18. */

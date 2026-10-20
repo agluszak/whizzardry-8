@@ -8,7 +8,6 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "local_code/ConditionsAndEnchantments.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"
@@ -25,6 +24,7 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/message_box.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -32,7 +32,6 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_stats.h"
-#include "wiz8/screen.h"
 #include "wiz8/unicode.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -330,8 +329,8 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
         if (!character->skills[skill_id].active) {
             character->skills[skill_id].active = true;
             game.events.push(SkillAvailabilityChanged{skill_id, true});
-            // Only exploration announces the cap (ROADMAP.md, "Migration", step 4).
-            if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
+            // Party creation and camp edits leave the announcement to their editors.
+            if (game.status.game_started && game.activity.in_world()) {
                 game.events.push(NoticeDialog{
                     .text = fmt::sprintf(
                         Data().strings[0x1d6],

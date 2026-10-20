@@ -92,7 +92,7 @@ The decisions behind it:
 
 Each step lands one subsystem in its final shape and moves its code behind the enforced
 boundary (ARCHITECTURE.md, "Layers"), so a step cannot regress. Code not yet migrated
-reaches the game through `CurrentGame()`. That accessor returns null while no game
+reaches the game through `CurrentGame()`. That accessor throws `std::logic_error` while no game
 exists, `rules` and `game` may not call it, and it is deleted with its last caller. Run
 the licensed runtime scenarios after every step.
 

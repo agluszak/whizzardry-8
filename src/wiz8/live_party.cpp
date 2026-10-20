@@ -20,6 +20,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/rules/action_choices.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -29,7 +30,6 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/screen.h"
 
 // The game's inputs to statistic calculations: combat actions and NPC story state.
 static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game,
@@ -64,9 +64,9 @@ static PartyStatRules CaptureLivePartyStatRules(const Game& game)
 }
 
 // A member who became overloaded says so.
-static void PresentOverload(W8Character& character)
+static void PresentOverload(const Game& game, W8Character& character)
 {
-    const int event = CurrentScreenState().id == W8_SCREEN_CAMP ? 8 : g_special_event13;
+    const int event = game.activity.in_camp() ? 8 : g_special_event13;
     QueueCharacterEvent(&character, event, 0, kCharacterEventFullVolume);
 }
 
@@ -88,7 +88,7 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
             ReconcileCombatHandChange(game, slot);
             game.events.push(PartySlotChanged{slot});
         }
-        if (stats.characters[slot].became_overloaded) PresentOverload(character);
+        if (stats.characters[slot].became_overloaded) PresentOverload(game, character);
         if (character.fInParty) game.events.push(PartySlotChanged{slot});
     }
     if (stats.load_redistributed) game.events.push(PartyLoadChanged{});
@@ -117,7 +117,7 @@ void RecalculateEditedCharacterStats(Game& game, W8Character& character)
     const auto update = UpdateCharacterStatsFromInputs(
         Data(), character,
         member ? CaptureLiveCharacterStatRules(game, character) : CharacterStatRules{});
-    if (update.became_overloaded) PresentOverload(character);
+    if (update.became_overloaded) PresentOverload(game, character);
     if (member && update.hp_exhausted)
         SetCharacterCondition(*slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0, 1);
 }

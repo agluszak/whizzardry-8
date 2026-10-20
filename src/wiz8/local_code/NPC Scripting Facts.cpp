@@ -53,6 +53,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -888,7 +889,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
     }
     if (eligible_count > 2) {
         do {
-            pick = CurrentGame().rng.below(eligible_count);
+            pick = context.game.rng.below(eligible_count);
         } while (eligible_slots[pick] == lead_index);
         QueueCharacterEvent(&context.party.characters[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);

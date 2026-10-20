@@ -902,7 +902,8 @@ void ProcessNpcPendingEvents(void)
             }
         }
         if (CurrentGame().status.binding_reset_pending &&
-            (CurrentGame().status.world_clock - CurrentGame().status.binding_reset_clock) > 0x3c) {
+            static_cast<std::int32_t>(CurrentGame().status.world_clock -
+                                      CurrentGame().status.binding_reset_clock) > 0x3c) {
             int service = 0;
             if (g_npc_services[0].service_id != 0xffffffff) {
                 while (g_npc_services[service].service_id !=
@@ -2049,8 +2050,10 @@ void UpdateNpcEvents(void)
 
             if (row->fOccupied && character->hp_current != 0) {
                 W8NpcState* npc_state = GetNpcState(row->npc_index);
+                // A deferred event can be stamped ahead of the current clock.
                 if (row->npc_bound && npc_state &&
-                    (CurrentGame().status.world_clock - npc_state->event_clock) > 0x168) {
+                    static_cast<std::int32_t>(CurrentGame().status.world_clock -
+                                              npc_state->event_clock) > 0x168) {
                     if (CurrentGame().rng.below(2) == 0) {
                         npc_state->event_clock =
                             CurrentGame().status.world_clock + CurrentGame().rng.below(6) * 0x3c;
@@ -2071,7 +2074,8 @@ void UpdateNpcEvents(void)
         SetFact(W8_FACT_MOOK_CHAOS_STOLEN, 1, false);
     }
     if (CurrentGame().status.greeting_pending &&
-        (CurrentGame().status.world_clock - CurrentGame().status.binding_reset_clock) > 0x3c) {
+        static_cast<std::int32_t>(CurrentGame().status.world_clock -
+                                  CurrentGame().status.binding_reset_clock) > 0x3c) {
         CurrentGame().status.greeting_pending = false;
         SelectStartNpcGreeting();
     }
