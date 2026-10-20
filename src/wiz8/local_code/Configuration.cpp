@@ -13,9 +13,9 @@
 #include "asset_paths.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/retail_text_records.h"
 
@@ -229,15 +229,11 @@ void LoadGameConfiguration(void)
         });
         file.Close();
     }
-    if (loaded) {
-        if (static_cast<unsigned int>(g_settings.combat_delay_ms) <= 5000u &&
-            g_settings.text_display_delay_ms <= 5000u) {
-            reset = false;
-        } else {
-            Fail("FALSE",
-                 fmt::format("LoadConfig: ERROR - Config file appears to be corrupted.  Delete {}",
-                             path));
-        }
+    // Out-of-range delays or difficulty mean a corrupt file; fall back to the defaults.
+    if (loaded && static_cast<unsigned int>(g_settings.combat_delay_ms) <= 5000u &&
+        g_settings.text_display_delay_ms <= 5000u &&
+        static_cast<unsigned int>(g_settings.difficulty) <= W8_DIFFICULTY_EXPERT) {
+        reset = false;
     }
     if (reset) {
         ResetGameplaySettings();

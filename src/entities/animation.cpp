@@ -1,5 +1,6 @@
 #include "wiz8/entities/animation.h"
 
+#include <cassert>
 #include <cstddef>
 #include <exception>
 #include <iterator>
@@ -15,7 +16,6 @@
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/retail_text_records.h"
@@ -36,9 +36,7 @@ try {
     wiz8::File* handle;
     int index;
 
-    if (info == 0 || info->hFile == 0 || animation == 0) {
-        Fail("pInfo && pInfo->hFile && pao");
-    }
+    assert(info != 0 && info->hFile != 0 && animation != 0);
     handle = info->hFile;
     const auto read_flag = [handle](bool& flag) {
         unsigned char value;
@@ -180,8 +178,9 @@ try {
                 }
             }
 
+            // Only monster and emitter animations may carry lights.
             if (light_list == 0) {
-                Fail("0", "AnimObjReadFromFile: Where is the light list?");
+                return false;
             } else {
                 auto light = CreateLight(nullptr, "Light");
                 light->diffuse = color;
@@ -235,9 +234,8 @@ try {
         for (group = 0; group < static_cast<signed char>(animation->group_count); ++group) {
             signed char entry_count;
             int entry;
-            success = (handle->read(&entry_count, 1).bytes == static_cast<std::size_t>(1));
-            if (!success) {
-                Fail("fSuccess");
+            if (handle->read(&entry_count, 1).bytes != 1) {
+                return false;
             }
             for (entry = 0; entry < entry_count; ++entry) {
                 signed char channel;
@@ -374,9 +372,7 @@ void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
    once active, AnimObj keeps the live value in its own byte at 0x16. */
 unsigned int AnimObjValue(const Animation* animation, signed char index)
 {
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     if (!animation->path_lists) {
         return AniMeshValue(animation->entries[index].get());
     }
@@ -391,9 +387,7 @@ unsigned int AnimObjListCount(Animation* animation, signed char index)
 KeyframeTrack* AnimObjListEntry(Animation* animation, signed char list_index,
                                 signed char entry_index)
 {
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     if (!animation->path_lists) {
         return 0;
     }
@@ -408,9 +402,7 @@ MeshInstance* AnimObjDispatch(Animation* animation, signed char list_index, unsi
 {
     AnimationMesh* entry;
 
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     if (!animation->path_lists) {
         entry = animation->entries[list_index].get();
         if (entry != nullptr) {
@@ -430,9 +422,7 @@ MeshInstance* AnimObjDispatchList(Animation* animation, signed char list_index,
 {
     AnimationMesh* entry;
 
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     if (animation->path_lists) {
         const auto& list = animation->meshes[list_index];
         if (entry_index >= 0 && std::cmp_less(entry_index, list.size())) {
@@ -447,9 +437,7 @@ MeshInstance* AnimObjDispatchList(Animation* animation, signed char list_index,
 
 AnimationMesh* AnimObjEntry(Animation* animation, signed char list_index, std::size_t entry_index)
 {
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     if (!animation->path_lists) {
         return animation->entries[list_index].get();
     }

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -9,6 +10,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -37,7 +39,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/render/draw_inputs.h"
@@ -172,9 +173,7 @@ void ApplyParticleStates(World& world, std::span<const W8ParticleState> states)
 
 void ParticleSystem::AllocateParticles(unsigned int count)
 {
-    if (count >= 10000) {
-        Fail("cnt < 10000");
-    }
+    assert(count < 10000);
     particle_count = count;
     particle_positions.assign(count, glm::vec3(0));
     velocities.assign(count, glm::vec3(0));

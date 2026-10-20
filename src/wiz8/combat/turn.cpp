@@ -23,7 +23,6 @@
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"

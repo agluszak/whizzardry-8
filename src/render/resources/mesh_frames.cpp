@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <cmath>
 #include <cstddef>
@@ -22,7 +23,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/checked_integer.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
@@ -288,10 +288,7 @@ short* Mesh::GetVertex(unsigned int frame)
 
 void Mesh::InitializeVertexFrames(int count)
 {
-    if (count <= 0) {
-        Fail("uiFrames");
-        return;
-    }
+    assert(count > 0);
     // ReadMesh calls this for each frame; it must not discard earlier frames.
     if (!frames.empty()) {
         return;

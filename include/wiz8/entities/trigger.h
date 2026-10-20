@@ -2,17 +2,16 @@
 struct W8Chunk;
 
 #include <cstdint>
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <optional>
-#include <source_location>
 #include <string>
 #include <string_view>
 #include <variant>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/locks.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 
@@ -173,9 +172,7 @@ public:
 
     Prop* GetProp() const
     {
-        if (m_bRepType != W8_TRIGGER_REP_PROP) {
-            Fail("m_bRepType == TRIGGER_REP_PROP");
-        }
+        assert(m_bRepType == W8_TRIGGER_REP_PROP);
         return m_pProp;
     }
 
@@ -270,8 +267,8 @@ public:
 void InitializeStateDrivenPropVariables(Trigger* trigger);
 
 Trigger* FindTriggerByName(std::string_view name);
-Trigger* FindRequiredTriggerByName(std::string_view name,
-                                   std::source_location caller = std::source_location::current());
+// Throws when the loaded level lacks the trigger.
+Trigger* FindRequiredTriggerByName(std::string_view name);
 
 inline void RunNamedTrigger(std::string_view name, int source)
 {

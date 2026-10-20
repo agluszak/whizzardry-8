@@ -1,10 +1,12 @@
 #include "wiz8/local_screens/Screens.h"
 
 #include <bitset>
+#include <cassert>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <variant>
 
 #include "wiz8/canvas/Font.h"
@@ -38,7 +40,6 @@
 #include "wiz8/local_screens/PartySelectionScreen.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/events.h"
@@ -79,7 +80,7 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games)
     case W8_SCREEN_COUNT:
         break;
     }
-    Fail("unknown screen");
+    std::unreachable();
 }
 
 /* Query whether scrolling is possible, or scroll and invalidate the transcript. */

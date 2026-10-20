@@ -1,9 +1,11 @@
 #include "wiz8/local_code/ItemManager.h"
 
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,7 +47,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/events.h"
@@ -78,17 +79,13 @@ bool g_hide_invisible_items = true;
 // FUNCTION: WIZ8 0x004f8130
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
 {
-    if (item == 0) {
-        Fail("pItemInfo");
-    }
+    assert(item != 0);
     return (item->flags & mask) != 0;
 }
 
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 {
-    if (item == 0) {
-        Fail("pItemInfo");
-    }
+    assert(item != 0);
     if (enabled) {
         item->flags |= mask;
     } else {
@@ -98,9 +95,7 @@ void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
 {
-    if (item == 0) {
-        Fail("pItemInfo");
-    }
+    assert(item != 0);
     if (enabled) {
         item->entity_flags |= mask;
     } else {
@@ -252,21 +247,14 @@ void SetWorldItemFalling(W8WorldItem* item, bool enabled)
     }
 }
 
-/* The world item at one list position. Both the bound and the fetch are
-   asserted, and the second reports the list it failed on. */
+/* The world item at one list position. */
 W8WorldItem* ItemInfo(unsigned int item_list_index)
 {
     W8WorldItem* item;
 
-    if (item_list_index >= CurrentLevelPopulation().world_items.size()) {
-        Fail("uiItemListIndex < (UINT32) CurrentLevelPopulation().world_items.size()");
-    }
+    assert(item_list_index < CurrentLevelPopulation().world_items.size());
     item = GetWorldItemListEntry(item_list_index);
-    if (item == 0) {
-        Fail("pItemInfo != NULL",
-             fmt::format("ItemInfo: ERROR - missing entry, index {:d}, pList {}", item_list_index,
-                         static_cast<const void*>(&CurrentLevelPopulation().world_items)));
-    }
+    assert(item != 0);
     return item;
 }
 
@@ -279,7 +267,7 @@ unsigned int ItemIndex(int runtime_id)
             return index;
         }
     }
-    Fail("FALSE", fmt::format("ItemIndex: ERROR - ItemID {:d} not found", runtime_id));
+    assert(false && "unknown world item id");
     return 0;
 }
 
@@ -447,12 +435,8 @@ void ActivateItem(W8WorldItem* item)
     Light* sun;
     MeshInstance* mesh;
 
-    if (item == 0) {
-        Fail("pItemInfo != NULL");
-    }
-    if (item->fActive) {
-        Fail("!pItemInfo->fActive");
-    }
+    assert(item != 0);
+    assert(!item->fActive);
 
     name = Data().items[item->item.iItemNo].internal_name;
     if (name.empty()) {
@@ -470,24 +454,11 @@ void ActivateItem(W8WorldItem* item)
             return status && status->info.type == SDL_PATHTYPE_FILE;
         }()) {
         zItemName = "questionmark";
-        zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
-        if (![&]() {
-                const auto status = wiz8::file_status(wiz8::asset_path(zItemFullPath));
-                return status && status->info.type == SDL_PATHTYPE_FILE;
-            }()) {
-            Fail("[&]() { const auto status = "
-                 "wiz8::file_status(wiz8::asset_path(zItemFullPath)); return "
-                 "status && status->info.type == SDL_PATHTYPE_FILE; }()",
-                 fmt::format("ActivateItem: ERROR - missing ITM file {}, item {:d}", zItemFullPath,
-                             item->item.iItemNo));
-        }
     }
 
     auto entity = LoadItemFromFile(zItemName);
+    if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", zItemName));
     item->p3D = entity.get();
-    if (!entity) {
-        Fail("fSuccess", fmt::format("ActivateItem: ERROR - ItemRead {} failed", zItemName));
-    }
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
         item->p3D->LightRadarBlip();
     }
@@ -522,15 +493,9 @@ void DeactivateWorldItem(W8WorldItem* item)
 {
     glm::vec3 position;
 
-    if (item == 0) {
-        Fail("pItemInfo != NULL");
-    }
-    if (!item->fActive) {
-        Fail("pItemInfo->fActive");
-    }
-    if (item->p3D == 0) {
-        Fail("pItemInfo->p3D != NULL");
-    }
+    assert(item != 0);
+    assert(item->fActive);
+    assert(item->p3D != 0);
 
     if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
 
@@ -603,9 +568,6 @@ void UpdateNearbyWorldItems(void)
         if (!item->fActive) {
             if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
                 if (g_hide_invisible_items) {
-                    if (item == 0) {
-                        Fail("pItemInfo != NULL");
-                    }
                     if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
                         goto next_item;
                     }
@@ -715,9 +677,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
     int index = ItemIndex(runtime_id);
     W8WorldItem* item = ItemInfo(index);
 
-    if (item == 0) {
-        Fail("pItemInfo != NULL");
-    }
+    assert(item != 0);
     if (Data().items[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
         W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
         if (dialog != 0) {
@@ -955,9 +915,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
     }
 
     result = CreateWorldItem(item, position, entity_flags);
-    if (result == 0) {
-        Fail("pItemInfo");
-    }
+    assert(result != 0);
     return result;
 }
 
@@ -1007,10 +965,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             gold = RollDice(&record->treasure.gold_dice);
         } else {
             W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
-            if (npc == 0) {
-                Fail("pNPC",
-                     fmt::format("Monster {} marked as NPC with no NPC data", record->name0));
-            }
+            if (npc == 0)
+                throw std::runtime_error(
+                    fmt::format("NPC monster {} has no NPC state", monster_info->monster_species));
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
                     item = SpawnItem(npc->item_ids[index], &position,

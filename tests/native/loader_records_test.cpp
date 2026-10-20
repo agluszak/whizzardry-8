@@ -1077,6 +1077,19 @@ TEST_CASE_METHOD(LoaderFixture,
     REQUIRE(spells.size() == 2);
     REQUIRE(spells[1].display_name == spell.display_name);
     REQUIRE(spells[1].duration == spell.duration);
+    {
+        // Spell rules switch over the target type, so an unknown one is rejected at load.
+        W8SpellRuntimeRecord invalid = spell;
+        invalid.target_type = static_cast<W8SpellTargetType>(W8_TARGET_TYPE_COUNT);
+        std::string corrupt;
+        append(corrupt, 1);
+        append(corrupt, 1u);
+        corrupt.append(0x101, '\0');
+        append(corrupt, invalid);
+        store("data/databases/spelltables.dbs", corrupt);
+        REQUIRE_THROWS(ReadSpellDatabase());
+        store("data/databases/spelltables.dbs", bytes);
+    }
     for (auto end : {0u, 4u, 7u, 8u, 264u, unsigned(bytes.size() - 1)}) {
         store("data/databases/spelltables.dbs", bytes.substr(0, end));
         REQUIRE_THROWS(ReadSpellDatabase());

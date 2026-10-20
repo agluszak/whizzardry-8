@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -61,7 +62,6 @@
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
@@ -470,12 +470,8 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
         level = monster->effective_level;
         highest_condition = monster_info->highest_condition;
     } else {
-        if (target->iType != W8_TARGET_KIND_CHARACTER) {
-            Fail("pTarget->iType == TARGET_TYPE_CHAR");
-        }
-        if (target->iChar == -1) {
-            Fail("pTarget->iChar != BAD_INDEX");
-        }
+        assert(target->iType == W8_TARGET_KIND_CHARACTER);
+        assert(target->iChar != -1);
         character = &CurrentGame().party.characters[target->iChar];
         resistance = character->resistances[realm].total;
         level = character->uiExpLevel;
@@ -629,7 +625,6 @@ W8EnchantmentSlot GetConditionDisplaySlot(int spell_id)
     case W8_SPELL_HASTE:
         return W8_ENCHANTMENT_HASTE;
     default:
-        Fail("FALSE");
         return W8_ENCHANTMENT_NONE;
     }
 }
@@ -770,9 +765,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     }
     group = CreateGroup(g_elemental_summon_group_ids[effect->definition.duration_scale][tier], 1,
                         &effect->target.point, true, false, true);
-    if (group == 0) {
-        Fail("pGroup");
-    }
+    assert(group != 0);
     summon = FindMonster(group->leader_location_id);
     summon->p3D->nav.SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
@@ -781,7 +774,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
     for (index = 0; index < group->MemberCount(); ++index) {
         member = FindMonster(group->MemberLocationId(index));
-        if (member == 0) Fail("pMonsterInfo");
+        assert(member);
         if (member->summoned == W8_MONSTER_SUMMON_NONE) {
             member->summoned = summoned_state;
             SetMonsterSpellIcon(member->p3D, SPELL_ICON_SUMMONED, true);
@@ -847,7 +840,6 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                 slot = W8_ENCHANTMENT_HASTE;
                 break;
             default:
-                Fail("FALSE");
                 slot = W8_ENCHANTMENT_NONE;
                 break;
             }
@@ -870,9 +862,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     W8Character* caster;
     glm::vec3 point;
 
-    if (!TargetSourceIsCharacter(&pQueue->Source, 0)) {
-        Fail("SourceIsCharacter(&(pQueue->Source))");
-    }
+    assert(TargetSourceIsCharacter(&pQueue->Source, 0));
     caster = &CurrentGame().party.characters[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == GetLoadedLevelID()) {
@@ -1010,9 +1000,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
     duration = RollEffectDuration(&effect->definition);
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         if (slot == W8_ENCHANTMENT_HASTE &&
             CurrentGame().party.characters[character_index].uiCondition[W8_CONDITION_SLOWED] != 0) {
             remaining =
@@ -1031,9 +1019,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
         monster_info = FindMonster(effect->monster_ids[index]);
-        if (monster_info == 0) {
-            Fail("pMonsterInfo");
-        }
+        assert(monster_info != 0);
         if (slot == W8_ENCHANTMENT_HASTE && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
             remaining = duration - monster_info->uiCondition[W8_CONDITION_SLOWED];
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_SLOWED, duration);
@@ -1058,9 +1044,7 @@ void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
     unsigned int roll;
 
     RollEffectDuration(&effect->definition);
-    if (effect->target.iType != W8_TARGET_KIND_CHARACTER) {
-        Fail("(pQueue->Target.iType == TARGET_TYPE_CHAR)");
-    }
+    assert(effect->target.iType == W8_TARGET_KIND_CHARACTER);
     roll = CurrentGame().rng.below(100);
     if (roll < 0x28) {
         InflictConditionAttack(effect, W8_CONDITION_NAUSEATED, 100, 0);
@@ -1162,9 +1146,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 static W8MonsterInfo* GetEffectMonsterTarget(int location_id, int lookup_line, int check_line)
 {
     W8MonsterInfo* monster_info = FindMonster(location_id);
-    if (monster_info == 0) {
-        Fail("pMonsterInfo");
-    }
+    assert(monster_info != 0);
     return monster_info;
 }
 
@@ -1189,7 +1171,7 @@ unsigned int GetTargetConditionTurns(W8SpellEffectEntry* effect, W8Condition con
         }
         return monster_info->uiCondition[condition];
     }
-    Fail("0");
+    if (argument != 0) *argument = 0;
     return 0;
 }
 
@@ -1204,9 +1186,7 @@ void FatigueTargets(W8SpellEffectEntry* effect)
 
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         if (CurrentGame().party.characters[character_index].stamina != 0) {
             magnitude = RollEffectMagnitude(&effect->definition);
             FatigueCharacter(character_index, magnitude, false, 0);
@@ -1242,9 +1222,7 @@ static signed char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredRes
     };
 
     for (int character_index : effect->target_indices) {
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         W8Character* character = &CurrentGame().party.characters[character_index];
         unsigned int missing = stamina ? 0 : character->uiHPMax - character->hp_current;
         if (stamina ? character->stamina == character->uiStaminaMax : missing == 0) {
@@ -1349,9 +1327,7 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
     TargetSourceIsCharacter(&effect->Source, 1);
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         magnitude = RollEffectMagnitude(&effect->definition);
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
@@ -1413,9 +1389,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
     TargetSourceIsCharacter(&effect->Source, 1);
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         magnitude = RollEffectMagnitude(&effect->definition);
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
@@ -1460,9 +1434,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
     if (!TargetSourceIsCharacter(&effect->Source, 0)) {
         if (TargetSourceIsMonster(&effect->Source, 0)) {
             monster_info = FindMonster(effect->Source.iMonsterID);
-            if (monster_info == 0) {
-                Fail("pMonsterInfo");
-            }
+            assert(monster_info != 0);
             if (effect->kind == W8_SPELL_LIFESTEAL) {
                 HealMonster(monster_info, (drained * 7) / 10, announce);
             } else if (effect->kind == W8_SPELL_MIGHT_TO_MAGIC) {
@@ -1513,9 +1485,7 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
     AdjustIntegerByPercent(&power, effect->definition.percent);
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         W8Character* character = &CurrentGame().party.characters[character_index];
         if (character->uiCondition[condition] != 0) {
             if (character->uiCondition[condition] == W8_CONDITION_INDEFINITE || force) {
@@ -1707,9 +1677,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         }
         duration = RollEffectDuration(&effect->definition);
         character_index = effect->target_indices[index];
-        if (character_index == -1) {
-            Fail("iChar != -1");
-        }
+        assert(character_index != -1);
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = character_index;
         if (ApplyConditionAttackToTarget(effect, &target, condition, argument, duration, verbose,
@@ -1784,10 +1752,7 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
     while (effect->kind != *table) {
         ++table;
         ++slot_index;
-        if (g_combat_effect_slot_spells <= table) {
-            Fail("fFound");
-            return;
-        }
+        assert(g_combat_effect_slot_spells > table);
     }
     if (!effect->target_indices.empty()) {
         slot = &CurrentGame().status.effect_slots[slot_index];
@@ -1829,7 +1794,7 @@ void AttackThenInflictCondition(W8SpellEffectEntry* effect, W8Condition attack_c
         const unsigned int duration = RollEffectDuration(&effect->definition);
         if (index < character_count) {
             const int character_index = effect->target_indices[index];
-            if (character_index == -1) Fail("iChar != -1");
+            assert(character_index != -1);
             target.iType = W8_TARGET_KIND_CHARACTER;
             target.iChar = character_index;
         } else {
@@ -1864,9 +1829,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     int index;
 
     spell_id = effect->kind;
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
     duration = RollEffectDuration(&effect->definition);
     if (TargetSourceIsCharacter(&effect->Source, 1)) {
         source_character = effect->Source.iChar;
@@ -1881,7 +1844,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         }
     }
     if (spell_id != *table) {
-        Fail("fFound");
+        assert(false && "spell has no combat effect slot");
     } else {
         if (!effect->target_indices.empty()) {
             slot = &CurrentGame().combat->effect_slots[slot_index];
@@ -1939,19 +1902,14 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
     int index;
 
     spell_id = effect->kind;
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
     duration = RollEffectDuration(&effect->definition);
     slot_index = 0;
     table = g_combat_effect_slot_spells_and_cast_success;
     while (spell_id != *table) {
         ++table;
         ++slot_index;
-        if (table >= g_combat_effect_slot_spells_and_cast_success + 9) {
-            Fail("fFound");
-            return;
-        }
+        assert(table < g_combat_effect_slot_spells_and_cast_success + 9);
     }
     if (!effect->target_indices.empty()) {
         slot = &CurrentGame().combat->effect_slots0[slot_index];
@@ -2046,9 +2004,7 @@ void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         unsigned int duration = RollEffectDuration(&effect->definition);
         party_slot = effect->target_indices[index];
-        if (party_slot == -1) {
-            Fail("iChar != -1");
-        }
+        assert(party_slot != -1);
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = party_slot;
         ResolveAfflictionForTarget(effect, &target, realm, power_level, duration, verbose, nullptr);
@@ -2089,9 +2045,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     hits = 0;
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         party_slot = effect->target_indices[index];
-        if (party_slot == -1) {
-            Fail("iChar != -1");
-        }
+        assert(party_slot != -1);
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_CHARACTER;
         target.iChar = party_slot;
@@ -2358,12 +2312,8 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     std::string formatted;
 
     target = &effect->target;
-    if (target->iType != W8_TARGET_KIND_MONSTER) {
-        Fail("pQueue->Target.iType == TARGET_TYPE_MONSTER");
-    }
-    if (target->iMonsterID == -1) {
-        Fail("pQueue->Target.iMonsterID != -1");
-    }
+    assert(target->iType == W8_TARGET_KIND_MONSTER);
+    assert(target->iMonsterID != -1);
     monster_info = FindMonster(target->iMonsterID);
     if (effect->Source.fBackfire) {
         monster = GetMonsterDataForInfo(monster_info);
@@ -2413,12 +2363,8 @@ void ResolveCharmRefusal(W8SpellEffectEntry* effect)
     W8SpellRealm realm;
 
     realm = Data().spells[effect->kind].realm;
-    if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-        Fail("SourceIsCharacter(&(pQueue->Source))");
-    }
-    if (effect->target.iType != W8_TARGET_KIND_MONSTER) {
-        Fail("pQueue->Target.iType == TARGET_TYPE_MONSTER");
-    }
+    assert(TargetSourceIsCharacter(&effect->Source, 0));
+    assert(effect->target.iType == W8_TARGET_KIND_MONSTER);
     monster_info = FindMonster(effect->target.iMonsterID);
     if (!effect->Source.fBackfire) {
         if (TargetResistsCondition(&effect->target, realm, effect->definition.power_level,
@@ -2454,9 +2400,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
     int slot_index;
     int index;
 
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
+    assert(CurrentGame().combat.has_value());
     duration = effect->definition.duration_scale;
     if (duration != W8_CONDITION_INDEFINITE) {
         ++duration;
@@ -2548,9 +2492,7 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
                 --index;
                 continue;
             }
-            if (info == 0) {
-                Fail("pMonsterInfo");
-            }
+            assert(info != 0);
             if (info->highest_condition < W8_CONDITION_DEAD &&
                 info->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].turns != 0 &&
                 best < info->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].power) {
@@ -2632,9 +2574,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
                 monster_info = FindMonster(found[index]);
-                if (monster_info == 0) {
-                    Fail("pMonsterInfo");
-                }
+                assert(monster_info != 0);
                 dice = Data().spells[W8_SPELL_RING_OF_FIRE].effect_dice;
                 dice.count = static_cast<signed char>(slot.amount) * dice.count;
                 amount = RollDice(&dice);
@@ -2883,8 +2823,6 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                         }
                     }
                 }
-            } else {
-                Fail("0");
             }
         }
     next_slot:
@@ -3045,7 +2983,6 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                 enchantment = W8_ENCHANTMENT_DRACON_BREATH;
                 break;
             default:
-                Fail("FALSE");
                 enchantment = W8_ENCHANTMENT_NONE;
                 break;
             case W8_SPELL_GUARDIAN_ANGEL:
@@ -3082,9 +3019,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         }
         break;
     case W8_SPELL_IDENTIFY_ITEM:
-        if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-            Fail("SourceIsCharacter(&(pQueue->Source))");
-        }
+        assert(TargetSourceIsCharacter(&effect->Source, 0));
         ApplyIdentifyAttempt(CurrentGame().party.itemAt(effect->target.item),
                              effect->definition.duration_scale, effect->definition.percent);
         item = CurrentGame().party.itemAt(effect->target.item);
@@ -3208,9 +3143,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         }
         break;
     case W8_SPELL_SET_PORTAL:
-        if (!TargetSourceIsCharacter(&effect->Source, 0)) {
-            Fail("SourceIsCharacter(&(pQueue->Source))");
-        }
+        assert(TargetSourceIsCharacter(&effect->Source, 0));
         camera_state = &CurrentGame().party.characters[effect->Source.iChar].saved_location;
         world = GetWorld();
         *camera_state = cameraState(*world);
@@ -3308,9 +3241,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         if (0 < count) {
             for (index = 0; index < count; ++index) {
                 int iChar = effect->target_indices[index];
-                if (iChar == -1) {
-                    Fail("iChar != -1");
-                }
+                assert(iChar != -1);
                 amount = RollEffectMagnitude(&effect->definition);
                 RestoreCharacterSpellPointsEvenly(iChar, amount);
             }

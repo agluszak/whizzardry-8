@@ -45,7 +45,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -875,9 +874,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
         outcome = ContinueMonsterAttack(monster_info, record);
         break;
     case W8_MONSTER_ACTION_SPELL:
-        if (!monster_info->fSpellReleased) {
-            Fail("pMonsterInfo->fSpellReleased");
-        }
+        assert(monster_info->fSpellReleased);
         outcome = ActionStep::resolving;
         break;
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:

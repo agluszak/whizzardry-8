@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -46,7 +47,6 @@
 #include "wiz8/math.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/segment_math.h"
@@ -566,9 +566,7 @@ unsigned char LevelSpatialIndex::AdvanceEnvironmentMotion(PartyMotion& motion,
                 }
                 collisions[collision_count] = nearest_surface;
                 ++collision_count;
-                if (99 < collision_count) {
-                    Fail("lCollisions < 100");
-                }
+                assert(collision_count < 100);
                 if (motion_active == 0) {
                     hit_count = 0;
                     prop_hit = false;
@@ -723,15 +721,11 @@ signed char LevelSpatialIndex::SetInterfaceState(int iID, int state)
     W8GDInterfaceState* states;
     int* polys;
 
-    if (iID == 0 || InterfacesCount() <= iID) {
-        Fail("iID && iID < InterfacesCount()");
-    }
+    assert(iID != 0 && InterfacesCount() > iID);
     this->state.conditional_disabled.resize(m_pSurfaces.size());
     interface_rec = m_pInterfaces.data() + iID;
     iStates = interface_rec->state_count;
-    if (StatesCount() < interface_rec->iStates + iStates) {
-        Fail("(m_pInterfaces[iID].iStates + iStates) <= StatesCount()");
-    }
+    assert(StatesCount() >= interface_rec->iStates + iStates);
     states = m_pStates.data() + interface_rec->iStates;
     for (; iStates != 0; --iStates) {
         poly_count = states->poly_count;

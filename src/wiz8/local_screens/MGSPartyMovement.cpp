@@ -1,8 +1,10 @@
 #include "wiz8/local_screens/MGSPartyMovement.h"
 
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
@@ -22,7 +24,6 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/targeting.h"
@@ -118,16 +119,10 @@ void DrawPartyMovementPanel(void)
     short right;
     int image;
 
-    if (!CurrentGame().combat.has_value()) {
-        Fail("CurrentGame().combat.has_value()");
-    }
-    if ((CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE ||
-         CurrentGame().combat->uiCurrentPartyActionStatus == W8_PARTY_ACTION_FINISHED) &&
-        CurrentGame().combat->uiNextPartyAction == W8_PARTY_ACTION_NONE) {
-        Fail("((gpCombat->uiCurrentPartyAction != PARTY_ACTION_NONE) && "
-             "(gpCombat->uiCurrentPartyActionStatus != ACTION_STATUS_FINISHED)) || "
-             "(gpCombat->uiNextPartyAction != PARTY_ACTION_NONE)");
-    }
+    assert(CurrentGame().combat.has_value());
+    assert((CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
+            CurrentGame().combat->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) ||
+           CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE);
     const int visible = CanPartyMove() ? 1 : 0;
     movement->dirty |= visible != movement->visible_button;
     movement->visible_button = visible;

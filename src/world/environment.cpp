@@ -1,6 +1,7 @@
 #include "wiz8/world/environment.h"
 
 #include <array>
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -24,7 +25,6 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/fog.h"
@@ -338,9 +338,7 @@ void SetWorldEnvironmentIntensity(World* world, float value)
 {
     glm::vec3 colour{1.0f};
 
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     if (1.0 <= value || 0.0 < value) {
         if (1.0 <= value) {
             value = static_cast<float>(1.0);
@@ -395,9 +393,7 @@ void BeginWorldLightingFade(float duration)
         g_monster_light_scale = 1.0f;
 
         world = GetWorld();
-        if (world == 0) {
-            Fail("pWorld");
-        }
+        assert(world != 0);
         intensity = world->environment.base_intensity;
         intensity = ApplyWorldLightingIntensity(world, intensity);
 
@@ -453,9 +449,7 @@ void UpdateEnvironmentLighting(void)
     g_monster_light_scale = scale;
 
     world = GetWorld();
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     intensity = scale * world->environment.base_intensity;
     intensity = ApplyWorldLightingIntensity(world, intensity);
 
@@ -546,12 +540,8 @@ void SetLightDirection(const glm::vec3* direction)
    names the world and line 617 names the out-parameter pLightValue. */
 void GetWorldLightValue(const World* world, glm::vec3* pLightValue)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
-    if (pLightValue == 0) {
-        Fail("pLightValue");
-    }
+    assert(world != 0);
+    assert(pLightValue != 0);
     if (world->scene != 0) {
         *pLightValue = world->environment.colour;
     } else {
@@ -568,9 +558,7 @@ void GetWorldLightValue(const World* world, glm::vec3* pLightValue)
    SetWorldEnvironment. */
 void SetWorldEnvironmentColour(glm::vec3 colour)
 {
-    if (GetWorld() == nullptr) {
-        Fail("pWorld");
-    }
+    assert(GetWorld() != nullptr);
     ApplyEnvironmentColour(GetWorld(), GetWorld()->environment.intensity, &colour);
 }
 
@@ -578,9 +566,7 @@ void SetWorldEnvironmentColour(glm::vec3 colour)
    registered environment light, and the animated cloud material. */
 void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colour)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
+    assert(world != 0);
     if (world->scene != 0) {
         const auto ambient = glm::clamp(*colour * intensity, 0.0f, 1.0f);
         world->scene->setAmbientLight(ambient);

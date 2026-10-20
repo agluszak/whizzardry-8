@@ -64,7 +64,7 @@ Unlayered code may use the layers.
 
 | Module | Owns |
 | :--- | :--- |
-| `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the presentation random stream, assertions. |
+| `platform/` | Window, SDL input events, filesystem roots, the monotonic clock (`timer.h`), timers and game clocks, the presentation random stream. |
 | `canvas/` | CPU drawing on `SDL_Surface&`: images, STI sprite sheets, fonts, shading tables. Knows nothing about the GPU or the framebuffer. |
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
 | `render/` | VSG scene topology, shared mesh assets and instance poses, material state, views, Vulkan resources and presentation; SDL CPU canvas publication and overlay composition. SDL owns the platform window. |

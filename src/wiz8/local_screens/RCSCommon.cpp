@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/RCSCommon.h"
 
 #include <array>
+#include <cassert>
 #include <functional>
 #include <memory>
 #include <string>
@@ -54,7 +55,6 @@
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -131,9 +131,7 @@ void TryGiveHeldItemToCampPortrait(int slot)
 
 bool CanSelectRcsPartySlot(int ui_slot)
 {
-    if (!CurrentGame().party.members[ui_slot].has_value()) {
-        Fail("gStatus.XChar[uiSlot].fOccupied");
-    }
+    assert(CurrentGame().party.members[ui_slot].has_value());
 
     W8Character* character = &CurrentGame().party.characters[ui_slot];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0) {
@@ -199,9 +197,7 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 // FUNCTION: WIZ8 0x005b6630
 void CampScreen::OpenLevelUpCharacterScreen()
 {
-    if (!CurrentGame().party.members[ReviewedPartySlot()].has_value()) {
-        Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
-    }
+    assert(CurrentGame().party.members[ReviewedPartySlot()].has_value());
     RequestScreen({.id = W8_SCREEN_CHARACTER,
                    .mode = W8_CHARACTER_LEVEL_UP,
                    .character = &CurrentGame().party.characters[ReviewedPartySlot()]});
@@ -370,9 +366,7 @@ void CampScreen::UpdateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6950
 void CampScreen::ShowDismissCharacterDialog()
 {
-    if (!CurrentGame().party.members[ReviewedPartySlot()].has_value()) {
-        Fail("fCHAR_OCCUPIED(ReviewedPartySlot())");
-    }
+    assert(CurrentGame().party.members[ReviewedPartySlot()].has_value());
 
     W8MessageDialogBase* dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
@@ -655,13 +649,9 @@ void CampScreen::DrawCampVitals(void)
         stamina_frame = 0x53;
         spell_frame = 0x54;
     }
-    if (reviewed->uiHPMax == 0) {
-        Fail("gpReviewPC->uiHPMax");
-    }
+    assert(reviewed->uiHPMax != 0);
     hp_fill = reviewed->hp_current * 0x2d / reviewed->uiHPMax;
-    if (reviewed->uiStaminaMax == 0) {
-        Fail("gpReviewPC->uiStaminaMax");
-    }
+    assert(reviewed->uiStaminaMax != 0);
     stamina_fill = (reviewed->stamina < 0 ? 0 : reviewed->stamina) * 0x2d / reviewed->uiStaminaMax;
     if (SumCharacterSpellPoints(reviewed) == 0) {
         spell_fill = 0;

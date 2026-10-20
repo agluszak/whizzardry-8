@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <charconv>
 #include <cmath>
 #include <cstddef>
@@ -67,7 +68,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -171,7 +171,7 @@ try {
     success = (hFile->read(&light_count, sizeof(light_count)).bytes ==
                static_cast<std::size_t>(sizeof(light_count)));
     if (!success) {
-        Fail("fSuccess", "Couldn't read number of lights");
+        return 0;
     }
 
     for (index = 0; index < light_count; ++index) {
@@ -243,9 +243,7 @@ try {
             }
             light = AddWorldLight(world, CreateLight(world->scene.get(), name));
             light->bake_into_mesh = true;
-            if (light == 0) {
-                Fail("pstLight");
-            }
+            assert(light != 0);
             light->setGroupMask(1);
         }
 
@@ -381,20 +379,13 @@ try {
     unsigned char version;
     unsigned char success;
 
-    if (pInfo == 0) {
-        Fail("pInfo");
-    }
-    if (pInfo->hFile == 0) {
-        Fail("pInfo->hFile");
-    }
-    if (pWorld == 0) {
-        Fail("pWorld");
-    }
+    assert(pInfo != 0);
+    assert(pInfo->hFile != 0);
+    assert(pWorld != 0);
 
     success = (pInfo->hFile->read(&count, sizeof(count)).bytes ==
                static_cast<std::size_t>(sizeof(count)));
     if (!success) {
-        Fail("fSuccess", "Error reading num clipping planes");
         return 0;
     }
     if (count == 0) {
@@ -406,9 +397,7 @@ try {
     for (index = 0; index < count; ++index) {
         pWorld->scene->clip_planes.push_back(std::make_unique<ClipPlane>());
         clip_plane = pWorld->scene->clip_planes.back().get();
-        if (clip_plane == 0) {
-            Fail("psrClipPlane", "out of memory creating clip plane");
-        }
+        assert(clip_plane != 0);
 
         pInfo->hFile->read(name, sizeof(name));
         pInfo->hFile->read(&serialized_position, sizeof(serialized_position));
@@ -1020,7 +1009,7 @@ try {
 
     success = ReadWorldClipPlanes(&info, world);
     if (!success) {
-        Fail("fSuccess");
+        return 0;
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 
@@ -1354,16 +1343,10 @@ void LevelSpatialIndex::AddTriggerPlane(const glm::vec3* trigger_vertices, Trigg
             state.integrated_triggers = 0;
             m_ppTriggers.resize(m_iNumTriggers);
         }
-        if (state.integrated_triggers >= m_iNumTriggers) {
-            Fail("(iTriggerCount < m_iNumTriggers)",
-                 "AddTriggerPlane: Too many triggers for trigger array.");
-        }
+        if (state.integrated_triggers >= m_iNumTriggers)
+            throw std::runtime_error("level has more trigger planes than its index");
         m_ppTriggers[state.integrated_triggers++] = trigger;
         return;
-    }
-
-    if (TrigSurfacesCount() >= 500) {
-        Fail("(TrigSurfacesCount() < MAX_TRIG_SURFACES)");
     }
 
     for (index = 0; index < m_iNumTriggers && trigger_index == 0; ++index) {
@@ -1741,15 +1724,9 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use
         level_path = pvl_path;
     }
 
-    std::unique_ptr<wiz8::File> handle;
-    try {
-        handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-    } catch (const std::exception&) {
-        Fail("hFile", "Could not open level file.");
-    }
-    if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder))) {
-        Fail("fSuccess", "Problem loading level, please check files and versions.");
-    }
+    auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
+    if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder)))
+        throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }
 

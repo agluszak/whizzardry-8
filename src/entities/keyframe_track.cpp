@@ -1,6 +1,7 @@
 #include "wiz8/entities/keyframe_track.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -20,7 +21,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/transform.h"
 
@@ -167,9 +167,7 @@ bool PathAIIsComplete(KeyframeTrack* path)
 
 void PathAISetValue(KeyframeTrack* path, float value)
 {
-    if (path == 0) {
-        Fail("pPathAI");
-    }
+    assert(path != 0);
     if (path->animated) {
         path->position = 0.0f;
         path->interpolation_fraction = 0;
@@ -271,9 +269,7 @@ bool PathAITick(KeyframeTrack* path, signed char direction)
     float amount;
     float point_count;
 
-    if (path == 0) {
-        Fail("pPathAI");
-    }
+    assert(path != 0);
     now = MonotonicMilliseconds();
     if (!path->discrete_mode && path->animated) {
         elapsed = now - path->last_update_tick;

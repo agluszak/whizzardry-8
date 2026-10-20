@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -44,7 +45,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -233,16 +233,13 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         const auto dragged = MainGame()->item_drag->item;
         if (CurrentGame().party.held.item.iItemNo == -1) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;
-            if (party_pool && CurrentGame().combat.has_value())
-                Fail("!CurrentGame().combat.has_value()");
+            assert(!party_pool || !CurrentGame().combat.has_value());
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
                                      CurrentGame().party.itemAt(dragged));
         } else {
             RebuildUseItemSelectList(ItemPool::Hand, &CurrentGame().party.held.item);
         }
-        if (use_item->selected_line == -1) {
-            Fail("giReuseItemLineNumber != -1");
-        }
+        assert(use_item->selected_line != -1);
         ScrollTextBoxTo(use_item->selected_line);
         return;
     }
@@ -254,12 +251,9 @@ void RefreshUseItemSelectionForSlot(int party_slot)
             const bool party_pool =
                 CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item.storage ==
                 W8ItemStorage::Pool;
-            if (party_pool && CurrentGame().combat.has_value())
-                Fail("!CurrentGame().combat.has_value()");
+            assert(!party_pool || !CurrentGame().combat.has_value());
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character, item);
-            if (use_item->selected_line == -1) {
-                Fail("giReuseItemLineNumber != -1");
-            }
+            assert(use_item->selected_line != -1);
             ScrollTextBoxTo(use_item->selected_line);
             SetHoveredTextLine(use_item->selected_line, 2);
             RedrawTextBox();
@@ -558,13 +552,8 @@ void SelectUseItemLine(int iTextLine)
 {
     W8SpellTargetType target_type;
 
-    if (iTextLine < 0) {
-        Fail("iTextLine >= 0");
-    }
-    if (iTextLine >= static_cast<int>(use_item->rows.size())) {
-        // c-style-cast-ok: the assertion text itself spells (INT32)
-        Fail("iTextLine < (INT32) guiNumItemsInList");
-    }
+    assert(iTextLine >= 0);
+    assert(iTextLine < static_cast<int>(use_item->rows.size()));
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateUseItemDetailPanel(use_item->rows[iTextLine].item);
     if (ValidateItemSpellUse(use_item->owner, use_item->rows[iTextLine].item,
@@ -659,9 +648,7 @@ void TakeUseItemIntoHand(void)
 {
     auto& selected = use_item->draft.detail_block.item_use.item;
     if (CurrentGame().party.held.item.iItemNo != -1) {
-        if (use_item->owner == -1) {
-            Fail("giUseItemChar != BAD_INDEX");
-        }
+        assert(use_item->owner != -1);
         const auto old_count = CurrentGame().party.item_count;
         GiveItemToCharacterOrParty(CurrentGame(), use_item->owner,
                                    PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), true);

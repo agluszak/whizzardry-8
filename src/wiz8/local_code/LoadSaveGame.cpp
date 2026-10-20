@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -77,7 +78,6 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"

@@ -1,13 +1,11 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
-#include <exception>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include <SDL3/SDL_keycode.h>
-#include <fmt/format.h>
 
 #include "asset_paths.h"
 #include "mgs_commands.h"
@@ -15,7 +13,6 @@
 #include "wiz8/key_bindings.h"
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
 
 /* Local Code\InputMapper.cpp. MGSKeyboard::LoadDefaults at 0x0055D800
@@ -24,16 +21,7 @@
 unsigned char MGSKeyboard::LoadDefaults(const char* path)
 {
     bool loaded_binding = false;
-    std::unique_ptr<wiz8::File> handle = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path((char*)path), wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (handle == 0) {
-        Fail("hFile", fmt::format("Couldn't open keyboard init file {}", path));
-    }
+    auto handle = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
 
     std::string line;
     while (!(handle->tell() >= handle->size())) {

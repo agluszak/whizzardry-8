@@ -39,8 +39,7 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/assertion.h"
-#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/IntervalGate.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
@@ -262,9 +261,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     script = selected->script.c_str();
     spawn_position = *position;
     record = MonsterDBFromSpecies(species);
-    if (record == 0) {
-        Fail("pMonsterDB", fmt::format("MonsterDBFromSpecies failed for species {:d}", species));
-    }
+    if (record == 0) throw std::runtime_error("encounter names an unknown monster species");
     if (record->deleted != 0) {
         DebugMessage(1, fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "
                                     "species {:d} has been DELETED!",
@@ -294,10 +291,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     int count = RollEncounterGroupSize(record);
-    if (count == 0) {
-        Fail("ulNumMonsters",
-             fmt::format("Error in Monster DB: zero group size ({})", record->name0));
-    }
+    if (count == 0) throw std::runtime_error("monster database gives an empty encounter group");
 
     group = CreateGroup(species, count, &spawn_position, false, false, true);
     group->encounter_registered = true;
@@ -316,10 +310,8 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         unsigned int companion_species =
             static_cast<unsigned short>(companion_records[index].species);
         const W8MonsterRecord* companion_record = MonsterDBFromSpecies(companion_species);
-        if (companion_record == 0) {
-            Fail("pMonsterDB",
-                 fmt::format("MonsterDBFromSpecies failed for species {:d}", companion_species));
-        }
+        if (companion_record == 0)
+            throw std::runtime_error("encounter names an unknown companion species");
         if (companion_record->deleted != 0) {
             DebugMessage(1,
                          fmt::format("MonGen::GenerateEncounter: WARNING - DBS record for monster "

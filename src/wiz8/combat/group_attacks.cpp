@@ -1,5 +1,6 @@
 #include "wiz8/combat/group_attacks.h"
 
+#include <cassert>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -25,7 +26,6 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -186,9 +186,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         uiTotals[1] = 0;
         for (iTarget = 0; iTarget < static_cast<int>(char_targets.size()); ++iTarget) {
             iChar = char_targets[iTarget];
-            if (iChar == -1) {
-                Fail("iTargetChar != BAD_INDEX");
-            }
+            assert(iChar != -1);
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_CHARACTER;
             target.iChar = iChar;
@@ -293,9 +291,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         }
         for (iTarget = 0; iTarget < static_cast<int>(monster_targets.size()); ++iTarget) {
             iMonsterID = monster_targets[iTarget];
-            if (iMonsterID == -1) {
-                Fail("iTargetMonsterID != BAD_INDEX");
-            }
+            assert(iMonsterID != -1);
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_MONSTER;
             target.iMonsterID = iMonsterID;
@@ -493,9 +489,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     count = RollDice(&record->group_size_dice);
     position = &pAttackerSlot->point;
     group = CreateGroup(special_attack_kind, count, position, false, false, true);
-    if (group == 0) {
-        Fail("pGroup");
-    }
+    assert(group != 0);
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);
     if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {

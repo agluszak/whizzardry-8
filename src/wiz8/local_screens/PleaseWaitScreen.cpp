@@ -1,10 +1,12 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -28,7 +30,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/music_playlist.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
@@ -164,19 +165,17 @@ void PleaseWaitScreen::frame()
         int level;
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);
-        if (!LoadLevel(level, entrance, false)) {
-            Fail("fVerify");
-        }
+        if (!LoadLevel(level, entrance, false))
+            throw std::runtime_error(fmt::format("cannot load level {}", level));
         PostNewGameLoad();
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
-        if (!LoadGame(games, name)) {
-            Fail("fVerify");
-        }
-        if (!LoadLevel(CurrentGame().status.resume_level, -1, true)) {
-            Fail("fVerify");
-        }
+        if (!LoadGame(games, name))
+            throw std::runtime_error(fmt::format("cannot load saved game {}", name));
+        if (!LoadLevel(CurrentGame().status.resume_level, -1, true))
+            throw std::runtime_error(
+                fmt::format("cannot load level {}", CurrentGame().status.resume_level));
 
         break;
     case W8_PLEASE_WAIT_SAVE_GAME: {
@@ -201,15 +200,12 @@ void PleaseWaitScreen::frame()
         break;
     }
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
-        if (!ReloadLevelPreservingCamera(parameter, parameter_2)) {
-            Fail("fVerify");
-        }
+        if (!ReloadLevelPreservingCamera(parameter, parameter_2))
+            throw std::runtime_error(fmt::format("cannot load level {}", parameter));
         AutoSaveIfAllowed(true);
     }
 
-    if (!GetWorld()) {
-        Fail("GetWorld()");
-    }
+    assert(GetWorld());
     ReturnToPreviousScreen();
     if (mode == W8_PLEASE_WAIT_LOAD_GAME && CurrentGame().status.intro_shown) {
         RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_VIRGIN});

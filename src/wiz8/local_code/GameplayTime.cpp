@@ -1,7 +1,9 @@
 #include "wiz8/local_code/GameplayTime.h"
 
+#include <cassert>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/printf.h>
@@ -51,7 +53,6 @@
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
@@ -190,9 +191,7 @@ void UpdateGameClock(int elapsed)
 
     if ((!CurrentGame().combat.has_value() || aging_ticks != 0) && g_camera_sway_active) {
         if (CurrentGame().combat.has_value()) {
-            if (aging_ticks == 0) {
-                Fail("uiTurnsElapsed > 0");
-            }
+            assert(aging_ticks != 0);
             CurrentGame().status.camp_tick_ms -= 4 * 0x9c4;
             UpdateCampFatigue(4);
         } else {
@@ -646,9 +645,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     condition = W8_CONDITION_PARALYZED;
                     break;
                 default:
-                    Fail("FALSE", "GameTurnsPassedChar: ERROR - Invalid condition");
-                    condition = minutes;
-                    break;
+                    std::unreachable();
                 }
                 SetCharacterCondition(party_slot, static_cast<W8Condition>(condition),
                                       W8_CONDITION_INDEFINITE, 0, 0, 1);

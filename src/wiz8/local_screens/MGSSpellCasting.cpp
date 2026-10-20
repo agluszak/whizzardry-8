@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -55,7 +56,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -457,9 +457,7 @@ static void RefreshSpellPowerPip(int pip)
     int level;
     int frame;
 
-    if (gpSCSV->draft.detail == 0) {
-        Fail("gpSCSV->draft.detail != SPELL_NONE");
-    }
+    assert(gpSCSV->draft.detail != 0);
     if (pip == 7 || pip == 8) {
         level = 8;
     } else {
@@ -907,7 +905,6 @@ static void SelectSpellCastingListRow(int index)
 {
     signed char color;
     int cost;
-    W8SpellPowerClass power_class;
     int previous;
     int spell_id;
     W8SpellTargetType target_type;
@@ -937,10 +934,7 @@ static void SelectSpellCastingListRow(int index)
         return;
     }
     SetSpellListLineColor(gpSCSV->uiSpellIndex, 3);
-    power_class = Data().spells[spell_id].power_class;
-    if (power_class == W8_SPELL_POWER_CLASS_NONE) {
-        Fail("iSpellPowerClass != BAD_INDEX");
-    }
+    assert(Data().spells[spell_id].power_class != W8_SPELL_POWER_CLASS_NONE);
     cost = Data().spells[spell_id].spell_point_cost;
     levels = GetCharacterRealmSpellPoints(
                  &CurrentGame().party.characters[CurrentGame().status.selected_character],

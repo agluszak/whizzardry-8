@@ -1,9 +1,11 @@
 #include "wiz8/entities/monster.h"
 
+#include <cassert>
 #include <cmath>
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -63,7 +65,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
@@ -245,9 +246,7 @@ void Monster::RandomizeAppearanceAndMotion()
         float minimum = minimum_scale;
         float maximum = maximum_scale;
 
-        if (minimum > maximum) {
-            Fail("flStart <= flEnd");
-        }
+        assert(minimum <= maximum);
         random_value = CurrentGame().rng.below(1000);
         scale = (maximum - minimum) * random_value * 0.001f + minimum;
     }
@@ -739,10 +738,7 @@ bool Monster::GetProjectilePosition(glm::vec3* position)
     if (position == 0) {
         return false;
     }
-    if (IsCycleSupported(0x11) && IsCycleSupported(0x0d)) {
-        Fail("!(IsCycleSupported(CYCLE_ATTACK_SHOOT) && "
-             "IsCycleSupported(CYCLE_ATTACK_THROW))");
-    }
+    assert(!(IsCycleSupported(0x11) && IsCycleSupported(0x0d)));
     if (IsCycleSupported(0x0d)) {
         cycle = W8_MONSTER_CYCLE_ATTACK_THROW;
     } else if (IsCycleSupported(0x11)) {
@@ -964,9 +960,7 @@ bool Monster::IsFacingMonster(Monster* monster)
     glm::vec3 from;
     glm::vec3 to;
 
-    if (monster == 0) {
-        Fail("pMonsterB");
-    }
+    assert(monster != 0);
     to = monster->nav.GetPosition();
     from = nav.GetPosition();
     bearing = NormalizeAngle(GetHeadingAngle(&from, &to));
@@ -981,9 +975,7 @@ bool Monster::IsFacingPlayer()
     glm::vec3 from;
     glm::vec3 to;
 
-    if (PartyNavigator() == 0) {
-        Fail("pPlayer");
-    }
+    assert(PartyNavigator() != 0);
     to = PartyNavigator()->GetPosition();
     from = nav.GetPosition();
     bearing = NormalizeAngle(GetHeadingAngle(&from, &to));
@@ -1275,10 +1267,6 @@ bool Monster::CanEnterCycle(signed char cycle)
     if (visual.animation_playing == 0) {
         if (cycle != W8_MONSTER_CYCLE_GET_HIT && cycle != W8_MONSTER_CYCLE_DIE &&
             cycle != W8_MONSTER_CYCLE_BIRTH && monster_info->fMotionless) {
-            if (!g_dev_mode) {
-                return false;
-            }
-            Fail("FALSE");
             return false;
         }
     } else {
@@ -1362,9 +1350,7 @@ void Monster::ApplyRemovalStateEffects()
 
 unsigned char Monster::GetNumSubsPerCycle(signed char bCycle)
 {
-    if (bCycle >= W8_MONSTER_CYCLE_COUNT) {
-        Fail("bCycle < CYCLE_NUM_UNIQUE", "GetNumSubsPerCycle() -> Invalid cycle num.");
-    }
+    assert(bCycle < W8_MONSTER_CYCLE_COUNT);
     if (bCycle == -1) {
         bCycle = visual.current_cycle;
     }
@@ -1563,9 +1549,7 @@ void Monster::SetShakeEventVisibility(signed char cycle)
 unsigned int Monster::ApplyEmitterSetting(signed char cycle)
 {
     Animation* animation = cycles[cycle][visual.current_subcycle].animation.get();
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     return AnimObjValue(animation, visual.m_bLOD);
 }
 
@@ -1583,9 +1567,7 @@ signed char Monster::GetNumSubCycles()
    0x1d8-byte GrCycle base. */
 bool Monster::IsCycleSupported(signed char cycle)
 {
-    if (cycle >= W8_MONSTER_CYCLE_COUNT) {
-        Fail("bCycle < CYCLE_NUM_UNIQUE", "IsCycleSupported() -> Invalid cycle num.");
-    }
+    assert(cycle < W8_MONSTER_CYCLE_COUNT);
     return static_cast<int>(cycles[cycle].size()) != 0;
 }
 
@@ -1600,18 +1582,13 @@ void Monster::SetCycle(signed char cycle)
     int count;
     int index;
 
-    if (cycle < W8_MONSTER_CYCLE_BIRTH || cycle >= W8_MONSTER_CYCLE_COUNT) {
-        Fail("bCycle >= CYCLE_FIRST && bCycle <= CYCLE_LAST");
-    }
+    assert(cycle >= W8_MONSTER_CYCLE_BIRTH && cycle < W8_MONSTER_CYCLE_COUNT);
 
     auto& cycle_animations = cycles[cycle];
     count = static_cast<int>(cycle_animations.size());
     if (count == 0) {
         if (static_cast<int>(cycles[1].size()) < 1) {
-            W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
-            Fail("FALSE", fmt::format("ERROR: Monster {} has no IDLE cycle!",
-                                      GetMonsterName(monster_info, 0, 0)));
-            return;
+            throw std::runtime_error(fmt::format("monster {} has no idle cycle", name));
         }
 
         W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
@@ -1625,9 +1602,6 @@ void Monster::SetCycle(signed char cycle)
     }
 
     if (count == 1) {
-        subcycle = 0;
-    } else if (count < 2) {
-        Fail("0");
         subcycle = 0;
     } else if (visual.forced_subcycle == -1 || count <= visual.forced_subcycle) {
         if ((runtime_flags & W8_MONSTER_KEEP_SUBCYCLE) == 0) {
@@ -1663,9 +1637,7 @@ void Monster::SetCycle(signed char cycle)
     visual.current_subcycle = subcycle;
     animation = cycle_animations[subcycle].animation.get();
     visual.active_animation = animation;
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     visual.frame_method = animation->frame_method;
 
     {
@@ -2039,18 +2011,12 @@ void W8MonsterShakeCallback::RestoreAnimation()
 {
     Monster* representation;
 
-    if (m_pMonster == 0) {
-        Fail("m_pMonster");
-    }
-    if (m_pParticles == 0) {
-        Fail("m_pParticles");
-    }
+    assert(m_pMonster != 0);
+    assert(m_pParticles != 0);
 
     m_pParticles->SetActive(false);
     representation = m_pMonster;
-    if (saved_behaviour < 1 || saved_behaviour > 3) {
-        Fail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST");
-    }
+    assert(saved_behaviour >= 1 && saved_behaviour <= 3);
     representation->visual.pending_behaviour = saved_behaviour;
     representation->visual.SetFrameMethod(saved_frame_method);
     representation->visual.frame_direction = W8_ANIMATION_FORWARD;
@@ -2144,9 +2110,7 @@ Animation* Monster::GetCurrentAnimation()
 AnimationMesh* Monster::GetCurrentAniMesh()
 {
     Animation* animation = cycles[visual.current_cycle][visual.current_subcycle].animation.get();
-    if (animation == 0) {
-        Fail("pao");
-    }
+    assert(animation != 0);
     return AnimObjEntry(animation, visual.m_bLOD, 0);
 }
 
@@ -2239,9 +2203,7 @@ void Monster::SetPendingCycle(int cycle)
 
 void Monster::SetRuntimeBehaviour(W8AnimationBehaviour behaviour)
 {
-    if (behaviour < 1 || behaviour > 3) {
-        Fail("bBehaviour >= BEHAVIOUR_FIRST && bBehaviour <= BEHAVIOUR_LAST");
-    }
+    assert(behaviour >= 1 && behaviour <= 3);
     visual.pending_behaviour = behaviour;
 }
 

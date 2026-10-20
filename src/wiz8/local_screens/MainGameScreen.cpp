@@ -4,6 +4,7 @@
 #include <array>
 #include <chrono>
 #include <bitset>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -123,7 +124,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
@@ -2530,9 +2530,7 @@ void MainGameScreen::frame()
         }
         if (CurrentGame().status.selected_character == -1) {
             int next = GetNextCharacter(1, 1, -1);
-            if (next == -1) {
-                Fail("iNextChar != BAD_INDEX");
-            }
+            assert(next != -1);
             SelectPartyCharacter(next);
         }
     }
@@ -3083,9 +3081,7 @@ void SelectPartyCharacter(int party_slot)
     W8Character* character;
     int previous;
 
-    if (!CurrentGame().party.members[party_slot].has_value()) {
-        Fail("gStatus.XChar[uiChar].fOccupied");
-    }
+    assert(CurrentGame().party.members[party_slot].has_value());
     character = &CurrentGame().party.characters[party_slot];
     if (character->highest_condition >= W8_CONDITION_MISSING) {
         return;
@@ -3359,9 +3355,7 @@ void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int m
             MainGameHud()->highlight_graphic = makeOverlayFromSurface(*surface, 0, 0, 1);
         }
     }
-    if (MainGameHud()->highlight_graphic == 0) {
-        Fail("gpMGSV->pHighlightGraphic");
-    }
+    assert(MainGameHud()->highlight_graphic != 0);
     positionOverlay(MainGameHud()->highlight_graphic.get(), MainGameHud()->dialogue_x + 7,
                     MainGameHud()->dialogue_row_y - 1 + MainGameHud()->highlight_row * 0x12, false);
     InvalidateRegion(MainGameHud()->dialogue_x, MainGameHud()->dialogue_y,
@@ -5144,9 +5138,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             assign = false;
         }
         if (assign) {
-            if (CurrentGame().status.selected_character == -1) {
-                Fail("gStatus.iSelectedCharacter != -1");
-            }
+            assert(CurrentGame().status.selected_character != -1);
             AimAtMonsterLocation(CurrentGame().status.selected_character,
                                  MainGameHud()->highlighted_item, true);
         }
@@ -5799,13 +5791,10 @@ bool IsMGSActionKeyEnabled(unsigned short command)
                 return false;
             }
         default:
-            Fail("FALSE", "Error with handling main game action keyboard equivalent");
-            break;
+            return false;
         }
     }
-    if (state == -1) {
-        Fail("iActionState != -1", "Error with handling main game action keyboard equivalent");
-    }
+    assert(state != -1);
     if (!IsPartySlotEligible(CurrentGame().status.selected_character)) {
         return false;
     }
@@ -5921,7 +5910,6 @@ void RunMGSActionKey(unsigned short command)
         }
         break;
     default:
-        Fail("FALSE", "Error executing main game screen action");
         break;
     }
 }

@@ -1,5 +1,6 @@
 #include "wiz8/dialog_code/AssayDialog.h"
 
+#include <cassert>
 #include <cstring>
 #include <memory>
 #include <stdexcept>
@@ -44,7 +45,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/RCSItemsPage.h"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/item_instance.h"
@@ -97,6 +97,8 @@ static unsigned short g_quantity_kind_name_ids[7] = {
 static std::string g_assay_entry_text;
 
 enum { NUM_RPC_RACES = 5 };
+// The button showing each recruitable character's race.
+constexpr int kRpcRaceButtons[NUM_RPC_RACES] = {0x22, 0x1b, 0x23, 0x1c, 0x24};
 
 W8AssayDialog::W8AssayDialog(const W8ItemInstance& item, W8Character* character, SDL_Point origin)
     : m_item(item), m_item_worn(character && IsItemWornByCharacter(character, &item))
@@ -451,9 +453,7 @@ void W8AssayDialog::PopulateText()
     count = AppendAssayRequirements(record->skill_requirements, count);
     if (record->category == W8_ITEM_CATEGORY_CASTER_ITEM_6 ||
         record->category == W8_ITEM_CATEGORY_CASTER_ITEM_8) {
-        if (record->spell_id == W8_SPELL_NONE) {
-            Fail("uiSpell != SPELL_NONE");
-        }
+        assert(record->spell_id != W8_SPELL_NONE);
         if (count != 0) {
             AppendAssayEntryText(g_comma_space);
         }
@@ -644,30 +644,7 @@ bool W8AssayDialog::PopulateRequirements()
                             {.tooltip = 0x289});
 
     for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
-        if (us_index >= NUM_RPC_RACES) {
-            Fail("usIndex < NUM_RPC_RACES");
-        }
-        switch (us_index) {
-        case 0:
-            button_index = 0x22;
-            break;
-        case 1:
-            button_index = 0x1b;
-            break;
-        case 2:
-            button_index = 0x23;
-            break;
-        case 3:
-            button_index = 0x1c;
-            break;
-        case 4:
-            button_index = 0x24;
-            break;
-        default:
-            button_index = -1;
-            Fail("iUnknownButtonIndex != MAXDWORD");
-            break;
-        }
+        button_index = kRpcRaceButtons[us_index];
         switch (CurrentGame().status.rpc_races[us_index]) {
         case 0xd:
             frame = 0x16;
@@ -860,26 +837,7 @@ void W8AssayDialog::SetRaceIconsVisible(bool show)
             button_index = -1;
             for (us_index = 0; us_index < NUM_RPC_RACES; ++us_index) {
                 if (race == CurrentGame().status.rpc_races[us_index]) {
-                    if (us_index >= NUM_RPC_RACES) {
-                        Fail("usIndex < NUM_RPC_RACES");
-                    }
-                    switch (us_index) {
-                    case 0:
-                        button_index = 0x22;
-                        break;
-                    case 1:
-                        button_index = 0x1b;
-                        break;
-                    case 2:
-                        button_index = 0x23;
-                        break;
-                    case 3:
-                        button_index = 0x1c;
-                        break;
-                    case 4:
-                        button_index = 0x24;
-                        break;
-                    }
+                    button_index = kRpcRaceButtons[us_index];
                     break;
                 }
             }

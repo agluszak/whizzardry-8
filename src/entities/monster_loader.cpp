@@ -1,7 +1,7 @@
+#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <exception>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -40,7 +40,8 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/platform/assertion.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/location_variables.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/frame.h"
@@ -85,9 +86,6 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
     Monster* shared = findMonsterAsset(*world, monster_name);
     if (shared != 0) {
         monster = std::make_unique<Monster>(*shared, world);
-        if (!monster) {
-            Fail("*ppMonster");
-        }
         monster->RandomizeAppearanceAndMotion();
         monster->asset_name = monster_name;
         return monster;
@@ -141,16 +139,7 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
 
     std::string path;
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
-    std::unique_ptr<wiz8::File> handle = [&]() {
-        try {
-            return wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
-        } catch (const std::exception&) {
-            return std::unique_ptr<wiz8::File>{};
-        }
-    }();
-    if (handle == 0) {
-        Fail("hFile", fmt::format("Couldn't open {}", path));
-    }
+    auto handle = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
     monster = std::make_unique<Monster>(world);
     AllocateLegacyPropSaveId();
     monster->visual.current_cycle = -1;
@@ -213,17 +202,13 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
                 has_lod_range = true;
             } else if (SDL_strcasecmp(command.c_str(), "pitch") == 0) {
                 int pitch = 0;
-                if (last_sound == 0) {
-                    Fail("pSndEvent",
-                         "mls pitch: Must specify a sound before specifying parameters");
-                }
+                if (last_sound == 0)
+                    throw std::runtime_error(path + ": sound parameter before sound");
                 fields >> pitch;
                 last_sound->pitch = pitch;
             } else if (SDL_strcasecmp(command.c_str(), "volume") == 0) {
-                if (last_sound == 0) {
-                    Fail("pSndEvent",
-                         "mls volume: Must specify a sound before specifying parameters");
-                }
+                if (last_sound == 0)
+                    throw std::runtime_error(path + ": sound parameter before sound");
                 fields >> last_sound->volume_min >> last_sound->volume_max;
             } else if (SDL_strcasecmp(command.c_str(), "sound_falloff") == 0) {
                 fields >> sound_falloff;
@@ -231,10 +216,8 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
                 fields >> footstep_volume >> footstep_combat_volume;
             } else if (SDL_strcasecmp(command.c_str(), "probability") == 0) {
                 int probability = 0;
-                if (last_sound == 0) {
-                    Fail("pSndEvent",
-                         "mls frequency: Must specify a sound before specifying parameters");
-                }
+                if (last_sound == 0)
+                    throw std::runtime_error(path + ": sound parameter before sound");
                 fields >> probability;
                 last_sound->probability = static_cast<unsigned char>(probability);
             } else if (SDL_strcasecmp(command.c_str(), "animscript") == 0) {
@@ -393,10 +376,8 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
                         effect.subcycle = subcycle - 1;
                         monster->visual.AddShakeEffect(effect);
                     } else {
-                        Fail("FALSE",
-                             fmt::format("Monster::ReadAllCycles: ERROR - Unrecognized MLS "
-                                         "string \"{}\" in {}",
-                                         command, path));
+                        throw std::runtime_error(
+                            fmt::format("{}: unrecognized command \"{}\"", path, command));
                     }
                 }
             }
@@ -536,10 +517,6 @@ W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycl
 {
     int index = W8_MONSTER_CYCLE_COUNT;
 
-    if (name.empty()) {
-        Fail("pacName");
-    }
-
     W8MonsterCycle cycle = W8_MONSTER_CYCLE_NONE;
     for (int candidate = 0; candidate < W8_MONSTER_CYCLE_COUNT; ++candidate) {
         if (name.starts_with(std::string_view(g_cycle_names[candidate].name,
@@ -584,9 +561,7 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index, in
     unsigned char success;
     signed char cycle;
 
-    if (info == 0 || info->hFile == 0) {
-        Fail("pInfo && pInfo->hFile");
-    }
+    assert(info != 0 && info->hFile != 0);
 
     auto owner = std::make_unique<Animation>();
     animation = owner.get();
@@ -596,9 +571,7 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index, in
         cycle_index = static_cast<signed char>(animation->cycle);
     }
     cycle = static_cast<signed char>(cycle_index);
-    if (cycle < W8_MONSTER_CYCLE_BIRTH || cycle >= W8_MONSTER_CYCLE_COUNT) {
-        Fail("bCycle>=CYCLE_FIRST && bCycle<=CYCLE_LAST");
-    }
+    assert(cycle >= W8_MONSTER_CYCLE_BIRTH && cycle < W8_MONSTER_CYCLE_COUNT);
 
     auto& installed =
         cycles[cycle].emplace_back(std::move(lights), std::move(owner), animation->playback_scale);

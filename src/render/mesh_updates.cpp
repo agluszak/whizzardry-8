@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -14,7 +15,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
-#include "wiz8/platform/assertion.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
@@ -145,12 +145,8 @@ std::vector<glm::ivec2> visibleQuadCells(const World& world)
 
 void UpdateWorldMeshFromQuads(World* world)
 {
-    if (world == 0) {
-        Fail("pWorld");
-    }
-    if (world->quads == 0) {
-        Fail("pWorld->Tree.pQuads");
-    }
+    assert(world != 0);
+    assert(world->quads != 0);
     Mesh* mesh = static_cast<Mesh*>(world->update_mesh_source->getModel());
     MeshVisibilityGrid& quad = *world->quads;
     const auto cells = visibleQuadCells(*world);
@@ -178,9 +174,7 @@ void UpdateWorldMesh()
     std::int32_t polygon_count;
     std::uint32_t index;
 
-    if (GetWorld() == nullptr) {
-        Fail("pWorld");
-    }
+    assert(GetWorld() != nullptr);
     source = GetWorld()->update_mesh_source;
     if (source != 0) {
         mesh = static_cast<Mesh*>(source->getModel());
