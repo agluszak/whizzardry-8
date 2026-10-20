@@ -42,7 +42,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -422,7 +421,7 @@ void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsi
             CurrentGame().party.characters[party_slot].uiCondition[W8_CONDITION_POISONED];
 
         if (lost == 0 &&
-            Random(100) <
+            CurrentGame().rng.below(100) <
                 CurrentGame().party.characters[party_slot].condition_argument * minutes * 100 /
                     CurrentGame().party.characters[party_slot].uiCondition[W8_CONDITION_POISONED]) {
             lost = 1;
@@ -632,8 +631,8 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
         int strength = monster_info->condition_argument;
         unsigned int lost = strength * minutes / monster_info->uiCondition[condition];
 
-        if (lost == 0 &&
-            Random(100) < strength * minutes * 100 / monster_info->uiCondition[condition]) {
+        if (lost == 0 && CurrentGame().rng.below(100) <
+                             strength * minutes * 100 / monster_info->uiCondition[condition]) {
             lost = 1;
         }
         monster_info->condition_argument = strength - lost;

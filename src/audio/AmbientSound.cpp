@@ -61,7 +61,7 @@ bool W8AmbientTrack::Due() const
 }
 std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t maximum)
 {
-    return minimum + (maximum > minimum ? Random(maximum - minimum) : 0);
+    return minimum + (maximum > minimum ? PresentationRng().below(maximum - minimum) : 0);
 }
 wiz8::sound::Playback W8AmbientTrack::Fire(std::uint32_t volume, std::optional<glm::vec3> position)
 {
@@ -299,7 +299,7 @@ void W8AmbientSound::Service(bool entered)
             if (!entered) {
                 should_play = random->Due();
             } else {
-                should_play = Random(3);
+                should_play = PresentationRng().below(3);
             }
             if (!CurrentGame().combat.active() && should_play != 0 &&
                 CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
@@ -319,9 +319,10 @@ void W8AmbientSound::Service(bool entered)
                 transformed = rotation * offset;
                 to_listener = camera - position;
                 distance = glm::length(to_listener);
-                volume = static_cast<unsigned int>(((Random(volume_max - volume_min) + volume_min) *
-                                                    g_settings.sound_effects_volume) /
-                                                   0x7f);
+                volume = static_cast<unsigned int>(
+                    ((PresentationRng().below(volume_max - volume_min) + volume_min) *
+                     g_settings.sound_effects_volume) /
+                    0x7f);
                 current_volume = volume;
                 if (distance < radius * kNavigatorMode3Scale) {
                     heard_volume = current_volume;
@@ -499,7 +500,7 @@ wiz8::sound::Playback PlayFootstep(W8FootstepSurface surface, W8FootstepMaterial
     } else {
         int variant;
         do {
-            variant = Random(4) + 1;
+            variant = PresentationRng().below(4) + 1;
             ++attempts;
         } while (variant == g_previous_ambient_footstep_variant && attempts < 100);
         BuildFootstepPath(path, selected_surface, selected_material, kind, variant);

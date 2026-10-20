@@ -276,7 +276,8 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
         magnitude = initial_speed;
     } else if (speed_mode == W8_PARTICLE_SPEED_RANDOM) {
-        magnitude = (speed_max - speed_min) * Random15() * kParticleRandomUnitScale + speed_min;
+        magnitude = (speed_max - speed_min) * PresentationRng().next() * kParticleRandomUnitScale +
+                    speed_min;
     }
     magnitude *= size_scale;
 
@@ -294,10 +295,10 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
     case W8_PARTICLE_DIRECTION_CONE: {
         glm::vec3 direction(0, 0, magnitude);
 
-        double angle = (Random15() * kParticleRandomUnitScale - 0.5f) * cone_pitch;
+        double angle = (PresentationRng().next() * kParticleRandomUnitScale - 0.5f) * cone_pitch;
         direction = glm::vec3(glm::rotateX(glm::dvec3(direction), angle));
 
-        angle = (Random15() * kParticleRandomUnitScale - 0.5f) * cone_yaw;
+        angle = (PresentationRng().next() * kParticleRandomUnitScale - 0.5f) * cone_yaw;
         direction = glm::vec3(glm::rotateY(glm::dvec3(direction), angle));
 
         const auto rotation = this->transform.orientation<glm::mat3>();
@@ -307,9 +308,9 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
 
     case W8_PARTICLE_DIRECTION_RANDOM: {
         glm::vec3 direction;
-        direction.x = Random15() * kParticleRandomUnitScale - 0.5f;
-        direction.y = Random15() * kParticleRandomUnitScale - 0.5f;
-        direction.z = Random15() * kParticleRandomUnitScale - 0.5f;
+        direction.x = PresentationRng().next() * kParticleRandomUnitScale - 0.5f;
+        direction.y = PresentationRng().next() * kParticleRandomUnitScale - 0.5f;
+        direction.z = PresentationRng().next() * kParticleRandomUnitScale - 0.5f;
 
         direction = normalizedOrZero(direction);
 
@@ -325,7 +326,7 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
     particle_positions[index] = glm::vec3(this->transform.getLocation());
 
     if (!flutter_angles.empty()) {
-        flutter_angles[index] = Random15() * kParticleFlutterAngleRandomScale;
+        flutter_angles[index] = PresentationRng().next() * kParticleFlutterAngleRandomScale;
     }
     if (!texture_frames.empty()) {
         static_cast<Texture*>(texture_frames[index * 2].get())->SetFrame(0);
@@ -487,7 +488,8 @@ void ParticleSystem::Update()
 glm::vec3 ParticleSystem::emissionPosition()
 {
     // Braced initialization preserves the x, y, z random draw order.
-    const glm::vec3 random{float(Random15()), float(Random15()), float(Random15())};
+    const glm::vec3 random{float(PresentationRng().next()), float(PresentationRng().next()),
+                           float(PresentationRng().next())};
     const auto offset = ((emission_maximum - emission_minimum) * random * kParticleRandomUnitScale +
                          emission_minimum) *
                         size_scale;

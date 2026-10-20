@@ -47,7 +47,6 @@
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/item_instance.h"
@@ -197,11 +196,11 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         if (candidates.empty()) {
             break;
         }
-        position_index = Random(static_cast<int>(candidates.size()));
+        position_index = CurrentGame().rng.below(static_cast<int>(candidates.size()));
         entry_index = candidates[position_index];
         table = &Data().item_tables[table_id];
         entry = &table->entries[entry_index];
-        random_value = Random(total_weight);
+        random_value = CurrentGame().rng.below(total_weight);
         if (random_value <= entry->weight) {
             output_items.push_back(
                 SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -493,8 +492,8 @@ void ActivateItem(W8WorldItem* item)
     }
     position = item->position;
     item->p3D->SetLocation(&position);
-    item->p3D->SetYaw(
-        static_cast<float>(Random(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
+    item->p3D->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
+                                         kInverseFullTurnDegrees));
     item->p3D->flags |= item->entity_flags;
     item->p3D->AttachMesh(GetWorld());
     GetWorld()->plsItems.push_back(std::move(entity));
@@ -989,7 +988,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
             for (slot = 0; slot < 8; ++slot) {
                 const W8MonsterTreasureEntry* entry = &record->treasure.slots[slot];
-                if (entry->count != 0 && Random(100) <= entry->chance) {
+                if (entry->count != 0 && CurrentGame().rng.below(100) <= entry->chance) {
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
@@ -1040,9 +1039,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                 }
                 taken = 0;
                 while (taken < take) {
-                    pick = Random(40);
+                    pick = CurrentGame().rng.below(40);
                     if (npc->item_ids[pick] != -1 &&
-                        static_cast<short>(Random(total_weight)) <=
+                        static_cast<short>(CurrentGame().rng.below(total_weight)) <=
                             static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
                         item = SpawnItem(npc->item_ids[pick], &position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);

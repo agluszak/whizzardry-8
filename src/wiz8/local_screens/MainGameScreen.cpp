@@ -123,7 +123,6 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_shader.h"
@@ -881,7 +880,7 @@ void W8LockInteraction::ResolvePick()
             character = &CurrentGame().party.characters[m_selected_slot];
             chance = character->skills[W8_SKILL_LOCKS_TRAPS].level + g_settings.difficulty * -5 + 5;
             if ((chance < 0 ? 0 : static_cast<unsigned char>(chance)) <=
-                static_cast<int>(Random(100))) {
+                static_cast<int>(CurrentGame().rng.below(100))) {
                 m_tumbler_owner[i] = -1;
                 m_tumbler_panel->m_tumblers[i].m_pin_set = false;
                 m_tumbler_panel->m_tumblers[i].m_falling = true;
@@ -892,7 +891,7 @@ void W8LockInteraction::ResolvePick()
     }
     m_slot_attempts[m_selected_slot]++;
     m_tumbler_owner[m_picked_tumbler] = m_selected_slot;
-    if (Random(5) == 0 && m_trigger->lock_state.ConsumeCountdown()) {
+    if (CurrentGame().rng.below(5) == 0 && m_trigger->lock_state.ConsumeCountdown()) {
         character = &CurrentGame().party.characters[m_selected_slot];
         level = character->skills[W8_SKILL_LOCKS_TRAPS].level;
         PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_LOCKS_TRAPS, 1, false);
@@ -922,7 +921,7 @@ void W8LockInteraction::AttemptForce()
         return;
     }
     FatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
-    if (static_cast<int>(Random(100)) < *chance) {
+    if (static_cast<int>(CurrentGame().rng.below(100)) < *chance) {
         wiz8::sound::play(s_lock_forcing_success);
         ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ae]));
         BeginUnlock();
@@ -954,8 +953,8 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     count = m_tumbler_count;
     rolled = false;
     for (i = 0; i < static_cast<int>(count); ++i) {
-        unsigned int first = Random(count);
-        unsigned int second = Random(m_tumbler_count);
+        unsigned int first = CurrentGame().rng.below(count);
+        unsigned int second = CurrentGame().rng.below(m_tumbler_count);
         if (first != second) {
             std::swap(order[first], order[second]);
         }
@@ -967,7 +966,7 @@ void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
     }
     chance = g_knock_knock_chance[level];
     for (i = 0; i < pins; ++i) {
-        if (Random(1000) < chance) {
+        if (CurrentGame().rng.below(1000) < chance) {
             pin = order[i];
             panel = m_tumbler_panel.get();
             if (backfire == 0) {
@@ -1447,16 +1446,16 @@ void W8TrapInteraction::SelectTextEntry(int index)
     }
     if (GetTable650434Entry(m_device_id, index) == 0) {
         m_disarm_state = W8_TRAP_DISARM_SPRUNG;
-        duration = (Random(0x18) + 0x32) * kMovementSpeedStep;
+        duration = (CurrentGame().rng.below(0x18) + 0x32) * kMovementSpeedStep;
     } else {
-        roll = static_cast<int>(Random(0x64));
+        roll = static_cast<int>(CurrentGame().rng.below(0x64));
         if (roll < (chance * chance) / 100) {
             m_column_filled[index] = 1;
             m_disarm_state = W8_TRAP_DISARM_COLUMN_SUCCESS;
             duration = 1.0f;
         } else {
             m_disarm_state = W8_TRAP_DISARM_SPRUNG;
-            duration = (Random(0x31) + 0x32) * kMovementSpeedStep;
+            duration = (CurrentGame().rng.below(0x31) + 0x32) * kMovementSpeedStep;
         }
     }
     m_action_controls[1]->SetEnabled(false);
@@ -1523,13 +1522,13 @@ void W8TrapInteraction::OnPrimary(W8TrapInteractionAction action)
     skill = GetPartySlotLocksTrapsLevel(slot);
     hold = 6.0f - skill * kCameraSnapEpsilon;
     chance = GetTrapInteractionChance();
-    roll = static_cast<int>(Random(0x64));
+    roll = static_cast<int>(CurrentGame().rng.below(0x64));
     if (roll < chance) {
         m_disarm_state = W8_TRAP_DISARM_INSPECT_SUCCESS;
         duration = 1.0f;
     } else {
         m_disarm_state = W8_TRAP_DISARM_SPRUNG;
-        duration = (Random(0x18) + 0x4b) * kMovementSpeedStep;
+        duration = (CurrentGame().rng.below(0x18) + 0x4b) * kMovementSpeedStep;
     }
     m_action_controls[1]->SetEnabled(false);
     m_action_controls[2]->SetEnabled(false);
@@ -1686,7 +1685,7 @@ void W8TrapInteraction::ApplyInspectSuccess()
     RefreshActionPanel();
     chance = GetTrapInteractionChance();
     for (column = 0; column < 8; ++column) {
-        roll = static_cast<int>(Random(0x64));
+        roll = static_cast<int>(CurrentGame().rng.below(0x64));
         if (roll < chance) {
             m_slot_columns[m_selected_character][column] = GetTable650434Entry(m_device_id, column);
         } else {
@@ -1767,7 +1766,7 @@ int OpenTrapInteraction(Trigger* trigger)
         0x3840 < static_cast<unsigned int>(CurrentGame().status.world_clock -
                                            trigger->lock_state.last_interaction_clock)) {
         event_type = 0x19;
-        if (0x13 < Random(100)) {
+        if (0x13 < CurrentGame().rng.below(100)) {
             event_type = g_trap_notice_event;
         }
         QueueInteractionNotice(event_type);

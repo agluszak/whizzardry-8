@@ -22,7 +22,6 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/unicode.h"
 
 constexpr int kWorldActionQuoteMax = 'R';
@@ -62,7 +61,7 @@ int W8NpcDialogue::SelectResponse(W8NpcQuoteEntry* entry, int quote_index, int e
     }
     if (entry->operand1 == 2) {
         response_count = entry->operand2 - entry->operand0 + 1;
-        return Random(response_count) + entry->operand0;
+        return CurrentGame().rng.below(response_count) + entry->operand0;
     }
     return entry->operand0;
 }
@@ -151,7 +150,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
                         break;
                     }
                     response_count = static_cast<char>(entry->operand2 - entry->operand0 + 1);
-                    response = Random(response_count) + entry->operand0;
+                    response = CurrentGame().rng.below(response_count) + entry->operand0;
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
@@ -266,7 +265,7 @@ void W8NpcDialogue::Speak(int script_line, bool force_npc_voice)
         case W8NpcSubquoteOutcome::presented:
             break;
         case W8NpcSubquoteOutcome::unknown:
-            QueueQuote(Random(100) < 50 ? 0x1c : 0x1d, false, false, false);
+            QueueQuote(CurrentGame().rng.below(100) < 50 ? 0x1c : 0x1d, false, false, false);
             break;
         case W8NpcSubquoteOutcome::classified:
             QueueQuote(0x1e, false, false, false);

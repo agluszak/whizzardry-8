@@ -43,7 +43,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
@@ -424,8 +423,8 @@ void EnsureUniquePartyVoice(W8Character* character)
             attempts = 1;
             character->voice = (character->voice == 0);
         } else {
-            character->personality = Random(9);
-            character->voice = Random(2);
+            character->personality = CurrentGame().rng.below(9);
+            character->voice = CurrentGame().rng.below(2);
             ++attempts;
         }
     }

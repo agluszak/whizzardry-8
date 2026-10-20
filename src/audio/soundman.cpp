@@ -132,7 +132,8 @@ Playback start(Playback playback, Clip clip, PlayOptions options)
         const auto bend = std::uint64_t(rate) * options.pitch_bend_percent / 100;
         if (bend <= UINT32_MAX / 2)
             rate = std::uint32_t(std::clamp<std::int64_t>(
-                std::int64_t(rate) + std::int64_t(Random(std::uint32_t(bend * 2))) -
+                std::int64_t(rate) +
+                    std::int64_t(PresentationRng().below(std::uint32_t(bend * 2))) -
                     std::int64_t(bend),
                 1, UINT32_MAX));
     }

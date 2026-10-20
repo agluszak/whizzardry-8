@@ -21,7 +21,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/targeting.h"
@@ -107,7 +106,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
             W8MonsterInfo* monster_info = FindMonster(missile.combat_slot.iMonsterID);
             deflect_chance = monster_info->modifiers.missile_deflect_chance;
         }
-        if (deflect_chance > 0 && Random(100) + 1 <= deflect_chance) {
+        if (deflect_chance > 0 && CurrentGame().rng.below(100) + 1 <= deflect_chance) {
             hit_result = W8_MISSILE_HIT_DEFLECTED;
         }
     }

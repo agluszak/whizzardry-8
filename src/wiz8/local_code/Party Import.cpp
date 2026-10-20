@@ -28,7 +28,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/PartyImport.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -379,7 +378,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
         points -= added;
         spins = points * 3;
         for (i = 0; i < spins; ++i) {
-            Random(7);
+            CurrentGame().rng.below(7);
             if (character->attributes[i].base < 100) {
                 --points;
                 spins -= 3;
@@ -394,7 +393,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     removed = 0;
     if (0 < -points) {
         do {
-            pick = Random(7);
+            pick = CurrentGame().rng.below(7);
             if (g_profession_attribute_minimums[character->iProfession].values[pick] != 0 &&
                 static_cast<unsigned int>(
                     g_race_attribute_minimums[character->iRace].values[pick]) <
@@ -803,7 +802,7 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
                 unlocks += character->skill_unlocks[i];
             }
             if (unlocks == 0) {
-                roll = Random(5);
+                roll = CurrentGame().rng.below(5);
                 base_value /= roll + 5;
             } else if (unlocks < 5) {
                 base_value = (unlocks * base_value) / 5;

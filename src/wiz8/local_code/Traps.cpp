@@ -32,7 +32,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -227,7 +226,7 @@ void SelectTrapType(Trigger* trigger)
         budget = 1;
     }
     do {
-        type = Random(0xf);
+        type = CurrentGame().rng.below(0xf);
         lock_state->device_id = type;
     } while (g_trap_difficulty[type] > budget || g_trap_difficulty[type] + 4 < budget);
 }
@@ -239,7 +238,7 @@ void CompleteTrapDisarm(Trigger* trigger)
 
     trigger->CompleteItemInteraction();
     type = trigger->lock_state.device_id;
-    if (Random(100) < 40) {
+    if (CurrentGame().rng.below(100) < 40) {
         ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0);
     }
     text =
@@ -283,7 +282,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
             num_targets = eligible;
         }
         while (static_cast<int>(targets.size()) > num_targets) {
-            index = Random(static_cast<int>(targets.size()));
+            index = CurrentGame().rng.below(static_cast<int>(targets.size()));
             if (targets[index] != CurrentGame().status.selected_character) {
                 targets.erase(targets.begin() + index);
             }
@@ -307,7 +306,7 @@ void ResolveSprungTrap(Trigger* trigger)
     devices = trigger->lock_state.difficulty;
     devices = std::clamp(devices, 1, 7);
     type = trigger->lock_state.device_id;
-    if (Random(2) == 0) {
+    if (CurrentGame().rng.below(2) == 0) {
         trigger->CompleteItemInteraction();
         result = Data().strings[0x7b3];
     } else {
@@ -315,13 +314,13 @@ void ResolveSprungTrap(Trigger* trigger)
     }
     text = fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], result);
     ShowString(text);
-    count = devices - static_cast<int>(Random(devices / 2));
+    count = devices - static_cast<int>(CurrentGame().rng.below(devices / 2));
     power = 4;
     if (devices > g_trap_difficulty[type]) {
         devices -= g_trap_difficulty[type];
         power = devices + 4;
         if (power > 7) {
-            count += static_cast<int>(Random(devices - 3));
+            count += static_cast<int>(CurrentGame().rng.below(devices - 3));
             power = 7;
         }
     }

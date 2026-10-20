@@ -32,7 +32,6 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
@@ -859,7 +858,7 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
     if (count == 0) {
         return -1;
     }
-    return candidates[Random(count)];
+    return candidates[CurrentGame().rng.below(count)];
 }
 
 /* Two seven-byte constant readers the range rules share. */

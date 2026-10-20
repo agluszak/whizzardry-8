@@ -41,7 +41,6 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
@@ -103,7 +102,7 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTable&
     night = !(CurrentGame().status.game_time_ms > 18000000 &&
               CurrentGame().status.game_time_ms <= 79200000);
 
-    rarity_roll = Random(100);
+    rarity_roll = CurrentGame().rng.below(100);
     if (rarity_roll <= 3) {
         rarity_class = 3;
     } else if (rarity_roll <= 10) {
@@ -150,7 +149,9 @@ const W8EncounterEntry* MonGen::SelectEncounterCandidate(const W8EncounterTable&
     }
 
     if (candidates.empty()) return nullptr;
-    return candidates[candidates.size() == 1 ? 0 : Random(static_cast<int>(candidates.size()))];
+    return candidates[candidates.size() == 1
+                          ? 0
+                          : CurrentGame().rng.below(static_cast<int>(candidates.size()))];
 }
 
 /* Bias the database's group-size dice by party-relative monster level and the
@@ -243,7 +244,8 @@ unsigned char MonGen::GenerateEncounter(const glm::vec3* position)
     encounter_weight = GetMonsterCycleFallbackValue(species);
     for (index = 0; index < 2; ++index) {
         companion_records[index] = record->companions[index];
-        if (companion_records[index].species > 0 && Chance(companion_records[index].chance)) {
+        if (companion_records[index].species > 0 &&
+            CurrentGame().rng.chance(companion_records[index].chance)) {
             companion_active[index] = true;
             encounter_weight += GetMonsterCycleFallbackValue(companion_records[index].species);
         }
@@ -371,7 +373,7 @@ bool MonGen::CanGenerateEncounter(bool force)
 
     int chance = (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? GetWorld()->encounters.interval_min
                                                                : custom_spawn_chance;
-    return Chance(chance) != 0;
+    return CurrentGame().rng.chance(chance) != 0;
 }
 
 /* Restore the level's encounter budget and population bounds. */
@@ -706,8 +708,9 @@ void MonGen::Reset(short default_interval)
     interval =
         (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval : custom_interval_seconds;
     jitter = interval * g_generator_jitter_fraction;
-    timer.SetDuration(static_cast<float>(Random(static_cast<int>(jitter) * 2 + 1)) + interval -
-                      jitter);
+    timer.SetDuration(
+        static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) + interval -
+        jitter);
     timer.Arm();
 }
 
@@ -750,8 +753,8 @@ void RollRandomEncounters(void)
     int count = static_cast<int>(generators.size());
     if (count > 1) {
         for (int remaining = count; remaining > 0; --remaining) {
-            int first = Random(count);
-            int second = Random(count);
+            int first = CurrentGame().rng.below(count);
+            int second = CurrentGame().rng.below(count);
             if (first != second) {
                 MonGen* swap = generators[first];
                 generators[first] = generators[second];

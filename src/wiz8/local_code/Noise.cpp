@@ -14,7 +14,6 @@
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
@@ -54,7 +53,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
         if (remaining <= 0) {
             continue;
         }
-        if (Random(100) >=
+        if (CurrentGame().rng.below(100) >=
             remaining * 0.001f + record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
             continue;
         }

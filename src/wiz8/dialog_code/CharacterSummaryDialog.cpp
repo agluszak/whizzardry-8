@@ -42,7 +42,7 @@ W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
 
     m_portrait.pose = m_portrait.target_pose =
         m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
-    m_portrait.idle_clock = MonotonicMilliseconds() + Random(5000) + 5000;
+    m_portrait.idle_clock = MonotonicMilliseconds() + PresentationRng().below(5000) + 5000;
 }
 
 W8CharacterSummaryDialog::~W8CharacterSummaryDialog()

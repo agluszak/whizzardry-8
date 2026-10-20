@@ -186,9 +186,9 @@ void UpdateShakeEffects()
     if (intensity > 0.0f) {
         const float amplitude = std::min(intensity, 1.0f) * 2.5e+02f;
         const int span = static_cast<int>(amplitude) << 1;
-        g_trigger_action_scene_offset.x = Random(span) - amplitude;
-        g_trigger_action_scene_offset.y = Random(span) - amplitude;
-        g_trigger_action_scene_offset.z = Random(span) - amplitude;
+        g_trigger_action_scene_offset.x = PresentationRng().below(span) - amplitude;
+        g_trigger_action_scene_offset.y = PresentationRng().below(span) - amplitude;
+        g_trigger_action_scene_offset.z = PresentationRng().below(span) - amplitude;
         g_trigger_action_active = true;
     } else {
         g_trigger_action_active = false;

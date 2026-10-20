@@ -42,6 +42,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/geometry.h"
 #include "wiz8/level_population.h"
@@ -53,7 +54,6 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/frame.h"
@@ -2127,10 +2127,10 @@ std::vector<glm::vec3> LevelSpatialIndex::scatterPositions(const glm::vec3& posi
                     jitter_ring = 0.0f;
                     jitter_column = 0.0f;
                 } else {
-                    jitter_ring =
-                        Random(1000) * kScatterOuterRingJitterScale - g_generator_jitter_fraction;
-                    jitter_column =
-                        Random(1000) * kScatterOuterRingJitterScale - g_generator_jitter_fraction;
+                    jitter_ring = CurrentGame().rng.below(1000) * kScatterOuterRingJitterScale -
+                                  g_generator_jitter_fraction;
+                    jitter_column = CurrentGame().rng.below(1000) * kScatterOuterRingJitterScale -
+                                    g_generator_jitter_fraction;
                 }
                 const auto probe =
                     grid.candidate(source, {ring + jitter_ring, jitter_column + *column_offset});
@@ -2236,8 +2236,12 @@ NavigatorPlacement LevelSpatialIndex::navigatorPositions(const glm::vec3& input,
                                 jitter_i = 0.0f;
                                 jitter_j = 0.0f;
                             } else {
-                                jitter_i = Random(1000) * kScatterInnerRingJitterScale - 0.1f;
-                                jitter_j = Random(1000) * kScatterInnerRingJitterScale - 0.1f;
+                                jitter_i =
+                                    CurrentGame().rng.below(1000) * kScatterInnerRingJitterScale -
+                                    0.1f;
+                                jitter_j =
+                                    CurrentGame().rng.below(1000) * kScatterInnerRingJitterScale -
+                                    0.1f;
                             }
                             const auto probe = grid.candidate(source, {i + jitter_i, jitter_j + j});
                             if (const auto settled = wiz8::placement::grounded(

@@ -189,7 +189,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
     if (!entry->damage_splat_active) {
         entry->damage_splat_amount = amount;
         entry->damage_splat_active = true;
-        if (Random(2) == 0) {
+        if (PresentationRng().below(2) == 0) {
             entry->damage_splat_catalog = 0x90;
         } else {
             entry->damage_splat_catalog = 0x91;

@@ -35,7 +35,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/item_instance.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -97,7 +96,7 @@ static char NpcStockChanceForTier(W8NpcStockChanceTier tier)
 
 static unsigned char JitterNpcStockQuantity(unsigned char amount)
 {
-    int roll = Random(3);
+    int roll = CurrentGame().rng.below(3);
     if (roll == 0) {
         unsigned char jitter = static_cast<unsigned char>(amount >> 1);
         amount += jitter;
@@ -250,7 +249,7 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
                         tier = W8NpcStockChanceTier::always;
                     }
                     chance = NpcStockChanceForTier(tier);
-                    if (Random(100) < static_cast<unsigned int>(chance)) {
+                    if (CurrentGame().rng.below(100) < static_cast<unsigned int>(chance)) {
                         ++added;
                     }
                     --remaining;
@@ -361,7 +360,7 @@ int RestockNpcItems(W8NpcState* npc)
             tier = W8NpcStockChanceTier::always;
         }
         chance = NpcStockChanceForTier(tier);
-        if (static_cast<unsigned int>(chance) <= Random(100)) {
+        if (static_cast<unsigned int>(chance) <= CurrentGame().rng.below(100)) {
             continue;
         }
 
@@ -769,7 +768,7 @@ void DecayNpcInventory(W8NpcState* npc)
                 if (remaining > 0) {
                     rule_count = remaining;
                     do {
-                        if (Random(100) < 100) {
+                        if (CurrentGame().rng.below(100) < 100) {
                             ++quantity;
                         }
                         --rule_count;

@@ -57,7 +57,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_speech.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
@@ -123,7 +122,7 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
         }
     }
     if (count != 0) {
-        return eligible[Random(count)];
+        return eligible[CurrentGame().rng.below(count)];
     }
     return -1;
 }
@@ -986,8 +985,9 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 {
     if (follow_up && entry->IsAmbientExchange()) {
         follow_up->ready_at =
-            MonotonicMilliseconds() +
-            (follow_up->excluded_slot != -1 ? Random(6000) + 2000 : Random(60000) + 300000);
+            MonotonicMilliseconds() + (follow_up->excluded_slot != -1
+                                           ? CurrentGame().rng.below(6000) + 2000
+                                           : CurrentGame().rng.below(60000) + 300000);
     }
 }
 
@@ -1002,7 +1002,8 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
 
     const int speaker = GetRandomCharacter(0, 0, follow_up->excluded_slot, -1);
     if (speaker == -1) return;
-    if (!QueueCharacterEvent(&CurrentGame().party.characters[speaker], Random(2) + 0xe, 1, 0x7f))
+    if (!QueueCharacterEvent(&CurrentGame().party.characters[speaker],
+                             CurrentGame().rng.below(2) + 0xe, 1, 0x7f))
         return;
     follow_up->excluded_slot = follow_up->excluded_slot == -1 ? speaker : -1;
 }
@@ -1144,7 +1145,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         if (conflict_count > 3) {
             int remaining_conflicts = conflict_count;
             while (remaining_conflicts > 3) {
-                int pick = Random(conflict_count);
+                int pick = CurrentGame().rng.below(conflict_count);
                 if (conflict_indices[pick] != -1) {
                     conflict_indices[pick] = -1;
                     --remaining_conflicts;
@@ -1288,7 +1289,7 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot)
         if (kFleeHpFraction == 0) {
             return;
         }
-        effect = Random(2) == 0 ? 2 : 28;
+        effect = CurrentGame().rng.below(2) == 0 ? 2 : 28;
     }
     if (effect != -1 && QueueCharacterEvent(character, effect, 0, kCharacterEventFullVolume) != 0) {
         CurrentGame().speech.SetEventCharacterMask(effect, party_slot, true);
@@ -1349,7 +1350,7 @@ void QueueDamageReactionEvents(W8Character* character)
             if (kFleeHpFraction <= hp_percent) {
                 goto queue_follow_up_event;
             }
-            if (Random(2) != 0 || has_flee_event) {
+            if (CurrentGame().rng.below(2) != 0 || has_flee_event) {
                 effect = 28;
             } else {
                 effect = 2;
@@ -1366,7 +1367,8 @@ queue_follow_up_event:
     follow_up_events[0] = g_special_event11;
     follow_up_events[1] = g_special_event12;
     follow_up_events[2] = g_special_event4;
-    QueueCharacterEvent(character, follow_up_events[Random(3)], 1, kCharacterEventFullVolume);
+    QueueCharacterEvent(character, follow_up_events[CurrentGame().rng.below(3)], 1,
+                        kCharacterEventFullVolume);
 }
 
 /* Turn-begin path for several surviving party members: queue event 0x15 on
@@ -1429,13 +1431,15 @@ void QueueConditionChangeReaction(W8Character* character)
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[Random(3)], 1, kCharacterEventFullVolume);
+        QueueCharacterEvent(character, events[CurrentGame().rng.below(3)], 1,
+                            kCharacterEventFullVolume);
         return;
     case 0x11:
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[Random(3)], 0, kCharacterEventFullVolume);
+        QueueCharacterEvent(character, events[CurrentGame().rng.below(3)], 0,
+                            kCharacterEventFullVolume);
         return;
     case 5:
         QueueCharacterEvent(character, g_special_event13, 0, kCharacterEventFullVolume);
@@ -1452,7 +1456,7 @@ void QueueConditionChangeReaction(W8Character* character)
     case 9:
     case 10:
         reaction = kConditionReaction;
-        if (Random(2) == 0) {
+        if (CurrentGame().rng.below(2) == 0) {
             reaction = kConditionReactionAlt;
         }
         QueueCharacterEvent(character, reaction, 0, kCharacterEventFullVolume);
@@ -1609,7 +1613,7 @@ void AdvancePortraitPose(W8PortraitAnimation& state)
         if (state.pose == state.target_pose) {
             if (state.pose == 1 && TimeUntilDeadline(state.idle_clock) == 0) {
                 state.blink_closing = true;
-                state.idle_clock = MonotonicMilliseconds() + (Random(5000) + 5000);
+                state.idle_clock = MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);
             }
         } else if (TimeUntilDeadline(state.pose_clock) == 0) {
             int pose = state.pose;
@@ -1617,14 +1621,14 @@ void AdvancePortraitPose(W8PortraitAnimation& state)
                                    g_portrait_pose_transition[pose - 1][state.target_pose - 1]);
             // Reopening and event-pose transitions continue toward the
             // target; only an idle blink enters the closing phase.
-            state.pose_clock = MonotonicMilliseconds() + (Random(50) + 50);
+            state.pose_clock = MonotonicMilliseconds() + (CurrentGame().rng.below(50) + 50);
         }
     } else if (TimeUntilDeadline(state.pose_clock) == 0) {
         int pose = state.pose;
         if (pose != 2) {
             SetCurrentPortraitPose(state, g_portrait_pose_transition[pose - 1][2 - 1]);
             state.blink_closing = true;
-            state.pose_clock = MonotonicMilliseconds() + (Random(50) + 50);
+            state.pose_clock = MonotonicMilliseconds() + (CurrentGame().rng.below(50) + 50);
         }
         if (state.pose == 2) {
             state.blink_closing = false;

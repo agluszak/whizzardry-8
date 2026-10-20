@@ -1,5 +1,7 @@
 #include "wiz8/game.h"
 
+#include <cstdint>
+#include <ctime>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -8,10 +10,13 @@
 
 #include "wiz8/combat/entity_signals.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/world/world.h"
 
 namespace {
 std::optional<Game> current_game;
+// The stream the next game continues while no game is in progress.
+Rng idle_stream(static_cast<std::uint32_t>(std::time(nullptr)));
 std::function<void(const Event&)> game_event_observer;
 }
 
@@ -60,15 +65,22 @@ bool GameStarted()
 
 Game& BeginGame()
 {
-    current_game.reset();
+    EndGame();
     auto& game = current_game.emplace();
+    game.rng = idle_stream;
     game.events.observe(game_event_observer);
     return game;
 }
 
 void EndGame()
 {
+    if (current_game) idle_stream = current_game->rng;
     current_game.reset();
+}
+
+void SeedGameRandom(std::uint32_t seed)
+{
+    (current_game ? current_game->rng : idle_stream).seed(seed);
 }
 
 void SetGameEventObserver(std::function<void(const Event&)> observer)

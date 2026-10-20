@@ -47,7 +47,6 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -1240,7 +1239,7 @@ void AttemptTrapDisarm(int level, int /*flag*/, char backfire)
     } else {
         chance = level * 5 + 0x32 + screen->m_difficulty * -6;
     }
-    if (static_cast<int>(Random(100)) < chance) {
+    if (static_cast<int>(CurrentGame().rng.below(100)) < chance) {
         screen->m_disarm_state = W8_TRAP_DISARM_KNOCK_KNOCK_SUCCESS;
     } else {
         screen->m_disarm_state = W8_TRAP_DISARM_KNOCK_KNOCK_FAILURE;

@@ -66,7 +66,6 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/draw_shader.h"
@@ -200,7 +199,7 @@ unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction
     unsigned short direction;
 
     for (;;) {
-        direction = static_cast<unsigned short>(Random(6));
+        direction = static_cast<unsigned short>(CurrentGame().rng.below(6));
         if (direction > 3) {
             direction = 0;
         }
@@ -241,7 +240,7 @@ void Monster::RandomizeAppearanceAndMotion()
     unsigned int random_value;
 
     /* 0x004C1D3D: cmp/setl - a signed test against the LEFTHANDED percent. */
-    visual.mirror_x = static_cast<int>(Random(100)) < left_handed;
+    visual.mirror_x = static_cast<int>(CurrentGame().rng.below(100)) < left_handed;
 
     if (minimum_scale != 0.0f && maximum_scale != 0.0f) {
         float minimum = minimum_scale;
@@ -250,14 +249,15 @@ void Monster::RandomizeAppearanceAndMotion()
         if (minimum > maximum) {
             Fail("flStart <= flEnd");
         }
-        random_value = Random(1000);
+        random_value = CurrentGame().rng.below(1000);
         scale = (maximum - minimum) * random_value * 0.001f + minimum;
     }
 
     if (random_idle) {
         int subcycle;
-        float playback_scale = (random_idle_fps_max - random_idle_fps_min) * Random(1000) * 0.001f +
-                               random_idle_fps_min;
+        float playback_scale =
+            (random_idle_fps_max - random_idle_fps_min) * CurrentGame().rng.below(1000) * 0.001f +
+            random_idle_fps_min;
 
         for (subcycle = 0; subcycle < static_cast<signed char>(cycles[1].size()); ++subcycle) {
             int animation_index = static_cast<signed char>(subcycle);
@@ -282,15 +282,16 @@ void Monster::RandomizeAppearanceAndMotion()
         }
     }
 
-    nav.movement.vertical_base =
-        ((hover_base_max - hover_base_min) * static_cast<float>(Random(1000)) * 0.001f +
-         hover_base_min) *
-        kWorldScale;
+    nav.movement.vertical_base = ((hover_base_max - hover_base_min) *
+                                      static_cast<float>(CurrentGame().rng.below(1000)) * 0.001f +
+                                  hover_base_min) *
+                                 kWorldScale;
     nav.movement.vertical_amplitude =
-        ((bob_amplitude_max - bob_amplitude_min) * static_cast<float>(Random(1000)) * 0.001f +
+        ((bob_amplitude_max - bob_amplitude_min) *
+             static_cast<float>(CurrentGame().rng.below(1000)) * 0.001f +
          bob_amplitude_min) *
         kWorldScale;
-    nav.movement.vertical_phase = Random(1000) * 0.001f;
+    nav.movement.vertical_phase = CurrentGame().rng.below(1000) * 0.001f;
     nav.movement.vertical_offset =
         static_cast<float>(sin(nav.movement.vertical_phase * kMotionFullTurnRadians)) *
             nav.movement.vertical_amplitude +
@@ -604,7 +605,7 @@ void Monster::Update()
                            pending_subcycle, so TALK keeps the current frame
                            (clamped by ApplyPendingCycle) instead of frame 0. */
                     talk_start = MonotonicMilliseconds();
-                    talk_duration = Random(2000) + 2000;
+                    talk_duration = CurrentGame().rng.below(2000) + 2000;
                     visual.pending_cycle = 0x18;
                     visual.frame_direction = W8_ANIMATION_FORWARD;
                     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1100,7 +1101,7 @@ void Monster::StartTalking(bool animate_mouth)
     mouth_frame_clock = MonotonicMilliseconds();
     mouth_open = false;
     talk_start = MonotonicMilliseconds();
-    talk_duration = Random(2000) + 2000;
+    talk_duration = CurrentGame().rng.below(2000) + 2000;
     visual.pending_cycle = 0x18;
     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
 }
@@ -1460,7 +1461,7 @@ void Monster::UpdateRepresentation(World* world)
             unsigned short frame;
             mouth_frame_clock = MonotonicMilliseconds();
             do {
-                frame = static_cast<unsigned short>(Random(6));
+                frame = static_cast<unsigned short>(CurrentGame().rng.below(6));
                 if (frame > 3) {
                     frame = 0;
                 }
@@ -1722,8 +1723,8 @@ void Monster::SetCycle(signed char cycle)
         // Gib behavior belongs to the source asset, not a generated renderer label.
         const auto* death_mesh = GetEmitterAniMesh(visual.current_cycle);
         if (death_mesh && wiz8::path_to_utf8(death_mesh->source_file.filename()).contains("gib")) {
-            nav.SetAngles(
-                static_cast<float>(g_monster_death_rotation_pi * 0.0055555557f * Random(0x168)));
+            nav.SetAngles(static_cast<float>(g_monster_death_rotation_pi * 0.0055555557f *
+                                             CurrentGame().rng.below(0x168)));
         }
         if (monster_light != 0) {
             monster_light->StartFadeOut();

@@ -197,7 +197,7 @@ target_include_directories(wiz8_native_settings INTERFACE
 target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS}
     wiz8_filesystem SDL3::SDL3)
 
-# The game clock, the seeded RNG and the SDL CPU surface backend.
+# The game clock, the presentation random stream and the SDL CPU surface backend.
 add_library(wiz8_platform STATIC
     src/platform/random.cpp
     src/platform/timer.cpp

@@ -24,7 +24,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -318,7 +317,7 @@ void CompletePartyMovementTurns(void)
             continue;
         }
         W8CombatCharacterRow* combat_row = &CurrentGame().combat.state()->characters[party_slot];
-        if (!combat_row->dead && Random(100) < remaining) {
+        if (!combat_row->dead && CurrentGame().rng.below(100) < remaining) {
             CatchUpCombatActor(combat_row);
             continue;
         }
@@ -343,7 +342,7 @@ void InitializePartyMovementPhase(void)
         W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
         W8Character* character = &CurrentGame().party.characters[party_slot];
         if (row->fOccupied && character->hp_current != 0) {
-            int initiative = character->initiative + Random(4);
+            int initiative = character->initiative + CurrentGame().rng.below(4);
             if (initiative < minimum_initiative) {
                 minimum_initiative = initiative;
             }

@@ -69,7 +69,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
@@ -1300,7 +1299,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8M
         --power_level;
     }
 
-    switch (Random(4)) {
+    switch (CurrentGame().rng.below(4)) {
     case 0:
         if (power_level > 2) {
             --power_level;
@@ -2560,7 +2559,7 @@ finish_difficulty_adjustment:
     ++CurrentGame().status.spell_usage[spell_id - 1].cast_count;
     affected = SpellAffectedTarget(character, spell_id, aim, power_level);
     if (!continue_cast) {
-        if (Random(2) != 0) {
+        if (CurrentGame().rng.below(2) != 0) {
             index = g_special_event6;
         } else {
             index = g_special_event5;
@@ -2671,7 +2670,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     }
     CombatLog(fmt::format("Chance of FAILURE: {:d}", failure_chance));
     CombatLog("");
-    if (failure_chance != 0 && (roll = Random(100)) < failure_chance) {
+    if (failure_chance != 0 && (roll = CurrentGame().rng.below(100)) < failure_chance) {
         backfire_chance = failure_chance;
         if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
             backfire_chance = 0;
@@ -2695,7 +2694,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         } else {
             fizzled = true;
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
-            if (caster_slot != -1 && Random(100) < 0x46) {
+            if (caster_slot != -1 && CurrentGame().rng.below(100) < 0x46) {
                 QueueCharacterEvent(&CurrentGame().party.characters[caster_slot], g_special_event13,
                                     0, kCharacterEventFullVolume);
             }
@@ -3048,7 +3047,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 owner.reported = true;
             }
             if (caster_slot != -1) {
-                if (Random(2) == 0) {
+                if (CurrentGame().rng.below(2) == 0) {
                     QueueCharacterEvent(&CurrentGame().party.characters[caster_slot], 16, 0,
                                         kCharacterEventFullVolume);
                 } else {
@@ -3316,7 +3315,7 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     if (candidates == 0) {
         return 0;
     }
-    pick = Random(candidates) + 1;
+    pick = CurrentGame().rng.below(candidates) + 1;
     for (slot = 0; slot < 8; ++slot) {
         if (CurrentGame().party.rows[slot].fOccupied &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot) && (--pick == 0)) {
@@ -3376,10 +3375,12 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     origin = navigator->GetPosition();
     for (attempt = 0; attempt < 5; ++attempt) {
         point.x = static_cast<float>(
-            (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.x);
+            (CurrentGame().rng.below(0x7d1) - g_monster_poster_max_distance) * range * 0.001 +
+            origin.x);
         point.z = static_cast<float>(
-            (Random(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.z);
-        point.y = Random(0x3e9) * range * 0.001 + origin.y;
+            (CurrentGame().rng.below(0x7d1) - g_monster_poster_max_distance) * range * 0.001 +
+            origin.z);
+        point.y = CurrentGame().rng.below(0x3e9) * range * 0.001 + origin.y;
         if (const auto hit = GetWorldSpatialIndex()->traceSight(origin, point)) point = hit->point;
         point.y = probeGround(point).position.y;
         if (point.y != kGroundSettleFail) {
@@ -3415,7 +3416,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             return;
         }
         if (CharacterHasTrait(character, W8_TRAIT_EFFECTIVE_WHILE_BLIND)) {
-            if (Random(100) <
+            if (CurrentGame().rng.below(100) <
                 static_cast<unsigned int>(static_cast<int>(ScaleValueByProfessionLevel(
                     character, W8_TRAIT_EFFECTIVE_WHILE_BLIND, 50.0)))) {
                 return;
@@ -3433,7 +3434,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             return;
         }
     }
-    if (0x13 < Random(100)) {
+    if (0x13 < CurrentGame().rng.below(100)) {
         return;
     }
     target_type = GetSpellTargetType(spell_id, false);

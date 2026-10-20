@@ -65,7 +65,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/assertion.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -1979,7 +1978,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                                                static_cast<unsigned>(PartySlot()));
                         changed = true;
                         if (origin == W8ItemStorage::Backpack &&
-                            character->backpack[slot_index].iItemNo != -1 && Random(100) < 5) {
+                            character->backpack[slot_index].iItemNo != -1 &&
+                            CurrentGame().rng.below(100) < 5) {
                             QueueCharacterEvent(character, g_special_event14, 0,
                                                 kCharacterEventFullVolume);
                         }

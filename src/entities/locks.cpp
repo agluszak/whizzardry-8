@@ -1,7 +1,7 @@
 #include "wiz8/entities/locks.h"
 
 #include "wiz8/chunk.h"
-#include "wiz8/platform/random.h"
+#include "wiz8/game.h"
 
 void LockState::Reset()
 {
@@ -9,7 +9,7 @@ void LockState::Reset()
 
     if (lock_type == LockType::pickable_lock) {
         for (int pin = 0; pin < 8; ++pin) {
-            device_state.pins[pin] = static_cast<char>(Random(4));
+            device_state.pins[pin] = static_cast<char>(CurrentGame().rng.below(4));
         }
         pins = difficulty < 8 ? (difficulty < 2 ? 2 : difficulty) : 8;
         lock_countdown = pins * 3;

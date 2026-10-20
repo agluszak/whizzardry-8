@@ -48,7 +48,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/platform/assertion.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/character.h"
@@ -886,7 +885,7 @@ void HandleScriptedNpcDeath(unsigned int monster_list_index)
     }
     if (eligible_count > 2) {
         do {
-            pick = Random(eligible_count);
+            pick = CurrentGame().rng.below(eligible_count);
         } while (eligible_slots[pick] == lead_index);
         QueueCharacterEvent(&CurrentGame().party.characters[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);

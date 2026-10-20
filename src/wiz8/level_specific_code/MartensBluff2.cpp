@@ -40,7 +40,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -535,7 +534,7 @@ bool MartensBluff2MonsterCrusher(int command)
                     position.x = right - radius;
                     monster->nav.SetPositionInternal(&position);
                 }
-            } else if (position.x + radius <= right || Random(100) < 0x24) {
+            } else if (position.x + radius <= right || CurrentGame().rng.below(100) < 0x24) {
                 position.x = left + radius;
                 monster->nav.SetPositionInternal(&position);
             } else {
@@ -691,7 +690,7 @@ void MartensBluff2IdolGasVictim(void)
                 }
             }
         } else {
-            pick = Random(count) + 1;
+            pick = CurrentGame().rng.below(count) + 1;
             for (slot = 0; slot < 8; slot++) {
                 if (severities[slot] == lowest) {
                     pick--;
