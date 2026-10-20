@@ -152,6 +152,30 @@ void HideNpcQuoteBubbleRegion()
 static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
 static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
+
+/* Offer the item a dialogue opens with. When the party holds one, it moves
+   out of the hand into the offer; otherwise the notice only names the item and
+   `described` carries it. Returns the item the dialogue inspects. */
+static W8ItemInstance* OfferNpcDialogueItem(const W8ItemInstance& item, W8ItemInstance& described)
+{
+    auto& offer = CurrentGame().npc_interaction.offered_item;
+    if (CurrentGame().party.held.item.iItemNo != -1) {
+        offer = TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
+        return &*offer;
+    }
+    described = item;
+    return &described;
+}
+
+/* Give back whatever remains of the offer: to the hand when it is free,
+   otherwise into the party. */
+static void ReturnOfferedItem()
+{
+    auto offer = std::exchange(CurrentGame().npc_interaction.offered_item, std::nullopt);
+    if (offer && !ReceiveItemInHand(CurrentGame(), *offer)) {
+        AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*offer), false);
+    }
+}
 static void HandleNpcDialogueDeparture(unsigned char value);
 static void CreateNpcDialogueControls(void);
 static void ToggleNpcCharacterUsabilityFilter(void);
@@ -572,12 +596,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     }
     if (npc->record->voice_script != 0) {
         if (item != 0) {
-            state = &CurrentGame().npc_interaction;
-            state->pending_item = *item;
-            if ((CurrentGame().party.held.item.iItemNo != -1)) {
-                state->held_item_pending = true;
-            }
-            HandleNpcDialogueItem(&state->pending_item);
+            W8ItemInstance described;
+            HandleNpcDialogueItem(OfferNpcDialogueItem(*item, described));
         } else if (quote == -1) {
             HandleNpcDialogueDeparture(1);
         } else {
@@ -670,7 +690,6 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     state->trade_filter = W8_NPC_TRADE_FILTER_NONE;
     state->value_000 = 0;
     state->where_is_query = false;
-    state->held_item_pending = false;
     CurrentGame().npc_dialogue.AbandonReply();
     state->dialogue_hidden = 0;
     state->modal_dialog_open = false;
@@ -689,18 +708,14 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     CurrentGame().activity.conversation_aside = false;
     greet = !force;
     if (item != 0) {
-        state = &CurrentGame().npc_interaction;
-        state->pending_item = *item;
-        if ((CurrentGame().party.held.item.iItemNo != -1)) {
-            state->held_item_pending = true;
-            (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
-        }
+        W8ItemInstance described;
+        W8ItemInstance* offered = OfferNpcDialogueItem(*item, described);
         if (npc->record->merchant != 0) {
-            if (HandleNpcDialogueItem(&state->pending_item) == 0) {
+            if (HandleNpcDialogueItem(offered) == 0) {
                 OpenNpcDialogueTranscriptLayout();
                 greet = true;
             }
-        } else if (HandleNpcDialogueItem(&state->pending_item) == 0) {
+        } else if (HandleNpcDialogueItem(offered) == 0) {
             CloseActiveNpcDialogueLayout();
             if (GetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc) ==
                 W8_NPC_BAND_FRIENDLY) {
@@ -1153,11 +1168,10 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc);
     if (!skip_exit_actions) {
-        if (!CurrentGame().npc_interaction.held_item_pending) {
+        if (!CurrentGame().npc_interaction.offered_item) {
             SetTargetCursor(W8_CURSOR_NONE);
         } else {
-            CurrentGame().party.held.item = CurrentGame().npc_interaction.pending_item;
-            CurrentGame().npc_interaction.held_item_pending = false;
+            ReturnOfferedItem();
         }
         W8NpcState* npc = CurrentGame().npc_interaction.dialogue_npc;
         if (!CurrentGame().npc_interaction.suppress_parting_reaction &&
@@ -3377,13 +3391,11 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                     RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), item, 0, -1);
                     return result;
                 }
-                if (CurrentGame().npc_interaction.held_item_pending &&
-                    CurrentGame().npc_interaction.pending_item.iItemNo == item->iItemNo) {
-                    CurrentGame().npc_interaction.held_item_pending = false;
-                    AddItemToParty(CurrentGame(),
-                                   OwnedItem(CurrentGame().npc_interaction.pending_item), true,
-                                   false);
-                    (void)TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
+                auto& offer = CurrentGame().npc_interaction.offered_item;
+                if (offer && offer->iItemNo == item->iItemNo) {
+                    // Shown, not taken: the offer goes back into the party.
+                    auto shown = *std::exchange(offer, std::nullopt);
+                    AddItemToParty(CurrentGame(), OwnedItem(shown), true, false);
                     return 0;
                 }
             }
@@ -3936,18 +3948,13 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
     CurrentGame().npc_dialogue.ReplyDialogClosed();
 }
 
-/* The camp-side mirror of SwitchNpcDialogueLayout: the conversation is set aside, the current
-   dialogue layout is retired, and a still-pending item goes back onto the
-   item cursor. */
+/* The camp-side mirror of SwitchNpcDialogueLayout: the conversation is set aside and the
+   current dialogue layout is retired; ending the session gives back an offered item. */
 void CloseNpcDialogueForCamp(void)
 {
     CurrentGame().activity.conversation_aside = true;
     SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
     EndNpcDialogueSession(false);
-    if (CurrentGame().npc_interaction.held_item_pending) {
-        CurrentGame().party.held.item = CurrentGame().npc_interaction.pending_item;
-        return;
-    }
     SetTargetCursor(W8_CURSOR_NONE);
 }
 

@@ -50,6 +50,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
@@ -1144,6 +1145,19 @@ TEST_CASE("Learned keywords go straight into the story's notebook", "[npc][dialo
     REQUIRE(notebook.size() == 1);
     REQUIRE(notebook[0].text == "Arnika");
     REQUIRE(notebook[0].category == W8_DIALOGUE_CATEGORY_PLACES);
+}
+
+TEST_CASE("Using up an offered item drains the offer and leaves the hand alone", "[npc][items]")
+{
+    const ScopedGame game;
+    auto& offer = CurrentGame().npc_interaction.offered_item;
+    offer = W8ItemInstance{.iItemNo = 7, .stack_count = 2};
+    CurrentGame().party.held.item = W8ItemInstance{.iItemNo = 9, .stack_count = 1};
+    RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), &*offer, 0, -1);
+    REQUIRE(offer->stack_count == 1);
+    RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), &*offer, 0, -1);
+    REQUIRE_FALSE(offer);
+    REQUIRE(CurrentGame().party.held.item.iItemNo == 9);
 }
 
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")

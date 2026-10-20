@@ -93,12 +93,10 @@ struct W8NpcInteractionState {
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query{};
     bool transcript_sorted{};
-    /* The item a pending NPC notice carries; copied from pending_notice
-       when the dialogue opens. */
-    W8ItemInstance pending_item{};
-    /* pending_item came in through the cursor item; dialogue close returns it
-       to the hand and the consume path drains its stack. */
-    bool held_item_pending{};
+    /* The item the party is offering, taken out of the hand when the dialogue
+       opens with it. Consuming it drains its stack; whatever remains goes back
+       when the conversation ends. */
+    std::optional<W8ItemInstance> offered_item{};
     std::optional<QuoteBubble> quote_bubble{};
     short quote_x{};
     short quote_y{};
