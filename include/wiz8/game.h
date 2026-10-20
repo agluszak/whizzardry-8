@@ -77,8 +77,8 @@ public:
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
     /* The step time this game has run: the sum of the elapsed times its steps were given.
-       Code below the step stamps and measures its deadlines on it, never on the monotonic
-       clock, so a step is deterministic given its inputs. */
+       Code below the step stamps and measures its deadlines on it. Some world code still
+       reads the monotonic clock or the shared timers (ROADMAP.md, "One step"). */
     std::chrono::milliseconds time{};
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party

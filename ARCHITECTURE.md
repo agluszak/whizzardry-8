@@ -13,7 +13,9 @@ padding bytes that belong to a file live in `retail_opaque_records.h` and round-
 unchanged. A codec copies a field verbatim only when the runtime field is exactly as wide
 as its disk field, and throws otherwise; items, formations and NPC stock entries have
 codecs of their own, so their runtime types need not match a retail size.
-Runtime types do not mirror retail memory layout. Runtime strings are UTF-8;
+Runtime types are not meant to mirror retail memory layout, but types embedded in
+disk records still keep it until they get records of their own (ROADMAP.md,
+"Runtime types with semantic shape"). Runtime strings are UTF-8;
 retail UTF-16LE fields are decoded and encoded explicitly by utf8proc-based
 codecs, including malformed-input replacement and fixed field limits.
 
@@ -353,9 +355,10 @@ Unlayered code may use the layers.
   level group's STAT record. A save captures each value from the game (the GSTA copy is
   stamped with the camera, difficulty and Iron Man file time, shown messages carry their
   remaining countdowns, and location variables fold in the level script's state) and
-  writes its payload. A load decodes each payload whole before installing it into the new
-  game, so a malformed section never leaves a half-applied game; a malformed CHAR section
-  is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
+  writes its payload. A load begins the replacement game first, then decodes each
+  payload whole before installing it, so a malformed section is never half-applied;
+  sections are installed one at a time, though, so a failure in a later section leaves
+  the earlier ones installed and the load fails. A malformed CHAR section is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
   `GameStatus::retail` carries the serialized bytes that are not game state. A started
   game keeps character files in `Game::stored_characters`. The level groups are still
   written from and read into live worlds by `LoadSaveGame.cpp`, and `CurrentGame.SAV`
@@ -517,7 +520,7 @@ widget tree.
   their dialog's input layer.
 - `W8RangeControl` registers its three targets on its owner's layer and unregisters
   them on destruction.
-- `MainGameScreenState` owns its HUD buttons, input layer and active submenu as
+- `MainGameScreen` owns its HUD buttons, input layer and active submenu as
   values. Suspension disables their input; full game exit destroys them.
 - The camp screen owns routing, the header, portraits, the page buttons,
   `CampDialogs` (its one modal dialog) and the character-info panel. Its items,
