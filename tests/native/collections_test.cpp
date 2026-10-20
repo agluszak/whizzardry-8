@@ -15,6 +15,7 @@
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "fact_state.h"
@@ -47,9 +48,12 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
+#include "wiz8/local_code/GameplayTime.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
@@ -66,6 +70,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
@@ -77,6 +82,7 @@
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_stats.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
@@ -86,6 +92,55 @@
 struct LevelWorldFixture : ScopedGame {
     LevelWorldFixture() { game.level.replacePrimary(std::make_unique<World>()); }
 };
+
+TEST_CASE("World-clock rollover preserves seconds and NPC cooldowns", "[timers][npc]")
+{
+    ScopedGame scope;
+    auto& game = scope.game;
+    game.surprise_possible = true;
+    game.status.world_clock = 0x7fffffffu;
+    game.status.world_clock_ms = 999;
+    UpdateGameClock(1);
+    REQUIRE(game.status.world_clock == 0x80000000u);
+    REQUIRE(game.status.world_clock_ms == 0);
+
+    auto npc = std::make_unique<W8NpcState>();
+    npc->talk_cooldown_active = true;
+    npc->trade_cooldown_active = true;
+    npc->talk_cooldown_clock = 0x7ffffffe;
+    npc->trade_cooldown_clock = 0x7ffffffe;
+    game.story.npcs.push_back(std::move(npc));
+    auto& restored = *game.story.npcs.front();
+    AdvanceNpcTimers(0);
+    REQUIRE(restored.talk_cooldown_active);
+    REQUIRE(restored.trade_cooldown_active);
+    game.status.world_clock += 0xa8c0u;
+    AdvanceNpcTimers(0);
+    REQUIRE_FALSE(restored.talk_cooldown_active);
+    REQUIRE_FALSE(restored.trade_cooldown_active);
+
+    game.status.world_clock = 0xffffffffu;
+    game.status.world_clock_ms = 999;
+    UpdateGameClock(1);
+    REQUIRE(game.status.world_clock == 0);
+    REQUIRE(game.status.world_clock_ms == 0);
+
+    game.surprise_possible = false;
+    game.party.rows[0].fOccupied = true;
+    game.party.rows[0].npc_bound = true;
+    game.party.rows[0].npc_index = 0;
+    game.party.characters[0].hp_current = 1;
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    for (const std::uint32_t now : {100u, 0xffffffe1u}) {
+        game.status.world_clock = now;
+        restored.event_clock = static_cast<int>(now + 60u);
+        UpdateNpcEvents();
+        REQUIRE(draws.empty());
+        REQUIRE(restored.event_clock == static_cast<int>(now + 60u));
+    }
+    game.rng.trace(nullptr);
+}
 
 // Item records with no profession, race, gender, attribute or skill restriction.
 static std::vector<W8ItemDatabaseRecord> UnrestrictedItems(std::size_t count)
@@ -980,6 +1035,37 @@ W8Character MakeFighter()
 }
 }
 
+TEST_CASE("Attribute-cap notices follow the party's activity without a screen", "[party][events]")
+{
+    struct Scenario {
+        bool started;
+        Activity::Place place;
+        bool announces;
+    };
+    const Scenario scenarios[] = {{true, Activity::Place::World, true},
+                                  {true, Activity::Place::Camp, false},
+                                  {false, Activity::Place::World, false}};
+    for (const auto& scenario : scenarios) {
+        CAPTURE(scenario.started, scenario.place);
+        const ScopedGame scoped;
+        auto& game = scoped.game;
+        game.status.game_started = scenario.started;
+        game.activity.place = scenario.place;
+        GameData data{.strings = std::vector<std::string>(0x1000)};
+        data.strings[0x1d6] = "%s %s %s";
+        const ScopedGameData installed(std::move(data));
+        auto character = MakeFighter();
+        character.attributes[W8_ATTRIBUTE_STRENGTH].base = 100;
+
+        ApplyAttributeChange(game, &character, W8_ATTRIBUTE_STRENGTH);
+
+        const auto& pending = game.events.pending();
+        REQUIRE(pending.size() == (scenario.announces ? 2u : 1u));
+        REQUIRE(std::get<SkillAvailabilityChanged>(pending[0]).available);
+        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[1]));
+    }
+}
+
 TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit",
           "[party][encumbrance]")
 {
@@ -1074,7 +1160,9 @@ TEST_CASE("Formation reconciliation repairs only its owning party", "[party][for
 
 TEST_CASE("Pools follow a changed ceiling and keep their level otherwise", "[party][stats]")
 {
-    auto character = MakeFighter();
+    const ScopedGame active;
+    auto& character = CurrentGame().party.characters[0];
+    character = MakeFighter();
     REQUIRE(UpdateStandaloneCharacterStats(Data(), character, {}).valid);
     // A new character's pools fill as their ceilings rise from zero.
     REQUIRE(character.uiHPMax > 0);
@@ -1097,6 +1185,18 @@ TEST_CASE("Pools follow a changed ceiling and keep their level otherwise", "[par
     UpdateStandaloneCharacterStats(Data(), character, {});
     REQUIRE(character.uiHPMax == ceiling + 5);
     REQUIRE(character.hp_current == 6);
+
+    // A penalty can consume the whole stamina ceiling while the member is tired.
+    // Restoring that pool must keep full fatigue instead of dividing by zero.
+    const int stamina_ceiling = character.uiStaminaMax;
+    character.stamina = 1;
+    character.fatigue_penalty = stamina_ceiling;
+    UpdateStandaloneCharacterStats(Data(), character, {});
+    REQUIRE(character.uiStaminaMax == 0);
+    REQUIRE(character.fatigue_band == 4);
+    RestoreCharacterStamina(0, stamina_ceiling - 1, false);
+    REQUIRE(character.stamina == 0);
+    REQUIRE(character.fatigue_band == 4);
 }
 
 TEST_CASE("A detached hit-point calculation reports death without applying live conditions",

@@ -50,6 +50,7 @@
 #include "wiz8/platform/assertion.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party_slot.h"
@@ -459,15 +460,6 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
     return cost * 2;
 }
 
-/* The two fatigue-band thresholds and the four bands they cut the stamina
-   fraction into. Both characters and monsters use the same ladder. */
-enum {
-    W8_FATIGUE_BAND_1 = 0x32,
-    W8_FATIGUE_BAND_2 = 0x46,
-    W8_FATIGUE_BAND_3 = 0x55,
-    W8_FATIGUE_BAND_4 = 0x5e
-};
-
 /* How much stamina shakes exhaustion off again. */
 enum { W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION = 9 };
 
@@ -484,24 +476,6 @@ int SumCharacterSpellPointsLeft(const W8Character* character)
         total += realm > 0 ? realm : 0;
     }
     return total;
-}
-
-/* One notice index per spell realm, giving the realm's name. */
-/* Turn a pool fraction into a band. The same ladder decides a character's
-   fatigue band and a monster's, from the percentage of the pool that is
-   missing rather than the part that is left. */
-static int FatigueBandFromMissing(int missing_percent)
-{
-    if (missing_percent < W8_FATIGUE_BAND_1) {
-        return 0;
-    }
-    if (missing_percent < W8_FATIGUE_BAND_2) {
-        return 1;
-    }
-    if (missing_percent < W8_FATIGUE_BAND_3) {
-        return 2;
-    }
-    return (missing_percent > W8_FATIGUE_BAND_4) + 3;
 }
 
 /* Heal one character, never past their maximum. Recovering enough of their
@@ -584,9 +558,7 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
     }
 
     previous_band = character->fatigue_band;
-    band = FatigueBandFromMissing(
-        100 - static_cast<int>((character->stamina * 100) /
-                               static_cast<unsigned int>(character->uiStaminaMax)));
+    band = FatigueBand(character->stamina, character->uiStaminaMax);
     character->fatigue_band = band;
     if (band != previous_band) {
         SettleActiveParty(CurrentGame());
@@ -738,9 +710,7 @@ void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
         }
     }
 
-    monster_info->fatigue_band = FatigueBandFromMissing(
-        100 - static_cast<int>((monster_info->stamina * 100) /
-                               static_cast<unsigned int>(monster_info->stamina_max)));
+    monster_info->fatigue_band = FatigueBand(monster_info->stamina, monster_info->stamina_max);
 
     if (monster_info->stamina == 0 &&
         monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
@@ -793,9 +763,7 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
         }
     }
 
-    monster_info->fatigue_band = FatigueBandFromMissing(
-        100 - static_cast<int>((monster_info->stamina * 100) /
-                               static_cast<unsigned int>(monster_info->stamina_max)));
+    monster_info->fatigue_band = FatigueBand(monster_info->stamina, monster_info->stamina_max);
 
     if (monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         static_cast<unsigned int>(monster_info->stamina) > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
@@ -904,9 +872,7 @@ void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
     character->stamina -= amount;
 
     previous_band = character->fatigue_band;
-    band = FatigueBandFromMissing(
-        100 - static_cast<int>((character->stamina * 100) /
-                               static_cast<unsigned int>(character->uiStaminaMax)));
+    band = FatigueBand(character->stamina, character->uiStaminaMax);
     character->fatigue_band = band;
     if (band != previous_band) {
         SettleActiveParty(CurrentGame());

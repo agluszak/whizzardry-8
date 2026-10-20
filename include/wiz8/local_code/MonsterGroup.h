@@ -2,6 +2,7 @@
 #define WIZ8_LOCAL_CODE_MONSTER_GROUP_H
 
 #include <cstddef>
+#include <cstdint>
 #include <source_location>
 #include <span>
 #include <string>
@@ -99,7 +100,7 @@ struct W8MonsterGroup {
     int hostility_set_at;
     /* When this group was last budgeted. UpdateRandomEncounterBudget
        advances it by the elapsed time and the culling pass measures against it. */
-    int spawn_time;
+    std::uint32_t spawn_time;
     /* Raised as encounter_registered is cleared - the group was an
        active encounter once. */
     bool encounter_ended;

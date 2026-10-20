@@ -1077,6 +1077,7 @@ static wiz8::save::GameState populated_game_state()
     status.spell_usage[2].cast_count = 5;
     status.item_spell_usage[7].usable_cast_count = 9;
     status.wait_state = W8_GAME_WAIT_STATE_RESTING;
+    status.world_clock = 0x80000003u;
     status.search_mode = true;
     party.gold = 0x12345678;
     party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
@@ -1116,6 +1117,7 @@ static void global_status_record()
     std::memcpy(members.data(), bytes.data() + 0x0d, sizeof(members));
     REQUIRE((members == std::array<int, 3>{6, 2, 8}));
     REQUIRE(payload_word(bytes, 0x19) == 0x12345678u);
+    REQUIRE(payload_word(bytes, 0x18d8) == 0x80000003u);
     REQUIRE(payload_word(bytes, 0x19d8) == 0x87654321u);
     // The camera keeps the retail field order: position, then pitch, then yaw.
     float camera[15];
@@ -1724,12 +1726,15 @@ TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves
           "[save][records]")
 {
     W8MonsterGroup group{};
+    group.spawn_time = 0x80000003u;
     auto bytes = wiz8::retail::encode(group);
+    REQUIRE(payload_word(bytes, offsetof(wiz8::retail::MonsterGroup, spawn_time)) == 0x80000003u);
     REQUIRE(bytes[0x2b] == std::byte{3});
     bytes[0x2b] = std::byte{0xa5};
     bytes[offsetof(wiz8::retail::MonsterGroup, active_member_count)] = std::byte{7};
     for (std::size_t i = 0xd4; i < bytes.size(); ++i) bytes[i] = std::byte(i);
     wiz8::retail::decode<W8MonsterGroup>(bytes, group);
+    REQUIRE(group.spawn_time == 0x80000003u);
     REQUIRE(wiz8::retail::encode(group) == bytes);
     auto copy = group;
     copy.group_id = 17;

@@ -2,6 +2,7 @@
 #define WIZ8_LAYOUTS_GAME_STATUS_H
 
 #include <array>
+#include <cstdint>
 #include <string>
 
 #include "wiz8/data/records.h"
@@ -52,7 +53,8 @@ struct GameStatus {
     std::array<W8EffectSlot, 12> effect_slots{};
     int party_facing = 0;
     unsigned int party_heading = 0;
-    int world_clock = 0;
+    // Seconds modulo 2^32; elapsed-time arithmetic must also wrap unsigned.
+    std::uint32_t world_clock = 0;
     unsigned int world_clock_ms = 0;
     // Decoded save destination. Live identity belongs to the primary world.
     int resume_level = -1;
