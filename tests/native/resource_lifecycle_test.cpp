@@ -191,20 +191,28 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
     CurrentGame().speech.pending_events.push_back(
         std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
     CurrentGame().gameplay_timer.SetDuration(1.0f);
+    CurrentGame().level.replacePrimary(std::make_unique<World>());
 
-    // Beginning a game destroys the old one, including its nested events.
+    // Beginning a game destroys the old one, including its nested events and its worlds.
     BeginGame();
+    REQUIRE(GetWorld() == nullptr);
     REQUIRE(CurrentGame().speech.IsMainQueueEmpty());
     REQUIRE(CurrentGame().gameplay_timer.m_duration_seconds == 300.0f);
     EndGame();
     REQUIRE_FALSE(GameInProgress());
 }
 
+static World& PublishEmptyWorld(Game& game)
+{
+    game.level.replacePrimary(std::make_unique<World>());
+    return *game.level.primary;
+}
+
 struct SpellVisualFixture {
     ScopedTemporaryDirectory directory{"wiz8-spell-visuals"};
     ScopedAssetRoots roots;
-    std::unique_ptr<World> previous_world = ReplaceWorld(std::make_unique<World>());
-    World& world = *GetWorld();
+    ScopedGame game;
+    World& world = PublishEmptyWorld(game.game);
     std::vector<std::unique_ptr<SpellVisual>>& visuals = world.spell_visuals;
     std::unique_ptr<LevelSpatialIndex>& octree = world.spatial;
 
@@ -220,7 +228,6 @@ struct SpellVisualFixture {
     {
         world.spell_visuals.clear();
         world.spatial.reset();
-        ReplaceWorld(std::move(previous_world));
     }
 };
 
@@ -418,7 +425,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "World teardown destroys cycle particles without retiring them",
                  "[resources][world]")
 {
-    auto previous = ReplaceWorld(std::make_unique<World>());
+    auto previous = game.game.level.replacePrimary(std::make_unique<World>());
     auto* retiring = GetWorld();
     auto visual = std::make_unique<SpellVisual>(retiring);
     auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
@@ -429,7 +436,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     texture.reset();
     visual->visual.particles.emplace_back().m_pstParticles = std::move(particle);
     retiring->spell_visuals.push_back(std::move(visual));
-    ReplaceWorld(std::move(previous));
+    game.game.level.replacePrimary(std::move(previous));
     REQUIRE(released.expired());
 }
 

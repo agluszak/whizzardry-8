@@ -144,12 +144,10 @@ class ParticleSystem;
 class Trigger;
 class Prop;
 
+/* Transitional: the game's level and sky worlds (`Game::level`), or null with no game
+   in progress. Loads and test fixtures publish worlds through `Level`. */
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
-/* Publish a loaded world, returning the previous owner. Production loads and
-   test fixtures use the same path. */
-std::unique_ptr<World> ReplaceWorld(std::unique_ptr<World> world);
-std::unique_ptr<World> ReplaceSkyWorld(std::unique_ptr<World> world);
 
 std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
 void DetachAllWorldItems(void);

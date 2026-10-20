@@ -922,10 +922,8 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",
                  "[loader][trigger][items]")
 {
-    const struct WorldScope {
-        std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
-        ~WorldScope() { ReplaceWorld(std::move(previous)); }
-    } scope;
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
     auto trigger = std::make_unique<Trigger>(GetWorld());
     trigger->world_item_group = std::make_unique<W8WorldItem>();
     GetWorld()->triggers.push_back(std::move(trigger));
@@ -961,10 +959,8 @@ void LoadAwayCampChest();
 TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat groups",
                  "[loader][items]")
 {
-    const struct WorldScope {
-        std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
-        ~WorldScope() { ReplaceWorld(std::move(previous)); }
-    } scope;
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
     const ScopedRecords records(MutableData().items, 2);
     MutableData().items[0].flags = W8_ITEM_FLAG_CONTAINER;
     Trigger trigger(GetWorld());
@@ -1113,7 +1109,6 @@ TEST_CASE_METHOD(LoaderFixture, "Path parameters accept complete CRLF and unterm
 }
 struct LocationVariableFixture : LoaderFixture {
     const ScopedGame game;
-    std::unique_ptr<World> previous_world = ReplaceWorld(nullptr);
     bool load_variables(const std::string& bytes, bool inject_failure = false)
     {
         const auto path = wiz8::asset_path("section.bin");
@@ -1133,7 +1128,6 @@ struct LocationVariableFixture : LoaderFixture {
         });
         return loaded;
     }
-    ~LocationVariableFixture() { ReplaceWorld(std::move(previous_world)); }
 };
 
 TEST_CASE_METHOD(LocationVariableFixture,
@@ -1141,12 +1135,12 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "[loader][records]")
 {
     REQUIRE_FALSE(HasLocationVariables());
-    ReplaceWorld(std::make_unique<World>(3));
+    game.game.level.replacePrimary(std::make_unique<World>(3));
     CreateLocationVar("Switch", 17);
     CreateLocationVar("SWITCH", 99);
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
-    ReplaceWorld(std::make_unique<World>(4));
+    game.game.level.replacePrimary(std::make_unique<World>(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
     CreateLocationVar("Switch", -7);
     REQUIRE(HasLocationVariables());
@@ -1170,7 +1164,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
     CurrentGame().story.location_variables.clear();
     REQUIRE(load_variables(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == 31);
-    ReplaceWorld(std::make_unique<World>(3));
+    game.game.level.replacePrimary(std::make_unique<World>(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }
 
@@ -1178,7 +1172,7 @@ TEST_CASE_METHOD(LocationVariableFixture,
                  "Invalid location variable sections leave existing state intact",
                  "[loader][records]")
 {
-    ReplaceWorld(std::make_unique<World>(5));
+    game.game.level.replacePrimary(std::make_unique<World>(5));
     CreateLocationVar("Existing", 42);
     std::string bytes;
     append(bytes, std::int32_t{2});
@@ -1403,10 +1397,8 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
 TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within their section",
                  "[loader][records]")
 {
-    const struct WorldScope {
-        std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
-        ~WorldScope() { ReplaceWorld(std::move(previous)); }
-    } scope;
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
     World& world = *GetWorld();
     Prop first;
     WorldItemEntity item; // Items consume the same legacy sequence as props.

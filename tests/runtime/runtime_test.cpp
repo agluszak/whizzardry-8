@@ -2087,8 +2087,9 @@ void CombatScenario()
         // Keep the queried world alive while another, empty world is active.
         // Ground probes and monster lookups must still use the queried octree.
         struct RestoreWorld {
-            std::unique_ptr<World> previous = ReplaceWorld(std::make_unique<World>());
-            ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
+            std::unique_ptr<World> previous =
+                CurrentGame().level.replacePrimary(std::make_unique<World>());
+            ~RestoreWorld() { CurrentGame().level.replacePrimary(std::move(previous)); }
         } restore;
         REQUIRE(
             octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, std::nullopt)

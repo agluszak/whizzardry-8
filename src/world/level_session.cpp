@@ -63,31 +63,24 @@
 #include "wiz8/world_cursor.h"
 
 namespace {
-std::unique_ptr<World> primary_world;
-std::unique_ptr<World> sky_world;
+Level& CurrentLevel()
+{
+    return CurrentGame().level;
+}
 }
 
 World* GetWorld()
 {
-    return primary_world.get();
+    return GameInProgress() ? CurrentGame().level.primary.get() : nullptr;
 }
 World* GetSecondaryWorld()
 {
-    return sky_world.get();
+    return GameInProgress() ? CurrentGame().level.sky.get() : nullptr;
 }
 int GetLoadedLevelID()
 {
-    return primary_world ? primary_world->level_id : -1;
-}
-
-std::unique_ptr<World> ReplaceWorld(std::unique_ptr<World> world)
-{
-    return std::exchange(primary_world, std::move(world));
-}
-
-std::unique_ptr<World> ReplaceSkyWorld(std::unique_ptr<World> world)
-{
-    return std::exchange(sky_world, std::move(world));
+    const World* world = GetWorld();
+    return world ? world->level_id : -1;
 }
 
 W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
@@ -169,7 +162,7 @@ void StartLevelMusic(int fade, int replace_current)
 
 void UnloadSkyWorld(void)
 {
-    ReplaceSkyWorld(nullptr);
+    CurrentLevel().replaceSky(nullptr);
     ResetEnvironment();
 }
 
@@ -285,13 +278,14 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
 
 unsigned char LoadSkyWorld(std::string_view sky_path)
 {
-    if (sky_world &&
-        sky_world->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
+    Level& level = CurrentLevel();
+    if (level.sky &&
+        level.sky->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
         return 1;
     auto replacement = PrepareSkyWorld(sky_path);
     if (!sky_path.empty() && !replacement) return 0;
-    ReplaceSkyWorld(std::move(replacement));
-    if (!sky_world) ResetEnvironment();
+    level.replaceSky(std::move(replacement));
+    if (!level.sky) ResetEnvironment();
     return 1;
 }
 
@@ -519,9 +513,10 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
     auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
     ambient_path.replace_extension(".SCF");
     ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
+    Level& current = CurrentLevel();
     const bool reuse_sky =
-        sky_world &&
-        sky_world->source_path == wiz8::normalize_asset_path(level_info.sky_path).generic_string();
+        current.sky && current.sky->source_path ==
+                           wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return 0;
     if (GetWorld() && !SaveLevelStatus("saves\\CurrentGame.SAV")) return 0;
@@ -531,8 +526,8 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
                                  true);
     if (GetWorld()) LeaveLevel();
     InvalidateRendererTextureCache();
-    ReplaceWorld(std::move(replacement));
-    if (!reuse_sky) ReplaceSkyWorld(std::move(replacement_sky));
+    current.replacePrimary(std::move(replacement));
+    if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
     InstallLevelSessionState(*GetWorld(), status.get());
     EnterLevel(level, entrance, restoring_game, status.get());
     return 1;
@@ -540,7 +535,7 @@ unsigned char LoadLevel(int requested_level, int entrance, bool restoring_game)
 
 void LeaveLevel()
 {
-    if (!primary_world) return;
+    if (!GetWorld()) return;
     FinishLevelDeparture();
     if (g_world_cleanup_flag) {
         RenderFrame();
@@ -565,7 +560,7 @@ void LeaveLevel()
     DisableSky();
     EndCameraSway();
     ResetGameTimeAccumulator();
-    ReplaceWorld(nullptr);
+    CurrentLevel().replacePrimary(nullptr);
 
     if (g_world_cleanup_flag) {
         RenderFrame();

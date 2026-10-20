@@ -91,7 +91,11 @@ Unlayered code may use the layers.
 
 ## Worlds and levels
 
-- The primary and sky slots own their worlds; queries borrow those owners. World
+- The game's `Level` (`Game::level`) holds the primary and sky slots, which own
+  their worlds; queries borrow those owners, so no world outlives its game.
+  Replacing a slot hands back the previous owner, and a world is never reachable
+  from its slot while it is destroyed. `GetWorld()` and `GetSecondaryWorld()`
+  are transitional forwarders to the slots, null with no game in progress. World
   identity and resource paths are immutable, and live level queries use the
   primary world. `resume_level` is decoded save data, filled in save snapshots.
 - `World` member order is its teardown order. Destruction stops activity and drops
@@ -128,11 +132,15 @@ Unlayered code may use the layers.
   - the gameplay timer;
   - the monster-manager entries;
   - the gameplay flags;
-  - the event log, `events`.
+  - the event log, `events`;
+  - the level, `level`: the primary and sky worlds ("Worlds and levels"). It is
+    declared last, so its worlds are destroyed first, while combat and speech still
+    exist.
 - **Its lifetime.** A game begins when the player chooses a new game, before party
   selection, or when a save is loaded; either replaces any game in progress. It ends when
   the main menu is entered and at shutdown. Ending or replacing a game first leaves its level
-  and clears the session state it does not own yet (`LeaveGameSession`). Nothing is reset field by field.
+  and clears the session state it does not own yet (`LeaveGameSession`); destroying
+  the game then does no departure bookkeeping. Nothing is reset field by field.
 - **A new game's story.** Factions start from their starting dispositions and relations;
   the other story parts start empty. The opening sequence creates the starting NPC states
   (`CreateNewGameNpcStates`), and the new-game loading screen seeds the starting facts
