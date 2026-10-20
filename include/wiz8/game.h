@@ -65,7 +65,7 @@ public:
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
 
     W8Party party{};
-    W8GlobalStatus status{};
+    GameStatus status{};
     Story story;
     W8MessageLog message_log;
     W8CombatLifecycle combat;

@@ -26,6 +26,7 @@ target_sources(wiz8_engine PRIVATE
     local_code/UiLayer.cpp
     local_code/Factions.cpp
     local_code/LoadSaveGame.cpp
+    save_codec.cpp
     local_code/Magic.cpp
     "local_code/Health Stamina Mana.cpp"
     local_code/QuoteManager.cpp

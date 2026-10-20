@@ -27,7 +27,7 @@
 void RebuildPartyEffectBlock(void)
 {
     W8GameplayModifierBlock modifiers{};
-    ApplyPartyEffectSlots(CurrentGame().status.effect_slots, &modifiers);
+    ApplyPartyEffectSlots(CurrentGame().status.effect_slots.data(), &modifiers);
     if (CurrentGame().combat.active()) {
         unsigned char value = modifiers.armor_matchup;
 

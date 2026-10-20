@@ -160,8 +160,21 @@ the licensed runtime scenarios after every step.
    - NPC scripting and level scripts take a context (the world, the party, story state,
      events) instead of reaching globals, and level-script statics become per-level
      script objects.
-8. **Saves over values.** Save and load become `encode(GameState, LevelState…)` and
-   `decode(...)`. Then delete `W8GlobalStatus` as a runtime type.
+8. **Saves over values.** The GSTA section and the STAT record are codecs over values
+   (`save_codec.h`; ARCHITECTURE.md, "Saves"), and `W8GlobalStatus` is gone: the game's
+   status is a `GameStatus` value that carries its unknown bytes. What remains:
+   - The other game sections (TEXT, TVAR, NPCI, NPCT, NPCF, FATA, JRNL, HYPN) are still
+     written from and read into live state through `CurrentGame()`. Give them `encode` and
+     `decode` over `Story`, the message log and the monster-control effect, so that a save
+     is `encode(GameState, LevelState…)`.
+   - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
+     LGHT) is captured from and applied to its world. Decode it into a `LevelState` value
+     (`W8LoadedLevelStatus::Data` is the start) and build the world from that value.
+   - A save copies the CHAR chunks and the other levels' groups from `CurrentGame.SAV` as
+     bytes. Once level states are values, the game can own them instead.
+   - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
+     interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
+     Split it by owner.
 
 ## Within the layers
 
@@ -188,15 +201,20 @@ each.
   Committed and pending item uses should record the expected item contents, as
   trade rows do, and abandon on mismatch, because pool compaction can silently
   retarget a location.
-- **Runtime types with semantic shape; retail layout only in codecs.** (Finished
-  by step 8.) `W8Character`, `W8PartySlotRow`, `W8ItemInstance` and formation
-  state still carry retail field names and sizes: about 1,230 uses of Hungarian
-  names such as `iItemNo`, `fOccupied`, `uiHPMax` and `uiCondition`, plus size
-  `static_assert`s. Twenty-eight `wiz8::retail::Record` codecs already exist.
+- **Runtime types with semantic shape; retail layout only in codecs.** (After step 8.)
+  `W8Character`, `W8PartySlotRow` and `W8ItemInstance` still carry retail field names:
+  about 1,230 uses of Hungarian names such as `iItemNo`, `fOccupied`, `uiHPMax` and
+  `uiCondition`. Verbatim codec copies check field widths, and items, formations and
+  NPC stock entries have their own disk records, so those types may change shape. Retail
+  disk records still embed other runtime types, which therefore keep their retail
+  layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
+  in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
+  `ItemProperties` and `ItemEffects`, and the runtime enums used as disk field types.
+  `W8GameSettings` is read and written raw as the configuration file's CNFG chunk.
   Finish the move:
-  - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members,
-    and no runtime size asserts;
-  - codecs own every byte, including unknown fields;
+  - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
+    no runtime size asserts;
+  - a disk record and codec for each embedded runtime type;
   - the remaining numeric save records and engine resource identifiers get the
     same treatment.
 - **Actor references.** About 500
@@ -256,10 +274,6 @@ before the related refactoring changes behavior.
   port and is not an independent reference. Collect retail saves (start, mid-game,
   late game, NPC-heavy, combat-interrupted) and add round-trip and
   load-then-continue checks.
-- **Remaining runtime dependence on retail sizes.** Find what still relies on
-  `sizeof(W8ItemInstance) == 0x0c`, the formation state size and similar asserts
-  (raw copies, codecs, save-chunk sizing) before giving those types semantic
-  members.
 - **Platform verification.** macOS (Metal) and Windows (Direct3D 12) builds,
   shaders and gameplay are unverified, and platform CI is not enabled. Establish
   what is needed to run them in CI.

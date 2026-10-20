@@ -8,7 +8,6 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/levels.h"
 #include "local_code/Factions.h"
 #include "sight_state.h"
 #include "wiz8/character_event_queue.h"

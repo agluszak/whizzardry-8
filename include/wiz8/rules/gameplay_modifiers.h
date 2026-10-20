@@ -41,6 +41,8 @@ struct W8EffectSlot {
     unsigned int percent;  /* 0x09 */
     unsigned int duration; /* 0x0d: remaining lifetime, aged down in whole
                                   minutes by AgeMonsterSight */
+
+    bool operator==(const W8EffectSlot&) const = default;
 }; /* 0x11 */
 
 /* The 0x67-byte modifier accumulator. Its byte runs are fixed by the fold at

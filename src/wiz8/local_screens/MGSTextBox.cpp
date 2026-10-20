@@ -53,7 +53,6 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/screen.h"
-#include "wiz8/spatial/navigation.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 
@@ -441,10 +440,10 @@ unsigned char SaveMessageStorage(wiz8::File& file)
 /* Read the four message runs back from the open TEXT chunk: a format dword,
    then per region the used-line count followed by each 0x24-byte record and
    its wide string. The first word sizes the new live string allocation; the
-   serialized +0x18 pointer bits are discarded. Saves older than the prepath
-   link-height constant never wrote a fourth region, so its count is forced to
-   zero without consuming a count slot. */
-unsigned char LoadMessageStorage(W8Chunk& file)
+   serialized +0x18 pointer bits are discarded. Saves whose status record predates
+   version 1.1 never wrote a fourth region, so its count is forced to zero without
+   consuming a count slot. */
+unsigned char LoadMessageStorage(W8Chunk& file, float status_version)
 try {
     W8MessageStorageDiskRecord disk_record;
     W8MessageStorageRecord* live_record;
@@ -454,7 +453,7 @@ try {
 
     file.ReadBytes(&format, 4);
     for (region = 0; region < 4; ++region) {
-        if (CurrentGame().status.save_version < g_prepath_link_height && region == 3) {
+        if (status_version < 1.1f && region == 3) {
             CurrentGame().status.text_box_lines_used[3] = 0;
         } else {
             file.ReadBytes(&CurrentGame().status.text_box_lines_used[region], 4);

@@ -20,8 +20,6 @@ struct W8ItemInstance {
        item is worn and read by the predicates that refuse to take it off. */
     bool bound{};
     bool operator==(const W8ItemInstance&) const = default;
-}; /* 0x0c */
-
-static_assert(sizeof(W8ItemInstance) == 0x0c, "W8ItemInstance_must_be_0x0c");
+};
 
 #endif

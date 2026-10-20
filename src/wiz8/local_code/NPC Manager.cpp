@@ -1157,7 +1157,7 @@ try {
         auto* npc = state_owner.get();
         const auto item_count = static_cast<unsigned int>(npc->items.size());
         file.write(&item_count, sizeof(item_count));
-        file.write(npc->items.data(), npc->items.size() * sizeof(W8NpcItemEntry));
+        for (const auto& entry : npc->items) wiz8::retail::write(file, entry);
     }
     return true;
 } catch (const std::exception&) {
@@ -1552,11 +1552,11 @@ try {
         unsigned int item_count;
         file.ReadBytes(&item_count, sizeof(item_count));
         if (item_count > static_cast<unsigned int>(std::numeric_limits<int>::max()) ||
-            item_count > (file.RemainingBytes()) / sizeof(W8NpcItemEntry)) {
+            item_count > file.RemainingBytes() / sizeof(wiz8::retail::NpcItemEntry)) {
             return false;
         }
         items.resize(item_count);
-        file.ReadBytes(items.data(), items.size() * sizeof(W8NpcItemEntry));
+        for (auto& entry : items) wiz8::retail::read_exact(file, entry);
     }
     for (std::size_t npc_index = 0; npc_index < CurrentGame().story.npcs.size(); ++npc_index) {
         CurrentGame().story.npcs[npc_index]->items = std::move(pending[npc_index]);

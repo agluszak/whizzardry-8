@@ -984,7 +984,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
                                                     std::array{20, 1, 1}, std::array{21, 1, 0}}) {
                     wiz8::retail::WorldItem image{};
                     image.runtime_id = id;
-                    image.item.iItemNo = kind;
+                    image.item.item_id = kind;
                     image.next = next;
                     if (truncated && id == 21)
                         chunks.WriteBytes(&image, 13);

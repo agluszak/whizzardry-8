@@ -141,7 +141,7 @@ struct WorldItem {
     int runtime_id;
     std::uint32_t p3D;
     bool fActive;
-    W8ItemInstance item;
+    ItemInstance item;
     wiz8::retail::Vec3f position;
     unsigned char unknown_21[4];
     int entity_flags;
@@ -208,8 +208,18 @@ struct NpcState {
     unsigned char item_weights[40];
 };
 
+/* One entry of an NPC's stock list, as the NPCT section stores it. */
+struct NpcItemEntry {
+    std::uint32_t available_at;
+    ItemInstance item;
+    std::uint8_t quantity;
+    // Retail's alignment padding; written as zeros.
+    std::uint8_t padding_11[3];
+};
+
 #pragma pack(pop)
 
+static_assert(sizeof(NpcItemEntry) == 0x14);
 static_assert(sizeof(MonsterInfo) == 0x425);
 static_assert(offsetof(MonsterInfo, modifiers) == 0x1db);
 static_assert(offsetof(MonsterInfo, heard_noise_margin) == 0x2f5);
@@ -453,7 +463,7 @@ template<> struct Record<W8WorldItem> {
         value(&runtime.runtime_id, field(offsetof(Disk, runtime_id), sizeof(Disk::runtime_id)));
         pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
-        value(&runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)));
+        nested(runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)), value, text);
         nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,
                text);
         value(&runtime.unknown_21, field(offsetof(Disk, unknown_21), sizeof(Disk::unknown_21)));
@@ -557,6 +567,18 @@ template<> struct Record<W8NpcState> {
               field(offsetof(Disk, restore_done), sizeof(Disk::restore_done)));
         value(&runtime.item_weights,
               field(offsetof(Disk, item_weights), sizeof(Disk::item_weights)));
+    }
+};
+
+template<> struct Record<W8NpcItemEntry> {
+    using Disk = NpcItemEntry;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
+    {
+        value(&runtime.available_at,
+              bytes.subspan(offsetof(Disk, available_at), sizeof(Disk::available_at)));
+        nested(runtime.item, bytes.subspan(offsetof(Disk, item), sizeof(Disk::item)), value, text);
+        value(&runtime.quantity, bytes.subspan(offsetof(Disk, quantity), sizeof(Disk::quantity)));
     }
 };
 

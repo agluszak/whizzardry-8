@@ -291,7 +291,7 @@ struct W8Character {
     W8GameplayModifierBlock bonus;
     /* Retail offset 0x17d7: the CamPos record cameraState writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
-       W8GlobalStatus::pending_move_location. */
+       GameStatus::pending_move_location. */
     CameraPose saved_location;
     /* Retail offset 0x1813: which level that anchor belongs to. The recall compares it
        against GetLoadedLevelID() and takes a different path when they differ. */

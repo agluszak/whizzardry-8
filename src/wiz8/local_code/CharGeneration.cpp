@@ -4,7 +4,6 @@
 #include <array>
 #include <functional>
 
-#include "layouts/game_status.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/records.h"

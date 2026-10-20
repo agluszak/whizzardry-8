@@ -3,7 +3,6 @@
 
 #include <memory>
 #include <optional>
-#include <type_traits>
 #include <vector>
 struct W8NpcItemEntry;
 
@@ -14,7 +13,7 @@ struct W8NpcItemEntry;
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/item_instance.h"
 
-/* One entry in an NPC's stock list. */
+/* One entry in an NPC's stock list. Saves store it as wiz8::retail::NpcItemEntry. */
 struct W8NpcItemEntry {
     /* 0x00: the game-clock stamp before which the entry is not ordinary trade
        stock. Zero is the ordinary tradeable entry; restocking writes a clock
@@ -23,8 +22,6 @@ struct W8NpcItemEntry {
     W8ItemInstance item;    /* 0x04 */
     unsigned char quantity; /* 0x10: non-stack remaining quantity */
 };
-// Stock entries are saved whole.
-static_assert(sizeof(W8NpcItemEntry) == 0x14 && std::is_trivially_copyable_v<W8NpcItemEntry>);
 
 /* A live NPC. Saves store it as wiz8::retail::NpcState. */
 struct W8NpcState {

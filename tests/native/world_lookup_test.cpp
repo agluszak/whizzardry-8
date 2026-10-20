@@ -323,14 +323,14 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     REQUIRE(CurrentGame().status.level_progress[8].gold_collected == 0);
     REQUIRE(CurrentGame().status.level_progress[8].experience_gained == 0);
     game.game.level.replacePrimary(nullptr);
-    const auto suffix = std::to_array(CurrentGame().status.status_header_suffix);
+    const auto suffix = CurrentGame().status.retail.status_header_suffix;
     AddPartyGold(CurrentGame(), 1, false);
     AwardPartyExperience(1, 0);
     REQUIRE(CurrentGame().party.gold == 2);
     REQUIRE(characters[0].experience == 2);
     REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
     REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
-    REQUIRE(std::to_array(CurrentGame().status.status_header_suffix) == suffix);
+    REQUIRE(CurrentGame().status.retail.status_header_suffix == suffix);
 }
 
 TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
