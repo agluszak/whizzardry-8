@@ -151,7 +151,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -325,17 +325,12 @@ static void SubMenuButtonToggleCombat(W8ButtonWidget* button)
 void DestroySubMenuControls(void)
 {
     SetSubMenuButtonTooltips(1);
-    MainGameHud()->combat_end_notification = -1;
+    MainGameHud()->open_submenu.reset();
     DestroySubMenuPanel();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
 }
 
 void ReopenSubMenuPanel(void)
 {
-    short notification = MainGameHud()->combat_end_notification;
-
-    if (notification == -1) {
-        return;
-    }
-    OpenSubMenuPanel(notification);
+    if (const auto open = MainGameHud()->open_submenu) OpenSubMenuPanel(*open);
 }

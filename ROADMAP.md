@@ -135,10 +135,13 @@ the licensed runtime scenarios after every step.
    - With one step, the world's hold can be read once per step instead of being reported
      from every call site of `SyncWorldAdvancement` (ARCHITECTURE.md, "Advancement").
 5. **Presentation owned by screens.**
-   - Combat still reads and writes `MainGameScreen::hud` (`W8LevelRuntimeBlock`,
-     formerly `g_level_block`): `pick_changed`, `selection_kind`, `selection_settled`
-     and `combat_end_notification`. Report those as events, then pass
-     the HUD to the code that draws it instead of reaching it through `MainGameHud()`.
+   - Combat no longer touches `MainGameScreen::hud` (`W8LevelRuntimeBlock`, formerly
+     `g_level_block`) except to skip repainting during a review transition, and it
+     reports the submenu's reactions as events (`CombatExecutionBegan`,
+     `CombatCalledOff`). Pass the HUD to the code that draws it instead of reaching it
+     through `MainGameHud()`. `SelectCombatAction` still reads the spell, item and
+     submenu drafts that the screens own, so combat's attack and spell code depends on
+     them through it.
    - The shown cursor (`Screens.cpp`) and
      the targeting mode (`TargetingMode()`) are module state of the UI code that sets
      them; they become members of the screens that show them once camp and main game

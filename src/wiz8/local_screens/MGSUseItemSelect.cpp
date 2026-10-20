@@ -164,7 +164,7 @@ unsigned char OpenUseItemSelectView(int slot)
 
     UpdateScreenOverlays(0);
     use_item = std::make_unique<UseItemView>();
-    if (MainGameHud()->combat_end_notification != -1) {
+    if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();

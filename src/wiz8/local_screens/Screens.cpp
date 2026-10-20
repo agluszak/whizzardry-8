@@ -18,8 +18,10 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/CreditsScreen.h"
@@ -351,6 +353,22 @@ struct GameEventPresentation {
     {
         if (MainGameHud()) MainGameHud()->refresh_combat_panel = 1;
     }
+    void operator()(const CombatExecutionBegan&) const
+    {
+        if (MainGameHud() && MainGameHud()->open_submenu) {
+            if (g_settings.continuous_combat == 0) {
+                DestroySubMenuControls();
+            } else {
+                ReopenSubMenuPanel();
+            }
+        }
+        if (g_settings.continuous_combat == 0 && TargetingMode() != W8_TARGET_NEED_NONE)
+            SetTargetingMode(W8_TARGET_NEED_NONE);
+    }
+    void operator()(const CombatCalledOff&) const
+    {
+        if (MainGameHud() && MainGameHud()->open_submenu) DestroySubMenuControls();
+    }
     void operator()(const CharacterActionChanged&) const
     {
         RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
@@ -358,7 +376,7 @@ struct GameEventPresentation {
     void operator()(const EquipmentSettled&) const
     {
         if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME || !MainGameHud()) return;
-        if (MainGameHud()->combat_end_notification != -1) ReopenSubMenuPanel();
+        if (MainGameHud()->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
     void operator()(const HeldItemChanged&) const { UpdateHeldItemCursor(); }
@@ -426,7 +444,7 @@ void InitializeMainGameLevelBlock(void)
         MainGameHud()->portrait_refresh_pending[slot] = 0;
         MainGameHud()->portrait_refresh_image[slot] = 0;
     }
-    MainGameHud()->combat_end_notification = -1;
+    MainGameHud()->open_submenu.reset();
     RefreshMainGameLayout();
     MainGameHud()->countdown0 = w8_get_ticks() + (60000);
     MainGameHud()->countdown1 = w8_get_ticks() + (0);

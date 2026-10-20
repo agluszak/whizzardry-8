@@ -27,7 +27,6 @@ CombatWait CombatWaitFor(Game& game);
 
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
-W8Action SelectCombatAction(int party_slot, W8TargetingContext context);
 
 void SetCharacterCombatAction(int party_slot, W8Action action, int notify);
 /* In combat, a member's committed action follows a change of the weapons in hand: an

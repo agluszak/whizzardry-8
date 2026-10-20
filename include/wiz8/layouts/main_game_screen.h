@@ -22,6 +22,7 @@ enum W8TextBoxArrowState : unsigned char {
 static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 #include <memory>
+#include <optional>
 
 #include "wiz8/render/compositor.h"
 
@@ -141,7 +142,6 @@ struct W8LevelRuntimeBlock {
     W8ViewportMode camera_mode;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];
-    bool pick_changed;
     unsigned char action_panel_visible;
     bool formation_board_visible;
     unsigned char radar_map_visible;
@@ -216,7 +216,8 @@ struct W8LevelRuntimeBlock {
     std::unique_ptr<OverlayQuad> formation_overlay_sprite;
     unsigned char refresh_combat_panel;
     uint64_t combat_panel_timer;
-    short combat_end_notification;
+    // The submenu panel that is open, by menu id.
+    std::optional<short> open_submenu;
     int text_box_left;
     int text_box_top;
     int text_box_right;
