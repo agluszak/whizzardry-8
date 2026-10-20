@@ -1,7 +1,9 @@
 #pragma once
 
+#include <expected>
 #include <functional>
 #include <optional>
+#include <string>
 
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
@@ -16,7 +18,13 @@ struct W8Party;
    consequences: unusable equipment comes off, statistics and shared load are
    recalculated, combat choices follow a change of weapons, a committed item use
    loses a replaced item, and the hand's change is reported. Notices and display
-   changes are appended to the game's events. */
+   changes are appended to the game's events; a command the player is refused returns
+   the refusal for the screen to show. */
+
+// Why an inventory command was turned down, worded for the player.
+struct InventoryRefusal {
+    std::string notice;
+};
 
 // ---- Searching
 
@@ -71,7 +79,8 @@ bool GiveItemToCharacterOrParty(Game& game, int uiChar, W8ItemInstance* item, bo
 /* The held-item form, after the whole party has had its identification attempt. A
    failed party-first attempt still reports success and empties the hand, as retail
    did. */
-bool GiveHeldItemToCharacterOrParty(Game& game, int uiChar, bool party_first);
+std::expected<void, InventoryRefusal> GiveHeldItemToCharacterOrParty(Game& game, int uiChar,
+                                                                     bool party_first);
 /* A departing character's items go to the pool; equipment bound to its slot stays
    unless announced, iconless or worn by the dead. */
 void StashDepartingCharacterItems(Game& game, W8Character* character);
@@ -96,7 +105,7 @@ bool PlaceItemOnCursor(Game& game, int item_id, bool maximum_quantity, bool forc
 void ReplaceHeldItemWithNew(Game& game, int item_id, bool quality);
 bool ReceiveItemInHand(Game& game, W8ItemInstance& item);
 // Drop the held item unless it may not be discarded.
-bool DropItemInHand(Game& game, int unused);
+std::expected<void, InventoryRefusal> DropItemInHand(Game& game, int unused);
 
 // ---- Player edits
 
@@ -114,8 +123,8 @@ struct StackMergeResult {
 StackMergeResult MergeInventoryStacks(Game& game, W8ItemLocation destination,
                                       W8ItemLocation source);
 bool InsertHeldItemInPool(Game& game, unsigned index);
-// Combine the held item with another by recipe, or stack them; announces refusal.
-bool MergeItems(Game& game, unsigned actor, W8ItemLocation target);
+// Combine the held item with another by recipe, or stack them; whether anything merged.
+std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8ItemLocation target);
 // Pour the source's uses into the destination.
 void MergeItemUses(Game& game, unsigned actor, W8ItemLocation destination, W8ItemLocation source);
 // Add recharge uses to an item, never past what it can hold.

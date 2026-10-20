@@ -179,9 +179,10 @@ void W8CampItemsPage::IdentifyAndOpenItemInfo(W8ItemInstance* item)
 void W8CampItemsPage::DropHeldCampItem(void)
 {
     if (ResolvePendingCampCharacter(true)) {
-        if (DropItemInHand(CurrentGame(), 0)) {
+        if (auto dropped = DropItemInHand(CurrentGame(), 0); !dropped)
+            ShowRefusal(dropped.error());
+        else
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
-        }
     }
 }
 
@@ -250,7 +251,10 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
 void W8CampItemsPage::MergeItemStacksWithHeld(W8ItemLocation location)
 {
     if (CurrentGame().party.itemAt(location)->iItemNo != -1) {
-        if (MergeItems(CurrentGame(), screen.ReviewedPartySlot(), location)) {
+        const auto merged = MergeItems(CurrentGame(), screen.ReviewedPartySlot(), location);
+        if (!merged)
+            ShowRefusal(merged.error());
+        else if (*merged) {
             RebuildCampItemList();
             screen.InvalidateAll();
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);

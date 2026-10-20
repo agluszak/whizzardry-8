@@ -267,8 +267,6 @@ Substantial but contained work.
 
 Small, local and low-risk.
 
-- `MergeItems`, `DropItemInHand` and `GiveHeldItemToCharacterOrParty` report refusals
-  as `NoticeDialog` events; return the refusal to the screen instead.
 - Add regression tests with a light combat fixture: a weapon-set swap toggles
   `alternate_hand` once, and spending one charge keeps a committed item use.
 - Decide the policy for decomp address annotations (`// FUNCTION: WIZ8 …`): keep

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <expected>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -724,11 +725,11 @@ bool GiveItemToCharacterOrParty(Game& game, int uiChar, W8ItemInstance* item, bo
 /* Hand the item in hand to a party member. It is first offered to everybody who
    could identify it, and then stored with the character or the party pool in
    the order the flag asks for. The item-in-hand state is cleared before the
-   outcome is tested, and a store that fails is announced: the notice names the
-   slot when neither destination was open, and the item otherwise. The flag
-   doubles as the result, so a failed party-first attempt still reports
-   success. */
-bool GiveHeldItemToCharacterOrParty(Game& game, int uiChar, bool party_first)
+   outcome is tested, and a store that fails is refused: the notice names the
+   slot when neither destination was open, and the item otherwise. A failed
+   party-first attempt still counts as stored. */
+std::expected<void, InventoryRefusal> GiveHeldItemToCharacterOrParty(Game& game, int uiChar,
+                                                                     bool party_first)
 {
     W8ItemInstance* item = &game.party.held.item;
     bool stored = party_first;
@@ -759,16 +760,12 @@ bool GiveHeldItemToCharacterOrParty(Game& game, int uiChar, bool party_first)
     if (stored) {
         DiscardItem(game.party, &game.party.held.item);
         FinishInventoryEdit(game, {{W8ItemStorage::Hand}, destination.value_or(W8ItemLocation{})});
-        return stored;
+        return {};
     }
 
     FinishInventoryEdit(game, {});
-    if (!IsPartySlotEligible(uiChar) && !party_first) {
-        game.events.push(NoticeDialog{.text = Data().strings[0x1f5]});
-    } else {
-        game.events.push(NoticeDialog{.text = Data().strings[0x90c]});
-    }
-    return stored;
+    const bool slot_closed = !IsPartySlotEligible(uiChar) && !party_first;
+    return std::unexpected(InventoryRefusal{Data().strings[slot_closed ? 0x1f5 : 0x90c]});
 }
 
 /* Empty a departing character into the party pool. Equipment that is bound
@@ -1065,16 +1062,14 @@ bool ReceiveItemInHand(Game& game, W8ItemInstance& item)
 }
 
 /* Drop whatever is in hand, unless it is one of the items that may not be
-   discarded - in which case say so instead. */
-bool DropItemInHand(Game& game, int unused)
+   discarded - in which case refuse. */
+std::expected<void, InventoryRefusal> DropItemInHand(Game& game, int unused)
 {
-    if ((Data().items[game.party.held.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
-        game.events.push(NoticeDialog{.text = Data().strings[0x4ef]});
-        return false;
-    }
+    if ((Data().items[game.party.held.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0)
+        return std::unexpected(InventoryRefusal{Data().strings[0x4ef]});
     DropHeldItem(unused);
     FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
-    return true;
+    return {};
 }
 
 // ---- Player edits
@@ -1291,8 +1286,10 @@ bool InsertHeldItemInPool(Game& game, unsigned index)
    that entry is created in their place, provided the character has the skill
    it asks for; stacks give up as many units as the smaller one holds. Failing
    that, two items of one kind are stacked together. Returns whether a recipe
-   merge (or, for stacking, a merge of any units) happened. */
-bool MergeItems(Game& game, unsigned actor, W8ItemLocation target)
+   merge (or, for stacking, a merge of any units) happened, or the refusal of an
+   unidentified item, a recipe beyond the character's skill or two items that do
+   not combine. */
+std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8ItemLocation target)
 {
     auto& party = game.party;
     auto* destination = party.itemAt(target);
@@ -1301,10 +1298,8 @@ bool MergeItems(Game& game, unsigned actor, W8ItemLocation target)
         destination->iItemNo == -1)
         return false;
     W8Character* character = &party.characters[actor];
-    if (!held.identified || !destination->identified) {
-        game.events.push(NoticeDialog{.text = Data().strings[0x163]});
-        return false;
-    }
+    if (!held.identified || !destination->identified)
+        return std::unexpected(InventoryRefusal{Data().strings[0x163]});
     for (unsigned id = 0; id < Data().items.size(); ++id) {
         const auto& recipe = Data().items[id];
         if (!((recipe.merge_component_a == held.iItemNo &&
@@ -1313,11 +1308,9 @@ bool MergeItems(Game& game, unsigned actor, W8ItemLocation target)
                recipe.merge_component_a == destination->iItemNo)))
             continue;
         if (recipe.merge_skill != -1 &&
-            character->skills[recipe.merge_skill].level < recipe.merge_skill_level) {
-            game.events.push(
-                NoticeDialog{.text = fmt::sprintf(Data().strings[0x162], character->name)});
-            return false;
-        }
+            character->skills[recipe.merge_skill].level < recipe.merge_skill_level)
+            return std::unexpected(
+                InventoryRefusal{fmt::sprintf(Data().strings[0x162], character->name)});
         const bool held_stack = Data().items[held.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK;
         const bool target_stack =
             Data().items[destination->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK;
@@ -1359,8 +1352,7 @@ bool MergeItems(Game& game, unsigned actor, W8ItemLocation target)
                             {merged ? W8ItemLocation{W8ItemStorage::Hand} : W8ItemLocation{}});
         return merged || partial;
     }
-    game.events.push(NoticeDialog{.text = Data().strings[0x161]});
-    return false;
+    return std::unexpected(InventoryRefusal{Data().strings[0x161]});
 }
 
 /* Pour one item's uses into another and take that many off the source, one at

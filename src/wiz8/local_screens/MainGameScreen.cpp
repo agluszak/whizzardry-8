@@ -4425,7 +4425,10 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         } else {
                             force_to_party = true;
                         }
-                        GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
+                        if (auto given =
+                                GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
+                            !given)
+                            ShowRefusal(given.error());
                         if (ItemUseDraft()) {
                             RefreshUseItemSelection();
                         }
@@ -4533,7 +4536,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
                 return UiResult::Handled;
             }
-            GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true);
+            if (auto given = GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true); !given)
+                ShowRefusal(given.error());
             if (ItemUseDraft()) {
                 RefreshUseItemSelection();
                 return UiResult::Handled;
@@ -5075,7 +5079,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (MainGameHud()->highlighted_item == -1) {
         if ((CurrentGame().party.held.item.iItemNo != -1) && GetSelectedPropIndex() == -1) {
             if (!CurrentGame().advancement.held) {
-                DropItemInHand(CurrentGame(), 1);
+                if (auto dropped = DropItemInHand(CurrentGame(), 1); !dropped)
+                    ShowRefusal(dropped.error());
             }
         } else if (MainGameHud()->selected_item != -1) {
             if (!CurrentGame().advancement.held &&
