@@ -379,14 +379,21 @@ widget tree.
   them on destruction.
 - `MainGameScreenState` owns its HUD buttons, input layer and active submenu as
   values. Suspension disables their input; full game exit destroys them.
-- The camp screen owns routing, the header, portraits, the page buttons and
-  dialogs. Its items, stats, skills and spells pages own their state and
-  controls behind a small lifecycle; the items page owns the item-action
-  buttons and repaints cells from what they last showed.
+- The camp screen owns routing, the header, portraits, the page buttons,
+  `CampDialogs` (its one modal dialog) and the character-info panel. Its items,
+  stats, skills and spells pages own their state and controls behind a small
+  lifecycle and hold no reference to the camp: `Activate` and
+  `ReviewedCharacterChanged` give them the reviewed character, their
+  constructors give them `CampDialogs` and the character-info panel, and the
+  items page selects a character or leaves the camp through two callbacks. The
+  items page owns the item-action buttons and repaints cells from what they
+  last showed.
 - Camp invalidation is per part: the header and each page record what the next
-  draw repaints, `CampScreen::InvalidateAll` repaints everything, and each draw
-  receives whether it is a full repaint. Everything recorded is cleared after
-  the draw.
+  draw repaints, down to single item cells on the items page, and
+  `CampScreen::InvalidateAll` repaints everything. The items page asks for a
+  full or portrait repaint through `TakeCampRepaint`, which the camp reads
+  before drawing. Each draw receives whether it is a full repaint, and
+  everything recorded is cleared after the draw.
 
 ## Tests
 

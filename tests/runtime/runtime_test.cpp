@@ -1118,10 +1118,11 @@ void InventoryChestScenario()
     // Right-clicking the wielded longsword opens its item information dialog.
     game.right_click_at(175, 360);
     REQUIRE(game.within_frames(4, [] {
-        return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialog.get()) != nullptr;
+        return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialogs.open()) != nullptr;
     }));
     game.key(SDLK_ESCAPE);
-    REQUIRE(game.within_frames(4, [] { return FindScreen<CampScreen>()->dialog == nullptr; }));
+    REQUIRE(
+        game.within_frames(4, [] { return FindScreen<CampScreen>()->dialogs.open() == nullptr; }));
 
     const auto slot = PremadeSlot();
     auto& caster = CurrentGame().party.characters[slot];
@@ -1207,10 +1208,11 @@ void CampSpellsScenario()
     REQUIRE(sword.identified);
     REQUIRE(caster.iSPLeft[realm] < 100);
     REQUIRE(game.within_frames(4, [] {
-        return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialog.get()) != nullptr;
+        return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialogs.open()) != nullptr;
     }));
     game.key(SDLK_ESCAPE);
-    REQUIRE(game.within_frames(4, [] { return FindScreen<CampScreen>()->dialog == nullptr; }));
+    REQUIRE(
+        game.within_frames(4, [] { return FindScreen<CampScreen>()->dialogs.open() == nullptr; }));
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
@@ -2143,7 +2145,7 @@ void PrintState(GameHarness& game)
     if (const auto* camp = FindScreen<CampScreen>())
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                     camp->ReviewedPartySlot(), int(camp->page), int(camp->items.action()),
-                    camp->dialog != nullptr, int(TargetingMode()));
+                    camp->dialogs.open() != nullptr, int(TargetingMode()));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.rows[slot].fOccupied) {

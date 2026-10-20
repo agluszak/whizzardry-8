@@ -106,9 +106,41 @@ struct W8NpcState;
    fFoundEquipChar assertion. This is state 6, reached both from the party
    selector and from the running game. */
 
-CampScreen::~CampScreen()
+CampDialogs::~CampDialogs()
 {
     RetireModal(std::move(dialog), false);
+}
+
+void CampDialogs::Display(std::unique_ptr<W8DialogBase> dialog)
+{
+    RetireModal(std::exchange(this->dialog, std::move(dialog)), false);
+    if (this->dialog) this->dialog->InputLayer().setModal(true);
+}
+
+void CampDialogs::ShowNotice(std::string_view text, std::function<void(bool)> callback,
+                             bool confirmation, bool cancel)
+{
+    W8MessageDialogBase* dialog = CreateMessageDialog();
+    dialog->SetClientExtent(0xfa, 200);
+    dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
+    dialog->on_complete = std::move(callback);
+    Display(std::unique_ptr<W8DialogBase>(dialog));
+}
+
+bool CampDialogs::ProcessInput()
+{
+    if (!dialog) return false;
+    const UiTransaction transaction;
+    auto* running = dialog.get();
+    if (running->ProcessInput() || dialog.get() != running) return false;
+    RetireModal(std::move(dialog), true);
+    return true;
+}
+
+int CampPartySlot(const W8Character& character)
+{
+    if (const auto slot = CurrentGame().party.slotOf(character)) return static_cast<int>(*slot);
+    return -1;
 }
 std::uint64_t g_fade_tick_base;
 void (*g_fade_callback)(void);
@@ -156,31 +188,9 @@ W8CampScreenRegion g_camp_screen_regions[12] = {
    formats - zero-padded cost, plain number, plain string and the realm label
    prefix. */
 
-/* Enable or disable the six spell-realm scrollbars together. While enabling, a
-   realm whose learned spells fit the eight visible rows keeps its bar off. */
-void W8CampSpellsPage::SetCampSpellRangesEnabled(bool enable)
-{
-    W8RangeControl* spell_range;
-    int realm;
-    int second;
-
-    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        spell_range = spell_ranges[realm].get();
-        spell_range->SetActive(enable);
-        if (enable) {
-            second = screen.reviewed->skill_unlocks[0x1c + realm] - 8;
-            if (second < 1) {
-                spell_range->SetEnabled(false);
-            } else {
-                spell_range->SetEnabled(true);
-                spell_range->SetRange(0, second);
-            }
-        }
-    }
-}
-
 /* Re-enable all six spell-realm scrollbars after the learned-spell lists were
-   rebuilt for a new character. */
+   rebuilt for a new character. A realm whose learned spells fit the eight
+   visible rows keeps its bar off. */
 void W8CampSpellsPage::RefreshCampSpellRanges(void)
 {
     W8RangeControl* spell_range;
@@ -190,7 +200,7 @@ void W8CampSpellsPage::RefreshCampSpellRanges(void)
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         spell_range = spell_ranges[realm].get();
         spell_range->SetActive(true);
-        second = screen.reviewed->skill_unlocks[0x1c + realm] - 8;
+        second = character->skill_unlocks[0x1c + realm] - 8;
         if (second < 1) {
             spell_range->SetEnabled(false);
         } else {
@@ -206,7 +216,6 @@ void W8CampSpellsPage::RefreshCampSpellRanges(void)
    unusable spells dim. */
 void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
 {
-    W8Character* character = screen.reviewed;
     const W8SpellRealmAnimation* animation;
     int realm;
     int row;
@@ -309,7 +318,6 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
    to the gap, then right-aligns the value inside the bar. */
 void W8CampSpellsPage::DrawCampResistances(void)
 {
-    W8Character* character = screen.reviewed;
     const W8SpellRealmAnimation* animation;
     std::string text;
     int index;
@@ -345,7 +353,7 @@ UiResult W8CampSpellsPage::HandleCampSpellList(const UiPointerEvent& event, int 
 {
 
     int row = (event.local.y - 1) / 13;
-    const int visible = std::min(8, int(screen.reviewed->skill_unlocks[0x1c + realm]) -
+    const int visible = std::min(8, int(character->skill_unlocks[0x1c + realm]) -
                                         int(learned_spells.scroll[realm]));
     if (!event.inside || row < 0 || row >= visible) row = -1;
     if (row != selected_spell_row || event.action == UiPointerAction::Enter ||
@@ -368,10 +376,15 @@ void W8CampSpellsPage::OpenSpellInfoDialog(unsigned int spell_id)
 {
     auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
     dialog->SetText("");
-    screen.DisplayCampDialog(std::move(dialog));
+    dialogs.Display(std::move(dialog));
 }
 
-W8CampCharacterInfo::W8CampCharacterInfo(CampScreen& screen) : screen(screen)
+W8CampCharacterInfo::W8CampCharacterInfo()
+{
+    input.setEnabled(false);
+}
+
+void W8CampCharacterInfo::CreateControls()
 {
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
@@ -395,7 +408,6 @@ W8CampCharacterInfo::W8CampCharacterInfo(CampScreen& screen) : screen(screen)
         m_values[index] = &input.add(SDL_Rect{positions[index].x, positions[index].y, 33, 13}, {});
         m_values[index]->setTooltip([this, index] { return m_help[index]; });
     }
-    input.setEnabled(false);
 }
 
 void W8CampCharacterInfo::SetActive(bool enabled)
@@ -414,58 +426,52 @@ void W8CampCharacterInfo::SetCombatView(bool enabled)
     m_values[1]->setEnabled(enabled);
     m_values[2]->setEnabled(enabled);
     m_values[3]->setEnabled(enabled);
-    if (enabled) {
-        m_backgroundImage = 0;
-    } else if (screen.reviewed->armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0) {
-        m_backgroundImage = 2;
-    } else {
-        m_backgroundImage = 1;
-    }
     InvalidateAll();
 }
 
 unsigned short g_camp_armor_class_labels[12] = {1052, 1053, 1054, 1055, 1056, 1057,
                                                 1058, 1059, 1060, 1061, 1062, 1063};
 
-void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
+/* The armor view's backdrop shows the reflextion row only while the character
+   has reflextion. Returns whether the panel was repainted. */
+bool W8CampCharacterInfo::Redraw(SDL_Surface& target, const W8Character& character,
+                                 bool full_redraw)
 {
     std::string text;
-    bool redraw = m_active && m_dirty;
-    if (!m_combat_view &&
-        ((screen.reviewed->armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0 &&
-          m_backgroundImage != 2) ||
-         (screen.reviewed->armor_class_components[W8_AC_COMPONENT_REFLEXTION] <= 0 &&
-          m_backgroundImage == 2))) {
-        SetCombatView(false);
+    const int background = m_combat_view                                                      ? 0
+                           : character.armor_class_components[W8_AC_COMPONENT_REFLEXTION] > 0 ? 2
+                                                                                              : 1;
+    if (background != m_backgroundImage) {
+        m_backgroundImage = background;
+        InvalidateAll();
     }
-    if (!m_active) return;
-    redraw |= full_redraw || m_dirty;
+    if (!m_active) return false;
+    const bool redraw = full_redraw || m_dirty;
     if (redraw)
         CatalogArtwork::Load(0x122, 0).drawAndInvalidate(target, m_backgroundImage, 0x136, 0);
     m_stats_tab->m_dirty |= redraw;
     m_combat_tab->m_dirty |= redraw;
     m_stats_tab->Refresh();
     m_combat_tab->Refresh();
-    if (!redraw) return;
+    if (!redraw) return false;
     m_dirty = false;
-    screen.items.InvalidateControls();
     DrawRcsText(Data().strings[0x935], 0x15e, 0x84, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    text = fmt::format("{:d}", screen.reviewed->kill_count);
+    text = fmt::format("{:d}", character.kill_count);
     DrawRcsText(text, 0x1ae, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     DrawRcsText(Data().strings[0x936], 0x15e, 0x92, 0x4e,
                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    text = fmt::format("{:d}", screen.reviewed->death_count);
+    text = fmt::format("{:d}", character.death_count);
     DrawRcsText(text, 0x1ae, 0x92, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     if (m_combat_view) {
         DrawRcsText(Data().strings[0x8b0], 0x15b, 10, 0x11d,
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         DrawRcsText(Data().strings[0x8b1], 0x15e, 0x30, 0x4e,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        text = fmt::format("{:d}", screen.reviewed->initiative);
+        text = fmt::format("{:d}", character.initiative);
         DrawRcsText(text, 0x1ae, 0x30, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-        if (screen.reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
-            screen.reviewed->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
+        if (character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1 &&
+            character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1) {
             DrawRcsText(Data().strings[0x8b5], 0x1d6, 0x22, 0x50,
                         g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             DrawRcsText(Data().strings[0x8b4], 0x228, 0x22, 0x50,
@@ -494,15 +500,14 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         bool unknown_partner =
             ItemHasSingledOutGenericName(
-                Data(), screen.reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
-            !screen.reviewed->EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].identified;
+                Data(), character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo) &&
+            !character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].identified;
         for (unsigned int hand = 0; hand < 2; ++hand) {
-            W8HandAttack* attack = &screen.reviewed->Hand[hand];
+            const W8HandAttack* attack = &character.Hand[hand];
             if (!attack->in_play) continue;
             int x = hand ? 600 : 0x1d6;
-            if (screen.reviewed->EquippedItem[hand + 6].iItemNo != -1 &&
-                (!screen.reviewed->EquippedItem[hand + 6].identified ||
-                 (hand == 0 && unknown_partner))) {
+            if (character.EquippedItem[hand + 6].iItemNo != -1 &&
+                (!character.EquippedItem[hand + 6].identified || (hand == 0 && unknown_partner))) {
                 for (int row = 0; row < 8; ++row) {
                     DrawRcsText("?", x, 0x30 + row * 14, 0x20,
                                 g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
@@ -522,17 +527,17 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                 continue;
             }
             W8Dice dice;
-            GetCharacterHandDamageDice(screen.reviewed, hand, &dice);
-            unsigned int damage_bonus = GetCharacterHandDamageBonus(screen.reviewed, hand);
+            GetCharacterHandDamageDice(&character, hand, &dice);
+            unsigned int damage_bonus = GetCharacterHandDamageBonus(&character, hand);
             unsigned int minimum = (dice.Minimum() * (100 + damage_bonus) + 50) / 100;
             unsigned int maximum = (dice.Maximum() * (100 + damage_bonus) + 50) / 100;
             if (minimum < 2) minimum = 1;
             if (maximum < 2) maximum = 1;
-            int hit_bonus = attack->hit_bonus + screen.reviewed->bonus.hit_bonus;
+            int hit_bonus = attack->hit_bonus + character.bonus.hit_bonus;
             int skill_bonus =
                 (attack->attack_score < 0 ? attack->attack_score - 2 : attack->attack_score + 2) /
                 5;
-            text = fmt::format("{:+d}", attack->damage_bonus + screen.reviewed->bonus.damage_bonus);
+            text = fmt::format("{:+d}", attack->damage_bonus + character.bonus.damage_bonus);
             DrawRcsText(text, x, 0x30, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             text = fmt::format("{:d}-{:d}", minimum, maximum);
             DrawRcsText(text, x, 0x3e, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
@@ -556,7 +561,7 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
             DrawRcsText(text, x, 0x68, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             text = fmt::format("{:+d}", hit_bonus);
             DrawRcsText(text, x, 0x76, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
-            text = fmt::format("{:+d}", attack->attack_bonus + screen.reviewed->bonus.attack_bonus);
+            text = fmt::format("{:+d}", attack->attack_bonus + character.bonus.attack_bonus);
             DrawRcsText(text, x, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
             text = fmt::format("{:+d}%", static_cast<int>(damage_bonus));
             DrawRcsText(text, x, 0x92, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
@@ -566,14 +571,14 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
                     g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
         for (unsigned int component = 0; component < 12; ++component) {
             if (component == 11 &&
-                screen.reviewed->armor_class_components[W8_AC_COMPONENT_REFLEXTION] == 0)
+                character.armor_class_components[W8_AC_COMPONENT_REFLEXTION] == 0)
                 continue;
             int y = (component % 6) * 14 + 0x22;
             int label_x = component / 6 ? 0x1ef : 0x15e;
             int value_x = component / 6 ? 600 : 0x1c7;
             DrawRcsText(Data().strings[g_camp_armor_class_labels[component]], label_x, y, 0x67,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-            int value = screen.reviewed->armor_class_components[component];
+            int value = character.armor_class_components[component];
             if (value) {
                 text = fmt::format("{:+d}", value);
                 DrawRcsText(text, value_x, y, 0x20,
@@ -582,9 +587,10 @@ void W8CampCharacterInfo::Redraw(SDL_Surface& target, bool full_redraw)
         }
         DrawRcsText(Data().strings[0x8bf], 0x1da, 0x84, 0x7c,
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-        text = fmt::format("{:d}%", screen.reviewed->damage_reduction);
+        text = fmt::format("{:d}%", character.damage_reduction);
         DrawRcsText(text, 600, 0x84, 0x20, g_W8TextBufferAlignCenter | g_W8TextBufferAlignMiddle);
     }
+    return true;
 }
 
 void CampScreen::CreateCampInput()
@@ -630,12 +636,12 @@ bool CampScreen::enter(const ScreenRequest& request)
     items.Reset(request.parameter_4);
     CreateCampButtonPanel();
     items.CreateActionButtons();
-    items.CreateCampItemControls();
+    items.CreateCampItemControls(scroll_input);
     CreateCampHeaderButtons();
     page = W8_CAMP_PAGE_ITEMS;
-    spells.CreateControls();
-    stats.CreateControls();
-    character_info = std::make_unique<W8CampCharacterInfo>(*this);
+    spells.CreateControls(scroll_input);
+    stats.CreateControls(scroll_input);
+    character_info.CreateControls();
     ActivateCampPage();
     if (CurrentGame().combat.active() &&
         CurrentGame().combat.state()->equip_phase != W8CombatEquipPhase::action_selection) {
@@ -671,7 +677,7 @@ bool CampScreen::enter(const ScreenRequest& request)
         }
         Fail("fFoundEquipChar");
     show_equip_message:
-        ShowNotice(text, 0, true, false);
+        dialogs.ShowNotice(text, 0, true, false);
     }
     InvalidateAll();
     ResetTransientRenderScenes();
@@ -695,19 +701,12 @@ void CampScreen::frame()
         RequestExitScreen();
     }
     ServiceMusicPlaylist();
-    if (dialog) {
-        const UiTransaction transaction;
-        auto* running = dialog.get();
-        if (!running->ProcessInput() && dialog.get() == running) {
-            RetireModal(std::move(dialog), true);
-            InvalidateAll();
-        }
-    }
+    if (dialogs.ProcessInput()) InvalidateAll();
     if (CurrentGame().level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
         !CurrentGame().combat.active() && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
-    if (!dialog)
+    if (!dialogs.open())
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
             if (input.type == InputEventType::KeyDown) {
                 if (input.key == SDLK_ESCAPE) {
@@ -723,7 +722,7 @@ void CampScreen::frame()
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                    ShowNotice(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
+                    dialogs.ShowNotice(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
                 }
             }
             return InputRoute::Handled;
@@ -768,14 +767,15 @@ void CampScreen::DismissSelectedPartyCharacter()
    tracks. A held item repaints the page under the cursor every frame. */
 void CampScreen::DrawCampScreen(void)
 {
-    items.BeginRedraw();
+    if (page == W8_CAMP_PAGE_ITEMS) items.BeginRedraw();
+    const auto requested = items.TakeCampRepaint();
+    full_redraw |= requested.all;
+    header_redraw.portrait |= requested.portrait;
     if (full_redraw || header_redraw.any() || items.RedrawPending() || stats.RedrawPending() ||
         spells.RedrawPending() || (CurrentGame().party.held.item.iItemNo != -1)) {
         if (full_redraw) {
             items.InvalidateCells();
-            if (dialog != 0) {
-                dialog->m_dirty = true;
-            }
+            if (auto* dialog = dialogs.open()) dialog->m_dirty = true;
         }
         DrawCampHeader();
         switch (page) {
@@ -783,13 +783,13 @@ void CampScreen::DrawCampScreen(void)
             items.RedrawCampItemsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_STATS:
-            stats.DrawCampStatsPage(full_redraw);
+            stats.DrawCampStatsPage(*reviewed, full_redraw);
             break;
         case W8_CAMP_PAGE_SKILLS:
             skills.DrawCampSkillsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_SPELLS:
-            spells.DrawCampSpellPages(full_redraw, dialog != nullptr);
+            spells.DrawCampSpellPages(full_redraw, dialogs.open() != nullptr);
             break;
         case W8_CAMP_PAGE_REGENERATION:
             DrawCampRegenStats();
@@ -803,9 +803,10 @@ void CampScreen::DrawCampScreen(void)
         stats.EndRedraw();
         spells.EndRedraw();
     }
-    character_info->Redraw(GetFrameBufferSurface(), false);
+    if (character_info.Redraw(GetFrameBufferSurface(), *reviewed, false))
+        items.InvalidateControls();
     if (page == W8_CAMP_PAGE_ITEMS) {
-        items.DrawControls(dialog != nullptr);
+        items.DrawControls(dialogs.open() != nullptr);
     } else if (page == W8_CAMP_PAGE_STATS) {
         stats.DrawControls();
     } else if (page == W8_CAMP_PAGE_SPELLS) {
@@ -828,9 +829,7 @@ void CampScreen::DrawCampScreen(void)
     }
 done:
     RedrawPortraitQuoteBubbles();
-    if (dialog != 0) {
-        dialog->RefreshModal();
-    }
+    if (auto* dialog = dialogs.open()) dialog->RefreshModal();
     RenderFrame();
 }
 
@@ -878,17 +877,17 @@ void CampScreen::ActivateCampPage(void)
     InvalidateHeader();
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
-        items.Activate();
+        items.Activate(*reviewed);
         if (GameStarted()) return;
         break;
     case W8_CAMP_PAGE_STATS:
-        stats.Activate();
+        stats.Activate(*reviewed);
         return;
     case W8_CAMP_PAGE_SKILLS:
-        skills.CreateCampSkillRegions();
+        skills.Activate(*reviewed);
         return;
     case W8_CAMP_PAGE_SPELLS:
-        spells.Activate();
+        spells.Activate(*reviewed);
         break;
     default:
         break;
@@ -900,8 +899,6 @@ void CampScreen::ActivateCampPage(void)
    skill-improvement flags on the skills page. */
 void CampScreen::DeactivateCampPage(void)
 {
-    unsigned int index;
-
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
         items.Deactivate();
@@ -911,10 +908,7 @@ void CampScreen::DeactivateCampPage(void)
         stats.Deactivate();
         break;
     case W8_CAMP_PAGE_SKILLS:
-        skills.DisableCampSkillRegions();
-        for (index = 0; index < 0x29; ++index) {
-            reviewed->skills[index].improved = false;
-        }
+        skills.Deactivate();
         return;
     case W8_CAMP_PAGE_SPELLS:
         spells.Deactivate();
@@ -960,26 +954,10 @@ void CampScreen::SetCampHeaderMode(W8CampHeaderMode mode)
     InvalidateHeader();
 }
 
-void CampScreen::DisplayCampDialog(std::unique_ptr<W8DialogBase> dialog)
-{
-    RetireModal(std::exchange(this->dialog, std::move(dialog)), false);
-    if (this->dialog) this->dialog->InputLayer().setModal(true);
-}
-
 void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
                         bool confirmation, bool cancel)
 {
-    FindScreen<CampScreen>()->ShowNotice(text, std::move(callback), confirmation, cancel);
-}
-
-void CampScreen::ShowNotice(std::string_view text, std::function<void(bool)> callback,
-                            bool confirmation, bool cancel)
-{
-    W8MessageDialogBase* dialog = CreateMessageDialog();
-    dialog->SetClientExtent(0xfa, 200);
-    dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
-    dialog->on_complete = std::move(callback);
-    DisplayCampDialog(std::unique_ptr<W8DialogBase>(dialog));
+    FindScreen<CampScreen>()->dialogs.ShowNotice(text, std::move(callback), confirmation, cancel);
 }
 
 /* Whether the camp item action may proceed for the reviewed slot: outside
@@ -1406,14 +1384,14 @@ void W8CampSpellsPage::CreateInput()
     }
 }
 
-void W8CampSpellsPage::CreateControls()
+void W8CampSpellsPage::CreateControls(UiLayer& scroll_input)
 {
     for (int range_index = 0; range_index < 6; ++range_index) {
         const int x = (range_index % 3) * 0xd5;
         const int y = (range_index / 3) * 0x8c;
         auto& range = spell_ranges[range_index];
-        range = std::make_unique<W8RangeControl>(screen.scroll_input, x + 0xbb, y + 0xc3, x + 0xcd,
-                                                 y + 0x129);
+        range =
+            std::make_unique<W8RangeControl>(scroll_input, x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
         range->on_change = [this, range_index](auto* scroll) {
             learned_spells.scroll[range_index] = scroll->m_value;
             realms_dirty.set(range_index);
@@ -1425,22 +1403,23 @@ void W8CampSpellsPage::CreateControls()
     }
 }
 
-void W8CampSpellsPage::Activate()
+void W8CampSpellsPage::Activate(W8Character& character)
 {
     spell_input.setEnabled(true);
-    ReviewedCharacterChanged();
+    ReviewedCharacterChanged(character);
     selected_spell_row = -1;
 }
 
 void W8CampSpellsPage::Deactivate()
 {
     spell_input.setEnabled(false);
-    SetCampSpellRangesEnabled(false);
+    for (auto& range : spell_ranges) range->SetActive(false);
 }
 
-void W8CampSpellsPage::ReviewedCharacterChanged()
+void W8CampSpellsPage::ReviewedCharacterChanged(W8Character& character)
 {
-    BuildLearnedSpellState(&learned_spells, screen.reviewed);
+    this->character = &character;
+    BuildLearnedSpellState(&learned_spells, &character);
     RefreshCampSpellRanges();
 }
 

@@ -149,9 +149,6 @@ the licensed runtime scenarios after every step.
    - The HUD panels receive explicit inputs.
    - The main game's redraw bitmask gives way to invalidation by events, as the camp's
      per-page invalidation already does.
-   - Camp pages take the reviewed character and the camp's dialogs as explicit inputs
-     instead of reaching back through `screen.`; the items page's cell bitmask becomes
-     per-cell invalidation.
    - The held-item cursor is derived every frame from the hand and the interaction
      mode, replacing `UpdateHeldItemCursor`/`SetItemCursor` calls after commands.
 6. **Conditions, magic and combat in `rules`.**
