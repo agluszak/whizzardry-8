@@ -265,8 +265,27 @@ Unlayered code may use the layers.
   `InventoryRefusal` the calling screen shows (`ShowRefusal`); queries take
   `const W8Party&`. `W8Party` owns storage primitives with
   no gameplay; `party_stats.h` derives values from explicit rules; `live_party.h`
-  supplies the game's own rules and applies what follows. `PC Item.cpp` keeps per-item rules. Swings read the
-  damage bonus left by the previous calculation, as retail does.
+  supplies the game's own rules and applies what follows. `PC Item.cpp` keeps per-item rules.
+- **Character derivation.** Every statistic is derived in one place,
+  `DeriveCharacterStats` (`character_stats.h`): pool ceilings, regeneration, damage
+  reduction, resistances, capacity, weight and load, initiative, attacks and armor
+  class, from the evaluated inputs (`EvaluateCharacterInputs`: modifier blocks,
+  effective attributes, skill levels, hand kinds), equipment, learned spells,
+  conditions, fatigue band, the assigned share of the party's load and
+  `CharacterStatRules` (combat action, damaged android). It leaves current pools
+  alone. `party_stats.h` evaluates the members, assigns the shared load, derives, and
+  then applies the resource transitions: hit points, stamina and spell points follow
+  changed ceilings and the fatigue band follows stamina; an exhausted hit-point pool
+  and a crossed carrying capacity are reported, and `live_party.h` applies death and
+  the overload notice. An operation captures one `CharacterBaseline`; the transitions
+  compare against it and swings read its damage bonuses (retail scores swings with
+  the bonus its previous calculation left), so a second pass, as after a fatigue-band
+  change, cannot change the result. Every change a statistic depends on settles the
+  party (`SettleActiveParty`); condition changes rebuild the member's condition block
+  first (`RebuildConditionModifiers`). The creation editor, which edits effective
+  attributes and skill levels itself, recalculates without re-evaluating them
+  (`RecalculateEditedCharacterStats`), and learning a spell rebuilds the realm
+  ceilings for every profession, as retail does, and lets the pools follow.
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,
   and cancelling it prevents late completions from restarting idle dialogue.
