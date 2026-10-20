@@ -164,7 +164,7 @@ static void BackOutNpcDialogue(void);
 static void OpenNpcDialogueMode1Layout(void);
 static void OpenNpcDialogueOptionLayout(void);
 static void OpenNpcDialogueMode5Layout(void);
-static void SetNpcDialogueHidden(char value);
+static void SetNpcDialogueHidden(signed char value);
 static void CloseNpcDialogueMode1Layout(void);
 static void CloseNpcDialogueTranscriptLayout(void);
 static void CloseNpcDialogueMode5Layout(void);
@@ -174,7 +174,7 @@ static void ResolveNpcPickpocket(int party_slot);
 static void NpcDialogueTextBoxDoubleClick(int x, int y);
 static void NpcDialogueTextBoxLeftUp(int x, int y);
 static void NpcDialogueTextBoxRightUp(int x, int y);
-static W8ItemInstance* ResolveNpcTradeRow(int index, bool, char, char);
+static W8ItemInstance* ResolveNpcTradeRow(int index, bool, signed char, signed char);
 static W8ItemInstance* GetNpcTradeSlotItem(int index);
 static void OnNpcDispositionPromptClosed(bool accepted);
 static void SelectNpcDialogueService(void);
@@ -2528,7 +2528,8 @@ static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool d
     }
 }
 
-static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, char decrement, char commit)
+static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decrement,
+                                          signed char commit)
 {
     auto& state = *g_npc_interaction_state;
     if (index < 0 || std::cmp_greater_equal(index, state.trade_rows.size())) return nullptr;
@@ -3869,7 +3870,7 @@ void LookAtDialogueNpc(void)
    the transcript expands; on hide the party sets come back, the transcript
    collapses, its background is cleared and the rectangle invalidated. The new
    state lands in dialogue_hidden. */
-static void SetNpcDialogueHidden(char value)
+static void SetNpcDialogueHidden(signed char value)
 {
     int index;
 

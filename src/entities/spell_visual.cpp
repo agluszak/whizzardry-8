@@ -83,7 +83,7 @@ AnimationMesh* SpellVisual::GetCurrentAniMesh()
 /* How many emitters the host has, counted by testing each for null. */
 signed char SpellVisual::GetTotalAnimationCount()
 {
-    char count = 0;
+    signed char count = 0;
 
     if (this->resources.cycles[0].animation != 0) {
         count = 1;

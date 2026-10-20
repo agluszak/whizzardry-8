@@ -208,7 +208,7 @@ bool Game::beginCombat(int surprise)
                   W8_MAIN_REDRAW_SUBMENU_BUTTONS | W8_MAIN_REDRAW_COMBAT_STANCE);
     CheckMonsterGroupsEnterCombat();
     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x224], 1);
-    RollCombatSurprise(static_cast<char>(surprise));
+    RollCombatSurprise(static_cast<signed char>(surprise));
 
     nearest_distance = 999999.0f;
     nearest_info = 0;
@@ -1811,7 +1811,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
    threatening monster's opposed check plus level/search bonuses, and the
    hostile side when none of them can see the party while surprise is
    possible. Mutual surprise cancels. */
-void RollCombatSurprise(char party_cannot_be_surprised)
+void RollCombatSurprise(signed char party_cannot_be_surprised)
 {
     bool search_surprise = false;
     bool level_surprise = false;
@@ -2184,7 +2184,7 @@ void ComputeCharacterActionPhase(int party_slot)
    repick until something commits or the monster holds. */
 void ExecuteMonsterAction(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
-    char tried[11] = {0};
+    bool tried[11]{};
     unsigned char result = 0;
     unsigned char move_flag = 0;
     bool berserked = false;
@@ -2254,7 +2254,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, const W8MonsterRecord* re
     }
     while (true) {
         if (monster_info->action_kind != W8_MONSTER_ACTION_NONE) {
-            tried[monster_info->action_kind] = 1;
+            tried[monster_info->action_kind] = true;
         }
         if (MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
                                         &monster_info->spell_power_level) &&
@@ -2411,7 +2411,7 @@ void ExecuteMonsterAction(W8MonsterInfo* monster_info, const W8MonsterRecord* re
         }
         UpdateMonsterAI(monster_info);
         if (monster_info->action_kind == W8_MONSTER_ACTION_NONE ||
-            tried[monster_info->action_kind] != '\0') {
+            tried[monster_info->action_kind]) {
             monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
         }
         if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {

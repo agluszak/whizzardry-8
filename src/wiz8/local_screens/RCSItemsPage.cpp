@@ -721,7 +721,7 @@ void W8CampItemsPage::DrawCampItemIcons(void)
         item = &character->EquippedItem[index];
         if (item->iItemNo != -1) {
             DrawCampItemLabel(item, region->label_x, region->label_y,
-                              static_cast<char>(region->label_flag));
+                              static_cast<signed char>(region->label_flag));
         }
         ++region;
     }
@@ -733,7 +733,7 @@ void W8CampItemsPage::DrawCampItemIcons(void)
    background, the text and a one-pixel outline are painted straight into the
    locked primary surface. */
 // FUNCTION: WIZ8 0x005bbf40
-void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag)
+void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top, signed char flag)
 {
     std::string label;
     std::string name;

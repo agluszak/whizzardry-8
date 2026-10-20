@@ -1,6 +1,7 @@
 #pragma once
 struct W8Chunk;
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -186,7 +187,7 @@ public:
     void CompleteItemInteraction();
     void Activate();
     void Save(wiz8::File& hFile);
-    bool Load(W8Chunk& hFile, char version, bool from_assets = false);
+    bool Load(W8Chunk& hFile, std::uint8_t version, bool from_assets = false);
     void RunLinkedTriggers();
     void FinishAction();
     void GetPosition(glm::vec3* position) const;

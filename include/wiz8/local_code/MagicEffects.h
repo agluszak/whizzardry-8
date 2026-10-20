@@ -40,9 +40,10 @@ bool TargetResistsCondition(W8CombatSlot* target, W8SpellRealm realm, unsigned i
                             W8Condition condition_id);
 /* Land a condition whose saving throw failed. `source_character`
    is part of the call but nothing in the body reads it. */
-char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id, W8SpellRealm realm,
-                              unsigned int power_level, int argument, unsigned int magnitude,
-                              int source_character, int duration, bool announce);
+signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition_id,
+                                     W8SpellRealm realm, unsigned int power_level, int argument,
+                                     unsigned int magnitude, int source_character, int duration,
+                                     bool announce);
 /* Each scales the value by seven fifths or three fifths on the easy and hard settings and leaves
    it alone on normal; which way round depends on the character's condition
    thirteen or the monster's allegiance flag. */
@@ -51,14 +52,15 @@ void ScaleValueForMonsterDifficulty(W8MonsterInfo* monster_info, int* value);
 void ProcessSpellEffectTargets(W8SpellEffectEntry* effect);
 void FinishSpellEffectTargets(W8SpellEffectEntry* effect);
 /* The queued-effect helpers ProcessSpellEffectTargets dispatches to. */
-char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition, bool force);
+signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition condition,
+                                      bool force);
 void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot);
 void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect);
 void ReportSpellEffectResult(W8SpellEffectEntry* effect);
 void ApplyDamageToTargets(W8SpellEffectEntry* effect);
 void DrainTargetsLife(W8SpellEffectEntry* effect);
-char HealTargets(W8SpellEffectEntry* effect);
-char RestoreTargetsStamina(W8SpellEffectEntry* effect);
+signed char HealTargets(W8SpellEffectEntry* effect);
+signed char RestoreTargetsStamina(W8SpellEffectEntry* effect);
 void FatigueTargets(W8SpellEffectEntry* effect);
 void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, int chance,
                             int argument);

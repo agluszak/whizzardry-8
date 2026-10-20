@@ -1018,7 +1018,7 @@ bool IsCampActionAllowed(int party_slot)
 
 bool IsEquippableItemClass(W8ItemInstance* item)
 {
-    char equip_class = Data().items[item->iItemNo].equip_class;
+    signed char equip_class = Data().items[item->iItemNo].equip_class;
     if (equip_class != W8_ITEM_EQUIP_CLASS_THROWN_WEAPON &&
         equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         return false;
@@ -1122,7 +1122,7 @@ void BeginEndgameSequence(void)
    finishes. `fade_to_black` selects the subtractive ramp (white quad
    darkening to black); `fade_out` selects the direction the opacity runs. */
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
-                     bool fullscreen_scene_last, char render_each_tick)
+                     bool fullscreen_scene_last, signed char render_each_tick)
 {
     DrawShader shader;
     glm::vec4 color;

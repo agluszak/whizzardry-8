@@ -120,7 +120,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     bool resolved;
     std::string text;
 
-    announce = static_cast<char>(g_settings.verbose_combat_messages);
+    announce = static_cast<signed char>(g_settings.verbose_combat_messages);
     if (pSource->iType == W8_TARGET_SOURCE_CHARACTER) {
         unsigned int level;
         unsigned int bound;

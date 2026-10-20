@@ -393,7 +393,7 @@ void RedrawLockInteractionPanels(void)
    destroyed outright; otherwise it stays alive with its panels inactive so the
    session can resume. Either path returns to the UI mode the interaction was
    opened from and repaints the portrait, status and action regions. */
-void EndLockInteractMode(char suspend)
+void EndLockInteractMode(signed char suspend)
 {
     MainGame()->lock_active = false;
     if (suspend != 0) {
@@ -937,7 +937,7 @@ void W8LockInteraction::AttemptForce()
    `level + 1` pins are rolled; each success raises an unowned pin (or, on
    backfire, drops a raised one) and animates the tumbler. The control enables
    are then re-derived and the interaction enters state 7. */
-void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, char backfire)
+void W8LockInteraction::ApplyKnockKnock(int level, int /*flag*/, signed char backfire)
 {
     std::array<int, 8> order{0, 1, 2, 3, 4, 5, 6, 7};
     int slot;
@@ -1124,7 +1124,7 @@ void W8MainGameTextKeyHandler::SetSelectedLine(int line)
     if (on_selection) on_selection();
 }
 
-char W8MainGameTextKeyHandler::HandleKey(SDL_Keycode key)
+signed char W8MainGameTextKeyHandler::HandleKey(SDL_Keycode key)
 {
     int line;
 
@@ -1794,7 +1794,7 @@ void RedrawTrapInteractionPanels(void)
    destroyed outright; otherwise it stays alive with its panels inactive so the
    session can resume. Either path returns to the UI mode the interaction was
    opened from and repaints the affected regions. */
-void EndTrapInteractMode(char suspend)
+void EndTrapInteractMode(signed char suspend)
 {
     MainGame()->trap_active = false;
     if (suspend != 0) {
@@ -1879,7 +1879,7 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
 }
 
 bool W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                     W8DialogueCategory category, char mark)
+                                                     W8DialogueCategory category, signed char mark)
 {
     int index;
     int added;
@@ -6464,7 +6464,7 @@ void NpcTradeSplitDialogResult(int count)
 bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index)
 {
     std::string text;
-    char result;
+    signed char result;
     W8Character* character =
         &CurrentGame().party.characters[CurrentGame().status.selected_character];
 

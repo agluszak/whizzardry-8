@@ -46,7 +46,7 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
    skips the condition-target bookkeeping, and silences the struck reaction. */
 unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amount,
                                   struct W8TargetSource* source, bool quiet,
-                                  unsigned char in_combat, char a,
+                                  unsigned char in_combat, signed char a,
                                   W8SpellEffectResult* result_stats, bool c);
 /* The character-side counterpart - damage absorbed by the
    slot-2 enchantment first, two thirds of the rest fatigue the character, the

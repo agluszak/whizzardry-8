@@ -138,7 +138,7 @@ void ReportMonsterAttackResult(W8MonsterInfo* monster_info, W8SpellEffectResult*
    own score plus modifier, mode, surprise, armour and attribute terms; ignore_target_defenses
    selects the fumble-redirect variant. */
 int GetMonsterAttackScore(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
-                          W8AttackMode attack_mode, char ignore_target_defenses);
+                          W8AttackMode attack_mode, signed char ignore_target_defenses);
 /* Roll the running monster attack's damage dice and reduce them
    by the target's damage reduction, reporting the dice count. */
 int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
@@ -160,7 +160,7 @@ bool CanMonsterProtectTarget(W8MonsterInfo* monster_info);
 bool CanCharacterAttackItsTarget(int party_slot);
 /* Build the monster attack announcement message and aim it at the target. */
 void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                           char target_changed);
+                           signed char target_changed);
 /* Resolve one queued swing of the monster's attack - rolls the
    hit and fumble-redirect chances, resolves guardian interception, picks the
    hit location, rolls penetration, applies damage and the struck target's

@@ -144,8 +144,7 @@ void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announ
         }
         if (condition == W8_CONDITION_HEXED) {
             if (character->uiCondition[W8_CONDITION_INFATUATED] != 0 &&
-                GetLevelBand(GetLoadedLevelID()) != '\t' &&
-                GetLevelBand(GetLoadedLevelID()) != '\n') {
+                GetLevelBand(GetLoadedLevelID()) != 9 && GetLevelBand(GetLoadedLevelID()) != 10) {
                 return;
             }
         } else if (const auto found =
@@ -644,7 +643,7 @@ void TickMonsterCondition(int location_id, W8Condition condition, unsigned int m
    switch, trait gates, and the same rescan/notify/tail handling as the other
    transitions. */
 bool SetCharacterCondition(int party_slot, W8Condition condition, int duration, int poison_strength,
-                           char alternate_missing_notice, char announce)
+                           signed char alternate_missing_notice, signed char announce)
 {
     W8Character* character = &CurrentGame().party.characters[party_slot];
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];

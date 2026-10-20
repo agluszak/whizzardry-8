@@ -258,7 +258,7 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
 }
 
 /* Spell visibility occupies entry two or three, depending on launch origin. */
-char GetMonsterSpellSightIndex(const W8MonsterInfo* monster)
+signed char GetMonsterSpellSightIndex(const W8MonsterInfo* monster)
 {
     return (monster->has_spell_origin) + 2;
 }

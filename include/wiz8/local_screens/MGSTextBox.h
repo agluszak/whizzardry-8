@@ -42,7 +42,7 @@ void SetTextBoxMuteInput(bool enabled);
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
 
-char TextBoxHandleKey(const InputEvent* event);
+signed char TextBoxHandleKey(const InputEvent* event);
 void ClearSelectedTextLine(int index);
 void ClearHoveredTextLine(int index);
 void SetHoveredTextLine(int line, int box);
@@ -72,7 +72,7 @@ void RefreshTextBoxMode(unsigned short mode);
 void SetKnockKnockTarget(int target, int flag, int backfire);
 /* The trap-mode half of CastSpellAtLockInteraction;
    same (level, flag, backfire) triple. */
-void AttemptTrapDisarm(int level, int flag, char backfire);
+void AttemptTrapDisarm(int level, int flag, signed char backfire);
 
 /* Merge text onto a box's last used line, re-posting the combined
    line so wrapping, highlighting and the link counts rebuild; -1 picks the box

@@ -137,10 +137,10 @@ bool NpcRecordHasTradePool(W8NpcState* npc)
    NPC instead reports its faction score unless the record keeps the answer
    static or the faction holds nothing toward the party; a factioned NPC whose
    allied faction a living front-rank party RPC shares answers fifty. */
-static char GetNpcDisposition(W8NpcState* npc)
+static signed char GetNpcDisposition(W8NpcState* npc)
 {
-    char disposition = npc->disposition;
-    char faction_disposition;
+    signed char disposition = npc->disposition;
+    signed char faction_disposition;
     W8MonsterInfo* monster_info;
     int bound_index;
     unsigned int slot;
@@ -188,7 +188,7 @@ static char GetNpcDisposition(W8NpcState* npc)
 
 unsigned char GetNpcDispositionBand(W8NpcState* npc)
 {
-    char disposition = GetNpcDisposition(npc);
+    signed char disposition = GetNpcDisposition(npc);
 
     if (disposition < W8_NPC_DISPOSITION_HOSTILE) {
         return W8_NPC_BAND_HOSTILE;
@@ -646,9 +646,9 @@ Monster* GetNpcMonster(W8NpcState* npc)
 /* Move the NPC into one disposition band. Each band is written as one
    representative value rather than a range, and a band it is already in is
    left alone - which is why the current band is computed twice. */
-void SetNpcDispositionBand(W8NpcState* npc, char band)
+void SetNpcDispositionBand(W8NpcState* npc, signed char band)
 {
-    char current;
+    signed char current;
 
     GetNpcDisposition(npc);
     current = GetNpcDisposition(npc);
@@ -675,12 +675,12 @@ void ResumeNpc(W8NpcState* npc, int enabled)
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
 
     GetNpcDisposition(npc);
-    if (GetNpcDisposition(npc) > ' ') {
+    if (GetNpcDisposition(npc) > 0x20) {
         npc->disposition = 0x19;
     }
     if (monster_info != 0) {
         const int group_id = monster_info->monster_group_id;
-        if (static_cast<char>(enabled) != 0) {
+        if (static_cast<signed char>(enabled) != 0) {
             SetMonsterGroupHostilityByID(group_id, W8_DISPOSITION_HOSTILE, false);
             return;
         }
@@ -886,7 +886,7 @@ void ProcessNpcPendingEvents(void)
             if (flagged) {
                 CurrentGame().status.infatuation_pending = false;
             } else {
-                char band = GetLevelBand(GetLoadedLevelID());
+                signed char band = GetLevelBand(GetLoadedLevelID());
                 if (band != 9 && band != 0xa) {
                     W8Character* character =
                         &CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot];
@@ -959,7 +959,7 @@ void ProcessNpcPendingEvents(void)
                         }
                         bound = GetNpcState(row->npc_index);
                         if (bound != 0) {
-                            char band = GetLevelBand(GetLoadedLevelID());
+                            signed char band = GetLevelBand(GetLoadedLevelID());
                             for (int index = 0; g_npc_services[index].service_id != 0xffffffff;
                                  ++index) {
                                 if (g_npc_services[index].service_id ==
@@ -1647,7 +1647,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
                          unsigned int gold)
 {
-    switch (static_cast<char>(kind)) {
+    switch (static_cast<signed char>(kind)) {
     case 0: {
         int scale = npc->record->talk_scale;
         int quotient;
@@ -1753,7 +1753,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
    NPC's suspicion byte, the level gap to the NPC's monster, and - when an
    item is offered - its weight and price penalties, all scaled by the
    character's difficulty. */
-static char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+static signed char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
 {
     W8ItemInstance item;
     int score;
@@ -1825,7 +1825,7 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
             candidates.push_back(index);
         }
     }
-    char score;
+    signed char score;
     if (candidates.empty() || CurrentGame().rng.below(100) < 0x21) {
         empty_pick = true;
         score = ScoreNpcTheft(character, npc, -1, 0);
@@ -1835,11 +1835,11 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         item = MakeItem(npc->item_ids[picked], true, true, false);
         score = ScoreNpcTheft(character, npc, item.iItemNo, 1);
     }
-    if (static_cast<signed char>(npc->suspicion) < 'd') {
+    if (static_cast<signed char>(npc->suspicion) < 100) {
         ++npc->suspicion;
     }
-    char roll = static_cast<char>(CurrentGame().rng.below(100));
-    if (roll > '_' || score * 2 < roll) {
+    signed char roll = static_cast<signed char>(CurrentGame().rng.below(100));
+    if (roll > 95 || score * 2 < roll) {
         return W8_PICKPOCKET_CAUGHT;
     }
     if (score <= roll) {
@@ -1880,15 +1880,15 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
 
 /* The trade-screen steal of one offered item, scored by the same pickpocket
    roll: 0 takes it (and practices the skill), 1 is refused, 2 is caught. */
-char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+signed char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
 {
     SeedNpcTheftRoll(character, npc);
-    char score = ScoreNpcTheft(character, npc, item_id, count);
-    if (static_cast<signed char>(npc->suspicion) < 'd') {
+    signed char score = ScoreNpcTheft(character, npc, item_id, count);
+    if (static_cast<signed char>(npc->suspicion) < 100) {
         ++npc->suspicion;
     }
-    char roll = static_cast<char>(CurrentGame().rng.below(100));
-    if (roll < '`' && roll <= score * 2) {
+    signed char roll = static_cast<signed char>(CurrentGame().rng.below(100));
+    if (roll < 96 && roll <= score * 2) {
         if (roll < score) {
             PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
             return W8_ITEM_THEFT_SUCCEEDED;
@@ -2121,7 +2121,7 @@ void ApplyBoundNpcPenalty(W8Character* character, W8GameplayModifierBlock* targe
 /* Restore the named entity's NPC on its level, or stamp the pending restore
    for the level-entry pass. The runtime node is created when no state for the
    record kind exists. */
-void RestoreNamedNpcAtLevel(int kind, char level, std::string_view entity_name)
+void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name)
 {
     auto* npc = GetNpcStateByKind(kind);
     if (npc == 0) {
@@ -2185,7 +2185,7 @@ void ReleaseNpcMonsterBindings(void)
 /* Release the monster binding held under this NPC's naming style, now or when
    the stamped level is loaded: the same companion lookup the level-entry
    release pass runs - the NPC whose record kind is this state's name_style. */
-void ReleaseNpcMonsterBinding(W8NpcState* npc, char level)
+void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level)
 {
     if (level == GetLoadedLevelID()) {
         W8NpcState* companion = GetNpcStateByKind(npc->name_style);

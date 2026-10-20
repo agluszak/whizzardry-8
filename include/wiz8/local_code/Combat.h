@@ -47,7 +47,7 @@ bool QueueNpcCombatScript(void);
 void ScheduleCombatActor(void);
 int CheckCombatEnd(unsigned int end_if_no_hostiles);
 void AdvanceCombatRound(void);
-void RollCombatSurprise(char party_cannot_be_surprised);
+void RollCombatSurprise(signed char party_cannot_be_surprised);
 struct W8Character;
 struct W8MonsterInfo;
 struct W8CombatCharacterRow;

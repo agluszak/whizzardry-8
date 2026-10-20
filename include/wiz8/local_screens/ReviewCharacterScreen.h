@@ -351,7 +351,7 @@ private:
     void ShowCampItemInfo(W8ItemInstance* item);
     W8ItemLocation CampItemAt(int slot, W8ItemStorage storage) const;
     std::string CampItemTooltip(int slot, W8ItemStorage storage);
-    void DrawCampItemLabel(W8ItemInstance* item, int left, int top, char flag);
+    void DrawCampItemLabel(W8ItemInstance* item, int left, int top, signed char flag);
     void OpenSplitStackDialog(W8ItemLocation location);
 };
 
@@ -606,7 +606,7 @@ bool IsEquippableItemClass(W8ItemInstance* item);
 /* Begin the timed screen fade and run `callback` when it
    finishes; `fade_to_black` selects the alpha ramp. */
 void BeginScreenFade(int fade_to_black, int fade_out, int duration, void (*callback)(void),
-                     bool fullscreen_scene_last, char render_each_tick);
+                     bool fullscreen_scene_last, signed char render_each_tick);
 unsigned char UpdateScreenFade(void);
 void BeginPartyDeath(void);
 void PumpReviewTransition(void);

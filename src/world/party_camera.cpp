@@ -611,7 +611,7 @@ CameraMotion PartyCamera::cameraMotion(LevelSpatialIndex& collision, unsigned in
     PartyMotion* level;
     float forward_scale;
     bool fast_move;
-    char moved;
+    signed char moved;
     glm::vec3 new_position;
 
     if (!motion_started) {

@@ -26,8 +26,8 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect);
 /* Notice colours for combat text: 8 for a party-side source, 9 for a monster
    and 12 for anything else. The target form colours a character target by
    its marching-order slot instead. */
-char GetSourceNoticeColor(const W8TargetSource* source);
-char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
+signed char GetSourceNoticeColor(const W8TargetSource* source);
+signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
 
 void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context);
 void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id);
@@ -113,7 +113,7 @@ bool AnyMonsterVisible(void);
 /* Collect eligible monsters within the radius, with an explicit choice
    between line of sight and geometry-only preview rules. */
 void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
-                                 std::vector<int>& found, float radius, char side,
+                                 std::vector<int>& found, float radius, signed char side,
                                  W8AreaSightRule sight_rule);
 
 class Monster;

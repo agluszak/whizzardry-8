@@ -307,7 +307,7 @@ void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice*
    and starts the death sequence. Returns the amount actually applied. */
 unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amount,
                                   W8TargetSource* source, bool quiet, unsigned char in_combat,
-                                  char a, W8SpellEffectResult* result_stats, bool c)
+                                  signed char a, W8SpellEffectResult* result_stats, bool c)
 {
     unsigned int absorbed;
     unsigned int applied;

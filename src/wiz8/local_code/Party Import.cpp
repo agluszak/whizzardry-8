@@ -410,7 +410,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
 void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
 {
     W8LearnedSpellState scratch;
-    char count;
+    signed char count;
     int offset;
     int i;
 

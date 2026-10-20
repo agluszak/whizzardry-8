@@ -1292,7 +1292,7 @@ void Trigger::Run(int source)
                                      previous <= static_cast<signed char>(state_index) ? 1 : -1);
                     }
                 } else {
-                    m_pProp->SetPendingAnimationSubcycle(static_cast<char>(state_index));
+                    m_pProp->SetPendingAnimationSubcycle(static_cast<signed char>(state_index));
                 }
             }
             goto commit_action;
@@ -1909,7 +1909,7 @@ void Trigger::Run(int source)
         if (static_cast<int>(count) <= m_lData1) {
             return;
         }
-        m_pProp->SetPendingAnimationSubcycle(static_cast<char>(m_lData1));
+        m_pProp->SetPendingAnimationSubcycle(static_cast<signed char>(m_lData1));
         break;
     }
 

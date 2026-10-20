@@ -956,7 +956,7 @@ void RedrawSubMenuButtons(void)
    slot to the edge, then wrapping from the far edge back to the current slot.
    The `slot != current` check inside the first half is unreachable for valid
    slots, but retail tests it anyway. */
-void ScrollSubMenuCharacter(char direction)
+void ScrollSubMenuCharacter(signed char direction)
 {
     short current;
     short selected;

@@ -148,7 +148,7 @@ void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 {
     std::string notice;
     W8FactionDisposition old_band;
-    char palette;
+    signed char palette;
 
     old_band = GetFactionDisposition(faction);
     switch (band) {
@@ -191,7 +191,7 @@ W8FactionDisposition GetFactionDispositionToward(signed char faction, signed cha
 
 /* Direct disposition changes skip the unaligned/party factions. Witnessed
    offenses use RecordFactionOffense with the victim itself. */
-void ApplyFactionChange(char mode, char op, signed char faction, int value)
+void ApplyFactionChange(signed char mode, signed char op, signed char faction, int value)
 {
     if (op == 1 && faction != 0 && faction != 1) {
         if (mode != 0) {
@@ -251,14 +251,14 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
    stamps the world clock; any score move posts the worsened/improved notice
    naming the faction. The bounds asserts genuinely run twice - before the
    read and again before the band check. */
-void AdjustFactionDisposition(signed char faction, char delta)
+void AdjustFactionDisposition(signed char faction, signed char delta)
 {
     std::string notice;
     signed char score;
     signed char old_score;
     W8FactionDisposition old_band;
     W8FactionDisposition new_band;
-    char palette;
+    signed char palette;
 
     old_band = GetFactionDisposition(faction);
     score = CurrentGame().story.factions[faction].disposition_score;

@@ -145,7 +145,7 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect)
     return false;
 }
 
-char GetSourceNoticeColor(const W8TargetSource* source)
+signed char GetSourceNoticeColor(const W8TargetSource* source)
 {
     if (TargetSourceIsCharacter(source, 1)) {
         return 8;
@@ -156,7 +156,7 @@ char GetSourceNoticeColor(const W8TargetSource* source)
     return 12;
 }
 
-char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target)
+signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target)
 {
     if (TargetSourceIsCharacter(source, 1)) {
         return 8;
@@ -900,7 +900,7 @@ enum { W8_SIDE_ANY = 3 };
    Geometry-only preview and line-of-sight eligibility are explicit rules;
    collecting targets never changes their presentation. */
 void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
-                                 std::vector<int>& found, float radius, char side,
+                                 std::vector<int>& found, float radius, signed char side,
                                  W8AreaSightRule sight_rule)
 {
     unsigned int index;

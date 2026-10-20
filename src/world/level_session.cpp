@@ -134,7 +134,7 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Spare20", "Spare20", "SPK", 0, 0},
 };
 
-char GetLevelBand(int saved_level)
+signed char GetLevelBand(int saved_level)
 {
     int level = NormalizeMasterFunctionValue(saved_level);
     /* `<= 0x2f` is the retail bound: it admits the first test-level slot, one

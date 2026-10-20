@@ -1375,7 +1375,7 @@ static bool MergeUses(W8Party& party, W8ItemInstance* into, W8ItemInstance* from
     if (available <= moved) {
         moved = available;
     }
-    into->uses_or_charges += static_cast<char>(moved);
+    into->uses_or_charges += static_cast<signed char>(moved);
     bool emptied = false;
     for (; moved != 0 && !emptied; --moved) {
         emptied = ConsumeItemUse(party, from, false);
@@ -1394,7 +1394,7 @@ void MergeItemUses(Game& game, unsigned actor, W8ItemLocation destination, W8Ite
 }
 
 /* Add uses to one item, never past what it can hold. */
-void AddItemUses(W8ItemInstance* item, char uses)
+void AddItemUses(W8ItemInstance* item, signed char uses)
 {
     unsigned char total = item->uses_or_charges + uses;
     int maximum = MaximumQuantity(item->iItemNo);

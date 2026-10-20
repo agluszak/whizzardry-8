@@ -98,7 +98,7 @@ void UpdateSubMenuAutoClose(void);
 
 /* Move selected_character to the next eligible party slot (0 steps toward
    slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
-void ScrollSubMenuCharacter(char direction);
+void ScrollSubMenuCharacter(signed char direction);
 
 /* The per-row select callbacks AssignSubMenuCallback installs. */
 void SubMenuSelectAttack(void);

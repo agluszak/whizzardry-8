@@ -623,13 +623,13 @@ void Mesh::SetAmbientColor(const glm::vec3& color, const glm::vec3& environment,
     }
 }
 
-static inline char CompressNormalByte(float value)
+static inline signed char CompressNormalByte(float value)
 {
     // Invalid imported geometry must not trigger an undefined float-to-byte cast.
     if (!std::isfinite(value)) {
         return 0;
     }
-    return static_cast<char>(value);
+    return static_cast<signed char>(value);
 }
 
 static void CompressMeshNormals(const std::vector<glm::vec3>& normals,

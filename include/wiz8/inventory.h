@@ -128,7 +128,7 @@ std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8I
 // Pour the source's uses into the destination.
 void MergeItemUses(Game& game, unsigned actor, W8ItemLocation destination, W8ItemLocation source);
 // Add recharge uses to an item, never past what it can hold.
-void AddItemUses(W8ItemInstance* item, char uses);
+void AddItemUses(W8ItemInstance* item, signed char uses);
 void SortPartyItemPool(Game& game);
 bool ItemPrecedesInPool(const W8ItemInstance& first, const W8ItemInstance& second);
 
