@@ -181,22 +181,6 @@ void screen_stack()
     GameLoop();
     REQUIRE((!gfProgramIsRunning && CurrentScreenState().id == W8_SCREEN_NONE));
 
-    // The current screen places the party: rules see the camp only while it is shown.
-    const auto& activity = CurrentGame().activity;
-    ResetScreenRouting(stub_factory);
-    gfProgramIsRunning = true;
-    RequestScreen({.id = W8_SCREEN_CAMP});
-    GameLoop();
-    REQUIRE(activity.in_camp());
-    RequestScreen({.id = W8_SCREEN_OPTIONS});
-    GameLoop();
-    REQUIRE(activity.place == Activity::Place::Menu);
-    ReturnToPreviousScreen();
-    GameLoop();
-    REQUIRE(activity.in_camp());
-    GameloopExit();
-    REQUIRE(activity.place == Activity::Place::Menu);
-
     // A rebuilt screen exists only while current; a return enters a new one.
     ResetScreenRouting(rebuilding_factory);
     gfProgramIsRunning = true;

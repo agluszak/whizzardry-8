@@ -22,6 +22,7 @@
 #include "wiz8/local_screens/RCSCommon.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
@@ -498,6 +499,8 @@ public:
 
     // Declared first: the open dialog is retired after the pages that opened it.
     CampDialogs dialogs;
+    // The time since the camp last stepped the game; the camp is built on every visit.
+    LapTimer step_timer;
     // All camp scrollbars share this foreground layer; each control owns its
     // registrations, but cannot disable input belonging to another scrollbar.
     // It outlives the pages' scrollbars.

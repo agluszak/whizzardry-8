@@ -697,7 +697,6 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     state = g_npc_interaction_state;
     state->scripted_dialogue = true;
     CurrentGame().activity.conversation = true;
-    SyncWorldAdvancement();
     state->transcript_open_count = 0;
     info = GetNpcMonsterInfo(state->dialogue_npc);
     if (info == 0) {
@@ -843,7 +842,6 @@ static unsigned char OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item,
         }
         info->p3D->ForwardReferencePosition(0);
     }
-    SyncWorldAdvancement();
     RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
     g_npc_interaction_state->text_box_collapsed = true;
     space = " ";
@@ -1202,7 +1200,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     }
     if (g_npc_interaction_state->scripted_dialogue) {
         CurrentGame().activity.conversation = false;
-        SyncWorldAdvancement();
         return;
     }
     if (CurrentGame().activity.conversation_aside) {
@@ -1236,7 +1233,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         ClearMonsterCharm(GetMonsterListEntry(index));
     }
     GetNpcMonsterInfo(g_npc_interaction_state->dialogue_npc);
-    SyncWorldAdvancement();
     if (!skip_exit_actions) {
         if (!g_npc_interaction_state->held_item_pending) {
             SetTargetCursor(W8_CURSOR_NONE);

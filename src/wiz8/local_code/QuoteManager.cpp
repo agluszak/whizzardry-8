@@ -1632,17 +1632,9 @@ void AdvancePortraitPose(W8PortraitAnimation& state)
     }
 }
 
-/* Advance the eight character portrait/voice records. This is the complete
-   per-frame state machine: it drains finished owned events, starts the
-   incapacitation path when no record is active, advances facing and pose
-   clocks, and asks the current screen to redraw a changed slot. */
-
-bool UpdateCharacterEventState(void)
+void AdvancePartyVoices(void)
 {
-    unsigned int party_slot;
-    bool any_active = false;
-
-    for (party_slot = 0; party_slot < 8; ++party_slot) {
+    for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
         W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[party_slot];
         bool sound_active = false;
 
@@ -1676,13 +1668,21 @@ bool UpdateCharacterEventState(void)
                     MaybeStartIncapacitationEvent(party_slot);
                 }
             } else {
-                any_active = true;
                 AdvancePortraitSpeech(record->portrait, sound_active,
                                       g_event_range_min <= record->pending_event_type &&
                                           record->pending_event_type <= g_event_range_max);
             }
         }
+    }
+}
 
+void AnimatePartyPortraits(void)
+{
+    for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
+        W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[party_slot];
+        if (!CurrentGame().party.rows[party_slot].fOccupied) {
+            continue;
+        }
         if (CurrentGame().activity.conversation && (party_slot & 1) != 0 &&
             IsPortraitObscuredByNpcDialogue(party_slot)) {
             continue;
@@ -1696,7 +1696,6 @@ bool UpdateCharacterEventState(void)
             }
         }
     }
-    return any_active;
 }
 
 /* Draw one party member's portrait at a screen position. When the caller asks

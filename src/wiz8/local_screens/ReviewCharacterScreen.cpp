@@ -85,6 +85,7 @@
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
@@ -729,10 +730,12 @@ void CampScreen::frame()
         }});
     if (page == W8_CAMP_PAGE_SPELLS) spells.Tick();
     if (page == W8_CAMP_PAGE_ITEMS) items.Tick();
-    if (header_mode == W8_CAMP_HEADER_SUMMARY) {
-        CurrentGame().speech.ProcessDeferredCharacterEvents();
-        UpdateCharacterEventState();
+    // The world stays covered while the camp steps the game; speech waits for the portraits.
+    if (!IsScreenTransitionPending()) {
+        CurrentGame().advance(step_timer.lap(), {.world = {.covered = true},
+                                                 .speech = header_mode != W8_CAMP_HEADER_SUMMARY});
     }
+    if (header_mode == W8_CAMP_HEADER_SUMMARY) AnimatePartyPortraits();
     DrawCampScreen();
 }
 
@@ -759,6 +762,7 @@ void CampScreen::DismissSelectedPartyCharacter()
 {
     if (!items.ResolvePendingCampCharacter(true)) return;
     BeginCombatRound();
+    CurrentGame().activity.place = Activity::Place::World;
     ReturnToPreviousScreen();
 }
 

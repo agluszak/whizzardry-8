@@ -375,8 +375,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     glm::vec3 other_position;
     glm::vec3 trace_position;
 
-    if (!CurrentGame().activity.in_world() || !monster_info->fActive ||
-        monster_info->hp_current == 0) {
+    if (!CurrentGame().activity.in_world() || CurrentGame().advancement.hold.covered ||
+        !monster_info->fActive || monster_info->hp_current == 0) {
         return;
     }
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));

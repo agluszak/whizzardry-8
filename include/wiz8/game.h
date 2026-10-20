@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -48,24 +48,29 @@ public:
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
-    /* One simulation step, in retail order: surprise, autosave pacing, the worlds'
-       props, monsters, movement fatigue and the search sweep or the combat turn,
-       combat starts, sight, groups, nearby world items and the worlds themselves.
-       The main game screen steps the game between reading input and drawing;
-       `hold` says what of it the interface holds this step. */
+    /* One step of the game over `elapsed`: it applies the interface's hold, runs speech
+       and, in the world, the simulation in retail order: surprise, autosave pacing, the
+       worlds' props, monsters, movement fatigue and the search sweep or the combat turn,
+       combat starts, sight, groups, nearby world items and the worlds themselves. The
+       main game and the camp step the game between reading input and drawing, passing
+       the time since their previous step; `hold` says what of it the interface holds. */
     struct StepHold {
+        // What of the world the interface holds (`ApplyWorldAdvancement`).
+        WorldHold world;
         // A spell or item picker is open, so the combat turn waits.
         bool combat = false;
+        // The party's portraits are not shown, so speech waits.
+        bool speech = false;
     };
-    void advance(StepHold hold);
+    void advance(std::chrono::milliseconds elapsed, StepHold hold);
 
     W8Party party{};
     W8GlobalStatus status{};
     Story story;
     W8MessageLog message_log;
     W8CombatLifecycle combat;
-    /* What the party is doing. The screen router sets the place as the world, the camp or
-       another screen becomes current; dialogue and story scenes set the rest. */
+    /* What the party is doing. The camp commands set the place; dialogue and story scenes
+       set the rest. */
     Activity activity;
     /* Spells still taking effect: casts whose missiles are in flight, and the
        sustained monster control the HYPN section saves. */
@@ -90,18 +95,18 @@ public:
     bool item_pick_pending = false;
     int item_manager_pending = 0;
 
-    /* Whether the world moves on. The main game screen reports what holds it
+    /* Whether the world moves on. Each step applies what the interface holds
        (`ApplyWorldAdvancement`); rules read the result. */
     WorldAdvancement advancement;
     /* No turns pass: the camp's Use handed an item to the main game's use-item picker,
        which has not taken it yet. The screens set it. */
     bool aging_held = false;
     SurpriseSequence surprise;
-    // When the next search sweep is due.
-    std::uint64_t search_pulse_deadline = 0;
-    // When monster sight and the nearby world items are next refreshed.
-    std::uint64_t sight_deadline = 0;
-    std::uint64_t world_items_deadline = 0;
+    /* The step time left until the next search sweep, and until monster sight and the
+       nearby world items are next refreshed. */
+    std::chrono::milliseconds search_sweep_due{};
+    std::chrono::milliseconds sight_due{};
+    std::chrono::milliseconds world_items_due{};
     /* Experience was awarded or the main game entered, so the level-up-ready notices are
        checked again once the interface is idle. */
     bool level_up_check_due = false;

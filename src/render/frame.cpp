@@ -43,10 +43,8 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fonts.h"
-#include "wiz8/game.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
@@ -176,12 +174,8 @@ bool InitializeVideoManager(void)
     }
     InitializeRendererSceneObjects();
     if (!g_video_active) {
-        if (GameInProgress() && CurrentGame().advancement.held) {
-            SyncWorldAdvancement();
-        }
         if (ghWindow && g_gerd) {
             g_video_active = true;
-            SyncWorldAdvancement();
             if (g_gerd->isWindowOpen() == 0) {
                 if (!OpenRendererWindow()) {
                     goto done;
@@ -402,7 +396,6 @@ void SuspendVideoManager(void)
 {
     if (g_video_active) {
         g_video_active = false;
-        SyncWorldAdvancement();
         if (g_gerd) {
             g_flush_pending = false;
             g_gerd->closeWindow(static_cast<GpuRenderer::e_closeHint>(0));
@@ -417,12 +410,8 @@ bool RestoreVideoManager(void)
     if (g_video_active) {
         return 1;
     }
-    if (GameInProgress() && CurrentGame().advancement.held) {
-        SyncWorldAdvancement();
-    }
     if (ghWindow && g_gerd) {
         g_video_active = true;
-        SyncWorldAdvancement();
         SDL_ShowWindow(ghWindow);
         SDL_RestoreWindow(ghWindow);
         if (g_gerd->isWindowOpen() != 0 || OpenRendererWindow()) {

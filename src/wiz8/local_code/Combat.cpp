@@ -213,7 +213,7 @@ bool W8CombatLifecycle::Start(int surprise)
     state_->notice_scroll_pending = false;
     state_->combat_ready = false;
     phase_ = Phase::Active;
-    SyncWorldAdvancement();
+    ApplyWorldAdvancement(CurrentGame(), CurrentGame().advancement.hold);
     if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
     CurrentGame().party_movement_mode = false;
     DisablePortraitControls();
@@ -1100,13 +1100,10 @@ void W8CombatLifecycle::End(bool forced_cleanup)
     }
     state_.reset();
     phase_ = Phase::Idle;
-    SyncWorldAdvancement();
+    ApplyWorldAdvancement(CurrentGame(), CurrentGame().advancement.hold);
     ResetLivingMonstersAfterCombat();
     // Armor without the combat actions, and the shared load deferred during combat.
     SettleActiveParty(CurrentGame());
-    if (CurrentGame().advancement.held) {
-        SyncWorldAdvancement();
-    }
     ClearLevelMovementState();
     RequestRedrawParty();
     ResetWorldCursorRange();

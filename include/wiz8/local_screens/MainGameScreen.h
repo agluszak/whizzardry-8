@@ -12,6 +12,7 @@
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -34,6 +35,8 @@ struct MainGameScreen final : Screen {
     void frame() override;
     bool leave(ScreenDeparture departure) override;
 
+    // The time since the screen last stepped the game.
+    LapTimer step_timer;
     std::unique_ptr<W8LockInteraction> lock_interaction;
     std::unique_ptr<W8TrapInteraction> trap_interaction;
     bool lock_active = false;
@@ -410,9 +413,6 @@ void OpenAssayDialog(const W8ItemInstance& item, int character_slot);
 void OnQuitGameDialogClosed(bool accepted);
 void OnLeaveGameConfirmClosed(bool accepted);
 
-/* Report what holds the world to the game; called whenever the blocking interface state
-   changes, and once a frame. */
-void SyncWorldAdvancement();
 // Show that the world was held or released, or that its time stopped or resumed.
 void PresentWorldAdvancement(bool held, bool hold_changed);
 void ResetMainGameScreenState(void);

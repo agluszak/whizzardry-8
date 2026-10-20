@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -100,19 +101,13 @@ GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
 
 bool g_shared_timers_paused;
 
-/* Ensure the shared game-data object exists, then run its update. */
-void UpdateSharedGameDataObject()
-{
-    GameTimeAccumulator().Update();
-}
-
 void UpdateGameDataRuntime()
 {
     if (g_shared_timers_paused) {
         ResumeSharedGameTimers();
         g_shared_timers_paused = false;
     }
-    GameTimeAccumulator().Update();
+    GameTimeAccumulator().Update(std::chrono::milliseconds{0});
 }
 
 /* Apply world-render camera-motion flags into `rotation` and mirror the yaw
@@ -1515,7 +1510,7 @@ float MoveTimer(W8MoveTimerAction action)
 {
     if (g_shared_timers_paused) {
         if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && GameInProgress() &&
-             CurrentGame().activity.in_world()) ||
+             CurrentGame().activity.in_world() && !CurrentGame().advancement.hold.covered) ||
             action == W8_MOVE_TIMER_RESUME) {
             ResumeSharedGameTimers();
             g_shared_timers_paused = false;

@@ -1,4 +1,4 @@
-#include <cstdint>
+#include <chrono>
 
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
@@ -14,17 +14,21 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
+#include "wiz8/local_code/character_events.h"
 #include "wiz8/monster_roster.h"
-#include "wiz8/platform/timer.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/rules/events.h"
-#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/world/environment.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
 namespace {
-constexpr std::uint64_t kSightIntervalMs = 500;
-constexpr std::uint64_t kWorldItemsIntervalMs = 50;
+using std::chrono::milliseconds;
+
+constexpr milliseconds kSearchSweepInterval{500};
+constexpr milliseconds kSightInterval{500};
+constexpr milliseconds kWorldItemsInterval{50};
 
 // A fight starts when a living party meets a monster hostile enough to fight.
 bool HostilesEngage(const Game& game)
@@ -32,13 +36,34 @@ bool HostilesEngage(const Game& game)
     return !game.combat.active() && AnyCharacterActive() &&
            CurrentLevelPopulation().monster_roster.hostileCombatCount();
 }
+
+/* Whether a countdown the step has already run down is due; a due one starts again from
+   `interval`, so a late step does not catch up. */
+bool Due(milliseconds& due, milliseconds interval)
+{
+    if (due > milliseconds::zero()) return false;
+    due = interval;
+    return true;
+}
 } // namespace
 
-void Game::advance(StepHold hold)
+void Game::advance(milliseconds elapsed, StepHold hold)
 {
+    // Time that passed while the world ran reaches its clock before the new hold applies.
+    PassEnvironmentTime(elapsed);
+    ApplyWorldAdvancement(*this, hold.world);
+    if (!hold.speech) {
+        speech.ProcessDeferredCharacterEvents();
+        AdvancePartyVoices();
+    }
+    if (!activity.in_world()) return;
+
+    search_sweep_due -= elapsed;
+    sight_due -= elapsed;
+    world_items_due -= elapsed;
     UpdateSurpriseMode();
     ProcessMainGameAutoSave();
-    UpdateSharedGameDataObject();
+    GameTimeAccumulator().Update(elapsed);
     g_animated_prop_present = false;
     WorldUpdateProps(level.primary.get());
     if (level.sky) WorldUpdateProps(level.sky.get());
@@ -46,15 +71,12 @@ void Game::advance(StepHold hold)
     ProcessMonsterManagerFrame();
     if (!combat.active()) {
         AccumulateMovementFatigue(*this);
-        RunSearchPulse();
+        if (Due(search_sweep_due, kSearchSweepInterval)) RunSearchPulse();
     } else if (!hold.combat && !activity.conversation) {
         UpdateCombat();
     }
     if (IsSightRangeOverridden() && HostilesEngage(*this)) combat.Start(0);
-    if (!TimeUntilDeadline(sight_deadline)) {
-        UpdateMonsterSight();
-        sight_deadline = MonotonicMilliseconds() + kSightIntervalMs;
-    }
+    if (Due(sight_due, kSightInterval)) UpdateMonsterSight();
     if (!advancement.held) {
         UpdateMonsterGroups(true);
         if (HostilesEngage(*this) && !activity.conversation) combat.Start(0);
@@ -64,10 +86,9 @@ void Game::advance(StepHold hold)
             sight_refresh_pending = true;
         }
     }
-    if (!TimeUntilDeadline(world_items_deadline)) {
+    if (Due(world_items_due, kWorldItemsInterval)) {
         UpdateNearbyWorldItems();
         DetachAllWorldItems();
-        world_items_deadline = MonotonicMilliseconds() + kWorldItemsIntervalMs;
     }
     if (!advancement.paused || combat.active()) UpdateWorlds();
 }

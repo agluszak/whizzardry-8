@@ -6,8 +6,10 @@
    interface flags; the game holds the current value (`Game::activity`).
 
    Its parts are independent because the game lets them overlap: a scripted scene holds a
-   conversation, a scripted exchange can begin while a conversation is set aside, and a menu
-   can cover the world in the middle of either.
+   conversation, and a scripted exchange can begin while a conversation is set aside.
+
+   A screen covering the world is not part of it either: a covered world is not stepped,
+   and the interface reports it as covered (`WorldHold::covered`).
 
    Combat is not part of it. `Game::combat` says whether a fight is underway, and a fight goes
    on in the world, in camp (where the party changes equipment) and while an NPC talks, so
@@ -16,19 +18,17 @@
    Party creation is not part of it either: it lasts until the opening sequence, which the
    saved status records (`GameStarted()`). */
 struct Activity {
+    /* Where the party is. The camp commands set it: opening the camp, from the world or
+       from party creation's review, and leaving it. */
     enum class Place : std::uint8_t {
-        /* Another screen covers the game and nothing in it advances: party creation, a
-           menu, the journal, the automap, the character screen, a level change's please-wait
-           screen, or no screen between two. */
-        Menu,
-        // In the world.
+        // In the world: game time passes there.
         World,
-        /* In camp. The camp screen also reviews characters during party creation, and
-           counts as camp there. */
+        /* In camp, where only speech goes on. The camp screen also reviews characters
+           during party creation, and counts as camp there. */
         Camp,
     };
 
-    Place place = Place::Menu;
+    Place place = Place::World;
     // Talking with an NPC, through the dialogue panel or a scripted exchange.
     bool conversation = false;
     /* The party stepped out of a conversation to camp, read the journal or use one of the
@@ -37,7 +37,7 @@ struct Activity {
     // A story scene holds the conversation while the player picks a party member.
     bool scripted_scene = false;
 
-    // In the world with nothing covering it: game time passes and monsters look about.
+    // In the world: game time passes and, while it is shown, monsters look about.
     [[nodiscard]] constexpr bool in_world() const { return place == Place::World; }
     [[nodiscard]] constexpr bool in_camp() const { return place == Place::Camp; }
 };

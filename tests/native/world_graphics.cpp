@@ -143,7 +143,7 @@ TEST_CASE("world graphics")
         portrait.portrait.pose_dirty = portrait.portrait.frame_dirty = false;
         for (int frame = 0; frame < 10 && portrait.portrait.pose != 1; ++frame) {
             portrait.portrait.pose_clock = 0;
-            UpdateCharacterEventState();
+            AnimatePartyPortraits();
             REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
         REQUIRE(portrait.portrait.pose == 1);
@@ -152,13 +152,13 @@ TEST_CASE("world graphics")
         portrait.portrait.blink_closing = true;
         for (int frame = 0; frame < 10 && portrait.portrait.pose != 2; ++frame) {
             portrait.portrait.pose_clock = 0;
-            UpdateCharacterEventState();
+            AnimatePartyPortraits();
             REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
         REQUIRE(portrait.portrait.rendered_pose == 2);
         for (int frame = 0; frame < 10 && portrait.portrait.pose != 1; ++frame) {
             portrait.portrait.pose_clock = 0;
-            UpdateCharacterEventState();
+            AnimatePartyPortraits();
             REQUIRE(portrait.portrait.rendered_pose == portrait.portrait.pose);
         }
         REQUIRE(portrait.portrait.rendered_pose == 1);
