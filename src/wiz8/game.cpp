@@ -16,6 +16,7 @@
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/rule_context.h"
 #include "wiz8/script_context.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -77,10 +78,10 @@ Game& GameSession::begin()
 void GameSession::end()
 {
     if (!game_) return;
-    next_stream_ = game_->rng;
-    // Voice events complete into the queue and the characters they name, which they find
-    // through the current game.
+    // Finish character voices while their game and world are still current.
     game_->speech.DestroyAllEvents();
+    LeaveLevel();
+    next_stream_ = game_->rng;
     game_.reset();
 }
 
