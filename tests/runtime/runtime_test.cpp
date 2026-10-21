@@ -1463,6 +1463,9 @@ void ResourceLifecycleScenario()
 {
     GameHarness game(false, true);
     StartPremadeGame(game);
+    REQUIRE(GetWorld()->native_objects.size() == 1);
+    // Exercise the retail scene and UI before the imported-object interaction.
+    GetWorld()->native_objects.clear();
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
     int original_width = 0, original_height = 0;
@@ -1516,11 +1519,11 @@ void ResourceLifecycleScenario()
     // normal pointer movement and clicks, rather than a test-only activation path.
     {
         auto& world = *GetWorld();
-        REQUIRE(world.native_objects.size() == 1);
+        REQUIRE(world.native_objects.empty());
         REQUIRE(CurrentGame().native_object_file == fs::path(WIZ8_NATIVE_DEMO_FILE));
         // Re-anchor after the preceding camera/UI exercises, using the entry path.
-        world.native_objects.clear();
         LoadNativeLevelObject(CurrentGame());
+        REQUIRE(world.native_objects.size() == 1);
         auto& object = *world.native_objects.front();
         const int x = (g_viewport.left + g_viewport.right) / 2;
         const int y = (g_viewport.top + g_viewport.bottom) / 2;

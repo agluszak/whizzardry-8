@@ -6,7 +6,7 @@ It builds on the recovered source code from [Wizardry 8 Decomp](https://github.c
 
 Linux is the only platform currently tested in CI. macOS and Windows builds are not yet verified, and the game is still under development.
 
-This repository does **not** include game assets. You'll need your own retail copy of Wizardry 8.
+This repository does **not** include retail game assets. You'll need your own retail copy of Wizardry 8.
 
 ## Build on Linux
 
