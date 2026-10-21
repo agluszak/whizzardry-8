@@ -1879,60 +1879,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(g_modal_owner);
         }
     }
-    {
-        W8ListBoxDialog list;
-        list.SetOrigin(10, 10);
-        list.SetExtent(100, 80);
-        list.SetBackground("background.sti", 0);
-        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
-        list.Configure();
-        auto canvas = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_RGB565);
-        REQUIRE(canvas);
-        TakeUiUpload();
-        list.Draw(*canvas);
-        list.Draw(*canvas);
-        REQUIRE(TakeUiUpload().w == 0);
-        REQUIRE(list.m_area_button.m_dirty);
-        list.RefreshModal();
-        REQUIRE(TakeUiUpload().w > 0);
-        list.InputLayer().setModal(true);
-        GetInputState().mouse.y = 400;
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
-                       list.m_area_button.Bounds().y + 21, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.Bounds().x + 3,
-                       list.m_area_button.Bounds().y + 21);
-        REQUIRE(list.m_selected_line == 2);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.Bounds().x,
-                       list.m_down_button.Bounds().y, true);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.Bounds().x,
-                       list.m_down_button.Bounds().y, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.Bounds().x,
-                       list.m_down_button.Bounds().y);
-        REQUIRE(list.m_selected_line == 4);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.Bounds().x + 1,
-                       list.m_third_text_button.Bounds().y + 30, true);
-        REQUIRE(list.m_selected_line == 15);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_third_text_button.Bounds().x + 1,
-                       list.m_third_text_button.Bounds().y + 20, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_third_text_button.Bounds().x + 1,
-                       list.m_third_text_button.Bounds().y + 20);
-        REQUIRE(list.m_selected_line == 10);
-    }
-    {
-        W8ListBoxDialog short_list;
-        short_list.SetOrigin(10, 10);
-        short_list.SetExtent(100, 80);
-        short_list.SetBackground("background.sti", 0);
-        short_list.m_lines.emplace_back("X");
-        short_list.Configure();
-        short_list.RefreshModal();
-        REQUIRE_FALSE(short_list.m_scrollable);
-        for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
-                                   &short_list.m_slider_button, &short_list.m_third_text_button}) {
-            REQUIRE_FALSE(button->IsVisible());
-            REQUIRE_FALSE(button->m_dirty);
-        }
-    }
     button_image_fixture(assets, "data/dialogs/popup_quote.sti");
     auto old_secondary = std::move(g_wiz_text_font_secondary);
     REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
@@ -2260,12 +2206,12 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     auto dialog = std::make_unique<W8MessageDialogBase>();
     dialog->accepted = true;
     dialog->is_open = false;
-    g_pending_main_game_dialog = std::make_unique<W8ListBoxDialog>();
+    g_pending_main_game_dialog = std::make_unique<W8MessageDialogBase>();
     auto* suspended = g_pending_main_game_dialog.get();
     dialog->on_complete = [&](bool result) {
         accepted = result;
         REQUIRE(g_modal_owner.get() == suspended);
-        auto next = std::make_unique<W8ListBoxDialog>();
+        auto next = std::make_unique<W8MessageDialogBase>();
         replacement = next.get();
         OpenModal(std::move(next));
     };
