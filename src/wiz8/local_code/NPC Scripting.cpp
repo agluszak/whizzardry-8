@@ -320,17 +320,19 @@ std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
     return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
 }
 
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster)
+{
+    const std::string script_name = FormatNpcVoiceSoundPath(&npc);
+    auto script = LoadNpcScriptFile(fmt::format("Data\\NPC Scripts\\{}.nsf", script_name));
+    if (script != 0 && monster != 0) {
+        monster->SetScript(fmt::format("{}.msf", script_name).c_str(), true);
+    }
+    return script;
+}
+
 void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster)
 {
-    const std::string script_name = FormatNpcVoiceSoundPath(npc);
-    std::string resource_name = fmt::format("Data\\NPC Scripts\\{}.nsf", script_name);
-    npc->script_file = LoadNpcScriptFile(resource_name);
-    if (npc->script_file != 0) {
-        if (monster != 0) {
-            resource_name = fmt::format("{}.msf", script_name);
-            monster->SetScript(resource_name.c_str(), true);
-        }
-    }
+    npc->script_file = LoadNpcScriptResources(*npc, monster);
 }
 
 void W8NpcDialogue::Advance(const ScriptContext& context)

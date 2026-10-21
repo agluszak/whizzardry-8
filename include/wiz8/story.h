@@ -67,8 +67,9 @@ struct Story {
     std::vector<W8DialogueTranscriptRecord> keywords;
     /* Indexed by the slot that party rows and monster bindings name. */
     std::vector<std::unique_ptr<W8NpcState>> npcs;
-    /* Replaced states, kept alive for script and dialogue callbacks that still
-       hold them. */
+    /* Released states whose slot a different NPC took, kept alive for script and
+       dialogue callbacks that still hold them. Rebinding an NPC to a new level keeps
+       its state. */
     std::vector<std::unique_ptr<W8NpcState>> retired_npcs;
     std::vector<W8LocationVariable> location_variables;
 };
