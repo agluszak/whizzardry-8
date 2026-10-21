@@ -215,7 +215,7 @@ public:
     void ApplyRemovalStateEffects();
     void CollectModelInstances(std::vector<MeshInstance*>& instances);
     bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
-    int AddDamageStage(std::string_view base_name, int stage);
+    int AddDamageStage(int stage);
     void RandomizeAppearanceAndMotion();
     bool IsRenderable(bool alternate);
     void InitializeAnimatedTexture();

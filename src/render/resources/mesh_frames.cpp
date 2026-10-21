@@ -306,7 +306,7 @@ int Mesh::FindSkinTable(std::string_view name)
 {
     for (const auto& skin : skins) {
         if (MeshNameEquals(name, skin.name)) {
-            // AddExistingDamageStage stores this as the GetTextureTable ID,
+            // Damage stages store this as the GetTextureTable ID,
             // not the record's changing position after another skin is removed.
             return skin.id;
         }

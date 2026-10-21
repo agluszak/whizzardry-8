@@ -2420,11 +2420,14 @@ bool Monster::ReplaceSkinTexture(int stage, std::string_view old_name, std::stri
         return false;
     }
 
+    if (texture->playback) texture->Prepare();
+    const auto table_name = fmt::format("{}{}", visual.skin, stage);
     std::vector<MeshInstance*> instances;
     CollectModelInstances(instances);
-    for (int index = 0; index < static_cast<int>(instances.size()); ++index) {
-        if (instances[index]->ReplaceDamageStageTexture(stage, old_name, texture) != 0) {
-            replaced = true;
+    for (MeshInstance* instance : instances) {
+        for (auto* mesh : meshParts(instance->getModel())) {
+            const int table = mesh->FindSkinTable(table_name);
+            if (table != -1 && mesh->replaceSkinTexture(table, old_name, texture)) replaced = true;
         }
     }
 
@@ -2439,24 +2442,25 @@ bool Monster::ReplaceSkinTexture(int stage, std::string_view old_name, std::stri
     return replaced;
 }
 
-/* Damage table names are the parsed skin name followed by its numeric stage.
-   A frame either creates the table or attaches the already-created table. */
-int Monster::AddDamageStage(std::string_view base_name, int stage)
+/* A damage stage is a skin table on every mesh the species draws, named for the
+   skin and the stage number, so meshes shared with another species keep that
+   species' stages apart. Stage 0 starts from the authored textures and later
+   stages from stage 0. Meshes that already have the stage keep it. */
+int Monster::AddDamageStage(int stage)
 {
-    int result = -1;
+    const auto name = fmt::format("{}{}", visual.skin, stage);
+    const auto base = fmt::format("{}0", visual.skin);
     std::vector<MeshInstance*> instances;
-
-    const auto name = fmt::format("{}{}", base_name, stage);
     CollectModelInstances(instances);
+    if (instances.empty()) return -1;
     for (MeshInstance* instance : instances) {
-        if (instance->FindDamageStage(name.c_str()) == -1) {
-            result = instance->AddDamageStage(name.c_str());
-        } else {
-            result = instance->AddExistingDamageStage(name.c_str());
+        for (auto* mesh : meshParts(instance->getModel())) {
+            if (mesh->FindSkinTable(name) == -1)
+                mesh->CreateSkinTable(name, stage > 0 ? mesh->FindSkinTable(base) : -1);
         }
     }
-    if (!instances.empty()) ++damage_stage_count;
-    return result;
+    ++damage_stage_count;
+    return stage;
 }
 
 /* Floating damage feedback: render the amount into a scratch ARGB1555

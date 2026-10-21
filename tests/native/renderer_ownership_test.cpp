@@ -212,11 +212,15 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     body->setName("Body");
     auto* base = mesh->getPolygonTextureTable(0, 0, true);
     base->set(0, body);
+    const int skin = mesh->CreateSkinTable("damaged0", -1);
     MeshInstance instance;
     instance.setModel(mesh);
-    const int damage = instance.AddDamageStage("damaged");
-    REQUIRE(damage == 0);
-    const int skin = instance.damage_stage_tables[damage];
+    // An instance draws the table named for its skin and stage.
+    instance.skin = "damaged";
+    instance.damage_stage = 0;
+    REQUIRE(instance.skinTable(*mesh) == skin);
+    instance.damage_stage = 1;
+    REQUIRE(instance.skinTable(*mesh) == -1);
     render::MeshPose pose(*mesh);
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
@@ -225,13 +229,13 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     auto blank = std::make_shared<Texture>();
     blank->source_path = "blank-body.tga";
     blank->setName("blank-body");
-    REQUIRE(instance.ReplaceDamageStageTexture(damage, "BODY", blank));
+    REQUIRE(mesh->replaceSkinTexture(skin, "BODY", blank));
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.asset != original_asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 0);
     REQUIRE(mesh->GetActivePolygons(skin, true).value().empty());
 
-    REQUIRE(instance.ReplaceDamageStageTexture(damage, "BLANK-BODY", body));
+    REQUIRE(mesh->replaceSkinTexture(skin, "BLANK-BODY", body));
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
     REQUIRE(pose.texture(*mesh, 0, 0, skin) == body);

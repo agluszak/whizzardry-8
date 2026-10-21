@@ -11,6 +11,7 @@
 
 // Shared animation playback and navigation for monsters, missiles, and spell visuals.
 
+#include <string>
 #include <vector>
 
 #include "glm/ext/matrix_float3x3.hpp"
@@ -113,6 +114,7 @@ public:
     glm::mat3 rotation{1.0f};
     glm::vec4 highlight_colour{0.0f};
     // The actor's appearance, applied to whichever model instance is active.
+    std::string skin;
     int damage_stage = -1;
     float light_scale = 1.0f;
     float instance_scale = 1.0f;

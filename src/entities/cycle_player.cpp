@@ -309,7 +309,7 @@ CyclePlayer::CyclePlayer(World* owner) : owner_world(owner)
 CyclePlayer::CyclePlayer(const CyclePlayer& other, World* owner)
     : owner_world(owner), location(other.location), local_location(other.local_location),
       parent_location(other.parent_location), rotation(other.rotation),
-      highlight_colour(other.highlight_colour), damage_stage(other.damage_stage),
+      highlight_colour(other.highlight_colour), skin(other.skin), damage_stage(other.damage_stage),
       light_scale(other.light_scale), instance_scale(1.0f), apply_instance_scale(false),
       subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
       timer(GameClockMilliseconds()), rep_active(other.rep_active),
@@ -680,6 +680,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
 
             assert(psrMesh != 0);
             psrMesh->highlight_colour = highlight_colour;
+            psrMesh->skin = skin;
             psrMesh->damage_stage = damage_stage;
             psrMesh->light_scale = glm::vec3(light_scale);
             if (apply_instance_scale) {
@@ -711,6 +712,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
 
         assert(psrMesh != 0);
         psrMesh->highlight_colour = highlight_colour;
+        psrMesh->skin = skin;
         psrMesh->damage_stage = damage_stage;
         psrMesh->light_scale = glm::vec3(light_scale);
         if (apply_instance_scale) {
