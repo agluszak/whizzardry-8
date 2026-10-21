@@ -12,7 +12,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/npc_speech.h"

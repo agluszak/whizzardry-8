@@ -1,7 +1,6 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>

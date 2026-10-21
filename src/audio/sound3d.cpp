@@ -1,7 +1,6 @@
 #include "wiz8/audio/sound3d.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -13,7 +12,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/gtc/quaternion.hpp"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/spatial/level_spatial_index.h"
 
 Sound3D::Sound3D(std::string_view name)

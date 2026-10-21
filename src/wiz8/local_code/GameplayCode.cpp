@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -28,7 +27,6 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"

@@ -8,7 +8,6 @@
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/unicode.h"
 

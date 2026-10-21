@@ -28,7 +28,6 @@
 #include "prepared_assets.h"
 #include "scoped_game.h"
 #include "wiz8/checked_integer.h"
-#include "wiz8/music_playlist.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
 #include <glm/ext/vector_float3.hpp>
