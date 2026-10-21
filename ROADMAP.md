@@ -306,9 +306,12 @@ the licensed runtime scenarios after every step.
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
    ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), and
-     a load decodes every group before it replaces the game. What remains is the other
-     direction: `SaveStatusHeader` writes the sections from live objects. Capture a
+     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), but
+     decoding is not yet pure: an encounter generator draws its jittered interval from the
+     game's random stream as it is read (`MonGen::Reset`), so a load cannot decode the
+     groups before the game exists without changing the stream. Draw it when the level is
+     entered instead, then decode every group with the rest of the save. The other
+     direction remains too: `SaveStatusHeader` writes the sections from live objects. Capture a
      `LevelState` from the world and encode it, so leaving a level and saving go through
      the value; then the game can hold `LevelState`s for the levels it has left instead
      of their bytes (`Game::left_levels`), keeping the groups of levels it never decoded

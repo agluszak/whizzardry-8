@@ -1623,12 +1623,11 @@ try {
     return {};
 }
 
-/* Load a save slot. Every section is decoded first, level groups included, so a malformed
-   one fails the load before the game in progress is replaced; then a new game begins and
-   the sections are installed in the order the file holds them. The game keeps each level's
-   group as bytes, which a save copies and entering the level decodes again. The message
-   countdowns, the gameplay timer and the held item are re-armed and the loaded items
-   normalized last. */
+/* Load a save slot. Every game section is decoded first, so a malformed one fails the load
+   before the game in progress is replaced; then a new game begins and the sections are
+   installed in the order the file holds them. The game keeps each level's group as bytes,
+   which a save copies and entering the level decodes. The message countdowns, the gameplay
+   timer and the held item are re-armed and the loaded items normalized last. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
     W8Chunk chunks;
@@ -1640,12 +1639,7 @@ try {
         switch (id) {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
-            auto image = CopyLevelGroupImage(chunks);
-            // Decoded now so a malformed group fails the load; entering the level decodes it again.
-            W8Chunk group;
-            OpenLevelImage(group, image);
-            DecodeLevelState(group, level, false);
-            installs.emplace_back([level, image = std::move(image)](Game& game) mutable {
+            installs.emplace_back([level, image = CopyLevelGroupImage(chunks)](Game& game) mutable {
                 game.left_levels[level] = std::move(image);
             });
             break;

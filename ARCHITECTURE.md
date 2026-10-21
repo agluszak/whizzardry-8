@@ -399,9 +399,8 @@ Unlayered code may use the layers.
   then builds the replacement world's monsters from it and applies the sections in the
   order they were read. The game keeps the groups of levels the party has left as bytes
   in `Game::left_levels` (each a RIFF image of its own, in memory): leaving a level
-  stores its group, entering one decodes it again, a save writes them beside the current
-  level's, and a load decodes every saved group before it replaces the game, so a
-  malformed group fails the load. No working file sits beside the saves.
+  stores its group, entering one decodes it, a save writes them beside the current
+  level's, and a load brings every saved group in. No working file sits beside the saves.
 - **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
   its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
   the bytes of its unnamed slots.
