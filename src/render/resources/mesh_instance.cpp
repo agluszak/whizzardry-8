@@ -10,10 +10,10 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
 #include <vsg/app/RecordTraversal.h>
 #include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
@@ -137,9 +137,10 @@ Texture* MeshInstance::FindMouthTexture()
 {
     Mesh* mesh = static_cast<Mesh*>(getModel());
     for (auto* mesh_part : meshParts(mesh)) {
-        MeshResources<Texture>* textures =
-            damage_stage == -1 ? mesh_part->getPolygonTextureTable(0, 0, false)
-                               : mesh_part->GetTextureTable(damage_stage_tables[damage_stage]);
+        const int table = skinTable(*mesh_part);
+        MeshResources<Texture>* textures = table == -1
+                                               ? mesh_part->getPolygonTextureTable(0, 0, false)
+                                               : mesh_part->GetTextureTable(table);
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh_part->polygon_count; ++polygon) {
                 auto* animation =
@@ -155,60 +156,10 @@ Texture* MeshInstance::FindMouthTexture()
     return nullptr;
 }
 
-int MeshInstance::FindDamageStage(std::string_view name)
+int MeshInstance::skinTable(Mesh& mesh) const
 {
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    return mesh->FindSkinTable(name);
-}
-
-/* Add a stage by cloning the first stage's table across the complete linked
-   mesh chain. The instance stores the table id shared by that chain. */
-int MeshInstance::AddDamageStage(std::string_view name)
-{
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-
-    if (mesh->FindSkinTable(name) != -1) {
-        return -1;
-    }
-
-    int stage = static_cast<int>(damage_stage_tables.size());
-    int base_table = stage > 0 ? damage_stage_tables[0] : -1;
-    damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
-    for (const auto& part : mesh->parts) {
-        part->CreateSkinTable(name, base_table);
-    }
-    return stage;
-}
-
-int MeshInstance::AddExistingDamageStage(std::string_view name)
-{
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    int table = mesh->FindSkinTable(name);
-
-    if (table == -1) {
-        return -1;
-    }
-
-    int stage = static_cast<int>(damage_stage_tables.size());
-    damage_stage_tables.push_back(table);
-    return stage;
-}
-
-unsigned char MeshInstance::ReplaceDamageStageTexture(int stage, std::string_view old_name,
-                                                      const std::shared_ptr<Texture>& replacement)
-{
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    bool replaced = false;
-
-    if (replacement && replacement->playback) {
-        replacement->Prepare();
-    }
-
-    for (auto* mesh_part : meshParts(mesh)) {
-        replaced |=
-            mesh_part->replaceSkinTexture(damage_stage_tables[stage], old_name, replacement);
-    }
-    return replaced;
+    if (damage_stage < 0 || skin.empty()) return -1;
+    return mesh.FindSkinTable(fmt::format("{}{}", skin, damage_stage));
 }
 
 MeshInstance::MeshInstance(WorldScene* scene)
@@ -256,7 +207,7 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     mesh_index = other.mesh_index;
     frame_index = other.frame_index;
 
-    damage_stage_tables = other.damage_stage_tables;
+    skin = other.skin;
     damage_stage = other.damage_stage;
     highlight_pass_mode = other.highlight_pass_mode;
     highlight_material.reset();
@@ -384,11 +335,8 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     ensureParts();
     for (const auto& part : parts)
         if (part->mesh == &mesh) {
-            const int skin = instance->damage_stage >= 0
-                                 ? instance->damage_stage_tables.at(instance->damage_stage)
-                                 : -1;
             part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
-                              skin);
+                              instance->skinTable(*part->mesh));
             if (index < part->pose.positions.size()) return part->pose.positions[index];
             break;
         }
@@ -459,8 +407,6 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         instance->highlight_material->setEmissive(instance->highlight_colour);
     }
     const bool highlight_body = highlighted && instance->highlight_pass_mode == 1;
-    const int skin =
-        instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
     const auto setPipeline = [&](DrawNode& node, std::uint32_t shader, FaceCull cull,
                                  Winding winding = Winding::Standard) {
         std::erase_if(node.stateCommands, [](const auto& command) {
@@ -473,6 +419,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     };
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
+        const int skin = instance->skinTable(mesh);
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
         part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,

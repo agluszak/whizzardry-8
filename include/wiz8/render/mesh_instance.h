@@ -79,11 +79,9 @@ public:
     enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
 
     Texture* FindMouthTexture(); /* 0x00481080 */
-    int AddDamageStage(std::string_view name);
-    int AddExistingDamageStage(std::string_view name);
-    int FindDamageStage(std::string_view name);
-    unsigned char ReplaceDamageStageTexture(int stage, std::string_view old_name,
-                                            const std::shared_ptr<Texture>& replacement);
+    // The skin table this instance draws `mesh` with: the one named skin + damage_stage, or
+    // -1 for the authored textures.
+    int skinTable(Mesh& mesh) const;
 
 public:
     glm::vec4 highlight_colour;
@@ -94,7 +92,7 @@ public:
     std::int32_t mesh_index;
     unsigned int frame_index;
     int damage_stage;
-    std::vector<int> damage_stage_tables;
+    std::string skin;
     int highlight_pass_mode;
     glm::vec3 light_scale;
     bool diffuse_scale_enabled;

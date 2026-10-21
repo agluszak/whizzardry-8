@@ -64,7 +64,8 @@ static void EnsureMonsterBaseSkin(Monster* monster, std::string_view monster_nam
                                   int& damage_stage, bool& skins_started)
 {
     if (skins_started) return;
-    damage_stage = monster->AddDamageStage(monster_name, 0);
+    monster->visual.skin = monster_name;
+    damage_stage = monster->AddDamageStage(0);
     monster->visual.damage_stage = damage_stage;
     skins_started = true;
 }
@@ -237,7 +238,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                 EnsureMonsterBaseSkin(monster.get(), monster_name, damage_stage, skins_started);
                 if (SDL_strcasecmp(argument.c_str(), "default") != 0) {
                     ++skin_stage;
-                    damage_stage = monster->AddDamageStage(monster_name, skin_stage);
+                    damage_stage = monster->AddDamageStage(skin_stage);
                 }
             } else if (SDL_strcasecmp(command.c_str(), "skinswap") == 0) {
                 std::string old_name;
