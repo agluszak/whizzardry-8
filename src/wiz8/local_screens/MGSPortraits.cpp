@@ -448,77 +448,25 @@ void ToggleNumericHitPoints(void)
    panel corner, the band's two x edges (their order swaps with the column),
    the grid row and the column pixel. 'adjust' applies the compact-display
    shift used when the party display is a single column. */
+DesignRect PartyPortraitBounds(unsigned int slot, int offset)
+{
+    const int left = (slot & 1) ? 512 - offset : offset;
+    const int top = 18 + static_cast<int>(slot / 2) * 85;
+    return {left, top, left + 127, top + 85};
+}
+
 void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
                             int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
 {
-    switch (party_slot) {
-    case 0:
-        *grid_row = 1;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0x12;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 1:
-        *grid_row = 2;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0x12;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    case 2:
-        *grid_row = 5;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0x67;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 3:
-        *grid_row = 6;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0x67;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    case 4:
-        *grid_row = 9;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0xbc;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 5:
-        *grid_row = 10;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0xbc;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    case 6:
-        *grid_row = 0xd;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0x111;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 7:
-        *grid_row = 0xe;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0x111;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    default:
+    if (party_slot < 0 || party_slot >= 8)
         throw std::logic_error("GetPartySlotMenuAnchor: party slot out of range");
-    }
+    const auto rect = PartyPortraitBounds(party_slot);
+    const bool right = (party_slot & 1) != 0;
+    *menu_x = *column_x = rect.left;
+    *menu_y = rect.top;
+    *grid_row = 1 + (party_slot / 2) * 4 + right;
+    *band_menu_edge = rect.left + (right ? 0x6b : 2);
+    *band_portrait_edge = rect.left + (right ? 0 : 0x69);
     if (adjust != 0 && GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
         static_cast<unsigned int>(GetEffectiveMainUiMode()) <=
             static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {

@@ -67,6 +67,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -558,6 +559,9 @@ public:
         button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
                              3);
         bitmap_image_fixture(assets, "data/portraits/large/lhummf.sti");
+        for (const auto* name : {"HealthBar", "StaminaBar", "MagicBar"})
+            button_image_fixture(assets, fmt::format("data/main interface/{}.sti", name), 1, false,
+                                 3, 45);
         g_image_assets.clear();
         w8_native::configure_paths({assets.string(), (directory_.path / "user").string()});
     }
@@ -1993,6 +1997,40 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(bitmap_reloaded != bitmap);
     REQUIRE(original->frames.size() == 1);
     REQUIRE(bitmap->w == 1);
+}
+
+TEST_CASE("Vitals panels publish their complete bounds without changing sampled state",
+          "[owner][portrait]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    ScopedGame game;
+    struct Settings {
+        unsigned char numeric = g_settings.numeric_hit_points;
+        ~Settings() { g_settings.numeric_hit_points = numeric; }
+    } settings;
+    g_settings.numeric_hit_points = 0;
+    auto& framebuffer = GetFrameBufferSurface();
+    for (unsigned slot : {0u, 7u}) {
+        auto& entry = game.game.monster_manager_entries[slot];
+        game.game.party.characters[slot].hp_current = 20;
+        entry.cached_hp_bar = 20;
+        entry.cached_stamina_bar = 45;
+        const auto portrait = PartyPortraitBounds(slot);
+        const int x = portrait.left + ((slot & 1) ? 0 : 105);
+        const int y = portrait.top + 23;
+        REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234));
+        TakeUiUpload();
+        RedrawPartyPortraitBars(slot, false);
+        const auto upload = TakeUiUpload();
+        REQUIRE((upload.x == x && upload.y == y && upload.w == 24 && upload.h == 45));
+        REQUIRE(surface_pixel(framebuffer, x + 6, y) != 0x1234);
+        REQUIRE(surface_pixel(framebuffer, x - 1, y) == 0x1234);
+        REQUIRE(surface_pixel(framebuffer, x + 24, y + 44) == 0x1234);
+        REQUIRE(entry.cached_hp_bar == 20);
+        REQUIRE(entry.cached_stamina_bar == 45);
+        REQUIRE(game.game.party.characters[slot].hp_current == 20);
+    }
 }
 
 TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")

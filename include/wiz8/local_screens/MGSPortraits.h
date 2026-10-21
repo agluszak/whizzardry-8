@@ -1,6 +1,7 @@
 #pragma once
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
+#include "wiz8/geometry.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/targeting.h"
 
@@ -50,6 +51,8 @@ void EnableConditionButtons(void);
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int flags, unsigned int top);
 void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
                                 bool slot_enabled);
+
+DesignRect PartyPortraitBounds(unsigned int slot, int offset = 0);
 
 /* The slot's menu/portrait anchor table - the keyboard-menu
    panel's origin, the portrait band's two x edges, the grid row and the

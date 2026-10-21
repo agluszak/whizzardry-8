@@ -2088,13 +2088,6 @@ struct W8MainGameInvalidateRect {
 
 extern W8MainGameInvalidateRect g_main_game_invalidate_rects[14];
 
-static DesignRect PortraitBounds(unsigned int slot, int offset = 0)
-{
-    const int left = (slot & 1) ? 512 - offset : offset;
-    const int top = 18 + static_cast<int>(slot / 2) * 85;
-    return {left, top, left + 127, top + 85};
-}
-
 W8LevelRuntimeBlock* MainGameHud()
 {
     auto* main_game = MainGame();
@@ -2678,10 +2671,10 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
                                        hud.highlight.LightsPortrait(party_slot) ||
                                            party_slot == hud.held_item_display,
                                        true, hud.portrait_refresh_pending[party_slot] == 0);
-            auto rect = PortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                       hud.portrait_hover_x_origin);
+            auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
+                                                            hud.portrait_hover_x_origin);
             if (hud.portrait_refresh_pending[party_slot])
-                rect = UnionScreenRects(rect, PortraitBounds(party_slot));
+                rect = UnionScreenRects(rect, PartyPortraitBounds(party_slot));
             InvalidateRegion(rect.left, rect.top, rect.right + 1, rect.bottom + 1);
         } else if (repaint.portrait_bars.test(party_slot)) {
             RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
@@ -3840,8 +3833,8 @@ void SetViewportMode(W8ViewportMode mode)
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
 {
     const auto& hud = *MainGameHud();
-    const auto rect = PortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                     hud.portrait_hover_x_origin);
+    const auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
+                                                          hud.portrait_hover_x_origin);
     return rect.right >= 0 &&
            IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right, rect.bottom);
 }
@@ -3996,7 +3989,7 @@ void ClearPortraitRefreshSlot(int slot)
         MainGameHud()->portrait_refresh_pending[slot] = 0;
         CurrentGame().monster_manager_entries[slot].portrait_refresh_pinned = false;
         MainGameHud()->portrait_refresh_image[slot] = 0;
-        const auto rect = PortraitBounds(slot);
+        const auto rect = PartyPortraitBounds(slot);
         EraseRegion(rect.left - 1, rect.top, rect.right + 1, rect.bottom);
         if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
         MainGame()->edge_targets[slot]->setEnabled(true);
