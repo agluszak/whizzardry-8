@@ -203,6 +203,14 @@ public:
     void ForwardReferencePosition(signed char alternate);
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
+    // The death cycle is playing.
+    bool IsPlayingDeath();
+    /* The monster's animation or turning still holds a fight's turn: a pending or scaling
+       cycle, an action short of its release point (halfway through a close swing, or until
+       a ranged attack's missile leaves), any action of a monster whose own action the fight
+       is not resolving, or a turn toward its target (when it can turn). Idle, spice, walk
+       and death cycles hold nothing. */
+    bool HoldsCombatTurn(bool resolving_own_action, bool missile_released, bool can_turn);
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
     void CollectModelInstances(std::vector<MeshInstance*>& instances);

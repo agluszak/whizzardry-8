@@ -39,6 +39,7 @@
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/prop.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
@@ -902,6 +903,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
                  "[loader][trigger][items]")
 {
     std::string bytes;
+    append(bytes, std::uint8_t{4}); // a version-four record for the level's first trigger
     append(bytes, 0u); // flags
     append(bytes, std::uint8_t{0}); // state index
     append(bytes, std::uint8_t{0}); // state direction
@@ -914,10 +916,8 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
     bytes.append(13, '\0');
     store("truncated-trigger.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("truncated-trigger.bin"));
-    const ScopedGame game; // A new trigger draws its item group's seed from the game.
-    Trigger trigger;
-    REQUIRE_FALSE(
-        ReadSavePayload(*file, [&](W8Chunk& chunk) { return trigger.Load(chunk, 5, false); }));
+    REQUIRE_THROWS(ReadSavePayload(
+        *file, [](W8Chunk& chunk) { return DecodeSavedTriggers(chunk, 1, false).size(); }));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",
@@ -969,10 +969,10 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
     prop->trigger = &trigger;
     GetWorld()->plsProps.push_back(std::move(prop));
 
-    std::filesystem::create_directory(wiz8::user_path("saves"));
     const auto write_items = [&](bool truncated) {
+        const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
         W8Chunk chunks;
-        REQUIRE(chunks.OpenWrite(wiz8::user_path("saves/CurrentGame.SAV")));
+        REQUIRE(chunks.OpenWrite(file));
         chunks.WriteGroup(W8ChunkId("LVLS"), [&] {
             chunks.WriteValue(0x26);
             chunks.WriteChunk(W8ChunkId("ITEM"), [&] {
@@ -993,6 +993,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
             });
         });
         chunks.Close();
+        game.game.left_levels[0x26] = file->written_memory();
     };
     write_items(true);
     LoadAwayCampChest(*GetWorld());
@@ -1022,20 +1023,22 @@ TEST_CASE_METHOD(LoaderFixture, "Retail waypoint versions load without an editor
     for (const auto version : {1u, 2u}) {
         std::string bytes;
         for (const auto value : {version, 1u, 3u, 2u}) append(bytes, value);
-        append(bytes, W8FileWaypoint{});
-        append(bytes, W8FileWaypoint{W8_WAYPOINT_CONDITIONAL, 1, {1, 2, 3}});
-        append(bytes, W8FileWaypoint{W8_WAYPOINT_CONDITIONAL, 0, {4, 5, 6}});
-        for (unsigned index = 0; index < 2; ++index) {
-            const W8PathEdge edge{0, static_cast<unsigned short>(index),
-                                  static_cast<unsigned short>(index ? 2 : 0), 5.0f, 0};
-            if (version == 1) {
-                append(bytes, edge.flags);
-                append(bytes, edge.destination);
-                append(bytes, edge.distance);
-                append(bytes, edge.next);
-            } else {
-                append(bytes, edge);
-            }
+        const auto waypoint = [&](std::uint16_t flags, std::uint16_t first_edge,
+                                  glm::vec3 position) {
+            append(bytes, flags);
+            append(bytes, first_edge);
+            for (int axis = 0; axis < 3; ++axis) append(bytes, position[axis]);
+        };
+        waypoint(0, 0, {});
+        waypoint(W8_WAYPOINT_CONDITIONAL, 1, {1, 2, 3});
+        waypoint(W8_WAYPOINT_CONDITIONAL, 0, {4, 5, 6});
+        // A 12-byte version-one edge has no source; later versions store it.
+        for (std::uint16_t index = 0; index < 2; ++index) {
+            append(bytes, std::uint32_t{0});
+            if (version != 1) append(bytes, index);
+            append(bytes, std::uint16_t(index ? 2 : 0));
+            append(bytes, 5.0f);
+            append(bytes, std::uint16_t{0});
         }
         store("waypoints.wpt", bytes);
         REQUIRE(path.ReadWaypointFile(tree));
@@ -1360,14 +1363,17 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
     const auto load = [&](const std::string& data) {
         store("trigger-action.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
-        return ReadSavePayload(*file,
-                               [&](W8Chunk& chunk) { return LoadTriggerActionData(world, chunk); });
+        return ReadSavePayload(*file, [&](W8Chunk& chunk) {
+            auto section = SavedWorldSection(DecodeSavedTriggerActions(chunk));
+            ApplySavedSection(world, section);
+            return true;
+        });
     };
-    REQUIRE_FALSE(load(bytes));
-    REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));
+    REQUIRE_THROWS(load(bytes));
+    REQUIRE_THROWS(load(bytes.substr(0, bytes.size() - 1)));
     std::fill(bytes.begin() + 8, bytes.begin() + 136, '\0');
     std::fill(bytes.begin() + 136, bytes.end(), 'x');
-    REQUIRE_FALSE(load(bytes));
+    REQUIRE_THROWS(load(bytes));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within their section",
@@ -1408,7 +1414,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         chunk.Close();
         REQUIRE(chunk.OpenRead(path));
         chunk.ForEachChunk([&](unsigned) {
-            LoadWorldProps(GetWorld(), chunk);
+            ApplySavedProps(*GetWorld(), DecodeSavedProps(chunk));
             REQUIRE(chunk.RemainingBytes() == 0);
         });
         chunk.Close();
@@ -1423,7 +1429,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         chunk.Close();
         REQUIRE(chunk.OpenRead(path));
         chunk.ForEachChunk([&](unsigned) {
-            REQUIRE_THROWS(LoadWorldProps(GetWorld(), chunk));
+            REQUIRE_THROWS(DecodeSavedProps(chunk));
             return false;
         });
         REQUIRE(present->subcycle == 3);

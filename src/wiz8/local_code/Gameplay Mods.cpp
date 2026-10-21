@@ -1,6 +1,5 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -16,9 +15,8 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/utility.h"
+#include "wiz8/rules/party_conditions.h"
 #include "wiz8/world/environment.h"
-#include "wiz8/world/level_session.h"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
@@ -154,20 +152,6 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
     }
 }
 
-/* Rebuild one party member's condition/enchantment modifier block from the
-   live condition durations, the enchantment slots and the bound-NPC penalty.
-   Every condition and enchantment change funnels through it. */
-void RebuildConditionModifiers(int party_slot)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    character->condition_modifiers = {};
-    ApplyConditionModifiers(character, character->uiCondition, character->condition_argument,
-                            &character->condition_modifiers);
-    ApplyEnchantmentModifiers(character->enchantments, &character->condition_modifiers);
-    ApplyBoundNpcPenalty(character, &character->condition_modifiers);
-}
-
 /* The monster-side rebuild: refill the monster's modifier block from its
    condition durations, enchantments and effect slots, then its armor byte's
    combat adjustment and the combat effect run, and finally the derived
@@ -198,128 +182,4 @@ void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
     }
     ConvertMonsterAttributes(monster_info);
     RebuildMonsterRegenRates(monster_info);
-}
-
-/* Fold the live conditions into the modifier block: each running condition id
-   carries its own fixed penalty set, condition seven also adds the carried
-   argument (poison strength) to the block's regen channel, and condition 0x13
-   scales its hit adjustment off the bound monster when the record still
-   resolves on the saved level. */
-void ApplyConditionModifiers(W8Character* character, const unsigned int* condition_turns,
-                             int condition_argument, W8GameplayModifierBlock* target)
-{
-    unsigned int i;
-
-    for (unsigned int index = 0; index < W8_CONDITION_COUNT; ++index) {
-        if (condition_turns[index] == 0) {
-            continue;
-        }
-        switch (index) {
-        case 3:
-            target->hit_bonus -= 2;
-            target->armor_class_adjustment -= 2;
-            break;
-        case 4:
-            target->hit_bonus -= 5;
-            target->armor_class_adjustment -= 4;
-            break;
-        case 5:
-            target->attribute_adjustments[W8_ATTRIBUTE_SPEED] -= 0x32;
-            break;
-        case 6:
-            target->hit_bonus -= 3;
-            target->armor_class_adjustment -= 2;
-            break;
-        case W8_CONDITION_POISONED:
-            target->hit_bonus -= 2;
-            target->armor_class_adjustment -= 2;
-            target->damage_per_minute += condition_argument;
-            break;
-        case 9:
-            target->hit_bonus -= 5;
-            for (i = 0; i < 7; ++i) {
-                target->attribute_adjustments[i] -= 0x14;
-            }
-            for (i = 0; i < 0x29; ++i) {
-                target->skill_bonus[i] -= 0x14;
-            }
-            break;
-        case 0xb:
-            target->attribute_adjustments[W8_ATTRIBUTE_INTELLIGENCE] -= 0x32;
-            break;
-        case 0xc:
-            if (character == 0 || !CharacterHasTrait(character, W8_TRAIT_EFFECTIVE_WHILE_BLIND)) {
-                target->attribute_adjustments[W8_ATTRIBUTE_SENSES] -= 0x32;
-                target->out_of_formation = 1;
-            } else {
-                target->attribute_adjustments[W8_ATTRIBUTE_SENSES] +=
-                    static_cast<signed char>(ScaleValueByProfessionLevel(
-                        character, W8_TRAIT_EFFECTIVE_WHILE_BLIND, 50.0f)) -
-                    0x32;
-            }
-            break;
-        case 0xe:
-            target->attribute_adjustments[W8_ATTRIBUTE_DEXTERITY] -= 0x32;
-            [[fallthrough]];
-        case W8_CONDITION_ASLEEP:
-        case 0x10:
-        case W8_CONDITION_UNCONSCIOUS:
-            target->out_of_formation = 1;
-            break;
-        case 0x13:
-            if (GetConditionRecordFlag(CharacterPointerToPartySlot(character),
-                                       W8_DEPENDENCE_SWALLOWED)) {
-                W8MonsterInfo* bound;
-                if (character->conditions[W8_DEPENDENCE_SWALLOWED].level_acquired ==
-                        GetLoadedLevelID() &&
-                    (bound = FindMonster(
-                         character->conditions[W8_DEPENDENCE_SWALLOWED].source_monster)) != 0) {
-                    const W8MonsterRecord* monster = GetMonsterDataForInfo(bound);
-                    target->health_regen_adjustment += -1 - (monster->effective_level >> 1);
-                } else {
-                    target->health_regen_adjustment += -5;
-                }
-            }
-            break;
-        }
-    }
-}
-
-/* Fold the enchantment slots into the modifier block: slot five raises one
-   attribute by ten per power, slot six raises them all by five per power and
-   slot seven raises the damage-reduction and armor bytes by eight and one per
-   power, each scaled by the slot's percentage. */
-void ApplyEnchantmentModifiers(const W8Enchantment* enchantments, W8GameplayModifierBlock* target)
-{
-    unsigned char amount;
-    unsigned int i;
-
-    for (unsigned int index = 0; index < 8; ++index) {
-        const W8Enchantment* slot = &enchantments[index];
-        if (slot->turns == 0) {
-            continue;
-        }
-        switch (index) {
-        case 5:
-            amount = static_cast<unsigned char>(slot->power * 10);
-            AdjustByteByPercent(&amount, slot->percent);
-            target->attribute_adjustments[W8_ATTRIBUTE_SPEED] += amount;
-            break;
-        case 6:
-            amount = static_cast<unsigned char>(slot->power * 5);
-            AdjustByteByPercent(&amount, slot->percent);
-            for (i = 0; i < 7; ++i) {
-                target->attribute_adjustments[i] += amount;
-            }
-            break;
-        case 7:
-            amount = static_cast<unsigned char>(slot->power << 3);
-            AdjustByteByPercent(&amount, slot->percent);
-            target->damage_reduction_adjustment += amount;
-            amount = static_cast<unsigned char>(slot->power);
-            AdjustByteByPercent(&amount, slot->percent);
-            target->armor_matchup += amount;
-            break;
-        }
-    }
 }

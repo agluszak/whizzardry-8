@@ -23,6 +23,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -343,7 +344,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
         return;
     }
     W8MonsterInfo* leader = FindMonster(group->leader_location_id);
-    if (leader != 0 && leader->p3D->hostility_preserved) {
+    if (leader != 0 && leader->entity->hostility_preserved) {
         return;
     }
     W8Disposition previous = group->ubDisposition;
@@ -385,7 +386,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
 {
     W8Disposition previous = monster->ubDisposition;
-    if (previous == hostility || monster->p3D->hostility_preserved) {
+    if (previous == hostility || monster->entity->hostility_preserved) {
         return;
     }
     monster->ubDisposition = hostility;
@@ -740,7 +741,7 @@ int CharacterPrayAction(int party_slot)
                 W8MonsterInfo* monster = GetMonsterListEntry(index);
                 if (monster->fActive && monster->pCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
-                    monster->p3D->GetDistanceToPlayer() <= range) {
+                    monster->entity->GetDistanceToPlayer() <= range) {
                     ++in_range;
                 }
             }
@@ -751,8 +752,8 @@ int CharacterPrayAction(int party_slot)
                     W8MonsterInfo* monster = GetMonsterListEntry(index);
                     if (monster->fActive && monster->pCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
-                        monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range &&
-                        --pick == 0) {
+                        monster->hp_current != 0 &&
+                        monster->entity->GetDistanceToPlayer() <= range && --pick == 0) {
                         AppendToLastTextLine(Data().strings[0x179], -1);
                         target.iType = W8_TARGET_KIND_MONSTER;
                         target.iMonsterID = monster->location_id;
@@ -776,7 +777,7 @@ int CharacterPrayAction(int party_slot)
         case 8:
             AppendToLastTextLine(Data().strings[0x179], -1);
             for (index = 0; index < 0x12; ++index) {
-                RemoveConditionFromParty(static_cast<W8Condition>(index));
+                LiftConditionFromParty(CurrentGame(), static_cast<W8Condition>(index));
             }
             if (CurrentGame().combat.has_value()) {
                 for (index = 0; index < 9; ++index) {
@@ -846,7 +847,8 @@ int CharacterPrayAction(int party_slot)
                     W8MonsterInfo* monster = GetMonsterListEntry(index);
                     if (monster->fActive && monster->pCombat &&
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
-                        monster->hp_current != 0 && monster->p3D->GetDistanceToPlayer() <= range) {
+                        monster->hp_current != 0 &&
+                        monster->entity->GetDistanceToPlayer() <= range) {
                         AppendToLastTextLine(Data().strings[0x179], -1);
                         ResetCombatSlot(&target);
                         CastSpellFromSource(W8_SPELL_FALLING_STARS, &source, &target, power_level,

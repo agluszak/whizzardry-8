@@ -11,6 +11,7 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_properties.h>
 #include <SDL3/SDL_stdinc.h>
 #ifdef WIZ8_FILE_FAULTS
 #include "file_operations.h"
@@ -128,13 +129,40 @@ File::File(fs::path path, OpenMode mode) : path_(std::move(path)), writable_(mod
         writer_create_time_ = info.create_time;
     }
 }
+File::File(std::vector<std::byte> bytes) : memory_(std::move(bytes))
+{
+    if (memory_.empty()) throw std::invalid_argument("empty memory stream");
+    stream_ = SDL_IOFromConstMem(memory_.data(), memory_.size());
+    if (!stream_) sdl_failure("open memory");
+}
+File::File(MemoryWriter) : writable_(true), memory_writer_(true)
+{
+    stream_ = SDL_IOFromDynamicMem();
+    if (!stream_) sdl_failure("open memory writer");
+}
+void File::capture_memory()
+{
+    if (!memory_writer_ || !stream_) return;
+    const auto* bytes = static_cast<const std::byte*>(SDL_GetPointerProperty(
+        SDL_GetIOProperties(stream_), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    memory_.assign(bytes, bytes + (bytes ? size() : 0));
+}
+std::vector<std::byte> File::written_memory() const
+{
+    if (!memory_writer_) throw std::logic_error("not a memory writer");
+    if (!stream_) return memory_;
+    const auto* bytes = static_cast<const std::byte*>(SDL_GetPointerProperty(
+        SDL_GetIOProperties(stream_), SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr));
+    return {bytes, bytes + (bytes ? size() : 0)};
+}
 File::~File()
 {
     if (stream_) SDL_CloseIO(stream_);
 }
 File::File(File&& other) noexcept
     : stream_(std::exchange(other.stream_, nullptr)), path_(std::move(other.path_)),
-      writable_(other.writable_), writer_create_time_(other.writer_create_time_)
+      writable_(other.writable_), writer_create_time_(other.writer_create_time_),
+      memory_(std::move(other.memory_)), memory_writer_(other.memory_writer_)
 {
 }
 File& File::operator=(File&& other) noexcept
@@ -145,6 +173,8 @@ File& File::operator=(File&& other) noexcept
         path_ = std::move(other.path_);
         writable_ = other.writable_;
         writer_create_time_ = other.writer_create_time_;
+        memory_ = std::move(other.memory_);
+        memory_writer_ = other.memory_writer_;
     }
     return *this;
 }
@@ -246,6 +276,7 @@ void File::flush()
 void File::close()
 {
     WIZ8_FILE_OPERATION(close);
+    capture_memory();
     if (stream_ && !SDL_CloseIO(std::exchange(stream_, nullptr))) sdl_failure("close file");
 }
 SDL_IOStream* File::io() const
@@ -285,6 +316,14 @@ FileTimes File::times() const
 std::unique_ptr<File> open_file(const fs::path& path, OpenMode mode)
 {
     return std::unique_ptr<File>(new File(path, mode));
+}
+std::unique_ptr<File> open_memory(std::vector<std::byte> bytes)
+{
+    return std::unique_ptr<File>(new File(std::move(bytes)));
+}
+std::unique_ptr<File> open_memory_writer()
+{
+    return std::unique_ptr<File>(new File(File::MemoryWriter{}));
 }
 std::optional<FileStatus> file_status(const fs::path& path)
 {

@@ -56,6 +56,7 @@ public:
         return *m_hFile;
     }
     bool OpenRead(const std::filesystem::path& path);
+    bool OpenRead(std::shared_ptr<wiz8::File> file);
     bool OpenWrite(const std::filesystem::path& path);
     bool OpenWrite(std::shared_ptr<wiz8::File> file);
     void Close();

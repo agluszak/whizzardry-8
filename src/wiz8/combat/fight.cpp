@@ -186,7 +186,7 @@ bool Game::beginCombat(int surprise)
         monster_info = GetMonsterListEntry(index);
         if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current > 0 &&
             monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            float distance = monster_info->p3D->GetDistanceToPlayer();
+            float distance = monster_info->entity->GetDistanceToPlayer();
             if (distance < nearest_distance) {
                 nearest_distance = distance;
                 nearest_info = monster_info;
@@ -212,10 +212,10 @@ bool Game::beginCombat(int surprise)
                 MonsterChooseTarget(monster_info, &chosen,
                                     W8VisibilityCondition::ThirdLineOfSightFlag);
                 if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                    monster_info->p3D->ForwardReferencePosition(0);
+                    monster_info->entity->ForwardReferencePosition(0);
                 } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                    monster_info->p3D->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
-                                                    false);
+                    monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
+                                                       false);
                 }
             }
             monster_info->death_processed = false;
@@ -726,8 +726,8 @@ void NotifyNearbyMonsters(int what)
             monster_info->highest_condition < W8_CONDITION_WEBBED &&
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0 &&
             monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            if (monster_info->p3D->GetDistanceToPlayer() <= CalcRangeDistance(W8_RANGE_SHORT)) {
-                monster_info->p3D->ForwardReferencePosition(what);
+            if (monster_info->entity->GetDistanceToPlayer() <= CalcRangeDistance(W8_RANGE_SHORT)) {
+                monster_info->entity->ForwardReferencePosition(what);
             }
         }
     }
@@ -832,13 +832,13 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
         monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
         MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
         if (chosen.iType == W8_TARGET_KIND_PARTY) {
-            monster_info->p3D->ForwardReferencePosition(0);
+            monster_info->entity->ForwardReferencePosition(0);
             monster_info->death_processed = false;
             return;
         }
         if (chosen.iType == W8_TARGET_KIND_MONSTER) {
             target_location = chosen.iMonsterID;
-            monster_info->p3D->AimAtMonster(GetMonsterByLocationID(target_location), false);
+            monster_info->entity->AimAtMonster(GetMonsterByLocationID(target_location), false);
         }
     }
     monster_info->death_processed = false;
@@ -854,7 +854,7 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
     float scale;
 
     if (monster_info->pCombat->turn_started) {
-        monster_info->p3D->nav.movement_complete = false;
+        monster_info->entity->nav.movement_complete = false;
         return;
     }
 
@@ -874,11 +874,11 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
         }
     }
 
-    monster_info->p3D->nav.SetMonsterTurnSpeed(speed * scale * kMovementSpeedStep);
+    monster_info->entity->nav.SetMonsterTurnSpeed(speed * scale * kMovementSpeedStep);
     /* Four bytes inside cycle eight's block, cleared together. */
-    monster_info->p3D->nav.movement.callback_progress = 0.0f;
+    monster_info->entity->nav.movement.callback_progress = 0.0f;
     monster_info->pCombat->turn_started = true;
-    monster_info->p3D->nav.movement_complete = false;
+    monster_info->entity->nav.movement_complete = false;
 }
 
 /* Finish one monster's attack: charge it the fatigue, drop the party's
@@ -891,7 +891,7 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
 
     GetMonsterDataForInfo(monster_info);
     FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
-    monster_info->p3D->nav.SetHalted(true);
+    monster_info->entity->nav.SetHalted(true);
     CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
 
     if (!combat->active) {
@@ -979,7 +979,7 @@ void Game::endCombat(bool forced_cleanup)
 
     SetTargetingMode(W8_TARGET_NEED_NONE);
     RemoveConditionFromEveryone(W8_CONDITION_SLOWED);
-    RemoveConditionFromParty(W8_CONDITION_TURNCOAT);
+    LiftConditionFromParty(*this, W8_CONDITION_TURNCOAT);
     RemoveAllEnchantments();
     ResetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
@@ -1027,7 +1027,7 @@ void Game::endCombat(bool forced_cleanup)
     SettleActiveParty(*this);
     ClearLevelMovementState();
     CurrentGame().events.push(MonstersChanged{});
-    ResetWorldCursorRange();
+    if (auto* world = level.primary.get()) ResetWorldCursorDistance(*world);
     if (activity.in_world()) {
         ApplyCombatEndEffects();
         ReportSaveFailed(true);
@@ -1347,7 +1347,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         break;
     default:
         if (IsMonsterFacingParty(monster_info) == 0) {
-            monster_info->p3D->ForwardReferencePosition(alternate);
+            monster_info->entity->ForwardReferencePosition(alternate);
         }
         break;
     case W8_TARGET_KIND_MONSTER:
@@ -1355,7 +1355,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         if (monster_info->location_id != location_id) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->p3D->AimAtMonster(target->p3D, alternate);
+                monster_info->entity->AimAtMonster(target->entity.find(), alternate);
                 return;
             }
         }
@@ -1366,7 +1366,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         if (location_id != -1) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->p3D->AimAtMonster(target->p3D, alternate);
+                monster_info->entity->AimAtMonster(target->entity.find(), alternate);
                 return;
             }
         }
@@ -1375,10 +1375,10 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         point = monster_info->Target.point;
         if (!IsPartyLookingAt(monster_info, point)) {
             if (alternate) {
-                monster_info->p3D->nav.SetFacingToward(&point);
+                monster_info->entity->nav.SetFacingToward(&point);
                 return;
             }
-            monster_info->p3D->nav.AimAtPosition(&point);
+            monster_info->entity->nav.AimAtPosition(&point);
             return;
         }
     }
@@ -1659,9 +1659,10 @@ void AdvanceCombatRound(void)
             W8CombatSlot chosen;
             MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
             if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                monster_info->p3D->ForwardReferencePosition(0);
+                monster_info->entity->ForwardReferencePosition(0);
             } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info->p3D->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID), false);
+                monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
+                                                   false);
             }
         }
         ++index;
@@ -1681,8 +1682,9 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             W8Character* character = &CurrentGame().party.characters[party_slot];
             if (CurrentGame().party.members[party_slot].has_value() &&
                 (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
-                SetCharacterCondition(party_slot, W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0, 0,
-                                      1);
+                InflictCondition(
+                    CurrentGame(), party_slot,
+                    {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE});
             }
         }
     } else {

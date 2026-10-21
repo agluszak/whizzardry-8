@@ -141,7 +141,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
 {
     if (!GetWorld()) return;
     for (const auto& info : CurrentLevelPopulation().monster_roster.live()) {
-        auto* monster = info->p3D;
+        auto* monster = info->entity.find();
         if (!monster) continue;
         const auto found = presentation.monsters.find(info->location_id);
         const auto mark =
@@ -156,9 +156,9 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
         monster->visual.SetPresentationColour(monster->IsDying() ? glm::vec4{0} : mark.tint);
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
-        if (item->fActive && item->p3D) {
+        if (item->fActive && item->entity.find()) {
             const bool hovered = presentation.hovered_item == item->runtime_id;
-            item->p3D->SetHighlight(true, hovered);
+            item->entity->SetHighlight(true, hovered);
         }
     }
 }

@@ -209,23 +209,14 @@ void GameloopExit()
     if (auto* game = router.games ? router.games->game() : nullptr) game->speech.DestroyAllEvents();
 
     ResetMenuFontPalettes();
-    // Discard the current screen, then every suspended one without
-    // resuming it: a full leave releases what a suspended screen retains.
+    // Discard the current screen, then every suspended one without resuming it: a full
+    // leave releases what a suspended screen retains. Each leaves while it can still be
+    // found (`FindScreen`), as a load discards them.
     if (router.screen) router.screen->leave(ScreenDeparture::Discard);
     router.screen.reset();
     router.resuming.reset();
-    while (!router.suspended.empty()) {
-        auto entry = std::move(router.suspended.back());
-        router.suspended.pop_back();
-        if (!entry.screen) continue;
-        /* Teardown reads the current screen, as it does for the one on top, so the
-           leaving screen becomes current and can still find itself. */
-        router.show(std::move(entry.request));
-        router.screen = std::move(entry.screen);
-        router.screen->leave(ScreenDeparture::Discard);
-        router.screen.reset();
-    }
     router.show({});
+    DiscardSuspendedScreensAbove(W8_SCREEN_NONE);
     router.pending = {};
     router.return_requested = false;
 }

@@ -31,6 +31,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -218,8 +219,8 @@ void MartensBluff2Script::setup()
                     location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
                         info = FindMonster(location_id);
-                        if (info != 0 && info->p3D != 0) {
-                            info->p3D->SetScript("MB_MoveRapax.msf", true);
+                        if (info != 0 && info->entity) {
+                            info->entity->SetScript("MB_MoveRapax.msf", true);
                             SetRavenQuestState(RavenQuestState::rapax_scripted);
                         }
                     }
@@ -421,8 +422,8 @@ bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonster(location_id);
-            if (info != 0 && info->p3D != 0) {
-                info->p3D->SetScript("MB_MoveRapax.msf", true);
+            if (info != 0 && info->entity) {
+                info->entity->SetScript("MB_MoveRapax.msf", true);
                 quest_state = RavenQuestState::rapax_scripted;
             }
         }
@@ -568,10 +569,10 @@ bool MartensBluff2Script::monsterCrusher(int command)
     }
     for (i = 0; i < count; i++) {
         info = FindMonster(location_ids[i]);
-        if (info != 0 && info->p3D != 0 &&
-            (!crusher_excluded_flag_ || info->p3D != crusher_excluded_) &&
-            info->p3D->nav.flags != 0x200000) {
-            monster = info->p3D;
+        if (info != 0 && info->entity &&
+            (!crusher_excluded_flag_ || info->entity.find() != crusher_excluded_) &&
+            info->entity->nav.flags != 0x200000) {
+            monster = info->entity.find();
             position = monster->nav.GetPosition();
             radius = monster->nav.movement.alternate_radius;
             if (left <= position.x - radius) {
@@ -744,7 +745,8 @@ void MartensBluff2Script::idolGasVictim()
             }
         }
         ctx.status.party_slot = slot;
-        SetCharacterCondition(slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE, 0, 0, 1);
+        InflictCondition(CurrentGame(), slot,
+                         {.condition = W8_CONDITION_MISSING, .duration = W8_CONDITION_INDEFINITE});
         SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 1, false);
     }
 }
