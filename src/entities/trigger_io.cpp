@@ -6,11 +6,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <exception>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <string>
+#include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -21,6 +24,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/entities/locks.h"
 #include "wiz8/entities/missile.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/loaded_game_data.h"
@@ -80,50 +84,53 @@ void SaveTriggerRuntimeStates(wiz8::File& handle)
     }
 }
 
-/* Read the runtime-state records written by SaveTriggerRuntimeStates.
-   Each record names its trigger; a record whose trigger no longer exists is
-   still consumed through a scratch trigger so the stream stays aligned. When
-   restoring, a state byte block is re-randomized and the type-10 action data is
-   re-linked to the stored item. */
-bool LoadTriggerRuntimeStates(World& world, W8Chunk& handle)
-try {
-    int version;
-    int saved_count;
-    int restoring;
-    int index = 0;
-
-    handle.ReadBytes(&version, sizeof(version));
-    handle.ReadBytes(&saved_count, sizeof(saved_count));
-    handle.ReadBytes(&restoring, sizeof(restoring));
-    if (saved_count < 1) {
-        return true;
-    }
-    for (;;) {
+/* The runtime-state records written by SaveTriggerRuntimeStates. A record's form
+   depends on the section: a restoring section, or one before version two, stores the
+   lock as the level authored it. */
+SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& handle)
+{
+    const auto version = handle.ReadValue<int>();
+    const auto saved_count = handle.ReadValue<int>();
+    const auto restoring = handle.ReadValue<int>();
+    SavedTriggerLocks section{.restoring = restoring != 0};
+    for (int index = 0; index < saved_count; ++index) {
+        auto& lock = section.locks.emplace_back();
         char name[0x80];
-        Trigger* trigger;
-
         ReadTriggerText(handle, name);
-        trigger = FindTriggerInWorld(world, name);
-        if (trigger == 0) {
-            Trigger scratch(&world);
-            scratch.lock_state.ReadRuntimeRecord(handle, version, restoring);
+        lock.trigger = name;
+        handle.ReadValue(lock.record_version);
+        lock.full = restoring != 0 || version <= 1;
+        if (!lock.full) {
+            handle.ReadValue(lock.device_state.completed);
+            handle.ReadBytes(lock.device_state.pins, sizeof(lock.device_state.pins));
+            lock.lock_countdown = handle.ReadValue<int>();
+            if (lock.record_version > 1) lock.last_interaction_clock = handle.ReadValue<int>();
         } else {
-            trigger->lock_state.ReadRuntimeRecord(handle, version, restoring);
-            if (restoring != 0) {
-                trigger->lock_state.Reset();
-            }
-            if (auto* door = trigger->doorData(); door && (!door->locked || door->item == -1)) {
-                door->locked = trigger->lock_state.device_state.completed == 0;
-                door->item = static_cast<short>(trigger->lock_state.key_id);
-            }
-        }
-        ++index;
-        if (saved_count <= index) {
-            return true;
+            lock.lock_type = static_cast<LockType>(handle.ReadValue<int>());
+            handle.ReadValue(lock.difficulty);
+            handle.ReadValue(lock.device_state.completed);
+            handle.ReadBytes(lock.device_state.pins, sizeof(lock.device_state.pins));
+            handle.ReadValue(lock.device_id);
+            handle.ReadValue(lock.key_id);
+            if (lock.record_version > 1) lock.lock_countdown = handle.ReadValue<int>();
         }
     }
-} catch (const std::exception&) {
-    return false;
+    return section;
+}
+
+// A restored lock re-rolls when the section restores, and keeps its door's lock in step.
+static void ApplySavedLocks(World& world, const SavedTriggerLocks& section)
+{
+    for (const auto& saved : section.locks) {
+        auto* trigger = FindTriggerInWorld(world, saved.trigger);
+        if (!trigger) continue;
+        trigger->lock_state.Restore(saved);
+        if (section.restoring) trigger->lock_state.Reset();
+        if (auto* door = trigger->doorData(); door && (!door->locked || door->item == -1)) {
+            door->locked = trigger->lock_state.device_state.completed == 0;
+            door->item = static_cast<short>(trigger->lock_state.key_id);
+        }
+    }
 }
 
 /* Serialize one trigger for the save file. The header carries a version byte
@@ -213,134 +220,142 @@ static bool readDoorFlag(W8Chunk& file)
     return (flag & 1) != 0;
 }
 
-/* Read one trigger back from the save file. The version byte selects how much
-   of the trailing block is present; a type-10 action payload rebuilds its
-   action data and re-queues the delayed timed event from the saved progress. */
-bool Trigger::Load(W8Chunk& hFile, std::uint8_t version, bool from_assets)
-try {
-    unsigned char has_action_data;
-    unsigned char action_type;
-    unsigned char flag_mode;
-
-    hFile.ReadValue(flags);
-    hFile.ReadValue(state_index);
-    hFile.ReadValue(state_direction);
-    hFile.ReadValue(action);
-    hFile.ReadValue(action_state);
-    hFile.ReadValue(required_item_id);
-    hFile.ReadBytes(&has_action_data, sizeof(has_action_data));
-    if (has_action_data != 0) {
-        hFile.ReadBytes(&action_type, sizeof(action_type));
-        if (action_type == W8_TRIGGER_PAYLOAD_DOOR) {
-            auto* pDoor = &action_payload.emplace<W8DoorTriggerActionData>();
-            unsigned short action_flags;
-            unsigned short progress_delay;
-            unsigned short item;
-
-            hFile.ReadBytes(&flag_mode, 1);
-            if (flag_mode == 1) {
-                pDoor->open = readDoorFlag(hFile);
-                pDoor->lockable = readDoorFlag(hFile);
-                pDoor->locked = readDoorFlag(hFile);
-                pDoor->auto_locking = readDoorFlag(hFile);
-                pDoor->one_way = readDoorFlag(hFile);
-                pDoor->secret = readDoorFlag(hFile);
-                pDoor->found = readDoorFlag(hFile);
-                pDoor->jammable = readDoorFlag(hFile);
-                pDoor->jammed = readDoorFlag(hFile);
+// Decode one trigger record of version `version`, which the record's tag gave.
+static SavedTrigger DecodeSavedTrigger(W8Chunk& file, std::uint8_t version, bool from_assets)
+{
+    SavedTrigger saved{.version = version};
+    file.ReadValue(saved.flags);
+    file.ReadValue(saved.state_index);
+    file.ReadValue(saved.state_direction);
+    file.ReadValue(saved.action);
+    file.ReadValue(saved.action_state);
+    file.ReadValue(saved.required_item_id);
+    if (file.ReadValue<unsigned char>() != 0) {
+        saved.payload_kind = file.ReadValue<unsigned char>();
+        if (*saved.payload_kind == W8_TRIGGER_PAYLOAD_DOOR) {
+            auto& door = saved.door.emplace();
+            if (file.ReadValue<unsigned char>() == 1) {
+                door.open = readDoorFlag(file);
+                door.lockable = readDoorFlag(file);
+                door.locked = readDoorFlag(file);
+                door.auto_locking = readDoorFlag(file);
+                door.one_way = readDoorFlag(file);
+                door.secret = readDoorFlag(file);
+                door.found = readDoorFlag(file);
+                door.jammable = readDoorFlag(file);
+                door.jammed = readDoorFlag(file);
             } else {
-                action_flags = 0;
-                progress_delay = 0;
-                hFile.ReadBytes(&action_flags, 2);
-                pDoor->open = (action_flags & 1) != 0;
-                pDoor->lockable = (action_flags & 2) != 0;
-                pDoor->locked = (action_flags & 4) != 0;
-                pDoor->auto_locking = (action_flags & 8) != 0;
-                pDoor->one_way = (action_flags & 0x10) != 0;
-                pDoor->secret = (action_flags & 0x20) != 0;
-                pDoor->found = (action_flags & 0x40) != 0;
-                pDoor->jammable = (action_flags & 0x80) != 0;
-                pDoor->jammed = (action_flags & 0x100) != 0;
-                hFile.ReadBytes(&progress_delay, 2);
-                if (m_lData1 != 0 && progress_delay != 0) {
-                    if (m_pEvent == 0) {
-                        float duration;
-
-                        m_pEvent = std::make_unique<TriggerEvent>();
-                        m_pEvent->trigger = this;
-                        m_pEvent->action = 2;
-                        if (m_lData1 < 0) {
-                            duration = 10.0f;
-                        } else {
-                            duration = static_cast<float>(m_lData1);
-                        }
-                        m_pEvent->timer.SetDuration(duration);
-                        m_pEvent->timer.Restart();
-                        m_pEvent->repeat = true;
-                    }
-                    m_pEvent->timer.SetProgress(progress_delay * 0.001f);
-                    if (!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                        m_pWorld->timed_events.push_back(m_pEvent.get());
-                    }
-                }
-                hFile.ReadBytes(&item, 2);
-                pDoor->item = static_cast<short>(item);
+                const auto flags = file.ReadValue<std::uint16_t>();
+                door.packed = true;
+                door.open = (flags & 1) != 0;
+                door.lockable = (flags & 2) != 0;
+                door.locked = (flags & 4) != 0;
+                door.auto_locking = (flags & 8) != 0;
+                door.one_way = (flags & 0x10) != 0;
+                door.secret = (flags & 0x20) != 0;
+                door.found = (flags & 0x40) != 0;
+                door.jammable = (flags & 0x80) != 0;
+                door.jammed = (flags & 0x100) != 0;
+                file.ReadValue(door.progress_delay);
+                file.ReadValue(door.item);
             }
         }
     }
-
     if (version > 1) {
-        unsigned char has_world_item;
-
-        hFile.ReadBytes(&has_world_item, sizeof(has_world_item));
-        if (has_world_item != 0) {
-            world_item_group = LoadItem(hFile, from_assets);
-        }
-        hFile.ReadBytes(&items_generated, sizeof(items_generated));
-        hFile.ReadBytes(&item_group_seed, sizeof(item_group_seed));
-        hFile.ReadBytes(&gold, sizeof(gold));
-        hFile.ReadBytes(&uses_remaining, sizeof(uses_remaining));
+        auto& loot = saved.loot.emplace();
+        if (file.ReadValue<unsigned char>() != 0) loot.item_group = LoadItem(file, from_assets);
+        file.ReadValue(loot.items_generated);
+        file.ReadValue(loot.item_group_seed);
+        file.ReadValue(loot.gold);
+        file.ReadValue(loot.uses_remaining);
     }
     if (version == 3) {
         std::byte unused[0x1d];
-        hFile.ReadBytes(unused, sizeof(unused));
+        file.ReadBytes(unused, sizeof(unused));
     }
-    return true;
-} catch (const std::exception&) {
-    return false;
+    return saved;
 }
 
-/* Read every trigger record of the save file's trigger chunk. Tags 1-4 update
-   the matching in-place trigger, tag 5 names its trigger and is consumed
-   through a scratch trigger when the name is gone, and anything else pushes
-   the tag byte back and ends the walk. */
-bool LoadWorldTriggers(World* world, W8Chunk& file, bool from_assets)
-try {
-    for (std::size_t index = 0; index < world->triggers.size(); ++index) {
-        std::uint8_t tag;
-        file.ReadBytes(&tag, 1);
-        if (tag < 1 || tag > 5) {
-            // The dispatcher skips the remainder of this completed section.
-            return true;
-        }
-        Trigger* trigger = world->triggers[index].get();
-        if (tag == 5) {
-            int trigger_id;
-            char name[128];
-            file.ReadBytes(&trigger_id, sizeof(trigger_id));
-            ReadTriggerText(file, name);
-            trigger = FindTriggerInWorld(*world, name);
-        }
-        if (trigger) {
-            if (!trigger->Load(file, tag, from_assets)) return false;
-        } else {
-            Trigger scratch(world);
-            if (!scratch.Load(file, tag, from_assets)) return false;
+/* Restore the trigger from its saved record. A saved door's reopening delay re-queues
+   its timed event with the saved progress. */
+void Trigger::Restore(SavedTrigger saved)
+{
+    flags = saved.flags;
+    state_index = saved.state_index;
+    state_direction = saved.state_direction;
+    action = saved.action;
+    action_state = saved.action_state;
+    required_item_id = saved.required_item_id;
+    if (saved.door) {
+        const auto& door = *saved.door;
+        auto& data = action_payload.emplace<W8DoorTriggerActionData>();
+        data.open = door.open;
+        data.lockable = door.lockable;
+        data.locked = door.locked;
+        data.auto_locking = door.auto_locking;
+        data.one_way = door.one_way;
+        data.secret = door.secret;
+        data.found = door.found;
+        data.jammable = door.jammable;
+        data.jammed = door.jammed;
+        if (door.packed) {
+            if (m_lData1 != 0 && door.progress_delay != 0) {
+                if (m_pEvent == 0) {
+                    m_pEvent = std::make_unique<TriggerEvent>();
+                    m_pEvent->trigger = this;
+                    m_pEvent->action = 2;
+                    m_pEvent->timer.SetDuration(m_lData1 < 0 ? 10.0f
+                                                             : static_cast<float>(m_lData1));
+                    m_pEvent->timer.Restart();
+                    m_pEvent->repeat = true;
+                }
+                m_pEvent->timer.SetProgress(door.progress_delay * 0.001f);
+                if (!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()))
+                    m_pWorld->timed_events.push_back(m_pEvent.get());
+            }
+            data.item = static_cast<short>(door.item);
         }
     }
-    return true;
-} catch (const std::exception&) {
-    return false;
+    if (saved.loot) {
+        world_item_group = std::move(saved.loot->item_group);
+        items_generated = saved.loot->items_generated;
+        item_group_seed = saved.loot->item_group_seed;
+        gold = saved.loot->gold;
+        uses_remaining = saved.loot->uses_remaining;
+    }
+}
+
+/* The trigger chunk's records. Tags 1-4 restore the trigger in the same position, tag 5
+   names its trigger, and anything else ends the walk. */
+std::vector<SavedTrigger> DecodeSavedTriggers(W8Chunk& file, std::size_t trigger_count,
+                                              bool from_assets)
+{
+    std::vector<SavedTrigger> saved;
+    for (std::size_t index = 0; index < trigger_count; ++index) {
+        const auto tag = file.ReadValue<std::uint8_t>();
+        // The dispatcher skips the remainder of this completed section.
+        if (tag < 1 || tag > 5) break;
+        std::optional<std::string> name;
+        if (tag == 5) {
+            file.ReadValue<int>(); // the writer's trigger count
+            char text[128];
+            ReadTriggerText(file, text);
+            name = text;
+        }
+        saved.push_back(DecodeSavedTrigger(file, tag, from_assets));
+        saved.back().name = std::move(name);
+    }
+    return saved;
+}
+
+static void ApplySavedTriggers(World& world, std::vector<SavedTrigger>& section)
+{
+    for (std::size_t index = 0; index < section.size(); ++index) {
+        auto& saved = section[index];
+        auto* trigger =
+            saved.name ? FindTriggerInWorld(world, *saved.name) : world.triggers[index].get();
+        if (trigger) trigger->Restore(std::move(saved));
+    }
 }
 
 /* Write each trigger; failures propagate to the staged save. */
@@ -376,30 +391,48 @@ void SaveTriggerActionData(wiz8::File& handle)
     }
 }
 
-/* Read the trigger action-data chunk written by SaveTriggerActionData:
-   a version/count header, then per record the trigger name and its 0x100-byte
-   payload. Records for missing triggers are skipped with a seek. */
-bool LoadTriggerActionData(World& world, W8Chunk& handle)
-try {
-    std::int32_t version, count;
-    handle.ReadBytes(&version, sizeof(version));
-    handle.ReadBytes(&count, sizeof(count));
-    if (count < 0 || count > (handle.RemainingBytes()) / 384) return false;
-    std::vector<std::pair<Trigger*, std::array<char, 256>>> pending;
-    pending.reserve(count);
-    for (std::int32_t index = 0; index < count; ++index) {
+/* The trigger action-data chunk written by SaveTriggerActionData: a version/count
+   header, then per record the trigger name and its 0x100-byte payload. */
+std::vector<SavedTriggerAction> DecodeSavedTriggerActions(W8Chunk& handle)
+{
+    handle.ReadValue<std::int32_t>(); // version
+    const auto count = handle.ReadValue<std::int32_t>();
+    if (count < 0 || count > handle.RemainingBytes() / 384)
+        throw std::runtime_error("invalid trigger action count");
+    std::vector<SavedTriggerAction> saved(count);
+    for (auto& record : saved) {
         char name[128];
-        std::array<char, 256> action;
         ReadTriggerText(handle, name);
-        handle.ReadBytes(action.data(), action.size());
-        if (std::find(action.begin(), action.end(), '\0') == action.end()) return false;
-        pending.emplace_back(FindTriggerInWorld(world, name), action);
+        record.trigger = name;
+        handle.ReadBytes(record.action.data(), record.action.size());
+        if (std::ranges::find(record.action, '\0') == record.action.end())
+            throw std::runtime_error("unterminated trigger action");
     }
-    for (const auto& [trigger, action] : pending)
-        if (trigger) std::copy(action.begin(), action.end(), trigger->inline_action_data);
-    return true;
-} catch (const std::exception&) {
-    return false;
+    return saved;
+}
+
+static void ApplySavedTriggerActions(World& world, const std::vector<SavedTriggerAction>& section)
+{
+    for (const auto& saved : section)
+        if (auto* trigger = FindTriggerInWorld(world, saved.trigger))
+            std::ranges::copy(saved.action, trigger->inline_action_data);
+}
+
+void ApplySavedSection(World& world, SavedWorldSection& section)
+{
+    std::visit(
+        [&](auto& value) {
+            using Section = std::remove_cvref_t<decltype(value)>;
+            if constexpr (std::is_same_v<Section, std::vector<SavedTrigger>>)
+                ApplySavedTriggers(world, value);
+            else if constexpr (std::is_same_v<Section, std::vector<SavedProp>>)
+                ApplySavedProps(world, value);
+            else if constexpr (std::is_same_v<Section, SavedTriggerLocks>)
+                ApplySavedLocks(world, value);
+            else
+                ApplySavedTriggerActions(world, value);
+        },
+        section);
 }
 
 W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle)

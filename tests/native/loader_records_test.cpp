@@ -39,6 +39,7 @@
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/prop.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
@@ -902,6 +903,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
                  "[loader][trigger][items]")
 {
     std::string bytes;
+    append(bytes, std::uint8_t{4}); // a version-four record for the level's first trigger
     append(bytes, 0u); // flags
     append(bytes, std::uint8_t{0}); // state index
     append(bytes, std::uint8_t{0}); // state direction
@@ -914,10 +916,8 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
     bytes.append(13, '\0');
     store("truncated-trigger.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("truncated-trigger.bin"));
-    const ScopedGame game; // A new trigger draws its item group's seed from the game.
-    Trigger trigger;
-    REQUIRE_FALSE(
-        ReadSavePayload(*file, [&](W8Chunk& chunk) { return trigger.Load(chunk, 5, false); }));
+    REQUIRE_THROWS(ReadSavePayload(
+        *file, [](W8Chunk& chunk) { return DecodeSavedTriggers(chunk, 1, false).size(); }));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",
@@ -1362,14 +1362,17 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
     const auto load = [&](const std::string& data) {
         store("trigger-action.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
-        return ReadSavePayload(*file,
-                               [&](W8Chunk& chunk) { return LoadTriggerActionData(world, chunk); });
+        return ReadSavePayload(*file, [&](W8Chunk& chunk) {
+            auto section = SavedWorldSection(DecodeSavedTriggerActions(chunk));
+            ApplySavedSection(world, section);
+            return true;
+        });
     };
-    REQUIRE_FALSE(load(bytes));
-    REQUIRE_FALSE(load(bytes.substr(0, bytes.size() - 1)));
+    REQUIRE_THROWS(load(bytes));
+    REQUIRE_THROWS(load(bytes.substr(0, bytes.size() - 1)));
     std::fill(bytes.begin() + 8, bytes.begin() + 136, '\0');
     std::fill(bytes.begin() + 136, bytes.end(), 'x');
-    REQUIRE_FALSE(load(bytes));
+    REQUIRE_THROWS(load(bytes));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within their section",
@@ -1410,7 +1413,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         chunk.Close();
         REQUIRE(chunk.OpenRead(path));
         chunk.ForEachChunk([&](unsigned) {
-            LoadWorldProps(GetWorld(), chunk);
+            ApplySavedProps(*GetWorld(), DecodeSavedProps(chunk));
             REQUIRE(chunk.RemainingBytes() == 0);
         });
         chunk.Close();
@@ -1425,7 +1428,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         chunk.Close();
         REQUIRE(chunk.OpenRead(path));
         chunk.ForEachChunk([&](unsigned) {
-            REQUIRE_THROWS(LoadWorldProps(GetWorld(), chunk));
+            REQUIRE_THROWS(DecodeSavedProps(chunk));
             return false;
         });
         REQUIRE(present->subcycle == 3);

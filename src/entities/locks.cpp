@@ -1,6 +1,6 @@
 #include "wiz8/entities/locks.h"
 
-#include "wiz8/chunk.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/game.h"
 
 void LockState::Reset()
@@ -27,30 +27,15 @@ bool LockState::ConsumeCountdown()
     return false;
 }
 
-void LockState::ReadRuntimeRecord(W8Chunk& handle, int version, int restoring)
+void LockState::Restore(const SavedLock& saved)
 {
-    int record_version;
-
-    if (restoring == 0 && version > 1) {
-        handle.ReadBytes(&record_version, sizeof(record_version));
-        handle.ReadBytes(&device_state.completed, sizeof(device_state.completed));
-        handle.ReadBytes(device_state.pins, sizeof(device_state.pins));
-        handle.ReadBytes(&lock_countdown, sizeof(lock_countdown));
-        if (record_version > 1) {
-            handle.ReadBytes(&last_interaction_clock, sizeof(last_interaction_clock));
-        }
-    } else {
-        int serialized_lock_type;
-        handle.ReadBytes(&record_version, sizeof(record_version));
-        handle.ReadBytes(&serialized_lock_type, sizeof(serialized_lock_type));
-        lock_type = static_cast<LockType>(serialized_lock_type);
-        handle.ReadBytes(&difficulty, sizeof(difficulty));
-        handle.ReadBytes(&device_state.completed, sizeof(device_state.completed));
-        handle.ReadBytes(device_state.pins, sizeof(device_state.pins));
-        handle.ReadBytes(&device_id, sizeof(device_id));
-        handle.ReadBytes(&key_id, sizeof(key_id));
-        if (record_version > 1) {
-            handle.ReadBytes(&lock_countdown, sizeof(lock_countdown));
-        }
+    if (saved.full) {
+        lock_type = saved.lock_type;
+        difficulty = saved.difficulty;
+        device_id = saved.device_id;
+        key_id = saved.key_id;
     }
+    device_state = saved.device_state;
+    if (saved.lock_countdown) lock_countdown = *saved.lock_countdown;
+    if (saved.last_interaction_clock) last_interaction_clock = *saved.last_interaction_clock;
 }

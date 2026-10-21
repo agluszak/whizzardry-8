@@ -392,8 +392,10 @@ Unlayered code may use the layers.
   the earlier ones installed and the load fails. A malformed CHAR section is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
   `GameStatus::retail` carries the serialized bytes that are not game state. A started
   game keeps character files in `Game::stored_characters`. The level groups are still
-  written from and read into live worlds by `LoadSaveGame.cpp`, and `CurrentGame.SAV`
-  holds the groups of levels the party has left.
+  written from live worlds by `LoadSaveGame.cpp`; reading one decodes the whole group
+  into values (`saved_world_sections.h` for the trigger, prop, lock and action sections)
+  before any of it reaches the replacement world, then applies the sections in the order
+  they were read. `CurrentGame.SAV` holds the groups of levels the party has left.
 - **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
   its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
   the bytes of its unnamed slots.
