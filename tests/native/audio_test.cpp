@@ -28,6 +28,7 @@
 #include "prepared_assets.h"
 #include "scoped_game.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/music_playlist.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
 #include <glm/ext/vector_float3.hpp>
@@ -812,4 +813,24 @@ TEST_CASE_METHOD(AudioFixture,
     }
     REQUIRE_FALSE(wiz8::sound::is_playing(candidate_voice));
     REQUIRE(wiz8::sound::is_playing(previous_voice));
+}
+
+TEST_CASE("Playlist directives do not occupy selectable track indices", "[audio][playlist]")
+{
+    const auto playlist = MusicPlaylist::Parse("test.mpl", "#PAUSEMIN=5\na.wav\nb.wav\n");
+    REQUIRE(playlist.tracks.size() == 2);
+    REQUIRE(playlist.pause_min_seconds == 5);
+    REQUIRE(playlist.Select(0).resource == "a.wav");
+    REQUIRE(playlist.Select(1).resource == "b.wav");
+}
+
+TEST_CASE("Playlist weights apply only when every track has one", "[audio][playlist]")
+{
+    const auto weighted = MusicPlaylist::Parse("test.mpl", "a.wav(2)\nb.wav(3)\n");
+    REQUIRE(weighted.weight_total == 5);
+    REQUIRE(weighted.Select(1).resource == "a.wav");
+    REQUIRE(weighted.Select(2).resource == "b.wav");
+    const auto mixed = MusicPlaylist::Parse("test.mpl", "a.wav(2)\nb.wav\n");
+    REQUIRE(mixed.weight_total == 0);
+    REQUIRE(mixed.Select(1).resource == "b.wav");
 }

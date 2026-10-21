@@ -3,8 +3,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
+#include <exception>
+#include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -12,8 +14,9 @@
 
 #include "audio_resources.h"
 #include "local_screens/Screens.h"
+#include "wiz8/asset_paths.h"
 #include "wiz8/audio/soundman.h"
-#include "wiz8/entities/script.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
@@ -23,23 +26,12 @@
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 wiz8::sound::Playback g_music_sample_handle = nullptr;
-static Script* g_music_playlist;
+static MusicPlaylist g_music_playlist;
 static uint64_t g_music_playlist_tick;
 bool g_music_playlist_active;
 // GLOBAL: WIZ8 0x0060AAE4
 static unsigned char g_music_fade = 1;
 static bool g_music_force_next = true;
-
-namespace {
-struct MusicPlaylistInfo {
-    int track_count = 0;
-    int weight_total = 0;
-    int pause_min_seconds = 0;
-    int pause_max_seconds = 0;
-    int pause_chance_percent = 0;
-};
-MusicPlaylistInfo playlist_info;
-}
 
 void SetMusicVolume(unsigned char volume)
 {
@@ -69,33 +61,36 @@ void SetMusicMuted(unsigned char muted)
 
 bool IsCurrentMusicPlaylist(const char* playlist)
 {
-    return SDL_strcasecmp(playlist, g_music_playlist->getName().c_str()) == 0;
+    return SDL_strcasecmp(playlist, g_music_playlist.resource.c_str()) == 0;
 }
 
 bool InitializeMusicPlaylist(void)
 {
-    g_music_playlist = new Script();
-    if (g_music_playlist) {
-        g_music_playlist->setName("Music Playlist");
-    }
+    g_music_playlist = {};
     g_music_playlist_tick = MonotonicMilliseconds();
-    playlist_info.pause_min_seconds = 0;
-    playlist_info.pause_max_seconds = 0;
-    playlist_info.pause_chance_percent = 0;
-    return g_music_playlist != 0;
+    return true;
 }
 
 /* Count playable rows, load the pause directives, and retain a nonzero weight
    total only when every playable row carries a parenthesized weight. */
 // FUNCTION: WIZ8 0x0048FF50
-static MusicPlaylistInfo AnalyzeMusicPlaylist(const Script& playlist)
+MusicPlaylist MusicPlaylist::Parse(std::string resource, std::string_view text)
 {
-    MusicPlaylistInfo parsed;
+    MusicPlaylist parsed;
+    parsed.resource = std::move(resource);
     bool found_unweighted = false;
-
-    for (const auto& entry : playlist.lines) {
-        const char* line = entry.text.c_str();
-
+    std::istringstream input{std::string(text)};
+    std::string row;
+    while (std::getline(input, row)) {
+        if (row.ends_with('\r')) row.pop_back();
+        // Preserve the text script loader's blank/comment/label handling.
+        const auto start = row.find_first_not_of(" \t");
+        if (start == row.npos || row[start] == '*') continue;
+        const auto stop = row.find_first_of(" \t", start);
+        const auto token =
+            std::string_view(row).substr(start, stop == row.npos ? stop : stop - start);
+        if (token.ends_with(':')) continue;
+        const char* line = row.c_str();
         if (line[0] == '#') {
             if (SDL_strncasecmp(line + 1, "PAUSEMIN=", 9) == 0) {
                 parsed.pause_min_seconds = atoi(line + 10);
@@ -106,19 +101,25 @@ static MusicPlaylistInfo AnalyzeMusicPlaylist(const Script& playlist)
             }
             continue;
         }
-
-        ++parsed.track_count;
-        if (!found_unweighted) {
-            const char* weight = strchr(line, '(');
-            if (weight != 0) {
-                parsed.weight_total += atoi(weight + 1);
-            } else {
-                found_unweighted = true;
-                parsed.weight_total = 0;
-            }
-        }
+        const auto weight_start = row.find('(');
+        const int weight = weight_start == row.npos ? 0 : atoi(line + weight_start + 1);
+        found_unweighted |= weight_start == row.npos;
+        parsed.tracks.push_back({row.substr(0, weight_start), weight});
+        parsed.weight_total += weight;
     }
+    if (found_unweighted) parsed.weight_total = 0;
     return parsed;
+}
+
+const MusicPlaylist::Track& MusicPlaylist::Select(unsigned int draw) const
+{
+    if (weight_total == 0) return tracks[draw];
+    unsigned int accumulated = 0;
+    for (const auto& track : tracks) {
+        accumulated += track.weight;
+        if (draw < accumulated) return track;
+    }
+    return tracks.back();
 }
 
 void ServiceMusicPlaylist(void)
@@ -137,41 +138,19 @@ void ServiceMusicPlaylist(void)
 
     if (!g_music_force_next && !CurrentGame().combat.has_value() &&
         PresentationRng().below(100) <=
-            static_cast<unsigned int>(playlist_info.pause_chance_percent)) {
-        g_music_playlist_tick = MonotonicMilliseconds() + playlist_info.pause_min_seconds * 1000 +
-                                PresentationRng().below(playlist_info.pause_max_seconds * 1000 -
-                                                        playlist_info.pause_min_seconds * 1000);
+            static_cast<unsigned int>(g_music_playlist.pause_chance_percent)) {
+        g_music_playlist_tick = MonotonicMilliseconds() +
+                                g_music_playlist.pause_min_seconds * 1000 +
+                                PresentationRng().below(g_music_playlist.pause_max_seconds * 1000 -
+                                                        g_music_playlist.pause_min_seconds * 1000);
         return;
     }
 
     for (;;) {
-        int selected = -1;
-
-        if (playlist_info.weight_total == 0) {
-            selected = PresentationRng().below(playlist_info.track_count);
-        } else {
-            unsigned int target = PresentationRng().below(playlist_info.weight_total);
-            unsigned int accumulated = 0;
-            for (int index = 0; index < static_cast<int>(g_music_playlist->lines.size()); ++index) {
-                const char* line = g_music_playlist->lines[index].text.c_str();
-                if (line[0] == '#') {
-                    continue;
-                }
-                selected = index;
-                accumulated += atoi(strchr(line, '(') + 1);
-                if (target < accumulated) {
-                    break;
-                }
-            }
-        }
-
-        if (selected < 0) {
-            g_music_force_next = false;
-            return;
-        }
-
-        const auto& line = g_music_playlist->lines[selected].text;
-        const auto track = line.substr(0, line.find('('));
+        const auto draw = PresentationRng().below(g_music_playlist.weight_total == 0
+                                                      ? g_music_playlist.tracks.size()
+                                                      : g_music_playlist.weight_total);
+        const auto& track = g_music_playlist.Select(draw).resource;
 
         if (StartMusicResource(track.c_str(), g_music_fade, 1) == 0) {
             ++failures;
@@ -200,7 +179,7 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
 
     if (strstr(path.c_str(), ".MPL") == 0) {
         if (!g_music_playlist_active) {
-            g_music_playlist->setName("");
+            g_music_playlist.resource.clear();
         }
 
         const bool crossfade = g_music_fade != 0;
@@ -217,20 +196,20 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
         return true;
     }
 
-    if (SDL_strcasecmp(resource, g_music_playlist->getName().c_str()) == 0) {
+    if (SDL_strcasecmp(resource, g_music_playlist.resource.c_str()) == 0) {
         return true;
     }
 
-    g_music_playlist_tick = MonotonicMilliseconds() - 1;
-    playlist_info.pause_min_seconds = 0;
-    playlist_info.pause_max_seconds = 0;
-    playlist_info.pause_chance_percent = 0;
-    g_music_playlist->Clear();
-    g_music_playlist->Load(path.c_str());
-
-    if (g_music_playlist->lines.empty()) {
+    MusicPlaylist candidate;
+    try {
+        candidate =
+            MusicPlaylist::Parse(resource, wiz8::open_file(wiz8::asset_path(path))->read_text());
+    } catch (const std::exception&) {
         return false;
     }
+    if (candidate.tracks.empty()) return false;
+    g_music_playlist = std::move(candidate);
+    g_music_playlist_tick = MonotonicMilliseconds() - 1;
     if (replace_current != 0) {
         if (g_music_sample_handle != nullptr) {
             if (g_music_fade == 0) {
@@ -242,12 +221,8 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
         g_music_sample_handle = nullptr;
     }
 
-    playlist_info = AnalyzeMusicPlaylist(*g_music_playlist);
-    if (playlist_info.track_count != 0) {
-        g_music_playlist->setName(resource);
-        g_music_playlist_active = true;
-        g_music_force_next = true;
-    }
+    g_music_playlist_active = true;
+    g_music_force_next = true;
     return true;
 }
 
