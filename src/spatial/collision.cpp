@@ -294,8 +294,8 @@ unsigned char LevelSpatialIndex::ProbeMonstersAlongMotion(glm::vec3* direction, 
             return hit;
         }
         monster_info = owner_world->population->findMonster(objects[index]);
-        if (monster_info != 0 && monster_info->p3D != 0 && monster_info->p3D->nav.active) {
-            monster = monster_info->p3D;
+        if (monster_info != 0 && monster_info->entity && monster_info->entity->nav.active) {
+            monster = monster_info->entity.find();
             time_scale = g_rate * GameTimeAccumulator().GetFrameDelta();
             velocity = monster->nav.GetVelocity();
             adjusted.x = direction->x - velocity.x * static_cast<float>(time_scale);

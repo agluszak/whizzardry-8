@@ -134,13 +134,13 @@ bool W8MonsterInfoDialog::PopulateText()
             knowledge = static_cast<unsigned int>(adjusted_knowledge);
         }
     }
-    combat_range = monster_info->p3D->GetDistanceToPlayer();
+    combat_range = monster_info->entity->GetDistanceToPlayer();
     m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(1);
 
     if (g_dev_mode) {
         group = FindMonsterGroup(monster_info->monster_group_id);
-        linked = monster_info->p3D->nav.linked_navigator;
+        linked = monster_info->entity->nav.linked_navigator;
         if (linked == 0) {
             leader_location_id = m_location_id;
         } else {
@@ -218,7 +218,7 @@ bool W8MonsterInfoDialog::PopulateText()
             if (count > 0) {
                 text += g_comma_space;
             }
-            text += Data().strings[g_condition_notices[index].name];
+            text += Data().strings[kConditionNotices[index].name];
             ++count;
         }
     }
@@ -376,7 +376,7 @@ bool W8MonsterInfoDialog::PopulateText()
                     if (count > 0) {
                         text += g_comma_space;
                     }
-                    text += Data().strings[g_condition_notices[immunity->conditions[slot]].noun];
+                    text += Data().strings[kConditionNotices[immunity->conditions[slot]].noun];
                     ++count;
                 }
                 if (immunity->immune_all != 0) {
@@ -404,12 +404,12 @@ bool W8MonsterInfoDialog::PopulateText()
     if (g_dev_mode) {
         m_text_area.AddEntry("Range (Combat/Ground)",
                              fmt::format("{:5.2f} / {:5.2f} M", combat_range * 0.002f,
-                                         glm::length((monster_info->p3D->nav.GetPosition() -
+                                         glm::length((monster_info->entity->nav.GetPosition() -
                                                       PartyNavigator()->GetPosition())) *
                                              g_world_cursor_scale),
                              5, 0xf, 0);
         leader_info = FindMonster(leader_location_id);
-        script = leader_info->p3D->script.get();
+        script = leader_info->entity->script.get();
         m_text_area.AddEntry("Leader's Current Script",
                              fmt::format("<{}>", script != 0 ? script->getName().c_str() : ""), 5,
                              0xf, 0);

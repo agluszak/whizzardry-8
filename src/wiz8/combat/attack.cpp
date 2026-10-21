@@ -44,6 +44,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -135,7 +136,7 @@ static void ApplyRazorCloakBacklash(const W8CombatSlot& target, W8MonsterInfo* m
         if (is_monster)
             ClearMonsterEnchantmentSlot(monster->location_id, W8_ENCHANTMENT_RAZOR_CLOAK);
         else
-            ClearCharacterEnchantmentSlot(target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
+            Disenchant(CurrentGame(), target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
     }
 }
 
@@ -165,28 +166,6 @@ int GetCharacterHandDamageBonus(const W8Character* character, int hand)
 }
 
 /* Nine attack modes, one bit each, held in the low half of a word. */
-
-/* Fold specific melee animation cycles onto ATTACK_CLOSE, and the throw
-   and shoot cycles onto ATTACK_RANGED. Other cycles retain their identity. */
-W8MonsterCycle NormalizeMonsterCycle(W8MonsterCycle cycle)
-{
-    switch (cycle) {
-    case W8_MONSTER_CYCLE_ATTACK_SWING:
-    case W8_MONSTER_CYCLE_ATTACK_THRUST:
-    case W8_MONSTER_CYCLE_ATTACK_BASH:
-    case W8_MONSTER_CYCLE_ATTACK_MELEE:
-    case W8_MONSTER_CYCLE_ATTACK_PUNCH:
-    case W8_MONSTER_CYCLE_ATTACK_KICK:
-    case W8_MONSTER_CYCLE_ATTACK_LASH:
-        return W8_MONSTER_CYCLE_ATTACK_CLOSE;
-    case W8_MONSTER_CYCLE_ATTACK_THROW:
-    case W8_MONSTER_CYCLE_ATTACK_SHOOT:
-        return W8_MONSTER_CYCLE_ATTACK_RANGED;
-    default:
-        break;
-    }
-    return cycle;
-}
 
 /* Pick one of the attack modes a mask allows, at random. The walk wraps round
    the nine bits, counting only the ones that are set, until it has passed as
@@ -806,18 +785,18 @@ void ResolveSpellMissileHit(Missile* missile)
     if (definition->radius > 0.0f) {
         if (target->iType == W8_TARGET_KIND_MONSTER) {
             monster_info = FindMonster(target->iMonsterID);
-            DamageMonstersInRadius(monster_info->p3D->nav.GetPosition(), definition->radius,
+            DamageMonstersInRadius(monster_info->entity->nav.GetPosition(), definition->radius,
                                    &definition->magnitude, source, &missile->result);
             announce = g_settings.verbose_combat_messages != 0;
             verbose = g_settings.verbose_combat_messages != 0;
-            glm::vec3 center = monster_info->p3D->nav.GetPosition();
+            glm::vec3 center = monster_info->entity->nav.GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                  ++index) {
                 monster_info = GetMonsterListEntry(index);
                 if (monster_info->fActive) {
-                    location = monster_info->p3D->GetRepresentationLocation();
+                    location = monster_info->entity->GetRepresentationLocation();
                     glm::vec3 offset = center - location;
                     if (glm::length(offset) <= definition->radius) {
                         struck.iMonsterID = monster_info->location_id;
@@ -1355,7 +1334,7 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     default:
         return;
     }
-    if (!monster_info->p3D->IsCycleSupported(cycle)) {
+    if (!monster_info->entity->IsCycleSupported(cycle)) {
         switch (cycle) {
         case W8_MONSTER_CYCLE_ATTACK_SWING:
         case W8_MONSTER_CYCLE_ATTACK_THRUST:
@@ -1405,12 +1384,12 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
                 CurrentGame().events.push(CharacterNotice{
                     static_cast<unsigned int>(entry->value),
                     fmt::format("{}!",
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
+                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
             } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", entry->text,
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
+                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
             }
         }
     }
@@ -1421,7 +1400,7 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
 static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, unsigned int condition,
                                           W8MonsterInfo* monster_info)
 {
-    const std::string& name = Data().strings[g_condition_notices[condition].singular];
+    const std::string& name = Data().strings[kConditionNotices[condition].singular];
     if (report->target.iType == W8_TARGET_KIND_MONSTER) {
         CurrentGame().events.push(
             TextNotice{W8_FONT_PALETTE_RUST,
@@ -1755,7 +1734,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                         event_ids[CurrentGame().rng.below(3)], 0, kCharacterEventFullVolume);
                 }
                 if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
-                    target_info->p3D->IsFacingMonster(monster_info->p3D) != 0 &&
+                    target_info->entity->IsFacingMonster(monster_info->entity.find()) != 0 &&
                     !target_info->fMotionless) {
                     StartMonsterCycle(target_info, W8_MONSTER_CYCLE_DODGE, W8_ANIMATION_PLAY_ONCE);
                 }
@@ -2131,7 +2110,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
                 }
                 ++second_combat->spot_attempts;
                 if (notices) {
-                    second->p3D->AimAtMonster(monster_info->p3D, false);
+                    second->entity->AimAtMonster(monster_info->entity.find(), false);
                 }
             }
             if (!notices) {
@@ -2700,9 +2679,10 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                         if (target->iType == W8_TARGET_KIND_CHARACTER) {
                             CurrentGame().events.push(CharacterNotice{
                                 static_cast<unsigned int>(target->iChar),
-                                fmt::format("{}!",
-                                            Data().strings[g_condition_notices[W8_CONDITION_DEAD]
-                                                               .singular])});
+                                fmt::format(
+                                    "{}!",
+                                    Data()
+                                        .strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                         }
                         if (accumulator != nullptr) {
                             accumulator->condition_counts[W8_CONDITION_DEAD]++;
@@ -3071,7 +3051,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         target_position = cameraLocation();
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(target->iMonsterID);
-        monster = monster_info->p3D;
+        monster = monster_info->entity.find();
         target_position = monster->nav.movement.position;
         target_position.y += monster->nav.movement.height_offset;
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
@@ -3103,7 +3083,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     } else if (TargetSourceIsMonster(source, 0)) {
         assert(source->iMonsterID != -1);
         monster_info = FindMonster(source->iMonsterID);
-        monster = monster_info->p3D;
+        monster = monster_info->entity.find();
         if (!Data().missiles[missile_type].spell_missile) {
             position_ok = monster->GetProjectilePosition(&source_position);
         } else if (!source->point_source) {
@@ -3472,7 +3452,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
                 }
                 monster_info->pCombat->spot_attempts++;
                 if (noticed) {
-                    monster_info->p3D->ForwardReferencePosition(0);
+                    monster_info->entity->ForwardReferencePosition(0);
                 } else {
                     CurrentGame().combat->unaware =
                         IsPartyLookingAwayFrom(party_slot, monster_info);
@@ -3724,7 +3704,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                             kCharacterEventFullVolume);
                     }
                     if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
-                        monster_info->p3D->IsFacingPlayer() != 0 && !monster_info->fMotionless) {
+                        monster_info->entity->IsFacingPlayer() != 0 && !monster_info->fMotionless) {
                         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_DODGE,
                                           W8_ANIMATION_PLAY_ONCE);
                     }

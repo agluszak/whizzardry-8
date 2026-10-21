@@ -151,9 +151,9 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
         return true;
     }
     if (item_id == 0x1b4) {
-        info->p3D->SetScript("MoveHogar.msf", true);
+        info->entity->SetScript("MoveHogar.msf", true);
     } else {
-        info->p3D->SetScript("MoveHogarDrugged.msf", true);
+        info->entity->SetScript("MoveHogarDrugged.msf", true);
         if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
             AwardPartyExperience(500, false);
             CreateLocationVar("HogarDruggedGivenExp", 1);

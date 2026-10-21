@@ -181,7 +181,7 @@ bool LevelScript::dispatchCursorNodeCommand(W8MonsterInfo* info, int command, in
     if (info == 0) {
         position = cameraLocation();
     } else {
-        position = info->p3D->nav.GetPosition();
+        position = info->entity->nav.GetPosition();
     }
     position.y = probeGround(position).position.y + 125.0f;
     node = FindWorldCursorNodeAtPoint(0, &position);

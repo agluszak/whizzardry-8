@@ -46,10 +46,16 @@ void W8Chunk::WriteBytes(const void* buffer, std::size_t size)
 
 bool W8Chunk::OpenRead(const std::filesystem::path& path)
 try {
-    if (m_hFile != 0) {
-        return false;
-    }
-    m_hFile = wiz8::open_file(path, wiz8::OpenMode::read);
+    if (m_hFile) return false;
+    return OpenRead(wiz8::open_file(path, wiz8::OpenMode::read));
+} catch (const std::exception&) {
+    return false;
+}
+
+bool W8Chunk::OpenRead(std::shared_ptr<wiz8::File> file)
+try {
+    if (m_hFile || !file) return false;
+    m_hFile = std::move(file);
     m_fWriting = false;
     OpenChunk(0, 0);
     W8ChunkHead* head = &CurrentHead();
