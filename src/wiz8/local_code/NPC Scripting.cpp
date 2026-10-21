@@ -523,6 +523,8 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         if (npc != 0 && npc != session_.npc.get()) {
             Begin(npc, true);
         }
+        if (session_.binding.script != quote_line->binding.script)
+            session_.finished_quote_index = -1;
         session_.binding = quote_line->binding;
         if (quote_line->suppress_entries) {
             session_.subquote_index = quote_line->subquote_index;
@@ -595,7 +597,10 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             const auto& binding = queued.binding;
             const W8NpcScriptFile* script = binding.script.get();
             if (npc && npc != dialogue.speaker()) dialogue.Begin(npc, true);
+            if (dialogue.session_.binding.script != binding.script)
+                dialogue.session_.finished_quote_index = -1;
             dialogue.session_.binding = binding;
+            dialogue.session_.current_quote_index = queued.quote_index;
             if (script != 0 && queued.quote_index >= 0 &&
                 queued.quote_index < static_cast<int>(script->quotes.size()) &&
                 queued.entry_index >= 0 &&
