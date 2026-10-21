@@ -75,7 +75,7 @@ static void source_resource_owners()
 {
     auto model = std::make_shared<Mesh>(0, 1);
     model->InitializeVertexFrames(1);
-    model->GetVertexLocations(0, true, 0.0f);
+    const std::weak_ptr<Mesh> lifetime = model;
     // The model remains alive while an interrupted scene releases its adopted instance.
     auto survivor = model;
     std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(256),
@@ -103,7 +103,7 @@ static void source_resource_owners()
     survivor.reset();
     g_mouse_surface.reset();
     palette.reset();
-    REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
+    REQUIRE(lifetime.expired());
 }
 
 static void npc_script_teardown()

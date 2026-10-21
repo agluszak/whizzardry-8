@@ -120,12 +120,11 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
         auto* base_material = mesh->getMaterial(0, Mesh::SIDE_FRONT);
         const glm::vec3 base_color =
             base_material ? glm::vec3(base_material->parms.diffuse) : glm::vec3(1);
-        const auto* vertices = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
-                                   ? mesh->GetVertexLocations(0, true, 0.0f)
-                                   : mesh->getVertexLoc();
-        const auto* normals = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
-                                  ? mesh->GetVertexNormals(0, true)
-                                  : mesh->getVertexNormal();
+        const bool animated = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE) != 0;
+        const auto frame_vertices = mesh->decodeFrame(0, W8_MESH_FRAME_LOCATIONS);
+        const auto frame_normals = mesh->decodeFrame(0, W8_MESH_FRAME_VERTEX_NORMALS);
+        const auto* vertices = animated ? frame_vertices.data() : mesh->getVertexLoc();
+        const auto* normals = animated ? frame_normals.data() : mesh->getVertexNormal();
         world_vertices.resize(count);
         world_normals.resize(count);
         material_colors.resize(count);

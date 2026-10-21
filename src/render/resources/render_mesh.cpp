@@ -260,11 +260,10 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
                 normals.clear();
             polygon_normals.clear();
         } else {
-            const auto geometry = mesh.frameGeometry(frame, interpolation);
-            positions.assign(geometry.positions.begin(), geometry.positions.end());
-            normals.assign(geometry.normals.begin(), geometry.normals.end());
-            polygon_normals.assign(geometry.polygon_normals.begin(),
-                                   geometry.polygon_normals.end());
+            auto geometry = mesh.frameGeometry(frame, interpolation);
+            positions = std::move(geometry.positions);
+            normals = std::move(geometry.normals);
+            polygon_normals = std::move(geometry.polygon_normals);
         }
         positions.resize(count, glm::vec3(0));
         normals.resize(count, glm::vec3(0));

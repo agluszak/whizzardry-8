@@ -21,7 +21,6 @@
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/checked_integer.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
@@ -29,20 +28,6 @@
 #include "wiz8/spatial/bounding_box.h"
 
 class Material;
-
-std::vector<Mesh*> g_mesh_models;
-
-int g_decompressed_mesh_bytes;
-
-/* Byte budget for the decompressed per-frame caches; AllocateFrameBuffers
-   reclaims least-recently-used frames past it. */
-static int g_decompressed_mesh_byte_limit = 0x800000;
-
-Mesh::~Mesh()
-{
-    ReleaseDecompressedFrames();
-    std::erase(g_mesh_models, this);
-}
 
 Mesh::Bounds Mesh::getBounds()
 {
@@ -88,22 +73,13 @@ void Mesh::calculateCompoundBounds()
     for (auto* model : meshParts(first)) model->setBounds(box.minimum, box.maximum, center, radius);
 }
 
-BoundingBox Mesh::GetFrameBounds(int frame)
+BoundingBox Mesh::GetFrameBounds(int frame) const
 {
     if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
         return {};
     }
-    std::vector<glm::vec3> scratch;
-    const auto& cache = frames[frame].locations;
-    const glm::vec3* vertices;
-    if (cache) {
-        vertices = cache->data();
-    } else {
-        scratch.resize(vertex_location_count);
-        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch);
-        vertices = scratch.data();
-    }
-    return boundingBox(std::span<const glm::vec3>(vertices, vertex_location_count));
+    const auto locations = decodeFrame(frame, W8_MESH_FRAME_LOCATIONS);
+    return boundingBox(std::span<const glm::vec3>(locations));
 }
 
 /* Bake the sunlight, lights, ambient and environment terms into the first
@@ -248,57 +224,8 @@ void Mesh::InitializeVertexFrames(int count)
         frame.compressed_vertex_normals.resize(vertex_location_count * 3);
         frame.compressed_polygon_normals.resize(polygon_count * 3);
     }
-    g_mesh_models.push_back(this);
     frames = std::move(storage);
     flags |= W8_MESH_HAS_FRAME_STORAGE;
-}
-
-/* Drop every decompressed float cache, returning the bytes actually released.
-   Resetting the optional destroys its vector allocation, unlike vector::clear. */
-int Mesh::ReleaseDecompressedFrames()
-{
-    int released = 0;
-    for (auto& frame : frames) {
-        for (auto* cache : {&frame.locations, &frame.vertex_normals, &frame.polygon_normals}) {
-            if (*cache) {
-                released += (*cache)->capacity() * sizeof(glm::vec3);
-                cache->reset();
-            }
-        }
-    }
-    last_decompress_release_tick = MonotonicMilliseconds();
-    g_decompressed_mesh_bytes -= released;
-    return released;
-}
-
-/* Evict least-recently-used decompressed frames until `needed` bytes are
-   available, or give up when every eligible model has been drained. */
-bool ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model)
-{
-    unsigned int released = 0;
-    while (released < needed) {
-        Mesh* oldest = nullptr;
-        for (Mesh* model : g_mesh_models) {
-            if (model == retained_model) {
-                continue;
-            }
-            bool resident =
-                std::any_of(model->frames.begin(), model->frames.end(), [](const auto& frame) {
-                    return (frame.locations && !frame.locations->empty()) ||
-                           (frame.vertex_normals && !frame.vertex_normals->empty()) ||
-                           (frame.polygon_normals && !frame.polygon_normals->empty());
-                });
-            if (resident && (oldest == nullptr || model->last_decompress_release_tick <
-                                                      oldest->last_decompress_release_tick)) {
-                oldest = model;
-            }
-        }
-        if (oldest == nullptr) {
-            return false;
-        }
-        released += oldest->ReleaseDecompressedFrames();
-    }
-    return true;
 }
 
 int Mesh::FindSkinTable(std::string_view name)
@@ -398,7 +325,7 @@ static void DecompressMeshNormals(const unsigned char* normals, int count, glm::
 
 /* Expand one frame's compressed table into `destination`: bit 1 the vertex
    locations, bit 2 the vertex normals, bit 4 the polygon normals. */
-bool Mesh::DecompressFrame(int frame, unsigned char flags, std::span<glm::vec3> destination)
+bool Mesh::DecompressFrame(int frame, unsigned char flags, std::span<glm::vec3> destination) const
 {
     if (static_cast<unsigned int>(frame) >= frames.size()) {
         return false;
@@ -430,95 +357,37 @@ bool Mesh::DecompressFrame(int frame, unsigned char flags, std::span<glm::vec3> 
     return false;
 }
 
-/* Allocate one frame's decompressed caches for the tables named by `flags`
-   (bit 0 locations, bit 1 vertex normals, bit 2 polygon normals), reclaiming
-   least-recently-used frames when the byte budget would overflow. */
-bool Mesh::AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags)
+std::vector<glm::vec3> Mesh::decodeFrame(unsigned int frame, unsigned char kind) const
 {
-    if (uiFrame >= frames.size()) {
-        return false;
-    }
-    auto& frame = frames[uiFrame];
-    auto allocate = [&](auto& cache, int count, unsigned char bit) {
-        if ((flags & bit) == 0 || cache) {
-            return;
-        }
-        int needed = count * sizeof(glm::vec3);
-        if (g_decompressed_mesh_byte_limit <= g_decompressed_mesh_bytes + needed) {
-            // Never evict this model between returning positions and normals,
-            // or between loading the two frames of an interpolation. The budget
-            // is soft only when that working set alone cannot fit; drain other
-            // models first even if they cannot supply the entire request.
-            ReclaimDecompressedBytes(needed, this);
-        }
-        cache.emplace(count, glm::vec3(0.0f, 0.0f, 0.0f));
-        g_decompressed_mesh_bytes += cache->capacity() * sizeof(glm::vec3);
-    };
-    allocate(frame.locations, vertex_location_count, W8_MESH_FRAME_LOCATIONS);
-    allocate(frame.vertex_normals, vertex_location_count, W8_MESH_FRAME_VERTEX_NORMALS);
-    allocate(frame.polygon_normals, polygon_count, W8_MESH_FRAME_POLYGON_NORMALS);
-    last_decompress_release_tick = MonotonicMilliseconds();
-    return true;
+    if (frame >= frames.size()) return {};
+    std::vector<glm::vec3> table(kind == W8_MESH_FRAME_POLYGON_NORMALS ? polygon_count
+                                                                       : vertex_location_count);
+    DecompressFrame(static_cast<int>(frame), kind, table);
+    return table;
 }
 
-/* Return frame `frame`'s vertex locations, decompressing on demand. When
-   `interpolation` is positive and another frame follows, both frames are
-   decompressed and lerped into lerp_buffer (m_pLerpBuffer). */
-glm::vec3* Mesh::GetVertexLocations(unsigned int frame, bool load, float interpolation)
+std::optional<glm::vec3> Mesh::framePosition(unsigned int frame, int vertex) const
 {
-    if (frame >= frames.size()) {
-        return nullptr;
-    }
-    if (0.0f < interpolation && frame + 1 < frames.size()) {
-        const auto* current = GetVertexLocations(frame, true, 0.0f);
-        const auto* next = GetVertexLocations(frame + 1, true, 0.0f);
-        lerp_buffer.resize(vertex_location_count);
-        if (vertex_location_count != 0) {
-            if (interpolation == 1.0f) {
-                std::copy_n(next, vertex_location_count, lerp_buffer.data());
-            } else {
-                for (int i = 0; i < vertex_location_count; ++i)
-                    lerp_buffer[i] = glm::mix(current[i], next[i], interpolation);
-            }
-        }
-        return lerp_buffer.data();
-    }
-    return frameTable(frame, load, W8_MESH_FRAME_LOCATIONS);
+    if (frame >= frames.size() || vertex < 0 || vertex >= vertex_location_count) return {};
+    const short* source = &frames[frame].compressed_locations[vertex * 3];
+    return glm::vec3(source[0], source[1], source[2]) * vertex_compression_scale;
 }
 
-glm::vec3* Mesh::GetVertexNormals(unsigned int frame, bool load)
-{
-    return frameTable(frame, load, W8_MESH_FRAME_VERTEX_NORMALS);
-}
-
-glm::vec3* Mesh::GetPolygonNormals(unsigned int frame, bool load)
-{
-    return frameTable(frame, load, W8_MESH_FRAME_POLYGON_NORMALS);
-}
-
-glm::vec3* Mesh::frameTable(unsigned int frame, bool load, unsigned char kind)
-{
-    if (frame >= frames.size()) return nullptr;
-    auto& storage = frames[frame];
-    auto& cache = kind == W8_MESH_FRAME_LOCATIONS        ? storage.locations
-                  : kind == W8_MESH_FRAME_VERTEX_NORMALS ? storage.vertex_normals
-                                                         : storage.polygon_normals;
-    if (!cache) {
-        AllocateFrameBuffers(frame, kind);
-        if (load) DecompressFrame(frame, kind, cache.value());
-    }
-    return cache.value().data();
-}
-
-Mesh::FrameGeometry Mesh::frameGeometry(unsigned int frame, float interpolation)
+Mesh::FrameGeometry Mesh::frameGeometry(unsigned int frame, float interpolation) const
 {
     if (frame >= frames.size()) throw std::out_of_range("Mesh frame index out of range");
-    auto* positions = GetVertexLocations(frame, true, interpolation);
-    auto* normals = GetVertexNormals(frame, true);
-    const auto* polygon_normals = GetPolygonNormals(frame, true);
-    return {{positions, static_cast<std::size_t>(vertex_location_count)},
-            {normals, static_cast<std::size_t>(vertex_location_count)},
-            {polygon_normals, static_cast<std::size_t>(polygon_count)}};
+    FrameGeometry geometry{decodeFrame(frame, W8_MESH_FRAME_LOCATIONS),
+                           decodeFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS),
+                           decodeFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS)};
+    if (0.0f < interpolation && frame + 1 < frames.size()) {
+        const auto next = decodeFrame(frame + 1, W8_MESH_FRAME_LOCATIONS);
+        if (interpolation == 1.0f)
+            geometry.positions = next;
+        else
+            for (std::size_t i = 0; i < next.size(); ++i)
+                geometry.positions[i] = glm::mix(geometry.positions[i], next[i], interpolation);
+    }
+    return geometry;
 }
 
 void Mesh::SetAmbientColor(const glm::vec3& color, const glm::vec3& environment, float brightness)
@@ -569,19 +438,9 @@ void Mesh::ComputeFrameNormals(int frame)
     }
     std::vector<glm::vec3> pnorm(polygon_count);
     auto& storage = frames[frame];
-    std::vector<glm::vec3> scratch;
-    const glm::vec3* l;
-    if (storage.locations) {
-        l = storage.locations->data();
-    } else {
-        scratch.resize(vertex_location_count);
-        DecompressFrame(frame, W8_MESH_FRAME_LOCATIONS, scratch);
-        l = scratch.data();
-    }
-
+    const auto locations = decodeFrame(frame, W8_MESH_FRAME_LOCATIONS);
     for (int poly = 0; poly < polygon_count; ++poly)
-        pnorm[poly] = meshMath::polygonNormal(std::span<const glm::vec3>(l, vertex_location_count),
-                                              poly_vertex[poly]);
+        pnorm[poly] = meshMath::polygonNormal(locations, poly_vertex[poly]);
 
     const auto* shade_index = getVertexShadeIndex(0);
     const auto vnorm = meshMath::vertexNormalSums(
@@ -592,13 +451,6 @@ void Mesh::ComputeFrameNormals(int frame)
 
     CompressMeshNormals(vnorm, storage.compressed_vertex_normals);
     CompressMeshNormals(pnorm, storage.compressed_polygon_normals);
-
-    if (storage.vertex_normals) {
-        DecompressFrame(frame, W8_MESH_FRAME_VERTEX_NORMALS, *storage.vertex_normals);
-    }
-    if (storage.polygon_normals) {
-        DecompressFrame(frame, W8_MESH_FRAME_POLYGON_NORMALS, *storage.polygon_normals);
-    }
 }
 
 /* Thirteen-byte forwarder onto the per-frame normal builder. */
