@@ -2297,3 +2297,16 @@ TEST_CASE("Route advancement keeps waypoint metadata and never reads past the en
     REQUIRE(position == end);
     REQUIRE(route.path_cursor == route.lastWaypoint());
 }
+
+TEST_CASE("World posters preserve full-image UVs and infer rectangular aspect", "[geometry]")
+{
+    auto pixels = std::shared_ptr<SDL_Surface>(SDL_CreateSurface(18, 9, SDL_PIXELFORMAT_ARGB1555),
+                                               SDL_DestroySurface);
+    REQUIRE(pixels);
+    auto poster = MakePosterQuad(std::make_shared<Texture>(pixels), 500, 0, false);
+    const auto& mesh = *poster->getModel();
+    REQUIRE(mesh.vertex_locations.size() == 4);
+    REQUIRE(mesh.vertex_locations[0] == glm::vec3(-250, -125, 0));
+    REQUIRE(mesh.vertex_locations[2] == glm::vec3(250, 125, 0));
+    REQUIRE(mesh.texcoords[0][0] == std::vector<glm::vec2>{{0, 1}, {0, 0}, {1, 0}, {1, 1}});
+}
