@@ -259,13 +259,12 @@ Unlayered code may use the layers.
   the random stream the next game continues and the event presenter. The router hands the
   session to the screens it builds; the ones that begin and end games keep it. A game
   begins in party creation (`BeginNewGame`: party selection's entry, reset and import) or
-  when a save is loaded (`LoadGame`); either replaces any game in progress. It ends when
-  the main menu is entered and at shutdown. Nothing is reset field by field: a new game
-  starts every member afresh, and the destructor stops the NPC voice and the Al-Sedexus
-  ambience. Destroying a game does no departure bookkeeping, so the level is left by the
-  main game, which belongs to one game: it is discarded before its game ends (quitting
-  returns to the menu) or is replaced (a load first discards the suspended screens above
-  the menu, `DiscardSuspendedScreensAbove`), and a fresh one is built for the next.
+  when a prepared save is installed (`PreparedGame::install`). Loading decodes the game
+  sections before departure and screen disposal; rejection resumes the suspended game.
+  `LeaveLevel` owns departure bookkeeping, invoked explicitly for replacement, return to
+  menu and shutdown, never by a screen's `leave` or a destructor. A replacement's resource
+  failure ends that game and returns to the menu, without publishing a partial session.
+  LVLS decoding remains deferred until construction (see "Saves").
 - **A new game's story.** Factions start from their starting dispositions and relations;
   the other story parts start empty. The opening sequence creates the starting NPC states
   (`CreateNewGameNpcStates`), and the new-game loading screen seeds the starting facts

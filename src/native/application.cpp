@@ -25,6 +25,7 @@
 #include "wiz8/game_init.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
+#include "wiz8/world/level_session.h"
 
 namespace {
 
@@ -117,6 +118,7 @@ void wiz8::Application::shutdown() noexcept
     const bool complete = gfGameInitialized;
     if (complete) {
         try {
+            LeaveLevel();
             GameloopExit();
         } catch (const std::exception& failure) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Leaving game: %s", failure.what());

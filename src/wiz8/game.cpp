@@ -16,6 +16,7 @@
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/rule_context.h"
 #include "wiz8/script_context.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -76,7 +77,10 @@ Game& GameSession::begin()
 
 void GameSession::end()
 {
-    if (game_) next_stream_ = game_->rng;
+    if (game_) {
+        LeaveLevel();
+        next_stream_ = game_->rng;
+    }
     game_.reset();
 }
 
