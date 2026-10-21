@@ -147,7 +147,7 @@ public:
     using ActivationCallback = std::function<bool(Trigger* trigger)>;
 
     explicit Trigger(World* world = nullptr);
-    ~Trigger() = default;
+    ~Trigger();
 
     W8DoorTriggerActionData* doorData()
     {

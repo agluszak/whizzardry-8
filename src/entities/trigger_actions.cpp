@@ -621,6 +621,8 @@ bool Trigger::RequiresItem()
     return false;
 }
 
+Trigger::~Trigger() = default;
+
 Trigger::Trigger(World* world)
 {
     trigger_kind = W8TriggerKind::none;
