@@ -27,6 +27,7 @@
 #if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
 #pragma clang diagnostic pop
 #endif
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -1144,7 +1145,6 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     for (index = 0; index < static_cast<int>(story.npcs.size()); ++index) {
         released = story.npcs[index].get();
         if (released != 0 && released->binding_unavailable != 0) {
-            story.retired_npcs.push_back(std::move(story.npcs[index]));
             story.npcs[index] = std::move(owner);
             npc->partner_index = static_cast<unsigned char>(index);
             return npc;
@@ -1209,7 +1209,6 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         for (const auto& info : *list) prepare(*info);
     auto& story = CurrentGame().story;
     story.npcs.reserve(reserved.size());
-    story.retired_npcs.reserve(story.retired_npcs.size() + pending.records.size());
     return pending;
 }
 
@@ -1218,13 +1217,11 @@ void InstallNpcBindings(W8PreparedNpcBindings pending)
     auto& story = CurrentGame().story;
     for (auto& binding : pending.records) {
         if (binding.created) {
-            // A new NPC takes the slot; one released there may still be named by a callback.
+            // A new NPC takes the slot; work still holding a released one there keeps it.
             if (static_cast<size_t>(binding.slot) == story.npcs.size())
                 story.npcs.push_back(std::move(binding.created));
-            else {
-                story.retired_npcs.push_back(std::move(story.npcs[binding.slot]));
+            else
                 story.npcs[binding.slot] = std::move(binding.created);
-            }
         }
         W8NpcState& npc = *story.npcs[binding.slot];
         npc.partner_index = static_cast<unsigned char>(binding.slot);
@@ -1400,7 +1397,7 @@ void ReleaseNpcBinding(int value)
 void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
 {
     auto& states = CurrentGame().story.npcs;
-    states = std::move(npcs);
+    states.assign(std::make_move_iterator(npcs.begin()), std::make_move_iterator(npcs.end()));
     for (std::size_t index = 0; index < states.size(); ++index) {
         auto* npc = states[index].get();
         npc->partner_index = static_cast<unsigned char>(index);

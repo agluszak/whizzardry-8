@@ -1425,7 +1425,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding
         auto* kept = GetNpcState(1);
-        auto* retired = CurrentGame().story.npcs[0].get();
+        // Work still holding a released NPC shares it; reusing its slot leaves it intact.
+        const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
         auto* replacement = CreateNpcRuntimeNode(0);

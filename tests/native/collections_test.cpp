@@ -1166,7 +1166,6 @@ TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
     pending.records.push_back({.slot = 0, .location_id = 42, .level_band = 3, .bound_level = 7});
     InstallNpcBindings(std::move(pending));
     REQUIRE(story.npcs[0].get() == npc);
-    REQUIRE(story.retired_npcs.empty());
     REQUIRE(npc->gold == 120);
     REQUIRE(npc->location_id == 42);
     REQUIRE(npc->bound_level == 7);

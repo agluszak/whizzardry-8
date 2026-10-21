@@ -249,30 +249,32 @@ void W8SplitItemDialog::UpdateCostLabels()
         if (split_count == 0) {
             split_price = 0;
         } else {
-            split_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc,
+            split_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
                                                    &stack, W8_TRADE_PRICE_PARTY_SELLS);
         }
         stack.stack_count = static_cast<unsigned char>(m_remaining);
         if (m_remaining == 0) {
             remaining_price = 0;
         } else {
-            remaining_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc,
-                                                       &stack, W8_TRADE_PRICE_PARTY_SELLS);
+            remaining_price =
+                CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                         W8_TRADE_PRICE_PARTY_SELLS);
         }
     } else if (m_mode == W8_ITEM_SPLIT_BUY) {
         stack.stack_count = static_cast<unsigned char>(split_count);
         if (split_count == 0) {
             split_price = 0;
         } else {
-            split_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc,
+            split_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
                                                    &stack, W8_TRADE_PRICE_PARTY_BUYS);
         }
         stack.stack_count = static_cast<unsigned char>(m_remaining);
         if (m_remaining == 0) {
             remaining_price = 0;
         } else {
-            remaining_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc,
-                                                       &stack, W8_TRADE_PRICE_PARTY_BUYS);
+            remaining_price =
+                CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                         W8_TRADE_PRICE_PARTY_BUYS);
         }
     } else {
         remaining_price = GetItemStackValue(m_item);
@@ -304,16 +306,16 @@ void W8SplitItemDialog::UpdateAcceptButton()
     can_accept = split_count != 0;
     switch (m_mode) {
     case W8_ITEM_SPLIT_SELL:
-        if (CurrentGame().party.gold <
-            static_cast<unsigned int>(CalculateTradeStackPrice(
-                CurrentGame().npc_interaction.dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_SELLS))) {
+        if (CurrentGame().party.gold < static_cast<unsigned int>(CalculateTradeStackPrice(
+                                           CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                           W8_TRADE_PRICE_PARTY_SELLS))) {
             can_accept = false;
         }
         break;
     case W8_ITEM_SPLIT_BUY:
-        if (CurrentGame().party.gold <
-            static_cast<unsigned int>(CalculateTradeStackPrice(
-                CurrentGame().npc_interaction.dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_BUYS))) {
+        if (CurrentGame().party.gold < static_cast<unsigned int>(CalculateTradeStackPrice(
+                                           CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                           W8_TRADE_PRICE_PARTY_BUYS))) {
             can_accept = false;
         }
         break;

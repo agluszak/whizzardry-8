@@ -65,11 +65,9 @@ struct Story {
     /* The learned keyword notebook. Every addition and removal changes it at once;
        the dialogue transcript only shows it. */
     std::vector<W8DialogueTranscriptRecord> keywords;
-    /* Indexed by the slot that party rows and monster bindings name. */
-    std::vector<std::unique_ptr<W8NpcState>> npcs;
-    /* Released states whose slot a different NPC took, kept alive for script and
-       dialogue callbacks that still hold them. Rebinding an NPC to a new level keeps
-       its state. */
-    std::vector<std::unique_ptr<W8NpcState>> retired_npcs;
+    /* Indexed by the slot that party rows and monster bindings name. A released NPC's
+       slot can go to a different NPC; anything still working with the released one
+       shares it, so it never starts referring to the slot's new occupant. */
+    std::vector<std::shared_ptr<W8NpcState>> npcs;
     std::vector<W8LocationVariable> location_variables;
 };

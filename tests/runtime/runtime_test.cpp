@@ -1946,7 +1946,7 @@ void StartConversation(GameHarness& game, const char* step, W8NpcState* npc)
     REQUIRE(!CurrentGame().activity.conversation);
     ForwardNpcScriptNotice(npc, nullptr, -1, false);
     WaitDialogue(game, step, [&] {
-        return CurrentGame().npc_interaction.dialogue_npc == npc && DialogueAwaitingPlayer();
+        return CurrentGame().npc_interaction.dialogue_npc.get() == npc && DialogueAwaitingPlayer();
     });
 }
 
@@ -2039,14 +2039,14 @@ void NpcDialogueScenario()
     REQUIRE(transcript_fields);
     W8NpcQuoteEntry keyword_request{};
     keyword_request.kind = W8_NPC_ENTRY_KEYWORD_INPUT;
-    OpenNpcDialog(&keyword_request, 0);
+    OpenNpcDialog(nullptr, &keyword_request, 0);
     game.frame();
     REQUIRE(TextFieldGroup::Focused() != transcript_fields);
     game.enter_text("cancelled");
     game.key(SDLK_ESCAPE);
     REQUIRE_FALSE(g_modal_owner);
     REQUIRE(TextFieldGroup::Focused() == transcript_fields);
-    OpenNpcDialog(&keyword_request, 0);
+    OpenNpcDialog(nullptr, &keyword_request, 0);
     game.frame();
     game.enter_text("hello");
     REQUIRE(TextFieldGroup::Focused()->Text(0) == "hello");
@@ -2062,7 +2062,7 @@ void NpcDialogueScenario()
     game.key(SDLK_ESCAPE);
     WaitMainGame(game, "camp-left");
     WaitDialogue(game, "dialogue-resumed", [&] {
-        return CurrentGame().npc_interaction.dialogue_npc == burz && DialogueAwaitingPlayer();
+        return CurrentGame().npc_interaction.dialogue_npc.get() == burz && DialogueAwaitingPlayer();
     });
     REQUIRE_FALSE(CurrentGame().activity.conversation_aside);
 

@@ -148,7 +148,9 @@ void DrainNpcDialogueDeferralInput(void);
    the world-cursor gate does not process stale events. */
 void FlushInputWhileWorldCursorGate(void);
 void HandleNpcDialogueInput(void);
-void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data);
+/* Open the reply dialog for `request`, an entry of `script`. */
+void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* request,
+                   int aux_data);
 void CloseNpcDialogueForCamp(void);
 void UpdateNpcDialogueSubMode(void);
 /* Restate the five transcript category buttons so only the

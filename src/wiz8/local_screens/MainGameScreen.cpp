@@ -6163,12 +6163,12 @@ void ConfirmNpcTradeItem(void)
     const int row = MainGameHud()->selected_text_lines[2];
     if (state.trade_mode == W8_NPC_TRADE_GIVE) {
         if (selection.source != W8TradeSource::Gold &&
-            !ResolveTradeSelection(state.dialogue_npc, selection))
+            !ResolveTradeSelection(state.dialogue_npc.get(), selection))
             return;
         if (selection.source == W8TradeSource::Backpack) {
             const int owner = CurrentGame().party.npcIndex(selection.character);
             auto* npc = owner == -1 ? nullptr : GetNpcState(owner);
-            auto* item = ResolveTradeSelection(state.dialogue_npc, selection);
+            auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection);
             if (npc && item && NpcWantsItem(npc, item)) {
                 QueueCharacterEvent(&CurrentGame().party.characters[selection.character], 109, 0,
                                     kCharacterEventFullVolume);
@@ -6177,17 +6177,17 @@ void ConfirmNpcTradeItem(void)
         }
         HandleNpcDialogueItemChoice();
     } else if (state.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        if (auto* item = ResolveTradeSelection(state.dialogue_npc, selection))
+        if (auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection))
             AttemptNpcItemTrade(item, static_cast<unsigned char>(state.trade_quantity),
                                 selection.slot);
     } else if (state.trade_mode == W8_NPC_TRADE_BUY || state.trade_mode == W8_NPC_TRADE_SELL) {
         if (state.trade_quantity <= 0 || state.trade_quantity > 255) return;
-        const auto result = CompleteNpcTrade(state.dialogue_npc, selection,
+        const auto result = CompleteNpcTrade(state.dialogue_npc.get(), selection,
                                              static_cast<unsigned char>(state.trade_quantity));
         switch (result.outcome) {
         case W8TradeOutcome::Complete:
             if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-            SortNpcItems(state.dialogue_npc);
+            SortNpcItems(state.dialogue_npc.get());
             RebuildNpcTradeItemList(false);
             SetSelectedTextLine(row, 2);
             UpdateNpcTradeSelection(row, 0, 1);
@@ -6231,8 +6231,8 @@ void ShowNpcTradeItemNotice(W8ItemInstance* item)
             stack_count = 1;
         }
         price =
-            CalculateNpcTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc, item->iItemNo,
-                                        price_kind, stack_count, item->identified);
+            CalculateNpcTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
+                                        item->iItemNo, price_kind, stack_count, item->identified);
     } else {
         price = GetItemStackValue(item);
     }
@@ -6265,9 +6265,10 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
     if (CurrentGame().npc_interaction.trade_mode == W8_NPC_TRADE_BUY ||
         CurrentGame().npc_interaction.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
         unsigned int shown = 0;
-        const auto count = GetNpcItemCount(CurrentGame().npc_interaction.dialogue_npc);
+        const auto count = GetNpcItemCount(CurrentGame().npc_interaction.dialogue_npc.get());
         for (int index = 0; index < static_cast<int>(count); ++index) {
-            W8NpcItemEntry* entry = GetNpcItemAt(CurrentGame().npc_interaction.dialogue_npc, index);
+            W8NpcItemEntry* entry =
+                GetNpcItemAt(CurrentGame().npc_interaction.dialogue_npc.get(), index);
             ++shown;
             if (shown > 0x15e) {
                 break;
@@ -6293,9 +6294,9 @@ static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsign
             Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION
                 ? item->stack_count
                 : 1;
-        int price =
-            CalculateNpcTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc, item->iItemNo,
-                                        W8_TRADE_PRICE_PARTY_SELLS, count, item->identified);
+        int price = CalculateNpcTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
+                                                item->iItemNo, W8_TRADE_PRICE_PARTY_SELLS, count,
+                                                item->identified);
         if (acceptable) {
             MainGameHud()->text_paint_scratch = fmt::format("{:d}{}", price, Data().strings[0x797]);
         } else {
@@ -6339,7 +6340,7 @@ void PopulateNpcTradeList(void)
             if (item->iItemNo == -1) {
                 continue;
             }
-            if (!NpcAcceptsTradeItem(CurrentGame().npc_interaction.dialogue_npc, item) &&
+            if (!NpcAcceptsTradeItem(CurrentGame().npc_interaction.dialogue_npc.get(), item) &&
                 CurrentGame().npc_interaction.trade_mode != W8_NPC_TRADE_GIVE) {
                 font_palette = 0;
                 acceptable = false;
@@ -6372,7 +6373,7 @@ void PopulateNpcTradeList(void)
             if (NpcTradeItemAllowed(item)) {
                 continue;
             }
-            if (!NpcAcceptsTradeItem(CurrentGame().npc_interaction.dialogue_npc, item) &&
+            if (!NpcAcceptsTradeItem(CurrentGame().npc_interaction.dialogue_npc.get(), item) &&
                 CurrentGame().npc_interaction.trade_mode != W8_NPC_TRADE_GIVE) {
                 font_palette = 0;
                 acceptable = false;
@@ -6424,7 +6425,7 @@ void SelectNpcBuyMode(void)
 
 void RestockNpcTradeStock(void)
 {
-    RestockNpcInventory(CurrentGame().npc_interaction.dialogue_npc);
+    RestockNpcInventory(CurrentGame().npc_interaction.dialogue_npc.get());
 }
 
 void NpcTradeSplitDialogResult(int count)
@@ -6444,17 +6445,17 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
     W8Character* character =
         &CurrentGame().party.characters[CurrentGame().status.selected_character];
 
-    result = AttemptNpcItemTheft(character, CurrentGame().npc_interaction.dialogue_npc,
+    result = AttemptNpcItemTheft(character, CurrentGame().npc_interaction.dialogue_npc.get(),
                                  item->iItemNo, quantity);
     if (result == W8_ITEM_THEFT_SUCCEEDED) {
         text =
             fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), item));
         DisplayNpcQuote(text, true);
         if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
-            AddNpcTopic(CurrentGame().npc_interaction.dialogue_npc, item->iItemNo);
+            AddNpcTopic(CurrentGame().npc_interaction.dialogue_npc.get(), item->iItemNo);
         }
-        const auto purchase = CompleteNpcItemPurchase(CurrentGame().npc_interaction.dialogue_npc,
-                                                      index, quantity, true);
+        const auto purchase = CompleteNpcItemPurchase(
+            CurrentGame().npc_interaction.dialogue_npc.get(), index, quantity, true);
         if (purchase.outcome != W8TradeOutcome::Complete) return false;
         if (purchase.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
         RebuildNpcTradeItemList(false);
@@ -6467,7 +6468,8 @@ bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index
     }
     if (result == W8_ITEM_THEFT_CAUGHT) {
         CurrentGame().npc_dialogue.QueueQuote(0x17, false, false, false);
-        SetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc, W8_NPC_BAND_NEUTRAL);
+        SetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc.get(),
+                              W8_NPC_BAND_NEUTRAL);
         ApplyFactionChange(3, CurrentGame().npc_interaction.dialogue_npc->record->faction, 1, -5);
         CloseNpcDialogueOptionLayout();
         ShowNpcDialogueTopicMenu();

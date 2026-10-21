@@ -13,6 +13,7 @@ class TextFieldGroup;
 
 class W8TextBuffer;
 class W8ButtonWidget;
+struct W8NpcScriptFile;
 struct W8NpcQuoteEntry;
 
 /* The dialog receives the script entry itself. Its sub-entry array is the
@@ -25,7 +26,9 @@ class W8NpcDialog final : public ModalContent {
     friend void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 public:
-    W8NpcDialog(W8NpcQuoteEntry* message, int aux_data, std::function<void(W8NpcDialog&)> closed);
+    /* `message` is an entry of `script`, which the dialog keeps alive while it is open. */
+    W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* message,
+                int aux_data, std::function<void(W8NpcDialog&)> closed);
     virtual ~W8NpcDialog() override;
     void DrawModal(SDL_Surface& target) override;
     void RefreshModal() override;
@@ -44,6 +47,7 @@ private:
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
     signed char m_selected_option = -1;
     bool m_cancelled = false;
+    std::shared_ptr<const W8NpcScriptFile> m_script;
     W8NpcQuoteEntry* m_message;
     bool m_compact_options = false; /* option list may size under 200 wide */
     unsigned short m_text_width; /* widest option text + 6 */
