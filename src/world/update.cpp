@@ -4,7 +4,6 @@
 #include <array>
 #include <cassert>
 #include <chrono>
-#include <cstdint>
 #include <memory>
 #include <ranges>
 #include <span>
@@ -352,27 +351,14 @@ void SetSceneMeshShaderBit3(WorldScene* scene, int argument)
     for (auto* instance : instances) {
         {
             for (Mesh* mesh : meshParts(static_cast<Mesh*>(instance->getModel()))) {
-                DrawShader* polygon_shader = mesh->getPolyShader(0, 0);
-                bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
-
-                if (polygon_shader == 0) {
-                    shader = mesh->getShader(0);
-                    if (clear) {
-                        shader.value &= ~DrawShader::MASK_DEPTH_WRITE;
-                    } else {
-                        shader.value |= DrawShader::MASK_DEPTH_WRITE;
-                    }
-                    mesh->setShader(shader, 0);
-                } else if (clear) {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value &= ~DrawShader::MASK_DEPTH_WRITE;
-                    }
+                const bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
+                shader = mesh->getShader(0);
+                if (clear) {
+                    shader.value &= ~DrawShader::MASK_DEPTH_WRITE;
                 } else {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value |= DrawShader::MASK_DEPTH_WRITE;
-                    }
+                    shader.value |= DrawShader::MASK_DEPTH_WRITE;
                 }
-                if (polygon_shader) mesh->invalidateRenderAsset();
+                mesh->setShader(shader, 0);
             }
         }
     }
@@ -391,26 +377,13 @@ void SetSceneMeshShaderLowBits(WorldScene* scene, int argument)
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }
-                DrawShader* polygon_shader = mesh->getPolyShader(0, 0);
-                if (polygon_shader == 0) {
-                    shader = mesh->getShader(0);
-                    if (argument == 0) {
-                        shader.value |= DrawShader::PASS_ALWAYS;
-                    } else {
-                        shader.value = (shader.value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
-                    }
-                    mesh->setShader(shader, 0);
-                } else if (argument == 0) {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value |= DrawShader::PASS_ALWAYS;
-                    }
+                shader = mesh->getShader(0);
+                if (argument == 0) {
+                    shader.value |= DrawShader::PASS_ALWAYS;
                 } else {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value =
-                            (polygon_shader[index].value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
-                    }
+                    shader.value = (shader.value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
                 }
-                if (polygon_shader) mesh->invalidateRenderAsset();
+                mesh->setShader(shader, 0);
             }
         }
     }

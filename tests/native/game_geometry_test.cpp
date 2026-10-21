@@ -88,6 +88,7 @@
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/triangle_projection.h"
@@ -1597,12 +1598,15 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
 TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry]")
 {
     const glm::vec3 environment{0.25f, 0.5f, 0.75f};
-    Mesh mesh(0, 4);
+    Mesh mesh(2, 4);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    mesh.getPolyVertex()[1] = {0, 2, 3};
     auto material = std::make_shared<Material>();
     material->setAmbient(glm::vec4(0.5f, 0.25f, 1, 1));
     auto zero_material = std::make_shared<Material>();
     zero_material->setAmbient(glm::vec4(0));
     mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    const auto asset = mesh.renderAsset();
     mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
     const auto lights = mesh.GetVertexLights(true);
@@ -1610,11 +1614,21 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
     }
+    // The bake writes the shared asset's colours; read them back per source vertex.
     const auto baked = [&] {
         mesh.applyPendingLighting();
-        return mesh.getVertexDIG(0, 0);
+        const auto& pass = mesh.renderAsset()->passes.at(0);
+        REQUIRE((pass.draw_flags & render::HasColors) != 0);
+        std::array<glm::vec3, 4> colors{};
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto& color = pass.attributes[1]->at(vertex);
+            colors.at(pass.source_vertices[vertex]) = {color.x, color.y, color.z};
+        }
+        return colors;
     };
-    const auto* base = baked();
+    const auto base = baked();
+    // The first bake fills the existing asset's colours.
+    REQUIRE(mesh.renderAsset() == asset);
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(base[vertex],
                       (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment) *
@@ -1626,7 +1640,7 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
     (*materials)[2] = nullptr;
     (*materials)[3] = material;
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto* mixed = baked();
+    const auto mixed = baked();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(mixed[vertex],
@@ -1797,69 +1811,6 @@ TEST_CASE(
     const auto negative = pathing.pathCell({6, 0, 8});
     REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
-}
-
-TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygons aligned",
-          "[geometry][rendering]")
-{
-    Mesh mesh(2, 3);
-    mesh.setPassCount(2);
-    const std::array<glm::vec3, 3> positions{{{1, 0, 0}, {0, 2, 0}, {0, 0, 3}}};
-    std::ranges::copy(positions, mesh.getVertexLoc());
-    auto* triangles = mesh.getPolyVertex();
-    triangles[0] = {0, 1, 2};
-    triangles[1] = {2, 0, 1};
-    auto* shades = mesh.getVertexShadeIndex(1);
-    shades[0] = shades[1] = 0;
-    shades[2] = 2;
-    mesh.setActivePolygonCount(1);
-    mesh.getActivePolygonTable(1)[0] = 0;
-    for (int pass = 0; pass < 2; ++pass) {
-        auto* uv = mesh.getPolyUVIndex(pass, 1);
-        uv[0] = {0, 7, 2}; // Separate UV indices outside the vertex range remain intact.
-        uv[1] = {1, 2, 0};
-        for (int i = 0; i < 3; ++i) {
-            mesh.getVertexDIG(pass, 1)[i] = glm::vec3(10 * pass + i);
-            mesh.getVertexDCG(pass, 1)[i] = glm::vec4(20 * pass + i);
-            mesh.getVertexSCG(pass, 1)[i] = glm::vec4(30 * pass + i);
-            for (int layer = 0; layer < 2; ++layer)
-                mesh.getVertexTexCoords(pass, layer, 1)[i] = glm::vec2(40 * pass + 5 * layer + i);
-        }
-    }
-    const std::array<std::uint32_t, 2> polygon_order{1, 0};
-    const std::array<std::uint32_t, 3> vertex_order{2, 0, 1};
-    mesh.reindexPolygons(polygon_order);
-    mesh.reindexVertices(vertex_order);
-    REQUIRE(mesh.getActivePolygonTable(0)[0] == 1);
-    REQUIRE(triangles[0].x == 0);
-    REQUIRE(triangles[0].y == 1);
-    REQUIRE(triangles[0].z == 2);
-    REQUIRE(triangles[1].x == 1);
-    REQUIRE(triangles[1].y == 2);
-    REQUIRE(triangles[1].z == 0);
-    REQUIRE(shades[0] == 0);
-    REQUIRE(shades[1] == 1);
-    REQUIRE(shades[2] == 1);
-    for (int pass = 0; pass < 2; ++pass) {
-        const auto* uv = mesh.getPolyUVIndex(pass, 0);
-        REQUIRE(uv[1].x == 1);
-        REQUIRE(uv[1].y == 7);
-        REQUIRE(uv[1].z == 0);
-        for (int i = 0; i < 3; ++i) {
-            REQUIRE(mesh.getVertexLoc()[i] == positions[vertex_order[i]]);
-            REQUIRE(mesh.getVertexDIG(pass, 0)[i] == glm::vec3(10 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexDCG(pass, 0)[i] == glm::vec4(20 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexSCG(pass, 0)[i] == glm::vec4(30 * pass + vertex_order[i]));
-            for (int layer = 0; layer < 2; ++layer)
-                REQUIRE(mesh.getVertexTexCoords(pass, layer, 0)[i] ==
-                        glm::vec2(40 * pass + 5 * layer + vertex_order[i]));
-        }
-    }
-    const std::array<std::uint32_t, 3> duplicate{0, 0, 2};
-    REQUIRE_THROWS_AS(mesh.reindexVertices(duplicate), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
-    REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
 }
 
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",

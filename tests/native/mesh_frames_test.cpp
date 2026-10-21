@@ -138,19 +138,15 @@ static bool skins_and_mapped_vertices()
                      (*selection)[1] == 2));
             REQUIRE(mesh.GetActivePolygons(second, true).value().data() ==
                     selection.value().data());
-            mesh.RemoveSkinTable(0);
-            REQUIRE(mesh.FindSkinTable("SECOND1") ==
-                    second); // ID is no longer its vector position.
+            REQUIRE(mesh.FindSkinTable("SECOND1") == second);
+            const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
+            REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
+            REQUIRE(mesh.CreateSkinTable("added3", -1) == 3);
+            // Adding another skin moves neither tables nor their selections.
             REQUIRE(mesh.GetTextureTable(second) == second_textures);
             REQUIRE(mesh.GetActivePolygons(second, true).value().data() ==
                     selection.value().data());
-            const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
-            REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
-            REQUIRE(mesh.CreateSkinTable("reused3", -1) == 0);
-            REQUIRE(mesh.GetTextureTable(second) ==
-                    second_textures); // Adding another skin does not move tables.
-            REQUIRE(mesh.CreateSkinTable("", -1) == 3);
-            REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == 4);
+            REQUIRE(mesh.CreateSkinTable("", -1) == 4);
             REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
             REQUIRE(!mesh.GetActivePolygons(-1, false));
             selection = mesh.GetActivePolygons(-1, true);

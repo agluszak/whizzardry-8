@@ -48,7 +48,6 @@ template<class T> const T* tableOrNull(const std::vector<T>& table)
 std::uint32_t passFlags(const Mesh& mesh, int pass, int side)
 {
     std::uint32_t flags = 0;
-    if (!mesh.dig[pass].empty()) flags |= HasColors;
     if (!mesh.dcg[pass].empty()) flags |= HasDiffuseMultipliers;
     if (!mesh.scg[pass].empty()) flags |= HasSpecularMultipliers;
     if (!mesh.texcoords[pass][0].empty()) flags |= HasTexcoord0;
@@ -62,10 +61,8 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
     const auto control = mesh.render_control;
     const auto* texcoords0 = tableOrNull(mesh.texcoords[pass][0]);
     const auto* texcoords1 = tableOrNull(mesh.texcoords[pass][1]);
-    const auto* dig = tableOrNull(mesh.dig[pass]);
     const auto* dcg = tableOrNull(mesh.dcg[pass]);
     const auto* scg = tableOrNull(mesh.scg[pass]);
-    const auto* poly_shaders = tableOrNull(mesh.poly_shaders[pass]);
 
     MeshAsset::Pass result;
     result.pass = static_cast<unsigned>(pass);
@@ -77,8 +74,9 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
     const int material_side =
         !authored_faces && side && (control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)) ? 0
                                                                                           : side;
+    result.material_side = static_cast<unsigned>(material_side);
     result.draw_flags = passFlags(mesh, pass, material_side);
-    result.has_texcoord0 = texcoords0 != nullptr;
+    result.shader = mesh.shaders[pass];
 
     std::map<Material*, std::uint32_t> slots;
     const auto slotOf = [&](const std::shared_ptr<Material>& material) {
@@ -106,8 +104,8 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         const auto uv0 = texcoords0 ? texcoords0[mapped ? vertex : uv] : glm::vec2(0);
         const auto uv1 = texcoords1 ? texcoords1[vertex] : glm::vec2(0);
         const auto material = vertex_materials ? slotOf(vertex_materials[vertex]) : pass_material;
-        attributes.push_back({glm::vec4(uv0, uv1), dig ? glm::vec4(dig[vertex], 0) : glm::vec4(0),
-                              dcg ? dcg[vertex] : glm::vec4(1), scg ? scg[vertex] : glm::vec4(1),
+        attributes.push_back({glm::vec4(uv0, uv1), glm::vec4(0), dcg ? dcg[vertex] : glm::vec4(1),
+                              scg ? scg[vertex] : glm::vec4(1),
                               glm::vec4(static_cast<float>(material), mapped ? 1.f : 0.f, 1.f, 0)});
         result.source_vertices.push_back(static_cast<std::uint32_t>(vertex));
         return entry->second;
@@ -116,6 +114,8 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         const auto& table = mesh.poly_textures[pass][layer];
         return table.empty() ? mesh.textures[pass][layer] : table[polygon];
     };
+    // Batches split wherever any skin differs. Skins only clone a table or
+    // replace every use of one texture, so later skin changes keep that true.
     const auto skinsMatch = [&](std::uint32_t left, std::uint32_t right) {
         if (pass != 0) return true;
         return std::all_of(mesh.skins.begin(), mesh.skins.end(), [&](const auto& skin) {
@@ -130,24 +130,23 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
             indices.push_back(renderVertex(triangle[corner], uv[corner]));
         result.polygons.push_back(static_cast<std::uint32_t>(polygon));
         const std::array textures{textureAt(polygon, 0), textureAt(polygon, 1)};
-        const auto shader = poly_shaders ? poly_shaders[polygon] : mesh.shaders[pass];
         if (!result.batches.empty()) {
             auto& previous = result.batches.back();
-            if (previous.textures == textures && previous.shader.value == shader.value &&
+            if (previous.textures == textures &&
                 skinsMatch(previous.first_polygon, static_cast<std::uint32_t>(polygon))) {
                 previous.index_count += 3;
                 continue;
             }
         }
-        result.batches.push_back({textures, shader,
+        result.batches.push_back({textures,
                                   wiz8::checked_integer<std::uint32_t>(indices.size() - 3), 3,
-                                  static_cast<std::uint32_t>(polygon), !poly_shaders});
+                                  static_cast<std::uint32_t>(polygon)});
     }
     for (std::size_t attribute = 0; attribute < result.attributes.size(); ++attribute) {
         auto array = vsg::vec4Array::create(attributes.size());
         for (std::size_t vertex = 0; vertex < attributes.size(); ++vertex)
             array->at(vertex) = toVsg(attributes[vertex][attribute]);
-        // Baked light contributions can change while the topology stays shared.
+        // Mesh lighting bakes into the colours while the topology stays shared.
         if (attribute == 1) array->properties.dataVariance = vsg::DYNAMIC_DATA;
         result.attributes[attribute] = std::move(array);
     }
@@ -172,17 +171,8 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
 
 std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
 {
-    mesh.applyPendingLighting();
     auto asset = std::make_shared<MeshAsset>();
     if (mesh.vertex_location_count <= 0 || mesh.polygon_count <= 0) return asset;
-    const auto* triangles = mesh.getPolyVertex();
-    asset->triangles.assign(triangles, triangles + mesh.polygon_count);
-    // VSG needs the actual all-frame model bound even where the draw controls
-    // mark the mesh's own bounds as authored (the sky).
-    const auto bounds = mesh.getBounds();
-    asset->bounds_center = bounds.sphere.center;
-    asset->bounds_radius = bounds.sphere.radius;
-    asset->sort_bias = mesh.sort_bias;
     const auto control = mesh.render_control;
     asset->sorted = (control & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();
@@ -194,6 +184,27 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
         }
     }
     return asset;
+}
+
+void MeshAsset::setMaterial(unsigned pass, unsigned side, const std::shared_ptr<Material>& material)
+{
+    for (auto& source : passes)
+        if (source.pass == pass && source.material_side == side &&
+            !(source.draw_flags & HasVertexMaterials))
+            source.materials = {material};
+}
+
+void MeshAsset::setTexture(unsigned pass, unsigned layer, const std::shared_ptr<Texture>& texture)
+{
+    for (auto& source : passes)
+        if (source.pass == pass)
+            for (auto& batch : source.batches) batch.textures.at(layer) = texture;
+}
+
+void MeshAsset::setShader(unsigned pass, DrawShader shader)
+{
+    for (auto& source : passes)
+        if (source.pass == pass) source.shader = shader;
 }
 
 MeshPose::MeshPose(Mesh& mesh) : asset(mesh.renderAsset())
@@ -238,10 +249,8 @@ void MeshPose::makeDraws()
 }
 
 void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
-                      bool check_blanking)
+                      bool check_blanking, Mesh::PolygonSelection visible)
 {
-    // Baking may allocate its first colour table and invalidate the asset.
-    // Complete that work before testing whether the topology is still shared.
     mesh.applyPendingLighting();
     if (const auto current = mesh.renderAsset(); current != asset) {
         asset = current;
@@ -282,23 +291,19 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
         sampled_frame_ = frame;
         sampled_interpolation_ = interpolation;
     }
-    selectPolygons(mesh, skin, check_blanking);
+    selectPolygons(mesh, skin, check_blanking, visible);
     for (auto& pass : passes)
         if (pass.authored_normals)
             for (std::size_t triangle = 0; triangle < pass.source_polygons.size(); ++triangle)
                 pass.authored_normals->at(triangle) =
                     toVsg(polygon_normals[pass.source_polygons[triangle]]);
-    refreshColors(mesh);
 }
 
-void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
+void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking,
+                              Mesh::PolygonSelection visible)
 {
     const auto polygon_count = static_cast<std::size_t>(mesh.polygon_count);
-    Mesh::PolygonSelection selection;
-    if (const auto* active = mesh.getActivePolygonTable(0))
-        selection = std::span<const std::uint32_t>(active, mesh.getActivePolygonCount());
-    else
-        selection = mesh.GetActivePolygons(skin, check_blanking);
+    const auto selection = visible ? visible : mesh.GetActivePolygons(skin, check_blanking);
     std::vector<std::uint32_t> selected;
     if (selection)
         selected.assign(selection->begin(), selection->end());
@@ -342,23 +347,6 @@ void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
     }
 }
 
-void MeshPose::refreshColors(const Mesh& mesh)
-{
-    for (auto& pass : asset->passes) {
-        const auto& colors = mesh.dig[pass.pass];
-        if (colors.empty()) continue;
-        auto& destination = *pass.attributes[1];
-        bool changed = false;
-        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
-            const auto value = toVsg(glm::vec4(colors[pass.source_vertices[vertex]], 0));
-            if (destination.at(vertex) == value) continue;
-            destination.at(vertex) = value;
-            changed = true;
-        }
-        if (changed) destination.dirty();
-    }
-}
-
 std::shared_ptr<Texture> MeshPose::texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
                                            int skin, unsigned layer) const
 {
@@ -388,6 +376,15 @@ bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& po
 
 std::shared_ptr<render::MeshAsset> Mesh::renderAsset()
 {
-    if (!render_asset_) render_asset_ = render::makeMeshAsset(*this);
+    if (!render_asset_) {
+        render_asset_ = render::makeMeshAsset(*this);
+        updateBakedLighting();
+    }
+    // Bounds follow the mesh without a rebuild. VSG needs the actual all-frame
+    // model bound even where the draw controls mark the mesh's own bounds as
+    // authored (the sky).
+    const auto bounds = getBounds();
+    render_asset_->bounds_center = bounds.sphere.center;
+    render_asset_->bounds_radius = bounds.sphere.radius;
     return render_asset_;
 }

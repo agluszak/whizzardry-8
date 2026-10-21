@@ -14,7 +14,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int2.hpp"
-#include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/visibility_grid.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -145,18 +144,12 @@ void UpdateWorldMeshFromQuads(World* world)
 {
     assert(world != 0);
     assert(world->quads != 0);
-    Mesh* mesh = static_cast<Mesh*>(world->update_mesh_source->getModel());
     MeshVisibilityGrid& quad = *world->quads;
-    const auto cells = visibleQuadCells(*world);
-    std::int32_t polygon_count = 0;
-    for (const auto& cell : cells) polygon_count += quad.Cell(cell.x, cell.y).size();
-    mesh->setActivePolygonCount(polygon_count);
-    std::uint32_t* table = mesh->getActivePolygonTable(1);
-    for (const auto& cell : cells) {
-        for (int polygon : quad.Cell(cell.x, cell.y)) {
-            *table++ = polygon;
-        }
-    }
+    std::vector<std::uint32_t> visible;
+    for (const auto& cell : visibleQuadCells(*world))
+        for (int polygon : quad.Cell(cell.x, cell.y))
+            visible.push_back(static_cast<std::uint32_t>(polygon));
+    world->update_mesh_source->visible_polygons = std::move(visible);
 }
 
 void UpdateWorldOctree(World* world)

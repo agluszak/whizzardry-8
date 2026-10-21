@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
@@ -24,6 +23,7 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/bounding_box.h"
 
@@ -82,13 +82,13 @@ BoundingBox Mesh::GetFrameBounds(int frame) const
     return boundingBox(std::span<const glm::vec3>(locations));
 }
 
-/* Bake the sunlight, lights, ambient and environment terms into the first
-   vertex colour table. */
+/* Bake the sunlight, lights, ambient and environment terms into the colours of
+   the render asset's first-pass vertices. */
 void Mesh::updateBakedLighting()
 {
     const auto& lights = vertex_lights;
-    if (lights.empty() || vertex_sunlight.empty()) return;
-    auto* destination = getVertexDIG(0, 1);
+    if (!render_asset_ || lights.empty() || vertex_sunlight.empty()) return;
+    std::vector<glm::vec3> baked(static_cast<std::size_t>(vertex_location_count));
     const auto* materials = getVertexMaterialTable(0, SIDE_FRONT, false);
     const bool suppress_ambient = ambient_color == glm::vec3(0);
     const glm::vec3 base_ambient =
@@ -124,7 +124,17 @@ void Mesh::updateBakedLighting()
         }
         if (add_environment) color += environment;
         if (light_scale != 1) color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
-        destination[vertex] = color;
+        baked[vertex] = color;
+    }
+    for (auto& pass : render_asset_->passes) {
+        if (pass.pass != 0) continue;
+        auto& colors = *pass.attributes[1];
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto& color = baked[pass.source_vertices[vertex]];
+            colors.at(vertex) = vsg::vec4(color.x, color.y, color.z, 0);
+        }
+        colors.dirty();
+        pass.draw_flags |= render::HasColors;
     }
 }
 
@@ -247,8 +257,8 @@ std::vector<std::shared_ptr<Texture>>* Mesh::GetTextureTable(int table)
     return skin != skins.end() ? &skin->textures : nullptr;
 }
 
-/* Clone one polygon-texture table under an owned name. Table ids are the lowest
-   free non-negative integer and remain stable independently of vector position. */
+/* Clone one polygon-texture table under an owned name. Skins are never removed,
+   so a table's id is its creation index. */
 int Mesh::CreateSkinTable(std::string_view name, int base_table)
 {
     if (FindSkinTable(name) != -1) {
@@ -261,14 +271,10 @@ int Mesh::CreateSkinTable(std::string_view name, int base_table)
     if (source == nullptr) {
         return -1;
     }
-    int table = 0;
-    while (std::any_of(skins.begin(), skins.end(),
-                       [table](const auto& skin) { return skin.id == table; })) {
-        ++table;
-    }
+    const int table = wiz8::checked_integer<int>(skins.size());
     Skin skin{table, std::string(name), *source, std::nullopt, false};
+    // A clone splits no batch its source table did not already split.
     skins.push_back(std::move(skin));
-    render_asset_.reset();
     return table;
 }
 
@@ -293,23 +299,12 @@ bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
     }
     if (changed) {
         skin->active_polygons.reset();
+        // Polygons sharing a texture stay together, so the shared batches
+        // still separate every differing assignment.
         skin->blanking_checked = false;
-        // Skin assignments also participate in the shared batch boundaries.
-        render_asset_.reset();
     }
     return matched;
 }
-
-void Mesh::RemoveSkinTable(int index)
-{
-    if (static_cast<unsigned int>(index) < skins.size()) {
-        skins.erase(std::next(skins.begin(), index));
-        render_asset_.reset();
-    }
-}
-
-/* Skin tables are named with the owning cycle plus a one-character suffix.
-   Final teardown removes every table whose name has that cycle prefix. */
 
 static void DecompressMeshNormals(const unsigned char* normals, int count, glm::vec3* destination)
 {
