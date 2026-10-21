@@ -1136,12 +1136,13 @@ bool SaveAutomapNotes(wiz8::File& handle)
     return (handle.write(&signature, 4), true) != 0;
 }
 
-/* Release every note, restore the visited-cell bitmap for the loaded level,
-   then rebuild the notes from the saved records. */
-W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file, std::size_t cells)
+/* The visited-cell bitmap, present when the level's automap had cells, then the notes. */
+W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file)
 {
     W8SavedAutomapNotes result;
-    if (cells > 1 && !LoadPackedBits(file, result.visited))
+    const auto first = file.ReadValue<std::uint32_t>();
+    file.RewindCurrentChunk();
+    if (first == kPackedBitsMagic && !LoadPackedBits(file, result.visited))
         throw std::runtime_error("invalid automap visited cells");
     unsigned int signature, count;
     file.ReadBytes(&signature, sizeof(signature));

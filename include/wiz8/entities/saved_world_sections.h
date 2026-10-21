@@ -91,9 +91,9 @@ using SavedWorldSection = std::variant<std::vector<SavedTrigger>, std::vector<Sa
                                        SavedTriggerLocks, std::vector<SavedTriggerAction>>;
 
 /* Decoders read one section's payload and throw on malformed input. A trigger section
-   holds at most one record per trigger of the level (`trigger_count`). */
-std::vector<SavedTrigger> DecodeSavedTriggers(W8Chunk& chunk, std::size_t trigger_count,
-                                              bool from_assets);
+   holds one record per trigger of the level that wrote it; applying it restores the
+   records that name, or sit at the position of, one of this level's triggers. */
+std::vector<SavedTrigger> DecodeSavedTriggers(W8Chunk& chunk, bool from_assets);
 std::vector<SavedProp> DecodeSavedProps(W8Chunk& chunk);
 SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& chunk);
 std::vector<SavedTriggerAction> DecodeSavedTriggerActions(W8Chunk& chunk);
