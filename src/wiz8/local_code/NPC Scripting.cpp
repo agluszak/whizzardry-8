@@ -253,9 +253,9 @@ static void ShowConsumedItemQuote(std::string_view text)
 
 /* Remove one stack unit of the matching item: the character backpacks first
    (the slot whose address equals `item` wins, or any slot carrying `item_id`
-   when `match_item_id` is set), then the party pool, then the pending
-   trade item. The first hit announces the loss through the quote bubble or
-   the layout-4 path and returns. */
+   when `match_item_id` is set), then the party pool. The first hit announces
+   the loss through the quote bubble or the layout-4 path and returns; failing
+   those, one unit of a matching offered item is used up. */
 void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int match_item_id,
                          int item_id)
 {
@@ -289,16 +289,13 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
             return;
         }
     }
-    if (CurrentGame().npc_interaction.held_item_pending && item != 0 &&
-        CurrentGame().npc_interaction.pending_item.iItemNo == item->iItemNo) {
-        if (item->stack_count != 0) {
-            --item->stack_count;
+    auto& offer = CurrentGame().npc_interaction.offered_item;
+    if (offer && item != 0 && offer->iItemNo == item->iItemNo) {
+        if (offer->stack_count != 0) {
+            --offer->stack_count;
         }
-        if (item->stack_count == 0) {
-            CurrentGame().npc_interaction.held_item_pending = false;
-            if (!context.activity.conversation) {
-                (void)TakeInventoryItem(context.game, {W8ItemStorage::Hand});
-            }
+        if (offer->stack_count == 0) {
+            offer.reset();
         }
     }
 }
