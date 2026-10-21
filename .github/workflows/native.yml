@@ -293,13 +293,6 @@ jobs:
           restore-keys: |
             conan-cxx26-gcc16-clang23-Debug-
             conan-clang23-linux-
-      - name: Determine analysis scope
-        if: github.event_name == 'pull_request'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          git diff --name-only -z "$BASE_SHA" HEAD > "$RUNNER_TEMP/static-analysis-changed"
       # Include checks need direct includes, not PCH or unity sources.
       - name: Resolve Conan dependencies for analysis
         run: |
@@ -341,11 +334,7 @@ jobs:
             python3 -m unittest discover -s tests/tools -p "*_test.py"
             python3 tools/check_layers.py --clang-tidy clang-tidy-23 -p build/linux-tidy
           fi
-          if [[ "${{ github.event_name }}" == pull_request ]]; then
-            ./tools/run-clang-tidy.sh build/linux-tidy --changed-files "$RUNNER_TEMP/static-analysis-changed"
-          else
-            ./tools/run-clang-tidy.sh build/linux-tidy
-          fi
+          ./tools/run-clang-tidy.sh build/linux-tidy
 
       - name: Audit optional access and moved-from ownership
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

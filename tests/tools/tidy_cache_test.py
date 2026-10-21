@@ -2,7 +2,6 @@
 
 import json
 import os
-import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -59,15 +58,6 @@ class TidyCacheTest(unittest.TestCase):
                 self.assertIn('1 hits, 0 misses' if hit else '0 hits, 1 misses', result.stdout)
                 if bypass:
                     self.assertIn('Cache bypass', result.stdout)
-
-            changed = root / 'changed'
-            changed.write_bytes(b'src/leaf.h\0')
-            scope = subprocess.run([sys.executable, str(RUNNER.with_name('affected-tidy-sources.py')),
-                                    '--root', str(root), '--compile-commands', str(database),
-                                    '--changed-files', str(changed)], check=True,
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            self.assertNotIn(scope.stdout.strip(), ('FULL', 'SKIP'))
-            self.assertTrue(re.search(scope.stdout.strip(), str(source)))
 
             run()
             run(hit=True)

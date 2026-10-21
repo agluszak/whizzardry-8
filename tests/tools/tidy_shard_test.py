@@ -1,4 +1,4 @@
-"""Sharding must retain every translation unit and transitive header dependent."""
+"""Sharding must keep every translation unit in exactly one shard."""
 
 import json
 from pathlib import Path
@@ -15,7 +15,7 @@ COMPILER = shutil.which('clang++-23') or shutil.which('clang++')
 
 @unittest.skipUnless(COMPILER, 'Clang is needed for dependency discovery')
 class TidyShardTest(unittest.TestCase):
-    def test_disjoint_complete_partitions_for_sources_and_headers(self):
+    def test_disjoint_complete_partitions(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             (root / 'include').mkdir()
@@ -33,8 +33,6 @@ class TidyShardTest(unittest.TestCase):
                                               '-I', str(header.parent)]})
             database = root / 'compile_commands.json'
             database.write_text(json.dumps(entries))
-            changed = root / 'changed'
-            changed.write_bytes(b'include/common.h\0')
             seen = set()
             for index in range(4):
                 command = [sys.executable, str(TOOLS / 'clang_tidy_shard.py'),
@@ -44,13 +42,6 @@ class TidyShardTest(unittest.TestCase):
                 selected = {path for path in sources if pattern != 'SKIP' and re.search(pattern, path)}
                 self.assertFalse(seen & selected)
                 seen.update(selected)
-                dependent = subprocess.check_output([
-                    sys.executable, str(TOOLS / 'affected-tidy-sources.py'),
-                    '--root', str(root), '--compile-commands', str(database),
-                    '--changed-files', str(changed), '--shard-index', str(index),
-                    '--shard-count', '4'], text=True, stderr=subprocess.DEVNULL).strip()
-                affected = {path for path in sources if dependent != 'SKIP' and re.search(dependent, path)}
-                self.assertEqual(affected, selected)
                 # Database ordering and hash randomization must not reshuffle work.
                 database.write_text(json.dumps(entries[::-1]))
                 self.assertEqual(subprocess.check_output(command, text=True).strip(), pattern)
