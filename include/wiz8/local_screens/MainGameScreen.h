@@ -34,6 +34,7 @@ struct MainGameScreen final : Screen {
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
+    void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
     // The game this main game belongs to; it is discarded before the game ends.
