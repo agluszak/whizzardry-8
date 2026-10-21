@@ -2472,7 +2472,7 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decr
         Panel().trade_gold = CurrentGame().party.gold;
         return nullptr;
     }
-    auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection);
+    auto* item = ResolveTradeSelection(CurrentGame(), state.dialogue_npc.get(), selection);
     if (!item) {
         if (pick) Panel().trade_selection.reset();
         return nullptr;
@@ -3432,7 +3432,8 @@ void HandleNpcDialogueItemChoice(void)
 {
     auto& state = CurrentGame().npc_interaction;
     if (!Panel().trade_selection) return;
-    auto* item = ResolveTradeSelection(state.dialogue_npc.get(), *Panel().trade_selection);
+    auto* item =
+        ResolveTradeSelection(CurrentGame(), state.dialogue_npc.get(), *Panel().trade_selection);
     if (Panel().trade_selection->source != W8TradeSource::Gold && !item) return;
     HandleNpcDialogueItem(item);
     if (MainGame()->dialogue.reopen_topics &&

@@ -6142,67 +6142,61 @@ void W8NpcDialogueTextController::SetTranscriptSorted(bool sorted)
     InvalidateAll();
 }
 
-/* The trade confirm button's activation callback. Selling mode first offers
-   the selected stack outright when the NPC's wanted list matches it; the
-   per-mode cases then move stock between the NPC list and the backpack or
-   party pool, and every exit repaints the purse and price readouts. */
+// Finish the transfer and its consequences before presenting the result.
 void ConfirmNpcTradeItem(void)
 {
-    auto& state = CurrentGame().npc_interaction;
-    if (!MainGame()->dialogue.trade_selection) return;
-    const auto selection = *MainGame()->dialogue.trade_selection;
+    auto& panel = MainGame()->dialogue;
+    if (!panel.trade_selection || panel.trade_mode == W8_NPC_TRADE_NONE) return;
+    auto& game = CurrentGame();
+    auto* npc = game.npc_interaction.dialogue_npc.get();
+    const auto selection = *panel.trade_selection;
+    const int actor = game.status.selected_character;
     const int row = MainGameHud()->selected_text_lines[2];
-    if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_GIVE) {
-        if (selection.source != W8TradeSource::Gold &&
-            !ResolveTradeSelection(state.dialogue_npc.get(), selection))
-            return;
-        if (selection.source == W8TradeSource::Backpack) {
-            const int owner = CurrentGame().party.npcIndex(selection.character);
-            auto* npc = owner == -1 ? nullptr : GetNpcState(owner);
-            auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection);
-            if (npc && item && NpcWantsItem(npc, item)) {
-                QueueCharacterEvent(&CurrentGame().party.characters[selection.character], 109, 0,
-                                    kCharacterEventFullVolume);
-                return;
-            }
-        }
+    const auto action = panel.trade_mode == W8_NPC_TRADE_GIVE       ? W8TradeAction::Offer
+                        : panel.trade_mode == W8_NPC_TRADE_SHOPLIFT ? W8TradeAction::Steal
+                                                                    : W8TradeAction::Exchange;
+    const auto result = CompleteNpcTrade(game, npc, actor, selection, panel.trade_quantity, action);
+    if (result.theft_succeeded)
+        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
+                                     GetItemDisplayName(Data(), &selection.expected)),
+                        true);
+    switch (result.outcome) {
+    case W8TradeOutcome::Offer:
         HandleNpcDialogueItemChoice();
-    } else if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        if (auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection))
-            AttemptNpcItemTrade(item,
-                                static_cast<unsigned char>(MainGame()->dialogue.trade_quantity),
-                                selection.slot);
-    } else if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_BUY ||
-               MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SELL) {
-        if (MainGame()->dialogue.trade_quantity <= 0 || MainGame()->dialogue.trade_quantity > 255)
-            return;
-        const auto result =
-            CompleteNpcTrade(state.dialogue_npc.get(), selection,
-                             static_cast<unsigned char>(MainGame()->dialogue.trade_quantity));
-        switch (result.outcome) {
-        case W8TradeOutcome::Complete:
-            if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-            SortNpcItems(state.dialogue_npc.get());
-            RebuildNpcTradeItemList(false);
+        break;
+    case W8TradeOutcome::Complete:
+        wiz8::sound::play("Data\\Sound\\misc\\Cash Transaction.wav");
+        if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
+        if (!result.theft_succeeded) SortNpcItems(npc);
+        RebuildNpcTradeItemList(false);
+        if (!result.theft_succeeded) {
             SetSelectedTextLine(row, 2);
             UpdateNpcTradeSelection(row, 0, 1);
-            if (result.accepted_topic)
-                CurrentGame().npc_dialogue.QueueQuote(0x15, false, false, false);
-            break;
-        case W8TradeOutcome::Refused:
-            CurrentGame().npc_dialogue.QueueQuote(0x11, false, false, false);
-            break;
-        case W8TradeOutcome::InsufficientGold:
-            CurrentGame().npc_dialogue.QueueQuote(0x14, false, false, false);
-            break;
-        case W8TradeOutcome::WantedByOwner:
-            QueueCharacterEvent(&CurrentGame().party.characters[selection.character], 109, 0,
-                                kCharacterEventFullVolume);
-            break;
-        case W8TradeOutcome::InvalidSelection:
-            RebuildNpcTradeItemList(false);
-            break;
         }
+        if (result.accepted_topic) game.npc_dialogue.QueueQuote(0x15, false, false, false);
+        break;
+    case W8TradeOutcome::TheftFailed:
+        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name),
+                        false);
+        break;
+    case W8TradeOutcome::TheftCaught:
+        game.npc_dialogue.QueueQuote(0x17, false, false, false);
+        CloseNpcDialogueOptionLayout();
+        ShowNpcDialogueTopicMenu();
+        break;
+    case W8TradeOutcome::Refused:
+        if (!result.theft_succeeded) game.npc_dialogue.QueueQuote(0x11, false, false, false);
+        break;
+    case W8TradeOutcome::InsufficientGold:
+        game.npc_dialogue.QueueQuote(0x14, false, false, false);
+        break;
+    case W8TradeOutcome::WantedByOwner:
+        QueueCharacterEvent(&game.party.characters[selection.character], 109, 0,
+                            kCharacterEventFullVolume);
+        return;
+    case W8TradeOutcome::InvalidSelection:
+        if (action == W8TradeAction::Exchange) RebuildNpcTradeItemList(false);
+        break;
     }
     RefreshNpcTradePartyGold();
     RefreshNpcTradePrice();
@@ -6430,46 +6424,6 @@ void NpcTradeSplitDialogResult(int count)
         SetSelectedTextLine(slot, 2);
         UpdateNpcTradeSelection(slot, 0, 1);
     }
-}
-
-bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index)
-{
-    std::string text;
-    signed char result;
-    W8Character* character =
-        &CurrentGame().party.characters[CurrentGame().status.selected_character];
-
-    result = AttemptNpcItemTheft(character, CurrentGame().npc_interaction.dialogue_npc.get(),
-                                 item->iItemNo, quantity);
-    if (result == W8_ITEM_THEFT_SUCCEEDED) {
-        text =
-            fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), item));
-        DisplayNpcQuote(text, true);
-        if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
-            AddNpcTopic(CurrentGame().npc_interaction.dialogue_npc.get(), item->iItemNo);
-        }
-        const auto purchase = CompleteNpcItemPurchase(
-            CurrentGame().npc_interaction.dialogue_npc.get(), index, quantity, true);
-        if (purchase.outcome != W8TradeOutcome::Complete) return false;
-        if (purchase.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-        RebuildNpcTradeItemList(false);
-        return true;
-    }
-    if (result == W8_ITEM_THEFT_FAILED) {
-        text = fmt::sprintf(Data().strings[0x74f], character->name);
-        DisplayNpcQuote(text, false);
-        return false;
-    }
-    if (result == W8_ITEM_THEFT_CAUGHT) {
-        CurrentGame().npc_dialogue.QueueQuote(0x17, false, false, false);
-        SetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc.get(),
-                              W8_NPC_BAND_NEUTRAL);
-        ApplyFactionChange(3, CurrentGame().npc_interaction.dialogue_npc->record->faction, 1, -5);
-        CloseNpcDialogueOptionLayout();
-        ShowNpcDialogueTopicMenu();
-        return false;
-    }
-    return false;
 }
 
 /* Highlight a clicked transcript keyword; clicking it again submits it to
