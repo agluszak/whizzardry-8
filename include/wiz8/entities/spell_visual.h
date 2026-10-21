@@ -2,7 +2,6 @@
 
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
-#include "wiz8/legacy_prop_save_ids.h"
 
 /* The four spell-visual modes double as the four seven-cycle groups of
    g_spell_cycle_names: the value selects which .mls rows a visual loads and
@@ -122,7 +121,6 @@ inline SpellVisual::SpellVisual(const SpellVisual& other, World* owner)
     fixed_transform = other.fixed_transform;
     scale0 = other.scale0;
     location_id = 0;
-    AllocateLegacyPropSaveId();
     visual.rep_active = true;
     visual.current_cycle = other.visual.current_cycle;
     if (visual.current_cycle >= 0 && resources.cycles[visual.current_cycle].animation)

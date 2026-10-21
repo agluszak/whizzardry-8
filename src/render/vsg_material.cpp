@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -11,12 +12,14 @@
 #include <vector>
 
 #include <glm/common.hpp>
+#include <glm/ext/matrix_float3x3.hpp>
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/ext/vector_double2.hpp>
 #include <glm/ext/vector_float2.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
 #include <glm/ext/vector_uint4.hpp>
+#include <glm/matrix.hpp>
 #include <vsg/core/Array.h>
 #include <vsg/core/Array2D.h>
 #include <vsg/core/Data.h>
@@ -43,6 +46,7 @@
 #include <vsg/state/ViewportState.h>
 #include <vulkan/vulkan_core.h>
 
+#include "wiz8/math.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/fog.h"
@@ -86,32 +90,6 @@ std::uint32_t disabledChannels(std::uint32_t shader)
         disabled |= (1u << CHANNEL_ST1) | (1u << CHANNEL_Q1);
     }
     return disabled;
-}
-
-float lightFlags(const Light& light)
-{
-    using enum VertexChannels::e_channel;
-    std::uint32_t flags = light.derived_flags & 0x3fu;
-    if (light.enable_flags & (1u << Light::ENABLE_RANGE_NEAR)) flags |= 1u << 6;
-    if (light.enable_flags & (1u << Light::ENABLE_RANGE_FAR)) flags |= 1u << 7;
-    flags |= (static_cast<std::uint32_t>(light.attenuation_model) & 3u) << 8;
-    if (light.channel_mask & (1u << CHANNEL_LIGHT_AMBIENT)) flags |= 1u << 10;
-    if (light.channel_mask & (1u << CHANNEL_LIGHT_DIFFUSE)) flags |= 1u << 11;
-    if (light.channel_mask & (1u << CHANNEL_SPECULAR)) flags |= 1u << 12;
-    return static_cast<float>(flags);
-}
-
-void packLight(const Light& light, std::span<glm::vec4> out)
-{
-    out[0] = glm::vec4(light.eye_location, lightFlags(light));
-    out[1] = light.scaled_ambient;
-    out[2] = light.scaled_diffuse;
-    out[3] = light.scaled_specular;
-    out[4] = glm::vec4(light.spot_direction_eye, light.spot_cutoff);
-    out[5] = {light.scaled_near_start, light.near_attenuation, light.scaled_far_end,
-              light.far_attenuation};
-    out[6] = glm::vec4(light.opengl_attenuation, light.spot_exponent);
-    out[7] = {std::bit_cast<float>(light.group_mask), 0, 0, 0};
 }
 
 void packMaterial(Material& material, double time, std::span<glm::vec4> out)
@@ -229,7 +207,7 @@ vsg::ref_ptr<vsg::BindGraphicsPipeline> RenderContext::pipeline(std::uint32_t sh
 
 vsg::ref_ptr<vsg::ImageInfo> RenderContext::texture(Texture* source, int reduction)
 {
-    return source ? source->imageInfo(reduction, frame_number) : white;
+    return source ? source->imageInfo(reduction) : white;
 }
 
 vsg::ref_ptr<vsg::BindDescriptorSet> RenderContext::descriptor(std::uint32_t set,
@@ -268,19 +246,19 @@ RenderContext::batchSet(std::uint32_t shader, vsg::ref_ptr<vsg::ImageInfo> image
                 vsg::DescriptorImage::create(detail_image ? detail_image : white, 2)}));
 }
 
-std::vector<glm::vec4> packView(const ScenePass& pass, std::span<const glm::vec4> eye_clip_planes)
+std::vector<glm::vec4> packView(const ScenePass& pass, std::span<const glm::vec4> eye_clip_planes,
+                                std::span<const PreparedLight> lights)
 {
-    const auto fog_base = 3 + pass.lights.size() * light_vectors;
+    const auto fog_base = 3 + lights.size() * light_vectors;
     const auto clip_base = fog_base + pass.fogs.size() * fog_vectors;
     std::vector<glm::vec4> result(clip_base + eye_clip_planes.size());
     result[0] = {pass.depth_cue.minimum, pass.depth_cue.maximum, pass.depth_cue.near_scale,
                  pass.depth_cue.far_scale};
     result[1] = pass.fog_color;
-    result[2] = {static_cast<float>(pass.lights.size()), static_cast<float>(pass.fogs.size()),
+    result[2] = {static_cast<float>(lights.size()), static_cast<float>(pass.fogs.size()),
                  static_cast<float>(eye_clip_planes.size()), static_cast<float>(fog_base)};
-    for (std::size_t light = 0; light < pass.lights.size(); ++light)
-        packLight(*pass.lights[light],
-                  std::span(result).subspan(3 + light * light_vectors, light_vectors));
+    for (std::size_t light = 0; light < lights.size(); ++light)
+        std::ranges::copy(lights[light], result.begin() + 3 + light * light_vectors);
     for (std::size_t layer = 0; layer < pass.fogs.size(); ++layer) {
         const auto& fog = *pass.fogs[layer];
         const float normalization = fog.fog_end == fog.fog_start
@@ -384,18 +362,62 @@ std::uint32_t fadingShader(std::uint32_t shader)
     return (shader & 0xffffd7bfu) | 0x44a0u;
 }
 
-void prepareLightAt(Light& light, const glm::mat4& model_view, float brightness)
+PreparedLight prepareLightAt(const Light& light, const glm::mat4& model_view, float brightness)
 {
-    // beginPass still serves baked-light generation; give the view-owned copy
-    // an identity local transform because graph traversal already composed it.
-    light.transform = {};
-    const auto flags = light.enable_flags;
-    // Graph light collection is conservative; per-object light selection runs
-    // in the shader. Without a projection, beginPass's optional frustum test
-    // would interpret eye positions using an identity projection.
-    light.enable_flags &= ~(1u << Light::ENABLE_BOUNDING_SPHERE);
-    light.beginPass(DrawTransform{.model_view = model_view}, brightness);
-    light.enable_flags = flags;
+    PreparedLight result{};
+    // Low bits match the retail light operations used by the shader.
+    std::uint32_t flags = 1;
+    if (light.enable_flags & (1u << Light::ENABLE_RANGE_NEAR)) flags |= 1u << 6;
+    if (light.enable_flags & (1u << Light::ENABLE_RANGE_FAR)) flags |= 1u << 7;
+    flags |= static_cast<std::uint32_t>(light.attenuation_model) << 8;
+    const std::array colors{light.ambient, light.diffuse, light.specular};
+    bool active = false;
+    for (std::size_t channel = 0; channel < colors.size(); ++channel) {
+        if (colors[channel] == glm::vec3(0)) continue;
+        active = true;
+        flags |= 1u << (10 + channel);
+        result[1 + channel] = glm::vec4(colors[channel] * light.intensity * brightness, 0);
+    }
+    if (!active) flags &= ~1u;
+    glm::vec3 location(model_view[3]);
+    if (light.enable_flags & (1u << Light::ENABLE_DIRECTIONAL)) {
+        flags |= 4;
+        location = normalizedOrZero(-glm::vec3(model_view[2]));
+    } else {
+        if ((light.enable_flags & (1u << Light::ENABLE_SPOT)) && light.spot_angle > 0 &&
+            light.spot_exponent != 0) {
+            flags |= 2;
+            result[4] =
+                glm::vec4(normalizedOrZero(glm::transpose(glm::mat3(glm::inverse(model_view))) *
+                                           light.spot_direction),
+                          std::cos(light.spot_angle));
+        }
+        if (light.attenuation_model == Light::ATTENUATION_OPENGL) {
+            flags |= 8;
+            if (std::abs(light.opengl_attenuation.y) < 5.9604645e-08f &&
+                std::abs(light.opengl_attenuation.z) < 5.9604645e-08f) {
+                if (light.opengl_attenuation.x == 1 ||
+                    std::abs(light.opengl_attenuation.x) < 5.9604645e-08f)
+                    flags &= ~8u;
+                flags |= 16;
+            }
+        } else if (light.attenuation_model == Light::ATTENUATION_3DSTUDIO_MAX) {
+            const float scale = DrawTransform{.model_view = model_view}.maxModelViewScale();
+            result[5] = {float(scale * light.near_start),
+                         light.near_start == light.near_end
+                             ? 1.f
+                             : float(1 / (scale * (light.near_end - light.near_start))),
+                         float(scale * light.far_end),
+                         light.far_start == light.far_end
+                             ? 1.f
+                             : float(1 / (scale * (light.far_end - light.far_start)))};
+            if (light.enable_flags & (1u << Light::ENABLE_RANGE_FAR)) flags |= 32;
+        }
+    }
+    result[0] = glm::vec4(location, float(flags));
+    result[6] = glm::vec4(light.opengl_attenuation, light.spot_exponent);
+    result[7] = {std::bit_cast<float>(light.group_mask), 0, 0, 0};
+    return result;
 }
 
 } // namespace render

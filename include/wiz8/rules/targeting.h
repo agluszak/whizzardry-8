@@ -137,9 +137,8 @@ struct W8ActionDetailBlock {
     W8ItemUse item_use{};
 };
 
-/* The combat actions a party slot row's action and the HUD state's
-   selection_kind carry; SelectCombatAction picks one and ChooseAction applies
-   it. The names are the submenu help captions (string ids 0x52-0x5f): a menu-0
+/* The combat actions a party slot row's action carries; SelectCombatAction
+   picks one and ChooseAction applies it. The names are the submenu help captions (string ids 0x52-0x5f): a menu-0
    entry's caption is the action its row selects. 10 and 11 are the two party
    move kinds, which ApplyPartyCombatAction routes away from the action
    record. */
@@ -180,11 +179,21 @@ struct W8TargetAssessment {
 enum W8TargetingContext : std::uint8_t {
     W8_TARGETING_CONTEXT_OUT_OF_COMBAT = 0,
     W8_TARGETING_CONTEXT_IN_COMBAT = 1,
-    W8_TARGETING_CONTEXT_SHARED = 2,
     W8_TARGETING_CONTEXT_SPELL = 3,
     W8_TARGETING_CONTEXT_ITEM = 4,
     W8_TARGETING_CONTEXT_BREATH = 5,
-    W8_TARGETING_CONTEXT_DIALOGUE = 7,
     W8_TARGETING_CONTEXT_ATTACK = 8 /* fixed basic attack, without a target/detail block */
+};
+
+/* The action a targeting operation reads and aims: one stored on the party slot's row,
+   named by its context, or a picker's draft that the picker passes in and that is
+   edited in place. */
+struct W8EditedAction {
+    W8EditedAction(W8TargetingContext stored) : context(stored) {}
+    explicit W8EditedAction(W8Action& picker_draft) : draft(&picker_draft) {}
+    bool operator==(W8TargetingContext stored) const { return !draft && context == stored; }
+
+    W8TargetingContext context = W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    W8Action* draft = nullptr;
 };
 #endif

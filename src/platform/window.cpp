@@ -11,7 +11,7 @@ SDL_Window* CreateGameWindow(int width, int height, bool fullscreen)
 {
     SDL_Window* window =
         SDL_CreateWindow("Whizzardry 8", std::max(width, 640), std::max(height, 480),
-                         SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
+                         SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!window) return nullptr;
     SDL_SetWindowMinimumSize(window, 640, 480);
     SDL_SetWindowAspectRatio(window, 4.f / 3.f, 4.f / 3.f);

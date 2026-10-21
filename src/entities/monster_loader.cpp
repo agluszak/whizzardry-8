@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
@@ -24,7 +25,6 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
@@ -51,6 +51,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
@@ -63,30 +64,18 @@ static void EnsureMonsterBaseSkin(Monster* monster, std::string_view monster_nam
 {
     if (skins_started) return;
     damage_stage = monster->AddDamageStage(monster_name, 0);
-    std::vector<MeshInstance*> instances;
-    monster->CollectModelInstances(instances);
-    for (MeshInstance* instance : instances) {
-        instance->damage_stage = damage_stage;
-    }
+    monster->visual.damage_stage = damage_stage;
     skins_started = true;
 }
 
-/* Read the text-side monster representation. A named representation is shared
-   by cloning its first live cycle; otherwise the MLS file supplies scalar
-   movement settings, visual flags, sound/shake events, skin stages, lights,
-   and the list of binary .mon cycles. */
-std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view monster_name,
-                                                int load_value, int location_id)
+/* Read a species' text-side representation as its definition: the MLS file
+   supplies scalar movement settings, visual flags, sound/shake events, skin
+   stages, lights, and the list of binary .mon cycles. The definition is never
+   randomized; each actor rolls its own appearance. */
+static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_view monster_name,
+                                                      int load_value, int location_id)
 {
     std::unique_ptr<Monster> monster;
-    Monster* shared = findMonsterAsset(*world, monster_name);
-    if (shared != 0) {
-        monster = std::make_unique<Monster>(*shared, world);
-        monster->RandomizeAppearanceAndMotion();
-        monster->asset_name = monster_name;
-        return monster;
-    }
-
     bool success = true;
     bool flies = false;
     bool swims = false;
@@ -501,9 +490,50 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
         monster->nav.movement.boundary_enabled = false;
     }
 
-    monster->RandomizeAppearanceAndMotion();
     monster->asset_name = monster_name;
     return success ? std::move(monster) : nullptr;
+}
+
+/* Take a loaded definition out of the live world: nothing of it is drawn, lit,
+   baked or collided with. Actors copied from it attach their own lights and
+   particles and register their own navigators. */
+static void WithdrawMonsterDefinition(World& world, Monster& definition)
+{
+    for (auto& cycle : definition.cycles)
+        for (auto& slot : cycle)
+            for (auto& light : slot.lights.lights) light->setScene(nullptr);
+    definition.visual.WithdrawFromScene();
+    if (definition.monster_light) definition.monster_light->setScene(nullptr);
+    std::erase(world.navigators, &definition.nav);
+}
+
+/* A new actor of a species, copied from the species' definition and given its
+   own appearance roll. The definition is loaded on first use and kept for the
+   world's lifetime, so creating an actor never depends on another actor. */
+std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view monster_name,
+                                                int load_value, int location_id)
+{
+    auto& definitions = world->monster_definitions;
+    auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
+        return CompareTextIgnoreAsciiCase(candidate->asset_name, monster_name) == 0;
+    });
+    if (definition == definitions.end()) {
+        auto loaded = LoadMonsterDefinition(world, monster_name, load_value, location_id);
+        if (!loaded) return nullptr;
+        WithdrawMonsterDefinition(*world, *loaded);
+        definitions.push_back(std::move(loaded));
+        definition = definitions.end() - 1;
+    }
+    auto monster = std::make_unique<Monster>(**definition, world);
+    monster->RandomizeAppearanceAndMotion();
+    // Retail gave the MLS script only to an actor created while none of its
+    // species was alive; the others were copied without one.
+    if ((*definition)->script && std::ranges::none_of(world->monsters, [&](const auto& live) {
+            return CompareTextIgnoreAsciiCase(live->asset_name, monster_name) == 0;
+        })) {
+        monster->UseScript((*definition)->script, true);
+    }
+    return monster;
 }
 
 /* Select one of the four directional states without immediately repeating the

@@ -82,6 +82,9 @@ public:
        Code below the step stamps and measures its deadlines on it. Some world code still
        reads the monotonic clock or the shared timers (ROADMAP.md, "One step"). */
     std::chrono::milliseconds time{};
+    // World visual time stops with world advancement and shared timer holds.
+    // UI/cursor presentation continues on its own monotonic clock.
+    std::chrono::milliseconds visual_time{};
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party
        may be ambushed. Declines (returns false) while no member can fight, the party has
