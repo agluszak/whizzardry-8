@@ -52,15 +52,6 @@ int g_event_sight_blocked = kFirstRemappedEvent + 30;
    that shares the domain. Above W8_RANGE_SHORT an attack is out of the
    close-quarters band the melee rule restricts itself to. */
 
-/* Three party positions per formation row, and the row stride of the formation
-   table. */
-enum { W8_FORMATION_ROW_WIDTH = 3 };
-
-/* The formation. Three party positions per row at 0x00687511, and each
-   position's own row number at 0x00687525 with a twelve-byte stride. -1 marks
-   an empty place. Both live inside the block Formation & Facing.cpp saves and
-   restores whole. */
-
 /* Whether the slot has any attack of `category` that reaches a valid target
    in the scanned groups for `hand`; the condition interrupt uses it to tell
    usable attacks from merely reachable ones. `flag` == 1 skips the monster
@@ -709,8 +700,8 @@ bool AnyoneStandsAhead(unsigned char position)
     unsigned int index;
     signed char slot;
 
-    for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = CurrentGame().party.formation.bOccupantChar[position][index];
+    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
+        slot = CurrentGame().party.formation.cells[position][index];
         if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++found;
         }
@@ -725,7 +716,8 @@ bool AnyoneStandsAhead(unsigned char position)
 signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
 {
     unsigned char monster_quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
-    signed char party_quadrant = CurrentGame().party.formation.positions[party_slot].bQuadrant;
+    signed char party_quadrant =
+        static_cast<signed char>(CurrentGame().party.formation.rowOf(party_slot));
     signed char rows = 0;
     unsigned int index;
     signed char slot;
@@ -736,8 +728,8 @@ signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
         return 0;
     }
 
-    for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = CurrentGame().party.formation.bOccupantChar[monster_quadrant][index];
+    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
+        slot = CurrentGame().party.formation.cells[monster_quadrant][index];
         if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++rows;
         }
@@ -763,8 +755,8 @@ signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
     }
 
     found_front = 0;
-    for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = CurrentGame().party.formation.bOccupantChar[4][index];
+    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
+        slot = CurrentGame().party.formation.cells[4][index];
         if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++found_front;
         }
@@ -779,8 +771,10 @@ signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
    two rows apart can be screened, and the fifth row is never in the way. */
 bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
 {
-    unsigned char from_row = CurrentGame().party.formation.positions[from_position].bQuadrant;
-    unsigned char to_row = CurrentGame().party.formation.positions[to_position].bQuadrant;
+    unsigned char from_row =
+        static_cast<unsigned char>(CurrentGame().party.formation.rowOf(from_position));
+    unsigned char to_row =
+        static_cast<unsigned char>(CurrentGame().party.formation.rowOf(to_position));
     int rows_apart;
     int found;
     unsigned int index;
@@ -801,8 +795,8 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
     }
 
     found = 0;
-    for (index = 0; index < W8_FORMATION_ROW_WIDTH; ++index) {
-        slot = CurrentGame().party.formation.bOccupantChar[4][index];
+    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
+        slot = CurrentGame().party.formation.cells[4][index];
         if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
             ++found;
         }

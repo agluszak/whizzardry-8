@@ -42,19 +42,21 @@ void HandleGameEvent(const SDL_Event& event)
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         if (restore_pending) {
-            if (!g_video_inspector_enabled) {
-                RestoreVideoManager();
-            }
             MoveTimer(W8_MOVE_TIMER_RESUME_MAIN_GAME);
             restore_pending = false;
         }
         gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!g_video_inspector_enabled) SuspendVideoManager();
-        MoveTimer(W8_MOVE_TIMER_SUSPEND);
+        if (!restore_pending) MoveTimer(W8_MOVE_TIMER_SUSPEND);
         gfApplicationActive = false;
         restore_pending = true;
+        break;
+    case SDL_EVENT_WINDOW_MINIMIZED:
+        if (!g_video_inspector_enabled) SuspendVideoManager();
+        break;
+    case SDL_EVENT_WINDOW_RESTORED:
+        if (!g_video_inspector_enabled) RestoreVideoManager();
         break;
     }
 }

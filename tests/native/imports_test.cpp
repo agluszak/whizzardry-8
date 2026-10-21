@@ -117,11 +117,6 @@ TEST_CASE("imports_test")
         const auto after = copy.getViewPlane();
         REQUIRE((before.rectangle.left == after.rectangle.left &&
                  before.rectangle.top == after.rectangle.top && before.distance == after.distance));
-        const auto normalized = copy.getNormalizedViewPlane();
-        REQUIRE((normalized.left == after.rectangle.left / after.distance &&
-                 normalized.bottom == after.rectangle.bottom / after.distance &&
-                 normalized.right == after.rectangle.right / after.distance &&
-                 normalized.top == after.rectangle.top / after.distance));
         copy.setClipRange(1000, 10);
         const auto [near_clip, far_clip] = copy.getClipRange();
         REQUIRE((near_clip == 10 && far_clip == 1000));

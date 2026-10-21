@@ -21,8 +21,6 @@ private:
     int DrawLine(SDL_Surface& target, std::string_view line, int prefix_remaining, int y,
                  bool selected);
     friend class W8DialogTextArea;
-    /* The controller reads m_category when it snapshots the transcript. */
-    friend class W8NpcDialogueTextController;
     unsigned int m_prefix_palette;
     unsigned int m_text_palette;
     int m_prefix_length; /* includes ": " */

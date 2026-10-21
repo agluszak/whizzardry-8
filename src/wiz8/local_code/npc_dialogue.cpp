@@ -182,7 +182,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                     QueueQuoteEntry(script_line, entry_index, 0, false);
                     break;
                 case W8_NPC_ENTRY_MONSTER_SCRIPT_LABEL:
-                    monster = GetNpcMonster(session_.npc);
+                    monster = GetNpcMonster(session_.npc.get());
                     if (monster != 0 && entry->operand2 != 4 &&
                         !monster->SetScriptLabel(entry->sub_entries[0].text.c_str())) {
                         std::string script_error;
@@ -429,7 +429,7 @@ void W8NpcDialogue::Answer(const ScriptContext& context, std::string_view text)
             } else {
                 SpendPartyGold(context.party, check.price);
                 if (check.tells_fact) {
-                    TellNpcFact(check.npc, check.quote_index);
+                    TellNpcFact(check.npc.get(), check.quote_index);
                 }
                 Speak(context, check.quote_index, false);
             }
@@ -450,7 +450,7 @@ void W8NpcDialogue::ReplyDialogOpened(std::optional<W8NpcPriceCheck> price_check
 {
     reply_ = W8NpcReplyState::dialog_open;
     if (price_check) {
-        price_check_ = price_check;
+        price_check_ = std::move(price_check);
     }
 }
 

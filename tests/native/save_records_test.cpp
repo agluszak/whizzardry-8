@@ -671,12 +671,6 @@ static void graphical_object_ownership_contracts()
              copy.visual.sound_events.front().sound_handle == nullptr));
     original.visual.sound_events.clear();
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
-    Missile missile;
-    auto* ai = &missile.flight_ai.emplace();
-    ai->speed_per_step = 5;
-    Missile missile_copy(missile);
-    auto* cloned = &*missile_copy.flight_ai;
-    REQUIRE((cloned != ai && cloned->speed_per_step == 5 && cloned->missile == &missile_copy));
 }
 
 static void script_record_contracts()
@@ -1425,7 +1419,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
         ReleaseNpcBinding(3); // one past the end is not a live binding
         auto* kept = GetNpcState(1);
-        auto* retired = CurrentGame().story.npcs[0].get();
+        // Work still holding a released NPC shares it; reusing its slot leaves it intact.
+        const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
         auto* replacement = CreateNpcRuntimeNode(0);

@@ -138,6 +138,8 @@ public:
     };
     // Stable slots keep the light-vector addresses borrowed by CyclePlayer valid.
     std::array<std::deque<CycleSlot>, W8_MONSTER_CYCLE_COUNT> cycles;
+    // Skin tables every model instance of this species carries, base included.
+    int damage_stage_count = 0;
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     std::string name;
@@ -215,9 +217,6 @@ public:
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
     void CollectModelInstances(std::vector<MeshInstance*>& instances);
-    void RefreshModelLightScale();
-    void SetDamageStage(int stage);
-    int GetDamageStageCount();
     bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
     int AddDamageStage(std::string_view base_name, int stage);
     void RandomizeAppearanceAndMotion();
