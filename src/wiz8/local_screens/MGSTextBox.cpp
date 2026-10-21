@@ -389,7 +389,7 @@ void ScrollDialogueTextBoxToLine(void)
         return;
     }
     if (CurrentGame().activity.conversation) {
-        offset = CurrentGame().npc_interaction.text_box_collapsed ? 1 : 7;
+        offset = MainGame()->dialogue.text_box_collapsed ? 1 : 7;
     } else {
         offset = !gpSCSV && !ItemUseDraft() && !CurrentGame().activity.conversation_aside ? 1 : 7;
     }
@@ -500,7 +500,7 @@ int GetTextBoxVisibleLineCount(void)
 {
     bool dialogue = CurrentGame().activity.conversation;
     if (dialogue) {
-        if (CurrentGame().npc_interaction.text_box_collapsed) {
+        if (MainGame()->dialogue.text_box_collapsed) {
             return 1;
         }
     }
@@ -552,10 +552,9 @@ void AdvanceNoticeLine(short text_box)
     record->clock = MonotonicMilliseconds() + (delay);
     unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
     if (MainGameHud()->text_scroll_drag_idle) {
-        if (CurrentGame().activity.conversation &&
-            CurrentGame().npc_interaction.text_box_collapsed) {
+        if (CurrentGame().activity.conversation && MainGame()->dialogue.text_box_collapsed) {
             ScrollTextBoxTo(shown);
-            CurrentGame().npc_interaction.text_box_collapsed = false;
+            MainGame()->dialogue.text_box_collapsed = false;
         } else if (!gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
                    !CurrentGame().activity.conversation_aside) {
             if (CurrentGame().combat.has_value() && CurrentGame().combat->notice_scroll_pending) {
