@@ -102,6 +102,9 @@ public:
     float diffuse_scale;
     float emissive_override;
     float frame_interpolation;
+    /* The head mesh's polygons that the world's view update leaves visible.
+       Without a selection every polygon is drawn. */
+    std::optional<std::vector<std::uint32_t>> visible_polygons;
 
 public:
     std::string name = "anonymous";

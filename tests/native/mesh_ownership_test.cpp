@@ -32,7 +32,7 @@ static bool lazyTables()
     Mesh empty;
     REQUIRE((empty.getPolyVertex() == nullptr && empty.getVertexLoc() == nullptr));
     REQUIRE((empty.getVertexNormal() == nullptr && empty.getPolyEq() == nullptr));
-    REQUIRE((empty.getActivePolygonTable(1) == nullptr && empty.getVertexShadeIndex(1) == nullptr));
+    REQUIRE(empty.getVertexShadeIndex(1) == nullptr);
     REQUIRE(empty.getPolyUVIndex(0, 1) == nullptr);
     REQUIRE(empty.getVertexTexCoords(0, 0, 1) == nullptr);
     REQUIRE((empty.getVertexDCG(0, 1) == nullptr && empty.getVertexSCG(0, 1) == nullptr));
@@ -42,7 +42,7 @@ static bool lazyTables()
     Mesh mesh(2, 3);
     REQUIRE((mesh.poly_vertices.empty() && mesh.vertex_locations.empty() &&
              mesh.vertex_normals.empty()));
-    REQUIRE((mesh.poly_equations.empty() && mesh.active_polygons.empty()));
+    REQUIRE(mesh.poly_equations.empty());
     for (int pass = 0; pass < Mesh::MAX_PASSES; ++pass) {
         REQUIRE(mesh.getPolyUVIndex(pass, 0) == nullptr);
         REQUIRE(mesh.getVertexDCG(pass, 0) == nullptr);
@@ -67,9 +67,6 @@ static bool lazyTables()
     REQUIRE((uv_indices != corners && uv_indices[0].x == 0 && uv_indices[0].y == 1 &&
              uv_indices[0].z == 2));
     REQUIRE(mesh.getPolyUVIndex(0, 0) == nullptr);
-    auto* active = mesh.getActivePolygonTable(1);
-    REQUIRE((active[0] == 0 && active[1] == 1));
-    mesh.setActivePolygonCount(1);
     for (int index = 0; index < 3; ++index) {
         const auto& dcg = mesh.getVertexDCG(0, 1)[index];
         const auto& scg = mesh.getVertexSCG(0, 1)[index];
@@ -131,14 +128,12 @@ static bool reset()
         mesh.reset(2, 4);
         REQUIRE(
             (mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2));
-        REQUIRE(mesh.getActivePolygonCount() == 2);
         REQUIRE(mesh.getMaterial(0, Mesh::SIDE_FRONT) == material.get());
         REQUIRE(mesh.getTexture(0, 0) == texture.get());
         REQUIRE((mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0));
         REQUIRE((mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0));
         REQUIRE(mesh.getVertexMaterialTable(1, Mesh::SIDE_BACK, false) == nullptr);
-        REQUIRE((mesh.getPolygonTextureTable(1, 0, false) == nullptr &&
-                 mesh.getActivePolygonTable(0) == nullptr));
+        REQUIRE(mesh.getPolygonTextureTable(1, 0, false) == nullptr);
         REQUIRE(mesh.getVertexLoc()[1] == glm::vec3(0, 0, 0));
     }
     REQUIRE((material.use_count() == 1 && texture.use_count() == 1));

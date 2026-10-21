@@ -110,8 +110,6 @@ public:
     void setShader(DrawShader shader, std::int32_t pass);
     void setUVCount(std::int32_t count);
     std::int32_t getUVCount() const;
-    void setActivePolygonCount(std::int32_t count);
-    std::int32_t getActivePolygonCount();
     std::int32_t getPolygonCount() const;
     std::int32_t getVertexCount() const;
     void enable(e_control control);
@@ -121,7 +119,6 @@ public:
         setDirty(DIRTY_POLYGON_NORMALS);
         setDirty(DIRTY_VERTEX_NORMALS);
     }
-    std::uint32_t* getActivePolygonTable(int table);
     glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
@@ -150,8 +147,6 @@ public:
     std::vector<glm::vec3> vertex_locations;
     std::vector<glm::vec3> vertex_normals;
     std::vector<std::uint32_t> vertex_shade_indices;
-    std::vector<std::uint32_t> active_polygons;
-    std::int32_t active_polygon_count = 0;
     glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};

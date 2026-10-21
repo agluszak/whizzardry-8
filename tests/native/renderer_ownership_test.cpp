@@ -148,14 +148,15 @@ TEST_CASE("Static instances share ordinary position and normal arrays", "[render
     REQUIRE(first.asset == second.asset);
     REQUIRE(first.passes[0].positions == second.passes[0].positions);
     REQUIRE(first.passes[0].normals == second.passes[0].normals);
+    // A view's polygon selection belongs to the pose, not the shared mesh.
     const auto asset = first.asset;
-    mesh.getActivePolygonTable(1);
-    mesh.setActivePolygonCount(0);
-    first.update(mesh, 0, 0);
+    const std::vector<std::uint32_t> none, all{0};
+    first.update(mesh, 0, 0, -1, true, none);
+    second.update(mesh, 0, 0);
     REQUIRE(first.asset == asset);
     REQUIRE(first.passes[0].draws[0]->indexCount == 0);
-    mesh.setActivePolygonCount(1);
-    first.update(mesh, 0, 0);
+    REQUIRE(second.passes[0].draws[0]->indexCount == 3);
+    first.update(mesh, 0, 0, -1, true, all);
     REQUIRE(first.asset == asset);
     REQUIRE(first.passes[0].draws[0]->indexCount == 3);
 }

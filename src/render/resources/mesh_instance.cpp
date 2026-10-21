@@ -382,15 +382,22 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     ensureParts();
     for (const auto& part : parts)
         if (part->mesh == &mesh) {
-            const int skin = instance->damage_stage >= 0
-                                 ? instance->damage_stage_tables.at(instance->damage_stage)
-                                 : -1;
-            part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
-                              skin);
+            updatePose(*part, true);
             if (index < part->pose.positions.size()) return part->pose.positions[index];
             break;
         }
     return {};
+}
+
+void InstanceNode::updatePose(Part& part, bool check_blanking)
+{
+    const int skin =
+        instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
+    Mesh::PolygonSelection visible;
+    if (&part == parts.front().get() && instance->visible_polygons)
+        visible = std::span<const std::uint32_t>(*instance->visible_polygons);
+    part.pose.update(*part.mesh, instance->frame_index, instance->frame_interpolation, skin,
+                     check_blanking, visible);
 }
 
 namespace {
@@ -474,8 +481,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         auto& mesh = *part->mesh;
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
-        part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
-                          !static_geometry);
+        updatePose(*part, !static_geometry);
         auto& pose = part->pose;
         const auto& asset = *pose.asset;
         auto instance_block = packInstance(*instance, mesh, pass);

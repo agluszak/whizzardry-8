@@ -249,7 +249,7 @@ void MeshPose::makeDraws()
 }
 
 void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
-                      bool check_blanking)
+                      bool check_blanking, Mesh::PolygonSelection visible)
 {
     mesh.applyPendingLighting();
     if (const auto current = mesh.renderAsset(); current != asset) {
@@ -291,7 +291,7 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
         sampled_frame_ = frame;
         sampled_interpolation_ = interpolation;
     }
-    selectPolygons(mesh, skin, check_blanking);
+    selectPolygons(mesh, skin, check_blanking, visible);
     for (auto& pass : passes)
         if (pass.authored_normals)
             for (std::size_t triangle = 0; triangle < pass.source_polygons.size(); ++triangle)
@@ -299,14 +299,11 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
                     toVsg(polygon_normals[pass.source_polygons[triangle]]);
 }
 
-void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
+void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking,
+                              Mesh::PolygonSelection visible)
 {
     const auto polygon_count = static_cast<std::size_t>(mesh.polygon_count);
-    Mesh::PolygonSelection selection;
-    if (const auto* active = mesh.getActivePolygonTable(0))
-        selection = std::span<const std::uint32_t>(active, mesh.getActivePolygonCount());
-    else
-        selection = mesh.GetActivePolygons(skin, check_blanking);
+    const auto selection = visible ? visible : mesh.GetActivePolygons(skin, check_blanking);
     std::vector<std::uint32_t> selected;
     if (selection)
         selected.assign(selection->begin(), selection->end());

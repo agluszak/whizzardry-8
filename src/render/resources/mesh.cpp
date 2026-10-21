@@ -97,17 +97,6 @@ void Mesh::enable(e_control control)
     }
 }
 
-std::int32_t Mesh::getActivePolygonCount()
-{
-    return active_polygon_count;
-}
-
-void Mesh::setActivePolygonCount(std::int32_t count)
-{
-    // Visibility selects existing triangles; it never changes render topology.
-    active_polygon_count = count;
-}
-
 void Mesh::setUVCount(std::int32_t count)
 {
     if (count < vertex_location_count) {
@@ -174,17 +163,6 @@ glm::vec4* Mesh::getPolyEq()
         calculatePolygonNormals();
     }
     return poly_equations.data();
-}
-
-std::uint32_t* Mesh::getActivePolygonTable(int table)
-{
-    if (active_polygons.empty() && table != 0 && polygon_count != 0) {
-        active_polygons.resize(polygon_count);
-        for (std::int32_t index = 0; index < polygon_count; ++index) {
-            active_polygons[index] = index;
-        }
-    }
-    return active_polygons.empty() ? nullptr : active_polygons.data();
 }
 
 glm::ivec3* Mesh::getPolyVertex()
@@ -285,7 +263,6 @@ void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
     /* Reset really discards table storage and its references; pass-wide material/texture/shader
        state survives. Default destruction needs no model reset or client callbacks.
        This includes the former freeAll path at SURRENDER 0x1003DEA0. */
-    active_polygons = std::vector<std::uint32_t>{};
     poly_vertices = std::vector<glm::ivec3>{};
     poly_equations = std::vector<glm::vec4>{};
     vertex_locations = std::vector<glm::vec3>{};
@@ -304,7 +281,6 @@ void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
     vertex_location_count = vertices;
     uv_count = vertices;
     polygon_count = polygons;
-    active_polygon_count = polygons;
     pass_count = 1;
     render_control = 0;
     render_control |= 1UL << CONTROL_FRONT;

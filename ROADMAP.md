@@ -384,6 +384,14 @@ Substantial but contained work.
   them. Load-time skin and glow setup still walks them through `CollectModelInstances`.
   Make the alternatives shared asset data that the actor's single visual root selects
   from.
+- **Mesh asset leftovers.** (#481.) Baked vertex lighting still accumulates into the
+  shared `Mesh::vertex_lights`, and the last instance prepared sets the shared
+  ambient in the asset's colours; move ambient into the instance block so
+  instances of one mesh light independently. `Mesh` keeps unused multi-pass and
+  back-side generality (`MAX_PASSES`, `pass_count`, `dcg`/`scg`, `CONTROL_BACK`,
+  `CONTROL_REUSE_FRONT_MATERIAL`, `CONTROL_NO_FRONT_CULL`) that only tests
+  exercise. `W8_MESH_SORTED_RENDERING` duplicates `CONTROL_SORTED_RENDERING`,
+  except that posters set only the control bit; merging them changes behaviour.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

@@ -80,6 +80,7 @@ public:
 private:
     void ensureParts();
     struct Part;
+    void updatePose(Part& part, bool check_blanking);
     std::vector<std::unique_ptr<Part>> parts;
     vsg::ref_ptr<vsg::Switch> geometry;
     vsg::ref_ptr<vsg::PipelineLayout> prepared_layout;
