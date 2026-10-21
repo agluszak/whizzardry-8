@@ -28,7 +28,7 @@ namespace wiz8 {
 class File;
 }
 
-// Trigger events own both timers; the active queue borrows event pointers.
+// The world owns timed actions and their timers.
 class TriggerEvent {
 public:
     TriggerEvent();
@@ -147,7 +147,7 @@ public:
     using ActivationCallback = std::function<bool(Trigger* trigger)>;
 
     explicit Trigger(World* world = nullptr);
-    ~Trigger();
+    ~Trigger() = default;
 
     W8DoorTriggerActionData* doorData()
     {
@@ -255,7 +255,6 @@ public:
     int required_item_id;
     std::vector<std::string> required_states;
     std::string state_to_modify;
-    std::unique_ptr<TriggerEvent> m_pEvent;
     char inline_action_data[0x100];
     std::unique_ptr<W8WorldItem> world_item_group;
     unsigned char items_generated;

@@ -269,24 +269,36 @@ void UpdateWorldTriggers(World* world)
     }
 }
 
+TriggerEvent* World::findTimedAction(const Trigger* trigger) const
+{
+    for (const auto& action : timed_events)
+        if (action->trigger == trigger && !action->completed) return action.get();
+    return nullptr;
+}
+
+TriggerEvent& World::addTimedAction(Trigger* trigger)
+{
+    if (auto* previous = findTimedAction(trigger)) previous->completed = true;
+    auto action = std::make_unique<TriggerEvent>();
+    action->trigger = trigger;
+    auto& result = *action;
+    timed_events.push_back(std::move(action));
+    return result;
+}
+
 void UpdateTimedTriggerEvents(void)
 {
     for (auto* world : {GetSecondaryWorld(), GetWorld()}) {
         if (!world) continue;
         auto& events = world->timed_events;
+        // Re-read size: actions appended by this step run in this step, in order.
         for (std::size_t index = 0; index < events.size();) {
-            auto* event = events[index];
+            auto* event = events[index].get();
             event->Update();
-            if (!event->completed) {
-                ++index;
-                continue;
-            }
-            events.erase(events.begin() + index);
-            if (event->trigger)
-                event->trigger->m_pEvent.reset();
+            if (event->completed)
+                events.erase(events.begin() + index);
             else
-                std::erase_if(world->standalone_trigger_events,
-                              [event](const auto& owner) { return owner.get() == event; });
+                ++index;
         }
     }
 }
@@ -330,6 +342,7 @@ void Trigger::CompleteItemInteraction()
 
 void Trigger::Activate()
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     if (const auto* door = doorData();
         door &&
         (lock_state.lock_type == LockType::none || lock_state.device_state.completed != 0) &&
@@ -339,8 +352,8 @@ void Trigger::Activate()
             Run(-1);
             running = false;
         } else {
-            TriggerEvent* event = m_pEvent.get();
-            if (event != 0 && std::ranges::contains(m_pWorld->timed_events, event)) {
+            TriggerEvent* event = timed_action;
+            if (event != nullptr) {
                 event->timer.Restart();
                 if (event->m_pCountdown.has_value()) {
                     event->m_pCountdown->Restart();
@@ -684,6 +697,7 @@ void Trigger::UpdateActionAnimation()
 
 void Trigger::FinishAction()
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
     bool action_completed = false;
 
@@ -693,8 +707,8 @@ void Trigger::FinishAction()
         if (action != 0x39) {
             goto reactivate_linked_triggers;
         }
-        if (m_pEvent != 0) {
-            m_pEvent->completed = true;
+        if (timed_action != 0) {
+            timed_action->completed = true;
         }
         g_trigger_action_active = false;
         goto finish_linked_triggers;
@@ -706,21 +720,22 @@ void Trigger::FinishAction()
 
     switch (action) {
     case 0x0c:
-        if (m_pEvent != 0 && m_lData2 > 0) {
-            m_pEvent->completed = true;
+        if (timed_action != 0 && m_lData2 > 0) {
+            timed_action->completed = true;
         }
         action_completed = true;
         break;
 
     case 0x23: {
-        wiz8::erase_first(m_pWorld->timed_events, m_pEvent.get());
+        // Action 0x23 is reconstructed with its 0.5-second period on reactivation.
+        if (timed_action) timed_action->completed = true;
         action_completed = true;
         break;
     }
 
     case 0x39:
-        if (m_pEvent != 0) {
-            m_pEvent->completed = true;
+        if (timed_action != 0) {
+            timed_action->completed = true;
         }
         g_trigger_action_active = false;
         action_completed = true;
@@ -1007,6 +1022,7 @@ void WakeMonsterGroup(int monster_id)
 
 void Trigger::Run(int source)
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     ActivationCallback callback = activation_callback;
     bool apply_state_changes = true;
     bool action_succeeded = false;
@@ -1113,19 +1129,16 @@ void Trigger::Run(int source)
         }
 
         case 0x23:
-            if (m_pEvent == 0) {
-                m_pEvent = std::make_unique<TriggerEvent>();
-                m_pEvent->trigger = this;
-                m_pEvent->action = static_cast<short>(action);
-                m_pEvent->timer.SetDuration(0.5f);
-            } else {
-                assert(!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()));
+            if (timed_action == 0) {
+                timed_action = &m_pWorld->addTimedAction(this);
+                timed_action->action = static_cast<short>(action);
+                timed_action->timer.SetDuration(0.5f);
             }
-            m_pEvent->timer.Restart();
-            if (m_pEvent->m_pCountdown.has_value()) {
-                m_pEvent->m_pCountdown->Restart();
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown.has_value()) {
+                timed_action->m_pCountdown->Restart();
             }
-            m_pWorld->timed_events.push_back(m_pEvent.get());
+
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -1168,22 +1181,20 @@ void Trigger::Run(int source)
             }
 
             if (m_lData1 != 0) {
-                if (m_pEvent != 0 &&
-                    std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                    m_pEvent->timer.Restart();
-                    if (m_pEvent->m_pCountdown.has_value()) {
-                        m_pEvent->m_pCountdown->Restart();
+                if (timed_action != nullptr) {
+                    timed_action->timer.Restart();
+                    if (timed_action->m_pCountdown.has_value()) {
+                        timed_action->m_pCountdown->Restart();
                     }
                     goto commit_action;
                 }
 
-                m_pEvent = std::make_unique<TriggerEvent>();
-                m_pEvent->trigger = this;
-                m_pEvent->action = 2;
-                m_pEvent->timer.SetDuration(m_lData1 < 0 ? 10.0f : static_cast<float>(m_lData1));
-                m_pEvent->timer.Restart();
-                m_pEvent->repeat = true;
-                m_pWorld->timed_events.push_back(m_pEvent.get());
+                timed_action = &m_pWorld->addTimedAction(this);
+                timed_action->action = 2;
+                timed_action->timer.SetDuration(m_lData1 < 0 ? 10.0f
+                                                             : static_cast<float>(m_lData1));
+                timed_action->timer.Restart();
+                timed_action->repeat = true;
             }
             goto commit_action;
         }
@@ -1546,9 +1557,9 @@ void Trigger::Run(int source)
         TriggerEvent* event;
 
         party_position = cameraLocation();
-        if (m_pEvent == 0) {
-            m_pEvent = std::make_unique<TriggerEvent>();
-            event = m_pEvent.get();
+        if (timed_action == 0) {
+            timed_action = &m_pWorld->addTimedAction(this);
+            event = timed_action;
             if (!event->shake) event->shake.emplace();
             event->trigger = this;
             event->action = static_cast<short>(action);
@@ -1565,7 +1576,7 @@ void Trigger::Run(int source)
                 }
             }
         } else {
-            event = m_pEvent.get();
+            event = timed_action;
             if (!event->shake) event->shake.emplace();
             event->timer.Restart();
             if (event->m_pCountdown.has_value()) {
@@ -1574,7 +1585,7 @@ void Trigger::Run(int source)
         }
 
         if ((flags & W8_TRIGGER_RUNNING) == 0) {
-            m_pWorld->timed_events.push_back(m_pEvent.get());
+
             if (trigger_kind == W8TriggerKind::prop) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
@@ -1656,14 +1667,13 @@ void Trigger::Run(int source)
             }
         } else {
             --uses_remaining;
-            if (m_lData2 > 0 && m_pEvent == 0) {
-                m_pEvent = std::make_unique<TriggerEvent>();
-                m_pEvent->action = static_cast<short>(action);
-                m_pEvent->timer.SetDuration(m_lData2 * 720.0f);
-                m_pEvent->timer.Restart();
-                m_pEvent->trigger = this;
-                m_pEvent->timer.SetMode(W8_TIMER_CLOCK_GAME);
-                m_pWorld->timed_events.push_back(m_pEvent.get());
+            if (m_lData2 > 0 && timed_action == 0) {
+                timed_action = &m_pWorld->addTimedAction(this);
+                timed_action->action = static_cast<short>(action);
+                timed_action->timer.SetDuration(m_lData2 * 720.0f);
+                timed_action->timer.Restart();
+
+                timed_action->timer.SetMode(W8_TIMER_CLOCK_GAME);
             }
         }
         if (trigger_kind == W8TriggerKind::prop) {
@@ -1695,19 +1705,18 @@ void Trigger::Run(int source)
             transformed = rotation * target_position;
             FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
                         1, 50000.0f);
-        } else if (m_pEvent == 0) {
+        } else if (timed_action == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
             if (m_lData2 > 0 && trigger_kind != W8TriggerKind::prop)
                 throw std::runtime_error(
                     fmt::format("trigger {}: continuous missiles need an invisible trigger", name));
-            m_pEvent = std::make_unique<TriggerEvent>();
-            m_pEvent->action = static_cast<short>(action);
-            m_pEvent->timer.SetDuration(duration);
-            m_pEvent->timer.Restart();
-            m_pEvent->trigger = this;
+            timed_action = &m_pWorld->addTimedAction(this);
+            timed_action->action = static_cast<short>(action);
+            timed_action->timer.SetDuration(duration);
+            timed_action->timer.Restart();
+
             flags |= W8_TRIGGER_RUNNING;
-            m_pWorld->timed_events.push_back(m_pEvent.get());
         }
         break;
 
@@ -1726,21 +1735,20 @@ void Trigger::Run(int source)
         break;
 
     case 0x3f:
-        if (m_pEvent == 0) {
-            m_pEvent = std::make_unique<TriggerEvent>();
-            m_pEvent->action = static_cast<short>(action);
-            m_pEvent->timer.SetDuration(m_lData1 * 0.001f);
-            m_pEvent->timer.Restart();
-            m_pEvent->trigger = this;
-            m_pEvent->repeat = true;
+        if (timed_action == 0) {
+            timed_action = &m_pWorld->addTimedAction(this);
+            timed_action->action = static_cast<short>(action);
+            timed_action->timer.SetDuration(m_lData1 * 0.001f);
+            timed_action->timer.Restart();
+
+            timed_action->repeat = true;
         } else {
-            assert(!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()));
-            m_pEvent->timer.Restart();
-            if (m_pEvent->m_pCountdown.has_value()) {
-                m_pEvent->m_pCountdown->Restart();
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown.has_value()) {
+                timed_action->m_pCountdown->Restart();
             }
         }
-        m_pWorld->timed_events.push_back(m_pEvent.get());
+
         if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
@@ -1819,7 +1827,7 @@ void Trigger::Run(int source)
 
     case 0x47: {
 
-        if (recipients.empty() || m_pEvent != 0) {
+        if (recipients.empty() || timed_action != 0) {
             return;
         }
         action_succeeded = false;
@@ -1835,14 +1843,12 @@ void Trigger::Run(int source)
             return;
         }
 
-        m_pEvent = std::make_unique<TriggerEvent>();
-        m_pWorld->timed_events.push_back(m_pEvent.get());
-        m_pEvent->trigger = this;
-        m_pEvent->action = static_cast<short>(action);
-        m_pEvent->m_pCountdown.emplace();
-        m_pEvent->m_pCountdown->SetDuration(m_lData1 == -1 ? 10.0f : m_lData1 * 0.001f);
-        m_pEvent->m_pCountdown->Restart();
-        m_pEvent->repeat = true;
+        timed_action = &m_pWorld->addTimedAction(this);
+        timed_action->action = static_cast<short>(action);
+        timed_action->m_pCountdown.emplace();
+        timed_action->m_pCountdown->SetDuration(m_lData1 == -1 ? 10.0f : m_lData1 * 0.001f);
+        timed_action->m_pCountdown->Restart();
+        timed_action->repeat = true;
         break;
     }
 
@@ -1919,6 +1925,7 @@ bool Trigger::CanRunLinkedTriggers()
 
 bool Trigger::SelectAction()
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     bool fallback_selected = false;
     bool result = true;
 
@@ -1976,12 +1983,12 @@ bool Trigger::SelectAction()
         }
 
         if (linked_trigger_blocked) {
-            if (m_pEvent == 0 || !std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
+            if (timed_action == nullptr) {
                 return false;
             }
-            m_pEvent->timer.Restart();
-            if (m_pEvent->m_pCountdown.has_value()) {
-                m_pEvent->m_pCountdown->Restart();
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown.has_value()) {
+                timed_action->m_pCountdown->Restart();
             }
             if (!running) {
                 g_trigger_feedback = true;
@@ -2049,11 +2056,6 @@ bool Trigger::SelectAction()
         return false;
     }
     return result;
-}
-
-Trigger::~Trigger()
-{
-    if (m_pEvent && m_pWorld) wiz8::erase_first(m_pWorld->timed_events, m_pEvent.get());
 }
 
 Light* FindLightByName(std::string_view name)
