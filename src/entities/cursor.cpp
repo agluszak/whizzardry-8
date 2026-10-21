@@ -184,7 +184,6 @@ void ReleaseWorldCursor(void)
 void ApplyWorldCursorInput(void)
 {
     glm::mat3 rotation;
-    glm::dvec3 node_location;
     glm::vec3 camera;
     glm::vec3 delta;
     glm::vec3 lifted;
@@ -218,13 +217,10 @@ void ApplyWorldCursorInput(void)
                         ? delta
                         : glm::normalize(delta) * static_cast<float>(cursor.range);
         }
-        rotation = GetWorld()->camera->transform.getRotation<glm::mat3>();
+        rotation = cameraRotation(*GetWorld());
         cursor.cam_rel_offset += delta;
         cursor.position = rotation * (cursor.cam_rel_offset);
-        node_location = GetWorld()->camera->transform.getLocation();
-        glm::vec3 scene_location;
-        scene_location = glm::vec3(node_location);
-        cursor.position += scene_location;
+        cursor.position += cameraLocation();
         if (cursor.track_ground) {
             if (cursor.position.y < saved_y) {
                 cursor.position.y = saved_y;

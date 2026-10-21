@@ -266,27 +266,29 @@ static void camera_and_throw()
     camera.m_position = glm::vec3(3, 4, 5);
     camera.m_yaw = .25f;
     camera.m_pitch = -.5f;
+    // A world's pose is its party's, with or without a render camera; the render camera
+    // never contributes to it.
     World world{};
+    placeParty(world, {1.25f, -2.5f, 3.75f});
     world.party_camera.SetOrientation(.25f, -.5f);
-    const auto empty_location = cameraLocationOrZero(world);
-    const auto empty_state = cameraState(world);
+    const auto location = cameraLocation(world);
+    const auto state = partyPose(world);
+    const auto rotation = cameraRotation(world);
     Camera3D node;
-    node.transform.setLocation(1.25, -2.5, 3.75);
+    node.transform.setLocation(7, 8, 9);
     world.camera = &node;
     const auto live_location = cameraLocation();
-    const auto node_location = cameraLocation(world);
-    const auto state = cameraState(world);
-    const auto rotation = cameraRotation(world);
+    const auto with_node = partyPose(world);
     partyCamera() = previous_camera;
-    REQUIRE(empty_location == glm::vec3(0));
-    REQUIRE(empty_state.position == glm::vec3(0, 0, 0));
     REQUIRE(live_location == glm::vec3(3, 4, 5));
-    REQUIRE(node_location == glm::vec3(1.25f, -2.5f, 3.75f));
-    REQUIRE(state.position == node_location);
+    REQUIRE(location == glm::vec3(1.25f, -2.5f, 3.75f));
+    REQUIRE(state.position == location);
+    REQUIRE(with_node == state);
     REQUIRE((state.orientation.yaw == .25f && state.orientation.pitch == -.5f));
     REQUIRE(state.retail.yaw == wiz8::retail::CameraPoseOpaque{}.yaw);
     REQUIRE(state.retail.pitch == wiz8::retail::CameraPoseOpaque{}.pitch);
-    REQUIRE(rotation == glm::mat3(1));
+    REQUIRE(rotation == world.party_camera.rotationMatrix());
+    REQUIRE(rotation != glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     glm::vec3 forward;
     camera.GetForwardPoint(10, &forward);
@@ -1916,17 +1918,15 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
 TEST_CASE("octree camera snapshots use native basis columns and plane coefficients", "[geometry]")
 {
     Camera3D camera;
-    camera.transform.setLocation(glm::dvec3(3, -7, 11));
     const auto rotation = glm::mat3(glm::rotate(glm::mat4(1), .6f, glm::vec3(0, 1, 0)));
-    camera.transform.setRotation(rotation);
     camera.setFOV(1.2, 1.5);
     W8OctreeView view;
     view.far_clip = 123;
-    view.captureCamera(camera);
+    view.captureView({3, -7, 11}, rotation, camera);
     REQUIRE(view.camera_location == glm::vec3(3, -7, 11));
     REQUIRE(view.rotation_column0 == rotation[0]);
     REQUIRE(view.rotation_column1 == rotation[1]);
-    REQUIRE(view.camera_dof == glm::vec3(camera.transform.forward()));
+    REQUIRE(view.camera_dof == rotation[2]);
     REQUIRE(view.horizontal_fov == static_cast<float>(camera.getHorizontalFOV()));
     REQUIRE(view.vertical_fov == static_cast<float>(camera.getVerticalFOV()));
     REQUIRE(view.horizontal_fov_cosine == static_cast<float>(std::cos(view.horizontal_fov)));
@@ -2133,19 +2133,22 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     GameTimeAccumulator().m_flags.paused = true;
     PartyCamera controller;
     controller.motion_started = true;
+    controller.SetOrientation(.4f, .1f);
+    controller.m_position = {1, 2, 3};
+    const auto before = controller.rotationMatrix();
     g_level_motion_resume_pending = false;
-    const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
-    const auto orientation = controller.cameraRotation(W8_CAMERA_MOTION_TURN_LEFT, basis);
-    REQUIRE(orientation.rotation == basis);
-    REQUIRE(orientation.movement_basis == basis);
-    const auto motion = controller.cameraMotion(data, W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis);
+    // Held time leaves the orientation alone and hands movement the whole rotation.
+    const auto basis = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    REQUIRE(basis == before);
+    REQUIRE(controller.rotationMatrix() == before);
+    const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
+    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
     g_level_motion_resume_pending = true;
     GameTimeAccumulator().m_flags.raw_time = true;
-    REQUIRE(
-        controller.cameraMotion(data, W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
-        glm::vec3(0));
+    REQUIRE(controller.move(data, W8_CAMERA_MOTION_FORWARD, basis).displacement == glm::vec3(0));
+    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
 }
 
 TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",

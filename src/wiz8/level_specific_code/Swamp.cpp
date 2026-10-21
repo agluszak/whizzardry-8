@@ -122,7 +122,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
         gasFireSpawn(pTrigger);
         return false;
     }
-    position = glm::vec3(world().camera->transform.getLocation());
+    position = cameraLocation(world());
     PointCastSpell(position, spell_id, 4);
     return true;
 }

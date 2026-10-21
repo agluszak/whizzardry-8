@@ -99,11 +99,11 @@ glm::vec3 LevelSpatialIndex::pathSurfaceNormal(const glm::vec3& position) const
 
 static const float NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE = 50.0f;
 
-void W8OctreeView::captureCamera(const Camera3D& camera)
+void W8OctreeView::captureView(const glm::vec3& location, const glm::mat3& rotation,
+                               const Camera3D& camera)
 {
-    camera_location = glm::vec3(camera.transform.getLocation());
-    camera_dof = glm::vec3(camera.transform.forward());
-    const auto rotation = camera.transform.getRotation<glm::mat3>();
+    camera_location = location;
+    camera_dof = rotation[2];
     rotation_column0 = rotation[0];
     rotation_column1 = rotation[1];
     horizontal_fov = static_cast<float>(camera.getHorizontalFOV());
@@ -129,7 +129,7 @@ void LevelSpatialIndex::UpdateCameraVisibility()
     }
 
     registry.view.far_clip = static_cast<float>(WorldGetFarClip(world));
-    registry.view.captureCamera(*world->camera);
+    registry.view.captureView(cameraLocation(*world), cameraRotation(*world), *world->camera);
     std::ranges::fill(registry.projected_regions, false);
     UpdateVisibility();
 }

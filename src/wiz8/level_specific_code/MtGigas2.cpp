@@ -323,7 +323,7 @@ bool MtGigas2Script::umpaniAlarm(int command)
         if (alarm_gate_ || alarm_sound_ != 0) {
             return false;
         }
-        position = glm::vec3(world().camera->transform.getLocation());
+        position = cameraLocation(world());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

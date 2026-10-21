@@ -216,7 +216,7 @@ void AscensionScript::avalanche(bool command)
         glm::vec3 position;
         glm::vec3 trigger_position;
 
-        position = glm::vec3(world().camera->transform.getLocation());
+        position = cameraLocation(world());
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
         if (glm::length((position - trigger_position)) < 2500.0) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);

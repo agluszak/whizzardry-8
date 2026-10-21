@@ -61,6 +61,8 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -482,9 +484,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
     prepared_pose.orientation = {0.5f, 0.2f};
     prepared_pose.retail.yaw.fill(std::byte{0x7b});
     prepared_pose.retail.pitch.fill(std::byte{0x45});
-    SetWorldCameraState(&replacement, &prepared_pose);
+    restorePartyPose(replacement, prepared_pose);
     REQUIRE(replacement.party_camera.m_position == prepared_pose.position);
-    const auto snapshot = cameraState(replacement);
+    const auto snapshot = partyPose(replacement);
     REQUIRE(snapshot.orientation.yaw == 0.5f);
     REQUIRE(snapshot.retail.yaw == prepared_pose.retail.yaw);
     REQUIRE(snapshot.retail.pitch == prepared_pose.retail.pitch);
@@ -688,4 +690,54 @@ TEST_CASE("Collecting monster models preserves the selected playback cycle",
     monster.visual.SetSubCycle(3);
     REQUIRE(monster.visual.subcycle == 3);
     REQUIRE(monster.visual.frameCount() == 4);
+}
+
+TEST_CASE("Rendering derives the views from the party and changes nothing it reads",
+          "[resources][camera]")
+{
+    ScopedGame game;
+    World& world = PublishEmptyWorld(game.game);
+    world.camera = &world.scene->camera;
+    Light light(nullptr);
+    world.camera_light = &light;
+    World sky;
+    sky.camera = &sky.scene->camera;
+    placeParty(world, {10, 20, 30});
+    world.party_camera.SetOrientation(.5f, -.25f);
+    world.camera->setViewPlane(1.0, 0.75);
+    const auto pose = partyPose(world);
+    const glm::vec3 shake{1, 2, 3};
+    // Two shaken frames, as an extra render or a second view would place.
+    for (int frame = 0; frame < 2; ++frame) {
+        placeWorldCameras(world, &sky, shake);
+        REQUIRE(world.camera->transform.getLocation() == glm::dvec3(11, 22, 33));
+        REQUIRE(light.transform.getLocation() == glm::dvec3(11, 22, 33));
+        REQUIRE(world.camera->transform.getRotation<glm::mat3>() ==
+                world.party_camera.rotationMatrix());
+        REQUIRE(sky.camera->transform.getLocation() == glm::dvec3(0));
+        REQUIRE(sky.camera->transform.getRotation<glm::mat3>() ==
+                world.party_camera.rotationMatrix());
+        REQUIRE(sky.camera->getViewPlane().rectangle.right ==
+                world.camera->getViewPlane().rectangle.right);
+        REQUIRE(sky.camera->getViewPlane().rectangle.top ==
+                world.camera->getViewPlane().rectangle.top);
+        REQUIRE(partyPose(world) == pose);
+        REQUIRE(cameraLocation() == glm::vec3(10, 20, 30));
+    }
+    placeWorldCameras(world, nullptr, {});
+    REQUIRE(world.camera->transform.getLocation() == glm::dvec3(10, 20, 30));
+    world.camera_light = nullptr;
+}
+
+TEST_CASE("The party navigator stands the world height below the eye",
+          "[resources][camera][navigation]")
+{
+    PartyCamera camera;
+    camera.m_position = {100, 200, 300};
+    camera.SetOrientation(.5f, -.25f);
+    Navigator navigator;
+    mirrorPartyNavigator(navigator, camera);
+    REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
+    REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));
+    REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
 }

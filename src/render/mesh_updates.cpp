@@ -127,10 +127,10 @@ std::vector<glm::ivec2> visibleQuadCells(const World& world)
 {
     const MeshVisibilityGrid& quad = *world.quads;
     const float cell_size = quad.cell_size;
-    const glm::ivec2 camera_cell(
-        static_cast<int>((world.camera->transform.getLocationX() - quad.origin.x) / cell_size),
-        static_cast<int>((world.camera->transform.getLocationZ() - quad.origin.y) / cell_size));
-    const auto rotation = world.camera->transform.getRotation<glm::mat3>();
+    const glm::vec3 eye = cameraLocation(world);
+    const glm::ivec2 camera_cell(static_cast<int>((eye.x - quad.origin.x) / cell_size),
+                                 static_cast<int>((eye.z - quad.origin.y) / cell_size));
+    const auto rotation = cameraRotation(world);
     const auto edge = [&](float angle) {
         const auto direction = rotation *
                                glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0))) *

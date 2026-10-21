@@ -2464,11 +2464,7 @@ void MainGameScreen::frame()
     }
     if (!IsScreenTransitionPending()) {
 
-        UpdateWorldCameraAndPaths(GetWorld(), MainGameHud()->camera_motion_flags);
-        if (GetSecondaryWorld() && !g_camera_path_active) {
-            UpdateWorldCameraAndPaths(GetSecondaryWorld(),
-                                      MainGameHud()->camera_motion_flags | W8_CAMERA_MOTION_SKIP);
-        }
+        updatePartyMovement(*GetWorld(), MainGameHud()->camera_motion_flags);
 
         ApplyWorldUpdateFlags(GetWorld(), MainGameHud()->world_update_flags);
         if (GetSecondaryWorld() &&
@@ -3854,7 +3850,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             question = fmt::format("Enter test level {:c} ?", normalized + 2);
         }
         if (QueueNpcDepartureEvents(normalized)) {
-            WorldSetCameraLocation(&g_trigger_camera);
+            placeParty(*GetWorld(), g_trigger_camera);
             return;
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
@@ -3865,7 +3861,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             if (accepted) {
                 BeginLevelTransition(level_id, entry);
             } else {
-                WorldSetCameraLocation(&g_trigger_camera);
+                placeParty(*GetWorld(), g_trigger_camera);
             }
         };
         OpenModal(std::unique_ptr<ModalContent>(dialog));

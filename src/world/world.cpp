@@ -46,10 +46,12 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_system.h"
+#include "wiz8/render/transform.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
@@ -161,95 +163,85 @@ World::World(int level_id, std::string path)
 
 World::~World() = default;
 
-/* Per-frame camera / camera-path update for one world. Main-game frames the
-   primary world, then the sky world with flag 0x40 so the motion pass is
-   skipped there. Each controller owns its refresh position and rotation. */
-void UpdateWorldCameraAndPaths(World* world, unsigned int flags)
+/* The party navigator is the party's collision and pathing proxy: it mirrors the party's
+   pose at navigation height. Retail handed it the camera's angles in degrees, and nothing
+   reads them back as radians. */
+void mirrorPartyNavigator(Navigator& navigator, const PartyCamera& camera)
 {
-    glm::vec3 camera_position;
-    glm::vec3 navigator_position;
-    glm::dvec3 render_position;
-    glm::mat3 path_rotation;
-    W8CameraPath* camera_path;
-    KeyframeTrack* path;
-    float yaw;
-    float pitch;
-    int camera_count;
-    int index;
+    navigator.SetAngles(glm::degrees(camera.m_yaw));
+    navigator.SetPitch(glm::degrees(camera.m_pitch));
+    const glm::vec3 position = navigationPosition(camera.m_position);
+    navigator.SetPositionInternal(&position);
+}
+
+/* The navigator follows only the active world's party; an unpublished world's party
+   moves nothing. */
+static void syncPartyNavigator(const World& world)
+{
+    if (&world != GetWorld()) return;
+    if (auto* navigator = PartyNavigator()) mirrorPartyNavigator(*navigator, world.party_camera);
+}
+
+/* One frame of party movement in the primary world: the turn and look input, the motion
+   against the collision index, the automap's visited cells and the camera paths. The
+   rendered views derive from the result (`placeWorldCameras`); nothing here writes them. */
+void updatePartyMovement(World& world, unsigned int flags)
+{
+    auto& party = world.party_camera;
 
     RefreshDirtyAutomap();
-    camera_position = cameraLocation();
-    if (world->collisionIndex() != 0) {
-        world->party_camera.motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
-        if ((flags & W8_CAMERA_MOTION_SKIP) == 0) {
-            const auto orientation = world->party_camera.cameraRotation(
-                flags, world->camera->transform.getRotation<glm::mat3>());
-            world->camera->transform.setRotation(orientation.rotation);
-            world->party_camera.saved_render_rotation = orientation.rotation;
-            yaw = GetCameraYawInDegrees();
-            pitch = GetCameraPitchInDegrees();
-            PartyNavigator()->SetAngles(yaw);
-            PartyNavigator()->SetPitch(pitch);
-            const auto motion = world->party_camera.cameraMotion(
-                *world->collisionIndex(), flags, camera_position, orientation.movement_basis);
-            if (motion.moved) {
-                camera_position += motion.displacement;
-                navigator_position =
-                    glm::vec3(camera_position.x, camera_position.y - g_default_world_height,
-                              camera_position.z);
-                if (world->camera_light != 0) {
-                    render_position = glm::dvec3(camera_position);
-                    world->camera_light->transform.setLocation(render_position);
-                }
-                render_position = glm::dvec3(camera_position);
-                world->camera->transform.setLocation(render_position);
-                PartyNavigator()->SetPositionInternal(&navigator_position);
-                const auto refresh_offset =
-                    camera_position - world->party_camera.last_automap_refresh_position;
-                if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
-                    world->party_camera.last_automap_refresh_position = camera_position;
-                    camera_position.y -= g_default_world_height;
-                    const glm::vec3 automap_position = camera_position;
-                    if (AutomapHasCellAt(&automap_position)) UpdateAutomapBounds();
-                }
-                DispatchWorldCursorNodeCommand(0, 0, 0);
+    if (auto* collision = world.collisionIndex()) {
+        party.motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
+        const glm::mat3 movement_basis = party.turn(flags);
+        const auto motion = party.move(*collision, flags, movement_basis);
+        // A camera path flies the eye without moving the party.
+        if (!g_camera_path_active) syncPartyNavigator(world);
+        if (motion.moved) {
+            const auto refresh_offset = party.m_position - party.last_automap_refresh_position;
+            if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
+                party.last_automap_refresh_position = party.m_position;
+                const glm::vec3 automap_position = navigationPosition(party.m_position);
+                if (AutomapHasCellAt(&automap_position)) UpdateAutomapBounds();
             }
-        } else {
-            world->camera->transform.setRotation(world->party_camera.saved_render_rotation);
+            DispatchWorldCursorNodeCommand(0, 0, 0);
         }
-    } else {
-        world->camera->transform.setRotation(world->party_camera.saved_render_rotation);
     }
-    world->party_camera.applySway(*world->camera, CameraSwayMode::Reset);
-    camera_count = static_cast<int>(world->plsCameras.size());
-    if (camera_count != 0) {
-        for (index = 0; index < camera_count; ++index) {
-            camera_path = GetWorldCameraPath(world, index);
-            if (camera_path != 0 && camera_path->active) {
-                path = (camera_path->path ? &*camera_path->path : nullptr);
-                PathAITick(path, 1);
-                (world->camera)->transform =
-                    sampleKeyframeTrack(*(path), (world->camera)->transform);
-                {
-                    glm::dvec3 location = world->camera->transform.getLocation();
-                    glm::vec3 party_point;
-                    party_point = glm::vec3(location);
-                    world->party_camera.m_position = party_point;
-                }
-                path_rotation = world->camera->transform.getRotation<glm::mat3>();
-                if (GetSecondaryWorld() != 0 && GetSecondaryWorld()->camera != 0) {
-                    GetSecondaryWorld()->camera->transform.setRotation(path_rotation);
-                }
-                ApplyCameraRotation(&path_rotation);
-                if (path->discrete_mode != 0) {
-                    if (path->position >= static_cast<int>(path->nodes.size()) - 1.0f) {
-                        UpdateCameraPathState(world, camera_path, 0);
-                    }
-                } else if (path->position >= 1.0) {
-                    UpdateCameraPathState(world, camera_path, 0);
-                }
+    party.applySway(*world.camera, CameraSwayMode::Reset);
+    for (const auto& camera_path : world.plsCameras) {
+        if (!camera_path->active) continue;
+        KeyframeTrack* path = camera_path->path ? &*camera_path->path : nullptr;
+        PathAITick(path, 1);
+        Transform3D pose;
+        pose.setLocation(glm::dvec3(party.m_position));
+        pose.setRotation(party.rotationMatrix());
+        pose = sampleKeyframeTrack(*path, pose);
+        party.m_position = glm::vec3(pose.getLocation());
+        glm::mat3 rotation = pose.getRotation<glm::mat3>();
+        ApplyCameraRotation(&rotation);
+        if (path->discrete_mode != 0) {
+            if (path->position >= static_cast<int>(path->nodes.size()) - 1.0f) {
+                UpdateCameraPathState(&world, camera_path.get(), 0);
             }
+        } else if (path->position >= 1.0) {
+            UpdateCameraPathState(&world, camera_path.get(), 0);
         }
+    }
+}
+
+void placeWorldCameras(World& world, World* sky, const glm::vec3& view_offset)
+{
+    if (!world.camera) return;
+    const auto& party = world.party_camera;
+    const glm::dvec3 eye(party.m_position + view_offset);
+    const glm::mat3 rotation = party.rotationMatrix();
+    world.camera->transform.setLocation(eye);
+    world.camera->transform.setRotation(rotation);
+    if (world.camera_light) world.camera_light->transform.setLocation(eye);
+    if (sky && sky->camera) {
+        // The sky stays at its origin, turning and swaying with the party's view.
+        sky->camera->transform.setRotation(rotation);
+        const auto [view_plane, distance] = world.camera->getViewPlane();
+        sky->camera->setViewPlane(view_plane, distance);
     }
 }
 
@@ -273,36 +265,6 @@ ParticleSystem* FindParticleByName(std::string_view name)
     return 0;
 }
 
-/* Read the camera position when one is attached to the world. The sole
-   caller preserves this value across a level reload, so a world without a
-   camera contributes the zero position. */
-glm::vec3 cameraLocationOrZero(const World& world)
-{
-    return world.camera ? cameraLocation(world) : glm::vec3(0);
-}
-
-/* Set the view position after loading or traversing a portal. The camera light
-   follows the camera, while only the camera move publishes the new game-space
-   position. */
-void SetWorldScenePosition(World* world, const glm::vec3* location)
-{
-    glm::vec3 position;
-    glm::dvec3 render_position;
-
-    assert(world);
-
-    position = *location;
-    if (world->camera != 0) {
-        render_position = glm::dvec3(position);
-        world->camera->transform.setLocation(render_position);
-        world->party_camera.m_position = position;
-    }
-    if (world->camera_light != 0) {
-        render_position = glm::dvec3(position);
-        world->camera_light->transform.setLocation(render_position);
-    }
-}
-
 void RefreshWorldView()
 {
     auto* world = GetWorld();
@@ -315,88 +277,36 @@ void RefreshWorldView()
     RequestRefreshPartyState();
 }
 
-/* The camera's rotation basis, read straight back out of the renderer node.
-   Both assertions belong to this body: 3dapi.cpp:975 names the world and
-   3dapi.cpp:976 names its camera member pWorld->psrCamera, which is what puts
-   the camera at 0x44 rather than anywhere else. */
 glm::mat3 cameraRotation(const World& world)
 {
-    assert(world.camera);
-    return world.camera->transform.getRotation<glm::mat3>();
+    return world.party_camera.rotationMatrix();
 }
 
-/* Moves the camera and its camera light together. Only the camera's move
-   notifies the level; the light simply follows the view. */
-void WorldSetCameraLocation(const glm::vec3* location)
-{
-    glm::dvec3 position;
-
-    assert(GetWorld());
-    if (GetWorld()->camera != 0) {
-        position = glm::dvec3((*location));
-        GetWorld()->camera->transform.setLocation(position);
-        PlacePartyAtPoint(location);
-    }
-    if (GetWorld()->camera_light != 0) {
-        position = glm::dvec3((*location));
-        GetWorld()->camera_light->transform.setLocation(position);
-    }
-}
-
-/* Restore the owning world's camera, light and orientation, retaining the
-   opaque retail fields for its next save snapshot. */
-void SetWorldCameraState(World* world, CameraPose* state)
-{
-    assert(world != nullptr);
-    assert(state != nullptr);
-    assert(world->camera != nullptr);
-
-    glm::vec3 location = state->position;
-    world->camera->transform.setLocation(glm::dvec3(location));
-    world->party_camera.m_position = location;
-    world->party_camera.saved_pose_bytes = state->retail;
-    if (world->camera_light != nullptr) {
-        world->camera_light->transform.setLocation(glm::dvec3(location));
-    }
-
-    world->party_camera.SetYaw(state->orientation.yaw);
-    world->party_camera.SetPitch(state->orientation.pitch);
-    state->orientation = {world->party_camera.m_yaw, world->party_camera.m_pitch};
-    world->camera->transform.setRotation(world->party_camera.rotationMatrix());
-    world->party_camera.saved_render_rotation = world->party_camera.rotationMatrix();
-}
-
-/* Reinstall a CamPos record, then copy the resulting camera pose onto the
-   startup navigator in degrees with the default world height removed. */
-void RestoreWorldCameraState(CameraPose* state)
-{
-    glm::vec3 navigator_position;
-
-    assert(GetWorld() != nullptr);
-    SetWorldCameraState(GetWorld(), state);
-    navigator_position = glm::vec3(GetWorld()->camera->transform.getLocation());
-    PartyNavigator()->SetAngles(GetCameraYawInDegrees());
-    PartyNavigator()->SetPitch(GetCameraPitchInDegrees());
-    navigator_position.y -= g_default_world_height;
-    PartyNavigator()->SetPositionInternal(&navigator_position);
-}
-
-/* Snapshot the world's camera location and the live yaw/pitch into a CamPos
-   record. A world without a camera contributes the zero position. */
-CameraPose cameraState(const World& world)
-{
-    CameraPose state{};
-    state.position = cameraLocationOrZero(world);
-    state.orientation = {world.party_camera.m_yaw, world.party_camera.m_pitch};
-    state.retail = world.party_camera.saved_pose_bytes;
-    return state;
-}
-
-/* Read the camera node's double-precision renderer position back into the
-   world's float position type. */
 glm::vec3 cameraLocation(const World& world)
 {
-    return glm::vec3(world.camera->transform.getLocation());
+    return world.party_camera.m_position;
+}
+
+CameraPose partyPose(const World& world)
+{
+    const auto& camera = world.party_camera;
+    return {camera.m_position, {camera.m_yaw, camera.m_pitch}, camera.saved_pose_bytes};
+}
+
+void placeParty(World& world, const glm::vec3& position)
+{
+    world.party_camera.m_position = position;
+    syncPartyNavigator(world);
+}
+
+void restorePartyPose(World& world, const CameraPose& pose)
+{
+    auto& camera = world.party_camera;
+    camera.m_position = pose.position;
+    camera.SetYaw(pose.orientation.yaw);
+    camera.SetPitch(pose.orientation.pitch);
+    camera.saved_pose_bytes = pose.retail;
+    syncPartyNavigator(world);
 }
 
 /* Runtime/debug adjustment dispatcher for the active world's clipping and

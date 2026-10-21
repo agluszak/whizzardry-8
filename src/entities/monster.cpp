@@ -1637,9 +1637,7 @@ void Monster::SetCycle(signed char cycle)
     visual.frame_method = animation->frame_method;
 
     {
-        glm::dvec3 camera_location = owner_world->camera->transform.getLocation();
-        glm::vec3 listener;
-        listener = glm::vec3(camera_location);
+        const glm::vec3 listener = cameraLocation(*owner_world);
         visual.SelectLOD(&listener);
     }
 
@@ -2654,8 +2652,7 @@ void Monster::RefreshStandingHeight()
     signed char previous_cycle = representation->visual.current_cycle;
     SetCycle(1);
     visual.SetSubCycle(0);
-    glm::vec3 camera_location;
-    camera_location = glm::vec3(owner_world->camera->transform.getLocation());
+    const glm::vec3 camera_location = cameraLocation(*owner_world);
     visual.SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;

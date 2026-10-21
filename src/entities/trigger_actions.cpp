@@ -97,9 +97,6 @@ static std::string NextTriggerRecipient(const char*& cursor)
     return name;
 }
 
-bool g_trigger_action_active;
-glm::vec3 g_trigger_action_scene_offset;
-
 bool g_trigger_feedback = true;
 
 int g_container_event_alt = kFirstRemappedEvent + 13;
@@ -707,7 +704,7 @@ void Trigger::FinishAction()
         if (m_pEvent != 0) {
             m_pEvent->completed = true;
         }
-        g_trigger_action_active = false;
+        g_camera_shake_active = false;
         goto finish_linked_triggers;
     }
 
@@ -733,7 +730,7 @@ void Trigger::FinishAction()
         if (m_pEvent != 0) {
             m_pEvent->completed = true;
         }
-        g_trigger_action_active = false;
+        g_camera_shake_active = false;
         action_completed = true;
         break;
     }
@@ -924,7 +921,7 @@ void Trigger::RunDestination(std::string_view destination)
         destination_direction = target->direction;
     }
 
-    SetWorldScenePosition(GetWorld(), &destination_position);
+    placeParty(*GetWorld(), destination_position);
 
     rotation = glm::mat3(1);
     if (angle != 0.0f) {
@@ -1653,7 +1650,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;
-                glm::dvec3 position = GetWorld()->camera->transform.getLocation();
+                const glm::vec3 position = cameraLocation();
 
                 if (action == 0x28) {
                     spell_id = W8_SPELL_HEX;
@@ -1664,7 +1661,7 @@ void Trigger::Run(int source)
                 } else {
                     spell_id = W8_SPELL_HEAL_ALL;
                 }
-                CurrentGame().castTriggerSpell(glm::vec3(position), spell_id,
+                CurrentGame().castTriggerSpell(position, spell_id,
                                                static_cast<unsigned int>(m_lData3));
             }
         }

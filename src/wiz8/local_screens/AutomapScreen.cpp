@@ -1792,9 +1792,9 @@ bool HandleAutomapKey(const InputEvent* input)
     case SDLK_F1:
         if (g_dev_mode) {
             /* Developer: move the party to the map position. */
-            auto pose = cameraState(*GetWorld());
+            auto pose = partyPose(*GetWorld());
             pose.position = g_automap_position;
-            RestoreWorldCameraState(&pose);
+            restorePartyPose(*GetWorld(), pose);
             ResetCurrentEnvironment();
             ResetCurrentEnvironment();
             goto drop_tool;

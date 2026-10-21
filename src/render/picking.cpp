@@ -54,9 +54,7 @@ float MonsterDistanceToCamera(Monster* monster)
     if (!bounds) {
         return -1.0f;
     }
-    glm::dvec3 camera = GetWorld()->camera->transform.getLocation();
-    glm::vec3 camera_location;
-    camera_location = glm::vec3(camera);
+    const glm::vec3 camera_location = cameraLocation();
     glm::vec3 center = monster->visual.location;
     center.z += (bounds->maximum.z - bounds->minimum.z) * 0.5f;
     return glm::length((camera_location - center));
@@ -68,9 +66,7 @@ float MonsterDistanceToCamera(Monster* monster)
 float ItemDistanceToCamera(WorldItemEntity* item)
 {
     const auto bounds = item->GetCachedLocalBounds();
-    glm::dvec3 camera = GetWorld()->camera->transform.getLocation();
-    glm::vec3 camera_location;
-    camera_location = glm::vec3(camera);
+    const glm::vec3 camera_location = cameraLocation();
     glm::vec3 center = item->location;
     center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
     return glm::length((camera_location - center));

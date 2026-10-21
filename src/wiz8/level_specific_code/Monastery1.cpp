@@ -127,7 +127,7 @@ bool Monastery1Script::coffinlidg(Trigger* trigger)
 {
     glm::vec3 position;
 
-    position = glm::vec3(world().camera->transform.getLocation());
+    position = cameraLocation(world());
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
     return true;
 }

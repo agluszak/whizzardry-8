@@ -311,7 +311,7 @@ try {
         success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
                               static_cast<std::size_t>(sizeof(stored_position)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->camera->transform.setLocation(glm::dvec3(position));
+        pWorld->party_camera.m_position = position;
     } else if (camera_mode == 2) {
         success = success &&
                   (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
@@ -325,7 +325,7 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->camera->transform.setLocation(glm::dvec3(position));
+        pWorld->party_camera.m_position = position;
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
@@ -333,7 +333,6 @@ try {
                                                       normalizedOrZero(glm::vec3(axis))));
         }
         pWorld->initial_camera_rotation = rotation;
-        pWorld->camera->transform.setRotation(glm::dmat3(rotation));
     }
 
     // Absent tables keep the default ramps the world was constructed with.
@@ -600,7 +599,7 @@ try {
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
         auto* monster = monster_info->p3D;
-        const glm::vec3 camera_position(world->camera->transform.getLocation());
+        const glm::vec3 camera_position = cameraLocation(*world);
         monster->visual.SelectLOD(&camera_position);
         monster->nav.SetPathAI(std::move(path));
         if (has_options) {

@@ -53,6 +53,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/platform/window.h"
 #include "wiz8/render/camera.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
@@ -425,8 +426,6 @@ void RenderFrame(void)
         return;
     }
     glm::vec3 clear_color(0);
-    glm::vec3 saved_world_position;
-    glm::vec3 shifted_world_position;
     std::uint64_t now;
     float elapsed;
     float frames_per_second;
@@ -435,10 +434,9 @@ void RenderFrame(void)
         return;
     }
 
-    if (g_trigger_action_active && GetWorld() != 0) {
-        saved_world_position = cameraLocation();
-        shifted_world_position = saved_world_position + g_trigger_action_scene_offset;
-        SetWorldScenePosition(GetWorld(), &shifted_world_position);
+    if (auto* world = GetWorld()) {
+        placeWorldCameras(*world, GetSecondaryWorld(),
+                          g_camera_shake_active ? g_camera_shake_offset : glm::vec3(0));
     }
     if (GetWorld() != 0) {
         if (!IsSkyEnabled()) {
@@ -510,10 +508,6 @@ void RenderFrame(void)
         g_fps_frame_count = 0;
     }
     g_frames_per_second = frames_per_second;
-
-    if (g_trigger_action_active && GetWorld() != 0) {
-        SetWorldScenePosition(GetWorld(), &saved_world_position);
-    }
 }
 
 /* Finish an offscreen frame and copy its image into a caller-owned surface. */
@@ -540,6 +534,8 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
         GetWorldLightValue(GetWorld(), &clear_color);
     g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
     const DesignRect bounds = rect ? *rect : g_viewport;
+    // A steady view of the party's pose; the frame's shake belongs to the presented frame.
+    placeWorldCameras(*GetWorld(), GetSecondaryWorld(), glm::vec3(0));
     if (g_render_mesh_sky && GetSecondaryWorld())
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &bounds, true);
     RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &bounds, true);

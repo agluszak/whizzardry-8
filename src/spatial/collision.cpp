@@ -1522,19 +1522,9 @@ float MoveTimer(W8MoveTimerAction action)
     return GameTimeAccumulator().GetFrameDelta();
 }
 
-float GetCameraYawInDegrees()
-{
-    return partyCamera().m_yaw * kCameraRadiansToDegrees;
-}
-
 float GetCameraYawRadians()
 {
     return partyCamera().m_yaw;
-}
-
-float GetCameraPitchInDegrees()
-{
-    return partyCamera().m_pitch * kCameraRadiansToDegrees;
 }
 
 void BeginManualCameraControl()
@@ -1629,12 +1619,6 @@ bool hasCameraLineOfSight(const glm::vec3& position)
         return spatial->hasLineOfSight(cameraLocation(), position);
     }
     return true;
-}
-
-// The origin is a valid camera position, not an absent-position sentinel.
-void PlacePartyAtPoint(const glm::vec3* point)
-{
-    partyCamera().m_position = *point;
 }
 
 void UpdateLevelMovementAudio(void)

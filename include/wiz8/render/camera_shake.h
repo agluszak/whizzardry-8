@@ -47,4 +47,8 @@ private:
 };
 
 ShakeSystem& CameraShakes();
+/* The frame's shake: an offset the prepared views apply to the eye. It never moves the
+   party. */
+extern bool g_camera_shake_active;
+extern glm::vec3 g_camera_shake_offset;
 void UpdateShakeEffects();

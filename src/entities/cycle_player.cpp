@@ -177,6 +177,9 @@ static void TriggerShakeEvents(std::deque<ShakeDefinition>& events, int cycle, u
     }
 }
 
+bool g_camera_shake_active;
+glm::vec3 g_camera_shake_offset;
+
 void UpdateShakeEffects()
 {
     if (!g_camera_shake_enabled) {
@@ -186,12 +189,12 @@ void UpdateShakeEffects()
     if (intensity > 0.0f) {
         const float amplitude = std::min(intensity, 1.0f) * 2.5e+02f;
         const int span = static_cast<int>(amplitude) << 1;
-        g_trigger_action_scene_offset.x = PresentationRng().below(span) - amplitude;
-        g_trigger_action_scene_offset.y = PresentationRng().below(span) - amplitude;
-        g_trigger_action_scene_offset.z = PresentationRng().below(span) - amplitude;
-        g_trigger_action_active = true;
+        g_camera_shake_offset.x = PresentationRng().below(span) - amplitude;
+        g_camera_shake_offset.y = PresentationRng().below(span) - amplitude;
+        g_camera_shake_offset.z = PresentationRng().below(span) - amplitude;
+        g_camera_shake_active = true;
     } else {
-        g_trigger_action_active = false;
+        g_camera_shake_active = false;
     }
 }
 

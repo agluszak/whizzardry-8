@@ -100,6 +100,11 @@ PartyCamera& partyCamera()
     return startup_camera;
 }
 
+glm::vec3 navigationPosition(const glm::vec3& eye)
+{
+    return {eye.x, eye.y - g_default_world_height, eye.z};
+}
+
 void GetCameraForwardPoint(float distance, glm::vec3* output)
 {
     partyCamera().GetForwardPoint(distance, output);
@@ -135,8 +140,6 @@ PartyCamera::PartyCamera()
     m_yaw_distance = 0.0f;
     m_pitch_distance = 0.0f;
     m_transition_duration = 0.0f;
-
-    m_rotation = m_yaw_rotation * m_pitch_rotation;
 }
 
 /* Creates the game camera when a parent is supplied, otherwise installs or
@@ -492,13 +495,6 @@ void PartyCamera::SetOrientation(float angle, float pitch)
 {
     SetYaw(angle);
     SetPitch(pitch);
-    m_rotation = m_yaw_rotation * m_pitch_rotation;
-}
-
-glm::mat3 PartyCamera::rotationMatrix()
-{
-    m_rotation = m_yaw_rotation * m_pitch_rotation;
-    return m_rotation;
 }
 
 void PartyCamera::BeginLeveling()
@@ -509,7 +505,6 @@ void PartyCamera::BeginLeveling()
 
 void PartyCamera::GetForwardPoint(float distance, glm::vec3* output)
 {
-    m_rotation = m_yaw_rotation * m_pitch_rotation;
     m_direction = m_rotation[2];
     *output = m_position + m_direction * distance;
 }
@@ -526,25 +521,25 @@ void PartyCamera::SetManualControlActive(bool enabled)
     m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
 }
 
-CameraRotation PartyCamera::cameraRotation(unsigned int flags, const glm::mat3& rotation)
+glm::mat3 PartyCamera::turn(unsigned int flags)
 {
-    CameraRotation result{rotation, rotation};
     float pitch_input;
     float yaw_input;
     W8GameTimer::Flags timer_flags;
 
+    // Held time leaves the orientation alone, and movement takes the whole rotation.
     timer_flags = GameTimeAccumulator().m_flags;
     if (timer_flags.paused) {
-        return result;
+        return m_rotation;
     }
     if (g_shared_timer_paused && !timer_flags.raw_time) {
-        return result;
+        return m_rotation;
     }
     if (g_shared_timer_flag0) {
-        return result;
+        return m_rotation;
     }
     if (timer_flags.slow_scale) {
-        return result;
+        return m_rotation;
     }
 
     if ((this->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
@@ -585,11 +580,7 @@ CameraRotation PartyCamera::cameraRotation(unsigned int flags, const glm::mat3& 
     this->ApplyPitchInput(pitch_input);
     this->ApplyYawInput(yaw_input);
     this->Update(GameTimeAccumulator().GetFrameDelta());
-    if ((flags & W8_CAMERA_MOTION_KEEP_ROTATION) == 0) {
-        result.rotation = this->rotationMatrix();
-    }
-    result.movement_basis = this->m_yaw_rotation;
-    return result;
+    return m_yaw_rotation;
 }
 
 float g_camera_motion_clamp = 1125.0f;
@@ -597,11 +588,10 @@ float g_camera_motion_divisor = 3000.0f;
 const double g_motion_delta_epsilon = 0.10000000149011612;
 const float g_footstep_fall_threshold = -250.0f;
 
-/* Advance the camera under world-render motion flags. ECX is the owning
-   LevelSpatialIndex; the body mostly reads globals. Zero elapsed (`camera_scale`)
+/* Advance the party under the frame's motion flags. Zero elapsed (`camera_scale`)
    returns before the motion helpers. */
-CameraMotion PartyCamera::cameraMotion(LevelSpatialIndex& collision, unsigned int flags,
-                                       const glm::vec3& position, const glm::mat3& movement_basis)
+CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
+                               const glm::mat3& movement_basis)
 {
     auto* environ = &environment.value;
     CameraMotion result;
@@ -612,7 +602,6 @@ CameraMotion PartyCamera::cameraMotion(LevelSpatialIndex& collision, unsigned in
     float forward_scale;
     bool fast_move;
     signed char moved;
-    glm::vec3 new_position;
 
     if (!motion_started) {
         motion_started = true;
@@ -652,7 +641,7 @@ CameraMotion PartyCamera::cameraMotion(LevelSpatialIndex& collision, unsigned in
     level->flags &= ~(W8_LEVEL_FLAG_PROP_CONTACT | W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH |
                       W8_LEVEL_FLAG_WALKABLE_CONTACT);
     level->camera_scale = GameTimeAccumulator().GetFrameDelta();
-    level->camera_position = position;
+    level->camera_position = m_position;
     level->motion_velocity = glm::vec3(0);
     level->motion_displacement = glm::vec3(0);
     level->motion_input = glm::vec3(0);
@@ -695,8 +684,7 @@ CameraMotion PartyCamera::cameraMotion(LevelSpatialIndex& collision, unsigned in
         }
     }
 
-    new_position = position + delta;
-    m_position = new_position;
+    m_position += delta;
 
 after_move:
     if (environ->airborne == 0) {
@@ -770,9 +758,8 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
         return;
     }
     g_camera_path_active = false;
-    rotation = glm::mat3(1);
     target = glm::vec3(0.0f, 0.0f, 1.0f);
-    rotation = world->camera->transform.getRotation<glm::mat3>();
+    rotation = world->party_camera.rotationMatrix();
     ApplyCameraRotation(&rotation);
     path->active = false;
     SetEnvironmentLoadFlag(world->party_camera.saved_environment_flag);

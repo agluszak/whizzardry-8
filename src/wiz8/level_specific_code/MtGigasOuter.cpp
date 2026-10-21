@@ -256,7 +256,7 @@ bool MtGigasOuterScript::campAlarm(int command)
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
             CreateLocationVar("UmpaniCampAlarm", 30);
-        position = glm::vec3(world().camera->transform.getLocation());
+        position = cameraLocation(world());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

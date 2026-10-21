@@ -55,9 +55,7 @@ void UpdateWorldMonsters(World* world)
 {
     assert(world != 0);
 
-    glm::dvec3 camera_location = world->camera->transform.getLocation();
-    glm::vec3 position;
-    position = glm::vec3(camera_location);
+    const glm::vec3 position = cameraLocation(*world);
 
     auto count = world->active_monsters.size();
     UpdateNearestMonsterGroupMembers();
