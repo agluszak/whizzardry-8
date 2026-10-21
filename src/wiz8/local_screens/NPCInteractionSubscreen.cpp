@@ -87,6 +87,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -1171,7 +1172,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc.get());
     if (!skip_exit_actions) {
         if (!CurrentGame().npc_interaction.offered_item) {
-            SetTargetCursor(W8_CURSOR_NONE);
+            ScreenPointer().showSlot(W8_CURSOR_NONE);
         } else {
             ReturnOfferedItem();
         }
@@ -3590,7 +3591,7 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuo
     CurrentGame().npc_dialogue.ReplyDialogOpened(price_check);
     OpenModal(
         std::make_unique<W8NpcDialog>(std::move(script), request, aux_data, OnNpcDialogClosed));
-    SetTargetCursor(W8_CURSOR_NONE);
+    ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
@@ -3965,7 +3966,7 @@ void CloseNpcDialogueForCamp(void)
     CurrentGame().activity.conversation_aside = true;
     SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
     EndNpcDialogueSession(false);
-    SetTargetCursor(W8_CURSOR_NONE);
+    ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
 void SyncDialogueNpcStateAndMarkPending(void)
@@ -4055,14 +4056,14 @@ void BeginScriptedWorldAction(void)
 {
     CurrentGame().status.world_cursor_gate = 1;
     ResetLevelDataVectors();
-    SetTargetCursor(W8_CURSOR_MAP_LOAD);
+    ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
 }
 
 void ClearMainGameTargetState(void)
 {
     CurrentGame().status.world_cursor_gate = 0;
     ClearLevelMovementStopped();
-    SetTargetCursor(W8_CURSOR_NONE);
+    ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
 /* When the world-cursor gate (world_cursor_gate) is raised, discard queued input

@@ -58,6 +58,7 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/pointer.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
@@ -868,7 +869,7 @@ void FormationUiScenario()
         for (int frame = 0; frame < 5; ++frame) game.frame();
         REQUIRE(g_ui.captured != 0); // Below the 250 ms hold threshold.
         REQUIRE(game.within_frames(60, [] { return g_ui.captured == 0; }));
-        REQUIRE(ShownCursor() == W8_CURSOR_INVALID_TARGET);
+        REQUIRE(ScreenPointer().shownSlot() == W8_CURSOR_INVALID_TARGET);
     };
     const auto drop_at = [&](SDL_Point point) {
         game.release_at(point.x - g_cursor_hotspot_x, point.y - g_cursor_hotspot_y);
@@ -1169,8 +1170,9 @@ void InventoryChestScenario()
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), TargetingMode(), (CurrentGame().party.held.item.iItemNo != -1),
-            potion.stack_count, CurrentGame().party.rows[slot].executing.kind);
+    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(),
+            (CurrentGame().party.held.item.iItemNo != -1), potion.stack_count,
+            CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
@@ -2292,7 +2294,7 @@ void PrintState(GameHarness& game)
     if (const auto* camp = FindScreen<CampScreen>())
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                     camp->ReviewedPartySlot(), int(camp->page), int(camp->items.action()),
-                    camp->dialogs.open() != nullptr, int(TargetingMode()));
+                    camp->dialogs.open() != nullptr, int(ScreenPointer().targeting()));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.members[slot].has_value()) {

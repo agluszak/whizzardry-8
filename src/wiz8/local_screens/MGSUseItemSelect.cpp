@@ -45,6 +45,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -491,8 +492,8 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
                                {kInfoDialogX, 0x48});
     dialog->SetText("");
 
-    dialog->cleanup = [pointer = CurrentPointerRequest()] {
-        RestorePointerRequest(pointer);
+    dialog->cleanup = [pointer = ScreenPointer().request()] {
+        ScreenPointer().restore(pointer);
         if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     };
     OpenModal(std::unique_ptr<ModalContent>(dialog));
@@ -501,7 +502,7 @@ void OpenUseItemAssayDialog(W8ItemInstance* item)
 void CloseUseItemSelection(void)
 {
     CloseUseItemSelectView();
-    ClearSlotTargeting(CurrentGame().status.selected_character);
+    SetTargetingMode(W8_TARGET_NEED_NONE);
 }
 
 UiResult HandleUseItemTextBox(const UiPointerEvent& event)

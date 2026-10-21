@@ -82,6 +82,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/activity.h"
@@ -1102,7 +1103,7 @@ void BeginEndgameSequence(void)
     bool endgame_variant = false;
 
     CurrentGame().status.endgame_started = true;
-    ResetPointerCursor();
+    ScreenPointer().reset();
     if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         fade_to_black = 1;
     } else if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
@@ -1203,7 +1204,7 @@ void BeginPartyDeath(void)
     if (CurrentGame().surprise_possible) {
         RestoreSurpriseView();
     }
-    ResetPointerCursor();
+    ScreenPointer().reset();
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
     SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.

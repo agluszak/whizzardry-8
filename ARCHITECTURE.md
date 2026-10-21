@@ -601,14 +601,19 @@ widget tree.
   (`ApplyMainGameRepaint`, where painting one part may record others), invalidates the
   rectangles of the parts it was asked for, and clears the record. Screen code marks the
   parts it changed; game events mark the shown main game's parts through the presenter.
-- The pointer shows what a screen last asked for (`SetTargetCursor`, a cursor-table
-  slot; `ShowHeldItemCursor`, the held item under the camp's move overlays;
-  `ShowCustomCursor`, an image the screen drew) together with the hand it asked with. A
+- One `Pointer` (`pointer.h`), owned by the screen router, holds what the pointer shows
+  and what the player is asked to pick a target for. The main game and the camp borrow it
+  from their construction, so a camp opened over a main game, or from party creation,
+  aims with the same pointer. It shows what a screen last asked for (`showSlot`, a
+  cursor-table slot; `showHeldItem`, the held item under the camp's move overlays;
+  `showCustom`, an image the screen drew) together with the hand it asked with. A
   request lapses when the hand changes, and without one the main game and the camp show
-  the held item and other screens the arrow. `PresentPointer` applies this every frame
-  and after every request, so commands that change the hand never touch the cursor;
-  screens drop their request on entry with `ResetPointerCursor`, and dialogs restore the
-  request they opened over.
+  the held item and other screens the arrow. `present` applies this every frame and
+  after every request, so commands that change the hand never touch the cursor; screens
+  drop their request on entry with `reset`, and dialogs restore the request they opened
+  over. Its target need (`setTargeting`) shows that need's cursor; `SetTargetingMode`
+  also refreshes the party panel and the aiming cone, and game code asks for it with a
+  `TargetingRequested` event.
 
 ## Tests
 

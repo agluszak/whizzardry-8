@@ -58,16 +58,14 @@ void SetTargetToCharacter(int character_slot, bool in_combat);
 /* The action a slot's selection holds in a targeting context: its committed or
    executing action, or the spell, item or submenu choice being drafted. */
 W8Action SelectCombatAction(int party_slot, W8EditedAction context);
-/* What the player is asked to pick a target for, if anything; the cursor follows it. */
-W8TargetNeed TargetingMode();
+/* Ask the player to pick a target of `state` (W8_TARGET_NEED_NONE stops asking): the
+   pointer's cursor, the party panel and the aiming cone follow it. Game code asks through a
+   `TargetingRequested` event instead. */
 void SetTargetingMode(W8TargetNeed state);
 
 /* Location id of the nearest hovered live monster, or -1. */
 int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
 
-/* Cursor-table index for SetTargetCursor, including slots 10..12. Not a
-   W8TargetingContext. */
-int GetTargetingCursorForState(bool alternate);
 bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside);
 unsigned int GetActionSpellLikeId(const W8Party& party, const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
@@ -96,7 +94,6 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
                                        bool allow_single_target, bool sighting = false);
 bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action& selected,
                            bool sighting = false);
-void ClearSlotTargeting(int party_slot);
 /* Whether the slot's current target satisfies the spell's
    needed-target kind. */
 bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool needs_item_target);

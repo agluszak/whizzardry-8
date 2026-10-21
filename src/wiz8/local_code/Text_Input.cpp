@@ -21,9 +21,9 @@
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
@@ -159,8 +159,8 @@ UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 void W8TextField::MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButtonFlags buttons)
 {
     if (blocks_mouse) return;
-    if (action == UiPointerAction::Enter) SetTargetCursor(W8_CURSOR_TEXT_INPUT);
-    if (action == UiPointerAction::Leave) SetTargetCursor(W8_CURSOR_NONE);
+    if (action == UiPointerAction::Enter) ScreenPointer().showSlot(W8_CURSOR_TEXT_INPUT);
+    if (action == UiPointerAction::Leave) ScreenPointer().showSlot(W8_CURSOR_NONE);
     if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move)
         return;
     if (group.focused_ != this) {

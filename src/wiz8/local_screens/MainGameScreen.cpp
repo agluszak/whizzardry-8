@@ -127,6 +127,7 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
@@ -335,7 +336,7 @@ static bool InteractionBlocksWorldAdvancement()
     return CurrentScreenState().id != W8_SCREEN_MAIN_GAME || IsScreenTransitionPending() ||
            gpSCSV || ItemUseDraft() || CurrentGame().activity.conversation ||
            FormationPanelOpen() || IsModalOpen() || !IsVideoActive() ||
-           TargetingMode() == W8_TARGET_NEED_CONE ||
+           ScreenPointer().targeting() == W8_TARGET_NEED_CONE ||
            (MainGameHud() && MainGameHud()->review_transition_active);
 }
 
@@ -2115,7 +2116,7 @@ void SetWorldResumeInput(bool enabled)
     if (MainGame()) MainGame()->resume_world = enabled;
 }
 
-MainGameScreen::MainGameScreen(Game& game) : game(game)
+MainGameScreen::MainGameScreen(Game& game, Pointer& pointer) : game(game), pointer(pointer)
 {
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
@@ -2240,7 +2241,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
     // Time spent under other screens does not reach the world.
     step_timer.restart();
     DrainInputEventQueue();
-    ResetPointerCursor();
+    pointer.reset();
     SetTargetingMode(W8_TARGET_NEED_NONE);
     SetUiCanvasAlphaTestEnabled(true);
     if (LockInteractionSuspended()) {
@@ -2375,7 +2376,7 @@ void MainGameScreen::frame()
     if (g_modal_owner) {
         // A modal takes the pointer back from mouselook and from any targeting cursor.
         CancelMouselook();
-        ResetPointerCursor();
+        pointer.reset();
     }
     // A screen fade, and the party-death or ending screen it leads to, takes the frame.
     if (MainGameHud()->screen_fade_running) {
@@ -2479,7 +2480,7 @@ void MainGameScreen::frame()
         if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS) {
             UpdateFormationPortraitRefresh();
         }
-        if (!IsWorldCursorVisible() && !g_mouselook_active) AnimateShownCursor();
+        if (!IsWorldCursorVisible() && !g_mouselook_active) pointer.animate();
         game.advance(step_timer.lap(), {.world = {.world = InteractionBlocksWorldAdvancement(),
                                                   .party = LockInteraction() || TrapInteraction()},
                                         .combat = gpSCSV || ItemUseDraft()});
@@ -2559,7 +2560,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     }
 
     MainGameHud()->held_item_display = -1;
-    ResetPointerCursor();
+    pointer.reset();
 
     CloseMainGameOverlays();
 
@@ -3080,7 +3081,7 @@ void SelectPartyCharacter(int party_slot)
     CurrentGame().status.selected_character = party_slot;
     RequestPartySlotRedraw(party_slot);
     if (previous != -1 && (gpSCSV || ItemUseDraft())) {
-        ClearSlotTargeting(previous);
+        SetTargetingMode(W8_TARGET_NEED_NONE);
     }
     MainGameHud()->clock = MonotonicMilliseconds() + (500);
     MainGameHud()->portrait_flash = 1;
@@ -4288,7 +4289,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
     needed = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT
                  ? W8_TARGET_NEED_NONE
                  : GetTargetNeededForAction(CurrentGame().party, selected_action);
-    if (TargetingMode() == W8_TARGET_NEED_ALLY ||
+    if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
         if (CanPartySlotParticipate(slot)) {
@@ -4304,7 +4305,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 }
             }
         }
-    } else if (TargetingMode() == W8_TARGET_NEED_CHARACTER_INDIRECT ||
+    } else if (ScreenPointer().targeting() == W8_TARGET_NEED_CHARACTER_INDIRECT ||
                (needed == W8_TARGET_NEED_CHARACTER_INDIRECT &&
                 (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
@@ -4391,7 +4392,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                 0x35, 0, kCharacterEventFullVolume);
                         }
                     } else if (CurrentGame().party.held.item.iItemNo == -1 ||
-                               ShownCursor() != W8_CURSOR_INVALID_TARGET ||
+                               ScreenPointer().shownSlot() != W8_CURSOR_INVALID_TARGET ||
                                (MainGame()->item_drag &&
                                 MainGame()->item_drag->item.storage == W8ItemStorage::Hand)) {
                         if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS) {
@@ -4456,18 +4457,18 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 if (event.action != UiPointerAction::Enter) {
                     if (IsNpcDialogueCursorActive() == 0) {
                         if (targeting && aim_ok) {
-                            if (TargetingMode() == W8_TARGET_NEED_NONE) {
+                            if (ScreenPointer().targeting() == W8_TARGET_NEED_NONE) {
                                 RevalidateSelectedTarget(CurrentGame().status.selected_character);
                             }
-                            SetTargetCursor(4);
+                            ScreenPointer().showSlot(4);
                             return UiResult::Pass;
                         }
-                        SetTargetCursor(GetTargetingCursorForState(false));
+                        ScreenPointer().showSlot(ScreenPointer().targetingSlot(false));
                     }
                 } else {
                     if (MainGameHud()->portrait_refresh_pending[slot] == 0) {
                         if (CurrentGame().party.held.item.iItemNo == -1 ||
-                            ShownCursor() != W8_CURSOR_INVALID_TARGET ||
+                            ScreenPointer().shownSlot() != W8_CURSOR_INVALID_TARGET ||
                             (MainGame()->item_drag &&
                              MainGame()->item_drag->item.storage == W8ItemStorage::Hand)) {
                             help_text = Data().strings[0x1d];
@@ -4480,7 +4481,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     MainGameHud()->portrait_right_hold_armed = false;
                     if (IsNpcDialogueCursorActive() == 0) {
                         SetTooltipSubject(W8_HIGHLIGHT_TARGET, slot);
-                        if (TargetingMode() == W8_TARGET_NEED_NONE) {
+                        if (ScreenPointer().targeting() == W8_TARGET_NEED_NONE) {
 
                             return UiResult::Pass;
                         }
@@ -4490,7 +4491,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 MainGameHud()->portrait_right_hold_armed = false;
                 if (IsNpcDialogueCursorActive() == 0) {
                     SetTooltipSubject(W8_HIGHLIGHT_TARGET, -1);
-                    SetTargetCursor(GetTargetingCursorForState(false));
+                    ScreenPointer().showSlot(ScreenPointer().targetingSlot(false));
                 }
                 if (MainGameHud()->portrait_overlay_party_slot == slot) {
                     MainGameHud()->portrait_overlay_party_slot = -1;
@@ -4934,8 +4935,10 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         cursor_x = event.position.x;
 
         int hover;
-        if (!CurrentGame().activity.conversation && TargetingMode() != W8_TARGET_NEED_PLACE &&
-            TargetingMode() != W8_TARGET_NEED_CONE && TargetingMode() != W8_TARGET_NEED_ITEM &&
+        if (!CurrentGame().activity.conversation &&
+            ScreenPointer().targeting() != W8_TARGET_NEED_PLACE &&
+            ScreenPointer().targeting() != W8_TARGET_NEED_CONE &&
+            ScreenPointer().targeting() != W8_TARGET_NEED_ITEM &&
             CurrentLevelPopulation().monster_roster.hasActiveMonsters() &&
             !IsWorldCursorVisible() && !g_mouselook_active) {
             hover = PickNearestMonsterUnderCursor(cursor_x, cursor_y);
@@ -5027,7 +5030,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     if (FinishNpcVoiceIfSessionActive()) {
         return UiResult::Handled;
     }
-    if (TargetingMode() == W8_TARGET_NEED_PLACE ||
+    if (ScreenPointer().targeting() == W8_TARGET_NEED_PLACE ||
         (needed == W8_TARGET_NEED_PLACE && (event.modifiers & CTRL_DOWN) != 0)) {
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
@@ -5054,7 +5057,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                           static_cast<float>(g_world_cursor_extent_table[extent_index * 6 + 5]));
             SetWorldCursorExtents(&minimum, &maximum);
         }
-    } else if (TargetingMode() == W8_TARGET_NEED_CONE ||
+    } else if (ScreenPointer().targeting() == W8_TARGET_NEED_CONE ||
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(CurrentGame().status.selected_character);
     } else if (MainGameHud()->highlighted_item == -1) {
@@ -5080,7 +5083,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY &&
                 needed != W8_TARGET_NEED_GROUP) {
                 assign = false;
-                if ((ShownCursor() == W8_CURSOR_VALID_TARGET ||
+                if ((ScreenPointer().shownSlot() == W8_CURSOR_VALID_TARGET ||
                      (CurrentGame().party.held.item.iItemNo != -1)) &&
                     CurrentGame().status.selected_character != -1 &&
                     AssessMonsterAim(
@@ -5139,8 +5142,9 @@ UiResult MonsterListInput(const UiPointerEvent& event)
     int group_id = -1;
 
     if (event.action != UiPointerAction::Leave && !CurrentGame().activity.conversation &&
-        TargetingMode() != W8_TARGET_NEED_PLACE && TargetingMode() != W8_TARGET_NEED_CONE &&
-        TargetingMode() != W8_TARGET_NEED_ITEM &&
+        ScreenPointer().targeting() != W8_TARGET_NEED_PLACE &&
+        ScreenPointer().targeting() != W8_TARGET_NEED_CONE &&
+        ScreenPointer().targeting() != W8_TARGET_NEED_ITEM &&
         CurrentLevelPopulation().monster_roster.hasActiveMonsters() && !IsWorldCursorVisible() &&
         !g_mouselook_active) {
         row = (event.local.y) / 0xb;
@@ -5186,7 +5190,7 @@ void ClearCombatSelection(void)
     SetCombatSelection(-1);
     SetCombatTarget(-1);
     SetCombatAction(-1);
-    SetTargetCursor(GetTargetingCursorForState(false));
+    ScreenPointer().showSlot(ScreenPointer().targetingSlot(false));
 }
 
 /* Refresh the target cursor as the mouse moves over the world view. A
@@ -5202,18 +5206,18 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             : SelectCombatAction(CurrentGame().status.selected_character, editing_context);
     const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
 
-    int cursor = ShownCursor();
+    int cursor = ScreenPointer().shownSlot();
     if (cursor == W8_CURSOR_INVALID_TARGET) {
         return;
     }
     if (MainGameHud()->highlighted_item == -1) {
-        if (TargetingMode() == W8_TARGET_NEED_NONE) {
+        if (ScreenPointer().targeting() == W8_TARGET_NEED_NONE) {
             if (MainGameHud()->selected_item != -1) {
                 if (!CurrentGame().advancement.held) {
-                    SetTargetCursor(5);
+                    ScreenPointer().showSlot(5);
                     return;
                 }
-                SetTargetCursor(cursor);
+                ScreenPointer().showSlot(cursor);
                 return;
             }
             int prop_index = GetSelectedPropIndex();
@@ -5223,16 +5227,16 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                     if (prop != 0) {
                         if (prop->TriggerRequiresItem() &&
                             (CurrentGame().party.held.item.iItemNo != -1)) {
-                            SetTargetCursor(0x10);
+                            ScreenPointer().showSlot(0x10);
                             return;
                         }
-                        SetTargetCursor(prop->TriggerHasActionMessage() ? 13 : 5);
+                        ScreenPointer().showSlot(prop->TriggerHasActionMessage() ? 13 : 5);
                         return;
                     }
-                    SetTargetCursor(5);
+                    ScreenPointer().showSlot(5);
                     return;
                 }
-                SetTargetCursor(cursor);
+                ScreenPointer().showSlot(cursor);
                 return;
             }
         }
@@ -5241,18 +5245,18 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
         FindMonster(MainGameHud()->highlighted_item);
         if (!AssessMonsterTarget(CurrentGame().status.selected_character,
                                  MainGameHud()->highlighted_item, edited_action, true, sighting)) {
-            SetTargetCursor(cursor);
+            ScreenPointer().showSlot(cursor);
             return;
         }
         if (target_needed == W8_TARGET_NEED_NONE && !CurrentGame().combat.has_value() && !gpSCSV &&
             !ItemUseDraft() && !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
             !IsTrapInteractionActive()) {
-            SetTargetCursor(W8_CURSOR_VALID_TARGET);
+            ScreenPointer().showSlot(W8_CURSOR_VALID_TARGET);
             return;
         }
         cursor = 1;
     }
-    SetTargetCursor(GetTargetingCursorForState(cursor));
+    ScreenPointer().showSlot(ScreenPointer().targetingSlot(cursor));
 }
 
 /* Drop the highlight when the thing being highlighted is the one going away. */
@@ -5310,12 +5314,12 @@ void OpenAutomapScreen(void)
 bool LoadCurrentLevelData(void)
 {
     if (GetLoadedLevelID() != -1) {
-        SetTargetCursor(W8_CURSOR_MAP_LOAD);
+        ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
         g_world_cleanup_flag = true;
         UnloadSkyWorld();
         LeaveLevel();
         g_world_cleanup_flag = false;
-        ResetPointerCursor();
+        ScreenPointer().reset();
     }
     return true;
 }
@@ -5530,7 +5534,8 @@ void SetCombatAction(int value)
 {
     if (MainGameHud()->action_group == value) return;
     MainGameHud()->action_group = value;
-    SetTargetCursor(GetTargetingCursorForState(CurrentCombatSubjectIsValid(*MainGameHud())));
+    ScreenPointer().showSlot(
+        ScreenPointer().targetingSlot(CurrentCombatSubjectIsValid(*MainGameHud())));
     if (auto* hud = MainGameHud()) hud->repaint.monster_list = true;
 }
 
@@ -6715,45 +6720,9 @@ void AimAtTarget(int actor, const W8CombatSlot* target, W8EditedAction context)
     }
 }
 
-namespace {
-W8TargetNeed targeting_mode = W8_TARGET_NEED_NONE;
-}
-
-W8TargetNeed TargetingMode()
-{
-    return targeting_mode;
-}
-
 void SetTargetingMode(W8TargetNeed state)
 {
-    int cursor;
-
-    targeting_mode = state;
-    switch (state) {
-    case W8_TARGET_NEED_ALLY:
-    case W8_TARGET_NEED_ITEM:
-    case W8_TARGET_NEED_CHARACTER_INDIRECT:
-        cursor = 3;
-        break;
-    case W8_TARGET_NEED_ENEMY:
-        cursor = 0;
-        break;
-    case W8_TARGET_NEED_PLACE:
-        cursor = 2;
-        break;
-    case W8_TARGET_NEED_CONE:
-        cursor = 12;
-        break;
-    case W8_TARGET_NEED_GROUP:
-        cursor = 11;
-        break;
-    default:
-        cursor = W8_CURSOR_NONE;
-        break;
-    }
-    if (cursor != ShownCursor()) {
-        SetTargetCursor(cursor);
-    }
+    ScreenPointer().setTargeting(state);
     RequestRefreshPartyState();
     SetTargetConeEnabled(state == W8_TARGET_NEED_CONE);
 }
@@ -6762,7 +6731,6 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
                                 W8Action* draft)
 {
     W8CombatSlot target;
-    int cursor = -1;
     int selected = CurrentGame().status.selected_character;
 
     switch (target_type) {
@@ -6804,42 +6772,5 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
     }
     AimAtTarget(selected, &target, GetEditedActionContext(selected));
 aim_done:
-    targeting_mode = needed_kind;
-    switch (needed_kind) {
-    case W8_TARGET_NEED_ALLY:
-    case W8_TARGET_NEED_ITEM:
-    case W8_TARGET_NEED_CHARACTER_INDIRECT:
-        cursor = 3;
-        break;
-    case W8_TARGET_NEED_ENEMY:
-        cursor = 0;
-        break;
-    case W8_TARGET_NEED_PLACE:
-        cursor = 2;
-        break;
-    case W8_TARGET_NEED_CONE:
-        cursor = 0xc;
-        break;
-    case W8_TARGET_NEED_GROUP:
-        cursor = 0xb;
-        break;
-    default:
-        break;
-    }
-    if (cursor != ShownCursor()) {
-        SetTargetCursor(cursor);
-    }
-    RequestRefreshPartyState();
-    SetTargetConeEnabled(needed_kind == W8_TARGET_NEED_CONE);
-}
-
-void ClearSlotTargeting(int party_slot)
-{
-
-    targeting_mode = W8_TARGET_NEED_NONE;
-    if (ShownCursor() != W8_CURSOR_NONE) {
-        SetTargetCursor(W8_CURSOR_NONE);
-    }
-    RequestRefreshPartyState();
-    SetTargetConeEnabled(false);
+    SetTargetingMode(needed_kind);
 }

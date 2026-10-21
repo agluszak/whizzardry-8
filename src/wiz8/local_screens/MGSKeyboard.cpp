@@ -64,6 +64,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/item_rules.h"
@@ -245,7 +246,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             EndLockInteractMode(0);
         } else if (ItemUseDraft()) {
             CloseUseItemSelection();
-        } else if (TargetingMode() != W8_TARGET_NEED_NONE) {
+        } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
         } else if (FormationPanelOpen()) {
             CloseFormationPanel();

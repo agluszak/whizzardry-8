@@ -37,6 +37,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/story.h"
@@ -333,7 +334,7 @@ bool JournalScreen::enter(const ScreenRequest&)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
-    ResetPointerCursor();
+    ScreenPointer().reset();
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 
     switch (g_settings.difficulty) {

@@ -27,6 +27,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
@@ -392,7 +393,7 @@ void UpdateWorldCursor(void)
     ApplyWorldCursorInput();
     position = cursor.position;
     if (!IsLeftButtonHeld()) {
-        if (cursor.left_held && TargetingMode() == W8_TARGET_NEED_PLACE) {
+        if (cursor.left_held && ScreenPointer().targeting() == W8_TARGET_NEED_PLACE) {
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 !GetWorldSpatialIndex()->traceSight(camera, resolved)) {

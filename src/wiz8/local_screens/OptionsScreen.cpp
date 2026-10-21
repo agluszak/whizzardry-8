@@ -52,6 +52,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
@@ -1310,7 +1311,7 @@ unsigned char OptionsScreen::ProcessInput(const InputEvent* input)
                 editor->m_fields.HandleInput(*input);
                 return 0;
             }
-            SetTargetCursor(W8_CURSOR_NONE);
+            ScreenPointer().showSlot(W8_CURSOR_NONE);
             editor->owner->OnTextEditComplete(editor, input->key == SDLK_ESCAPE);
             m_text_editor.reset();
             return 1;
@@ -1725,7 +1726,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
-    ResetPointerCursor();
+    ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
     values.TransferSettings();
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());

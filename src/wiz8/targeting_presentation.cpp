@@ -17,6 +17,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/pointer.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
@@ -55,14 +56,15 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     int tint_owner = hud.highlight.SlotFor(W8_HIGHLIGHT_TARGET);
     if (tint_owner == -1) tint_owner = selected;
     bool area_preview = false;
-    if (selected != -1 && (TargetingMode() == W8_TARGET_NEED_CONE ||
-                           (TargetingMode() == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()))) {
+    if (selected != -1 &&
+        (ScreenPointer().targeting() == W8_TARGET_NEED_CONE ||
+         (ScreenPointer().targeting() == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()))) {
         const auto action = SelectCombatAction(selected, GetEditedActionContext(selected));
         const auto spell = GetActionSpellLikeId(CurrentGame().party, action);
         if (spell != 0) {
             area_preview = true;
             W8CombatSlot target{W8_TARGET_KIND_PLACE, -1, -1, -1, {}, {}};
-            if (TargetingMode() == W8_TARGET_NEED_CONE)
+            if (ScreenPointer().targeting() == W8_TARGET_NEED_CONE)
                 GetCameraForwardPoint(GetGroundTargetRange(), &target.point);
             else
                 GetWorldCursorTargetPosition(&target.point);
@@ -96,7 +98,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         for (int id : targets) {
             auto& mark = result.monsters[id];
             mark.party_targets |= static_cast<unsigned char>(1u << actor);
-            if (actor == tint_owner && TargetingMode() == W8_TARGET_NEED_NONE)
+            if (actor == tint_owner && ScreenPointer().targeting() == W8_TARGET_NEED_NONE)
                 mark.tint = {0, 1, 0, 1};
         }
     };
