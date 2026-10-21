@@ -147,9 +147,10 @@ void ServiceMusicPlaylist(void)
     }
 
     for (;;) {
-        const auto draw = PresentationRng().below(g_music_playlist.weight_total == 0
-                                                      ? g_music_playlist.tracks.size()
-                                                      : g_music_playlist.weight_total);
+        const auto draw =
+            PresentationRng().below(g_music_playlist.weight_total == 0
+                                        ? static_cast<unsigned int>(g_music_playlist.tracks.size())
+                                        : g_music_playlist.weight_total);
         const auto& track = g_music_playlist.Select(draw).resource;
 
         if (StartMusicResource(track.c_str(), g_music_fade, 1) == 0) {
@@ -196,6 +197,7 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
     }
 
     if (SDL_strcasecmp(resource, g_music_playlist.resource.c_str()) == 0) {
+        g_music_fade = static_cast<unsigned char>(fade);
         return true;
     }
 
