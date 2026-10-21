@@ -14,6 +14,7 @@
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -124,7 +125,9 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
     if (roll < 25) {
         slot = GetRandomCharacter(0, 0, -1, -1);
         if (slot != -1) {
-            SetCharacterCondition(slot, W8_CONDITION_HEXED, ctx.game.rng.below(5) + 10, 0, 0, 1);
+            InflictCondition(ctx.game, slot,
+                             {.condition = W8_CONDITION_HEXED,
+                              .duration = static_cast<int>(ctx.game.rng.below(5)) + 10});
             wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
             return true;
         }

@@ -23,6 +23,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -776,7 +777,7 @@ int CharacterPrayAction(int party_slot)
         case 8:
             AppendToLastTextLine(Data().strings[0x179], -1);
             for (index = 0; index < 0x12; ++index) {
-                RemoveConditionFromParty(static_cast<W8Condition>(index));
+                LiftConditionFromParty(CurrentGame(), static_cast<W8Condition>(index));
             }
             if (CurrentGame().combat.has_value()) {
                 for (index = 0; index < 9; ++index) {

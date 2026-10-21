@@ -30,9 +30,6 @@ void AnnounceSkillIncrease(Game& game, unsigned int party_slot, W8Skill skill_id
    more queued skill-notice portrait messages. */
 void FlushDeferredSkillNotices(Game& game);
 
-/* 0x00547A50: the cheat-death trait's revival - notice, unconsciousness, and
-   hit points rolled back up from a profession-level-scaled share. */
-void CheatDeathRevive(Game& game, int party_slot);
 /* 0x00548E60: the alchemist's brew - rolls a level-banded item for a character
    with the MAKE_POTIONS trait, then re-arms the brew cooldown. */
 void BrewAlchemistPotion(Game& game, W8Character* character);

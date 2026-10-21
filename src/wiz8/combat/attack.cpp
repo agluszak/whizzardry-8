@@ -44,6 +44,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -135,7 +136,7 @@ static void ApplyRazorCloakBacklash(const W8CombatSlot& target, W8MonsterInfo* m
         if (is_monster)
             ClearMonsterEnchantmentSlot(monster->location_id, W8_ENCHANTMENT_RAZOR_CLOAK);
         else
-            ClearCharacterEnchantmentSlot(target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
+            Disenchant(CurrentGame(), target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
     }
 }
 
@@ -1405,12 +1406,12 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
                 CurrentGame().events.push(CharacterNotice{
                     static_cast<unsigned int>(entry->value),
                     fmt::format("{}!",
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
+                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
             } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", entry->text,
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
+                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
             }
         }
     }
@@ -1421,7 +1422,7 @@ static void DrainCombatDeathReports(W8SpellEffectResult* report)
 static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, unsigned int condition,
                                           W8MonsterInfo* monster_info)
 {
-    const std::string& name = Data().strings[g_condition_notices[condition].singular];
+    const std::string& name = Data().strings[kConditionNotices[condition].singular];
     if (report->target.iType == W8_TARGET_KIND_MONSTER) {
         CurrentGame().events.push(
             TextNotice{W8_FONT_PALETTE_RUST,
@@ -2700,9 +2701,10 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                         if (target->iType == W8_TARGET_KIND_CHARACTER) {
                             CurrentGame().events.push(CharacterNotice{
                                 static_cast<unsigned int>(target->iChar),
-                                fmt::format("{}!",
-                                            Data().strings[g_condition_notices[W8_CONDITION_DEAD]
-                                                               .singular])});
+                                fmt::format(
+                                    "{}!",
+                                    Data()
+                                        .strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                         }
                         if (accumulator != nullptr) {
                             accumulator->condition_counts[W8_CONDITION_DEAD]++;

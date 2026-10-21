@@ -3357,7 +3357,7 @@ static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsig
 {
     CatalogArtwork::Load(condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
     MainGameHud()->text_paint_scratch =
-        fmt::format("{}", Data().strings[g_condition_notices[condition].name]);
+        fmt::format("{}", Data().strings[kConditionNotices[condition].name]);
     int text_width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
              {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
@@ -3479,7 +3479,7 @@ static int MeasurePortraitConditions(const W8Character* character, unsigned int&
     for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
             MainGameHud()->text_paint_scratch =
-                fmt::format("{}", Data().strings[g_condition_notices[condition].name]);
+                fmt::format("{}", Data().strings[kConditionNotices[condition].name]);
             int width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
             if (max_width < static_cast<unsigned int>(width)) {
                 max_width = width;
@@ -3517,7 +3517,7 @@ static int MeasurePortraitEnchantments(const W8Character* character, unsigned in
 /* The portrait overlay's condition content: one row per active condition with
    its status icon and notice name, drawn bottom-up. The count covers all
    twenty condition slots while the measure and draw passes visit 0x13 down to
-   1 only, paired with the g_condition_notices
+   1 only, paired with the kConditionNotices
    row names. */
 void DrawPortraitConditionOverlay(int party_slot)
 {

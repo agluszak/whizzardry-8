@@ -1908,21 +1908,21 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                     AppendToLastTextLine(
                         fmt::format("{} {}",
                                     CurrentGame().party.characters[effect->target.iChar].name,
-                                    Data().strings[g_condition_notices[condition].singular]),
+                                    Data().strings[kConditionNotices[condition].singular]),
                         -1);
                 } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
                     W8MonsterInfo* monster_info = FindMonster(effect->target.iMonsterID);
                     if (monster_info != 0) {
                         AppendToLastTextLine(
                             fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                        Data().strings[g_condition_notices[condition].singular]),
+                                        Data().strings[kConditionNotices[condition].singular]),
                             -1);
                     }
                 }
             } else {
                 AppendToLastTextLine(
                     fmt::format("{:d} {}", effect->result.condition_counts[condition],
-                                Data().strings[g_condition_notices[condition].plural]),
+                                Data().strings[kConditionNotices[condition].plural]),
                     -1);
             }
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
@@ -1939,14 +1939,14 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                 CurrentGame().events.push(CharacterNotice{
                     static_cast<unsigned int>(report->value),
                     fmt::format("{}!",
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
+                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
                 CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
                 CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", report->text,
-                                Data().strings[g_condition_notices[W8_CONDITION_DEAD].singular])});
+                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             }
         }

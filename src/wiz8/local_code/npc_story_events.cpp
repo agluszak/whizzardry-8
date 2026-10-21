@@ -29,6 +29,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -262,7 +263,7 @@ void UpdateSedexusScene(const ScriptContext& context)
             if (context.party.members[party_slot].has_value() &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
-                RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
+                LiftCondition(CurrentGame(), party_slot, W8_CONDITION_UNCONSCIOUS, false);
                 sedexus_party_slot = context.status.sedexus_party_slot;
             }
         }
@@ -297,8 +298,10 @@ void BeginSedexusCapture(const ScriptContext& context)
             (context.party.characters[party_slot].hp_current > 0 ||
              context.party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
             party_slot != static_cast<unsigned int>(context.status.sedexus_party_slot)) {
-            SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
-                                  0, 0);
+            InflictCondition(CurrentGame(), party_slot,
+                             {.condition = W8_CONDITION_UNCONSCIOUS,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = false});
         }
     }
 }

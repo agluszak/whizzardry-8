@@ -169,9 +169,9 @@ the licensed runtime scenarios after every step.
 3. **Inventory and party in `rules`.** The storage and item rules are behind the
    boundary and take a `RuleContext` (ARCHITECTURE.md, "Inventory"). What remains:
    - The commands in `wiz8/inventory.h` (about 30) still take `Game&`, because what
-     they owe after a rule reaches unmigrated code: settlement applies death and
-     combat's hand changes (`SettleActiveParty`, `SetCharacterCondition`,
-     `ReconcileCombatHandChange`), acquisition updates story facts and runs
+     they owe after a rule reaches unmigrated code: settlement's host applies
+     combat's hand and death bookkeeping (ARCHITECTURE.md, "Conditions"), acquisition
+     updates story facts and runs
      exceptional-item reactions, an unstored item drops into the world, and `UseItem`
      and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
      members once conditions (step 6) and facts (step 7) take explicit state.
@@ -281,20 +281,13 @@ the licensed runtime scenarios after every step.
        animation no longer changes combat's knowledge of cycle indices and frame
        thresholds, and the same commands, elapsed times, state and random stream give
        the same progression whatever the views draw.
-   - **Conditions, death and party settlement first.** Inventory reaches them already:
-     an inventory change settles the party (`SettleActiveParty`), settlement derives
-     statistics, an exhausted hit-point pool calls `SetCharacterCondition`, applying a
-     condition rebuilds its modifiers and settles again, and death changes party,
-     combat and NPC state and plays a sound. Make the chain one operation over explicit
-     party, data and random inputs that reports what happened; the game applies the
-     combat, NPC and world consequences and presentation the notices, sounds and
-     targeting cues. Done when condition and resource transitions run in `rules`
-     without `CurrentGame()`, `Data()`, screen, world or audio dependencies, one
-     inventory command performs its whole settlement in an intended order, existing
-     consumers use that path and the old global entry points are gone. Then cheat
-     death, poison immunity, equipment-driven exhaustion and once-only death are
-     testable without the engine, and item effects, spells and attacks build on it.
-     Do this before moving the rest of combat and magic.
+   - Party conditions, death and settlement are rules ("Conditions" in
+     ARCHITECTURE.md). Their game host still reaches its consequences through
+     globals (formation seats, targeting, the speech reactions, `FindMonster`), and
+     most callers pass `CurrentGame()`; those go as the callers receive the game.
+     Item effects, spells and attacks should build on these rules rather than
+     touching condition durations themselves. Monster conditions
+     (`SetMonsterCondition` and its siblings) still act on the world's records.
 7. **Story state.** `Game::story` and `Game::message_log` hold it, and NPC scripting and
    the level scripts act on a `ScriptContext` (ARCHITECTURE.md, "Scripts").
    - The fact API (`GetFact`/`SetFact`, about 210 calls) still reaches the game;

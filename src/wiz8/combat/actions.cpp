@@ -30,6 +30,7 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -249,7 +250,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             case 7:
                 slot->executing.kind = W8_ACTION_NONE;
                 action = W8_ACTION_NONE;
-                RemoveCharacterCondition(party_slot, W8_CONDITION_WEBBED, true);
+                LiftCondition(CurrentGame(), party_slot, W8_CONDITION_WEBBED, true);
                 break;
             case 8:
                 game.combat->characters[party_slot].berserk = true;

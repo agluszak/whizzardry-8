@@ -30,6 +30,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -393,7 +394,7 @@ void EndSurprise(void)
         CurrentGame().status.condition13_clock = 0;
         CurrentGame().status.skip_next_condition_reaction = true;
         int party_slot = CurrentGame().status.pending_condition_party_slot;
-        RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
+        LiftCondition(CurrentGame(), party_slot, W8_CONDITION_MISSING, false);
         QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 52, 0,
                             kCharacterEventFullVolume);
         SetFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1, false);
@@ -431,9 +432,12 @@ void ResolveSurpriseWake(void)
                 PostCharacterNotice(
                     slot,
                     fmt::sprintf(Data().strings[0x243],
-                                 Data().strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
+                                 Data().strings[kConditionNotices[W8_CONDITION_ASLEEP].name]));
             } else {
-                SetCharacterCondition(slot, W8_CONDITION_ASLEEP, roll / 0x1e + 1, 0, 0, 0);
+                InflictCondition(CurrentGame(), slot,
+                                 {.condition = W8_CONDITION_ASLEEP,
+                                  .duration = roll / 0x1e + 1,
+                                  .announce = false});
             }
         }
     }
@@ -647,8 +651,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 default:
                     std::unreachable();
                 }
-                SetCharacterCondition(party_slot, static_cast<W8Condition>(condition),
-                                      W8_CONDITION_INDEFINITE, 0, 0, 1);
+                InflictCondition(CurrentGame(), party_slot,
+                                 {.condition = static_cast<W8Condition>(condition),
+                                  .duration = W8_CONDITION_INDEFINITE});
                 break;
             }
             case 1: {
@@ -717,7 +722,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
         if (GetLevelBand(GetLoadedLevelID()) == 9 || GetLevelBand(GetLoadedLevelID()) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
-                RemoveCharacterCondition(party_slot, W8_CONDITION_HEXED, true);
+                LiftCondition(CurrentGame(), party_slot, W8_CONDITION_HEXED, true);
             }
         } else {
             unsigned int hits = 0;
@@ -731,8 +736,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                                        static_cast<W8SpellEffectResult*>(0), false);
             }
             if (character->uiCondition[W8_CONDITION_HEXED] == 0) {
-                SetCharacterCondition(party_slot, W8_CONDITION_HEXED, W8_CONDITION_INDEFINITE, 0, 0,
-                                      1);
+                InflictCondition(
+                    CurrentGame(), party_slot,
+                    {.condition = W8_CONDITION_HEXED, .duration = W8_CONDITION_INDEFINITE});
             }
         }
     }
@@ -745,11 +751,12 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                            : &CurrentGame().party.characters[found.character];
         if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
             if (character->uiCondition[W8_CONDITION_INSANE] < W8_CONDITION_INDEFINITE) {
-                SetCharacterCondition(party_slot, W8_CONDITION_INSANE, W8_CONDITION_INDEFINITE, 0,
-                                      0, 1);
+                InflictCondition(
+                    CurrentGame(), party_slot,
+                    {.condition = W8_CONDITION_INSANE, .duration = W8_CONDITION_INDEFINITE});
             }
         } else if (character->uiCondition[W8_CONDITION_INSANE] == W8_CONDITION_INDEFINITE) {
-            RemoveCharacterCondition(party_slot, W8_CONDITION_INSANE, true);
+            LiftCondition(CurrentGame(), party_slot, W8_CONDITION_INSANE, true);
         }
     }
 
@@ -880,7 +887,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     for (unsigned int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
         if (character->uiCondition[condition] != 0 &&
             character->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
-            TickCharacterCondition(party_slot, static_cast<W8Condition>(condition), minutes);
+            AgeCondition(CurrentGame(), party_slot, static_cast<W8Condition>(condition), minutes);
         }
     }
     for (unsigned int slot = 0; slot < 8; ++slot) {
@@ -889,7 +896,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
             if (turns > minutes) {
                 character->enchantments[slot].turns = turns - minutes;
             } else {
-                ClearCharacterEnchantmentSlot(party_slot, static_cast<W8EnchantmentSlot>(slot));
+                Disenchant(CurrentGame(), party_slot, static_cast<W8EnchantmentSlot>(slot));
             }
         }
     }

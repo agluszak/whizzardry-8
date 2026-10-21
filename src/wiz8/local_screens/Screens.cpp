@@ -9,6 +9,7 @@
 #include <utility>
 #include <variant>
 
+#include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
@@ -412,6 +413,10 @@ struct GameEventPresentation {
     {
         QueueCharacterEvent(&CurrentGame().party.characters[speech.party_slot], speech.event_type,
                             0, kCharacterEventFullVolume);
+    }
+    void operator()(const CharacterDied&) const
+    {
+        wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
     }
     void operator()(const PartySlotChanged& change) const
     {

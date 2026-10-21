@@ -84,6 +84,10 @@ struct CharacterSpeech {
     int event_type = 0;
 };
 
+// A member died.
+struct CharacterDied {
+    unsigned int party_slot = 0;
+};
 // A member's portrait, status or action display changed.
 struct PartySlotChanged {
     unsigned int party_slot = 0;
@@ -151,11 +155,12 @@ struct WorldItemRemoved {
 
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
-                 PartySlotChanged, PartyLoadChanged, CombatPanelChanged, CharacterActionChanged,
-                 EquipmentSettled, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
-                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved>;
+                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
+                 CharacterActionChanged, EquipmentSettled, SkillAvailabilityChanged, SkillImproved,
+                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
+                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
+                 MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
+                 PartyMembershipChanged, WorldItemRemoved>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events
