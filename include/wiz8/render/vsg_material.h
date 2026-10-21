@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -37,7 +38,6 @@ namespace render {
 class RenderContext {
 public:
     explicit RenderContext(VkExtent2D extent);
-    std::uint64_t frame_number = 0;
 
     vsg::ref_ptr<vsg::PipelineLayout> layout;
     vsg::ref_ptr<vsg::DescriptorSetLayout> view_layout;
@@ -77,8 +77,11 @@ struct InstanceBlock {
 // These SSBOs grow with the actual scene/material count. There are no prototype
 // limits on lights, fog layers or materials. Build the array before compilation;
 // update the existing array after traversal when collecting graph lights.
+// Eye-space GPU values only; no gameplay animation or ownership is copied.
+using PreparedLight = std::array<glm::vec4, 8>;
 std::vector<glm::vec4> packView(const ScenePass& pass,
-                                std::span<const glm::vec4> eye_clip_planes = {});
+                                std::span<const glm::vec4> eye_clip_planes = {},
+                                std::span<const PreparedLight> lights = {});
 std::vector<glm::vec4> packPass(std::span<const std::shared_ptr<Material>> materials,
                                 std::uint32_t draw_flags, bool has_normals, double time);
 InstanceBlock packInstance(const MeshInstance& instance, const Mesh& mesh, const ScenePass& pass,
@@ -94,8 +97,7 @@ void store(vsg::vec4Array& destination, const InstanceBlock& block);
 
 std::uint32_t fadingShader(std::uint32_t shader);
 
-// Derive a light for the current graph-composed model-view matrix. The copy
-// belongs to a view, so a second camera cannot overwrite another view's data.
-void prepareLightAt(Light& light, const glm::mat4& model_view, float brightness);
+// The graph has already composed the light's local and attachment transforms.
+PreparedLight prepareLightAt(const Light& light, const glm::mat4& model_view, float brightness);
 
 } // namespace render

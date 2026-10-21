@@ -17,9 +17,7 @@
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/checked_integer.h"
 #include "wiz8/math.h"
@@ -90,22 +88,6 @@ void Mesh::calculateCompoundBounds()
     for (auto* model : meshParts(first)) model->setBounds(box.minimum, box.maximum, center, radius);
 }
 
-/* Reveal nearby vertices in world space, preserving already explored vertices. */
-void Mesh::RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world)
-{
-    if (vertex_location_count == 0 || !(range >= 0)) return;
-    const auto lights = GetVertexLights(true, -1);
-    const auto* vertices =
-        (flags & W8_MESH_HAS_FRAME_STORAGE) ? GetVertexLocations(0, true, 0.0f) : getVertexLoc();
-    for (int i = 0; i < vertex_location_count; ++i) {
-        const auto point = glm::vec3(world * glm::vec4(vertices[i], 1));
-        if (glm::distance(point, position) <= range) {
-            lights[i] = glm::vec3(1);
-            flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-        }
-    }
-}
-
 BoundingBox Mesh::GetFrameBounds(int frame)
 {
     if (static_cast<unsigned int>(frame) >= frames.size() || vertex_location_count == 0) {
@@ -128,18 +110,18 @@ BoundingBox Mesh::GetFrameBounds(int frame)
    vertex colour table. */
 void Mesh::updateBakedLighting()
 {
-    const auto& lights = vertex_lights[vertex_light_table];
+    const auto& lights = vertex_lights;
     if (lights.empty() || vertex_sunlight.empty()) return;
     auto* destination = getVertexDIG(0, 1);
     const auto* materials = getVertexMaterialTable(0, SIDE_FRONT, false);
-    const bool suppress_ambient = ambient_color == glm::vec3(0) || vertex_light_table == 1;
+    const bool suppress_ambient = ambient_color == glm::vec3(0);
     const glm::vec3 base_ambient =
         materials || suppress_ambient
             ? glm::vec3(0)
             : ambient_color *
                   glm::vec3(static_cast<Material*>(getMaterial(0, SIDE_FRONT))->parms.ambient);
     const auto environment = environment_offset;
-    const bool add_environment = vertex_light_table != 1 && environment != glm::vec3(0);
+    const bool add_environment = environment != glm::vec3(0);
     const float light_scale = brightness;
     const Material* previous_material = nullptr;
     glm::vec3 material_ambient(0);
@@ -181,47 +163,15 @@ static bool MeshNameEquals(std::string_view left, std::string_view right)
                                                      });
 }
 
-void Mesh::ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures)
-{
-    std::vector<std::uint32_t> active;
-    active.reserve(polygon_count);
-    auto* textures = getPolygonTextureTable(0, 0, false);
-    if (textures != nullptr) {
-        for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count);
-             ++polygon) {
-            if ((*textures)[polygon] == nullptr ||
-                std::none_of(excluded_textures.begin(), excluded_textures.end(), [&](auto name) {
-                    return MeshNameEquals(name, (*textures)[polygon]->getName());
-                })) {
-                active.push_back(polygon);
-            }
-        }
-    }
-    if (active.size() == static_cast<unsigned int>(polygon_count)) {
-        automap_polygons.reset();
-    } else {
-        automap_polygons = std::move(active);
-    }
-    automap_filter_active = true;
-}
-
-void Mesh::ClearAutomapPolygonFilter()
-{
-    automap_polygons.reset();
-    // Clearing the automap override must allow the regular blank-texture scan
-    // on the next draw, rather than leaving a cached "all polygons" result.
-    automap_filter_active = false;
-}
-
 /* The active-polygon table selects which polygons a texture-table draw
    submits. Skin scans drop textures whose name starts with "blank"; a table
-   not found among the skins uses the base/automap selection. */
+   not found among the skins uses the base selection. */
 Mesh::PolygonSelection Mesh::GetActivePolygons(int table, bool check_blanking)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                              [table](const auto& skin) { return skin.id == table; });
-    auto& selection = skin != skins.end() ? skin->active_polygons : automap_polygons;
-    auto& checked = skin != skins.end() ? skin->blanking_checked : automap_filter_active;
+    auto& selection = skin != skins.end() ? skin->active_polygons : base_polygons;
+    auto& checked = skin != skins.end() ? skin->blanking_checked : base_blanking_checked;
     if (!checked && check_blanking) {
         std::vector<std::uint32_t> active;
         active.reserve(polygon_count);
@@ -571,12 +521,6 @@ Mesh::FrameGeometry Mesh::frameGeometry(unsigned int frame, float interpolation)
             {polygon_normals, static_cast<std::size_t>(polygon_count)}};
 }
 
-void Mesh::ClearVertexLights()
-{
-    std::ranges::fill(GetVertexLights(true, 1), glm::vec3(0));
-    flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-}
-
 void Mesh::SetAmbientColor(const glm::vec3& color, const glm::vec3& environment, float brightness)
 {
     if (ambient_color != color || environment_offset != environment ||
@@ -658,19 +602,15 @@ void Mesh::ComputeFrameNormals(int frame)
 }
 
 /* Thirteen-byte forwarder onto the per-frame normal builder. */
-std::span<glm::vec3> Mesh::GetVertexLights(bool initialize, int table)
+std::span<glm::vec3> Mesh::GetVertexLights(bool initialize)
 {
-    if (table == -1) {
-        table = vertex_light_table;
-    }
-    auto& lights = vertex_lights[table];
-    if (lights.empty() && initialize) {
-        lights.resize(vertex_location_count, glm::vec3(0));
+    if (vertex_lights.empty() && initialize) {
+        vertex_lights.resize(vertex_location_count, glm::vec3(0));
         if (!vertex_sunlight.empty()) {
             vertex_lighting_ready = true;
         }
     }
-    return lights;
+    return vertex_lights;
 }
 
 std::span<float> Mesh::GetVertexSunlight(bool initialize)

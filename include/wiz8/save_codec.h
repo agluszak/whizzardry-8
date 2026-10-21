@@ -85,7 +85,7 @@ DialogueTranscript decode_dialogue_transcript(std::span<const std::byte> payload
 
 /* The NPCT section: every NPC state with its character and stock. A state names its
    database record in `name_style`; zero names the record at the state's own index. */
-std::vector<std::byte> encode(std::span<const std::unique_ptr<W8NpcState>> npcs);
+std::vector<std::byte> encode(std::span<const std::shared_ptr<W8NpcState>> npcs);
 /* Rejects a state naming a record at or past `npc_record_count`. Decoded states are not
    bound to their records or to the level. */
 std::vector<std::unique_ptr<W8NpcState>> decode_npc_states(std::span<const std::byte> payload,

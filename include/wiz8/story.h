@@ -8,6 +8,7 @@
 
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 
 /* One fact change as the journal lists it. */
@@ -52,8 +53,8 @@ struct W8LocationVariable {
     int level = 0;
 };
 
-/* What one play-through's story has come to: facts, factions, the journal, the NPCs
-   and the level scripts' variables. A new game starts from these defaults, and NPC
+/* What one play-through's story has come to: facts, factions, the journal, the
+   learned keywords, the NPCs and the level scripts' variables. A new game starts from these defaults, and NPC
    states are created when the opening sequence runs; a load replaces each part from
    its save section. */
 struct Story {
@@ -61,10 +62,12 @@ struct Story {
     W8FactionStates factions = StartingFactions();
     W8FactionRelations faction_relations = StartingFactionRelations();
     std::vector<W8JournalEntry> journal;
-    /* Indexed by the slot that party rows and monster bindings name. */
-    std::vector<std::unique_ptr<W8NpcState>> npcs;
-    /* Replaced states, kept alive for script and dialogue callbacks that still
-       hold them. */
-    std::vector<std::unique_ptr<W8NpcState>> retired_npcs;
+    /* The learned keyword notebook. Every addition and removal changes it at once;
+       the dialogue transcript only shows it. */
+    std::vector<W8DialogueTranscriptRecord> keywords;
+    /* Indexed by the slot that party rows and monster bindings name. A released NPC's
+       slot can go to a different NPC; anything still working with the released one
+       shares it, so it never starts referring to the slot's new occupant. */
+    std::vector<std::shared_ptr<W8NpcState>> npcs;
     std::vector<W8LocationVariable> location_variables;
 };

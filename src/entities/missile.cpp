@@ -1,5 +1,6 @@
 #include "wiz8/entities/missile.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -30,7 +31,6 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/emitter_cycles.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
@@ -54,6 +54,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/simulation_sink.h"
@@ -324,19 +325,12 @@ Missile* AllocateMissile(int missile_table_index)
     return missile;
 }
 
-/* Load the cycle a missile record names. A name already on the GrCycle
-   registry clones the registered template into a fresh Missile; otherwise
-   the "data\\Missiles\\<name>.mls" script is parsed - its align/explode/
-   gravity/velocity keywords set the missile's tail flags - and the cycle
-   lines load through the ordinary GrCycle path. */
-std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
+/* Load a missile definition: the "data\\Missiles\\<name>.mls" script is
+   parsed - its align/explode/gravity/velocity keywords set the missile's tail
+   flags - and the cycle lines load through the ordinary GrCycle path. Without
+   a script the name itself is loaded as the cycle. */
+static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_view name)
 {
-    if (auto* found = findMissileAsset(*world, name)) {
-        auto missile = std::make_unique<Missile>(*found, world);
-        if (missile->flight_ai) missile->flight_ai->missile = missile.get();
-        missile->asset_name = name;
-        return missile;
-    }
     PauseSharedGameTimers();
     auto output = std::make_unique<Missile>(world);
     output->visual.current_cycle = -1;
@@ -453,6 +447,33 @@ std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
     return success ? std::move(output) : nullptr;
 }
 
+/* A new missile of the named kind, copied from the kind's definition. The
+   definition is loaded on first use and kept, withdrawn from the scene, for
+   the world's lifetime, so a missile never inherits another one's flight.
+   Every request takes one legacy prop save id, as retail's did whether it
+   loaded, cloned or failed. */
+std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
+{
+    AllocateLegacyPropSaveId();
+    auto& definitions = world->missile_definitions;
+    auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
+        return CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
+    });
+    if (definition == definitions.end()) {
+        auto loaded = LoadMissileDefinition(world, name);
+        if (!loaded) return nullptr;
+        for (auto& cycle : loaded->resources.cycles)
+            for (auto& light : cycle.lights.lights) light->setScene(nullptr);
+        loaded->visual.WithdrawFromScene();
+        std::erase(world->navigators, &loaded->nav);
+        definitions.push_back(std::move(loaded));
+        definition = definitions.end() - 1;
+    }
+    auto missile = std::make_unique<Missile>(**definition, world);
+    missile->asset_name = name;
+    return missile;
+}
+
 /* Build the launch state for a fresh missile: rotate the forward direction by
    the heading and pitch, position and aim the navigator, probe the world
    octree for an early-impact limit, and attach the kind-3 AI record that
@@ -565,18 +586,14 @@ Missile::Missile(World* owner)
     nav.movement.collision_radius = 1.0f;
     nav.movement.alternate_radius = 1.0f;
     nav.collision = [this](Navigator* other) { return OnCollision(other); };
-    AllocateLegacyPropSaveId();
 
     result = {};
     ResetCombatSlot(&combat_slot);
 }
 
-/* The clone path reuses the registered template's flight configuration but
-   drops its in-flight state: the detonate/hit flags clear, duration
-   resets, and the AI record is not copied. Retail still clears the complete
-   +0x280..+0x321 tail after result's member construction, leaking the
-   growable vector's initial allocation exactly as the default constructor
-   does. */
+/* A new missile from its kind's definition: the flight configuration is
+   copied; the in-flight state (detonate/hit flags, duration, flight AI)
+   starts fresh. */
 Missile::Missile(const Missile& other, World* owner)
     : owner_world(owner), nav(other.nav, owner), visual(other.visual, owner),
       missile_table_index(other.missile_table_index), resources(other.resources), flight_done(0),
@@ -586,12 +603,9 @@ Missile::Missile(const Missile& other, World* owner)
       flags0(other.flags0), duration(0.0f), retargeted(false)
 {
     nav.collision = [this](Navigator* other) { return OnCollision(other); };
-    AllocateLegacyPropSaveId();
     asset_name = other.asset_name;
     if (resources.cycles[visual.current_cycle].animation)
         visual.active_animation = resources.cycles[visual.current_cycle].animation.get();
-    flight_ai = other.flight_ai;
-    if (flight_ai) flight_ai->missile = this;
 
     result = {};
     ResetCombatSlot(&combat_slot);

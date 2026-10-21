@@ -546,7 +546,7 @@ TEST_CASE("Orthographic picking tests triangle faces against parallel view rays"
         scene.createView(context, &scene.camera, {}, vsg::ViewportState::create(0, 0, 640, 480), 1);
     Pick pick{.position = {.5f, 0, 1}};
     scene.pick(*view->camera, std::span{&pick, 1});
-    REQUIRE(pick.selected_model == &instance);
+    REQUIRE(render::gameOwner(pick) == &instance);
     REQUIRE(pick.position.z < 1);
 }
 
@@ -581,12 +581,19 @@ TEST_CASE("Ordinary VSG picking follows transforms and masks without Wizardry cl
     Pick visible;
     scene.pick(*view->camera, std::span{&visible, 1});
     REQUIRE(visible.position.z < 1);
-    REQUIRE(visible.selected_model == nullptr);
+    REQUIRE(render::gameOwner(visible) == nullptr);
+    REQUIRE(visible.hit);
+    REQUIRE(visible.hit->nodePath.back() == draw.get());
+    REQUIRE(std::ranges::find(visible.hit->nodePath, transform.get()) !=
+            visible.hit->nodePath.end());
+    REQUIRE(visible.hit->indexRatios.size() == 3);
+    REQUIRE(visible.hit->worldIntersection.z == Catch::Approx(5));
 
     mask->children[0].mask = render::render_mask;
     Pick unpickable;
     scene.pick(*view->camera, std::span{&unpickable, 1});
     REQUIRE(unpickable.position.z == 1);
+    REQUIRE_FALSE(unpickable.hit);
     mask->children[0].mask = render::render_mask | render::pick_mask;
     transform->matrix = vsg::translate(0., 0., .05);
     Pick before_near;

@@ -136,10 +136,5 @@ bool BuildSubMenuPanel(short notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
 /* The row availability states the refresh maps icon frames through. */
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot);
-/* Store the (W8SubMenuPage, entry) pair's pending command in the HUD state. */
-void MapSubMenuSelection(short menu, short item);
-/* Whether the slot may perform the pending command, in entry-state terms:
-   USABLE/UNUSABLE or the _SELECTED variant when it is already queued. */
-W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot);
 
 int GetAttackMenuWeaponOffset(W8Skill skill);

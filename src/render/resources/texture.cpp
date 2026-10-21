@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <exception>
 #include <memory>
-#include <optional>
 #include <utility>
 
 #include <SDL3/SDL_pixels.h>
@@ -22,7 +21,6 @@
 
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/image_io.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
@@ -48,7 +46,6 @@ Texture::Texture(std::shared_ptr<SDL_Surface> pixels) : surface(std::move(pixels
 {
     texture_dimensions_.width = 0x40;
     texture_dimensions_.height = 0x40;
-    texture_dimensions_.format = SDL_PIXELFORMAT_ARGB4444;
     texture_flags_ = 0;
     texture_flags_ |= 1 << FLAG_DIRTY_DEFAULTS;
 }
@@ -84,7 +81,6 @@ void Texture::setupDefaultValuesFromSurface(SDL_Surface* surface)
     if (surface != 0) {
         texture_dimensions_.width = surface->w;
         texture_dimensions_.height = surface->h;
-        texture_dimensions_.format = surface->format;
     } else {
         texture_dimensions_.width = 1;
         texture_dimensions_.height = 1;
@@ -121,13 +117,11 @@ void Texture::setWrapT(e_wrap value)
     parameters.wrap_t = value;
 }
 
-Texture* Texture::resolve(std::optional<std::uint64_t> visual_frame)
+Texture* Texture::resolve()
 {
     if (playback) {
-        UpdateFrame(visual_frame);
-        return playback->textures.empty()
-                   ? nullptr
-                   : playback->textures.at(playback->frame)->resolve(visual_frame);
+        return playback->textures.empty() ? nullptr
+                                          : playback->textures.at(playback->frame)->resolve();
     }
     if (!source_path.empty() && !surface &&
         !(texture_flags_ & (1u << FLAG_GENERATESURFACE_FAILURE)))
@@ -151,7 +145,6 @@ Texture::Dimensions Texture::getDimensions()
     if ((texture_flags_ & (1 << FLAG_DIRTY_DEFAULTS)) != 0) {
         setupDefaultValues();
     }
-    texture_dimensions_.generate_mipmaps = parameters.mipmap != MIPMAP_NONE;
     return texture_dimensions_;
 }
 
@@ -171,12 +164,11 @@ void Texture::invalidate()
     image_reduction = -1;
 }
 
-vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
-                                                std::optional<std::uint64_t> visual_frame)
+vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction)
 {
-    auto* current = resolve(visual_frame);
+    auto* current = resolve();
     if (!current) return {};
-    if (current != this) return current->imageInfo(reduction, visual_frame);
+    if (current != this) return current->imageInfo(reduction);
     auto effective = parameters;
     if (effective.mag == FILTER_DEFAULT) effective.mag = defaults.mag;
     if (effective.min == FILTER_DEFAULT) effective.min = defaults.min;
@@ -219,18 +211,6 @@ vsg::ref_ptr<vsg::ImageInfo> Texture::imageInfo(int reduction,
     return image_info;
 }
 
-void Texture::publish()
-{
-    if (!image_info || !surface) return;
-    auto pixels = image_info->imageView->image->data.cast<vsg::ubvec4Array2D>();
-    if (!pixels) return;
-    auto rgba = CreateCpuStorage(static_cast<int>(pixels->width()),
-                                 static_cast<int>(pixels->height()), SDL_PIXELFORMAT_RGBA32);
-    StretchCpuSurface(*surface, *rgba, SDL_SCALEMODE_NEAREST);
-    copyRgbaPixels(*pixels, *rgba);
-    pixels->dirty();
-}
-
 void Texture::setSurfacePtr(std::shared_ptr<SDL_Surface> pixels)
 {
     if (pixels == surface) return;
@@ -253,7 +233,6 @@ void Texture::setupDefaultValues()
 Texture::Texture(TexturePlayback playback) : Texture()
 {
     this->playback = std::move(playback);
-    this->playback->frame_tick = MonotonicMilliseconds();
 }
 Texture::Texture(std::filesystem::path path, bool preload) : Texture()
 {
@@ -267,8 +246,11 @@ Texture::Texture(const Texture& other) : Texture()
     if (playback) {
         playback->frame = 0;
         playback->direction = 1;
-        playback->frame_tick = MonotonicMilliseconds();
-        playback->visual_frame.reset();
+        playback->elapsed = {};
+        playback->last_update.reset();
+        // Playback is per owner; immutable pixel frames remain shared.
+        for (auto& frame : playback->textures)
+            if (frame && frame->playback) frame = std::make_shared<Texture>(*frame);
     }
 }
 void Texture::releaseSurface()
@@ -303,84 +285,96 @@ void Texture::SetFrame(int frame)
 {
     if (!playback) return;
     playback->frame = frame;
-    playback->frame_tick = MonotonicMilliseconds();
+    playback->elapsed = {};
 }
 void Texture::AddTexture(std::shared_ptr<Texture> texture)
 {
     playback->textures.push_back(std::move(texture));
     texture_flags_ |= 1u << FLAG_DIRTY_DEFAULTS;
 }
-void Texture::UpdateFrame(std::optional<std::uint64_t> visual_frame)
+void Texture::setAnimationClock(TextureClock clock)
 {
-    if (!playback) return;
+    if (!playback || playback->clock == clock) return;
+    playback->clock = clock;
+    playback->last_update.reset();
+    for (const auto& frame : playback->textures)
+        if (frame) frame->setAnimationClock(clock);
+}
+
+void Texture::UpdateFrame(std::chrono::milliseconds now, TextureClock clock)
+{
+    if (!playback || playback->clock != clock) return;
     auto& state = *playback;
-    // A texture can occur in many batches and views. Its animation, including
-    // random triggers, advances only once for an explicitly stamped frame.
-    if (visual_frame) {
-        if (state.visual_frame == visual_frame) return;
-        state.visual_frame = visual_frame;
-    }
-    const int count = static_cast<int>(state.textures.size());
+    if (state.last_update == now) return;
+    if (state.last_update && now >= *state.last_update) state.elapsed += now - *state.last_update;
+    state.last_update = now;
+    const auto advance = [&] {
+        const int count = static_cast<int>(state.textures.size());
 
-    if (count == 0) return;
-    if (state.animation_mode == W8_TEXTURE_ANIM_MANUAL) {
-        return;
-    }
-
-    if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
-        if (PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
-            state.frame = std::min(count - 1, static_cast<int>(PresentationRng().next() /
-                                                               static_cast<float>(0x7fff) * count));
-        }
-        return;
-    }
-
-    if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_START) {
-        if (!state.running &&
-            PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
-            state.running = true;
-            state.direction = 0;
-            state.frame = 0;
-            state.frame_tick = MonotonicMilliseconds();
-        }
-        if (!state.running) {
+        if (count == 0) return;
+        if (state.animation_mode == W8_TEXTURE_ANIM_MANUAL) {
             return;
         }
-    }
-    if (count == 0) {
-        return;
-    }
 
-    const int elapsed_frames =
-        static_cast<int>((MonotonicMilliseconds() - state.frame_tick) * state.frame_rate * 0.001f);
-    if (state.animation_mode == W8_TEXTURE_ANIM_LOOP) {
-        int next = (state.direction * elapsed_frames) % count;
-        if (next < state.frame) {
-            state.frame = 0;
-            state.running = false;
+        if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_FRAME) {
+            if (PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
+                state.frame =
+                    std::min(count - 1, static_cast<int>(PresentationRng().next() /
+                                                         static_cast<float>(0x7fff) * count));
+            }
             return;
         }
-        state.frame = next;
-    } else if (state.animation_mode == W8_TEXTURE_ANIM_PING_PONG) {
-        if ((elapsed_frames / count & 1) != 0) {
-            state.direction = -1;
-            state.frame = count - elapsed_frames % count - 1;
-        } else {
-            if (state.direction == -1) {
+
+        if (state.trigger_mode == W8_TEXTURE_TRIGGER_RANDOM_START) {
+            if (!state.running &&
+                PresentationRng().next() / static_cast<float>(0x7fff) < state.probability) {
+                state.running = true;
+                state.direction = 0;
+                state.frame = 0;
+                state.elapsed = {};
+            }
+            if (!state.running) {
+                return;
+            }
+        }
+        if (count == 0) {
+            return;
+        }
+
+        const int elapsed_frames =
+            static_cast<int>(state.elapsed.count() * state.frame_rate * 0.001f);
+        if (state.animation_mode == W8_TEXTURE_ANIM_LOOP) {
+            int next = (state.direction * elapsed_frames) % count;
+            if (next < state.frame) {
+                state.frame = 0;
                 state.running = false;
                 return;
             }
-            state.direction = 1;
-            state.frame = elapsed_frames % count;
+            state.frame = next;
+        } else if (state.animation_mode == W8_TEXTURE_ANIM_PING_PONG) {
+            if ((elapsed_frames / count & 1) != 0) {
+                state.direction = -1;
+                state.frame = count - elapsed_frames % count - 1;
+            } else {
+                if (state.direction == -1) {
+                    state.running = false;
+                    return;
+                }
+                state.direction = 1;
+                state.frame = elapsed_frames % count;
+            }
+        } else if (state.animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE) {
+            if (elapsed_frames >= count) {
+                state.running = false;
+                state.frame = count - 1;
+            } else {
+                state.frame = elapsed_frames;
+            }
         }
-    } else if (state.animation_mode == W8_TEXTURE_ANIM_PLAY_ONCE) {
-        if (elapsed_frames >= count) {
-            state.running = false;
-            state.frame = count - 1;
-        } else {
-            state.frame = elapsed_frames;
-        }
-    }
+    };
+    advance();
+    if (!state.textures.empty())
+        if (const auto& frame = state.textures.at(state.frame)) frame->UpdateFrame(now, clock);
 }
 
 int Texture::IsFinished() const
