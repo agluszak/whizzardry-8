@@ -101,12 +101,9 @@ public:
     void setMaterial(std::shared_ptr<Material> material, std::int32_t polygon, e_side side);
     void setTexture(std::shared_ptr<Texture> texture, std::int32_t polygon, std::int32_t layer);
     // RECOMP: ?setDirty@Mesh@@QAEXW4e_flags@1@@Z
-    void setDirty(e_flags flag)
-    {
-        invalidateRenderAsset();
-        dirty_flags |= 1u << flag;
-    }
-    /* Drops the cached render asset after a change to the mesh's tables. */
+    void setDirty(e_flags flag) { dirty_flags |= 1u << flag; }
+    /* Drops the cached render asset after a change to the mesh's topology or
+       to the positions and normals a static asset copies. */
     void invalidateRenderAsset() { render_asset_.reset(); }
     // RECOMP: ?clearDirty@Mesh@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }

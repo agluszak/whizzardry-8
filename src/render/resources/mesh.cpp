@@ -148,7 +148,6 @@ glm::vec4* Mesh::getPolyEq()
         glm::vec4 zero;
         zero = glm::vec4(0);
         poly_equations.resize(polygon_count, zero);
-        invalidateRenderAsset();
     }
     if ((dirty_flags & (1UL << DIRTY_POLYGON_NORMALS)) != 0) {
         calculatePolygonNormals();
@@ -254,6 +253,7 @@ std::uint32_t* Mesh::getVertexShadeIndex(int table)
     if (vertex_shade_indices.empty() && table != 0 && vertex_location_count != 0) {
         vertex_shade_indices.resize(vertex_location_count, 0);
         setDirty(DIRTY_VERTEX_NORMALS);
+        invalidateRenderAsset();
     }
     return vertex_shade_indices.empty() ? nullptr : vertex_shade_indices.data();
 }
@@ -299,6 +299,7 @@ void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
     render_control |= 1UL << CONTROL_FRONT;
     render_control |= 1UL << CONTROL_SKIP_AUTO_BOX;
     setDirtyAll();
+    invalidateRenderAsset();
 }
 
 void Mesh::calculateBounds()
@@ -360,6 +361,7 @@ void Mesh::scale(const glm::vec3& scale)
         vertices[index] *= scale;
     }
     setDirtyAll();
+    invalidateRenderAsset();
 }
 
 void Mesh::relocateVertices(const glm::vec3& offset)
@@ -369,6 +371,7 @@ void Mesh::relocateVertices(const glm::vec3& offset)
         vertices[index] += offset;
     }
     setDirtyAll();
+    invalidateRenderAsset();
 }
 
 void Mesh::applyPendingLighting()
@@ -387,7 +390,6 @@ void Mesh::setBounds(const glm::vec3& minimum, const glm::vec3& maximum, const g
     bounds_center = center;
     bounds_radius = radius;
     clearDirty(DIRTY_BOUNDS);
-    invalidateRenderAsset();
 }
 
 static glm::vec4* GetVertexColorTable(Mesh& mesh,

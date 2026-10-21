@@ -753,3 +753,36 @@ TEST_CASE("VSG cull bounds enclose sky geometry and animated highlight shells",
     REQUIRE(unhighlighted.nodes == body.nodes);
     REQUIRE(bound->bound.radius == body_radius);
 }
+
+TEST_CASE("Mesh bound changes reach the shared asset and its cull node in place",
+          "[renderer][culling]")
+{
+    struct Culls : vsg::ConstVisitor {
+        std::vector<const vsg::CullNode*> nodes;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::CullNode& node) override
+        {
+            nodes.push_back(&node);
+            node.traverse(*this);
+        }
+    };
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    auto* positions = mesh->getVertexLoc();
+    positions[1] = {1, 0, 0};
+    positions[2] = {0, 1, 0};
+    MeshInstance instance;
+    instance.setModel(mesh);
+    render::RenderContext context({640, 480});
+    instance.renderNode()->prepare(context, {}, 1);
+    const auto asset = mesh->renderAsset();
+
+    mesh->setBounds({10, 10, 10}, {12, 12, 12}, {11, 11, 11}, 2);
+    instance.renderNode()->prepare(context, {}, 2);
+    REQUIRE(mesh->renderAsset() == asset);
+    Culls culls;
+    instance.renderNode()->accept(culls);
+    REQUIRE(culls.nodes.size() == 1);
+    REQUIRE(culls.nodes.front()->bound.center == vsg::dvec3(11, 11, 11));
+    REQUIRE(culls.nodes.front()->bound.radius == 2);
+}

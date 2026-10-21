@@ -527,9 +527,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.data = makeArray(pass_values);
                 cached.bind = context.descriptor(2, cached.data);
                 cached.batches.resize(source.batches.size());
-                const auto bound = vsg::dsphere(asset.bounds_center.x, asset.bounds_center.y,
-                                                asset.bounds_center.z, asset.bounds_radius);
-                cached.cull = vsg::CullNode::create(bound, cached.body);
+                cached.cull = vsg::CullNode::create(vsg::dsphere(), cached.body);
                 part->graph->addChild(cached.cull);
             } else {
                 store(*cached.data, pass_values);
@@ -541,7 +539,9 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
             const bool show_shell =
                 highlighted && source.pass == 0 && source.side == 0 && shell_part && shell_texture;
-            cached.cull->bound.radius = asset.bounds_radius;
+            // Bounds can change in place; the shell below may widen them.
+            cached.cull->bound.set(asset.bounds_center.x, asset.bounds_center.y,
+                                   asset.bounds_center.z, asset.bounds_radius);
             if (show_shell) {
                 if (!cached.expanded) {
                     cached.expanded = vsg::vec3Array::create(sampled.positions->size());

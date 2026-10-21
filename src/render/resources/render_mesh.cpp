@@ -175,11 +175,6 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
     mesh.applyPendingLighting();
     auto asset = std::make_shared<MeshAsset>();
     if (mesh.vertex_location_count <= 0 || mesh.polygon_count <= 0) return asset;
-    // VSG needs the actual all-frame model bound even where the draw controls
-    // mark the mesh's own bounds as authored (the sky).
-    const auto bounds = mesh.getBounds();
-    asset->bounds_center = bounds.sphere.center;
-    asset->bounds_radius = bounds.sphere.radius;
     const auto control = mesh.render_control;
     asset->sorted = (control & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();
@@ -386,5 +381,11 @@ bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& po
 std::shared_ptr<render::MeshAsset> Mesh::renderAsset()
 {
     if (!render_asset_) render_asset_ = render::makeMeshAsset(*this);
+    // Bounds follow the mesh without a rebuild. VSG needs the actual all-frame
+    // model bound even where the draw controls mark the mesh's own bounds as
+    // authored (the sky).
+    const auto bounds = getBounds();
+    render_asset_->bounds_center = bounds.sphere.center;
+    render_asset_->bounds_radius = bounds.sphere.radius;
     return render_asset_;
 }
