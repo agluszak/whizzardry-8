@@ -309,7 +309,8 @@ CyclePlayer::CyclePlayer(World* owner) : owner_world(owner)
 CyclePlayer::CyclePlayer(const CyclePlayer& other, World* owner)
     : owner_world(owner), location(other.location), local_location(other.local_location),
       parent_location(other.parent_location), rotation(other.rotation),
-      highlight_colour(other.highlight_colour), instance_scale(1.0f), apply_instance_scale(false),
+      highlight_colour(other.highlight_colour), damage_stage(other.damage_stage),
+      light_scale(other.light_scale), instance_scale(1.0f), apply_instance_scale(false),
       subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
       timer(GameClockMilliseconds()), rep_active(other.rep_active),
       animation_playing(other.animation_playing), frame_direction(other.frame_direction),
@@ -390,6 +391,13 @@ CyclePlayer::~CyclePlayer()
     for (const auto& event : shake_events) {
         CameraShakes().Stop(event);
     }
+}
+
+void CyclePlayer::WithdrawFromScene()
+{
+    SetLights(nullptr);
+    for (auto& event : particles)
+        if (event.m_pstParticles) event.m_pstParticles->setScene(nullptr);
 }
 
 void CyclePlayer::RetireParticles(World& world)
@@ -671,6 +679,8 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
 
             assert(psrMesh != 0);
             psrMesh->highlight_colour = highlight_colour;
+            psrMesh->damage_stage = damage_stage;
+            psrMesh->light_scale = glm::vec3(light_scale);
             if (apply_instance_scale) {
                 if (instance_scale == 1.0f) {
                     psrMesh->diffuse_scale_enabled = false;
@@ -701,6 +711,8 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         assert(psrMesh != 0);
         SetAniMeshCacheProtected(AnimObjEntry(active_animation, m_bLOD, 0), true);
         psrMesh->highlight_colour = highlight_colour;
+        psrMesh->damage_stage = damage_stage;
+        psrMesh->light_scale = glm::vec3(light_scale);
         if (apply_instance_scale) {
             if (instance_scale == 1.0f) {
                 psrMesh->diffuse_scale_enabled = false;

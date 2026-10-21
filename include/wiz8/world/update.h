@@ -42,10 +42,6 @@ bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scen
 bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights);
 void SetSceneMeshShaderBit3(WorldScene* scene, int argument);
 void SetSceneMeshShaderLowBits(WorldScene* scene, int argument);
-/* 0x0046F760: assign every live world's mesh vertex-light table index and
-   mark the mesh dirty for rebake (automap lighting uses table 1). */
-void SetWorldMeshVertexLightTable(int table);
-
 /* Report whether a point satisfies all six frustum planes. */
 bool PointInsideFrustum(const glm::vec3& point, std::span<const W8Plane, 6> planes);
 /* Report whether a sphere of `radius` at `point` reaches all six frustum
