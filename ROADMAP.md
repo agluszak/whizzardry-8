@@ -313,18 +313,16 @@ the licensed runtime scenarios after every step.
      representations, the default script, NPC bindings) and decoding still reads the
      replacement world's trigger and automap counts. Turn the decoded part into a
      `LevelState` value with `encode` and `decode`, and build the world from it.
-   - `CurrentGame.SAV` is still the store for levels the party has left: departure
-     rewrites the departing level's group into it, arrival reads the group back, and a
-     save copies the other levels' groups from it as bytes. Once level states are values,
-     the game owns them (keeping the groups of levels it never decoded intact) and a save
-     encodes them, so `CurrentGame.SAV` goes away.
+   - The game keeps the levels the party has left as undecoded LVLS group images
+     (`Game::left_levels`); a save copies them as bytes. Once level states are values,
+     the game holds those values instead (keeping the groups of levels it never decoded
+     intact) and a save encodes them.
    - A load is atomic per section, not per save: `LoadGame` begins the replacement game,
      then decodes and installs sections one at a time, so a failure in a later section
      leaves the earlier ones installed. Decode the whole save, level states included,
      before replacing the current game.
-   - In order: a `LevelState` that exists without a live `World`; visited-level states owned by the game, with
-     undecoded groups kept as opaque bytes; replacement worlds built from those values;
-     a complete staged load; then `CurrentGame.SAV` removed as working storage.
+   - In order: a `LevelState` that exists without a live `World`; replacement worlds
+     built from those values; then a complete staged load.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.

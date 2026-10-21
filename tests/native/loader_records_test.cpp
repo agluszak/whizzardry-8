@@ -969,10 +969,10 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
     prop->trigger = &trigger;
     GetWorld()->plsProps.push_back(std::move(prop));
 
-    std::filesystem::create_directory(wiz8::user_path("saves"));
     const auto write_items = [&](bool truncated) {
+        const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
         W8Chunk chunks;
-        REQUIRE(chunks.OpenWrite(wiz8::user_path("saves/CurrentGame.SAV")));
+        REQUIRE(chunks.OpenWrite(file));
         chunks.WriteGroup(W8ChunkId("LVLS"), [&] {
             chunks.WriteValue(0x26);
             chunks.WriteChunk(W8ChunkId("ITEM"), [&] {
@@ -993,6 +993,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
             });
         });
         chunks.Close();
+        game.game.left_levels[0x26] = file->written_memory();
     };
     write_items(true);
     LoadAwayCampChest(*GetWorld());

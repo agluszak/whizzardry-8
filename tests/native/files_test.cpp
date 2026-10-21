@@ -3,6 +3,7 @@
 #include <fstream>
 #include <ios>
 #include <iterator>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -98,6 +99,25 @@ TEST_CASE("Native RIFF streams retain framing and scoped chunk ownership", "[fil
         });
         chunk.Close();
         REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1")});
+
+        // The same framing in memory: a writer keeps its bytes once closed, and a reader
+        // walks them as it walks a file.
+        const std::shared_ptr<wiz8::File> memory = wiz8::open_memory_writer();
+        REQUIRE(chunk.OpenWrite(memory));
+        chunk.WriteGroup(W8ChunkId("GRP1"), [&] {
+            chunk.WriteValue(7);
+            chunk.WriteChunk(W8ChunkId("LEAF"), [&] { chunk.WriteValue(std::uint16_t{0xbeef}); });
+        });
+        chunk.WriteChunk(W8ChunkId("TAIL"), [] {});
+        chunk.Close();
+        const auto bytes = memory->written_memory();
+        REQUIRE(std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()) ==
+                std::string(reinterpret_cast<const char*>(golden), sizeof(golden)));
+        visited.clear();
+        REQUIRE(chunk.OpenRead(wiz8::open_memory(bytes)));
+        chunk.ForEachChunk([&](unsigned id) { visited.push_back(id); });
+        chunk.Close();
+        REQUIRE(visited == std::vector<unsigned>{W8ChunkId("GRP1"), W8ChunkId("TAIL")});
     }
 }
 

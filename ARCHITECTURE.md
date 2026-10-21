@@ -396,7 +396,10 @@ Unlayered code may use the layers.
   written from live worlds by `LoadSaveGame.cpp`; reading one decodes the whole group
   into values (`saved_world_sections.h` for the trigger, prop, lock and action sections)
   before any of it reaches the replacement world, then applies the sections in the order
-  they were read. `CurrentGame.SAV` holds the groups of levels the party has left.
+  they were read. The game keeps the groups of levels the party has left, undecoded, in
+  `Game::left_levels` (each a RIFF image of its own, in memory): leaving a level stores
+  its group, entering one reads it back, a save writes them beside the current level's,
+  and a load brings every saved group in. No working file sits beside the saves.
 - **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
   its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
   the bytes of its unnamed slots.
