@@ -66,14 +66,14 @@ std::vector<Navigator*> activeNavigators()
 /* Trims the recorded route to the boundary of the `radius` sphere around
    `target`: walks stored positions while they stay inside, then lerps the
    crossing point into path_destination and over the first outside waypoint, moves
-   path_position_index there. */
+   lastWaypoint() there. */
 bool NavigatorRoute::TruncatePathAtRadius(const glm::vec3* target, float radius)
 {
     unsigned int index = path_cursor;
     float distance = glm::length((path[index].position - *target));
     float previous_distance = distance;
 
-    while (distance < radius && index < path_position_index) {
+    while (distance < radius && index < lastWaypoint()) {
         previous_distance = distance;
         ++index;
         distance = glm::length((path[index].position - *target));
@@ -91,7 +91,7 @@ bool NavigatorRoute::TruncatePathAtRadius(const glm::vec3* target, float radius)
                       (path[index].position.z - path[index - 1].position.z) * fraction +
                           path[index - 1].position.z);
         path[index].position = path_destination;
-        path_position_index = static_cast<unsigned short>(index);
+        path.resize(index + 1);
         return true;
     }
     return false;
@@ -103,19 +103,13 @@ float NavigatorRoute::MeasurePathLength() const
     float length = 0.0f;
     glm::vec3 previous = path_length_origin;
     for (unsigned int index = std::max(1u, static_cast<unsigned int>(path_cursor));
-         index <= path_position_index; ++index) {
+         index <= lastWaypoint(); ++index) {
         if ((path[index - 1].value & 2) == 0) {
             length += glm::length(path[index].position - previous);
         }
         previous = path[index].position;
     }
     return length;
-}
-
-/* Grow route storage, keeping positions and their values together. */
-void NavigatorRoute::GrowPathStorage()
-{
-    path.resize(path.size() + 10);
 }
 
 Navigator::Navigator(World* owner) : owner_world(owner), reactivated(0)
@@ -203,8 +197,7 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
                          (!CurrentGame().combat.has_value()) != 0)) {
                         navigator->linked_update_time = 0;
                         for (auto* group_navigator : navigator->CollectGroupNavigators()) {
-                            group_navigator->movement.attachment->CopyPathFrom(
-                                navigator->movement.attachment.get());
+                            *group_navigator->movement.attachment = *navigator->movement.attachment;
                             group_navigator->patrol_home = navigator->patrol_home;
                             group_navigator->movement.attachment->flags &=
                                 ~(W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR |
@@ -250,13 +243,13 @@ void ResumeAllNavigators(void)
 NavigatorRoute::NavigatorRoute()
 {
     flags = 0;
-    path_position_index = 0;
     path_cursor = 0;
     follow_offset = 0;
-    path.resize(10);
+    path.resize(2);
     separation = 0.0f;
     segment_start = glm::vec3(0);
     path_destination = glm::vec3(0);
+    path_length_origin = segment_start;
 }
 
 /* The from/to attachment: a ready-made two-position route that starts at the
@@ -264,10 +257,9 @@ NavigatorRoute::NavigatorRoute()
 NavigatorRoute::NavigatorRoute(const glm::vec3* from, const glm::vec3* to)
 {
     flags = W8_NAV_ATTACHMENT_POSITION_RECORDED;
-    path_position_index = 1;
     path_cursor = 1;
     follow_offset = 0;
-    path.resize(10);
+    path.resize(2);
     separation = 0.0f;
     segment_start = *from;
     path[0].position = *from;
@@ -539,7 +531,7 @@ void Navigator::CopyPathToGroup()
 {
     linked_update_time = 0;
     for (auto* navigator : CollectGroupNavigators()) {
-        navigator->movement.attachment->CopyPathFrom(movement.attachment.get());
+        *navigator->movement.attachment = *movement.attachment;
         navigator->patrol_home = patrol_home;
         navigator->movement.attachment->flags &=
             ~(W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR | W8_NAV_ATTACHMENT_FOLLOW_PATH);
@@ -764,7 +756,7 @@ bool Navigator::UpdateLinkedPosition(std::optional<BoundingSphere> player)
             movement_stopped = false;
         }
     }
-    movement.attachment->CopyPathFrom(linked_navigator->movement.attachment.get());
+    *movement.attachment = *linked_navigator->movement.attachment;
     movement.attachment->flags &= ~W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR;
     movement.yaw = linked_navigator->movement.yaw;
     movement.velocity = linked_navigator->movement.velocity * 0.5f;
@@ -975,39 +967,16 @@ bool Navigator::CheckNavigatorCollision(const glm::vec3* from, const glm::vec3* 
    and store the segment length. */
 void NavigatorRoute::InitializeSegment(const glm::vec3* source, const glm::vec3* destination)
 {
+    const auto from = *source;
+    const auto to = *destination;
+    path.assign({PathEntry{from, 0}, PathEntry{to, 0}});
     flags = (flags & 0xc810000) | W8_NAV_ATTACHMENT_POSITION_RECORDED;
-    path_position_index = 1;
     path_cursor = 1;
     separation = 0;
-    segment_start = *source;
-    path[0].position = *source;
-    path_destination = *destination;
-    path[1].position = *destination;
+    segment_start = from;
+    path_destination = to;
     path_length_origin = segment_start;
     follow_offset = 0;
-    for (auto& entry : path) entry.value = 0;
-}
-
-void NavigatorRoute::CopyPathFrom(const NavigatorRoute* other)
-{
-    flags = other->flags;
-    path_cursor = other->path_cursor;
-    path_position_index = other->path_position_index;
-    follow_offset = other->follow_offset;
-    separation = other->separation;
-    segment_start = other->segment_start;
-    path_length_origin = other->segment_start;
-    path_destination = other->path_destination;
-    if ((flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
-        start_waypoint = other->start_waypoint;
-    }
-    if (path_position_index + 1 >= path.size()) {
-        path.resize((path_position_index / 10 + 1) * 10);
-    }
-    for (unsigned int index = 1; index <= path_position_index; ++index) {
-        path[index].position = other->path[index].position;
-        path[index].value = other->path[index].value;
-    }
 }
 
 glm::vec3 NavigatorRoute::GetNextPosition() const
@@ -1015,7 +984,7 @@ glm::vec3 NavigatorRoute::GetNextPosition() const
     if ((flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
         return start_waypoint;
     }
-    if (path_cursor < path_position_index) {
+    if (path_cursor < lastWaypoint()) {
         return path[path_cursor].position;
     } else {
         return path_destination;
@@ -1039,44 +1008,32 @@ bool NavigatorRoute::AdvanceAlongPathPositions(float distance, glm::vec3* positi
     }
     delta = path[path_cursor].position - local;
     segment = glm::length(((glm::vec2(delta.x, delta.z))));
-    if (segment < 1.0 && path_cursor == path_position_index) {
+    if (segment < 1.0 && path_cursor == lastWaypoint()) {
         return false;
     }
     if (segment < distance) {
         do {
-            if (path_position_index < path_cursor) {
+            if (lastWaypoint() < path_cursor) {
                 break;
             }
             distance -= segment;
             local = path[path_cursor].position;
             ++path_cursor;
-            /* Retail reads path[path_cursor].position before the loop head re-tests
-               the cursor: when the consumed waypoint was the last one this
-               samples one slot past path_position_index, inside the
-               ten-entry allocation but never initialized. */
+            if (path_cursor >= path.size()) break;
             delta = path[path_cursor].position - local;
             segment = glm::length(((glm::vec2(delta.x, delta.z))));
         } while (segment < distance);
     }
-    if (path_position_index < path_cursor) {
+    if (lastWaypoint() < path_cursor) {
         *position = path_destination;
-        path_cursor = path_position_index;
+        path_cursor = lastWaypoint();
         on_path = false;
     } else {
-        t = distance / segment;
+        t = segment == 0.0f ? 0.0f : distance / segment;
         *position = local * static_cast<float>(1.0 - t) + path[path_cursor].position * t;
     }
-    if (path_cursor > 1) {
-        for (position_cursor = 0; path_cursor + position_cursor <= path_position_index;
-             ++position_cursor) {
-            path[position_cursor + 1].position = path[position_cursor + path_cursor].position;
-        }
-        path_position_index += 1 - path_cursor;
-        path_cursor = 1;
-    }
-    path[0].position = *position;
-    segment_start = path[0].position;
-    path_length_origin = path[0].position;
+    segment_start = *position;
+    path_length_origin = *position;
     return on_path;
 }
 
@@ -1086,7 +1043,7 @@ bool NavigatorRoute::withinHopHeight(std::span<const W8PathSurface> surfaces,
     auto projection =
         segmentMath::project(point, glm::vec2(path[base].position.x, path[base].position.z),
                              glm::vec2(path[base + 1].position.x, path[base + 1].position.z));
-    if (include_next && path_cursor < path_position_index && path[path_cursor + 1].value != 0) {
+    if (include_next && path_cursor < lastWaypoint() && path[path_cursor + 1].value != 0) {
         const auto next = segmentMath::project(
             point, glm::vec2(path[path_cursor].position.x, path[path_cursor].position.z),
             glm::vec2(path[path_cursor + 1].position.x, path[path_cursor + 1].position.z));
@@ -1106,7 +1063,7 @@ bool NavigatorRoute::checkPositionHopHeight(std::span<const W8PathSurface> surfa
                                             const glm::vec3& position) const
 {
     const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
-    if (path_position_index < base + 1) return false;
+    if (lastWaypoint() < base + 1) return false;
     return withinHopHeight(surfaces, {position.x, position.z}, base, false);
 }
 
@@ -1141,7 +1098,7 @@ bool NavigatorRoute::AdvancePositionTowardWaypoint(glm::vec3* position, float di
         reached = false;
     } else {
         reached = true;
-        if (path_cursor < path_position_index && path[path_cursor + 1].value != 0) {
+        if (path_cursor < lastWaypoint() && path[path_cursor + 1].value != 0) {
             distance -= remainder;
             point = to;
             dir.x = path[path_cursor + 1].position.x - to.x;
@@ -1174,7 +1131,7 @@ bool NavigatorRoute::AdvancePositionTowardWaypoint(glm::vec3* position, float di
 bool NavigatorRoute::AdvancePositionWithDirection(glm::vec3* position, float distance,
                                                   glm::vec3* direction)
 {
-    while (path_cursor <= path_position_index) {
+    while (path_cursor <= lastWaypoint()) {
         if (distance <= 0.0) {
             break;
         }
@@ -1188,7 +1145,7 @@ bool NavigatorRoute::AdvancePositionWithDirection(glm::vec3* position, float dis
         if (length <= distance) {
             *position = *waypoint;
             distance -= length;
-            if (path_cursor == path_position_index) {
+            if (path_cursor == lastWaypoint()) {
                 return true;
             }
             ++path_cursor;
@@ -1504,9 +1461,8 @@ void Navigator::SetPositionInternal(const glm::vec3* position)
         }
         UpdateFacing(true);
         if (movement.attachment != 0) {
-            movement.attachment->path[0].position = movement.position;
-            movement.attachment->path_length_origin = movement.attachment->path[0].position;
-            movement.attachment->segment_start = movement.attachment->path[0].position;
+            movement.attachment->path_length_origin = movement.position;
+            movement.attachment->segment_start = movement.position;
         }
     }
 }
@@ -1724,7 +1680,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
     }
 
     if (movement.attachment != 0 &&
-        movement.attachment->path_cursor >= movement.attachment->path_position_index &&
+        movement.attachment->path_cursor >= movement.attachment->lastWaypoint() &&
         (movement.attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) == 0 &&
         PathAIIsComplete((path_ai ? &*path_ai : nullptr))) {
         radius = movement.alternate_radius;

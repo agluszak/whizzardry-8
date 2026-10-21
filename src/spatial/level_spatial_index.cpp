@@ -676,10 +676,10 @@ unsigned char LevelSpatialIndex::PrepareNavigatorTarget(NavigatorMovement* movem
                                                       movement->navigation_filter);
                 if (result != 0) {
                     NavigatorRoute* attachment = movement->attachment.get();
-                    attachment->path[attachment->path_position_index].position =
+                    attachment->path[attachment->lastWaypoint()].position =
                         movement->target_position;
                     attachment->path_destination =
-                        attachment->path[attachment->path_position_index].position;
+                        attachment->path[attachment->lastWaypoint()].position;
                     pathing->AdvanceAttachmentWaypoint(&movement->position, attachment);
                     movement->target_position = movement->attachment->GetNextPosition();
                     return result;
@@ -687,10 +687,10 @@ unsigned char LevelSpatialIndex::PrepareNavigatorTarget(NavigatorMovement* movem
                 result = pathing->ProbeAttachmentPath(path_search, movement->attachment.get());
                 if (result != 0) {
                     NavigatorRoute* attachment = movement->attachment.get();
-                    attachment->path[attachment->path_position_index].position =
+                    attachment->path[attachment->lastWaypoint()].position =
                         movement->target_position;
                     attachment->path_destination =
-                        attachment->path[attachment->path_position_index].position;
+                        attachment->path[attachment->lastWaypoint()].position;
                     return result;
                 }
             } else {
@@ -726,7 +726,7 @@ bool IsNavigatorAtTarget(NavigatorMovement* movement)
     glm::vec3 target;
     if (movement->attachment != 0) {
         NavigatorRoute* attachment = movement->attachment.get();
-        if (attachment->path_cursor < attachment->path_position_index ||
+        if (attachment->path_cursor < attachment->lastWaypoint() ||
             (attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
             return false;
         }
@@ -2041,9 +2041,8 @@ unsigned int LevelSpatialIndex::AdvanceNavigator(NavigatorMovement* movement, fl
     vecPos = vecDir + movement->position;
     movement->position = vecPos;
     attachment = movement->attachment.get();
-    attachment->path[0].position = vecPos;
-    attachment->path_length_origin = attachment->path[0].position;
-    attachment->segment_start = attachment->path[0].position;
+    attachment->path_length_origin = vecPos;
+    attachment->segment_start = vecPos;
     return reached;
 }
 

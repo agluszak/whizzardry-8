@@ -640,11 +640,11 @@ void NavigationMesh::CheckConditionalLinkStatus(std::span<const unsigned short> 
 unsigned char NavigationMesh::HandlePathEdgeTransition(NavigatorMovement* movement)
 {
     NavigatorRoute* attachment = movement->attachment.get();
-    unsigned short cursor = attachment->path_cursor;
+    std::size_t cursor = attachment->path_cursor;
     unsigned int flags = 0;
     unsigned short destination;
 
-    if (cursor < attachment->path_position_index) {
+    if (cursor < attachment->lastWaypoint()) {
         const auto& pairs = attachment->path;
         unsigned short source = pairs[cursor].value;
         destination = pairs[cursor + 1].value;
@@ -699,15 +699,8 @@ std::optional<MeasuredPath> NavigationMesh::MeasureAttachmentPath(PathSearchScra
         return std::nullopt;
     }
 
-    unsigned short cursor = attachment.path_cursor;
-    if ((attachment.flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
-        --cursor;
-    }
-    attachment.position_cursor = cursor;
-    ++attachment.position_cursor;
-
     MeasuredPath result{attachment.MeasurePathLength(), 0};
-    while (attachment.path_cursor < attachment.path_position_index) {
+    while (attachment.path_cursor < attachment.lastWaypoint()) {
         if (TestAttachmentHopDoor(&attachment)) {
             ++result.door_hops;
         }
@@ -725,8 +718,8 @@ std::optional<MeasuredPath> NavigationMesh::MeasureAttachmentPath(PathSearchScra
    trigger's action record is a type-10 door record whose flag bit is clear. */
 bool NavigationMesh::TestAttachmentHopDoor(NavigatorRoute* attachment) const
 {
-    unsigned short current = attachment->path_cursor;
-    if (current < attachment->path_position_index) {
+    std::size_t current = attachment->path_cursor;
+    if (current < attachment->lastWaypoint()) {
         const auto& pairs = attachment->path;
         unsigned short source = pairs[current].value;
         unsigned short destination = pairs[current + 1].value;
@@ -965,15 +958,15 @@ bool NavigationMesh::BuildAttachmentPath(PathSearchScratch& path_search, Navigat
             } while (node != 0);
             AppendScratchPath(path_search, attachment, count);
             glm::vec3* destination = &attachment->path_destination;
-            glm::vec3* slot = &attachment->path[attachment->path_position_index].position;
+            glm::vec3* slot = &attachment->path[attachment->lastWaypoint()].position;
             *slot = *destination;
-            if (((attachment->path_cursor < attachment->path_position_index) ||
+            if (((attachment->path_cursor < attachment->lastWaypoint()) ||
                  ((attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0)) &&
-                (tracePathSpan(attachment->path[attachment->path_position_index - 2].position,
+                (tracePathSpan(attachment->path[attachment->lastWaypoint() - 2].position,
                                *(destination), false, false)
                      .reachable)) {
-                --attachment->path_position_index;
-                slot = &attachment->path[attachment->path_position_index].position;
+                attachment->path.pop_back();
+                slot = &attachment->path[attachment->lastWaypoint()].position;
                 *slot = *destination;
             }
             attachment->flags |= 0x20000;
@@ -987,9 +980,9 @@ bool NavigationMesh::BuildAttachmentPath(PathSearchScratch& path_search, Navigat
 static void FinalizeWaypointRoute(NavigatorRoute* attachment, bool has_start_waypoint,
                                   const glm::vec3& waypoint)
 {
-    if (1 < attachment->path_position_index) {
-        --attachment->path_position_index;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
+    if (1 < attachment->lastWaypoint()) {
+        attachment->path.pop_back();
+        attachment->path_destination = attachment->path[attachment->lastWaypoint()].position;
     }
     if (has_start_waypoint) {
         attachment->start_waypoint = waypoint;
@@ -1361,15 +1354,14 @@ void NavigationMesh::ReduceWaypointCosts(PathSearchScratch& path_search, unsigne
    index. */
 bool NavigationMesh::AdvanceAttachmentWaypoint(const glm::vec3* source, NavigatorRoute* attachment)
 {
-    unsigned short cursor = attachment->path_cursor;
+    std::size_t cursor = attachment->path_cursor;
     if ((attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
         --cursor;
     }
-    attachment->position_cursor = cursor;
-    ++attachment->position_cursor;
+    const auto position_cursor = cursor + 1;
 
-    if (attachment->position_cursor < attachment->path_position_index) {
-        glm::vec3 destination = attachment->path[attachment->position_cursor].position;
+    if (position_cursor < attachment->lastWaypoint()) {
+        glm::vec3 destination = attachment->path[position_cursor].position;
         if (tracePathSpan(*(source), destination, false, false).reachable) {
             return true;
         }
@@ -1477,7 +1469,7 @@ void NavigationMesh::AdjustFinalPathEndpoint(NavigatorMovement* movement, float 
     const glm::vec3 target_position = target->GetPosition();
 
     NavigatorRoute* attachment = movement->attachment.get();
-    glm::vec3* endpoint = &attachment->path[attachment->path_position_index].position;
+    glm::vec3* endpoint = &attachment->path[attachment->lastWaypoint()].position;
     glm::vec3 direction = *endpoint - target_position;
     float excess = glm::length(direction) - (target_radius + radius);
     if (separation < excess && excess - separation < grid_scale * 0.5f) {
@@ -1688,7 +1680,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
         target = movement->target_position;
     } else if ((attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
         target = attachment->start_waypoint;
-    } else if (attachment->path_cursor < attachment->path_position_index) {
+    } else if (attachment->path_cursor < attachment->lastWaypoint()) {
         target = attachment->path[attachment->path_cursor].position;
     } else {
         target = attachment->path_destination;
@@ -1931,8 +1923,8 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
 
     if ((path_search.best_key == 0 && result == 0) || direct_path) {
         attachment->RecordPosition(&movement->position);
-        attachment->path[attachment->path_position_index].position = movement->position;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
+        attachment->path[attachment->lastWaypoint()].position = movement->position;
+        attachment->path_destination = attachment->path[attachment->lastWaypoint()].position;
         owner_octree->RegisterNavigatorCell(movement->location_id, movement->position);
         if (owner_octree->owner_world == GetWorld())
             PartyNavigator()->radius = PartyNavigator()->movement.alternate_radius;
@@ -1959,18 +1951,15 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
     nodes[selected].parent_node = 0;
 
     unsigned short route_node = previous;
-    attachment->path_position_index = 1;
-    unsigned int prop_count = 0;
+    attachment->path.resize(2);
+    attachment->path_cursor = 1;
     unsigned short anchor_node = previous;
     unsigned short route_parent = nodes[route_node].parent_node;
     while (route_parent != 0) {
         W8PathSearchNode* node = &nodes[route_parent];
         if ((node->flags & W8_PATH_SEARCH_INACTIVE_CELL) != 0) {
             if ((attachment->flags & 0x08000000) == 0) {
-                int prop = ProcessSearchNodeProps(route_parent, false, nodes);
-                if (prop != 0) {
-                    attachment->path[prop_count++].value = static_cast<unsigned short>(prop);
-                }
+                ProcessSearchNodeProps(route_parent, false, nodes);
             } else {
                 ProcessSearchNodeProps(route_parent, true, nodes);
             }
@@ -2010,11 +1999,10 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
 
     // 0x0046473A: the route ends at the last node walked, not at the last anchor.
     attachment->AppendPathPosition(&nodes[route_node].position, 0);
-    attachment->path[prop_count].value = 0;
 
-    if (attachment->path_position_index > 1) {
-        --attachment->path_position_index;
-        attachment->path_destination = attachment->path[attachment->path_position_index].position;
+    if (attachment->lastWaypoint() > 1) {
+        attachment->path.pop_back();
+        attachment->path_destination = attachment->path[attachment->lastWaypoint()].position;
     }
     if ((attachment->flags & 0x08000000) == 0) {
         attachment->RecordPosition(&nodes[path_search.best_key].position);
@@ -2402,9 +2390,8 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
             if (((delta.x != 0.0f) || (delta.y != 0.0f)) || (delta.z != 0.0f)) {
                 glm::vec3 target = delta + advanced;
                 *position = advanced;
-                attachment->path[0].position = advanced;
-                attachment->path_length_origin = attachment->path[0].position;
-                attachment->segment_start = attachment->path[0].position;
+                attachment->path_length_origin = advanced;
+                attachment->segment_start = advanced;
                 movement->target_position = target;
                 owner_octree->UpdateMonsterLocation(movement->location_id, advanced);
             }
@@ -2421,7 +2408,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
         unsigned int destination_flag = attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT;
         glm::vec3* waypoint;
         if (destination_flag == 0) {
-            if (attachment->path_cursor < attachment->path_position_index) {
+            if (attachment->path_cursor < attachment->lastWaypoint()) {
                 waypoint = &attachment->path[attachment->path_cursor].position;
             } else {
                 waypoint = &attachment->path_destination;
@@ -2435,15 +2422,15 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
             (distance < static_cast<float>(g_monster_poster_max_distance))) {
             attachment->flags &= ~W8_NAV_ATTACHMENT_START_WAYPOINT;
         }
-        unsigned short cursor = attachment->path_cursor;
-        if (((cursor == 1) && (1 < attachment->path_position_index)) &&
+        std::size_t cursor = attachment->path_cursor;
+        if (((cursor == 1) && (1 < attachment->lastWaypoint())) &&
             (attachment->path[2].value != 0)) {
             if (attachment->checkPositionHopHeight(m_waypoints, movement->position)) {
                 ActivateMovementTrigger(movement, true);
                 ++attachment->path_cursor;
             }
         } else if ((attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) == 0) {
-            if (cursor == attachment->path_position_index) {
+            if (cursor == attachment->lastWaypoint()) {
                 bool in_range;
                 if (movement->target_location_id < 0) {
                     float limit = kStartupNearLimit;
@@ -2494,7 +2481,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
     if (!stepped) {
         glm::vec3 target;
         if ((attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) == 0) {
-            if (attachment->path_cursor < attachment->path_position_index) {
+            if (attachment->path_cursor < attachment->lastWaypoint()) {
                 glm::vec3* waypoint = &attachment->path[attachment->path_cursor].position;
                 target = *waypoint;
             } else {
@@ -2508,7 +2495,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
         target.z -= movement->position.z;
         distance = sqrt(dy * dy + target.z * target.z + dx * dx);
         float limit;
-        if (attachment->path_cursor == attachment->path_position_index) {
+        if (attachment->path_cursor == attachment->lastWaypoint()) {
             if (-1 < movement->target_location_id) {
                 if (distance < attachment->separation + separation) {
                     goto transitioned;
@@ -2532,7 +2519,7 @@ transitioned:
     {
         unsigned char transition = HandlePathEdgeTransition(movement);
         if (transition == 1) {
-            if (attachment->path_cursor != attachment->path_position_index) {
+            if (attachment->path_cursor != attachment->lastWaypoint()) {
                 ActivateMovementTrigger(movement, true);
                 m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
                     static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
@@ -2589,28 +2576,29 @@ bool NavigationMesh::PrepareLinkedNavigator(PathSearchScratch& path_search,
     if (linked_attachment == 0) {
         return false;
     }
-    unsigned short index = linked_attachment->path_cursor;
-    if (index < linked_attachment->path_position_index) {
+    std::size_t index = linked_attachment->path_cursor;
+    if (index < linked_attachment->lastWaypoint()) {
         do {
             if (linked_attachment->path[index].value != 0) {
                 break;
             }
             ++index;
-        } while (index < linked_attachment->path_position_index);
+        } while (index < linked_attachment->lastWaypoint());
     }
     attachment->InitializeSegment(&movement->position, &linked_attachment->path[index].position);
     bool built = BuildAttachmentPath(path_search, attachment, movement->navigation_filter);
     if (built) {
         ++index;
-        attachment->follow_offset =
-            attachment->path_position_index - linked_attachment->path_cursor;
-        if (index <= linked_attachment->path_position_index) {
+        attachment->follow_offset = static_cast<std::ptrdiff_t>(attachment->lastWaypoint()) -
+                                    static_cast<std::ptrdiff_t>(linked_attachment->path_cursor);
+        if (index <= linked_attachment->lastWaypoint()) {
             do {
                 unsigned short surface = linked_attachment->path[index].value;
                 glm::vec3* source = &linked_attachment->path[index].position;
-                attachment->AppendPathPosition(source, surface);
+                attachment->path.push_back({*source, surface});
+                attachment->path_destination = *source;
                 ++index;
-            } while (index <= linked_attachment->path_position_index);
+            } while (index <= linked_attachment->lastWaypoint());
         }
     }
     return built;
@@ -3781,7 +3769,7 @@ void NavigationMesh::ActivateMovementTrigger(NavigatorMovement* movement, bool u
     } else {
         NavigatorRoute* attachment = movement->attachment.get();
 
-        if (!attachment || attachment->path_cursor >= attachment->path_position_index ||
+        if (!attachment || attachment->path_cursor >= attachment->lastWaypoint() ||
             static_cast<std::size_t>(attachment->path_cursor) + 1 >= attachment->path.size())
             return;
         {

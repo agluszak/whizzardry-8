@@ -533,12 +533,12 @@ TEST_CASE("navigator route growth, copying and movement")
     NavigatorRoute route(&origin, &end);
     REQUIRE((route.MeasurePathLength() == 5));
     route.InitializeSegment(&origin, &end);
-    route.path_position_index = 1;
+    route.path.resize(2);
     for (unsigned short i = 1; i <= 35; ++i) {
         const glm::vec3 position(i, 0, 0);
         route.AppendPathPosition(&position, i);
     }
-    REQUIRE((route.path_position_index == 36 && route.path.size() > 36));
+    REQUIRE((route.path.size() == 37));
     for (unsigned short i = 1; i <= 35; ++i) {
         REQUIRE((route.path[i].position == glm::vec3(i, 0, 0)));
         REQUIRE((route.path[i].value == i));
@@ -546,9 +546,9 @@ TEST_CASE("navigator route growth, copying and movement")
     route.path[36] = {glm::vec3(36, 0, 0), 0};
     NavigatorRoute copied;
     copied.path[0].position = glm::vec3(-1, 0, 0);
-    copied.CopyPathFrom(&route);
-    REQUIRE((copied.path[0].position == glm::vec3(-1, 0, 0)));
-    REQUIRE((copied.path_position_index == route.path_position_index));
+    copied = route;
+    REQUIRE((copied.path[0].position == route.path[0].position));
+    REQUIRE((copied.path.size() == route.path.size()));
     for (unsigned i = 1; i <= 36; ++i) {
         REQUIRE((copied.path[i].position == route.path[i].position));
         REQUIRE((copied.path[i].value == route.path[i].value));
@@ -566,7 +566,7 @@ TEST_CASE("navigator route growth, copying and movement")
 
     // An append may borrow a position from the same storage being grown.
     NavigatorRoute aliased(&origin, &end);
-    aliased.path_position_index = 9;
+    aliased.path.resize(10);
     aliased.AppendPathPosition(&aliased.path[1].position, 7);
     REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
 }
@@ -578,9 +578,9 @@ TEST_CASE("Route hop heights use supplied surfaces with independent waypoint ind
     for (auto& surface : low_surfaces) surface.flags = 1 << 12;
     for (auto& surface : high_surfaces) surface.flags = 2 << 12;
     NavigatorRoute route;
+    route.path.resize(3);
     route.path[1] = {{0, 0, 0}, 1};
     route.path[2] = {{1000, 0, 0}, 2};
-    route.path_position_index = 2;
     route.path_cursor = 2;
     const glm::vec3 position{500, 0, 750};
     REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, position));
@@ -590,8 +590,7 @@ TEST_CASE("Route hop heights use supplied surfaces with independent waypoint ind
     REQUIRE(route.checkPredictedHopHeight(high_surfaces, position));
 
     // Prediction still chooses the nearer following segment when available.
-    route.path[3] = {{1000, 0, 1000}, 3};
-    route.path_position_index = 3;
+    route.path.push_back({{1000, 0, 1000}, 3});
     const glm::vec3 following{1000, 0, 750};
     REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, following));
     REQUIRE(route.checkPredictedHopHeight(low_surfaces, following));
@@ -1120,13 +1119,13 @@ TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry]
     REQUIRE(start == route.start_waypoint);
     route.flags = 0;
     route.path_cursor = 0;
-    route.path_position_index = 1;
+    route.path.resize(2);
     route.path[0].position = {4, 5, 6};
     const auto waypoint = route.GetNextPosition();
     REQUIRE(waypoint == glm::vec3(4, 5, 6));
     route.path[0].position = {10, 11, 12};
     REQUIRE(waypoint == glm::vec3(4, 5, 6));
-    route.path_cursor = route.path_position_index;
+    route.path_cursor = route.lastWaypoint();
     REQUIRE(route.GetNextPosition() == route.path_destination);
     REQUIRE(start == glm::vec3(1, 2, 3));
 }
@@ -2362,4 +2361,23 @@ TEST_CASE("Recycled particles restart texture playback at their new birth", "[ge
     particles.AdvanceSimulation(game.game.time);
     REQUIRE(particles.active_particle_count == 1);
     REQUIRE(particles.texture_frames.front()->playback->frame == 1);
+}
+
+TEST_CASE("Route advancement keeps waypoint metadata and never reads past the endpoint",
+          "[geometry][navigation]")
+{
+    const glm::vec3 origin(0), end(30, 0, 0), first(10, 0, 0), second(20, 0, 0);
+    NavigatorRoute route(&origin, &end);
+    route.AppendPathPosition(&first, 7);
+    route.AppendPathPosition(&second, 2);
+    auto position = origin;
+    REQUIRE(route.AdvanceAlongPathPositions(15, &position));
+    REQUIRE(position == glm::vec3(15, 0, 0));
+    REQUIRE(route.path_cursor == 2);
+    REQUIRE(route.path.size() == 4);
+    REQUIRE(route.path[1].value == 7);
+    REQUIRE(route.path[2].value == 2);
+    REQUIRE_FALSE(route.AdvanceAlongPathPositions(100, &position));
+    REQUIRE(position == end);
+    REQUIRE(route.path_cursor == route.lastWaypoint());
 }
