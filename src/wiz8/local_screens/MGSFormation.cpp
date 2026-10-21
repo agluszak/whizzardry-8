@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <utility>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
@@ -52,10 +54,17 @@ static glm::ivec2 g_formation_cell_positions[15] = {
 
 static int g_formation_active_cell;
 static int g_formation_drag_slot;
-/* The party slot occupying each cell control, or -1. */
-static int g_formation_cell_slots[15];
 static uint64_t g_formation_drag_clock;
 static int g_formation_drag_cell;
+
+/* The party slot shown in a cell control, or -1: the edited formation's
+   member there, except while it is being dragged away. */
+static int FormationCellSlot(int cell)
+{
+    if (cell == g_formation_drag_cell) return -1;
+    const auto slot = CurrentGame().planned_formation.occupant(cell / 3, cell % 3);
+    return slot && CurrentGame().party.members[*slot].has_value() ? *slot : -1;
+}
 
 namespace {
 struct FormationPanel {
@@ -88,18 +97,18 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
+        const auto seat = CurrentGame().party.formation.cellOf(slot);
         int left;
         int top;
         int image;
         int order_image;
 
-        if (!CurrentGame().party.members[slot].has_value() || position->bQuadrant == -1) {
+        if (!CurrentGame().party.members[slot].has_value() || !seat) {
             continue;
         }
-        left = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].x;
-        top = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].y;
-        image = position->facing * 3;
+        left = g_formation_marker_offsets[seat->row * 3 + seat->column].x;
+        top = g_formation_marker_offsets[seat->row * 3 + seat->column].y;
+        image = CurrentGame().party.formation.positions[slot].facing * 3;
         order_image = CurrentGame().party.orderIndexOf(slot) * 3;
         if (slot == MainGameHud()->highlight.FormationSlot()) {
             image += 1;
@@ -182,13 +191,13 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
 
     hit = -1;
     for (slot = 0; slot < 8; ++slot) {
-        W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
+        const auto seat = CurrentGame().party.formation.cellOf(slot);
         int cell;
 
-        if (!CurrentGame().party.members[slot].has_value() || position->bQuadrant == -1) {
+        if (!CurrentGame().party.members[slot].has_value() || !seat) {
             continue;
         }
-        cell = position->bQuadrant * 3 + position->bQuadrantSlot;
+        cell = seat->row * 3 + seat->column;
         if (IsCursorInRectangle(g_formation_marker_offsets[cell].x + 0x207,
                                 g_formation_marker_offsets[cell].y + 0x167,
                                 g_formation_marker_offsets[cell].x + 0x211,
@@ -261,7 +270,7 @@ void RefreshFormationPanel(bool force)
     const auto arrows = CatalogArtwork::Load(0x9f, 0);
     const auto chips = CatalogArtwork::Load(0xa0, 0);
     for (int cell = 0; cell < 15; ++cell) {
-        const int slot = g_formation_cell_slots[cell];
+        const int slot = FormationCellSlot(cell);
         if (slot == -1) continue;
         const auto position = g_formation_cell_positions[cell];
         const bool disabled = !CanHoldFormationPlace(slot);
@@ -296,16 +305,9 @@ void OpenFormationPanel(void)
     UpdateFormationCells();
 }
 
-/* Re-derive every cell's sprites and enabled state from the edited formation
-   and re-highlight the selected character's cell. */
+/* Re-highlight the selected character's cell after the edited formation changed. */
 static void UpdateFormationCells(void)
 {
-    for (auto& slot : g_formation_cell_slots) slot = -1;
-    for (int slot = 0; slot < 8; ++slot) {
-        const auto& position = CurrentGame().planned_formation.positions[slot];
-        if (CurrentGame().party.members[slot].has_value() && position.bQuadrant != -1)
-            g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
-    }
     SelectFormationSlotCell(CurrentGame().status.selected_character);
 }
 
@@ -313,7 +315,7 @@ static void UpdateFormationCells(void)
    party slot the selected character. */
 static void SelectFormationCell(void)
 {
-    const int slot = g_formation_cell_slots[g_formation_active_cell];
+    const int slot = FormationCellSlot(g_formation_active_cell);
     if (CanHoldFormationPlace(slot)) {
         SelectFormationSlotCell(slot);
         SelectPartyCharacter(slot);
@@ -329,8 +331,8 @@ static void AcceptFormationChanges(void)
 
     for (slot = 0; slot < 8; ++slot) {
         if (CurrentGame().party.members[slot].has_value() && CanHoldFormationPlace(slot) &&
-            CurrentGame().planned_formation.positions[slot].bQuadrant !=
-                CurrentGame().party.formation.positions[slot].bQuadrant) {
+            CurrentGame().planned_formation.rowOf(slot) !=
+                CurrentGame().party.formation.rowOf(slot)) {
             StartBreathCycle(slot, false);
         }
     }
@@ -360,11 +362,11 @@ static void DropFormationSlot(int cell);
    hover art and tooltip. */
 static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 {
-    if ((g_formation_cell_slots[id] != -1) &&
+    if ((FormationCellSlot(id) != -1) &&
         (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
     if (!FormationPanelOpen()) return UiResult::Pass;
-    if (g_formation_cell_slots[id] == -1) {
+    if (FormationCellSlot(id) == -1) {
 
         if (event.action != UiPointerAction::Up || event.button != UiPointerButton::Left ||
             g_formation_drag_cell == -1)
@@ -376,7 +378,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
             if ((event.captured_buttons & SDL_BUTTON_LMASK) &&
                 TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
                 g_formation_active_cell != -1) {
-                if (!CanHoldFormationPlace(g_formation_cell_slots[id])) {
+                if (!CanHoldFormationPlace(FormationCellSlot(id))) {
                     formation->targets[id]->releaseCapture();
                     return UiResult::Handled;
                 }
@@ -390,7 +392,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
             g_formation_drag_clock = MonotonicMilliseconds() + 250;
             return UiResult::Handled;
         case UiPointerAction::Up:
-            if (g_formation_cell_slots[id] != -1) {
+            if (FormationCellSlot(id) != -1) {
                 g_formation_active_cell = id;
                 if (formation->cells[id].release(SDL_BUTTON_LMASK, cell_policy).activate)
                     SelectFormationCell();
@@ -407,7 +409,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         formation->highlighted[id] = false;
         formation->dirty = true;
         if ((event.buttons & SDL_BUTTON_LMASK) && g_formation_drag_cell == -1 &&
-            CanHoldFormationPlace(g_formation_cell_slots[id])) {
+            CanHoldFormationPlace(FormationCellSlot(id))) {
             g_formation_active_cell = id;
             BeginFormationDrag();
             formation->dirty = true;
@@ -421,7 +423,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         formation->highlighted[id] = true;
         formation->dirty = true;
         g_formation_active_cell = id;
-        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[id]);
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, FormationCellSlot(id));
         return UiResult::Handled;
     }
     return UiResult::Pass;
@@ -455,11 +457,11 @@ static void BeginFormationDrag()
     formation->targets[g_formation_active_cell]->releaseCapture();
     SelectFormationCell();
     formation->cells[g_formation_active_cell] = {};
-    g_formation_drag_slot = g_formation_cell_slots[g_formation_active_cell];
+    g_formation_drag_slot = FormationCellSlot(g_formation_active_cell);
+    // The dragged chip follows the pointer and its cell shows empty; the drop
+    // must reach the cell under it rather than the button region that captured
+    // the initial press.
     g_formation_drag_cell = g_formation_active_cell;
-    // The dragged chip follows the pointer; the drop must reach the cell under
-    // it rather than the button region that captured the initial press.
-    g_formation_cell_slots[g_formation_active_cell] = -1;
     point = CursorPosition();
     ClearMouseSurface();
     sprite = CurrentGame().planned_formation.positions[g_formation_drag_slot].facing * 3 + 1;
@@ -482,36 +484,35 @@ static void BeginFormationDrag()
 static void DropFormationSlot(int cell)
 {
     if (cell != -1 && cell != g_formation_drag_cell) {
-        if (g_formation_cell_slots[cell] == -1) {
-            SetFormationPosition(&CurrentGame().planned_formation, g_formation_drag_slot, -1, -1,
-                                 false, true, true);
+        if (FormationCellSlot(cell) == -1) {
+            SetFormationPosition(&CurrentGame().planned_formation, g_formation_drag_slot,
+                                 std::nullopt, false, true, true);
             SeatFormationSlotInRow(&CurrentGame().planned_formation, g_formation_drag_slot,
                                    cell / 3);
-        } else if (!CanHoldFormationPlace(g_formation_cell_slots[cell])) {
+        } else if (!CanHoldFormationPlace(FormationCellSlot(cell))) {
             cell = -1;
         } else {
             SwapFormationSlots(&CurrentGame().planned_formation, g_formation_drag_slot,
-                               g_formation_cell_slots[cell]);
+                               FormationCellSlot(cell));
         }
     }
+    const int dragged_from = std::exchange(g_formation_drag_cell, -1);
     ResetPointerCursor();
     UpdateFormationCells();
-    formation->highlighted[g_formation_drag_cell] = false;
+    formation->highlighted[dragged_from] = false;
     if (cell != -1) {
         formation->highlighted[cell] = true;
         g_formation_active_cell = cell;
-        MainGameHud()->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[cell]};
+        MainGameHud()->highlight = {W8_HIGHLIGHT_FORMATION, FormationCellSlot(cell)};
         if (auto* hud = MainGameHud()) hud->repaint.portrait(MainGameHud()->highlight.slot);
     }
-    g_formation_drag_cell = -1;
 }
 
 void SelectFormationSlotCell(int party_slot)
 {
     for (int cell = 0; cell < 15; ++cell) {
         auto& state = formation->cells[cell];
-        state.pressed = state.selected =
-            party_slot != -1 && g_formation_cell_slots[cell] == party_slot;
+        state.pressed = state.selected = party_slot != -1 && FormationCellSlot(cell) == party_slot;
     }
     formation->dirty = true;
 }

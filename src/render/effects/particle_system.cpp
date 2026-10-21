@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -37,6 +38,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
@@ -359,7 +361,16 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
         flutter_angles[index] = PresentationRng().next() * kParticleFlutterAngleRandomScale;
     }
     if (!texture_frames.empty()) {
-        texture_frames[index].get()->SetFrame(0);
+        // A pool slot may have been inactive for a long time. Restart its
+        // selected animation chain at this birth, including nested IFL frames.
+        const auto now = GameInProgress() ? CurrentGame().time : std::chrono::milliseconds{};
+        auto* animation = texture_frames[index].get();
+        while (animation && animation->playback) {
+            animation->SetFrame(0);
+            auto& playback = animation->playback.value();
+            playback.last_update = now;
+            animation = playback.textures.empty() ? nullptr : playback.textures.front().get();
+        }
     }
 
     alphas[index] = 1.0f;
@@ -535,7 +546,7 @@ void ParticleSystem::SetTraversalEnabled(bool enabled)
 /* Keep the old activation gate and emission/integration/completion order in
    the game update. Frustum visibility only affects drawing: an enabled system
    still expires and restores its owner's animation when it is offscreen. */
-void ParticleSystem::AdvanceSimulation()
+void ParticleSystem::AdvanceSimulation(std::chrono::milliseconds game_time)
 {
     if (finished || !visible || !traversal_enabled || (!emitting && !active_particle_count)) {
         return;
@@ -547,7 +558,8 @@ void ParticleSystem::AdvanceSimulation()
     // An IFL frame can itself be animated. Resolve the selected chain here
     // so every view later consumes the same complete playback snapshot.
     for (unsigned index = 0; index < texture_frames.size(); ++index)
-        if (particle_active[index]) texture_frames[index]->resolve();
+        if (particle_active[index])
+            texture_frames[index]->UpdateFrame(game_time, TextureClock::Game);
     Update();
 
     if (emission_limit != 0 && emission_count >= emission_limit) {
@@ -679,8 +691,11 @@ void ParticleSystem::SetTexture(std::shared_ptr<Texture> texture)
     texture_frames = {};
     if (auto* animation = ((texture.get() && texture.get()->playback) ? texture.get() : nullptr)) {
         texture_frames.reserve(particle_count);
-        for (unsigned int i = 0; i < particle_count; ++i)
-            texture_frames.push_back(std::make_shared<Texture>(*animation));
+        for (unsigned int i = 0; i < particle_count; ++i) {
+            auto frame = std::make_shared<Texture>(*animation);
+            frame->setAnimationClock(TextureClock::Game);
+            texture_frames.push_back(std::move(frame));
+        }
     }
     this->texture = std::move(texture);
 }
@@ -728,12 +743,12 @@ void RetireParticle(World& world, std::unique_ptr<ParticleSystem> particle)
     world.retired_particles.push_back(std::move(particle));
 }
 
-void AdvanceWorldParticles(World& world)
+void AdvanceWorldParticles(World& world, std::chrono::milliseconds game_time)
 {
     // Completion can change a monster's animation. Newly attached systems wait
     // for the next step, just as they did in the scene's submission snapshot.
     const auto particles = world.scene->particles;
-    for (auto* particle : particles) particle->AdvanceSimulation();
+    for (auto* particle : particles) particle->AdvanceSimulation(game_time);
 }
 
 void SweepFinishedParticles(World* world)

@@ -2,6 +2,8 @@
 #include <array>
 #include <initializer_list>
 #include <memory>
+#include <numbers>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -14,11 +16,17 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
+#include <glm/ext/vector_int3.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/io/write.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
+#include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/utils/Builder.h>
 
 #include "surface_pixels.h"
+#include "temporary_directory.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
@@ -28,8 +36,10 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
@@ -78,9 +88,11 @@ TEST_CASE("VSG frame owns submitted overlay resources through completion")
     fixture.renderer->beginFrame({0, 0, 1, 1});
     fixture.renderer->drawOverlayQuad(quad);
     texture = solidTexture(0xff00ff00);
-    quad.texture = texture;
-    quad.position.x = 320;
-    fixture.renderer->drawOverlayQuad(quad);
+    OverlayQuad second;
+    second.size = quad.size;
+    second.texture = texture;
+    second.position.x = 320;
+    fixture.renderer->drawOverlayQuad(second);
     texture.reset();
     quad.texture.reset();
     fixture.renderer->endFrame(false, true);
@@ -89,6 +101,21 @@ TEST_CASE("VSG frame owns submitted overlay resources through completion")
     fixture.renderer->beginFrame({0, 0, 1, 1});
     fixture.renderer->endFrame(false, true);
     REQUIRE(fixture.pixel(16, 32) == 0x0000ff);
+    const auto node = second.node->children.front().node;
+    second.position = {0, 0};
+    second.size = {640, 480};
+    second.color = {0, 0, 1, 1};
+    second.texture.reset();
+    fixture.renderer->beginFrame();
+    fixture.renderer->drawOverlayQuad(second);
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(second.node->children.front().node == node);
+    REQUIRE(fixture.pixel(16, 32) == 0x0000ff);
+    second.visible = false;
+    fixture.renderer->beginFrame({1, 0, 0, 1});
+    fixture.renderer->drawOverlayQuad(second);
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(fixture.pixel(16, 32) == 0xff0000);
 }
 
 TEST_CASE("Two VSG views share ordinary and Wizardry geometry in one world")
@@ -145,6 +172,102 @@ TEST_CASE("Two VSG views share ordinary and Wizardry geometry in one world")
     REQUIRE(scene.root->children.back() == ordinary);
 }
 
+TEST_CASE("The map view draws explored static geometry without changing gameplay views")
+{
+    Fixture fixture;
+    WorldScene scene;
+    scene.ambient_light = glm::vec3(.25f);
+    const auto look_down = [](Camera3D& camera) {
+        camera.transform.setRotation(std::numbers::pi / 2, 0.0, 0.0);
+        camera.transform.setLocation(0, 5, 0);
+        camera.setClipRange(1, 10);
+    };
+    look_down(scene.camera);
+    scene.camera.setViewPlane(Camera3D::Rect{-.5, -.5, .5, .5}, 1);
+    look_down(scene.map.camera);
+    scene.map.camera.setViewPlane(Camera3D::Rect{-2.5, -2.5, 2.5, 2.5}, 1);
+
+    // Two static floor tiles; the second one's texture is excluded from the map.
+    auto material = std::make_shared<Material>();
+    material->setAmbient(glm::vec4(1));
+    material->setDiffuse(glm::vec4(1));
+    material->setSpecular(glm::vec4(0));
+    material->setEmissive(glm::vec4(0));
+    auto floor = std::make_shared<Mesh>(4, 8);
+    const std::array<glm::vec3, 8> corners{{{-2, 0, -.5f},
+                                            {-1, 0, -.5f},
+                                            {-1, 0, .5f},
+                                            {-2, 0, .5f},
+                                            {1, 0, -.5f},
+                                            {2, 0, -.5f},
+                                            {2, 0, .5f},
+                                            {1, 0, .5f}}};
+    std::ranges::copy(corners, floor->getVertexLoc());
+    const std::array<glm::ivec3, 4> triangles{{{0, 1, 2}, {0, 2, 3}, {4, 5, 6}, {4, 6, 7}}};
+    std::ranges::copy(triangles, floor->getPolyVertex());
+    floor->enable(Mesh::CONTROL_NO_FRONT_CULL);
+    floor->setMaterial(material, 0, Mesh::SIDE_FRONT);
+    auto hidden = solidTexture(0xffffffff);
+    hidden->setName("Hidden");
+    floor->getPolygonTextureTable(0, 0, true)->set(2, hidden);
+    floor->getPolygonTextureTable(0, 0, true)->set(3, hidden);
+    floor->GetVertexSunlight(true);
+    std::ranges::fill(floor->GetVertexLights(true), glm::vec3(0, .25f, 0));
+    auto owned_floor = std::make_unique<MeshInstance>();
+    owned_floor->setModel(floor);
+    const auto& floor_instance = *scene.addStaticMesh(std::move(owned_floor));
+
+    // An actor between the tiles, above the floor.
+    auto actor_material = std::make_shared<Material>();
+    actor_material->setAmbient(glm::vec4(0));
+    actor_material->setDiffuse(glm::vec4(0, 0, 0, 1));
+    actor_material->setSpecular(glm::vec4(0));
+    actor_material->setEmissive(glm::vec4(1, 0, 0, 1));
+    auto actor_mesh = std::make_shared<Mesh>(2, 4);
+    const std::array<glm::vec3, 4> actor_corners{
+        {{-.5f, 1, -.5f}, {.5f, 1, -.5f}, {.5f, 1, .5f}, {-.5f, 1, .5f}}};
+    std::ranges::copy(actor_corners, actor_mesh->getVertexLoc());
+    std::ranges::copy(std::span(triangles).first(2), actor_mesh->getPolyVertex());
+    actor_mesh->enable(Mesh::CONTROL_NO_FRONT_CULL);
+    actor_mesh->setMaterial(actor_material, 0, Mesh::SIDE_FRONT);
+    MeshInstance actor(&scene);
+    actor.setModel(actor_mesh);
+
+    const auto render = [&](bool map) {
+        fixture.renderer->beginFrame({0, 0, 1, 1});
+        const auto viewport = vsg::ViewportState::create(0, 0, 64, 64);
+        const auto number = fixture.renderer->frameNumber();
+        auto& context = fixture.renderer->context();
+        fixture.renderer->addView(
+            map ? scene.createMapView(context, {}, viewport, number)
+                : scene.createView(context, &scene.camera, {}, viewport, number));
+        fixture.renderer->endFrame(false, true);
+        // The left tile, the actor and the right tile.
+        return std::array{fixture.pixel(12, 32), fixture.pixel(32, 32), fixture.pixel(51, 32)};
+    };
+    const auto gameplay = render(false);
+    // Ambient 1/4 plus the baked green 1/4 on both tiles; the actor is red.
+    for (const auto tile : {gameplay[0], gameplay[2]}) {
+        INFO("tile RGB " << tile);
+        REQUIRE((tile >> 16) >= 62);
+        REQUIRE((tile >> 16) <= 66);
+        REQUIRE(((tile >> 8) & 255) >= 126);
+        REQUIRE(((tile >> 8) & 255) <= 130);
+    }
+    REQUIRE(gameplay[1] == 0xff0000);
+
+    // Only explored vertices are lit. The actor is not part of the map.
+    scene.map.reveal(floor_instance, {-1.5f, 0, 0}, 1);
+    REQUIRE(render(true) == std::array{0xffffffu, 0x0000ffu, 0x000000u});
+    // Excluded textures leave the background, even when explored.
+    scene.map.reveal(floor_instance, {1.5f, 0, 0}, 1);
+    scene.map.excludeTextures({"HIDDEN"});
+    REQUIRE(render(true) == std::array{0xffffffu, 0x0000ffu, 0x0000ffu});
+
+    // Gameplay needs no restore step after the map.
+    REQUIRE(render(false) == gameplay);
+}
+
 TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures across views")
 {
     Fixture fixture;
@@ -198,9 +321,6 @@ TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures acro
             light->ambient = glm::vec3(0);
             light->diffuse = glm::vec3(1.f / 64);
             light->specular = glm::vec3(0);
-            light->derived_flags = 0x1234;
-            light->eye_location = {7, 8, 9};
-            light->scaled_diffuse = glm::vec4(6);
             lights.push_back(std::move(light));
         }
     };
@@ -252,9 +372,8 @@ TEST_CASE("Wizardry shaders retain live lighting, fog and animated textures acro
     REQUIRE(instance.frame_interpolation == .25f);
     REQUIRE(instance.sampledPosition(*mesh, 0) == sampled);
     for (const auto& light : lights) {
-        REQUIRE(light->derived_flags == 0x1234);
-        REQUIRE(light->eye_location == glm::vec3(7, 8, 9));
-        REQUIRE(light->scaled_diffuse == glm::vec4(6));
+        REQUIRE(light->diffuse == glm::vec3(1.f / 64));
+        REQUIRE(light->intensity == 1.f);
     }
 }
 
@@ -363,4 +482,60 @@ TEST_CASE("Wizardry globally sorts transparent triangles around opaque VSG and d
     expect(24, 0x800040);
     expect(40, 0x400080);
     expect(48, 0x00e600);
+}
+
+TEST_CASE("Imported native VSG content shares game lighting, fog and picking")
+{
+    Fixture fixture;
+    ScopedTemporaryDirectory directory("wiz8-native-content");
+    auto positions = vsg::vec3Array::create({{-1, -1, 3}, {1, -1, 3}, {0, 1, 3}});
+    auto normals = vsg::vec3Array::create(3, vsg::vec3(0, 0, -1));
+    auto source = vsg::VertexIndexDraw::create();
+    source->assignArrays({positions, normals});
+    source->assignIndices(vsg::ushortArray::create({0, 1, 2}));
+    source->indexCount = 3;
+    source->instanceCount = 1;
+    const auto path = directory.path / "triangle.vsgt";
+    REQUIRE(vsg::write(source, path.string()));
+    auto material = std::make_shared<Material>();
+    material->setAmbient(glm::vec4(1));
+    material->setDiffuse(glm::vec4(1, 0, 0, 1));
+    material->setSpecular(glm::vec4(0));
+    material->setEmissive(glm::vec4(0));
+    auto object = render::loadGameContent(path, material);
+    WorldScene scene;
+    scene.root->addChild(object);
+    scene.camera.setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
+    scene.camera.setClipRange(1, 10);
+    scene.camera.setViewPlane({-2, -2, 2, 2}, 1);
+    scene.ambient_light = glm::vec3(0);
+    scene.fog_color = {0, 0, 1};
+    Light light(&scene, Light::PRESET_DIRECTIONAL);
+    light.ambient = light.specular = glm::vec3(0);
+    light.diffuse = glm::vec3(.5f);
+    FogParams fog(&scene);
+    fog.setRange(0, 1);
+    fog.setDensity(.25f);
+    const auto draw = [&] {
+        fixture.renderer->beginFrame();
+        auto view = scene.createView(fixture.renderer->context(), &scene.camera, {},
+                                     vsg::ViewportState::create(0, 0, 64, 64),
+                                     fixture.renderer->frameNumber());
+        Pick pick;
+        scene.pick(*view->camera, std::span{&pick, 1});
+        REQUIRE(pick.hit);
+        REQUIRE(std::ranges::find(pick.hit->nodePath, object.get()) != pick.hit->nodePath.end());
+        REQUIRE(render::gameOwner(pick) == nullptr);
+        fixture.renderer->addView(view);
+        fixture.renderer->endFrame(false, true);
+        return fixture.pixel(32, 32);
+    };
+    const auto lit = draw();
+    REQUIRE(((lit >> 16) & 255) >= 94);
+    REQUIRE(((lit >> 16) & 255) <= 97);
+    REQUIRE((lit & 255) >= 62);
+    light.diffuse = glm::vec3(0);
+    const auto dark = draw();
+    REQUIRE((dark & 0xff0000) == 0);
+    REQUIRE((dark & 255) >= 62);
 }

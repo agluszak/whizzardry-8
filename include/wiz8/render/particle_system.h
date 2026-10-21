@@ -1,3 +1,4 @@
+#include <chrono>
 #pragma once
 struct W8Chunk;
 
@@ -50,7 +51,7 @@ public:
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
     // Called once by the game update, independent of the number of views.
-    void AdvanceSimulation();
+    void AdvanceSimulation(std::chrono::milliseconds game_time);
     vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
     vsg::ref_ptr<vsg::Node> renderNode() const;
     void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
@@ -152,7 +153,7 @@ public:
 
 struct World;
 // Advance attached particles in their scene order, after entity placement.
-void AdvanceWorldParticles(World& world);
+void AdvanceWorldParticles(World& world, std::chrono::milliseconds game_time);
 // A still-emitting particle outlives its cycle in the world's retired list;
 // the sweep destroys it once it has finished, never during rendering.
 void RetireParticle(World& world, std::unique_ptr<ParticleSystem> particle);

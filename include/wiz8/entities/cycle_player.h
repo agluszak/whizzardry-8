@@ -68,6 +68,9 @@ public:
 
     // Gameplay despawning lets active particles finish; level destruction does not.
     void RetireParticles(World& world);
+    // Take this player's lights and particles out of the scene for good, as a
+    // never-drawn definition needs; its resources stay loaded for copying.
+    void WithdrawFromScene();
     void TickAnimation(float rate, const glm::vec3& position, bool reset_frame_bounds,
                        const std::function<bool(unsigned char)>& frame_event); /* 0x004A6E20 */
     void finishCycleSelection(const glm::vec3& position); /* 0x004A6FC0 */
@@ -109,6 +112,9 @@ public:
     glm::vec3 parent_location{0.0f};
     glm::mat3 rotation{1.0f};
     glm::vec4 highlight_colour{0.0f};
+    // The actor's appearance, applied to whichever model instance is active.
+    int damage_stage = -1;
+    float light_scale = 1.0f;
     float instance_scale = 1.0f;
     bool apply_instance_scale = false;
     unsigned char subcycle = 0;

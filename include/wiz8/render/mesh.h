@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
@@ -232,7 +231,6 @@ public:
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via Mesh::setBounds. */
     void calculateCompoundBounds();                 /* 0x00471e10 */
-    void RevealVerticesNear(const glm::vec3& position, float range, const glm::mat4& world);
 
     int FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
@@ -245,7 +243,7 @@ public:
                             const std::shared_ptr<Texture>& replacement);
     std::vector<std::shared_ptr<Texture>>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
-       The view is borrowed until its skin or automap filter is changed. */
+       The view is borrowed until its skin is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
     void RemoveSkinTable(int index);
     // Borrowed frame caches; interpolated positions reuse the model's lerp buffer.
@@ -258,11 +256,10 @@ public:
     glm::vec3* GetVertexLocations(unsigned int frame, bool load, float interpolation);
     glm::vec3* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
     glm::vec3* GetPolygonNormals(unsigned int frame, bool load);
-    void ClearVertexLights();
     void SetAmbientColor(const glm::vec3& color, const glm::vec3& environment = glm::vec3(0),
                          float brightness = 1.0f);
     bool AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
-    std::span<glm::vec3> GetVertexLights(bool initialize, int table); /* 0x00472100 */
+    std::span<glm::vec3> GetVertexLights(bool initialize); /* 0x00472100 */
     std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
     int ReleaseDecompressedFrames(); /* 0x004739E0 */
@@ -273,8 +270,6 @@ public:
     bool DecompressFrame(int frame, unsigned char flags,
                          std::span<glm::vec3> destination); /* 0x00471930 */
     void ComputeFrameNormals(int frame); /* 0x004729F0 */
-    void ClearAutomapPolygonFilter();
-    void ApplyAutomapPolygonFilter(std::span<const std::string_view> excluded_textures);
 
     // Further material submeshes are owned values; parts carry no parent links.
     std::vector<std::unique_ptr<Mesh>> parts;
@@ -306,10 +301,8 @@ public:
     glm::vec3 ambient_color;
     glm::vec3 environment_offset{0};
     float brightness = 1.0f;
-    int vertex_light_table;
-    /* m_pVertLights: per-vertex static lighting, zero-filled on demand; table
-       -1 selects vertex_light_table. */
-    std::vector<glm::vec3> vertex_lights[2];
+    /* m_pVertLights: per-vertex static lighting, zero-filled on demand. */
+    std::vector<glm::vec3> vertex_lights;
     /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
     std::vector<float> vertex_sunlight;
     /* Set once both vertex lights and sunlight exist. */
@@ -321,8 +314,9 @@ public:
     float vertex_compression_scale;
     // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
     std::vector<glm::vec3> lerp_buffer;
-    std::optional<std::vector<std::uint32_t>> automap_polygons;
-    bool automap_filter_active;
+    // The base texture table's selection once its blank-texture scan has run.
+    std::optional<std::vector<std::uint32_t>> base_polygons;
+    bool base_blanking_checked = false;
 
 private:
     std::shared_ptr<render::MeshAsset> render_asset_;

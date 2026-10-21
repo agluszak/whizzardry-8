@@ -192,10 +192,9 @@ public:
     bool m_active = false, m_dirty = true;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
-    /* Add one keyword line to the transcript unless the text is already
-       present; a nonzero mark puts the new entry in state 0x60, and any
-       leftover "[No Keywords]" placeholder is removed afterwards. */
-    bool AddTranscriptEntry(std::string_view text, W8DialogueCategory category, signed char mark);
+    /* Show one notebook keyword as a line; a marked line is drawn as new, and
+       any leftover "[No Keywords]" placeholder is removed afterwards. */
+    void AddTranscriptEntry(std::string_view text, W8DialogueCategory category, bool marked);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -204,16 +203,15 @@ public:
     /* Re-apply the category filter, rebuild the expansion and restate the
        scroll widgets. */
     void SetTranscriptCategoryFilter(W8DialogueCategory category);
-    /* Replay every saved dialogue_transcript record into the text area,
-       adding the "[No Keywords]" placeholder and forcing the all filter
-       when nothing was saved. */
-    void RestoreTranscriptEntries();
-    /* Snapshot the transcript lines into the screen state's
-       dialogue_transcript records (text plus category byte). */
-    void SaveTranscriptEntries();
+    /* Show every notebook keyword as a line, adding the "[No Keywords]"
+       placeholder and forcing the all filter when the notebook is empty. */
+    void ShowTranscriptEntries();
     void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
     /* Drop every transcript line from the text area and invalidate. */
     void ClearTranscriptEntries();
+    /* Whether the lines currently show the notebook, between
+       ShowTranscriptEntries and ClearTranscriptEntries. */
+    bool showing_notebook = false;
     int GetSelectedTranscriptEntryIndex();
     void SetTranscriptSorted(bool sorted);
     void RemoveSelectedTranscriptEntry();
@@ -592,4 +590,6 @@ void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
 
-W8TargetingContext GetEditedActionContext(int party_slot);
+/* Which action the slot is editing: the open picker's draft for the selected
+   slot, otherwise its stored in-combat or out-of-combat action. */
+W8EditedAction GetEditedActionContext(int party_slot);

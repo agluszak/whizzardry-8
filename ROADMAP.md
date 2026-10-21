@@ -152,12 +152,11 @@ the licensed runtime scenarios after every step.
      screens should take the game from it, and the code below them the game or a
      `RuleContext` (steps 3, 6 and 7).
    - `Game` still holds interface state of the main game screen: `npc_interaction` (the
-     dialogue's layouts, trade tables, quote bubble and `NpcDialogueUi`; its transcript
-     and staged notice are game state), `npc_presentation` and `npc_speech`, and the
-     portrait animation in `monster_manager_entries`. The main game is discarded before
-     its game is replaced, so nothing forces them onto the game: move the widgets, quote
-     layout and portrait presentation to the screen with step 5, and the saved
-     transcript to `Story` (step 8).
+     dialogue's layouts, trade tables, quote bubble and `NpcDialogueUi`; its staged
+     notice is game state), `npc_presentation` and `npc_speech`, and the portrait
+     animation in `monster_manager_entries`. The main game is discarded before its game
+     is replaced, so nothing forces them onto the game: move the widgets, quote layout and
+     portrait presentation to the screen with step 5.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the
@@ -204,8 +203,8 @@ the licensed runtime scenarios after every step.
      (`world_item.cpp`), keyframe tracks, the environment's lighting transition, random
      ambient sounds' next play, trigger item-group seeds and random subcycles, spell
      cooldowns (`Magic.cpp`), and the portrait idle clock the rest sequence arms
-     (`GameplayTime.cpp`). The renderer's light animations and texture playback stay on
-     the monotonic clock until the VulkanSceneGraph migration settles their owner.
+     (`GameplayTime.cpp`). Visual light/texture animation now has explicit held-world
+     or presentation clock ownership (ARCHITECTURE.md, "Visual clocks").
 5. **Presentation owned by screens.** The main game repaints what its HUD's record
    (`MainGameRepaint`) holds, game code reports changes as events, the draw path
    receives the HUD, and the pointer derives the held-item cursor every frame
@@ -214,9 +213,8 @@ the licensed runtime scenarios after every step.
      most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
      `MainGameHud()`, including to mark repaint parts; they should receive it from the
      screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
-     the screens three readers remain: `Targeting.cpp` reads the submenu draft
-     (`selection_kind`, `selection_settled`) and whether a main game exists, because
-     `SelectCombatAction` reads the spell, item and submenu drafts the screens own;
+     the screens three readers remain: `Targeting.cpp` reads whether a main game exists,
+     and `SelectCombatAction` reads the spell and item drafts the screens own;
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
      portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
      viewport mode, which the screen should hand the camera when it changes.
@@ -313,8 +311,8 @@ the licensed runtime scenarios after every step.
      story callbacks they run read `CurrentGame()`.
    - The game owns the dialogue's progress (`Game::npc_dialogue`) and the Al-Sedexus
      scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module
-     state and its interface state lives in `Game` (step 1). The saved transcript
-     belongs to the story and the presentation to the dialogue's screen.
+     state and its interface state lives in `Game` (step 1). The presentation belongs to
+     the dialogue's screen.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
@@ -342,8 +340,7 @@ the licensed runtime scenarios after every step.
      a complete staged load; then `CurrentGame.SAV` removed as working storage.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
-     Split it by owner. The dialogue transcript the NPCI section saves still lives in the
-     NPC dialogue's interface state (`W8NpcInteractionState`); it belongs to `Story`.
+     Split it by owner.
 
 ## Within the layers
 
@@ -380,6 +377,13 @@ Substantial but contained work.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
+- **One active visual per actor.** (#478, with #481.) Monsters, missiles and spell
+  visuals are copied from per-world definitions, and an actor's damage stage and
+  light scale reach only its active model instance. Each animation still owns a live
+  `MeshInstance` for every frame and LOD alternative, and spawning an actor deep-copies
+  them. Load-time skin and glow setup still walks them through `CollectModelInstances`.
+  Make the alternatives shared asset data that the actor's single visual root selects
+  from.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

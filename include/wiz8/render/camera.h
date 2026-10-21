@@ -49,7 +49,6 @@ public:
     std::pair<float, float> getEnvironmentRange() const;
     std::pair<float, float> getEnvironmentScale() const;
     double getHorizontalFOV() const;
-    Rect getNormalizedViewPlane() const;
     double getVerticalFOV() const;
     Projection project(const glm::dvec3& input);
     bool projectsAny(std::span<const glm::vec3> points);
@@ -61,7 +60,6 @@ public:
     void setViewPlane(double width, double height);
     ViewPlane getViewPlane() const;
     void setEnvironmentRange(float near_range, float far_range);
-    std::optional<glm::vec3> unproject(const glm::dvec3& input);
 
 public:
     // The eye and clip transforms of this camera; no user clip planes.

@@ -2230,11 +2230,15 @@ TEST_CASE("Compositor membership follows quad owners without owning the widgets"
     {
         Compositor compositor;
         compositor.attach(*independent, OverlayLayer::Cursor);
-        auto transient = std::make_unique<OverlayQuad>(*independent);
+        REQUIRE(compositor.layerGroup(OverlayLayer::Cursor).children.size() == 1);
+        auto transient = std::make_unique<OverlayQuad>();
+        transient->texture = independent->texture;
         compositor.attach(*transient, OverlayLayer::OverUi);
         transient.reset();
+        REQUIRE(compositor.layerGroup(OverlayLayer::OverUi).children.empty());
         REQUIRE_FALSE(lifetime.expired());
         compositor.clear();
+        REQUIRE(compositor.layerGroup(OverlayLayer::Cursor).children.empty());
     }
     independent->detach(); // Safe after its compositor has been destroyed.
     REQUIRE_FALSE(lifetime.expired());

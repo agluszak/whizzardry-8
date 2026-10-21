@@ -1009,18 +1009,17 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
     auto* item = CurrentGame().party.itemAt(action.detail_block.item_use.item);
     auto detail = action.detail_block;
     detail.item_use.kind = -1;
-    auto& row = CurrentGame().party.rows[party_slot];
-    if (CurrentGame().combat.has_value())
-        row.committed.target = action.target;
-    else
-        row.executing.target = action.target;
     StagePartySlotItemUse(party_slot, action.detail_block.item_use.item, &action.target);
-    if (Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM) {
-        ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, true, 1);
-        OpenCharacterScreenForPartySlot(party_slot, true);
-        return;
+    const bool identify = Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM;
+    if (CurrentGame().combat.has_value()) {
+        SetCharacterCombatAction(party_slot, {W8_ACTION_USE_ITEM, -1, action.target, detail}, 1);
+    } else {
+        CurrentGame().party.rows[party_slot].executing.target = action.target;
+        ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, identify, 1);
     }
-    ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, false, 1);
+    if (identify) {
+        OpenCharacterScreenForPartySlot(party_slot, true);
+    }
 }
 
 /* Stage the slot row's item-use detail block, aimed target and provenance for
