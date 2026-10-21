@@ -34,11 +34,15 @@
 #include <vsg/core/Array2D.h>
 #include <vsg/core/Data.h>
 #include <vsg/core/Exception.h>
+#include <vsg/core/Mask.h>
 #include <vsg/core/Value.h>
 #include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec2.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
 #include <vsg/nodes/Group.h>
+#include <vsg/nodes/Node.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
@@ -76,8 +80,8 @@
 
 #include "overlay_frag.spv.h"
 #include "overlay_vert.spv.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/compositor.h"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vsg_material.h"
 #include "wiz8/surface_storage.h"
@@ -136,7 +140,7 @@ struct Renderer::Impl {
     void createOffscreen();
     void syncTargets();
     vsg::ref_ptr<vsg::View> overlayView();
-    vsg::ref_ptr<vsg::BindGraphicsPipeline> overlayPipeline(DrawShader shader);
+    vsg::ref_ptr<vsg::BindGraphicsPipeline> overlayPipeline(OverlayMaterial material);
     void capture(vsg::ref_ptr<vsg::Image> image, VkFormat format, VkExtent2D extent,
                  VkImageLayout layout);
 
@@ -283,37 +287,33 @@ void Renderer::Impl::syncTargets()
         view->camera->viewportState = vsg::ViewportState::create(extent);
 }
 
-vsg::ref_ptr<vsg::BindGraphicsPipeline> Renderer::Impl::overlayPipeline(DrawShader shader)
+vsg::ref_ptr<vsg::BindGraphicsPipeline> Renderer::Impl::overlayPipeline(OverlayMaterial material)
 {
-    auto& cached = overlay_pipelines[shader.value];
+    auto& cached =
+        overlay_pipelines[static_cast<unsigned>(material.blend) * 2 + material.alpha_test];
     if (cached) return cached;
     auto vertex =
         vsg::ShaderStage::create(VK_SHADER_STAGE_VERTEX_BIT, "main", module(overlay_vert));
     auto fragment =
         vsg::ShaderStage::create(VK_SHADER_STAGE_FRAGMENT_BIT, "main", module(overlay_frag));
-    fragment->specializationConstants[0] = vsg::uintValue::create(shader.value);
+    fragment->specializationConstants[0] = vsg::uintValue::create(material.alpha_test ? 1u : 0u);
     auto raster = vsg::RasterizationState::create();
     raster->cullMode = VK_CULL_MODE_NONE;
     auto depth = vsg::DepthStencilState::create();
     depth->depthTestEnable = depth->depthWriteEnable = false;
-    constexpr std::array source{VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE,
-                                VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA};
-    constexpr std::array destination{
-        VK_BLEND_FACTOR_ZERO,      VK_BLEND_FACTOR_ONE,
-        VK_BLEND_FACTOR_SRC_COLOR, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR,
-        VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA};
     VkPipelineColorBlendAttachmentState blend{};
-    const auto src = (shader.value >> DrawShader::SRCBLEND_SHIFT) & 3;
-    const auto dst = (shader.value >> DrawShader::DSTBLEND_SHIFT) & 7;
-    blend.blendEnable = src != DrawShader::SRCBLEND_ONE || dst != DrawShader::DSTBLEND_ZERO;
-    blend.srcColorBlendFactor = blend.srcAlphaBlendFactor = source[src];
+    blend.blendEnable = material.blend != OverlayBlend::Opaque;
+    blend.srcColorBlendFactor = blend.srcAlphaBlendFactor =
+        material.blend == OverlayBlend::Opaque ? VK_BLEND_FACTOR_ONE
+        : material.blend == OverlayBlend::Fade ? VK_BLEND_FACTOR_ZERO
+                                               : VK_BLEND_FACTOR_SRC_ALPHA;
     blend.dstColorBlendFactor = blend.dstAlphaBlendFactor =
-        destination[std::min<std::size_t>(dst, 5)];
+        material.blend == OverlayBlend::Opaque     ? VK_BLEND_FACTOR_ZERO
+        : material.blend == OverlayBlend::Additive ? VK_BLEND_FACTOR_ONE
+                                                   : VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     blend.colorBlendOp = blend.alphaBlendOp = VK_BLEND_OP_ADD;
-    blend.colorWriteMask = (shader.value & DrawShader::MASK_COLOR_WRITE)
-                               ? VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                     VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
-                               : 0;
+    blend.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                           VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     const vsg::VertexInputState::Bindings bindings{{0, 12, VK_VERTEX_INPUT_RATE_VERTEX},
                                                    {1, 8, VK_VERTEX_INPUT_RATE_VERTEX},
                                                    {2, 16, VK_VERTEX_INPUT_RATE_VERTEX}};
@@ -446,45 +446,89 @@ void Renderer::addView(vsg::ref_ptr<vsg::View> view)
     impl->current_overlay = {};
     impl->frame_root->addChild(view);
 }
-void Renderer::drawOverlayQuad(const OverlayQuad& quad)
+void Renderer::prepareOverlay(OverlayQuad& quad)
 {
     const auto size = quad.scaledSize();
-    if (!quad.visible || size.x <= 0 || size.y <= 0) return;
+    const bool visible = quad.visible && size.x > 0 && size.y > 0;
+    if (!quad.positions) {
+        quad.positions = vsg::vec3Array::create(4);
+        quad.texcoords = vsg::vec2Array::create(4);
+        quad.colors = vsg::vec4Array::create(4);
+        quad.positions->properties.dataVariance = vsg::DYNAMIC_DATA;
+        quad.texcoords->properties.dataVariance = vsg::DYNAMIC_DATA;
+        quad.colors->properties.dataVariance = vsg::DYNAMIC_DATA;
+        auto draw = vsg::VertexIndexDraw::create();
+        draw->assignArrays({quad.positions, quad.texcoords, quad.colors});
+        draw->assignIndices(vsg::ushortArray::create({0, 1, 2, 2, 1, 3}));
+        draw->indexCount = 6;
+        draw->instanceCount = 1;
+        quad.state = vsg::StateGroup::create();
+        quad.state->addChild(draw);
+        quad.node->addChild(vsg::MASK_ALL, quad.state);
+    }
+    quad.node->children.front().mask = visible ? vsg::MASK_ALL : 0;
+    if (!visible) return;
     const auto center = quad.position + size * .5f;
     const auto cosine = std::cos(quad.rotation), sine = std::sin(quad.rotation);
-    auto positions = vsg::vec3Array::create(4);
     constexpr std::array corners{glm::vec2(-.5f, -.5f), glm::vec2(.5f, -.5f), glm::vec2(-.5f, .5f),
                                  glm::vec2(.5f, .5f)};
+    auto color = quad.color;
+    if (quad.glow_enabled) {
+        const auto period = std::max(quad.glow_period, 1u);
+        const float weight =
+            std::abs(std::sin((MonotonicMilliseconds() % period) * 6.283185307179586f / period));
+        color = quad.glow_colors[0] * (1 - weight) + quad.glow_colors[1] * weight;
+        color.a = quad.color.a;
+    }
+    bool positions_changed = false, uv_changed = false, colors_changed = false;
     for (std::size_t i = 0; i < corners.size(); ++i) {
         const auto offset = corners[i] * size;
-        positions->at(i) = {center.x + cosine * offset.x - sine * offset.y,
-                            center.y + sine * offset.x + cosine * offset.y, 0};
+        const vsg::vec3 position{center.x + cosine * offset.x - sine * offset.y,
+                                 center.y + sine * offset.x + cosine * offset.y, 0};
+        const vsg::vec2 uv{i % 2 ? quad.uv_max.x : quad.uv_min.x,
+                           i / 2 ? quad.uv_max.y : quad.uv_min.y};
+        const vsg::vec4 diffuse{color.r, color.g, color.b, color.a};
+        if (quad.positions->at(i) != position) {
+            quad.positions->at(i) = position;
+            positions_changed = true;
+        }
+        if (quad.texcoords->at(i) != uv) {
+            quad.texcoords->at(i) = uv;
+            uv_changed = true;
+        }
+        if (quad.colors->at(i) != diffuse) {
+            quad.colors->at(i) = diffuse;
+            colors_changed = true;
+        }
     }
-    auto uv = vsg::vec2Array::create(4);
-    uv->at(0) = {quad.uv_min.x, quad.uv_min.y};
-    uv->at(1) = {quad.uv_max.x, quad.uv_min.y};
-    uv->at(2) = {quad.uv_min.x, quad.uv_max.y};
-    uv->at(3) = {quad.uv_max.x, quad.uv_max.y};
-    auto colors = vsg::vec4Array::create(
-        4, vsg::vec4(quad.color.r, quad.color.g, quad.color.b, quad.color.a));
-    auto indices = vsg::ushortArray::create({0, 1, 2, 2, 1, 3});
-    auto draw = vsg::VertexIndexDraw::create();
-    draw->assignArrays({positions, uv, colors});
-    draw->assignIndices(indices);
-    draw->indexCount = 6;
-    draw->instanceCount = 1;
+    if (positions_changed) quad.positions->dirty();
+    if (uv_changed) quad.texcoords->dirty();
+    if (colors_changed) quad.colors->dirty();
     auto image = quad.image     ? quad.image
                  : quad.texture ? quad.texture->imageInfo(0, impl->frame_number)
                                 : impl->white;
     if (!image) image = impl->white;
-    auto state = vsg::StateGroup::create();
-    state->add(impl->overlayPipeline(quad.shader));
-    state->add(vsg::BindDescriptorSet::create(
-        VK_PIPELINE_BIND_POINT_GRAPHICS, impl->overlay_layout, 0,
-        vsg::DescriptorSet::create(impl->overlay_set_layout,
-                                   vsg::Descriptors{vsg::DescriptorImage::create(image, 0)})));
-    state->addChild(draw);
-    impl->overlayView()->children.front().cast<vsg::Group>()->addChild(state);
+    if (quad.layout != impl->overlay_layout || quad.bound_image != image ||
+        quad.bound_material != quad.material) {
+        quad.state->stateCommands.clear();
+        quad.state->add(impl->overlayPipeline(quad.material));
+        quad.state->add(vsg::BindDescriptorSet::create(
+            VK_PIPELINE_BIND_POINT_GRAPHICS, impl->overlay_layout, 0,
+            vsg::DescriptorSet::create(impl->overlay_set_layout,
+                                       vsg::Descriptors{vsg::DescriptorImage::create(image, 0)})));
+        quad.layout = impl->overlay_layout;
+        quad.bound_image = image;
+        quad.bound_material = quad.material;
+    }
+}
+void Renderer::addOverlay(vsg::ref_ptr<vsg::Node> node)
+{
+    impl->overlayView()->children.front().cast<vsg::Group>()->addChild(node);
+}
+void Renderer::drawOverlayQuad(OverlayQuad& quad)
+{
+    prepareOverlay(quad);
+    addOverlay(quad.node);
 }
 
 void Renderer::Impl::capture(vsg::ref_ptr<vsg::Image> image, VkFormat image_format,

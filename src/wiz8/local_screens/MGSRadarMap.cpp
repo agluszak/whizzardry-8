@@ -128,7 +128,10 @@ static OverlayQuad* AcquireRadarBlip(int sector, bool lit)
         g_radar_icon_cursors[sector] = cursor + 1;
         icon = pool[cursor].get();
     } else {
-        auto owned = std::make_unique<OverlayQuad>(*pool.front());
+        auto owned = makeOverlayFromTexture(pool.front()->texture, pool.front()->size.x / 640.0,
+                                            pool.front()->size.y / 480.0, true, true);
+        owned->scale = pool.front()->scale;
+        owned->color = pool.front()->color;
         icon = owned.get();
         pool.push_back(std::move(owned));
     }

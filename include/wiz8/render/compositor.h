@@ -6,11 +6,14 @@
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
+#include <vsg/core/Array.h>
 #include <vsg/core/Array2D.h>
+#include <vsg/nodes/StateGroup.h>
+#include <vsg/nodes/Switch.h>
+#include <vsg/state/PipelineLayout.h>
 
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/texture.h"
 
 class Renderer;
@@ -25,12 +28,19 @@ enum class OverlayLayer : std::uint8_t {
     Cursor
 };
 
-// A widget owns its quad; the compositor borrows it while attached and snapshots
-// visible values for each frame. There are no meshes, scene nodes or integer handles.
+enum class OverlayBlend : std::uint8_t { Opaque, Alpha, Additive, Fade };
+struct OverlayMaterial {
+    OverlayBlend blend = OverlayBlend::Opaque;
+    bool alpha_test = false;
+    bool operator==(const OverlayMaterial&) const = default;
+};
+
+// A widget owns retained VSG geometry and state. The compositor attaches that
+// actual node to its layer and borrows the widget to prepare changed values.
 struct OverlayQuad {
     OverlayQuad() = default;
-    OverlayQuad(const OverlayQuad& other);
-    OverlayQuad& operator=(const OverlayQuad& other);
+    OverlayQuad(const OverlayQuad&) = delete;
+    OverlayQuad& operator=(const OverlayQuad&) = delete;
     ~OverlayQuad();
 
     std::shared_ptr<Texture> texture;
@@ -47,13 +57,22 @@ struct OverlayQuad {
     bool glow_enabled = false;
     std::array<glm::vec4, 2> glow_colors{glm::vec4(0), glm::vec4(1)};
     unsigned glow_period = 2000;
-    DrawShader shader;
+    OverlayMaterial material;
+    vsg::ref_ptr<vsg::Switch> node = vsg::Switch::create();
 
     glm::vec2 scaledSize() const { return size * scale; }
     void detach();
 
 private:
     friend class Compositor;
+    friend class Renderer;
+    vsg::ref_ptr<vsg::vec3Array> positions;
+    vsg::ref_ptr<vsg::vec2Array> texcoords;
+    vsg::ref_ptr<vsg::vec4Array> colors;
+    vsg::ref_ptr<vsg::StateGroup> state;
+    vsg::ref_ptr<vsg::PipelineLayout> layout;
+    vsg::ref_ptr<vsg::ImageInfo> bound_image;
+    OverlayMaterial bound_material;
     Compositor* compositor = nullptr;
 };
 
@@ -67,11 +86,13 @@ public:
     void detach(OverlayQuad& quad);
     void clear();
     void draw(Renderer& renderer, OverlayLayer layer);
-    const std::vector<OverlayQuad>& frameQuads() const { return frame_quads; }
+    const vsg::Group& layerGroup(OverlayLayer layer) const { return *layers[std::size_t(layer)]; }
 
 private:
     std::vector<OverlayQuad*> widgets;
-    std::vector<OverlayQuad> frame_quads;
+    std::array<vsg::ref_ptr<vsg::Group>, 6> layers{vsg::Group::create(), vsg::Group::create(),
+                                                   vsg::Group::create(), vsg::Group::create(),
+                                                   vsg::Group::create(), vsg::Group::create()};
 };
 
 // One native-size streaming texture for an SDL UI/movie canvas. Dirty uploads

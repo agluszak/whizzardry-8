@@ -1,7 +1,5 @@
 #include "wiz8/render/compositor.h"
 
-#include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -19,33 +17,8 @@
 #include <vsg/state/Sampler.h>
 #include <vulkan/vulkan_core.h>
 
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
 
-OverlayQuad::OverlayQuad(const OverlayQuad& other)
-{
-    *this = other;
-}
-OverlayQuad& OverlayQuad::operator=(const OverlayQuad& other)
-{
-    if (this == &other) return *this;
-    texture = other.texture;
-    image = other.image;
-    position = other.position;
-    size = other.size;
-    scale = other.scale;
-    uv_min = other.uv_min;
-    uv_max = other.uv_max;
-    color = other.color;
-    rotation = other.rotation;
-    visible = other.visible;
-    layer = other.layer;
-    glow_enabled = other.glow_enabled;
-    glow_colors = other.glow_colors;
-    glow_period = other.glow_period;
-    shader = other.shader;
-    return *this;
-}
 OverlayQuad::~OverlayQuad()
 {
     detach();
@@ -64,34 +37,25 @@ void Compositor::attach(OverlayQuad& quad, OverlayLayer layer)
     quad.compositor = this;
     quad.layer = layer;
     widgets.push_back(&quad);
+    layers[std::size_t(layer)]->addChild(quad.node);
 }
 void Compositor::detach(OverlayQuad& quad)
 {
     std::erase(widgets, &quad);
+    std::erase(layers[std::size_t(quad.layer)]->children, quad.node);
     quad.compositor = nullptr;
 }
 void Compositor::clear()
 {
     for (auto* quad : widgets) quad->compositor = nullptr;
     widgets.clear();
-    frame_quads.clear();
+    for (auto& layer : layers) layer->children.clear();
 }
 void Compositor::draw(Renderer& renderer, OverlayLayer layer)
 {
-    frame_quads.clear();
-    for (const auto* quad : widgets)
-        if (quad->visible && quad->layer == layer) frame_quads.push_back(*quad);
-    for (auto& quad : frame_quads) {
-        if (quad.glow_enabled) {
-            const auto period = std::max(quad.glow_period, 1u);
-            const float weight = std::abs(
-                std::sin((MonotonicMilliseconds() % period) * 6.283185307179586f / period));
-            const float alpha = quad.color.a;
-            quad.color = quad.glow_colors[0] * (1 - weight) + quad.glow_colors[1] * weight;
-            quad.color.a = alpha;
-        }
-        renderer.drawOverlayQuad(quad);
-    }
+    for (auto* quad : widgets)
+        if (quad->layer == layer) renderer.prepareOverlay(*quad);
+    renderer.addOverlay(layers[std::size_t(layer)]);
 }
 
 UiCanvasTexture::UiCanvasTexture(std::shared_ptr<SDL_Surface> surface)
@@ -114,7 +78,7 @@ void UiCanvasTexture::draw(Renderer* renderer)
 {
     quad.uv_min = {pixel_offset / source->w, pixel_offset / source->h};
     quad.uv_max = quad.uv_min + 1.0f;
-    quad.shader.value = 0x100a017 | (alpha_test ? DrawShader::MASK_ALPHATEST : 0);
+    quad.material.alpha_test = alpha_test;
     renderer->drawOverlayQuad(quad);
 }
 void UiCanvasTexture::updateRectangle(Renderer*, int left, int top, int right, int bottom)
