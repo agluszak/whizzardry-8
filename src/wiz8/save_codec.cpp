@@ -115,7 +115,7 @@ struct GlobalStatus {
     /* 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold
        pass reads. */
-    W8GameplayModifierBlock party_modifiers;
+    std::array<std::byte, 0x67> party_modifiers;
     int next_group_id;
     int next_monster_location_id;
     int next_world_item_id;
@@ -464,8 +464,9 @@ template<> struct Record<save::GameState> {
                bytes.subspan(offsetof(Disk, pending_move_location),
                              sizeof(Disk::pending_move_location)),
                value, text);
-        value(&runtime.party.modifiers,
-              bytes.subspan(offsetof(Disk, party_modifiers), sizeof(Disk::party_modifiers)));
+        nested(runtime.party.modifiers,
+               bytes.subspan(offsetof(Disk, party_modifiers), sizeof(Disk::party_modifiers)), value,
+               text);
         value(&runtime.status.next_group_id,
               bytes.subspan(offsetof(Disk, next_group_id), sizeof(Disk::next_group_id)));
         value(&runtime.status.next_monster_location_id,
@@ -1162,8 +1163,6 @@ std::vector<W8JournalEntry> decode_journal(std::span<const std::byte> payload)
 
 /* The HYPN record lists the effect's spell, its turns left, its working source and target,
    the cast's original source and target, four flags and the effect definition. */
-static_assert(std::is_trivially_copyable_v<W8SpellEffectDefinition> &&
-              sizeof(W8SpellEffectDefinition) == 0x30);
 
 std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
 {
@@ -1178,7 +1177,7 @@ std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
     out.flag(monster_control.sustained);
     out.flag(monster_control.missiles_pending);
     out.flag(monster_control.targets_resolved);
-    out.value(monster_control.definition);
+    out.record(monster_control.definition);
     return out.take();
 }
 
@@ -1196,7 +1195,7 @@ W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
     effect.sustained = in.flag();
     effect.missiles_pending = in.flag();
     effect.targets_resolved = in.flag();
-    effect.definition = in.value<W8SpellEffectDefinition>();
+    in.record(effect.definition);
     return effect;
 }
 
