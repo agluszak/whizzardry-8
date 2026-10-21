@@ -34,6 +34,7 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -55,6 +56,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_generators.h"
@@ -1129,6 +1131,19 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
     REQUIRE(CurrentGame().combat.has_value());
     REQUIRE(CurrentGame().party.characters[0].party_weight_share == 123);
+}
+
+TEST_CASE("Learned keywords go straight into the story's notebook", "[npc][dialogue]")
+{
+    const ScopedGame game;
+    auto& notebook = CurrentGame().story.keywords;
+    // Older saves stored the empty notebook's placeholder line as a keyword.
+    notebook.push_back({std::string(W8_NO_KEYWORDS_PLACEHOLDER), W8_DIALOGUE_CATEGORY_ALL});
+    LearnDialogueKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES, false);
+    LearnDialogueKeyword("ARNIKA", W8_DIALOGUE_CATEGORY_MISC, false);
+    REQUIRE(notebook.size() == 1);
+    REQUIRE(notebook[0].text == "Arnika");
+    REQUIRE(notebook[0].category == W8_DIALOGUE_CATEGORY_PLACES);
 }
 
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")

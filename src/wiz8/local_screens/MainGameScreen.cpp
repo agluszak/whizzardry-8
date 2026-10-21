@@ -1887,33 +1887,24 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
     m_dirty = false;
 }
 
-bool W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                     W8DialogueCategory category, signed char mark)
+void W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
+                                                     W8DialogueCategory category, bool marked)
 {
-    int index;
-    int added;
-
-    for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        if (CompareTextIgnoreAsciiCase(text_area.GetEntryText(index).value(), text) == 0) {
-            return false;
-        }
-    }
-    added = text_area.AddEntry({}, text, 0, 7, static_cast<unsigned char>(category));
+    const int added = text_area.AddEntry({}, text, 0, 7, static_cast<unsigned char>(category));
     InvalidateLayout();
-    if (mark != 0) {
+    if (marked) {
         text_area.SetEntryMarked(added, true);
     }
     if (text_area.m_all_lines.size() > 1) {
-        for (index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
+        for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
             if (CompareTextIgnoreAsciiCase(text_area.GetEntryText(index).value(),
-                                           " [No Keywords]") == 0) {
+                                           W8_NO_KEYWORDS_PLACEHOLDER) == 0) {
                 text_area.RemoveEntry(index);
                 InvalidateAll();
                 break;
             }
         }
     }
-    return true;
 }
 
 bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int party_slot)
@@ -2064,26 +2055,17 @@ void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory
     SyncNpcDialogueTranscriptScrollButtons();
 }
 
-void W8NpcDialogueTextController::RestoreTranscriptEntries()
+void W8NpcDialogueTextController::ShowTranscriptEntries()
 {
-    W8DialogueTranscriptRecord* record;
-    W8NpcDialogueTextController* controller;
-    int index;
-
-    for (index = 0;
-         index < static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size());
-         ++index) {
-        record = CurrentGame().npc_interaction.dialogue_transcript[index].get();
-        AddTranscriptEntry(record->text, record->category, 0);
-    }
+    const auto& notebook = CurrentGame().story.keywords;
+    showing_notebook = true;
+    for (const auto& record : notebook) AddTranscriptEntry(record.text, record.category, false);
     InvalidateAll();
-    if (CurrentGame().npc_interaction.dialogue_transcript.empty()) {
+    if (notebook.empty()) {
         CurrentGame().npc_interaction.dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
-        controller = CurrentGame().npc_interaction.ui->transcript.get();
-        controller->SetTranscriptCategoryFilter(
-            CurrentGame().npc_interaction.dialogue_category_filter);
+        SetTranscriptCategoryFilter(CurrentGame().npc_interaction.dialogue_category_filter);
         SyncDialogueCategoryButtons();
-        AddTranscriptEntry(" [No Keywords]", W8_DIALOGUE_CATEGORY_ALL, 0);
+        AddTranscriptEntry(W8_NO_KEYWORDS_PLACEHOLDER, W8_DIALOGUE_CATEGORY_ALL, false);
     }
 }
 
@@ -6131,33 +6113,26 @@ void ClearHighlightOverlayRegion(void)
     }
 }
 
-/* Remove the transcript entry that owns the selected visible line, then
-   redraw the controller. */
-void W8NpcDialogueTextController::SaveTranscriptEntries()
-{
-    CurrentGame().npc_interaction.dialogue_transcript.clear();
-    for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-        auto record = std::make_unique<W8DialogueTranscriptRecord>();
-        W8DialogTextEntry* entry = text_area.GetEntry(index);
-        record->text = entry->GetText();
-        record->category = entry->m_category;
-        CurrentGame().npc_interaction.dialogue_transcript.push_back(std::move(record));
-    }
-}
-
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
+    showing_notebook = false;
     while (!text_area.m_all_lines.empty()) {
         text_area.RemoveEntry(0);
     }
     InvalidateAll();
 }
 
+/* Forget the keyword on the selected visible line and drop its line. */
 void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
 {
     if (text_area.m_highlighted_entry != -1) {
         int index = text_area.GetOwningEntryIndex(text_area.m_highlighted_entry);
         if (index != -1) {
+            const std::string_view text = text_area.GetEntryText(index).value();
+            std::erase_if(CurrentGame().story.keywords,
+                          [&](const W8DialogueTranscriptRecord& record) {
+                              return CompareTextIgnoreAsciiCase(record.text, text) == 0;
+                          });
             text_area.RemoveEntry(index);
             InvalidateAll();
         }

@@ -215,15 +215,15 @@ Unlayered code may use the layers.
 - **What `Game` is.** `Game` (`game.h`) is one play-through. It owns:
   - the party and the status record;
   - the random stream, `rng`;
-  - the story (`story.h`): facts, faction dispositions and relations, the journal, NPC
-    states and level-script variables;
+  - the story (`story.h`): facts, faction dispositions and relations, the journal, the
+    learned keyword notebook, NPC states and level-script variables;
   - the text boxes' message log;
   - combat and the spell effects still in progress;
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
-  - the NPC conversation: its progress (`npc_dialogue`), its interface state and saved
-    transcript (`npc_interaction`, which also stages the next script notice), the quote
+  - the NPC conversation: its progress (`npc_dialogue`), its interface state
+    (`npc_interaction`, which also stages the next script notice), the quote
     or portrait message on screen and the NPC voice (`npc_presentation`, `npc_speech`)
     and the Al-Sedexus scene;
   - the shared spell cooldowns;

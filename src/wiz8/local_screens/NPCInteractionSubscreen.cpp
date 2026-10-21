@@ -1476,7 +1476,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
             return;
         }
         word_text = CopyNoticeWordText(word, 3, line);
-        AddNpcDialogueKeyword(word_text, W8_DIALOGUE_CATEGORY_ALL, 0);
+        LearnDialogueKeyword(word_text, W8_DIALOGUE_CATEGORY_ALL, false);
         return;
     default:
         break;
@@ -1946,7 +1946,7 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcActionVisible(W8_NPC_CONTROL_TEXT_7, false);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, true);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2, true);
-    CurrentGame().npc_interaction.ui->transcript->RestoreTranscriptEntries();
+    CurrentGame().npc_interaction.ui->transcript->ShowTranscriptEntries();
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptCategoryFilter(
         CurrentGame().npc_interaction.dialogue_category_filter);
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptSorted(
@@ -1984,7 +1984,6 @@ static void CloseNpcDialogueTranscriptLayout(void)
 {
     int index;
 
-    CurrentGame().npc_interaction.ui->transcript->SaveTranscriptEntries();
     CurrentGame().npc_interaction.ui->transcript->Collapse();
     CurrentGame().npc_interaction.ui->transcript->ClearTranscriptEntries();
     SetNpcDialogueInputEnabled(2, false);
@@ -2060,82 +2059,7 @@ static void SubmitNpcDialogueKeyword(void)
     std::string keyword;
 
     keyword = NpcFieldText();
-    AddNpcDialogueKeyword(keyword, W8_DIALOGUE_CATEGORY_ALL, 0);
-}
-
-void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int play_chime)
-{
-    W8NpcDialogueTextController* controller;
-    unsigned int index;
-
-    if (text.size() == 0) {
-        return;
-    }
-    controller = CurrentGame().npc_interaction.ui->transcript.get();
-    StripNpcKeywordPunctuation(text);
-    if (category == W8_DIALOGUE_CATEGORY_ALL) {
-        for (index = 0; index < Data().items.size(); ++index) {
-            if (CompareTextIgnoreAsciiCase(text, Data().items[index].display_name) == 0) {
-                break;
-            }
-        }
-        if (index < Data().items.size()) {
-            category = W8_DIALOGUE_CATEGORY_ITEMS;
-        } else {
-            for (index = 0; index < Data().npcs.size(); ++index) {
-                if (CompareTextIgnoreAsciiCase(text, Data().npcs[index].source_name) == 0) {
-                    break;
-                }
-            }
-            if (index < Data().npcs.size()) {
-                category = W8_DIALOGUE_CATEGORY_PEOPLE;
-            } else {
-                for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
-                    if (CompareTextIgnoreAsciiCase(text, g_dialogue_person_keywords[index]) == 0) {
-                        break;
-                    }
-                }
-                if (g_dialogue_person_keywords[index][0] != 0) {
-                    category = W8_DIALOGUE_CATEGORY_PEOPLE;
-                } else {
-                    for (index = 0;
-                         index < static_cast<unsigned int>(g_dialogue_place_keyword_count);
-                         ++index) {
-                        if (CompareTextIgnoreAsciiCase(
-                                text, Data().strings[g_dialogue_place_keyword_ids[index]]) == 0) {
-                            break;
-                        }
-                    }
-                    if (index < static_cast<unsigned int>(g_dialogue_place_keyword_count)) {
-                        category = W8_DIALOGUE_CATEGORY_PLACES;
-                    } else {
-                        category = W8_DIALOGUE_CATEGORY_MISC;
-                    }
-                }
-            }
-        }
-    }
-    if (controller != 0) {
-        if (controller->AddTranscriptEntry(text, category, play_chime) != 0) {
-            if (CurrentGame().npc_interaction.dialogue_category_filter !=
-                    W8_DIALOGUE_CATEGORY_ALL &&
-                CurrentGame().npc_interaction.dialogue_category_filter != category) {
-                CurrentGame().npc_interaction.dialogue_category_filter = category;
-                CurrentGame().npc_interaction.ui->transcript->SetTranscriptCategoryFilter(
-                    CurrentGame().npc_interaction.dialogue_category_filter);
-                SyncDialogueCategoryButtons();
-            }
-            if (play_chime != 0) {
-                wiz8::sound::play(
-                    reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
-                        "Data\\Sound\\Misc\\Keyword Chime.wav")));
-            }
-            controller->Collapse();
-            controller->Expand();
-        }
-        controller->InvalidateAll();
-        SyncNpcDialogueTranscriptScrollButtons();
-    }
+    LearnDialogueKeyword(keyword, W8_DIALOGUE_CATEGORY_ALL, false);
 }
 
 static void RefreshNpcDialogueTranscript(void)
@@ -4080,17 +4004,17 @@ static void HandleNpcDialogueDeparture(unsigned char value)
             }
             if (CurrentGame().activity.conversation &&
                 !CurrentGame().npc_interaction.scripted_dialogue) {
-                AddNpcDialogueKeyword(
+                LearnDialogueKeyword(
                     CurrentGame().npc_interaction.dialogue_npc->record->source_name,
-                    W8_DIALOGUE_CATEGORY_ALL, 1);
+                    W8_DIALOGUE_CATEGORY_ALL, true);
                 return;
             }
             if (CurrentGame().npc_interaction.dialogue_npc->record->monster_bound == 0 &&
                 (CurrentGame().npc_interaction.dialogue_npc->record->voice_script == 0 ||
                  CurrentGame().npc_interaction.dialogue_npc->is_present)) {
-                AddDialogueTranscriptKeyword(
+                LearnDialogueKeyword(
                     CurrentGame().npc_interaction.dialogue_npc->record->source_name,
-                    W8_DIALOGUE_CATEGORY_ALL);
+                    W8_DIALOGUE_CATEGORY_ALL, false);
             }
         }
     }
@@ -4141,52 +4065,69 @@ void FlushInputWhileWorldCursorGate(void)
     }
 }
 
-void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory category)
+/* The notebook category a keyword belongs to: an item, a person (an NPC,
+   a named monster or a listed person), a place, or anything else. */
+static W8DialogueCategory ClassifyDialogueKeyword(std::string_view keyword)
 {
-    std::string keyword;
-    keyword = name;
+    const auto matches = [&](std::string_view name) {
+        return CompareTextIgnoreAsciiCase(keyword, name) == 0;
+    };
+    if (std::ranges::any_of(Data().items,
+                            [&](const auto& item) { return matches(item.display_name); })) {
+        return W8_DIALOGUE_CATEGORY_ITEMS;
+    }
+    if (std::ranges::any_of(Data().npcs,
+                            [&](const auto& npc) { return matches(npc.source_name); })) {
+        return W8_DIALOGUE_CATEGORY_PEOPLE;
+    }
+    for (int index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
+        if (matches(g_dialogue_person_keywords[index])) return W8_DIALOGUE_CATEGORY_PEOPLE;
+    }
+    return IsDialoguePlaceKeyword(keyword) ? W8_DIALOGUE_CATEGORY_PLACES
+                                           : W8_DIALOGUE_CATEGORY_MISC;
+}
+
+void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bool chime)
+{
+    std::string keyword{text};
     StripNpcKeywordPunctuation(keyword);
+    if (keyword.empty()) {
+        return;
+    }
     if (category == W8_DIALOGUE_CATEGORY_ALL) {
-        unsigned int index;
-        for (index = 0; index < Data().items.size(); ++index) {
-            if (CompareTextIgnoreAsciiCase(keyword, Data().items[index].display_name) == 0) {
-                category = W8_DIALOGUE_CATEGORY_ITEMS;
-                break;
-            }
-        }
-        if (category == W8_DIALOGUE_CATEGORY_ALL) {
-            for (index = 0; index < Data().npcs.size(); ++index) {
-                if (CompareTextIgnoreAsciiCase(keyword, Data().npcs[index].source_name) == 0) {
-                    category = W8_DIALOGUE_CATEGORY_PEOPLE;
-                    break;
-                }
-            }
-        }
-        if (category == W8_DIALOGUE_CATEGORY_ALL) {
-            for (index = 0; g_dialogue_person_keywords[index][0] != 0; ++index) {
-                if (CompareTextIgnoreAsciiCase(keyword, g_dialogue_person_keywords[index]) == 0) {
-                    category = W8_DIALOGUE_CATEGORY_PEOPLE;
-                    break;
-                }
-            }
-        }
-        if (category == W8_DIALOGUE_CATEGORY_ALL) {
-            category = IsDialoguePlaceKeyword(keyword) ? W8_DIALOGUE_CATEGORY_PLACES
-                                                       : W8_DIALOGUE_CATEGORY_MISC;
-        }
+        category = ClassifyDialogueKeyword(keyword);
     }
-    for (int index = 0;
-         index < static_cast<int>(CurrentGame().npc_interaction.dialogue_transcript.size());
-         ++index) {
-        if (CompareTextIgnoreAsciiCase(
-                (CurrentGame().npc_interaction.dialogue_transcript[index])->text, keyword) == 0) {
-            return;
-        }
+    auto& state = CurrentGame().npc_interaction;
+    auto& notebook = CurrentGame().story.keywords;
+    if (std::ranges::any_of(notebook, [&](const W8DialogueTranscriptRecord& record) {
+            return CompareTextIgnoreAsciiCase(record.text, keyword) == 0;
+        })) {
+        return;
     }
-    auto record = std::make_unique<W8DialogueTranscriptRecord>();
-    record->text = keyword;
-    record->category = category;
-    CurrentGame().npc_interaction.dialogue_transcript.push_back(std::move(record));
+    std::erase_if(notebook, [](const W8DialogueTranscriptRecord& record) {
+        return record.text == W8_NO_KEYWORDS_PLACEHOLDER;
+    });
+    notebook.push_back({keyword, category});
+
+    auto* controller = state.ui ? state.ui->transcript.get() : nullptr;
+    if (controller == nullptr || !controller->showing_notebook) {
+        return;
+    }
+    controller->AddTranscriptEntry(keyword, category, chime);
+    if (state.dialogue_category_filter != W8_DIALOGUE_CATEGORY_ALL &&
+        state.dialogue_category_filter != category) {
+        state.dialogue_category_filter = category;
+        controller->SetTranscriptCategoryFilter(state.dialogue_category_filter);
+        SyncDialogueCategoryButtons();
+    }
+    if (chime) {
+        wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
+            "Data\\Sound\\Misc\\Keyword Chime.wav")));
+    }
+    controller->Collapse();
+    controller->Expand();
+    controller->InvalidateAll();
+    SyncNpcDialogueTranscriptScrollButtons();
 }
 
 void RecordLevelEntryDialogueState(void)
@@ -4195,7 +4136,7 @@ void RecordLevelEntryDialogueState(void)
     int region = GetLevelBand(GetLoadedLevelID());
     region_name = GetNpcScriptRegionName(region);
     if (!region_name.empty()) {
-        AddDialogueTranscriptKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES);
+        LearnDialogueKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES, false);
     }
     if (region == 14) {
         SetFact(W8_FACT_QUEST_ASCEND_TO_CIRCLE, 0, false);

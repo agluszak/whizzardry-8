@@ -152,12 +152,11 @@ the licensed runtime scenarios after every step.
      screens should take the game from it, and the code below them the game or a
      `RuleContext` (steps 3, 6 and 7).
    - `Game` still holds interface state of the main game screen: `npc_interaction` (the
-     dialogue's layouts, trade tables, quote bubble and `NpcDialogueUi`; its transcript
-     and staged notice are game state), `npc_presentation` and `npc_speech`, and the
-     portrait animation in `monster_manager_entries`. The main game is discarded before
-     its game is replaced, so nothing forces them onto the game: move the widgets, quote
-     layout and portrait presentation to the screen with step 5, and the saved
-     transcript to `Story` (step 8).
+     dialogue's layouts, trade tables, quote bubble and `NpcDialogueUi`; its staged
+     notice is game state), `npc_presentation` and `npc_speech`, and the portrait
+     animation in `monster_manager_entries`. The main game is discarded before its game
+     is replaced, so nothing forces them onto the game: move the widgets, quote layout and
+     portrait presentation to the screen with step 5.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the
@@ -312,8 +311,8 @@ the licensed runtime scenarios after every step.
      story callbacks they run read `CurrentGame()`.
    - The game owns the dialogue's progress (`Game::npc_dialogue`) and the Al-Sedexus
      scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module
-     state and its interface state lives in `Game` (step 1). The saved transcript
-     belongs to the story and the presentation to the dialogue's screen.
+     state and its interface state lives in `Game` (step 1). The presentation belongs to
+     the dialogue's screen.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
@@ -341,8 +340,7 @@ the licensed runtime scenarios after every step.
      a complete staged load; then `CurrentGame.SAV` removed as working storage.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
-     Split it by owner. The dialogue transcript the NPCI section saves still lives in the
-     NPC dialogue's interface state (`W8NpcInteractionState`); it belongs to `Story`.
+     Split it by owner.
 
 ## Within the layers
 
