@@ -52,6 +52,7 @@
 #include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/party_slot.h"
@@ -580,7 +581,7 @@ bool CharacterScreen::enter(const ScreenRequest& request)
     const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(request.mode);
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
-    ResetPointerCursor();
+    ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
     m_mode = mode;

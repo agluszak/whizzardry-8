@@ -188,6 +188,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                 ReloadNpcScriptResources(npc, GetNpcMonster(npc));
                 if (!npc->is_grouped) {
                     CurrentGame().npc_dialogue.Cancel();
+                    CurrentGame().npc_dialogue.Begin(npc, false);
                     CurrentGame().npc_dialogue.QueueQuote(0, false, false, false);
                     return;
                 }

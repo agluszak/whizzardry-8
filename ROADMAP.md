@@ -219,11 +219,12 @@ the licensed runtime scenarios after every step.
      quote layout and portrait presentation moved out of `Game` (step 1), and the
      migrated global accessors deleted, so the screen updates, paints and is destroyed
      from its members and explicit inputs.
-   - The pointer (the shown cursor and its request, in `Screens.cpp`) and the targeting
-     mode (`TargetingMode()`, in `MainGameScreen.cpp`) are module state. The camp shares
-     both with a main game suspended under it, and a camp opened from party creation
-     has no main game, so they become members of one pointer owner that both screens
-     borrow, not of either screen.
+   - The main game, the camp and the camp's items page borrow the router's `Pointer`,
+     but the free functions in `local_screens`, the dialogs and text entry, the targeting
+     presentation, the world cursor (`entities/cursor.cpp`) and two readers in combat
+     (`GateActionSwitch`, `AutoAdvanceSelectedCharacter`, which ask whether a target is
+     being picked) still reach it through `ScreenPointer()`. They should receive it with
+     the HUD, and the accessor then goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
@@ -236,7 +237,7 @@ the licensed runtime scenarios after every step.
      invalidation, and keep `MainGameRepaint`'s finer propagation (one part requesting
      others, a separate pass mapping parts to rectangles, per-panel shadow state) only
      where it earns its complexity.
-   - Game code still calls presentation for targeting (`SetTargetingMode`) and the
+   - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
      `CombatPanelChanged` event already presents).

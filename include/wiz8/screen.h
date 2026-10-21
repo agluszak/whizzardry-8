@@ -9,6 +9,7 @@
 #include "wiz8/layouts/save_screenshot.h"
 
 class GameSession;
+class Pointer;
 struct W8Character;
 
 enum W8ScreenId {
@@ -120,9 +121,10 @@ public:
     }
 };
 
-using ScreenFactory = std::unique_ptr<Screen> (*)(W8ScreenId id, GameSession& games);
+using ScreenFactory = std::unique_ptr<Screen> (*)(W8ScreenId id, GameSession& games,
+                                                  Pointer& pointer);
 /* The game's screens, by id. The screens that begin and end games keep `games`. */
-std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games);
+std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer& pointer);
 
 /* Screen routing. Requests and returns take effect on the next GameLoop step:
    the current screen leaves, then the destination enters. A request suspends

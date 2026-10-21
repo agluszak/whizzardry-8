@@ -212,6 +212,7 @@ target_sources(wiz8_engine PRIVATE
     dialog_code/DialogNumericInput.cpp
     ../world/encounters.cpp
     music_playlist.cpp
+    pointer.cpp
     targeting_presentation.cpp
     npc_items.cpp
     npc_script_file.cpp

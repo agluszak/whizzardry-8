@@ -85,14 +85,16 @@
 
 class W8DialogBase;
 
-static std::string NextTriggerRecipient(const char*& cursor)
+std::vector<std::string> ParseTriggerNames(std::string_view text)
 {
-    if (!cursor) return {};
-    const char* comma = std::strchr(cursor, ',');
-    std::string name(cursor,
-                     comma ? static_cast<std::size_t>(comma - cursor) : std::strlen(cursor));
-    cursor = comma ? comma + 1 : nullptr;
-    return name;
+    std::vector<std::string> names;
+    if (text.empty()) return names;
+    for (;;) {
+        const auto comma = text.find(',');
+        names.emplace_back(text.substr(0, comma));
+        if (comma == text.npos) return names;
+        text.remove_prefix(comma + 1);
+    }
 }
 
 bool g_trigger_feedback = true;
@@ -153,18 +155,10 @@ Trigger* FindTriggerForProp(World* world, Prop* prop)
                 while (hops < 5 && !other->recipients.empty() &&
                        (other->trigger_kind == W8TriggerKind::item ||
                         other->trigger_kind == W8TriggerKind::prop)) {
-                    const char* recipient =
-                        (other->recipients.empty() ? nullptr : other->recipients.c_str());
-                    Trigger* linked;
-
-                    do {
-
-                        if (recipient == 0) {
-                            goto next_trigger;
-                        }
-                        const auto recipient_name = NextTriggerRecipient(recipient);
-                        linked = FindTriggerByName(recipient_name.c_str());
-                    } while (linked != previous);
+                    if (std::ranges::none_of(other->recipients, [previous](const auto& name) {
+                            return FindTriggerByName(name) == previous;
+                        }))
+                        goto next_trigger;
                     if (other->doorData() != nullptr) {
                         return other;
                     }
@@ -512,7 +506,7 @@ void TriggerEvent::Update()
     }
 
     case 0x3f: {
-        Trigger* target = FindTriggerByName(trigger->recipients.c_str());
+        Trigger* target = FindTriggerByName(trigger->recipient_name.c_str());
         if (target != 0) {
             target->Run(-1);
         }
@@ -520,9 +514,7 @@ void TriggerEvent::Update()
     }
 
     case 0x47: {
-        const char* name = (trigger->recipients.empty() ? nullptr : trigger->recipients.c_str());
-        while (name != 0) {
-            const auto recipient_name = NextTriggerRecipient(name);
+        for (const auto& recipient_name : trigger->recipients) {
             ParticleSystem* particle = FindParticleByName(recipient_name.c_str());
             if (particle != 0) {
                 particle->persisted = true;
@@ -577,14 +569,12 @@ void SetTriggerVariableByName(std::string_view name, int value)
    when the link-out and state-gate bits are set. */
 void Trigger::RunLinkedTriggers()
 {
-    const char* recipient;
 
     flags &= ~W8_TRIGGER_RUNNING;
     if ((flags & W8_TRIGGER_FIRE_LINKED) != 0 && (flags & W8_TRIGGER_LINK_ON_DEACTIVATE) != 0 &&
         !recipients.empty()) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 trigger->Run(-1);
             }
@@ -691,7 +681,6 @@ void Trigger::FinishAction()
 {
     bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
     bool action_completed = false;
-    const char* recipient;
 
     flags &= ~W8_TRIGGER_RUNNING;
 
@@ -735,10 +724,9 @@ void Trigger::FinishAction()
 
     if ((flags & W8_TRIGGER_KEEP_ON_FINISH) == 0 && action != 0) {
         if (action == 4) {
-            recipient = (recipients.empty() ? nullptr : recipients.c_str());
             action_completed = false;
-            while (recipient != 0) {
-                const auto recipient_name = NextTriggerRecipient(recipient);
+            for (const auto& recipient : recipients) {
+                const auto& recipient_name = recipient;
 
                 Light* light = FindLightByName(recipient_name.c_str());
                 if (light != 0) {
@@ -766,9 +754,8 @@ void Trigger::FinishAction()
 
 finish_linked_triggers:
     if ((flags & W8_TRIGGER_FIRE_LINKED) != 0) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 trigger->FinishAction();
             }
@@ -778,9 +765,8 @@ finish_linked_triggers:
 reactivate_linked_triggers:
     if (was_running && (flags & W8_TRIGGER_ON) != 0 &&
         (flags & W8_TRIGGER_REACTIVATE_LINKED) != 0) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 trigger->Run(-1);
             }
@@ -798,15 +784,13 @@ static int FindModifiedLocationVar(const char* name)
 
 void Trigger::CommitActionResult(bool apply_state_changes)
 {
-    const char* recipient;
 
     UpdateActionAnimation();
 
     if (!recipients.empty() && (flags & W8_TRIGGER_FIRE_LINKED) != 0 &&
         (flags & W8_TRIGGER_LINK_ON_DEACTIVATE) == 0) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
                 flags |= W8_TRIGGER_RUNNING;
@@ -1038,7 +1022,7 @@ void Trigger::Run(int source)
             if (recipients.empty()) {
                 break;
             }
-            UpdateCameraPathStateByName(m_pWorld, recipients.c_str(), 1);
+            UpdateCameraPathStateByName(m_pWorld, recipient_name.c_str(), 1);
             FinishAction();
             goto commit_action;
 
@@ -1099,7 +1083,7 @@ void Trigger::Run(int source)
         }
 
         case 0x0e:
-            if (recipients.empty() || SDL_strcasecmp(recipients.c_str(), "party") != 0) {
+            if (recipients.empty() || SDL_strcasecmp(recipient_name.c_str(), "party") != 0) {
                 break;
             }
             ApplyItemEffectToRandomCharacter(
@@ -1141,10 +1125,10 @@ void Trigger::Run(int source)
             goto commit_action;
 
         case 0x34:
-            if (recipients.empty() || recipients[0] == '\0') {
+            if (recipients.empty()) {
                 break;
             }
-            RunDestination(recipients.c_str());
+            RunDestination(recipient_name.c_str());
             goto commit_action;
 
         default:
@@ -1318,10 +1302,9 @@ void Trigger::Run(int source)
     case 4:
     case 0x30:
     case 0x31: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        while (recipient != 0) {
-            Light* light = FindLightByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Light* light = FindLightByName(recipient.c_str());
             if (light != 0) {
                 light->m_save_marked = true;
                 if (action == 4) {
@@ -1356,13 +1339,12 @@ void Trigger::Run(int source)
     case 0x2d:
     case 0x2e:
     case 0x2f: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            Trigger* target = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* target = FindTriggerByName(recipient.c_str());
             if (target != 0) {
                 if (action == 0x2d) {
                     target->flags |= W8_TRIGGER_ON;
@@ -1495,13 +1477,12 @@ void Trigger::Run(int source)
         break;
 
     case 0x0f: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            Trigger* target = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* target = FindTriggerByName(recipient.c_str());
             if (target != 0) {
                 bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
                 flags |= W8_TRIGGER_RUNNING;
@@ -1552,7 +1533,7 @@ void Trigger::Run(int source)
     }
 
     case 0x0b:
-        if (!recipients.empty()) WakeMonsterGroup(atoi(recipients.c_str()));
+        if (!recipients.empty()) WakeMonsterGroup(recipient_group);
         return;
 
     case 0x39: {
@@ -1786,13 +1767,12 @@ void Trigger::Run(int source)
     case 0x41:
     case 0x42:
     case 0x43: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            const auto name = NextTriggerRecipient(recipient);
+        for (const auto& recipient : recipients) {
+            const auto& name = recipient;
             if (action == 0x41) {
                 PositionAmbientSoundByName(GetWorld(), name.c_str());
             } else if (action == 0x42) {
@@ -1808,13 +1788,12 @@ void Trigger::Run(int source)
     case 0x44:
     case 0x45:
     case 0x46: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            ParticleSystem* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            ParticleSystem* particle = FindParticleByName(recipient.c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 if (action == 0x44) {
@@ -1834,14 +1813,13 @@ void Trigger::Run(int source)
     }
 
     case 0x47: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0 || m_pEvent != 0) {
+        if (recipients.empty() || m_pEvent != 0) {
             return;
         }
         action_succeeded = false;
-        while (recipient != 0) {
-            ParticleSystem* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            ParticleSystem* particle = FindParticleByName(recipient.c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 particle->SetActive(true);
@@ -1885,13 +1863,12 @@ void Trigger::Run(int source)
         break;
 
     case 0x4a: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0 || m_lData1 < 0) {
+        if (recipients.empty() || m_lData1 < 0) {
             return;
         }
-        while (recipient != 0) {
-            Prop* prop = FindPropByName(GetWorld(), NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Prop* prop = FindPropByName(GetWorld(), recipient.c_str());
             if (prop != 0) {
                 prop->SetAnimationSpeed(static_cast<float>(m_lData1));
             }
@@ -1900,30 +1877,9 @@ void Trigger::Run(int source)
     }
 
     case 0x4b: {
-        const char* recipient;
-        std::string destination;
-        unsigned char count = 0;
-        unsigned char selected;
-        unsigned char index = 0;
-
-        if (recipients.empty() || recipients[0] == '\0') {
-            return;
-        }
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            NextTriggerRecipient(recipient);
-            ++count;
-        }
-        selected = static_cast<unsigned char>(MonotonicMilliseconds() % count);
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        do {
-            destination = NextTriggerRecipient(recipient);
-            if (index == selected) {
-                break;
-            }
-            ++index;
-        } while (recipient != 0);
-        RunDestination(destination.c_str());
+        if (recipients.empty()) return;
+        const auto selected = MonotonicMilliseconds() % recipients.size();
+        RunDestination(recipients[selected].c_str());
         break;
     }
 
@@ -1940,16 +1896,14 @@ commit_action:
 
 bool Trigger::CanRunLinkedTriggers()
 {
-    const char* recipient;
 
     if (m_pProp != 0 && m_pProp->animation_playing != 0) {
         return false;
     }
-    recipient = (recipients.empty() ? nullptr : recipients.c_str());
-    while (recipient != 0) {
+    for (const auto& recipient : recipients) {
         Trigger* trigger;
 
-        const auto recipient_name = NextTriggerRecipient(recipient);
+        const auto& recipient_name = recipient;
         trigger = FindTriggerByName(recipient_name.c_str());
         if (trigger != 0 && !trigger->CanRunLinkedTriggers()) {
             return false;
@@ -1974,9 +1928,7 @@ bool Trigger::SelectAction()
     }
 
     if (!required_states.empty()) {
-        const char* cursor = required_states.c_str();
-        while (cursor) {
-            const auto state_name = NextTriggerRecipient(cursor);
+        for (const auto& state_name : required_states) {
             const int state_id = FindModifiedLocationVar(state_name.c_str());
             if (CurrentGame().story.location_variables[state_id].value == 0) {
                 action = fallback_action;
@@ -2009,9 +1961,7 @@ bool Trigger::SelectAction()
         if (m_pProp != 0 && m_pProp->animation_playing != 0) {
             linked_trigger_blocked = true;
         } else {
-            const char* cursor = (recipients.empty() ? nullptr : recipients.c_str());
-            while (cursor) {
-                const auto name = NextTriggerRecipient(cursor);
+            for (const auto& name : recipients) {
                 Trigger* trigger = FindTriggerByName(name.c_str());
                 if (trigger != 0 && !trigger->CanRunLinkedTriggers()) {
                     linked_trigger_blocked = true;

@@ -65,6 +65,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -362,17 +363,17 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
     if (item_action == W8_CAMP_ITEM_ACTION_NONE) {
         return;
     }
-    switch (TargetingMode()) {
+    switch (pointer.targeting()) {
     case W8_TARGET_NEED_ALLY:
         if ((item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
             CurrentGame().party.members[slot].has_value() &&
             CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_MISSING] == 0) {
-            SetTargetCursor(GetTargetingCursorForState(alternate));
+            pointer.showSlot(pointer.targetingSlot(alternate));
             return;
         }
         if (CanPartySlotParticipate(slot)) {
-            SetTargetCursor(GetTargetingCursorForState(alternate));
+            pointer.showSlot(pointer.targetingSlot(alternate));
         }
         return;
     case W8_TARGET_NEED_ITEM:
@@ -383,12 +384,12 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
         if ((item_action == W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL ||
              item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM) &&
             CanItemLeaveItsSlot(item)) {
-            SetTargetCursor(GetTargetingCursorForState(alternate));
+            pointer.showSlot(pointer.targetingSlot(alternate));
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY ||
             item_action == W8_CAMP_ITEM_ACTION_DROP) {
-            SetTargetCursor(GetTargetingCursorForState(alternate));
+            pointer.showSlot(pointer.targetingSlot(alternate));
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
@@ -402,13 +403,13 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
                  CurrentGame().party.rows[PartySlot()].executing.kind != W8_ACTION_EQUIP)) {
                 return;
             }
-            SetTargetCursor(GetTargetingCursorForState(alternate));
+            pointer.showSlot(pointer.targetingSlot(alternate));
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_USE) {
             if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
                 IsUsableItemClass(item)) {
-                SetTargetCursor(GetTargetingCursorForState(alternate));
+                pointer.showSlot(pointer.targetingSlot(alternate));
             }
             return;
         }
@@ -417,21 +418,21 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
         }
         if (!alternate) {
             if (!(CurrentGame().party.held.item.iItemNo != -1)) {
-                SetTargetCursor(3);
+                pointer.showSlot(3);
                 return;
             }
-            ShowHeldItemCursor(0xe);
+            pointer.showHeldItem(0xe);
             return;
         }
         if (!(CurrentGame().party.held.item.iItemNo != -1)) {
-            SetTargetCursor(4);
+            pointer.showSlot(4);
             return;
         }
-        ShowHeldItemCursor(0xf);
+        pointer.showHeldItem(0xf);
         return;
     case W8_TARGET_NEED_CHARACTER_INDIRECT:
         if (IsDeadCharacterTargetable(slot)) {
-            SetTargetCursor(GetTargetingCursorForState(alternate));
+            pointer.showSlot(pointer.targetingSlot(alternate));
         }
         return;
     default:
@@ -440,13 +441,13 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
 }
 
 // FUNCTION: WIZ8 0x005BAFC0
-void SetHandCursors()
+void W8CampItemsPage::ShowHandCursor()
 {
     if ((CurrentGame().party.held.item.iItemNo != -1)) {
-        ShowHeldItemCursor(0xe);
+        pointer.showHeldItem(0xe);
         return;
     }
-    SetTargetCursor(3);
+    pointer.showSlot(3);
 }
 
 /* Unequips both weapon slots of the selected character; refused outright in
@@ -1903,7 +1904,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                         DropHeldCampItem();
                         RebuildCampItemList();
                     } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE) {
-                        SetHandCursors();
+                        ShowHandCursor();
                         RebuildCampItemList();
                     } else {
                         RebuildCampItemList();
@@ -1966,7 +1967,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                 DropHeldCampItem();
             } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE &&
                        (CurrentGame().party.held.item.iItemNo != -1)) {
-                SetHandCursors();
+                ShowHandCursor();
             }
             if (changed) {
                 cancel_queued_swap();
@@ -2272,7 +2273,7 @@ void W8CampItemsPage::SelectCampItemAction(W8CampItemActionButton button)
     case W8_CAMP_ACTION_BUTTON_MOVE:
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_MOVE);
         if ((CurrentGame().party.held.item.iItemNo != -1)) {
-            SetHandCursors();
+            ShowHandCursor();
             cell_redraw.InvalidateEquipment();
         }
         return;

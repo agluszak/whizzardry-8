@@ -18,6 +18,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class Pointer;
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
@@ -29,7 +30,7 @@ struct W8LevelRuntimeBlock;
 struct MainGameScreen final : Screen {
     static constexpr W8ScreenId id = W8_SCREEN_MAIN_GAME;
 
-    explicit MainGameScreen(Game& game);
+    MainGameScreen(Game& game, Pointer& pointer);
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
@@ -37,6 +38,8 @@ struct MainGameScreen final : Screen {
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    // The pointer the main game aims with, shared with a camp opened over it.
+    Pointer& pointer;
     // The time since the screen last stepped the game.
     LapTimer step_timer;
     std::unique_ptr<W8LockInteraction> lock_interaction;

@@ -26,6 +26,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -175,7 +176,7 @@ bool MainMenuScreen::enter(const ScreenRequest&)
     if (PreviousScreen() != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
     }
-    ResetPointerCursor();
+    ScreenPointer().reset();
 
     if (!g_pending_main_menu_message.empty()) {
         dialog_.reset(CreateMessageDialog());

@@ -38,6 +38,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -54,6 +55,7 @@
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/surface_storage.h"
@@ -771,4 +773,31 @@ TEST_CASE("The party navigator stands the world height below the eye",
     REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
     REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));
     REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
+}
+
+TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", "[npc][lifetime]")
+{
+    ScopedGame scope;
+    W8NpcDatabaseRecord record{};
+    record.display_name = "Test";
+    auto npc = std::make_shared<W8NpcState>();
+    npc->record = &record;
+    npc->has_monster = true;
+    auto script = std::make_shared<W8NpcScriptFile>();
+    script->quote_count = 1;
+    script->quotes.resize(1);
+    script->quotes[0].subquote_count = 1;
+    script->quotes[0].subquotes.emplace_back("");
+    npc->script_file = script;
+    auto& dialogue = scope.game.npc_dialogue;
+    dialogue.Begin(npc.get(), false);
+    dialogue.QueueQuote(0, false, false, false);
+    npc->script_file = std::make_shared<W8NpcScriptFile>();
+    npc->is_grouped = true;
+    dialogue.Begin(npc.get(), false);
+    dialogue.Advance(MakeScriptContext(scope.game));
+    REQUIRE(dialogue.binding().script == script);
+    REQUIRE(dialogue.binding().voice_stem == "NPC_Test");
+    REQUIRE(dialogue.binding().npc_voice);
+    REQUIRE_FALSE(dialogue.has_queued_actions());
 }

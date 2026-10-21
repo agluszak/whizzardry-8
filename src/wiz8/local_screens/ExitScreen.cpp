@@ -9,6 +9,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -26,7 +27,7 @@ public:
     bool enter(const ScreenRequest&) override
     {
         ResetVideoFrameState();
-        ResetPointerCursor();
+        ScreenPointer().reset();
         const unsigned short colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
         const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
         SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);

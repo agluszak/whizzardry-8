@@ -50,6 +50,7 @@
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -154,7 +155,7 @@ void BeginNpcScriptedScene(const ScriptContext& context)
     CurrentGame().npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
     context.activity.scripted_scene = true;
-    SetTargetingMode(W8_TARGET_NEED_ALLY);
+    context.events.push(TargetingRequested{W8_TARGET_NEED_ALLY});
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (context.party.members[party_slot].has_value()) {
             EnableMainGamePortraitSlot(party_slot);
@@ -183,7 +184,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     if (!context.combat.has_value() || context.game.party_movement_mode) {
         ClearLevelMovementStopped();
     }
-    SetTargetingMode(W8_TARGET_NEED_NONE);
+    context.events.push(TargetingRequested{});
     for (slot = 0; slot < 8; ++slot) {
         if (context.party.members[slot].has_value()) {
             DisableMainGamePortraitSlot(slot);

@@ -33,6 +33,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -81,18 +82,18 @@ void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context)
 
     if (context.activity.conversation) {
         if (CurrentGame().npc_interaction.dialogue_hidden != 0) {
-            SetTargetCursor(1);
+            ScreenPointer().showSlot(1);
             return;
         }
         if (CurrentGame().npc_presentation != W8NpcPresentation::quote) {
             if (!CurrentGame().npc_dialogue.has_queued_actions()) {
-                if (ShownCursor() != W8_CURSOR_TEXT_INPUT) {
-                    SetTargetCursor(W8_CURSOR_NONE);
+                if (ScreenPointer().shownSlot() != W8_CURSOR_TEXT_INPUT) {
+                    ScreenPointer().showSlot(W8_CURSOR_NONE);
                     return;
                 }
             }
         } else if (!context.activity.scripted_scene) {
-            SetTargetCursor(W8_CURSOR_MAP_LOAD);
+            ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
         }
     }
 }
@@ -112,7 +113,7 @@ static void NpcVoiceEosCallback()
    sound with the EOS callback armed, and hang the mouth-gap track on the
    party slot's monster-manager entry or on the dialogue speech for ungrouped
    NPCs. notice_only routes the text through ShowNotice instead. */
-W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, W8NpcScriptQuote* quote,
+W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcScriptQuote* quote,
                                       unsigned char subquote_index, bool notice_only,
                                       bool force_npc_voice)
 {
@@ -143,12 +144,12 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, W8NpcScriptQ
         return W8NpcSubquoteOutcome::presented;
     }
 
-    if (speaker->is_grouped && !force_npc_voice) {
+    if (!CurrentGame().npc_dialogue.binding().npc_voice && !force_npc_voice) {
         voice_dir = "PCs";
     } else {
         voice_dir = "npcs";
     }
-    voice_stem = FormatNpcVoiceSoundPath(speaker);
+    voice_stem = CurrentGame().npc_dialogue.binding().voice_stem;
     voice_path = fmt::format("Data\\Sound\\{}\\{}\\{}_{:03d}", voice_dir, voice_stem, voice_stem,
                              current_quote);
     if (subquote_index > 0) {
@@ -253,10 +254,11 @@ static void FinishNpcVoicePlayback(bool resume_script)
     CurrentGame().npc_presentation = W8NpcPresentation::none;
     CurrentGame().npc_dialogue.SpeechFinished();
     if (CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none && resume_script) {
-        if (speaker != 0 && speaker->script_file != 0 &&
-            current_quote < speaker->script_file->quote_count) {
-            SetNpcQuoteBubbleVisible(false, {}, &speaker->script_file->quotes[current_quote],
-                                     current_quote, -1);
+        if (speaker != 0 && CurrentGame().npc_dialogue.binding().script != 0 &&
+            current_quote < CurrentGame().npc_dialogue.binding().script->quote_count) {
+            SetNpcQuoteBubbleVisible(
+                false, {}, &CurrentGame().npc_dialogue.binding().script->quotes[current_quote],
+                current_quote, -1);
             return;
         }
     }
@@ -288,7 +290,8 @@ void RestoreCurrentNpcQuoteBubble(void)
 {
     W8NpcState* const speaker = CurrentGame().npc_dialogue.speaker();
     const int current_quote = CurrentGame().npc_dialogue.current_quote();
-    W8NpcScriptFile* script_file = speaker != 0 ? speaker->script_file.get() : 0;
+    const W8NpcScriptFile* script_file =
+        speaker != 0 ? CurrentGame().npc_dialogue.binding().script.get() : 0;
     if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
         SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote,
                                  current_quote, 0xffffffff);

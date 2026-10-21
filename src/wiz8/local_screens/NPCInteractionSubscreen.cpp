@@ -87,6 +87,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -1171,7 +1172,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc.get());
     if (!skip_exit_actions) {
         if (!CurrentGame().npc_interaction.offered_item) {
-            SetTargetCursor(W8_CURSOR_NONE);
+            ScreenPointer().showSlot(W8_CURSOR_NONE);
         } else {
             ReturnOfferedItem();
         }
@@ -3561,7 +3562,7 @@ void DrainNpcDialogueDeferralInput(void)
    suspended while the modal is up unless the dialogue stays live; for the
    price-check opcodes the base price in the request is discounted by the
    NPC's effect percentage and the party's best haggle skill. */
-void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* request,
+void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuoteEntry* request,
                    int aux_data)
 {
     W8MonsterInfo* monster_info;
@@ -3590,16 +3591,16 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntr
     CurrentGame().npc_dialogue.ReplyDialogOpened(price_check);
     OpenModal(
         std::make_unique<W8NpcDialog>(std::move(script), request, aux_data, OnNpcDialogClosed));
-    SetTargetCursor(W8_CURSOR_NONE);
+    ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette)
 {
     SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
 }
 
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette, W8QuoteNotice notice,
                               int npc_kind)
 {
@@ -3892,7 +3893,7 @@ void QueueDialogueNpcRefusal(void)
 void OnNpcDialogClosed(W8NpcDialog& dialog)
 {
     W8NpcDialog* npc_dialog = &dialog;
-    W8NpcQuoteEntry* request = npc_dialog->m_message;
+    const W8NpcQuoteEntry* request = npc_dialog->m_message;
     std::string field_text;
     std::string entry_text;
     int index;
@@ -3965,7 +3966,7 @@ void CloseNpcDialogueForCamp(void)
     CurrentGame().activity.conversation_aside = true;
     SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
     EndNpcDialogueSession(false);
-    SetTargetCursor(W8_CURSOR_NONE);
+    ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
 void SyncDialogueNpcStateAndMarkPending(void)
@@ -4055,14 +4056,14 @@ void BeginScriptedWorldAction(void)
 {
     CurrentGame().status.world_cursor_gate = 1;
     ResetLevelDataVectors();
-    SetTargetCursor(W8_CURSOR_MAP_LOAD);
+    ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
 }
 
 void ClearMainGameTargetState(void)
 {
     CurrentGame().status.world_cursor_gate = 0;
     ClearLevelMovementStopped();
-    SetTargetCursor(W8_CURSOR_NONE);
+    ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
 /* When the world-cursor gate (world_cursor_gate) is raised, discard queued input
