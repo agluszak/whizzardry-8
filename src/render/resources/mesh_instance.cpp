@@ -334,21 +334,12 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     ensureParts();
     for (const auto& part : parts)
         if (part->mesh == &mesh) {
-            updatePose(*part, true);
+            part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
+                              instance->skinTable(*part->mesh));
             if (index < part->pose.positions.size()) return part->pose.positions[index];
             break;
         }
     return {};
-}
-
-void InstanceNode::updatePose(Part& part, bool check_blanking)
-{
-    const int skin = instance->skinTable(*part.mesh);
-    Mesh::PolygonSelection visible;
-    if (&part == parts.front() && instance->visible_polygons)
-        visible = std::span<const std::uint32_t>(*instance->visible_polygons);
-    part.pose.update(*part.mesh, instance->frame_index, instance->frame_interpolation, skin,
-                     check_blanking, visible);
 }
 
 namespace {
@@ -431,7 +422,8 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         const int skin = instance->skinTable(mesh);
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
-        updatePose(*part, !static_geometry);
+        part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
+                          !static_geometry);
         auto& pose = part->pose;
         const auto& asset = *pose.asset;
         auto instance_block = packInstance(*instance, mesh, pass);

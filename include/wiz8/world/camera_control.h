@@ -7,7 +7,6 @@ struct World;
 
 extern bool g_world_cleanup_flag;
 extern bool g_navigator_vertical_enabled;
-extern float g_mesh_view_half_angle_degrees;
 
 /* One frame of party movement in the primary world under the frame's motion flags
    (camera_motion.h): turning and looking, motion against the collision index, the
@@ -24,8 +23,6 @@ void placeWorldCameras(World& world, World* sky, const glm::vec3& view_offset);
 enum {
     W8_WORLD_INCREASE_FAR_CLIP = 0x01u,
     W8_WORLD_DECREASE_FAR_CLIP = 0x02u,
-    W8_WORLD_WIDEN_MESH_VIEW = 0x04u,
-    W8_WORLD_NARROW_MESH_VIEW = 0x08u,
     W8_WORLD_INCREASE_ENVIRONMENT = 0x100u,
     W8_WORLD_DECREASE_ENVIRONMENT = 0x200u,
     W8_WORLD_CHANGE_FAR_CLIP = W8_WORLD_INCREASE_FAR_CLIP | W8_WORLD_DECREASE_FAR_CLIP

@@ -91,11 +91,8 @@ public:
     };
 
     explicit MeshPose(Mesh& mesh);
-    // `visible` is the view's polygon selection; without one the skin's
-    // non-blank polygons are drawn.
     void update(Mesh& mesh, unsigned frame, float interpolation, int skin = -1,
-                bool check_blanking = true,
-                std::optional<std::span<const std::uint32_t>> visible = std::nullopt);
+                bool check_blanking = true);
     std::shared_ptr<Texture> texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
                                      int skin, unsigned layer = 0) const;
 
@@ -107,8 +104,7 @@ public:
 
 private:
     void makeDraws();
-    void selectPolygons(Mesh& mesh, int skin, bool check_blanking,
-                        std::optional<std::span<const std::uint32_t>> visible);
+    void selectPolygons(Mesh& mesh, int skin, bool check_blanking);
     unsigned sampled_frame_ = ~0u;
     float sampled_interpolation_ = -1;
     std::vector<std::uint32_t> selected_polygons_;

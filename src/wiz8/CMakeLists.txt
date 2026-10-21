@@ -93,7 +93,6 @@ target_sources(wiz8_engine PRIVATE
     ../world/level_session.cpp
     ../world/level_loader.cpp
     ../render/resources/mesh_loader.cpp
-    ../render/visibility_grid.cpp
     ../world/world.cpp
     ../render/effects/particle_system.cpp
     ../render/resources/compiled_mesh.cpp
@@ -121,7 +120,6 @@ target_sources(wiz8_engine PRIVATE
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
     ../entities/cycle_player.cpp
-    ../render/mesh_updates.cpp
     ../render/effects/ground_shadow.cpp
     "local_code/Gameplay Init.cpp"
     dialog_code/DialogInterface.cpp

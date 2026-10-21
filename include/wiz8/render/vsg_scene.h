@@ -80,7 +80,6 @@ public:
 private:
     void ensureParts();
     struct Part;
-    void updatePose(Part& part, bool check_blanking);
     // Every model the instance has drawn keeps its parts, so an animation that switches
     // between frame models reuses their draw graphs instead of rebuilding them.
     struct DrawnModel {

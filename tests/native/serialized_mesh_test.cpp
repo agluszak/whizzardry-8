@@ -34,7 +34,6 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/visibility_grid.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
@@ -244,12 +243,12 @@ TEST_CASE("serialized_mesh_test")
         const auto empty = directory / "empty.lvl";
         wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_file(empty);
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
         REQUIRE(world.psrMeshes.empty());
         REQUIRE(world.scene->static_meshes.empty());
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
         REQUIRE(destroyed == 3);
     }
     REQUIRE(ok);

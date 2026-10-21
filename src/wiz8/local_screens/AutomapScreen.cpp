@@ -65,7 +65,6 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
