@@ -115,11 +115,6 @@ public:
     void reset(std::int32_t polygons, std::int32_t vertices);
     void scale(const glm::vec3& scale);
     void relocateVertices(const glm::vec3& offset);
-    double getAverageRadius();
-    double getMaxRadius();
-    void scaleToAverageRadius(double radius);
-    void scaleToMaxRadius(double radius);
-    std::int32_t findClosestVertex(const glm::vec3& point);
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();

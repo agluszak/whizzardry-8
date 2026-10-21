@@ -65,7 +65,7 @@ endif()
 catch_discover_tests(native_mesh_frames_test TEST_PREFIX "native_mesh_frames/")
 
 add_executable(native_image_io_test native/image_io_test.cpp)
-target_link_libraries(native_image_io_test PRIVATE wiz8_engine wiz8_native_settings)
+target_link_libraries(native_image_io_test PRIVATE wiz8_engine wiz8_native_settings SDL3_image::SDL3_image)
 add_test(NAME native_image_io COMMAND native_image_io_test)
 
 add_executable(native_runtime_lookup_test native/runtime_lookup_test.cpp)
@@ -113,7 +113,6 @@ endif()
 catch_discover_tests(native_loader_records_test TEST_PREFIX "native_loader_records/")
 
 add_executable(native_jpeg_transfer_test "${PROJECT_SOURCE_DIR}/tests/native/jpeg_transfer_test.cpp")
-target_compile_definitions(native_jpeg_transfer_test PRIVATE WIZ8_IMAGE_IMPORT_FIXTURE_DIR="${PROJECT_SOURCE_DIR}/tests/native/image_import")
 target_link_libraries(native_jpeg_transfer_test PRIVATE wiz8_engine wiz8_native_settings SDL3_image::SDL3_image)
 catch_discover_tests(native_jpeg_transfer_test TEST_PREFIX "native_image_transfer/")
 
@@ -160,7 +159,7 @@ endif()
 add_executable(native_game_graphics "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
 target_compile_definitions(native_game_graphics PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv")
-target_link_libraries(native_game_graphics PRIVATE wiz8_engine SDL3::SDL3)
+target_link_libraries(native_game_graphics PRIVATE wiz8_engine SDL3::SDL3 SDL3_image::SDL3_image)
 if(APPLE)
     target_link_options(native_game_graphics PRIVATE -Wl,-dead_strip)
 elseif(UNIX)

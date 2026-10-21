@@ -83,7 +83,6 @@ target_sources(wiz8_engine PRIVATE
     dialog_code/stMessageDialog.cpp
     dialog_code/DialogBase.cpp
     dialog_code/DialogFactoryDialogs.cpp
-    dialog_code/stListBox.cpp
     dialog_code/DialogTextEntry.cpp
     dialog_code/StatInfoDialogs.cpp
     dialog_code/CharacterSummaryDialog.cpp
