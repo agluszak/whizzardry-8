@@ -18,7 +18,6 @@
 #include "wiz8/named_position.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
-#include "wiz8/render/visibility_grid.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/world/camera_paths.h"
@@ -84,7 +83,6 @@ struct World {
     PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
     W8AutomapCells automap;
-    std::unique_ptr<MeshVisibilityGrid> quads;
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
     Light* camera_light{};
@@ -165,7 +163,7 @@ class Prop;
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
+std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
 void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);

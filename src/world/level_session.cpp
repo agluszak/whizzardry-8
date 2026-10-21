@@ -219,7 +219,7 @@ std::string_view GetLevelFolderName(int level_id)
 static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path), false);
+    auto replacement = LoadWorld(-1, std::string(sky_path));
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
 

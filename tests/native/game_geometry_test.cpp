@@ -84,7 +84,6 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
-#include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
@@ -1255,35 +1254,6 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
     REQUIRE_FALSE(monster.GetWorldAnimationBounds());
     REQUIRE(bounds.value().minimum == glm::vec3(-2, -4, -6));
     REQUIRE(animation.frame_bounds[0].minimum == glm::vec3(-1, -2, -3));
-}
-
-TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geometry]")
-{
-    const auto cells = rasterizeQuadTriangle({256, 256}, {{{0, 0}, {255, 0}, {128, 255}}});
-    REQUIRE(cells.size() > 20000);
-    for (std::size_t index = 0; index < cells.size(); ++index) {
-        REQUIRE(cells[index].x >= 0);
-        REQUIRE(cells[index].x < 256);
-        REQUIRE(cells[index].y >= 0);
-        REQUIRE(cells[index].y < 256);
-        if (index) {
-            REQUIRE(cells[index].y >= cells[index - 1].y);
-            if (cells[index].y == cells[index - 1].y)
-                REQUIRE(cells[index].x == cells[index - 1].x + 1);
-        }
-    }
-    REQUIRE(rasterizeQuadTriangle({256, 256}, {{{128, 255}, {255, 0}, {0, 0}}}) == cells);
-    const auto clipped = rasterizeQuadTriangle({8, 8}, {{{-10, -10}, {15, 2}, {3, 20}}});
-    REQUIRE_FALSE(clipped.empty());
-    for (const auto& cell : clipped) {
-        REQUIRE(cell.x >= 0);
-        REQUIRE(cell.x < 8);
-        REQUIRE(cell.y >= 0);
-        REQUIRE(cell.y < 8);
-    }
-    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {2, 1}, {3, 1}}}).empty());
-    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {1, 2}, {1, 3}}}).empty());
-    REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
 }
 
 TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",

@@ -45,7 +45,6 @@
 #include "wiz8/render/fog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
-#include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/render/world_scene.h"
@@ -95,8 +94,6 @@ NavigationMesh* GetWorldPathing()
     return GetWorld() ? WorldPathing(*GetWorld()) : nullptr;
 }
 bool g_navigator_vertical_enabled = true;
-
-float g_mesh_view_half_angle_degrees = 60.0f;
 
 /* Build scene resources under a local owner. No active world is required;
    malformed resources destroy only this unpublished result. */
@@ -269,10 +266,7 @@ void RefreshWorldView()
 {
     auto* world = GetWorld();
     if (!world || !world->camera) return;
-    if (world->compiledIndex())
-        UpdateWorldOctree(world);
-    else if (world->quads)
-        UpdateWorldMeshFromQuads(world);
+    if (world->compiledIndex()) world->compiledIndex()->UpdateCameraVisibility();
     RepositionAmbientSounds();
     RequestRefreshPartyState();
 }
@@ -333,12 +327,6 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
             scale = 1.5f;
         }
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
-    }
-    if ((flags & W8_WORLD_WIDEN_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees < 1.8e+02f) {
-        g_mesh_view_half_angle_degrees += 1e+01f;
-    }
-    if ((flags & W8_WORLD_NARROW_MESH_VIEW) != 0 && g_mesh_view_half_angle_degrees > 1e+01f) {
-        g_mesh_view_half_angle_degrees -= 1e+01f;
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
         SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment.intensity + 0.02f);

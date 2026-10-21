@@ -141,6 +141,11 @@ TEST_CASE("Static instances share ordinary position and normal arrays", "[render
     positions[0] = {0, 0, 0};
     positions[1] = {1, 0, 0};
     positions[2] = {0, 1, 0};
+    mesh.getPolygonTextureTable(0, 0, true);
+    const int blank_skin = mesh.CreateSkinTable("blank", -1);
+    auto blank = std::make_shared<Texture>();
+    blank->setName("BLANK-hidden");
+    (*mesh.GetTextureTable(blank_skin))[0] = blank;
     render::MeshPose first(mesh), second(mesh);
     first.update(mesh, 0, 0);
     second.update(mesh, 0, 0);
@@ -148,15 +153,12 @@ TEST_CASE("Static instances share ordinary position and normal arrays", "[render
     REQUIRE(first.asset == second.asset);
     REQUIRE(first.passes[0].positions == second.passes[0].positions);
     REQUIRE(first.passes[0].normals == second.passes[0].normals);
-    // A view's polygon selection belongs to the pose, not the shared mesh.
     const auto asset = first.asset;
-    const std::vector<std::uint32_t> none, all{0};
-    first.update(mesh, 0, 0, -1, true, none);
-    second.update(mesh, 0, 0);
+    // Selecting polygons narrows the draws without rebuilding the shared asset.
+    first.update(mesh, 0, 0, blank_skin, true);
     REQUIRE(first.asset == asset);
     REQUIRE(first.passes[0].draws[0]->indexCount == 0);
-    REQUIRE(second.passes[0].draws[0]->indexCount == 3);
-    first.update(mesh, 0, 0, -1, true, all);
+    first.update(mesh, 0, 0);
     REQUIRE(first.asset == asset);
     REQUIRE(first.passes[0].draws[0]->indexCount == 3);
 }

@@ -78,11 +78,9 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
-#include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/visibility_grid.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_geometry_types.h"
@@ -882,7 +880,7 @@ try {
         ShutdownWithErrorBox(error_message);                                                       \
     }
 
-unsigned char ReadLevel(World* world, wiz8::File* handle, bool use_octree,
+unsigned char ReadLevel(World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory)
 try {
     LevelLoadContext info;
@@ -997,11 +995,6 @@ try {
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 
-    if (use_octree) {
-        Mesh* model = static_cast<Mesh*>(world->update_mesh_source->getModel());
-        const auto [minimum, maximum] = model->getBounds().box;
-        world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
-    }
     FinalizeStaticScene(*world);
 
     if (!success || handle->read(&environment_offset, sizeof(environment_offset)).bytes !=
@@ -1648,7 +1641,7 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
     collision_available = source.collision_available;
 }
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use_octree)
+std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
 {
     auto owner = std::make_unique<World>(level_id, std::move(source_path));
     auto* world = owner.get();
@@ -1668,10 +1661,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use
 
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
         world->spatial = std::make_unique<LevelSpatialIndex>(oct_path.c_str(), world);
-        if (world->compiledIndex()->HasLoadError())
-            world->spatial.reset();
-        else
-            use_octree = false;
+        if (world->compiledIndex()->HasLoadError()) world->spatial.reset();
     }
 
     if (!world->collisionIndex()) {
@@ -1709,7 +1699,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use
     }
 
     auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-    if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder)))
+    if (!ReadLevel(world, handle.get(), wiz8::asset_path(material_folder)))
         throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }
