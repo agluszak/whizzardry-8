@@ -56,8 +56,11 @@ void RecordCharacterDeath(int party_slot);
 void DropCharacterFromRound(int party_slot);
 /* Whether one party slot may switch to the given targeting
    context, in the two forms the target-refresh pass asks. */
-bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow_missing_target,
+bool CharacterCanSwitchTo(int party_slot, W8EditedAction context, bool allow_missing_target,
                           bool allow_equipment_changes);
+/* Whether one party slot may pick an action kind from the combat submenu,
+   before any spell, item or target has been chosen for it. */
+bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate);
 bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
 void NotifyNearbyMonsters(int what);
 void BeginCombatRound(void);

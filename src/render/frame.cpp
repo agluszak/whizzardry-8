@@ -1,6 +1,7 @@
 #include "wiz8/render/frame.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -44,6 +45,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/platform/game_timer.h"
@@ -61,6 +63,7 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/startup_world.h"
@@ -285,11 +288,9 @@ try {
     return false;
 }
 
-/* Apply the configured window size and restore VSG presentation. */
+/* Restore VSG presentation at the window's current physical size. */
 bool OpenRendererWindow(void)
 {
-    if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
-        return false;
     if (!g_renderer->reopen()) return false;
     g_flush_pending = !videoSurfaceOwner;
     return true;
@@ -330,11 +331,9 @@ bool VideoResizeWindow(void)
 void VideoFullScreen(bool enabled)
 {
     g_fullscreen = enabled;
-    if (ghWindow && g_renderer && g_video_active && !videoSurfaceOwner) {
-        g_flush_pending = false;
-        g_renderer->close();
-        OpenRendererWindow();
-    }
+    if (!ghWindow || !SDL_SetWindowFullscreen(ghWindow, enabled) || !SDL_SyncWindow(ghWindow))
+        return;
+    if (g_renderer && g_video_active && !videoSurfaceOwner) VideoResizeWindow();
 }
 
 void ResetTransientRenderScenes(void)
@@ -362,8 +361,6 @@ void SuspendVideoManager(void)
             g_flush_pending = false;
             g_renderer->close();
         }
-        SDL_MinimizeWindow(ghWindow);
-        FreeMouseCursor();
     }
 }
 
@@ -373,11 +370,8 @@ bool RestoreVideoManager(void)
         return 1;
     }
     if (!ghWindow || !g_renderer) return false;
-    SDL_ShowWindow(ghWindow);
-    SDL_RestoreWindow(ghWindow);
     if (!g_renderer->isOpen() && !OpenRendererWindow()) return false;
     g_video_active = true;
-    SDL_RaiseWindow(ghWindow);
     ResetVideoDirtyState();
     return true;
 }
@@ -394,7 +388,9 @@ static SceneFrame CurrentSceneFrame()
     return {.environment_offset = CurrentEnvironmentOffset(),
             .brightness = g_monster_light_scale,
             .texture_reduction = g_resident_texture_policy,
-            .time = RenderClockSeconds()};
+            .time = GameInProgress()
+                        ? std::chrono::duration<double>(CurrentGame().visual_time).count()
+                        : RenderClockSeconds()};
 }
 
 /* Render one scene into either the full output or a logical 640x480 viewport.
@@ -483,7 +479,7 @@ void RenderFrame(void)
                               half_height;
             RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
                         std::span{&pick, 1});
-            g_current_model_instance = pick.selected_model;
+            g_current_model_instance = render::gameOwner(pick);
             ResolvePickedProp();
         }
     }
@@ -520,11 +516,21 @@ void RenderFrame(void)
     }
 }
 
+/* Finish an offscreen frame and copy its image into a caller-owned surface. */
+static bool ReadFrameInto(SDL_Surface& target)
+{
+    g_renderer->endFrame(false, true);
+    auto* buffer = g_renderer->readback();
+    if (!buffer) return false;
+    StretchCpuSurface(*buffer, target, SDL_SCALEMODE_NEAREST);
+    return true;
+}
+
 /* Render offscreen and copy the completed image into a caller-owned surface.
    `rect` selects a logical 640x480 viewport; otherwise the stored game viewport
-   applies. Saves use this for SHOT screenshots and the automap for its backdrop. */
+   applies. Saves use this for SHOT screenshots. */
 // FUNCTION: WIZ8 0x00426f80
-bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary)
+bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
 {
     if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
     glm::vec3 clear_color{1.0f};
@@ -534,15 +540,24 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool rend
         GetWorldLightValue(GetWorld(), &clear_color);
     g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
     const DesignRect bounds = rect ? *rect : g_viewport;
-    if (render_secondary && g_render_mesh_sky && GetSecondaryWorld())
+    if (g_render_mesh_sky && GetSecondaryWorld())
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &bounds, true);
     RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &bounds, true);
-    g_renderer->endFrame(false, true);
-    if (auto* buffer = g_renderer->readback()) {
-        StretchCpuSurface(*buffer, *target, SDL_SCALEMODE_NEAREST);
-        return true;
-    }
-    return false;
+    return ReadFrameInto(*target);
+}
+
+bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect)
+{
+    if (!g_renderer || !g_renderer->isOpen() || !GetWorld()) return false;
+    g_renderer->beginFrame(glm::vec4(0, 0, 0, 1));
+    auto frame = CurrentSceneFrame();
+    // The map keeps the retail automap's reduced texture detail.
+    frame.texture_reduction = 3;
+    const auto area = ToSurfaceRect(rect, g_renderer->width(), g_renderer->height());
+    g_renderer->addView(GetWorld()->scene->createMapView(
+        g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
+        g_renderer->frameNumber()));
+    return ReadFrameInto(target);
 }
 
 /* Both static scenes take the light direction as their fog colour. */
@@ -590,8 +605,9 @@ std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> tex
 {
     auto quad = std::make_unique<OverlayQuad>();
     quad->texture = std::move(texture);
+    if (quad->texture) quad->texture->setAnimationClock(TextureClock::Presentation);
     quad->size = {width * 640, height * 480};
-    quad->shader.value = alpha_blend ? 0x100c4b7 : 0x100a417;
+    quad->material.blend = alpha_blend ? OverlayBlend::Alpha : OverlayBlend::Opaque;
     if (quad->texture) {
         auto dimensions = quad->texture->getDimensions();
         dimensions.native_size = true;
@@ -639,7 +655,6 @@ std::unique_ptr<OverlayQuad> makeColorOverlay(int width, int height, const glm::
     auto quad = std::make_unique<OverlayQuad>();
     quad->size = {width, height};
     quad->color = color;
-    quad->shader.value = 0x2417;
     g_compositor.attach(*quad, fullscreen ? OverlayLayer::Fullscreen : OverlayLayer::OverUi);
     return quad;
 }
@@ -674,35 +689,14 @@ static void MoveSystemCursor(int x, int y)
 
 bool ResizeMouseCursorSurface(int width, int height)
 {
-    int extent;
-    float mapping_scale;
-
-    if (g_cursor_image_width == width && g_cursor_image_height == height) {
-        return true;
-    }
-    extent = width > height ? width : height;
-    if (extent <= 16)
-        extent = 16;
-    else if (extent <= 32)
-        extent = 32;
-    else if (extent <= 64)
-        extent = 64;
-    else if (extent <= 128)
-        extent = 128;
-    else if (extent <= 256)
-        extent = 256;
-    else
-        extent = -1;
-    if (extent < 0) return false;
-    g_mouse_surface = std::shared_ptr<SDL_Surface>(
-        CreateCpuStorage(extent, extent, g_mouse_surface->format).release(), SDL_DestroySurface);
-    g_cursor_node.reset();
-    mapping_scale = g_texture_inset_pixels / extent;
-    auto texture = std::make_shared<Texture>(g_mouse_surface);
-    g_cursor_node = makeOverlayFromTexture(texture, extent / 640.0, extent / 480.0, true, false);
+    if (width <= 0 || height <= 0) return false;
+    if (g_mouse_surface && g_mouse_surface->w == width && g_mouse_surface->h == height) return true;
+    auto storage = CreateCpuStorage(width, height, SDL_PIXELFORMAT_ARGB1555);
+    if (!storage) return false;
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(std::move(storage));
+    g_cursor_node = makeOverlayFromTexture(std::make_shared<Texture>(g_mouse_surface),
+                                           width / 640.0, height / 480.0, true, false);
     g_compositor.attach(*g_cursor_node, OverlayLayer::Cursor);
-    g_cursor_node->uv_min = glm::vec2(mapping_scale);
-    g_cursor_node->uv_max = 1.0f + g_cursor_node->uv_min;
     PositionMouseCursor(g_cursor_width, g_cursor_height, false);
     return true;
 }
@@ -734,7 +728,7 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
         return false;
     }
     const SpriteFrame& properties = sprites.frames[region];
-    if (!ResizeMouseCursorSurface(properties.width + 1, properties.height + 1)) {
+    if (!ResizeMouseCursorSurface(properties.width, properties.height)) {
         return false;
     }
     if (g_cursor_hotspot_x != offset_x || g_cursor_hotspot_y != offset_y) {
@@ -748,7 +742,10 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     g_cursor_image_width = properties.width;
     g_cursor_image_height = properties.height;
     ClearMouseSurface();
-    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
+    // A standalone cursor image has no baked sprite-canvas offset. Its placement
+    // comes exclusively from the explicit hotspot.
+    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, -properties.offset.x,
+                                         -properties.offset.y);
 }
 
 void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
@@ -888,10 +885,9 @@ bool InitializeMouseCursorScene(void)
     if (!g_mouse_surface) return false;
     ClearMouseSurface();
     auto texture = std::make_shared<Texture>(g_mouse_surface);
-    g_cursor_node = makeOverlayFromTexture(texture, .2, 128.0 / 480.0, true, false);
+    g_cursor_node = makeOverlayFromTexture(texture, g_mouse_surface->w / 640.0,
+                                           g_mouse_surface->h / 480.0, true, false);
     g_compositor.attach(*g_cursor_node, OverlayLayer::Cursor);
-    g_cursor_node->uv_min = glm::vec2(g_texture_inset_pixels / 128.0f);
-    g_cursor_node->uv_max = 1.0f + g_cursor_node->uv_min;
     PositionMouseCursor(640, 480, true);
     return true;
 }
@@ -1192,9 +1188,8 @@ void VideoPositionToolTip(std::int32_t x, std::int32_t y)
     }
 }
 
-/* Copies the tooltip source rectangle into a size-rounded 16-bit surface,
-   repeating its border one pixel outward, and reports the texture mapping
-   scales for the resulting polygon brush. */
+/* Paint the tooltip into one ARGB1555 surface, retaining its opaque black
+   panel and transparent pixels outside it. */
 void VideoToolTip(std::string_view text)
 {
     if (!g_tooltip_nodes.empty()) {
@@ -1211,13 +1206,9 @@ void VideoToolTip(std::string_view text)
     g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
     g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
     SDL_FillSurfaceRect(surface.get(), nullptr, 0);
-    void* data = surface->pixels;
     SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
     SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
-    SDLSurfaceOwner text_surface{
-        SDL_CreateSurfaceFrom(surface->w, surface->h, SDL_PIXELFORMAT_RGB565, data, surface->pitch),
-        SDL_DestroySurface};
-    if (text_surface) buffer->RenderText(*text_surface, 2, 1, true);
+    buffer->RenderText(*surface, 2, 1, true);
     std::uint32_t border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
@@ -1234,10 +1225,7 @@ void VideoToolTip(std::string_view text)
     rect.top = 0;
     rect.right = 0xfe;
     rect.bottom = 0xfe;
-    if (!text_surface) {
-        return;
-    }
-    auto quad = makeOverlayFromSurface(*text_surface, &rect, false, true);
+    auto quad = makeOverlayFromSurface(*surface, &rect, false, true);
     if (quad) {
         g_compositor.attach(*quad, OverlayLayer::Cursor);
         g_tooltip_nodes.push_back(std::move(quad));
@@ -1273,69 +1261,30 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
                                                    unsigned short start_frame,
                                                    unsigned short frame_count, bool use_argb1555)
 {
-    unsigned short frame;
-    unsigned short end_frame;
-    std::uint32_t extent;
-    unsigned short largest;
-
     auto animation = std::make_shared<Texture>(TexturePlayback{});
     animation->setName("VideoVObjecttoTextureAnim");
-    animation->setMipmapBias(-8.0f);
-
-    frame = start_frame;
-    end_frame = static_cast<unsigned short>(start_frame + frame_count);
-    while (frame < end_frame) {
-        if (frame < sprites.frames.size()) {
-            const SpriteFrame& properties = sprites.frames[frame];
-            largest = properties.height;
-            if (properties.height < properties.width) {
-                largest = properties.width;
-            }
-            if (largest < 0x101) {
-                if (largest < 0x81) {
-                    if (largest < 0x41) {
-                        if (largest < 0x21) {
-                            extent = ((largest < 0x11) - 1 & 0x10) + 0x10;
-                        } else {
-                            extent = 0x40;
-                        }
-                    } else {
-                        extent = 0x80;
-                    }
-                } else {
-                    extent = 0x100;
-                }
-            } else {
-                extent = static_cast<std::uint32_t>(-1);
-            }
-
-            std::shared_ptr<SDL_Surface> surface;
-            if (!use_argb1555) {
-                surface = std::shared_ptr<SDL_Surface>(
-                    CreateCpuStorage(extent, extent, SDL_PIXELFORMAT_XRGB1555).release(),
-                    SDL_DestroySurface);
-            } else {
-                surface = std::shared_ptr<SDL_Surface>(
-                    CreateCpuStorage(extent, extent, SDL_PIXELFORMAT_ARGB1555).release(),
-                    SDL_DestroySurface);
-            }
-            SDL_FillSurfaceRect(surface.get(), nullptr, 0);
-            if (BlitVideoObjectToColorSurface(sprites, frame, *surface, 0, 0)) {
-                auto texture = std::make_shared<Texture>();
-                texture->setName("VideoVObjecttoTextureAnim");
-                texture->setMipmapBias(-8.0f);
-                texture->setSurfacePtr(surface);
-                texture->setWrapS(Texture::WRAP_CLAMP);
-                texture->setWrapT(Texture::WRAP_CLAMP);
-                texture->setMagFilter(Texture::FILTER_NONE);
-                texture->setMinFilter(Texture::FILTER_NONE);
-
-                texture->setMipmap(Texture::MIPMAP_NONE);
-
-                animation->AddTexture(std::move(texture));
-            }
-        }
-        ++frame;
+    const auto end = std::min(sprites.frames.size(), std::size_t(start_frame) + frame_count);
+    for (std::size_t frame = start_frame; frame < end; ++frame) {
+        const auto& properties = sprites.frames[frame];
+        auto surface =
+            CreateCpuStorage(properties.width, properties.height,
+                             use_argb1555 ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555);
+        if (!surface) continue;
+        SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+        if (!BlitVideoObjectToColorSurface(sprites, frame, *surface, -properties.offset.x,
+                                           -properties.offset.y))
+            continue;
+        auto texture = std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(surface)));
+        texture->setName("VideoVObjecttoTextureAnim");
+        auto dimensions = texture->getDimensions();
+        dimensions.native_size = true;
+        texture->setDimensions(dimensions);
+        texture->setWrapS(Texture::WRAP_CLAMP);
+        texture->setWrapT(Texture::WRAP_CLAMP);
+        texture->setMagFilter(Texture::FILTER_NONE);
+        texture->setMinFilter(Texture::FILTER_NONE);
+        texture->setMipmap(Texture::MIPMAP_NONE);
+        animation->AddTexture(std::move(texture));
     }
     return animation;
 }

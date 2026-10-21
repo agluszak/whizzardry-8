@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -38,8 +39,13 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_get_random_seed.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/ext/vector_float4.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/nodes/VertexIndexDraw.h>
 
 #include "../native/surface_pixels.h"
 #include "wiz8/data/fact_ids.h"
@@ -76,6 +82,7 @@
 
    Run under SDL's X11 video driver under Xvfb (no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
+#include <vsg/io/write.h>
 #include <vsg/state/ViewportState.h>
 
 #include "catch2/catch_message.hpp"
@@ -140,8 +147,10 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -847,12 +856,13 @@ void FormationUiScenario()
     const auto center = [&](int cell) {
         return SDL_Point{214 + cell_offsets[cell].x + 16, 60 + cell_offsets[cell].y + 16};
     };
-    const int original_row = CurrentGame().party.formation.positions[slot].bQuadrant;
+    const int original_row = CurrentGame().party.formation.rowOf(slot);
     const int destination_row = (original_row + 1) % 5;
     const auto destination = center(destination_row * 3);
     const auto begin_drag = [&] {
-        const auto& position = CurrentGame().planned_formation.positions[slot];
-        const auto source = center(position.bQuadrant * 3 + position.bQuadrantSlot);
+        const auto seat = CurrentGame().planned_formation.cellOf(slot);
+        REQUIRE(seat);
+        const auto source = center(seat->row * 3 + seat->column);
         game.press_at(source.x, source.y);
         REQUIRE(g_ui.captured != 0);
         for (int frame = 0; frame < 5; ++frame) game.frame();
@@ -869,21 +879,21 @@ void FormationUiScenario()
     REQUIRE(FormationPanelOpen());
     begin_drag();
     drop_at(destination);
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == destination_row);
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == destination_row);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == original_row);
 
     // Reset preserves the live formation; dropping on the panel edge cancels.
     game.click_at(242, 278);
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == original_row);
     begin_drag();
     drop_at({220, 70});
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == original_row);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == original_row);
 
     begin_drag();
     drop_at(destination);
     game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
     REQUIRE_FALSE(FormationPanelOpen());
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination_row);
     REQUIRE(g_ui.captured == 0);
 
     OpenFormationPanel();
@@ -893,7 +903,7 @@ void FormationUiScenario()
     game.click_at(394, 276); // Cancel after re-entry.
     REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination_row);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination_row);
 }
 
 std::vector<fs::path> SaveFiles(const fs::path& user)
@@ -1344,10 +1354,10 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_formation = CurrentGame().party.formation;
     OpenFormationPanel();
     game.frame();
-    const auto position = CurrentGame().party.formation.positions[slot];
-    const int source = position.bQuadrant * 3 + position.bQuadrantSlot;
-    REQUIRE((source >= 0 && source < 15));
-    const int destination = ((position.bQuadrant + 1) % 5) * 3;
+    const auto seat = CurrentGame().party.formation.cellOf(slot);
+    REQUIRE(seat);
+    const int source = seat->row * 3 + seat->column;
+    const int destination = ((seat->row + 1) % 5) * 3;
     constexpr std::array<SDL_Point, 15> cells{{
         {90, 28},
         {61, 37},
@@ -1367,10 +1377,10 @@ void CheckGameplayUi(GameHarness& game)
     }};
     game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
               {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
-    REQUIRE(CurrentGame().planned_formation.positions[slot].bQuadrant == destination / 3);
+    REQUIRE(CurrentGame().planned_formation.rowOf(slot) == destination / 3);
     game.click_at(360, 276);
     REQUIRE_FALSE(FormationPanelOpen());
-    REQUIRE(CurrentGame().party.formation.positions[slot].bQuadrant == destination / 3);
+    REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination / 3);
     CurrentGame().party.formation = original_formation;
     RefreshFormationBoard();
 
@@ -1456,6 +1466,18 @@ void ResourceLifecycleScenario()
     StartPremadeGame(game);
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
+    int original_width = 0, original_height = 0;
+    REQUIRE(SDL_GetWindowSize(ghWindow, &original_width, &original_height));
+    REQUIRE(SDL_SetWindowSize(ghWindow, 960, 720));
+    REQUIRE(SDL_SyncWindow(ghWindow));
+    SDL_Event focus{};
+    focus.window.windowID = SDL_GetWindowID(ghWindow);
+    focus.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+    HandleGameEvent(focus);
+    REQUIRE(IsVideoActive());
+    REQUIRE(g_renderer->isOpen());
+    focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+    HandleGameEvent(focus);
     g_renderer->close();
     REQUIRE(OpenRendererWindow());
     REQUIRE(g_renderer->isOpen());
@@ -1465,10 +1487,68 @@ void ResourceLifecycleScenario()
     REQUIRE(RestoreVideoManager());
     REQUIRE(IsVideoActive());
     REQUIRE(g_renderer->isOpen());
+    int width = 0, height = 0;
+    REQUIRE(SDL_GetWindowSize(ghWindow, &width, &height));
+    REQUIRE(width == 960);
+    REQUIRE(height == 720);
+    REQUIRE(SDL_SetWindowSize(ghWindow, original_width, original_height));
+    REQUIRE(SDL_SyncWindow(ghWindow));
+    REQUIRE(VideoResizeWindow());
+    // Native cursor textures keep rectangular artwork, including images larger
+    // than the former 256-pixel limit, without changing the explicit hotspot.
+    const auto hotspot = SDL_Point{g_cursor_hotspot_x, g_cursor_hotspot_y};
+    REQUIRE(ResizeMouseCursorSurface(301, 37));
+    REQUIRE(g_mouse_surface->w == 301);
+    REQUIRE(g_mouse_surface->h == 37);
+    REQUIRE(g_cursor_hotspot_x == hotspot.x);
+    REQUIRE(g_cursor_hotspot_y == hotspot.y);
+    REQUIRE(ResizeMouseCursorSurface(23, 41));
+    REQUIRE(g_mouse_surface->w == 23);
+    REQUIRE(g_mouse_surface->h == 41);
     // Rendering must retain the world graph when presentation is reopened.
     CheckWorldRender(game);
     CheckTwoWorldViews(game);
     CheckGameplayUi(game);
+    // Import a native VSG object into the loaded retail world, in front of its
+    // actual camera. It uses the same world lighting/fog and remains identifiable
+    // through the game's VSG picker without a retail MeshInstance.
+    {
+        ScopedTemporaryDirectory content("wiz8-world-native");
+        auto& world = *GetWorld();
+        const float near = world.camera->getClipRange().first;
+        auto positions = vsg::vec3Array::create(
+            {{-near, -near, near * 1.5f}, {near, -near, near * 1.5f}, {0, near, near * 1.5f}});
+        auto normals = vsg::vec3Array::create(3, vsg::vec3(0, 0, -1));
+        auto source = vsg::VertexIndexDraw::create();
+        source->assignArrays({positions, normals});
+        source->assignIndices(vsg::ushortArray::create({0, 1, 2}));
+        source->indexCount = 3;
+        source->instanceCount = 1;
+        const auto path = content.path / "world-object.vsgt";
+        REQUIRE(vsg::write(source, path.string()));
+        auto material = std::make_shared<Material>();
+        material->setAmbient(glm::vec4(1));
+        material->setDiffuse(glm::vec4(1));
+        material->setEmissive(glm::vec4(0));
+        auto object = render::loadGameContent(path, material);
+        object->matrix = render::toVsg(world.camera->transform.matrix<glm::dmat4>());
+        world.scene->root->addChild(object);
+        g_renderer->beginFrame();
+        auto view =
+            world.scene->createView(g_renderer->context(), world.camera, {},
+                                    vsg::ViewportState::create(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT),
+                                    g_renderer->frameNumber());
+        Pick picked;
+        world.scene->pick(*view->camera, std::span{&picked, 1});
+        REQUIRE(picked.hit);
+        REQUIRE(std::ranges::find(picked.hit->nodePath, object.get()) !=
+                picked.hit->nodePath.end());
+        REQUIRE(render::gameOwner(picked) == nullptr);
+        g_renderer->addView(view);
+        g_renderer->endFrame(false, true);
+        REQUIRE(g_renderer->readback());
+        std::erase(world.scene->root->children, object);
+    }
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
     for (int visit = 0; visit != 2; ++visit) {
@@ -1866,7 +1946,7 @@ void StartConversation(GameHarness& game, const char* step, W8NpcState* npc)
     REQUIRE(!CurrentGame().activity.conversation);
     ForwardNpcScriptNotice(npc, nullptr, -1, false);
     WaitDialogue(game, step, [&] {
-        return CurrentGame().npc_interaction.dialogue_npc == npc && DialogueAwaitingPlayer();
+        return CurrentGame().npc_interaction.dialogue_npc.get() == npc && DialogueAwaitingPlayer();
     });
 }
 
@@ -1959,14 +2039,14 @@ void NpcDialogueScenario()
     REQUIRE(transcript_fields);
     W8NpcQuoteEntry keyword_request{};
     keyword_request.kind = W8_NPC_ENTRY_KEYWORD_INPUT;
-    OpenNpcDialog(&keyword_request, 0);
+    OpenNpcDialog(nullptr, &keyword_request, 0);
     game.frame();
     REQUIRE(TextFieldGroup::Focused() != transcript_fields);
     game.enter_text("cancelled");
     game.key(SDLK_ESCAPE);
     REQUIRE_FALSE(g_modal_owner);
     REQUIRE(TextFieldGroup::Focused() == transcript_fields);
-    OpenNpcDialog(&keyword_request, 0);
+    OpenNpcDialog(nullptr, &keyword_request, 0);
     game.frame();
     game.enter_text("hello");
     REQUIRE(TextFieldGroup::Focused()->Text(0) == "hello");
@@ -1982,7 +2062,7 @@ void NpcDialogueScenario()
     game.key(SDLK_ESCAPE);
     WaitMainGame(game, "camp-left");
     WaitDialogue(game, "dialogue-resumed", [&] {
-        return CurrentGame().npc_interaction.dialogue_npc == burz && DialogueAwaitingPlayer();
+        return CurrentGame().npc_interaction.dialogue_npc.get() == burz && DialogueAwaitingPlayer();
     });
     REQUIRE_FALSE(CurrentGame().activity.conversation_aside);
 

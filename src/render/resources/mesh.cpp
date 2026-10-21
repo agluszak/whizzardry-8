@@ -273,10 +273,8 @@ Mesh::Mesh(std::int32_t polygons, std::int32_t vertices)
     vertex_lighting_ready = false;
     flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
     ambient_color = glm::vec3(-1);
-    vertex_light_table = 0;
     vertex_compression_scale = 1.0f;
     render_control &= ~(1u << CONTROL_SKIP_AUTO_BOX);
-    automap_filter_active = false;
 }
 
 void Mesh::reset(std::int32_t polygons, std::int32_t vertices)

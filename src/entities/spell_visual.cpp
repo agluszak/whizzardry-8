@@ -1,5 +1,6 @@
 #include "wiz8/entities/spell_visual.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <exception>
@@ -26,7 +27,6 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/emitter_cycles.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
@@ -43,6 +43,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -281,21 +282,13 @@ static int FindSpellCycleByName(const char* name)
     return -1;
 }
 
-/* Load one named spell visual resource. When a shared visual of the same
-   cycle group is already registered the answer is a clone of it; otherwise
-   the .mls text resource is parsed: each of the seven cycle rows of the
-   requested group loads its bitmaps, SOUND_FRAME/SOUND_CYCLE rows attach timed
-   sound events, and SHAKE_FRAME rows attach camera-shake effects. */
-std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_view name,
-                                                     W8SpellVisualMode group)
+/* Load one cycle group of a spell visual definition from its .mls text
+   resource: each of the seven cycle rows of the group loads its bitmaps,
+   SOUND_FRAME/SOUND_CYCLE rows attach timed sound events, and SHAKE_FRAME rows
+   attach camera-shake effects. */
+static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std::string_view name,
+                                                              W8SpellVisualMode group)
 {
-    SpellVisual* shared = findSpellVisualAsset(*world, name, group);
-    if (shared != 0 && shared->mode == group) {
-        auto spell = std::make_unique<SpellVisual>(*shared, world);
-        spell->asset_name = name;
-        return spell;
-    }
-
     PauseSharedGameTimers();
 
     bool success = true;
@@ -309,6 +302,7 @@ std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_v
     }();
     auto visual = std::make_unique<SpellVisual>(world);
     visual->asset_name = name;
+    visual->mode = group;
     visual->visual.current_cycle = -1;
     if (handle == 0) {
         success = false;
@@ -382,11 +376,39 @@ std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_v
     return success ? std::move(visual) : nullptr;
 }
 
+/* A new spell visual copied from the definition of the named resource's cycle
+   group. The definition is loaded on first use and kept, withdrawn from the
+   scene, for the world's lifetime, so a visual never inherits another one's
+   playback. Every request takes one legacy prop save id, as retail's did
+   whether it loaded, cloned or failed. */
+std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_view name,
+                                                     W8SpellVisualMode group)
+{
+    AllocateLegacyPropSaveId();
+    auto& definitions = world->spell_visual_definitions;
+    auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
+        return candidate->mode == group &&
+               CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
+    });
+    if (definition == definitions.end()) {
+        auto loaded = LoadSpellVisualDefinition(world, name, group);
+        if (!loaded) return nullptr;
+        for (auto& cycle : loaded->resources.cycles)
+            for (auto& light : cycle.lights.lights) light->setScene(nullptr);
+        loaded->visual.WithdrawFromScene();
+        std::erase(world->navigators, &loaded->nav);
+        definitions.push_back(std::move(loaded));
+        definition = definitions.end() - 1;
+    }
+    auto visual = std::make_unique<SpellVisual>(**definition, world);
+    visual->asset_name = name;
+    return visual;
+}
+
 SpellVisual::SpellVisual(World* owner)
     : owner_world(owner), nav(owner), visual(owner), mode(W8_SPELL_VISUAL_NONE), finished(0),
       flag(0), auto_release(1), fixed_transform(0), scale0(1.0f), location_id(0)
 {
-    AllocateLegacyPropSaveId();
 }
 
 /* Release the emitter host, leave the world's spell collection, and unregister

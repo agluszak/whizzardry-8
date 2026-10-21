@@ -18,8 +18,8 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -52,6 +52,7 @@
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/camera_motion.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/entities/animation.h"
@@ -71,7 +72,6 @@
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -378,7 +378,7 @@ static void baked_lighting()
     REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
     const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
-    const auto colors = mesh.GetVertexLights(false, -1);
+    const auto colors = mesh.GetVertexLights(false);
     REQUIRE(close(colors[0], glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
     REQUIRE(close(colors[1], glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
     REQUIRE((mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY)));
@@ -409,53 +409,17 @@ static void baked_lighting()
     light.transform.setLocation(glm::dvec3(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     REQUIRE(colors[0] == glm::vec3(0, 0, 0));
-    auto world = instance.transform.matrix<glm::mat4>();
-    mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
-    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(0, 0, 0)));
-    REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
-    mesh.RevealVerticesNear({10, 0, -4}, 0.25f, world);
-    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(1, 1, 1)));
-    colors[1] = glm::vec3(0);
-    mesh.RevealVerticesNear({10, 0, -4}, -1, world);
-    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
-    mesh.RevealVerticesNear(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1, world);
-    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     instance.setModel(nullptr);
 }
 
 static void renderer_bounds()
 {
-    const DrawTransform view;
-    REQUIRE(view.sphereVisible({0, 0, 0}, 0.1f));
-    for (int axis = 0; axis < 3; ++axis)
-        for (float sign : {-1.0f, 1.0f}) {
-            glm::vec3 position(0);
-            position[axis] = sign * 2;
-            REQUIRE_FALSE(view.sphereVisible(position, 0.1f));
-        }
     Mesh empty;
     const auto empty_bounds = empty.getBounds();
     REQUIRE(empty_bounds.box.minimum == glm::vec3(0));
     REQUIRE(empty_bounds.box.maximum == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.radius == 0);
-
-    const std::array user_planes{eyeSpaceClipPlane(glm::mat4(1), {1, 0, 0, 0})};
-    const DrawTransform clipped{.user_clip_planes = user_planes};
-    REQUIRE_FALSE(clipped.sphereVisible({-0.5f, 0, 0}, 0.1f));
-    REQUIRE(clipped.sphereVisible({0.5f, 0, 0}, 0.1f));
-    const DrawTransform ortho{.projection = glm::ortho(-2.0f, 4.0f, -3.0f, 5.0f, 1.0f, 10.0f)};
-    REQUIRE(ortho.sphereVisible({3, 0, -4}, 0.1f));
-    REQUIRE_FALSE(ortho.sphereVisible({5, 0, -4}, 0.1f));
-    REQUIRE_FALSE(ortho.sphereVisible({0, 6, -4}, 0.1f));
-    REQUIRE_FALSE(ortho.sphereVisible({0, -4, -4}, 0.1f));
-    const DrawTransform perspective{.projection =
-                                        glm::perspective(glm::half_pi<float>(), 1.0f, 1.0f, 10.0f)};
-    REQUIRE(perspective.sphereVisible({0, 0, -4}, 0.1f));
-    REQUIRE_FALSE(perspective.sphereVisible({0, 0, -0.5f}, 0.1f));
-    REQUIRE_FALSE(perspective.sphereVisible({0, 0, -12}, 0.1f));
-    REQUIRE_FALSE(perspective.sphereVisible({8, 0, -4}, 0.1f));
 }
 
 TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]")
@@ -1118,6 +1082,15 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
     REQUIRE(keys.key_frames.front() == 1);
     REQUIRE(source.path_ai->nodes.front().x == 1);
     REQUIRE_FALSE(copy.path_ai->timed);
+    // A fade starts at its game event, even if the light is sampled later.
+    Light fading;
+    fading.animator.emplace<MonsterLightAnim>();
+    fading.StartFadeOut(10);
+    const glm::vec3 position(0);
+    fading.Update(&position, 15);
+    REQUIRE(fading.intensity == 0.5f);
+    fading.Update(&position, 20);
+    REQUIRE(fading.intensity == 0);
 }
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
@@ -1320,15 +1293,7 @@ TEST_CASE("Clip plane normalization preserves consumer transform ordering and de
 {
     const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
     // GERD normalizes in object space before the inverse-transpose transform.
-    const std::array scaled_plane{eyeSpaceClipPlane(scale, {2, 0, 0, -2})};
-    REQUIRE(DrawTransform{.user_clip_planes = scaled_plane}.clipPlanes().planes[6] ==
-            glm::vec4(0.5f, 0, 0, -1));
-    // Six bits belong to the view frustum; planes beyond the 26 user slots are ignored.
-    const std::vector<glm::vec4> planes(40, glm::vec4(1, 0, 0, 0));
-    REQUIRE(DrawTransform{.user_clip_planes = planes}.clipPlanes().mask == 0xffffffffu);
-    REQUIRE(DrawTransform{.user_clip_planes = std::span(planes).first(25)}.clipPlanes().mask ==
-            0x7fffffffu);
-    REQUIRE(DrawTransform{}.clipPlanes().mask == 0x3fu);
+    REQUIRE(eyeSpaceClipPlane(scale, {2, 0, 0, -2}) == glm::vec4(0.5f, 0, 0, -1));
 }
 
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
@@ -1466,21 +1431,21 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.visible = false;
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 0);
     particles.visible = true;
     particles.SetTraversalEnabled(false);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 0);
 
     particles.SetTraversalEnabled(true);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 1);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.active_particle_count == 2);
     particles.DeactivateParticle(0);
     particles.SetActive(false);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE_FALSE(particles.particle_active[0]);
     REQUIRE(particles.particle_active[1]);
 
@@ -1525,7 +1490,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.release_when_done = true;
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.active_particle_count == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
@@ -1537,6 +1502,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
 TEST_CASE("Particle simulation resolves nested animation before views consume it",
           "[geometry][particles]")
 {
+    ScopedGame game;
     auto first = std::make_shared<Texture>();
     auto last = std::make_shared<Texture>();
     auto inner = std::make_shared<Texture>(TexturePlayback{});
@@ -1553,14 +1519,17 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.SetTexture(outer);
     REQUIRE(particles.activateParticle(false));
-    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    auto& prepared = *particles.texture_frames.front()->playback->textures.front();
+    REQUIRE(&prepared != inner.get());
     REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
-    particles.AdvanceSimulation();
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
     REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
-    inner->SetFrame(0);
-    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    REQUIRE(inner->currentFrame() == first.get());
+    prepared.SetFrame(0);
+    game.game.time += std::chrono::milliseconds{1000};
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);
@@ -1628,7 +1597,7 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
     REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
 }
 
-TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry]")
+TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry]")
 {
     const glm::vec3 environment{0.25f, 0.5f, 0.75f};
     Mesh mesh(0, 4);
@@ -1639,7 +1608,7 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
     mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
     mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
-    const auto lights = mesh.GetVertexLights(true, 0);
+    const auto lights = mesh.GetVertexLights(true);
     for (unsigned vertex = 0; vertex < 4; ++vertex) {
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
@@ -1666,11 +1635,6 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
         REQUIRE(close(mixed[vertex],
                       (ambient[vertex] * sunlight[vertex] + lights[vertex] + environment) * 2.0f));
 
-    mesh.vertex_light_table = 1;
-    const auto alternate = mesh.GetVertexLights(true, 1);
-    std::ranges::fill(alternate, glm::vec3(3, 4, 5));
-    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    REQUIRE(baked()[0] == glm::vec3(6, 8, 10));
     mesh.SetAmbientColor({2, 3, 4}, environment, 0);
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
     REQUIRE(baked()[0] == glm::vec3(0));
@@ -2284,4 +2248,52 @@ TEST_CASE("Surface ray queries keep chance and skip filters local", "[geometry]"
     REQUIRE_FALSE(traceSurfaces(surfaces, vertices, segment, {.skip_filtered = true}));
     REQUIRE(traceSurfaces(surfaces, vertices, segment, {}));
     REQUIRE(surfaces[0].flags == definition.flags);
+}
+
+TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offsets",
+          "[geometry][cursor]")
+{
+    SpriteSheet sprites;
+    sprites.colors[7] = 0xffff;
+    sprites.frames.push_back({.indices = std::vector<std::uint16_t>(301 * 19, 7),
+                              .offset = {11, -4},
+                              .width = 301,
+                              .height = 19});
+    const auto animation = VideoVObjectToTextureAnim(sprites, 0, 1, true);
+    REQUIRE(animation->playback->textures.size() == 1);
+    const auto* image = animation->playback->textures.front()->getSurface();
+    REQUIRE(image);
+    REQUIRE(image->w == 301);
+    REQUIRE(image->h == 19);
+    for (int y : {0, 18}) {
+        const auto* row = reinterpret_cast<const std::uint16_t*>(
+            static_cast<const unsigned char*>(image->pixels) + y * image->pitch);
+        REQUIRE(row[0] == 0xffff);
+        REQUIRE(row[300] == 0xffff);
+    }
+}
+
+TEST_CASE("Recycled particles restart texture playback at their new birth", "[geometry][particles]")
+{
+    ScopedGame game;
+    TexturePlayback playback;
+    playback.animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    playback.frame_rate = 1;
+    playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
+                         std::make_shared<Texture>()};
+    ParticleSystem particles(nullptr, 1);
+    particles.emitting = false;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 0;
+    particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
+    particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
+    REQUIRE(particles.activateParticle(false));
+    particles.AdvanceSimulation(game.game.time);
+    particles.DeactivateParticle(0);
+    game.game.time = std::chrono::milliseconds{10000};
+    REQUIRE(particles.activateParticle(false));
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
+    REQUIRE(particles.active_particle_count == 1);
+    REQUIRE(particles.texture_frames.front()->playback->frame == 1);
 }

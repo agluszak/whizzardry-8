@@ -238,7 +238,6 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     W8MonsterGroup* group;
     unsigned int species;
     const char* script;
-    int encounter_weight;
     int index;
 
     if ((flags & W8_MONGEN_DISABLED) != 0 || encounter_table_index == -1) {
@@ -261,18 +260,13 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         return false;
     }
 
-    /* Retail computes this total even though the surviving release path never
-       reads it afterwards; the external calls can still populate cycle data. */
-    encounter_weight = GetMonsterCycleFallbackValue(species);
     for (index = 0; index < 2; ++index) {
         companion_records[index] = record->companions[index];
         if (companion_records[index].species > 0 &&
             CurrentGame().rng.chance(companion_records[index].chance)) {
             companion_active[index] = true;
-            encounter_weight += GetMonsterCycleFallbackValue(companion_records[index].species);
         }
     }
-    static_cast<void>(encounter_weight);
 
     if ((flags & W8_MONGEN_STORY_GATED) != 0) {
         if (GetFactionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
