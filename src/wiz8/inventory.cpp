@@ -249,14 +249,14 @@ bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource 
 }
 
 /* The held item is first offered to everybody who could identify it, and then stored with
-   the member or the party pool in the order the flag asks for. The hand is cleared before
-   the outcome is tested, and a store that fails is refused: the notice names the slot when
-   neither destination was open, and the item otherwise. */
+   the member or the party pool in the order the flag asks for - and when the slot cannot
+   take items, only the pool. The store empties the hand when it takes the item; a store
+   that fails leaves the item held and is refused: the notice names the slot when neither
+   destination was open, and the item otherwise. */
 std::expected<void, InventoryRefusal>
 GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_first)
 {
     auto& held = game.party.held.item;
-    bool stored = party_first;
     assert(held.iItemNo != -1);
     if (!held.identified) PartyAttemptsToIdentifyItem(&held, 0);
     assert(game.status.game_started);
@@ -265,18 +265,13 @@ GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_f
     const auto source = PartyItem(game.party, {W8ItemStorage::Hand});
     const bool eligible = IsPartySlotEligible(static_cast<int>(party_slot));
     std::optional<ItemPlacement> destination;
-    if (eligible) {
+    if (eligible)
         destination = StoreWithCharacterOrPool(game, PartyMember(game, party_slot), source,
                                                party_first, true, false);
-        if (destination) stored = true;
-    } else if (stored) {
+    else if (party_first)
         destination = StoreInPool(game, source, true, false);
-        stored = destination.has_value();
-    }
 
-    // Only a stored item releases the hand; a refused one stays held.
-    if (stored) {
-        game.party.take({W8ItemStorage::Hand});
+    if (destination) {
         FinishInventoryEdit(game, {{W8ItemStorage::Hand}, To(destination)});
         return {};
     }
