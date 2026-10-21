@@ -24,7 +24,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
@@ -66,7 +65,7 @@ void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bo
     }
     wiz8::sound::PlayOptions options;
     if (volume > 0) {
-        options.volume = static_cast<unsigned int>(g_settings.sound_effects_volume * volume) / 127;
+        options.volume = static_cast<unsigned int>(volume);
     }
     const bool held = store_handle && CurrentGame().combat.has_value();
     if (held) options.on_finished = ReleaseFinishedHitSound;

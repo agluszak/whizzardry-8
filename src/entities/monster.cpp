@@ -715,7 +715,7 @@ void Monster::Update()
 
     if (sound != 0) {
         sound->position = nav.GetPosition();
-        sound->Update(cameraLocation(), GetCameraYawRadians(), g_settings.sound_effects_volume);
+        sound->Update(cameraLocation(), GetCameraYawRadians());
     }
 }
 

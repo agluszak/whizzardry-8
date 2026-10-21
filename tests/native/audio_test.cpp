@@ -47,6 +47,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/world.h"
@@ -386,11 +387,11 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     samples = mix(2048);
     REQUIRE(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
     REQUIRE(wiz8::sound::stop(sound));
-    wiz8::sound::set_default_volume(64);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, 64);
     sound = wiz8::sound::play(path);
     REQUIRE(wiz8::sound::volume(sound) == 64u);
     REQUIRE(wiz8::sound::stop(sound));
-    wiz8::sound::set_default_volume(127);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, 127);
     sound = wiz8::sound::play(path, {.volume = 127, .fade_in_ms = 1000});
     REQUIRE(sound != nullptr);
     samples = mix(2048);
@@ -852,4 +853,38 @@ TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across regi
     REQUIRE(group.playback);
     REQUIRE_FALSE(group.fade_timer.m_flags.paused);
     REQUIRE(group.target_volume == third.volume_max);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Volume settings preserve source gain and ambient scheduling",
+                 "[audio][volume]")
+{
+    startOfflineAudio();
+    using wiz8::sound::VolumeChannel;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto emitter = std::make_unique<W8AmbientSound>();
+    emitter->in_range = 1;
+    emitter->current_volume = 73;
+    emitter->random = std::make_unique<W8AmbientTrack>();
+    emitter->random->next_at = 12345;
+    auto* observed = emitter.get();
+    GetWorld()->audio.emitters.push_back(std::move(emitter));
+    auto effect = wiz8::sound::play("tone.wav", {.volume = 100, .loops = 0});
+    auto voice =
+        wiz8::sound::play("tone.wav", {.volume = 90, .channel = VolumeChannel::voice, .loops = 0});
+    auto positional = wiz8::sound::play("tone.wav", {.volume = 3, .loops = 0});
+    wiz8::sound::set_volume(positional, 3, 0.9f, wiz8::sound::VolumeRounding::after_attenuation);
+    auto expected_rng = PresentationRng();
+    SetSoundEffectsVolume(0);
+    REQUIRE(wiz8::sound::volume(effect) == 0);
+    REQUIRE(wiz8::sound::volume(voice) == 90);
+    SetSoundEffectsVolume(64);
+    REQUIRE(wiz8::sound::volume(effect) == 50);
+    REQUIRE(wiz8::sound::volume(positional) == 1);
+    REQUIRE(observed->in_range == 1);
+    REQUIRE(observed->current_volume == 73);
+    REQUIRE(observed->random->next_at == 12345);
+    REQUIRE(PresentationRng().next() == expected_rng.next());
+    SetSoundEffectsVolume(127);
+    REQUIRE(wiz8::sound::volume(effect) == 100);
+    REQUIRE(wiz8::sound::volume(positional) == 2);
 }

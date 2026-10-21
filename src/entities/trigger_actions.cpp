@@ -53,7 +53,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -409,8 +408,7 @@ bool Trigger::PlayActionSound(std::string_view sound_name, int volume)
     }
     if ((flags & W8_TRIGGER_POSITIONED) == 0) {
         if (m_pProp == 0) {
-            wiz8::sound::play(sound_name, {.volume = std::uint32_t(
-                                               (g_settings.sound_effects_volume * volume) / 0x7f)});
+            wiz8::sound::play(sound_name, {.volume = std::uint32_t(volume)});
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();

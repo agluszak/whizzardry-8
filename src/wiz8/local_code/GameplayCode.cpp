@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -28,7 +27,6 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"
@@ -340,8 +338,7 @@ void HandleLevelOverride(float fall)
     unsigned int count = static_cast<unsigned int>(pow(fall + 0.7, 8.0));
     if (count > 0) {
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x252]);
-        wiz8::sound::play(s_fall_impact_wav,
-                          {.volume = std::uint32_t(g_settings.sound_effects_volume)});
+        wiz8::sound::play(s_fall_impact_wav, {});
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
         ApplyRolledHealthChangeToParty(&dice, 0, 1);

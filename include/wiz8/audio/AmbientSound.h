@@ -29,7 +29,8 @@ struct W8AmbientTrack {
     ~W8AmbientTrack();
     void Reschedule();
     bool Due() const;
-    wiz8::sound::Playback Fire(std::uint32_t volume, std::optional<glm::vec3> position);
+    wiz8::sound::Playback Fire(std::uint32_t volume, std::optional<glm::vec3> position,
+                               float gain_scale = 1.0f);
     static std::uint32_t RandomRange(std::uint32_t minimum, std::uint32_t maximum);
 };
 namespace wiz8 {
@@ -201,5 +202,5 @@ struct AmbientAudioSystem {
     std::vector<std::unique_ptr<W8AmbientTrack>> tracks;
     std::vector<std::unique_ptr<Sound3D>> script_sounds;
     std::vector<std::unique_ptr<Sound3D>> one_shots;
-    void update(const glm::vec3& listener, float yaw, unsigned effects_volume);
+    void update(const glm::vec3& listener, float yaw);
 };

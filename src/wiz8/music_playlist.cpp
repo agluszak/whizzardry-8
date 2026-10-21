@@ -43,9 +43,7 @@ MusicPlaylistInfo playlist_info;
 void SetMusicVolume(unsigned char volume)
 {
     g_settings.music_volume = volume;
-    if (g_music_sample_handle != nullptr) {
-        wiz8::sound::set_volume(g_music_sample_handle, volume);
-    }
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::music, volume);
 }
 
 bool IsMusicMuted(void)
@@ -200,7 +198,7 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
         }
 
         const bool crossfade = g_music_fade != 0;
-        auto handle = wiz8::sound::stream(path, {.volume = std::uint32_t(g_settings.music_volume),
+        auto handle = wiz8::sound::stream(path, {.channel = wiz8::sound::VolumeChannel::music,
                                                  .group = wiz8::sound::Group::music,
                                                  .fade_in_ms = crossfade ? 5000u : 0u});
         if (handle == nullptr) {
