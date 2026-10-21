@@ -17,7 +17,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/render/light.h"
-#include "wiz8/render/mesh_instance.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/world/level_loader.h"
@@ -26,8 +25,8 @@
 Animation::Animation() = default;
 Animation::~Animation() = default;
 
-bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation, int load_all,
-                         std::vector<std::unique_ptr<Light>>* light_list, int)
+bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation,
+                         std::vector<std::unique_ptr<Light>>* light_list)
 try {
     unsigned char version = 0;
     bool success;
@@ -225,7 +224,7 @@ try {
                 channel >= static_cast<int>(std::size(animation->entries))) {
                 return false;
             }
-            auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder, load_all);
+            auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder);
             if (!mesh) return false;
             animation->entries[channel] = std::move(mesh);
         }
@@ -246,7 +245,7 @@ try {
                 if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
                     return false;
                 }
-                auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder, true);
+                auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder);
                 if (!mesh) return false;
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
                                                   std::move(mesh));
@@ -273,7 +272,7 @@ try {
         if (mesh == 0) {
             animation->end_frame = animation->start_frame;
         } else if (!animation->path_lists) {
-            animation->end_frame = static_cast<unsigned char>(AniMeshValue(mesh) - 1);
+            animation->end_frame = static_cast<unsigned char>(mesh->frame_count - 1);
         } else {
             animation->end_frame = animation->frame_count - 1;
         }
@@ -283,7 +282,8 @@ try {
     return false;
 }
 
-/* Clone owned meshes and paths; bounds copy as ordinary values. */
+/* Copy the frame lists (their meshes are shared) and the paths; bounds copy as
+   ordinary values. */
 Animation::Animation(const Animation& other)
     : group_count(other.group_count), animation_playing(other.animation_playing),
       frame_method(other.frame_method), behaviour(other.behaviour), cycle(other.cycle),
@@ -312,8 +312,7 @@ Animation::Animation(const Animation& other)
     }
 }
 
-/* Cache the frame's mesh bounds. Retail applies each path but merges the
-   untransformed mesh boxes; the discarded transformed box is not part of the result. */
+/* Cache the frame's mesh bounds: the union of the untransformed part boxes. */
 std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char list_index,
                                             unsigned int frame)
 {
@@ -325,32 +324,23 @@ std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char li
         const auto& bounds = animation->frame_bounds[frame];
         return BoundingBox{bounds.minimum, bounds.maximum};
     }
-    if (!animation->path_lists) return GetAniMeshBounds(animation->entries[list_index].get());
+    if (!animation->path_lists) {
+        const auto* mesh = animation->entries[list_index].get();
+        return mesh ? std::optional{mesh->bounds} : std::nullopt;
+    }
     if (frame >= animation->frame_count) return std::nullopt;
     if (animation->frame_bounds.size() < animation->frame_count)
         animation->frame_bounds.resize(animation->frame_count);
     auto* first_mesh = AnimObjEntry(animation, list_index, 0);
     if (!first_mesh) return std::nullopt;
-    auto bounds = GetAniMeshBounds(first_mesh);
-    if (!bounds) return std::nullopt;
+    auto bounds = first_mesh->bounds;
     const auto count = animation->meshes[list_index].size();
-    for (std::size_t index = 0; index < count; ++index) {
-        if (index != 0) {
-            const auto mesh_bounds = GetAniMeshBounds(AnimObjEntry(animation, list_index, index));
-            if (!mesh_bounds) return std::nullopt;
-            bounds->include(*mesh_bounds);
-        }
-        auto* instance =
-            AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
-        if (!instance) return std::nullopt;
-        if (auto* path = AnimObjListEntry(animation, list_index, static_cast<signed char>(index))) {
-            const float saved = PathAIGetValue(path);
-            PathAISetValue(path, static_cast<float>(index));
-            (instance)->transform = sampleKeyframeTrack(*(path), (instance)->transform);
-            PathAISetValue(path, saved);
-        }
+    for (std::size_t index = 1; index < count; ++index) {
+        const auto* mesh = AnimObjEntry(animation, list_index, index);
+        if (!mesh) return std::nullopt;
+        bounds.include(mesh->bounds);
     }
-    animation->frame_bounds[frame] = {true, bounds->minimum, bounds->maximum};
+    animation->frame_bounds[frame] = {true, bounds.minimum, bounds.maximum};
     return bounds;
 }
 
@@ -374,7 +364,7 @@ unsigned int AnimObjValue(const Animation* animation, signed char index)
 {
     assert(animation != 0);
     if (!animation->path_lists) {
-        return AniMeshValue(animation->entries[index].get());
+        return animation->entries[index]->frame_count;
     }
     return animation->frame_count;
 }
@@ -398,41 +388,23 @@ KeyframeTrack* AnimObjListEntry(Animation* animation, signed char list_index,
     return paths[entry_index] ? &*paths[entry_index] : nullptr;
 }
 
-MeshInstance* AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value)
+AnimationFrame AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value)
 {
-    AnimationMesh* entry;
-
     assert(animation != 0);
-    if (!animation->path_lists) {
-        entry = animation->entries[list_index].get();
-        if (entry != nullptr) {
-            return GetAniMeshFrame(entry, value);
-        }
-    } else {
-        entry = AnimObjEntry(animation, list_index, 0);
-        if (entry != 0) {
-            return GetAniMeshFrame(entry, value);
-        }
-    }
-    return 0;
+    const AnimationMesh* entry = animation->path_lists ? AnimObjEntry(animation, list_index, 0)
+                                                       : animation->entries[list_index].get();
+    return entry ? GetAniMeshFrame(*entry, value) : AnimationFrame{};
 }
 
-MeshInstance* AnimObjDispatchList(Animation* animation, signed char list_index,
-                                  signed char entry_index)
+AnimationFrame AnimObjDispatchList(Animation* animation, signed char list_index,
+                                   signed char entry_index)
 {
-    AnimationMesh* entry;
-
     assert(animation != 0);
-    if (animation->path_lists) {
-        const auto& list = animation->meshes[list_index];
-        if (entry_index >= 0 && std::cmp_less(entry_index, list.size())) {
-            entry = list[entry_index].get();
-            if (entry != 0) {
-                return GetAniMeshFrame(entry, 0);
-            }
-        }
-    }
-    return 0;
+    if (!animation->path_lists) return {};
+    const auto& list = animation->meshes[list_index];
+    if (entry_index < 0 || std::cmp_greater_equal(entry_index, list.size()) || !list[entry_index])
+        return {};
+    return GetAniMeshFrame(*list[entry_index], 0);
 }
 
 AnimationMesh* AnimObjEntry(Animation* animation, signed char list_index, std::size_t entry_index)

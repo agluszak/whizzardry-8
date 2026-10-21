@@ -1212,7 +1212,7 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
             });
         if (group == data.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
             throw std::runtime_error("missing saved monster group");
-        auto model = ReadMonsterRepresentation(world, &info, W8_MONSTER_LOAD_ALL_CYCLES);
+        auto model = ReadMonsterRepresentation(world, &info);
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.entity.find());

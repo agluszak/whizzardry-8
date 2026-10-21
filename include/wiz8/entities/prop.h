@@ -85,7 +85,10 @@ public:
     unsigned char last_frame = 0xff;
 
     // Animation representation operations (now directly on Prop):
-    MeshInstance* ToggleAnimation(int argument);
+    // The model showing `frame`, or the first part of a path-list animation.
+    MeshInstance* FrameModel(int frame);
+    // The instance that draws part `index` of the animation; the prop owns one per part.
+    MeshInstance& model(std::size_t index = 0);
     bool SelectAnimationSlot(unsigned char tag);
     int FindCurrentAnimationSlot();
     unsigned char AdvanceAnimationSegment();
@@ -131,8 +134,6 @@ public:
     int GetAnimationState() const;
     void AttachAnimationInstances(World* world);
     unsigned char GetActivationState() const;
-    MeshInstance* ToggleRepAnimation(int argument);
-    MeshInstance* ToggleRepAnimationDefault();
     std::optional<BoundingBox> GetFrameBounds();
     void SetAnimationDirection(W8AnimationDirection direction);
     void SetRepresentationActive(unsigned char active, bool update_animation);
@@ -148,11 +149,15 @@ public:
     Trigger* boundTrigger();
     std::optional<glm::vec3> GetCenterPosition();
     std::optional<BoundingBox> GetBounds();
-    void CollectModelInstances(std::vector<MeshInstance*>& instances);
     void RunMissileTrigger(MissileFlight* record);
 
     Trigger* trigger = nullptr;
     unsigned int flags = 0;
+    // Cleared for props the level marks as never pickable.
+    bool pickable = true;
+    // Load-time presentation of every model: the prop's name and screen-facing alignment.
+    bool face_camera = false;
+    std::vector<std::unique_ptr<MeshInstance>> models;
     std::string name;
     float anim_frame_fraction = 0.0f;
     /* The step time since the animation's current frame began, and how long a frame lasts

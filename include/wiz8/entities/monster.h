@@ -31,6 +31,7 @@ struct World;
 struct Animation;
 struct LevelLoadContext;
 struct WorldItemEntity;
+class Mesh;
 class MeshInstance;
 class Light;
 class ParticleSystem;
@@ -43,7 +44,6 @@ enum W8MonsterFlag {
     W8_MONSTER_KEEP_FRAME_DIRECTION = 0x1,
     W8_MONSTER_TEXTURE_CHECKED = 0x2,
     W8_MONSTER_ANIMATED_TEXTURE = 0x4,
-    W8_MONSTER_SCALING_Y = 0x8,
     W8_MONSTER_KEEP_SUBCYCLE = 0x10,
     W8_MONSTER_SCRIPT_WAIT = 0x20,
     W8_MONSTER_PARKED = 0x40,
@@ -107,19 +107,16 @@ public:
     void SetCycle(signed char cycle);
     Animation* GetCurrentAnimation();
     void dispatchAnimationFrame(unsigned char previous_frame);
-    AnimationMesh* GetCurrentAniMesh();
     void Update();
     void GetMappedPosition(glm::vec3* position);
     std::optional<glm::vec3> GetAnimationCenter();
     void SetPosition(const glm::vec3* position);
 
     // Representation state that used to live in a separate Monster.
-    MeshInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                   signed char lod);  /* 0x004BF8C0 */
     unsigned int ApplyEmitterSetting(signed char cycle); /* 0x004BF970 */
     AnimationMesh* GetEmitterAniMesh(signed char cycle);     /* 0x004BF920 */
     void CopyCycle(signed char cycle, const Monster* other, signed char other_cycle);
-    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index, int load_all);
+    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
 
     // Animation models must disappear before any cycle's registered lights.
     struct CycleSlot {
@@ -179,7 +176,7 @@ public:
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
     // Monster operations that were free Monster* wrappers around this object.
     static std::unique_ptr<Monster> ReadAllCycles(World* world, std::string_view monster_name,
-                                                  int load_value, int location_id);
+                                                  int location_id);
     std::optional<BoundingBox> GetWorldAnimationBounds();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;
@@ -199,7 +196,6 @@ public:
     unsigned char SetAnimating(bool animating);
     unsigned char IsAnimating();
     bool HasPendingCycle();
-    bool IsScalingY();
     void SetPendingCycle(int cycle);
     void SetRuntimeBehaviour(W8AnimationBehaviour behaviour);
     void SetLocationId(int value);
@@ -216,9 +212,9 @@ public:
     bool HoldsCombatTurn(bool resolving_own_action, bool missile_released, bool can_turn);
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
-    void CollectModelInstances(std::vector<MeshInstance*>& instances);
+    std::vector<Mesh*> CollectModelMeshes();
     bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
-    int AddDamageStage(std::string_view base_name, int stage);
+    int AddDamageStage(int stage);
     void RandomizeAppearanceAndMotion();
     bool IsRenderable(bool alternate);
     void InitializeAnimatedTexture();
@@ -261,6 +257,7 @@ public:
     bool IsFacingMonster(Monster* monster);
     bool IsFacingPlayer();
     void ApplyRepresentationScale();
+    glm::vec3 CycleModelScale() const;
     void RefreshStandingHeight();
 
 public:
@@ -268,13 +265,6 @@ public:
     /* 0x1e4: the monster's location id, stored by MonsterSetLocationId and
        used throughout for MonsterInfo lookups. */
     int location_id;
-    /* 0x1e8/0x1f0: the X/Z siblings of scale_y; mirror_x flips the
-       X term for left-handed strikes. */
-    float scale_x;
-    /* Y-axis scale applied while W8_MONSTER_SCALING_Y is set (decayed per
-       frame by 0.1f). */
-    float scale_y;
-    float scale_z;
     /* Attack-animation frame that triggers the missile launch. */
     int missile_frame;
     /* Cycle-25 animation frame that triggers the attached spell effect. */
@@ -371,8 +361,7 @@ public:
 W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycle = nullptr);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
-std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle,
-                                          int value);
+std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle);
 
 void UpdateNearestMonsterGroupMembers();
 void ApplyMonsterRepresentationScale(Monster* monster);

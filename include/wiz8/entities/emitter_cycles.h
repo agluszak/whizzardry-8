@@ -38,7 +38,7 @@ inline bool ReadEmitterCycle(CyclePlayer& visual, std::span<EmitterCycleResource
     }
     EmitterCycleResources loaded;
     loaded.animation = std::make_unique<Animation>();
-    if (!AnimObjReadFromFile(info, loaded.animation.get(), 1, &loaded.lights.lights, 1)) {
+    if (!AnimObjReadFromFile(info, loaded.animation.get(), &loaded.lights.lights)) {
         return false;
     }
     const int emitter = cycle_index == -1 ? loaded.animation->cycle : cycle_index;

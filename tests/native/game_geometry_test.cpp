@@ -1177,12 +1177,9 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     REQUIRE_FALSE(animation.frame_bounds[1].known);
     for (int index = 0; index < 2; ++index) {
         auto mesh = std::make_unique<AnimationMesh>();
-        mesh->flags.loaded = true;
-        mesh->flags.radius_loaded = true;
         mesh->frame_count = 1;
-        mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
-        mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(std::make_unique<MeshInstance>(nullptr));
+        mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
+                                  : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::optional<KeyframeTrack>(std::in_place);
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
@@ -1198,13 +1195,11 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     REQUIRE(animation.frame_bounds[1].known);
     for (auto& path : animation.paths[0])
         REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
-    const auto stamp = g_animesh_cache_stamp;
-    animation.meshes[0][0]->bounds_minimum = {-10, -20, -30};
+    animation.meshes[0][0]->bounds.minimum = {-10, -20, -30};
     const auto cached = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(cached);
     REQUIRE(cached.value().minimum == bounds.value().minimum);
     REQUIRE(cached.value().maximum == bounds.value().maximum);
-    REQUIRE(g_animesh_cache_stamp == stamp);
     animation.frame_bounds[1].known = false;
     const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(refreshed);

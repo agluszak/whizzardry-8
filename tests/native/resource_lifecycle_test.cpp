@@ -315,28 +315,33 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[re
 
 // Valid retail animation header and light; optionally truncate after the light
 // to exercise cleanup after resources have actually been acquired.
+static void WriteEmitterRecord(wiz8::File& file, unsigned char cycle, bool truncate)
+{
+    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
+    file.write(header, sizeof(header));
+    const float speed = 15, chance = 1;
+    file.write(&speed, sizeof(speed));
+    const unsigned char frames[] = {0, 0, 0};
+    file.write(frames, sizeof(frames));
+    file.write(&chance, sizeof(chance));
+    const unsigned char reserved[50]{};
+    file.write(reserved, sizeof(reserved));
+    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
+    file.write(counts, sizeof(counts));
+    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
+    file.write(light, sizeof(light));
+    const unsigned char zero = 0;
+    file.write(&zero, 1); // No definition.
+    if (!truncate) {
+        file.write(&zero, 1); // No standalone path.
+        file.write(&zero, 1); // Reserved byte.
+    }
+}
+
 static void WriteEmitterFixture(unsigned char cycle, bool truncate)
 {
     auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"), wiz8::OpenMode::replace);
-    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
-    file->write(header, sizeof(header));
-    const float speed = 15, chance = 1;
-    file->write(&speed, sizeof(speed));
-    const unsigned char frames[] = {0, 0, 0};
-    file->write(frames, sizeof(frames));
-    file->write(&chance, sizeof(chance));
-    const unsigned char reserved[50]{};
-    file->write(reserved, sizeof(reserved));
-    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
-    file->write(counts, sizeof(counts));
-    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
-    file->write(light, sizeof(light));
-    const unsigned char zero = 0;
-    file->write(&zero, 1); // No definition.
-    if (!truncate) {
-        file->write(&zero, 1); // No standalone path.
-        file->write(&zero, 1); // Reserved byte.
-    }
+    WriteEmitterRecord(*file, cycle, truncate);
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
@@ -369,6 +374,56 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(visual.visual.m_plsLights == host.resources.cycles[2].lightView());
         REQUIRE(visual.visual.m_plsLights->size() == 1);
     }
+}
+
+// Each .mls row loads into the cycle it names, so a visual offers the rows it has.
+TEST_CASE_METHOD(SpellVisualFixture, "Spell visual rows load into their named cycles",
+                 "[resources][spell]")
+{
+    std::filesystem::create_directories(directory.path / "assets" / "data" / "spells");
+    {
+        auto file =
+            wiz8::open_file(wiz8::asset_path("data/spells/Boom.mls"), wiz8::OpenMode::replace);
+        const std::string text = "EXPLOSION3 BoomCycle\n";
+        file->write(text.data(), text.size());
+    }
+    {
+        auto file =
+            wiz8::open_file(wiz8::asset_path("data/spells/BoomCycle.mon"), wiz8::OpenMode::replace);
+        const unsigned char prefix[] = {1, 0, 0}; // Version, no path, no particles.
+        file->write(prefix, sizeof(prefix));
+        WriteEmitterRecord(*file, 0, false);
+    }
+    const glm::vec3 position{1, 2, 3};
+    auto* visual = SpawnSpellEffect(&position, "Boom", 5, 0, 0);
+    REQUIRE(visual);
+    REQUIRE(visual->asset_name == "Boom");
+    REQUIRE(visual->visual.pending_cycle == W8_SPELL_VISUAL_EXPLOSION * 7 + 2); // EXPLOSION3
+}
+
+// Animations hold shared frame meshes; each player shows every frame on a model of
+// its own, so copies of one source animate independently.
+TEST_CASE("A cycle player shows every frame on its own model", "[resources][animation]")
+{
+    Animation animation;
+    auto frames = std::make_unique<AnimationMesh>();
+    frames->frame_count = 2;
+    frames->frames = {{std::make_shared<Mesh>(), {}}, {std::make_shared<Mesh>(), {}}};
+    animation.entries[2] = std::move(frames);
+    const auto* first_frame = animation.entries[2]->frames[0].mesh.get();
+    const auto* second_frame = animation.entries[2]->frames[1].mesh.get();
+
+    CyclePlayer first;
+    first.active_animation = &animation;
+    CyclePlayer second(first);
+    second.active_animation = &animation;
+    auto* shown = first.SelectCycleFrameLod(0, 2);
+    REQUIRE(first.SelectCycleFrameLod(1, 2) == shown);
+    REQUIRE(shown->getModel() == second_frame);
+    auto* other = second.SelectCycleFrameLod(0, 2);
+    REQUIRE(other != shown);
+    REQUIRE(other->getModel() == first_frame);
+    REQUIRE(shown->getModel() == second_frame);
 }
 
 TEST_CASE("Shake instances retire before reentrant completion and can restart",
@@ -666,30 +721,6 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
         REQUIRE(world.spell_visuals.empty());
         SetTargetConeEnabled(false);
     }
-}
-
-TEST_CASE("Collecting monster models preserves the selected playback cycle",
-          "[resources][animation]")
-{
-    World world;
-    Monster monster(&world);
-    for (int cycle = 0; cycle < 2; ++cycle) {
-        auto animation = std::make_unique<Animation>();
-        animation->path_lists = true;
-        animation->frame_count = cycle == 0 ? 4 : 2;
-        monster.cycles[cycle].emplace_back(EmitterLights{}, std::move(animation), 1.0f);
-    }
-    monster.visual.current_cycle = 0;
-    monster.visual.current_subcycle = 0;
-    monster.visual.active_animation = monster.cycles[0][0].animation.get();
-    monster.visual.animation_playing = true;
-    std::vector<MeshInstance*> instances;
-    monster.CollectModelInstances(instances);
-    // A lighting/skin walk must not replace the current four-frame animation
-    // with the unrelated two-frame cycle visited last.
-    monster.visual.SetSubCycle(3);
-    REQUIRE(monster.visual.subcycle == 3);
-    REQUIRE(monster.visual.frameCount() == 4);
 }
 
 TEST_CASE("Rendering derives the views from the party and changes nothing it reads",

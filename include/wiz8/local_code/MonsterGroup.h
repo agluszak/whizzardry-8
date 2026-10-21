@@ -145,7 +145,6 @@ void ResetMonsterGroupTurnState(void);
 void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
-void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode);
 std::string GetMonsterGroupName(W8MonsterGroup* monster_group);
 void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 

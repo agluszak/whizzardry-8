@@ -71,14 +71,6 @@ float SpellVisual::GetCurrentAnimationScale()
     return this->resources.cycles[this->visual.current_cycle].animation->playback_scale;
 }
 
-AnimationMesh* SpellVisual::GetCurrentAniMesh()
-{
-    Animation* emitter = this->resources.cycles[this->visual.current_cycle].animation.get();
-
-    assert(emitter != 0);
-    return emitter->entries[this->visual.m_bLOD].get();
-}
-
 /* How many emitters the host has, counted by testing each for null. */
 signed char SpellVisual::GetTotalAnimationCount()
 {
@@ -265,10 +257,10 @@ void UpdateWorldSpellVisuals(World* world)
     }
 }
 
-unsigned char SpellVisual::ReadCycleData(LevelLoadContext* info, int, int emitter_index)
+unsigned char SpellVisual::ReadCycleData(LevelLoadContext* info, int cycle_index)
 {
     assert(info != 0 && info->hFile != 0);
-    return ReadEmitterCycle(visual, resources.cycles, info, emitter_index, true);
+    return ReadEmitterCycle(visual, resources.cycles, info, cycle_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)
@@ -323,10 +315,9 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
                     }
 
                     success = loadAnimationCycle(
-                        resource, visual.get()->visual, cycle, 1, "Data\\Spells",
-                        [&](LevelLoadContext& read_info, int read_cycle, int read_value) {
-                            return visual.get()->ReadCycleData(&read_info, read_cycle,
-                                                               read_value) != 0;
+                        resource, visual.get()->visual, cycle, "Data\\Spells",
+                        [&](LevelLoadContext& read_info, int read_cycle) {
+                            return visual.get()->ReadCycleData(&read_info, read_cycle) != 0;
                         });
                 }
                 continue;
@@ -670,13 +661,6 @@ void SetTargetConeEnabled(bool enabled)
     }
 }
 
-/* Send something to one named emitter. The arguments are handed on in the
-   reverse of the order they arrive. */
-MeshInstance* SpellVisual::SetCycleFrameLod(signed char emitter, signed char frame, signed char lod)
-{
-    return AnimObjDispatch(this->resources.cycles[emitter].animation.get(), lod, frame);
-}
-
 /* Apply the host setting to one required emitter.  The source assertion names
    that local pointer `pao`; assertions do not replace the following call. */
 unsigned int SpellVisual::ApplyEmitterSetting(signed char emitter)
@@ -685,18 +669,6 @@ unsigned int SpellVisual::ApplyEmitterSetting(signed char emitter)
 
     assert(target != 0);
     return AnimObjValue(target, this->visual.m_bLOD);
-}
-
-/* One named emitter's AniMesh, looked up with the host's own setting; an
-   empty slot yields none. */
-AnimationMesh* SpellVisual::GetEmitterAniMesh(signed char emitter)
-{
-    Animation* target = this->resources.cycles[emitter].animation.get();
-
-    if (target == 0) {
-        return 0;
-    }
-    return AnimObjEntry(target, this->visual.m_bLOD, 0);
 }
 
 void SpellVisual::TickAnimation(float time_scale)

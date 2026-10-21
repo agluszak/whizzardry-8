@@ -244,9 +244,9 @@ try {
     return false;
 }
 
-bool loadAnimationCycle(std::string_view mon_name, CyclePlayer& cycle, int cycle_index, int value,
+bool loadAnimationCycle(std::string_view mon_name, CyclePlayer& cycle, int cycle_index,
                         std::string_view directory,
-                        const std::function<bool(LevelLoadContext&, int, int)>& read_payload,
+                        const std::function<bool(LevelLoadContext&, int)>& read_payload,
                         std::string_view bitmap_directory)
 try {
     LevelLoadContext info;
@@ -276,7 +276,7 @@ try {
     success = true;
 
     if ((handle->read(&version, 1).bytes == static_cast<std::size_t>(1)) == 0 || version != 1 ||
-        !readCyclePrefix(&info, cycle, cycle_index) || !read_payload(info, cycle_index, value)) {
+        !readCyclePrefix(&info, cycle, cycle_index) || !read_payload(info, cycle_index)) {
         success = false;
     }
 
@@ -312,8 +312,9 @@ CyclePlayer::CyclePlayer(World* owner) : owner_world(owner)
 CyclePlayer::CyclePlayer(const CyclePlayer& other, World* owner)
     : owner_world(owner), location(other.location), local_location(other.local_location),
       parent_location(other.parent_location), rotation(other.rotation),
-      highlight_colour(other.highlight_colour), damage_stage(other.damage_stage),
-      light_scale(other.light_scale), instance_scale(1.0f), apply_instance_scale(false),
+      highlight_colour(other.highlight_colour), skin(other.skin), damage_stage(other.damage_stage),
+      light_scale(other.light_scale), emissive_override(other.emissive_override),
+      model_scale(other.model_scale), instance_scale(1.0f), apply_instance_scale(false),
       subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
       timer(GameClockMilliseconds()), rep_active(other.rep_active),
       animation_playing(other.animation_playing), frame_direction(other.frame_direction),
@@ -563,7 +564,8 @@ unsigned char CyclePlayer::GetAnimationRadius(float* arg_radius)
     AnimationMesh* mesh = AnimObjEntry(active_animation, m_bLOD, 0);
 
     assert(mesh != 0);
-    return AniMeshRadius(mesh, arg_radius);
+    *arg_radius = mesh->radius;
+    return 1;
 }
 
 void CyclePlayer::advanceFrame()
@@ -647,15 +649,28 @@ void CyclePlayer::SetPresentationColour(glm::vec4 colour)
     auto* animation = active_animation;
     if (!animation) return;
     if (animation->path_lists == 1) {
-        const int count = static_cast<int>(AnimObjListCount(animation, m_bLOD));
-        for (int index = 0; index < count; ++index) {
-            auto* model = static_cast<MeshInstance*>(
-                AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index)));
-            if (model) model->highlight_colour = colour;
-        }
-    } else if (auto* model = static_cast<MeshInstance*>(GetCurrentModelInstance())) {
+        const auto count =
+            std::min<std::size_t>(AnimObjListCount(animation, m_bLOD), models.size());
+        for (std::size_t index = 0; index < count; ++index)
+            models[index]->highlight_colour = colour;
+    } else if (auto* model = GetCurrentModelInstance()) {
         model->highlight_colour = colour;
     }
+}
+
+/* Give a shown model this player's appearance. */
+static void ApplyAppearance(const CyclePlayer& player, MeshInstance& model)
+{
+    model.highlight_colour = player.highlight_colour;
+    model.skin = player.skin;
+    model.damage_stage = player.damage_stage;
+    model.light_scale = glm::vec3(player.light_scale);
+    if (player.apply_instance_scale) {
+        model.diffuse_scale_enabled = player.instance_scale != 1.0f;
+        if (model.diffuse_scale_enabled) model.diffuse_scale = player.instance_scale;
+    }
+    model.emissive_override_enabled = player.emissive_override.has_value();
+    model.emissive_override = player.emissive_override.value_or(0.0f);
 }
 
 void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
@@ -675,23 +690,15 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         int count = static_cast<int>(AnimObjListCount(animation, m_bLOD));
 
         for (index = 0; index < count; ++index) {
-            MeshInstance* psrMesh = static_cast<MeshInstance*>(
-                AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index)));
+            const auto frame =
+                AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index));
             KeyframeTrack* path;
             glm::mat3 current;
 
-            assert(psrMesh != 0);
-            psrMesh->highlight_colour = highlight_colour;
-            psrMesh->damage_stage = damage_stage;
-            psrMesh->light_scale = glm::vec3(light_scale);
-            if (apply_instance_scale) {
-                if (instance_scale == 1.0f) {
-                    psrMesh->diffuse_scale_enabled = false;
-                } else {
-                    psrMesh->diffuse_scale_enabled = true;
-                    psrMesh->diffuse_scale = instance_scale;
-                }
-            }
+            assert(frame);
+            MeshInstance* psrMesh = &model(index);
+            ShowFrame(*psrMesh, frame);
+            ApplyAppearance(*this, *psrMesh);
             psrMesh->visible = true;
             psrMesh->setScene((pWorld->scene.get()));
             path = AnimObjListEntry(animation, m_bLOD, static_cast<signed char>(index));
@@ -708,22 +715,14 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
             psrMesh->transform.setRotation(rot);
             current_model_instance = psrMesh;
         }
+        hideModelsFrom(static_cast<std::size_t>(count));
     } else {
-        MeshInstance* psrMesh = static_cast<MeshInstance*>(SelectCycleFrameLod(subcycle, m_bLOD));
+        MeshInstance* psrMesh = SelectCycleFrameLod(subcycle, m_bLOD);
 
         assert(psrMesh != 0);
-        SetAniMeshCacheProtected(AnimObjEntry(active_animation, m_bLOD, 0), true);
-        psrMesh->highlight_colour = highlight_colour;
-        psrMesh->damage_stage = damage_stage;
-        psrMesh->light_scale = glm::vec3(light_scale);
-        if (apply_instance_scale) {
-            if (instance_scale == 1.0f) {
-                psrMesh->diffuse_scale_enabled = false;
-            } else {
-                psrMesh->diffuse_scale_enabled = true;
-                psrMesh->diffuse_scale = instance_scale;
-            }
-        }
+        ApplyAppearance(*this, *psrMesh);
+        if (model_scale) psrMesh->transform.setScale(glm::dvec3(*model_scale));
+        hideModelsFrom(1);
         vecPos = nav.movement.position;
         loc = glm::dvec3(vecPos);
         loc.y += nav.movement.vertical_offset;
@@ -775,30 +774,24 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
     }
 }
 
+void CyclePlayer::hideModelsFrom(std::size_t first)
+{
+    for (std::size_t index = first; index < models.size(); ++index) {
+        models[index]->visible = false;
+        models[index]->setScene(nullptr);
+    }
+}
+
 void CyclePlayer::DetachRepresentation(World* world)
 {
     Animation* animation = active_animation;
 
     if (animation->path_lists == 1) {
-        int count = static_cast<int>(AnimObjListCount(animation, m_bLOD));
-        for (int index = 0; index < count; ++index) {
-            MeshInstance* mesh =
-                AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index));
-            assert(mesh != 0);
-            AnimationMesh* ani_mesh = AnimObjEntry(active_animation, m_bLOD, 0);
-            if (ani_mesh != 0) {
-                SetAniMeshCacheProtected(ani_mesh, false);
-            }
-            mesh->visible = false;
-            mesh->setScene(0);
-        }
+        hideModelsFrom(0);
     } else if (current_model_instance != 0) {
         assert(world != 0);
-        AnimationMesh* ani_mesh = AnimObjEntry(active_animation, m_bLOD, 0);
-        SetAniMeshCacheProtected(ani_mesh, false);
-        current_model_instance->visible = false;
         current_model_instance->draw_parts = false;
-        current_model_instance->setScene(0);
+        hideModelsFrom(0);
         current_model_instance = 0;
     }
 
@@ -824,10 +817,8 @@ void CyclePlayer::UpdateParticleAttachments()
     if (particles.empty()) return;
     auto* psrMesh = current_model_instance;
     if (!psrMesh) {
-        auto* animation = active_animation;
-        if (!animation) return;
-        psrMesh = animation->path_lists == 1 ? AnimObjDispatchList(animation, m_bLOD, 0)
-                                             : SelectCycleFrameLod(subcycle, m_bLOD);
+        if (!active_animation) return;
+        psrMesh = GetCurrentModelInstance();
     }
     if (!psrMesh || !psrMesh->getModel()) return;
     const auto matrix = psrMesh->worldMatrix();
@@ -868,9 +859,9 @@ void CyclePlayer::SelectLOD(const glm::vec3* position)
 {
     glm::vec3 delta = location - *position;
     float distance = glm::length(delta);
-    bool has_lod_2 = frameModel(0, 2) != 0;
-    bool has_lod_1 = frameModel(0, 1) != 0;
-    bool has_lod_0 = frameModel(0, 0) != 0;
+    bool has_lod_2 = static_cast<bool>(frameModel(0, 2));
+    bool has_lod_1 = static_cast<bool>(frameModel(0, 1));
+    bool has_lod_0 = static_cast<bool>(frameModel(0, 0));
 
     if (!has_lod_2 && !has_lod_1 && !has_lod_0) {
         ShutdownWithErrorBox("Monster has no valid LODs!");
@@ -918,9 +909,8 @@ void CyclePlayer::SelectLOD(const glm::vec3* position)
     }
 }
 
-/* Select the model instance for the representation's current cycle, frame,
-   and LOD. AnimObj's frame lookup is the source of the returned instance; the
-   callers borrow a concrete MeshInstance. */
+/* The model the representation draws: the one in the scene, or else the model
+   showing the current frame (a path-list animation's first part). */
 MeshInstance* CyclePlayer::GetCurrentModelInstance()
 {
     if (current_model_instance != 0) {
@@ -929,12 +919,17 @@ MeshInstance* CyclePlayer::GetCurrentModelInstance()
 
     Animation* animation = active_animation;
     if (animation->path_lists == 1) {
-        return AnimObjDispatchList(animation, m_bLOD, 0);
+        const auto frame = AnimObjDispatchList(animation, m_bLOD, 0);
+        if (!frame) return nullptr;
+        ShowFrame(model(0), frame);
+        return &model(0);
     }
 
     return SelectCycleFrameLod(subcycle, m_bLOD);
 }
 
+/* Show `frame` at `lod` on the model and return it. A missing frame leaves the
+   model as it was and returns null. */
 MeshInstance* CyclePlayer::SelectCycleFrameLod(signed char frame, signed char lod)
 {
     assert(lod >= 0 && lod < 3);
@@ -943,7 +938,16 @@ MeshInstance* CyclePlayer::SelectCycleFrameLod(signed char frame, signed char lo
         PathAIPosition(&*m_pAI, &parent_location);
         location = parent_location;
     }
-    return frameModel(frame, lod);
+    const auto shown = frameModel(frame, lod);
+    if (!shown) return nullptr;
+    ShowFrame(model(0), shown);
+    return &model(0);
+}
+
+MeshInstance& CyclePlayer::model(std::size_t index)
+{
+    while (models.size() <= index) models.push_back(std::make_unique<MeshInstance>());
+    return *models[index];
 }
 
 void CyclePlayer::SubmitTargetValue()
@@ -1036,9 +1040,9 @@ signed char CyclePlayer::frameCount() const
 {
     return active_animation ? static_cast<signed char>(AnimObjValue(active_animation, m_bLOD)) : 0;
 }
-MeshInstance* CyclePlayer::frameModel(signed char frame, signed char lod) const
+AnimationFrame CyclePlayer::frameModel(signed char frame, signed char lod) const
 {
-    if (!active_animation) return nullptr;
+    if (!active_animation) return {};
     return active_animation->path_lists ? AnimObjDispatchList(active_animation, lod, 0)
                                         : AnimObjDispatch(active_animation, lod, frame);
 }

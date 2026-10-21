@@ -39,7 +39,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "local_code/MonsterGroup.h"
-#include "monster_actions.h"
 #include "named_position.h"
 #include "texture_animation.h"
 #include "wiz8/audio/AmbientSound.h"
@@ -152,7 +151,7 @@ void AssociateWorldLights(World* world)
 
                 if (!prop->name.empty() &&
                     SDL_strcasecmp(prop->name.c_str(), light->getName().c_str()) == 0) {
-                    MeshInstance* instance = prop->ToggleRepAnimationDefault();
+                    MeshInstance* instance = prop->FrameModel(prop->subcycle);
                     light->m_prop = prop;
                     if (auto* texture = GetModelAnimatedTexture(instance))
                         texture->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
@@ -427,14 +426,10 @@ static bool ReadRecordCount(wiz8::File& file, int& count)
 static unsigned char ReadWorldProps(LevelLoadContext* pInfo, World* pWorld,
                                     bool mark_model_instances)
 try {
-    /* CollectModelInstances appends. The canonical body deliberately keeps
-       this one vector across the complete prop loop. */
-    std::vector<MeshInstance*> model_instances;
     Prop* prop;
     int count;
     int index;
     int collidable_index;
-    int model_index;
     unsigned char success = 1;
 
     collidable_index = 0;
@@ -474,16 +469,7 @@ try {
             }
         }
 
-        if (mark_model_instances && prop != 0) {
-            prop->CollectModelInstances(model_instances);
-            for (model_index = 0; model_index < static_cast<int>(model_instances.size());
-                 ++model_index) {
-                MeshInstance* instance = model_instances[model_index];
-                if (instance != 0) {
-                    instance->render_flags |= MeshInstance::RENDER_NO_PICK;
-                }
-            }
-        }
+        if (mark_model_instances && prop != 0) prop->pickable = false;
     }
     if (pWorld->compiledIndex() != 0) {
         pWorld->compiledIndex()->TestPropSunBit(-1);
@@ -596,7 +582,7 @@ try {
         auto* group = CreateGroup(monster_id, 1, &origin, true, false, true);
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
-        ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
+        ActivateMonster(monster_info);
         auto* monster = monster_info->entity.find();
         const glm::vec3 camera_position = cameraLocation(*world);
         monster->visual.SelectLOD(&camera_position);
@@ -1041,7 +1027,7 @@ try {
             unsigned int animation_count = AnimObjListCount(animation, 2);
             for (unsigned int animation_index = 0; animation_index < animation_count;
                  ++animation_index) {
-                MeshInstance* instance = prop->ToggleRepAnimation(animation_index);
+                MeshInstance* instance = prop->FrameModel(static_cast<int>(animation_index));
                 Mesh* mesh = static_cast<Mesh*>(instance->getModel());
 
                 for (auto* mesh_part : meshParts(mesh)) {

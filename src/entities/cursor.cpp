@@ -75,7 +75,7 @@ void InitializeWorldCursor(void)
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
         cursor.dragged_location_id = 0;
-        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1, 1);
+        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1);
         cursor.monster = monster.get();
         GetWorld()->monsters.push_back(std::move(monster));
         cursor.monster->SetCycle(0);
