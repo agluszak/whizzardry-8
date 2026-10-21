@@ -994,7 +994,7 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
 {
     wiz8::save::GameState snapshot{game.status, game.party};
     auto& status = snapshot.status;
-    status.pending_move_location = cameraState(*GetWorld());
+    status.pending_move_location = partyPose(*GetWorld());
     status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {

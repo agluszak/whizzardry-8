@@ -22,7 +22,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -122,7 +121,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
         gasFireSpawn(pTrigger);
         return false;
     }
-    position = glm::vec3(world().camera->transform.getLocation());
+    position = cameraLocation(world());
     PointCastSpell(position, spell_id, 4);
     return true;
 }

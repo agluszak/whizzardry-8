@@ -83,7 +83,7 @@ void WriteRecordModeEntry(void)
     }();
     if (file != 0) {
         file->seek(-static_cast<std::int64_t>(0), wiz8::SeekOrigin::end);
-        state = cameraState(*GetWorld());
+        state = partyPose(*GetWorld());
         // Debug exports use zero for the unused retail angle fields.
         line =
             fmt::format("{:f} {:f} {:f}\n", state.position.x, state.position.y, state.position.z);

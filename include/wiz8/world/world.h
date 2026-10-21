@@ -170,13 +170,18 @@ void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
-CameraPose cameraState(const World& world);
-void SetWorldCameraState(World* world, CameraPose* state);
-void RestoreWorldCameraState(CameraPose* state);
+/* The party's pose is `World::party_camera`: the eye position and the orientation,
+   with the retail pose bytes the save keeps. Gameplay queries, saves and the rendered
+   views all read it; rendering never writes it. */
+CameraPose partyPose(const World& world);
 glm::mat3 cameraRotation(const World& world);
+// The party's eye position.
 glm::vec3 cameraLocation(const World& world);
-glm::vec3 cameraLocationOrZero(const World& world);
-void SetWorldScenePosition(World* world, const glm::vec3* position);
+/* Place the party's eye at `position`, as a level entrance, a portal or a reload does. The
+   party navigator follows when the world is the active one. */
+void placeParty(World& world, const glm::vec3& position);
+// Restore a saved pose: the position, the orientation and the retail pose bytes.
+void restorePartyPose(World& world, const CameraPose& pose);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
                       glm::vec3* direction);

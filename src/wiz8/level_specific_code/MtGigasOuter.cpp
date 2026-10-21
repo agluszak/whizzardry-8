@@ -20,7 +20,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
@@ -256,7 +255,7 @@ bool MtGigasOuterScript::campAlarm(int command)
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
             CreateLocationVar("UmpaniCampAlarm", 30);
-        position = glm::vec3(world().camera->transform.getLocation());
+        position = cameraLocation(world());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

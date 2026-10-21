@@ -197,6 +197,15 @@ Unlayered code may use the layers.
   when a fight ends, and its monster group), so no cursor state outlives its world.
 - A level's script is part of the level ("Scripts"). Its masters return completion
   directly; masters armed during a dispatch wait for the next frame.
+- The party's pose is the primary world's `party_camera`: the eye position and the
+  orientation (`partyPose`). Movement writes it (`updatePartyMovement`); level entry,
+  portals, reloads and recall place it through `placeParty` and `restorePartyPose`,
+  which also stand the party navigator `g_default_world_height` below the eye
+  (`navigationPosition`). Gameplay queries, saves and the automap read it. The render
+  cameras derive from it each frame (`placeWorldCameras`): the primary camera and its
+  light at the eye plus the frame's shake, and the sky camera turning and swaying with
+  it. Rendering writes no gameplay state, so extra renders and views leave the party
+  where it is.
 
 ## Scripts
 

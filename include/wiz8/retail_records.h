@@ -720,7 +720,7 @@ struct Character {
     /* 0x1770: the derived modifier block the rebuild clears and folds the
        equipment, persistent and party blocks into. */
     W8GameplayModifierBlock bonus;
-    /* 0x17d7: the CamPos record cameraState writes and recall restores.
+    /* 0x17d7: the CamPos record partyPose writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        GameStatus::pending_move_location. */
     CameraState saved_location; /* 0x17d7 */

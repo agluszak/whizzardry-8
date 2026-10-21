@@ -858,22 +858,18 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     effect->applied = true;
 }
 
-/* Return the casting character to the CamPos spell 0x4b stored. Nothing
-   happens unless the anchor was ever set. On the same level RestoreWorldCameraState
-   applies the full pose and the renderer is told to catch up; on any other
-   level the 0x3c-byte record is staged into pending_move_location for LoadLevel. */
+/* Return the casting character to the pose spell 0x4b stored. Nothing happens unless
+   the anchor was ever set. On the same level the pose is restored in place; on any
+   other level it is staged into pending_move_location for LoadLevel. */
 void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
 {
     W8Character* caster;
-    glm::vec3 point;
 
     assert(TargetSourceIsCharacter(&pQueue->Source, 0));
     caster = &CurrentGame().party.characters[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == GetLoadedLevelID()) {
-            RestoreWorldCameraState(&caster->saved_location);
-            point = caster->saved_location.position;
-            PlacePartyAtPoint(&point);
+            restorePartyPose(*GetWorld(), caster->saved_location);
             return;
         }
         CurrentGame().status.pending_move_location = caster->saved_location;
@@ -3158,7 +3154,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         assert(TargetSourceIsCharacter(&effect->Source, 0));
         camera_state = &CurrentGame().party.characters[effect->Source.iChar].saved_location;
         world = GetWorld();
-        *camera_state = cameraState(*world);
+        *camera_state = partyPose(*world);
         CurrentGame().party.characters[effect->Source.iChar].saved_level = GetLoadedLevelID();
         CurrentGame().party.characters[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;
