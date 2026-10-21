@@ -6697,18 +6697,6 @@ W8TargetingContext GetEditedActionContext(int party_slot)
     if (party_slot == CurrentGame().status.selected_character && (gpSCSV || ItemUseDraft())) {
         return W8_TARGETING_CONTEXT_SHARED;
     }
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
-        MainGameHud()->selection_kind != W8_ACTION_NONE) {
-        if (MainGameHud()->selection_kind == W8_ACTION_CAST_SPELL &&
-            MainGameHud()->selection_settled) {
-            return W8_TARGETING_CONTEXT_SPELL;
-        }
-        if (MainGameHud()->selection_kind == W8_ACTION_USE_ITEM &&
-            MainGameHud()->selection_settled) {
-            return W8_TARGETING_CONTEXT_ITEM;
-        }
-        return W8_TARGETING_CONTEXT_DIALOGUE;
-    }
     return CurrentGame().combat.has_value() ? W8_TARGETING_CONTEXT_IN_COMBAT
                                             : W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
 }

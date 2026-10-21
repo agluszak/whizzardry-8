@@ -16,7 +16,6 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -1288,55 +1287,37 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
     return AssessMonsterAim(party_slot, 2, monster_info, selected, {}, sighting);
 }
 
-/* Whether a party slot's chosen action has anything at all to aim at. Each
-   action asks its own question: an attack looks for one targetable monster, a
-   fifth-kind action looks at the other party members first and then at the
-   monsters, and casting or using an item hands the question to the spell.
+/* Whether a submenu candidate has anything at all to aim at. An attack looks
+   for one targetable monster and protecting looks at the other party members
+   first and then at the monsters.
 
    An action this does not know about answers yes, so the check narrows rather
    than gates - only the actions with a way of being impossible can fail it.
-   The two dialogue-driven actions answer yes as well until the dialogue has
-   settled, since until then there is no spell or item to ask about. */
-bool SlotHasAnyValidTarget(int party_slot)
+   Casting and item use answer yes as well, since no spell or item has been
+   chosen yet. A slot that cannot take part has no action to aim. */
+bool CandidateHasAnyValidTarget(int party_slot, W8ActionKind candidate)
 {
-    const auto editing_context = GetEditedActionContext(party_slot);
-    const auto edited_action = party_slot < 0 ? W8Action{W8_ACTION_NONE, -1, {}, {}}
-                                              : SelectCombatAction(party_slot, editing_context);
-    const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    if (!CanPartySlotParticipate(party_slot) && candidate != W8_ACTION_WALK &&
+        candidate != W8_ACTION_RUN) {
+        return true;
+    }
+    const W8Action edited_action{candidate};
 
     W8CombatSlot target;
     unsigned int index;
     unsigned int other_slot;
 
-    switch (edited_action.kind) {
+    switch (candidate) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             if (AssessMonsterTarget(party_slot, GetMonsterListEntry(index)->location_id,
-                                    edited_action, false, sighting)) {
+                                    edited_action, false, false)) {
                 return true;
             }
         }
         return false;
 
-    case W8_ACTION_CAST_SPELL:
-        if (MainGameHud()->selection_settled) {
-            return SpellHasAnyValidTarget(party_slot, edited_action.detail, false);
-        }
-        break;
-
-    case W8_ACTION_USE_ITEM:
-        if (MainGameHud()->selection_settled) {
-            const W8ItemInstance* item =
-                CurrentGame().party.itemAt(edited_action.detail_block.item_use.item);
-
-            if (item == 0) {
-                return false;
-            }
-            return SpellHasAnyValidTarget(party_slot, Data().items[item->iItemNo].spell_id,
-                                          ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-        }
-        break;
     case W8_ACTION_PROTECT:
         for (other_slot = 0; other_slot < 8; ++other_slot) {
             if (other_slot == static_cast<unsigned int>(party_slot)) {
@@ -2053,9 +2034,6 @@ W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
         break;
     case W8_TARGETING_CONTEXT_BREATH:
         action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
-        break;
-    case W8_TARGETING_CONTEXT_DIALOGUE:
-        action = {MainGameHud()->selection_kind};
         break;
     case W8_TARGETING_CONTEXT_ATTACK:
         action = {W8_ACTION_ATTACK};

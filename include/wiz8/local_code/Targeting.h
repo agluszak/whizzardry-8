@@ -157,7 +157,8 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group);
 /* The cycle-target command - advance the pick to the next
    targetable group or monster and commit it. */
 void CycleToNextTarget(int party_slot);
-bool SlotHasAnyValidTarget(int party_slot);
+/* Whether a combat submenu candidate has anything to aim at. */
+bool CandidateHasAnyValidTarget(int party_slot, W8ActionKind candidate);
 /* Whether the slot holds a dead character still reachable for a
    targeting mode that admits one. */
 bool IsDeadCharacterTargetable(int party_slot);

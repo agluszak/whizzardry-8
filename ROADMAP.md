@@ -214,9 +214,8 @@ the licensed runtime scenarios after every step.
      most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
      `MainGameHud()`, including to mark repaint parts; they should receive it from the
      screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
-     the screens three readers remain: `Targeting.cpp` reads the submenu draft
-     (`selection_kind`, `selection_settled`) and whether a main game exists, because
-     `SelectCombatAction` reads the spell, item and submenu drafts the screens own;
+     the screens three readers remain: `Targeting.cpp` reads whether a main game exists,
+     and `SelectCombatAction` reads the spell and item drafts the screens own;
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
      portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
      viewport mode, which the screen should hand the camera when it changes.
