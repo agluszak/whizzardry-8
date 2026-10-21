@@ -2321,6 +2321,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     auto& world = *game.level.primary;
     world.camera = &world.scene->camera;
     world.camera->setClipRange(1, 10);
+    placeParty(world, {0, 0, 0});
     game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
     LoadNativeLevelObject(game);
     REQUIRE(world.native_objects.size() == 1);
