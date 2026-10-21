@@ -54,7 +54,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vsg_material.h"
@@ -138,9 +137,9 @@ Texture* MeshInstance::FindMouthTexture()
     Mesh* mesh = static_cast<Mesh*>(getModel());
     for (auto* mesh_part : meshParts(mesh)) {
         const int table = skinTable(*mesh_part);
-        MeshResources<Texture>* textures = table == -1
-                                               ? mesh_part->getPolygonTextureTable(0, 0, false)
-                                               : mesh_part->GetTextureTable(table);
+        std::vector<std::shared_ptr<Texture>>* textures =
+            table == -1 ? mesh_part->getPolygonTextureTable(0, 0, false)
+                        : mesh_part->GetTextureTable(table);
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh_part->polygon_count; ++polygon) {
                 auto* animation =

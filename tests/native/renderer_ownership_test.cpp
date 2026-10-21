@@ -211,7 +211,7 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     body->source_path = "body.tga";
     body->setName("Body");
     auto* base = mesh->getPolygonTextureTable(0, 0, true);
-    base->set(0, body);
+    (*base)[0] = body;
     const int skin = mesh->CreateSkinTable("damaged0", -1);
     MeshInstance instance;
     instance.setModel(mesh);

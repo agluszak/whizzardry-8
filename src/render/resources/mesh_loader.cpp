@@ -34,7 +34,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/update.h"
@@ -105,8 +104,8 @@ static void OptimizeMeshOrder(Mesh& mesh)
     }
 
     std::vector<const DrawShader*> shader_tables;
-    std::vector<const MeshResources<Texture>*> texture_tables;
-    std::vector<const MeshResources<Material>*> material_tables;
+    std::vector<const std::vector<std::shared_ptr<Texture>>*> texture_tables;
+    std::vector<const std::vector<std::shared_ptr<Material>>*> material_tables;
     for (std::int32_t pass = 0; pass < model->pass_count; ++pass) {
         if (const DrawShader* shaders = model->getPolyShader(pass, 0)) {
             shader_tables.push_back(shaders);
@@ -243,7 +242,7 @@ std::unique_ptr<Mesh> BuildMeshPart(const SingleLevelMeshRecord& record,
     model->mapped_vertices.insert(mapped_vertices.begin(), mapped_vertices.end());
     auto* textures = model->getPolygonTextureTable(0, 0, true);
     for (std::size_t polygon = 0; polygon < polygon_textures.size(); ++polygon)
-        textures->set(polygon, polygon_textures[polygon]);
+        (*textures)[polygon] = polygon_textures[polygon];
 
     if (std::ranges::all_of(vertex_materials, [&](const auto& material) {
             return material == vertex_materials.front();
@@ -252,7 +251,7 @@ std::unique_ptr<Mesh> BuildMeshPart(const SingleLevelMeshRecord& record,
     } else {
         auto* table = model->getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
         for (std::size_t vertex = 0; vertex < vertex_count; ++vertex)
-            table->set(vertex, vertex_materials[vertex]);
+            (*table)[vertex] = vertex_materials[vertex];
     }
 
     std::ranges::copy(polygon_vertices, model->getPolyVertex());

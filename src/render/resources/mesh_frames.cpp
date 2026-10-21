@@ -25,7 +25,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/bounding_box.h"
 
@@ -314,7 +313,7 @@ int Mesh::FindSkinTable(std::string_view name)
     return -1;
 }
 
-MeshResources<Texture>* Mesh::GetTextureTable(int table)
+std::vector<std::shared_ptr<Texture>>* Mesh::GetTextureTable(int table)
 {
     auto skin = std::find_if(skins.begin(), skins.end(),
                              [table](const auto& skin) { return skin.id == table; });
@@ -361,7 +360,7 @@ bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
             continue;
         matched = true;
         if (texture != replacement) {
-            skin->textures.set(polygon, replacement);
+            skin->textures[polygon] = replacement;
             changed = true;
         }
     }

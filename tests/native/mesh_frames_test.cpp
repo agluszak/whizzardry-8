@@ -258,8 +258,8 @@ static bool skins_and_mapped_vertices()
         {
             Mesh mesh(3, 1);
             auto* base = mesh.getPolygonTextureTable(0, 0, true);
-            base->set(0, blank);
-            base->set(1, visible);
+            (*base)[0] = blank;
+            (*base)[1] = visible;
             std::string cycle(400, 'c');
             std::string first_name = cycle + '0';
             const int first = mesh.CreateSkinTable(first_name, -1);
@@ -296,8 +296,8 @@ static bool skins_and_mapped_vertices()
             selection = mesh.GetActivePolygons(-1, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
-            base->set(1, blank);
-            base->set(2, blank);
+            (*base)[1] = blank;
+            (*base)[2] = blank;
             const int all_blank = mesh.CreateSkinTable("all-blank", -1);
             const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
             REQUIRE(empty_skin);

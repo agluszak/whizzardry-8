@@ -27,7 +27,6 @@
 
 #include "wiz8/math.h"
 #include "wiz8/render/mesh_math.h"
-#include "wiz8/render/mesh_resources.h"
 
 // A validated permutation carries both directions for attribute-table reorder
 // and references that point into those tables. Validate before mutating a mesh.
@@ -231,7 +230,8 @@ static T* GetLazyMeshTable(Mesh& mesh, std::vector<T>& slot, std::int32_t count,
     return slot.empty() ? nullptr : slot.data();
 }
 
-MeshResources<Material>* Mesh::getVertexMaterialTable(std::int32_t pass, e_side side, bool create)
+std::vector<std::shared_ptr<Material>>* Mesh::getVertexMaterialTable(std::int32_t pass, e_side side,
+                                                                     bool create)
 {
     if (pass < 0 || pass > 3 || (int)side < 0 || (int)side > 1) {
         return 0;
@@ -244,8 +244,8 @@ MeshResources<Material>* Mesh::getVertexMaterialTable(std::int32_t pass, e_side 
     return assignments.empty() ? nullptr : &assignments;
 }
 
-MeshResources<Texture>* Mesh::getPolygonTextureTable(std::int32_t pass, std::int32_t layer,
-                                                     bool create)
+std::vector<std::shared_ptr<Texture>>* Mesh::getPolygonTextureTable(std::int32_t pass,
+                                                                    std::int32_t layer, bool create)
 {
     if (pass < 0 || pass > 3 || layer < 0 || layer > 1) {
         return 0;
@@ -527,7 +527,7 @@ void Mesh::reindexPolygons(std::span<const std::uint32_t> indices)
         permutation.apply(getPolyShader(pass, 0));
         for (std::int32_t layer = 0; layer < 2; ++layer)
             if (auto* table = getPolygonTextureTable(pass, layer, false))
-                permutation.apply(table->indices.data());
+                permutation.apply(table->data());
     }
     if (active_polygon_count && getActivePolygonTable(0)) {
         auto* table = getActivePolygonTable(1);
@@ -558,7 +558,7 @@ void Mesh::reindexVertices(std::span<const std::uint32_t> indices)
     for (std::int32_t pass = 0; pass < pass_count; ++pass) {
         for (std::int32_t side = 0; side < 2; ++side)
             if (auto* table = getVertexMaterialTable(pass, static_cast<e_side>(side), false))
-                permutation.apply(table->indices.data());
+                permutation.apply(table->data());
         for (std::int32_t table = 0; table < 2; ++table)
             permutation.apply(getVertexTexCoords(pass, table, 0));
         permutation.apply(getVertexDIG(pass, 0));
