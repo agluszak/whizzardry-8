@@ -70,7 +70,7 @@ public:
     Animation* GetCurrentAnimation();
 
     unsigned int ApplyEmitterSetting(signed char emitter);
-    unsigned char ReadCycleData(LevelLoadContext* info, int emitter_index);
+    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
 
     void StartIfHostActive(); /* 0x004ABDC0 */
     /* Search backward from a subcycle for the first cycle this visual

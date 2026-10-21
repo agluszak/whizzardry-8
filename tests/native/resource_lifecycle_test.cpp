@@ -313,28 +313,33 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[re
 
 // Valid retail animation header and light; optionally truncate after the light
 // to exercise cleanup after resources have actually been acquired.
+static void WriteEmitterRecord(wiz8::File& file, unsigned char cycle, bool truncate)
+{
+    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
+    file.write(header, sizeof(header));
+    const float speed = 15, chance = 1;
+    file.write(&speed, sizeof(speed));
+    const unsigned char frames[] = {0, 0, 0};
+    file.write(frames, sizeof(frames));
+    file.write(&chance, sizeof(chance));
+    const unsigned char reserved[50]{};
+    file.write(reserved, sizeof(reserved));
+    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
+    file.write(counts, sizeof(counts));
+    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
+    file.write(light, sizeof(light));
+    const unsigned char zero = 0;
+    file.write(&zero, 1); // No definition.
+    if (!truncate) {
+        file.write(&zero, 1); // No standalone path.
+        file.write(&zero, 1); // Reserved byte.
+    }
+}
+
 static void WriteEmitterFixture(unsigned char cycle, bool truncate)
 {
     auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"), wiz8::OpenMode::replace);
-    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
-    file->write(header, sizeof(header));
-    const float speed = 15, chance = 1;
-    file->write(&speed, sizeof(speed));
-    const unsigned char frames[] = {0, 0, 0};
-    file->write(frames, sizeof(frames));
-    file->write(&chance, sizeof(chance));
-    const unsigned char reserved[50]{};
-    file->write(reserved, sizeof(reserved));
-    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
-    file->write(counts, sizeof(counts));
-    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
-    file->write(light, sizeof(light));
-    const unsigned char zero = 0;
-    file->write(&zero, 1); // No definition.
-    if (!truncate) {
-        file->write(&zero, 1); // No standalone path.
-        file->write(&zero, 1); // Reserved byte.
-    }
+    WriteEmitterRecord(*file, cycle, truncate);
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
@@ -367,6 +372,31 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(visual.visual.m_plsLights == host.resources.cycles[2].lightView());
         REQUIRE(visual.visual.m_plsLights->size() == 1);
     }
+}
+
+// Each .mls row loads into the cycle it names, so a visual offers the rows it has.
+TEST_CASE_METHOD(SpellVisualFixture, "Spell visual rows load into their named cycles",
+                 "[resources][spell]")
+{
+    std::filesystem::create_directories(directory.path / "assets" / "data" / "spells");
+    {
+        auto file =
+            wiz8::open_file(wiz8::asset_path("data/spells/Boom.mls"), wiz8::OpenMode::replace);
+        const std::string text = "EXPLOSION3 BoomCycle\n";
+        file->write(text.data(), text.size());
+    }
+    {
+        auto file =
+            wiz8::open_file(wiz8::asset_path("data/spells/BoomCycle.mon"), wiz8::OpenMode::replace);
+        const unsigned char prefix[] = {1, 0, 0}; // Version, no path, no particles.
+        file->write(prefix, sizeof(prefix));
+        WriteEmitterRecord(*file, 0, false);
+    }
+    const glm::vec3 position{1, 2, 3};
+    auto* visual = SpawnSpellEffect(&position, "Boom", 5, 0, 0);
+    REQUIRE(visual);
+    REQUIRE(visual->asset_name == "Boom");
+    REQUIRE(visual->visual.pending_cycle == W8_SPELL_VISUAL_EXPLOSION * 7 + 2); // EXPLOSION3
 }
 
 TEST_CASE("Shake instances retire before reentrant completion and can restart",

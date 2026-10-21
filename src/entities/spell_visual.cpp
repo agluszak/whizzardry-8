@@ -257,10 +257,10 @@ void UpdateWorldSpellVisuals(World* world)
     }
 }
 
-unsigned char SpellVisual::ReadCycleData(LevelLoadContext* info, int emitter_index)
+unsigned char SpellVisual::ReadCycleData(LevelLoadContext* info, int cycle_index)
 {
     assert(info != 0 && info->hFile != 0);
-    return ReadEmitterCycle(visual, resources.cycles, info, emitter_index, true);
+    return ReadEmitterCycle(visual, resources.cycles, info, cycle_index, true);
 }
 
 static int FindSpellCycleByName(const char* name)
@@ -316,8 +316,8 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
 
                     success = loadAnimationCycle(
                         resource, visual.get()->visual, cycle, "Data\\Spells",
-                        [&](LevelLoadContext& read_info, int) {
-                            return visual.get()->ReadCycleData(&read_info, 1) != 0;
+                        [&](LevelLoadContext& read_info, int read_cycle) {
+                            return visual.get()->ReadCycleData(&read_info, read_cycle) != 0;
                         });
                 }
                 continue;
