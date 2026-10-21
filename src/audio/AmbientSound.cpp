@@ -339,6 +339,7 @@ void SharedAmbientGroup::service(W8AmbientSound& emitter)
     if (wiz8::sound::is_file_playing(resource)) return;
     selected = &emitter;
     current_volume = 0;
+    target_volume = 0;
     playback = wiz8::sound::play(resource, {.volume = 0, .loops = 0});
     retarget((emitter.volume_max * g_settings.sound_effects_volume) / 127,
              (emitter.volume_max * g_settings.sound_effects_volume) / 127);
