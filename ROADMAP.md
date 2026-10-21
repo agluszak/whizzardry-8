@@ -361,9 +361,7 @@ each.
   layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
   in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
   `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
-  `ItemEffects`, and the runtime enums used as disk field types. Geometry has one
-  too: `W8PathEdge` is packed to its 14-byte WPT image and later WPT versions are
-  read straight into the navigation mesh's vector.
+  `ItemEffects`, and the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;
