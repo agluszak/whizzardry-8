@@ -35,7 +35,6 @@
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
@@ -71,7 +70,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/notices.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/render/quality.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -524,23 +522,6 @@ int GetMonsterQuadrant(W8MonsterInfo* monster_info)
 {
     assert(monster_info != 0);
     return GetQuadrantForPosition(monster_info->p3D->nav.GetPosition());
-}
-
-int GetMonsterCycleFallbackValue(unsigned int monster_species)
-{
-    const W8MonsterRecord* record;
-
-    record = MonsterDBFromSpecies(monster_species);
-    if (record == 0) {
-        return -1;
-    }
-    if (auto* world = GetWorld(); world && findMonsterAsset(*world, record->cycle_name)) {
-        return 0;
-    }
-    if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
-        return record->alternate_model_index;
-    }
-    return record->model_index;
 }
 
 void ProcessMonstersAtCombatEnd(bool forced_cleanup)

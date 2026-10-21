@@ -112,6 +112,9 @@ struct World {
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
     std::unique_ptr<W8WorldCursorState> cursor;
+    /* One loaded, never-live representation per monster species. Actors are copied
+       from it; it holds no scene attachments and no navigator registration. */
+    std::vector<std::unique_ptr<Monster>> monster_definitions;
     std::vector<std::unique_ptr<Monster>> monsters;
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<Missile>> missiles;
