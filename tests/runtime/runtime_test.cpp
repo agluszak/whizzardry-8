@@ -1456,6 +1456,18 @@ void ResourceLifecycleScenario()
     StartPremadeGame(game);
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
+    int original_width = 0, original_height = 0;
+    REQUIRE(SDL_GetWindowSize(ghWindow, &original_width, &original_height));
+    REQUIRE(SDL_SetWindowSize(ghWindow, 960, 720));
+    REQUIRE(SDL_SyncWindow(ghWindow));
+    SDL_Event focus{};
+    focus.window.windowID = SDL_GetWindowID(ghWindow);
+    focus.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+    HandleGameEvent(focus);
+    REQUIRE(IsVideoActive());
+    REQUIRE(g_renderer->isOpen());
+    focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
+    HandleGameEvent(focus);
     g_renderer->close();
     REQUIRE(OpenRendererWindow());
     REQUIRE(g_renderer->isOpen());
@@ -1465,6 +1477,13 @@ void ResourceLifecycleScenario()
     REQUIRE(RestoreVideoManager());
     REQUIRE(IsVideoActive());
     REQUIRE(g_renderer->isOpen());
+    int width = 0, height = 0;
+    REQUIRE(SDL_GetWindowSize(ghWindow, &width, &height));
+    REQUIRE(width == 960);
+    REQUIRE(height == 720);
+    REQUIRE(SDL_SetWindowSize(ghWindow, original_width, original_height));
+    REQUIRE(SDL_SyncWindow(ghWindow));
+    REQUIRE(VideoResizeWindow());
     // Rendering must retain the world graph when presentation is reopened.
     CheckWorldRender(game);
     CheckTwoWorldViews(game);
