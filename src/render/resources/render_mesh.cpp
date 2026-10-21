@@ -115,6 +115,8 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         const auto& table = mesh.poly_textures[pass][layer];
         return table.empty() ? mesh.textures[pass][layer] : table[polygon];
     };
+    // Batches split wherever any skin differs. Skins only clone a table or
+    // replace every use of one texture, so later skin changes keep that true.
     const auto skinsMatch = [&](std::uint32_t left, std::uint32_t right) {
         if (pass != 0) return true;
         return std::all_of(mesh.skins.begin(), mesh.skins.end(), [&](const auto& skin) {

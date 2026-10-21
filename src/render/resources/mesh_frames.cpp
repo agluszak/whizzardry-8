@@ -262,8 +262,8 @@ int Mesh::CreateSkinTable(std::string_view name, int base_table)
     }
     const int table = wiz8::checked_integer<int>(skins.size());
     Skin skin{table, std::string(name), *source, std::nullopt, false};
+    // A clone splits no batch its source table did not already split.
     skins.push_back(std::move(skin));
-    render_asset_.reset();
     return table;
 }
 
@@ -288,9 +288,9 @@ bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
     }
     if (changed) {
         skin->active_polygons.reset();
+        // Polygons sharing a texture stay together, so the shared batches
+        // still separate every differing assignment.
         skin->blanking_checked = false;
-        // Skin assignments also participate in the shared batch boundaries.
-        render_asset_.reset();
     }
     return matched;
 }

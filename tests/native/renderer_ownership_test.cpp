@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -198,7 +199,7 @@ TEST_CASE("Attached instances inherit graph parent movement and detach in either
     REQUIRE(scene.dynamic_meshes.empty());
 }
 
-TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
+TEST_CASE("Replacing a damage texture keeps the shared asset and refreshes blanking",
           "[renderer][materials]")
 {
     auto mesh = std::make_shared<Mesh>(1, 3);
@@ -207,9 +208,13 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     positions[0] = {0, 0, 0};
     positions[1] = {1, 0, 0};
     positions[2] = {0, 1, 0};
-    auto body = std::make_shared<Texture>();
-    body->source_path = "body.tga";
-    body->setName("Body");
+    const auto texture = [](const char* name) {
+        auto result = std::make_shared<Texture>();
+        result->source_path = std::string(name) + ".tga";
+        result->setName(name);
+        return result;
+    };
+    auto body = texture("Body");
     auto* base = mesh->getPolygonTextureTable(0, 0, true);
     (*base)[0] = body;
     MeshInstance instance;
@@ -220,19 +225,24 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     render::MeshPose pose(*mesh);
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
-    const auto original_asset = pose.asset;
+    const auto asset = pose.asset;
 
-    auto blank = std::make_shared<Texture>();
-    blank->source_path = "blank-body.tga";
-    blank->setName("blank-body");
-    REQUIRE(instance.ReplaceDamageStageTexture(damage, "BODY", blank));
+    auto scarred = texture("Scarred");
+    REQUIRE(instance.ReplaceDamageStageTexture(damage, "BODY", scarred));
     pose.update(*mesh, 0, 0, skin);
-    REQUIRE(pose.asset != original_asset);
+    REQUIRE(pose.asset == asset);
+    REQUIRE(pose.texture(*mesh, 0, 0, skin) == scarred);
+    REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
+
+    REQUIRE(instance.ReplaceDamageStageTexture(damage, "SCARRED", texture("blank-body")));
+    pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.asset == asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 0);
     REQUIRE(mesh->GetActivePolygons(skin, true).value().empty());
 
     REQUIRE(instance.ReplaceDamageStageTexture(damage, "BLANK-BODY", body));
     pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.asset == asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
     REQUIRE(pose.texture(*mesh, 0, 0, skin) == body);
     REQUIRE((*base)[0] == body);
