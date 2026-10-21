@@ -219,5 +219,4 @@ void ResetGameplaySettings(void)
     g_settings.autoscroll_combat_messages = 0;
     g_settings.simplified_npc_interaction = 1;
     EnableAllRenderOptions();
-    DisableRenderOption(W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
 }
