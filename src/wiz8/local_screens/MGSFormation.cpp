@@ -31,6 +31,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/surface_storage.h"
@@ -475,7 +476,7 @@ static void BeginFormationDrag()
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
-    ShowCustomCursor();
+    ScreenPointer().showCustom();
     formation->dirty = true;
 }
 
@@ -497,7 +498,7 @@ static void DropFormationSlot(int cell)
         }
     }
     const int dragged_from = std::exchange(g_formation_drag_cell, -1);
-    ResetPointerCursor();
+    ScreenPointer().reset();
     UpdateFormationCells();
     formation->highlighted[dragged_from] = false;
     if (cell != -1) {
@@ -521,7 +522,7 @@ void CloseFormationPanel(void)
 {
     DestroyFormationPanel();
     MainGame()->formation_panel_open = false;
-    ResetPointerCursor();
+    ScreenPointer().reset();
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
 }

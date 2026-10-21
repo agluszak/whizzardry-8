@@ -33,6 +33,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -81,18 +82,18 @@ void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context)
 
     if (context.activity.conversation) {
         if (CurrentGame().npc_interaction.dialogue_hidden != 0) {
-            SetTargetCursor(1);
+            ScreenPointer().showSlot(1);
             return;
         }
         if (CurrentGame().npc_presentation != W8NpcPresentation::quote) {
             if (!CurrentGame().npc_dialogue.has_queued_actions()) {
-                if (ShownCursor() != W8_CURSOR_TEXT_INPUT) {
-                    SetTargetCursor(W8_CURSOR_NONE);
+                if (ScreenPointer().shownSlot() != W8_CURSOR_TEXT_INPUT) {
+                    ScreenPointer().showSlot(W8_CURSOR_NONE);
                     return;
                 }
             }
         } else if (!context.activity.scripted_scene) {
-            SetTargetCursor(W8_CURSOR_MAP_LOAD);
+            ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
         }
     }
 }

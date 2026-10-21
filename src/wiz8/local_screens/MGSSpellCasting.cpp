@@ -57,6 +57,7 @@
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/party_slot.h"
@@ -888,8 +889,8 @@ UiResult HandleSpellTextBox(const UiPointerEvent& event)
             AfterUiDispatch([spell] {
                 auto dialog = std::make_unique<W8SpellInfoDialog>(spell);
                 dialog->SetText("");
-                dialog->cleanup = [pointer = CurrentPointerRequest()] {
-                    RestorePointerRequest(pointer);
+                dialog->cleanup = [pointer = ScreenPointer().request()] {
+                    ScreenPointer().restore(pointer);
                     if (auto* hud = MainGameHud()) hud->repaint.everything = true;
                 };
                 OpenModal(std::move(dialog));

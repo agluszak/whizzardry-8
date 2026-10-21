@@ -73,6 +73,7 @@
 #include "wiz8/message_log.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
@@ -100,7 +101,7 @@ struct StubScreen final : Screen {
         return true;
     }
 };
-std::unique_ptr<Screen> stub_factory(W8ScreenId, GameSession&)
+std::unique_ptr<Screen> stub_factory(W8ScreenId, GameSession&, Pointer&)
 {
     return std::make_unique<StubScreen>();
 }
@@ -122,7 +123,7 @@ struct RebuiltScreen final : Screen {
     }
     int entered_with = 0;
 };
-std::unique_ptr<Screen> rebuilding_factory(W8ScreenId id, GameSession&)
+std::unique_ptr<Screen> rebuilding_factory(W8ScreenId id, GameSession&, Pointer&)
 {
     if (id == RebuiltScreen::id) return std::make_unique<RebuiltScreen>();
     return std::make_unique<StubScreen>();
@@ -219,7 +220,7 @@ void camp_effects()
         }
     } restore{previous_roots};
     {
-        CampScreen independent(game.game);
+        CampScreen independent(game.game, ScreenPointer());
         auto* state = &independent;
         REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
@@ -2162,7 +2163,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
 
     const ScopedGame game;
     {
-        MainGameScreen screen(game.game);
+        MainGameScreen screen(game.game, ScreenPointer());
         auto& hud = screen.hud_buttons;
         int clicks = 0;
         REQUIRE(hud.options_disk.Configure(ButtonAppearance{}, {100, 100, 20, 20},
@@ -2202,7 +2203,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     REQUIRE(LiveUiTargetCount() == targets);
     REQUIRE(LiveUiLayerCount() == layers);
     {
-        MainGameScreen reentered(game.game);
+        MainGameScreen reentered(game.game, ScreenPointer());
         REQUIRE_FALSE(reentered.hud_buttons.options_disk.IsConfigured());
     }
     REQUIRE(LiveUiTargetCount() == targets);

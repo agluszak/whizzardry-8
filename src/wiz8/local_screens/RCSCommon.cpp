@@ -55,6 +55,7 @@
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -236,7 +237,7 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
     if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
         CurrentGame().party.members[target_slot].has_value()) {
         AfterUiDispatch([this, target_slot] {
-            if (TargetingMode() == W8_TARGET_NEED_ALLY) {
+            if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY) {
                 if (page != W8_CAMP_PAGE_ITEMS ||
                     (items.action() != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
                      items.action() != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
@@ -260,7 +261,7 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
                     return;
                 }
             } else {
-                if (TargetingMode() == W8_TARGET_NEED_CHARACTER_INDIRECT) {
+                if (ScreenPointer().targeting() == W8_TARGET_NEED_CHARACTER_INDIRECT) {
                     if (!IsDeadCharacterTargetable(target_slot)) {
                         QueueCharacterEvent(&CurrentGame().party.characters[ReviewedPartySlot()],
                                             0x35, 0, kCharacterEventFullVolume);

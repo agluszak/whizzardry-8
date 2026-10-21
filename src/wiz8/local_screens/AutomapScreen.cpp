@@ -56,10 +56,10 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compositor.h"
@@ -224,7 +224,7 @@ static void SetAutomapCursorImage(int tool)
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), artwork.imageOffset(),
                                   g_automap_cursor_offsets[tool].x,
                                   g_automap_cursor_offsets[tool].y);
-    ShowCustomCursor();
+    ScreenPointer().showCustom();
     RefreshMouseCursorTexture();
 }
 
@@ -740,7 +740,7 @@ bool AutomapScreen::leave(ScreenDeparture)
     ClearAutomapMarkers();
     g_automap_party_marker->detach();
     g_automap_buttons.reset();
-    ResetPointerCursor();
+    ScreenPointer().reset();
     EnableCursorScene();
     g_automap_created_layers.clear();
     g_automap_party_marker.reset();
