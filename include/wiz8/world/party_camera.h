@@ -10,6 +10,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/camera_motion.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/world/environment_state.h"
 #include "wiz8/world/party_motion.h"

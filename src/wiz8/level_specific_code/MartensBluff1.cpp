@@ -30,6 +30,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"

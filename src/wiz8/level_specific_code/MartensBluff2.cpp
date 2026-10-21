@@ -42,6 +42,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
