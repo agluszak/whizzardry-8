@@ -499,9 +499,6 @@ TEST_CASE("Model bounds are independent values", "[geometry]")
     box.minimum = glm::vec3(99);
     REQUIRE(model.getBounds().box.minimum == glm::vec3(-4, -3, -2));
 
-    auto draw = mesh->getTriMesh();
-    draw.bounds_radius = 99;
-    REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
     mesh->getVertexLoc()[1] = glm::vec3(4, 5, 6);
     mesh->setDirtyAll();
     REQUIRE(model.getBounds().box.maximum == glm::vec3(4, 5, 6));
@@ -746,8 +743,8 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     } before;
     shadow.renderNode()->accept(before);
     REQUIRE(before.bounds.size() == 1);
-    const auto source = mesh->getTriMesh();
-    REQUIRE(before.bounds.front() == glm::vec4(source.bounds_center, source.bounds_radius));
+    const auto source = mesh->getBounds().sphere;
+    REQUIRE(before.bounds.front() == glm::vec4(source.center, source.radius));
     REQUIRE(before.bounds.front().w > shadow.width);
 
     mesh->setBounds({-20, -30, -40}, {20, 30, 40}, {5, 6, 7}, 80);
@@ -1613,9 +1610,13 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
     }
-    const auto base = mesh.getTriMesh();
+    const auto baked = [&] {
+        mesh.applyPendingLighting();
+        return mesh.getVertexDIG(0, 0);
+    };
+    const auto* base = baked();
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(base.dig[0][vertex],
+        REQUIRE(close(base[vertex],
                       (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment) *
                           2.0f));
 
@@ -1625,15 +1626,15 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
     (*materials)[2] = nullptr;
     (*materials)[3] = material;
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto mixed = mesh.getTriMesh();
+    const auto* mixed = baked();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(mixed.dig[0][vertex],
+        REQUIRE(close(mixed[vertex],
                       (ambient[vertex] * sunlight[vertex] + lights[vertex] + environment) * 2.0f));
 
     mesh.SetAmbientColor({2, 3, 4}, environment, 0);
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    REQUIRE(mesh.getTriMesh().dig[0][0] == glm::vec3(0));
+    REQUIRE(baked()[0] == glm::vec3(0));
 }
 
 TEST_CASE("Static and frame normals share area weighting across shade seams", "[geometry][mesh]")
