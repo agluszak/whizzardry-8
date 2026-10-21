@@ -298,6 +298,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(!wiz8::sound::is_playing(sound));
     sound = wiz8::sound::stream(path, {.volume = 127, .loops = 0, .group = Group::music});
     REQUIRE(sound != nullptr);
+    REQUIRE(wiz8::sound::is_file_playing(path));
     mix(12000);
     REQUIRE(wiz8::sound::is_playing(sound));
     REQUIRE(wiz8::sound::stop_group(Group::music));
@@ -438,6 +439,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     }
     REQUIRE(wiz8::sound::play(wiz8::sound::Clip{}) == nullptr);
     sound = wiz8::sound::stream(fallback, {.volume = 127});
+    REQUIRE(wiz8::sound::is_file_playing(fallback));
     REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
@@ -812,4 +814,42 @@ TEST_CASE_METHOD(AudioFixture,
     }
     REQUIRE_FALSE(wiz8::sound::is_playing(candidate_voice));
     REQUIRE(wiz8::sound::is_playing(previous_voice));
+}
+
+TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across region changes",
+                 "[audio][ambient]")
+{
+    startOfflineAudio();
+    SetSoundEffectsVolume(127);
+    SharedAmbientGroup group;
+    group.resource = "tone.wav";
+    W8AmbientSound first, second, third;
+    for (auto* emitter : {&first, &second, &third}) {
+        emitter->radius = 100;
+        emitter->volume_max = 80;
+        emitter->bounded = 0;
+        emitter->region_scale = glm::vec3(1);
+        emitter->in_range = 1;
+        group.emitters.push_back(emitter);
+    }
+    group.service(first);
+    const auto playback = group.playback;
+    REQUIRE(playback);
+    group.current_volume = 37;
+    first.in_range = 0;
+    group.updatePosition(first, glm::vec3(0));
+    REQUIRE(group.selected == &second);
+    REQUIRE(group.playback == playback);
+    REQUIRE(group.current_volume == 37);
+    group.service(third);
+    REQUIRE(group.selected == &second);
+    REQUIRE(group.playback == playback);
+
+    group.fade_timer.m_flags.paused = true;
+    group.stop(second);
+    group.service(third);
+    REQUIRE(group.selected == &third);
+    REQUIRE(group.playback);
+    REQUIRE_FALSE(group.fade_timer.m_flags.paused);
+    REQUIRE(group.target_volume == third.volume_max);
 }
