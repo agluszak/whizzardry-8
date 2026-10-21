@@ -26,9 +26,10 @@ NativeObject::NativeObject(World& world, const std::filesystem::path& file)
     material->setSpecular(glm::vec4(0));
     material->setEmissive(glm::vec4(0));
     node = render::loadGameContent(file, material);
-    // A world-fixed object just ahead of the entry camera, clear of its near plane.
+    // A world-fixed object ahead of the party at entry, clear of the view near plane.
     const auto near = world.camera->getClipRange().first;
-    const auto camera = world.camera->transform.matrix<glm::dmat4>();
+    const auto camera = glm::translate(glm::dmat4(1), glm::dvec3(cameraLocation(world))) *
+                        glm::dmat4(cameraRotation(world));
     node->matrix = render::toVsg(
         glm::scale(glm::translate(camera, glm::dvec3(0, 0, near * 2)), glm::dvec3(near * .5)));
     world.scene->root->addChild(node);
@@ -48,11 +49,11 @@ void NativeObject::activate()
 
 NativeObject* SelectedNativeObject(const World& world)
 {
-    if (!world.picked.hit || !world.camera) return nullptr;
+    if (!world.picked.hit) return nullptr;
     const auto& hit = *world.picked.hit;
     const auto point = hit.worldIntersection;
-    if (glm::distance(glm::dvec3(point.x, point.y, point.z),
-                      world.camera->transform.getLocation()) > 5000)
+    if (glm::distance(glm::dvec3(point.x, point.y, point.z), glm::dvec3(cameraLocation(world))) >
+        5000)
         return nullptr;
     for (const auto& object : world.native_objects)
         if (std::ranges::find(hit.nodePath, object->node.get()) != hit.nodePath.end())

@@ -62,7 +62,7 @@ To try an imported, interactive VSG object in a retail world:
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh /WINDOW /NATIVEOBJECT=examples/native/prism.vsgt
 ```
 
-Start or load a game. A prism appears just ahead of the level's entry camera.
+Start or load a game. A prism appears just ahead of the party at level entry.
 Point at it with an empty hand and click to toggle its glow; the normal message
 log describes the action. It uses the world's lights and fog. This optional sample
 is recreated at each level entry, with no changes to retail assets or save records.

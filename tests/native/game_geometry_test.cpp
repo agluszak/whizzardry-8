@@ -2345,9 +2345,12 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     game.activity.place = Activity::Place::Camp;
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     game.activity.place = Activity::Place::World;
+    // The render view may move independently; gameplay reach follows the party.
     world.camera->transform.setLocation(0, 0, -6000);
+    REQUIRE(SelectedNativeObject(world) == &object);
+    placeParty(world, {0, 0, -6000});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
-    world.camera->transform.setLocation(0, 0, 0);
+    placeParty(world, {0, 0, 0});
     REQUIRE(game.activateSelectedNativeObject());
     REQUIRE_FALSE(object.illuminated);
     REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");

@@ -143,7 +143,8 @@ Unlayered code may use the layers.
   geometry and adapts it to game lighting, ambient and fog without a retail mesh.
   Ordinary subgraphs can continue using standard VSG materials. `World::picked`
   carries the intersection into gameplay; world-owned `NativeObject`s resolve their
-  graph identity there and issue normal game events when activated. `/NATIVEOBJECT`
+  graph identity there and issue normal game events when activated. Placement and
+  reach use the authoritative party pose, independently of render-view offsets. `/NATIVEOBJECT`
   imports optional session content at level entry, with a shipped prism example;
   ordinary world hover/click gates apply. These cosmetic sample objects are rebuilt
   on entry rather than changing retail save records.
