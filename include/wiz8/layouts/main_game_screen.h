@@ -104,9 +104,8 @@ struct MainGameRepaint {
     {
         return everything || panels || portraits.any() || portrait_bars.any() ||
                roof_and_spell_icons || layout || radar || text_box || submenu_buttons ||
-               submenu_panel || formation || portrait_panel ||
-               monster_list || options_button || combat_stance || combat_progress ||
-               character_action || combat_effects;
+               submenu_panel || formation || portrait_panel || monster_list || options_button ||
+               combat_stance || combat_progress || character_action || combat_effects;
     }
 };
 

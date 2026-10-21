@@ -2679,7 +2679,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
                                            party_slot == hud.held_item_display,
                                        true, hud.portrait_refresh_pending[party_slot] == 0);
             auto rect = PortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                      hud.portrait_hover_x_origin);
+                                                       hud.portrait_hover_x_origin);
             if (hud.portrait_refresh_pending[party_slot])
                 rect = UnionScreenRects(rect, PortraitBounds(party_slot));
             InvalidateRegion(rect.left, rect.top, rect.right + 1, rect.bottom + 1);
@@ -3717,13 +3717,11 @@ DesignRect g_viewport_modes[7] = {
 };
 
 W8MainGameInvalidateRect g_main_game_invalidate_rects[14] = {
-    {0, 0, 639, 16, false},       {0, 358, 639, 449, true},
-    {23, 360, 127, 449, true},    {129, 358, 510, 449, true},
-    {31, 450, 606, 476, true},    {469, 382, 500, 461, true},
-    {512, 358, 616, 449, true},   {0, 0, 0, 0, false},
-    {127, 260, 513, 356, false},  {250, 25, 0, 0, false},
-    {1, 450, 29, 476, true},      {293, 450, 524, 476, true},
-    {612, 452, 636, 473, true},   {0, 0, 0, 0, false},
+    {0, 0, 639, 16, false},     {0, 358, 639, 449, true},  {23, 360, 127, 449, true},
+    {129, 358, 510, 449, true}, {31, 450, 606, 476, true}, {469, 382, 500, 461, true},
+    {512, 358, 616, 449, true}, {0, 0, 0, 0, false},       {127, 260, 513, 356, false},
+    {250, 25, 0, 0, false},     {1, 450, 29, 476, true},   {293, 450, 524, 476, true},
+    {612, 452, 636, 473, true}, {0, 0, 0, 0, false},
 };
 
 /* Invalidate the rectangle of each part a draw was asked to repaint, placed by the
@@ -3843,7 +3841,7 @@ static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
 {
     const auto& hud = *MainGameHud();
     const auto rect = PortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                    hud.portrait_hover_x_origin);
+                                                     hud.portrait_hover_x_origin);
     return rect.right >= 0 &&
            IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right, rect.bottom);
 }
