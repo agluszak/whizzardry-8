@@ -219,7 +219,6 @@ target_sources(wiz8_engine PRIVATE
     ../native/key_bindings.cpp
     ../native/game_events.cpp
     ../native/movie.cpp
-    ../native/bink_video.cpp
 )
 target_link_libraries(wiz8_engine PRIVATE PkgConfig::FFMPEG)
 target_link_libraries(wiz8_engine PUBLIC wiz8_native_settings
