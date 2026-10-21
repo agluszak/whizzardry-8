@@ -23,7 +23,7 @@ struct W8AmbientTrack {
     std::uint32_t volume_min = 0, volume_max = 0;
     std::optional<std::pair<std::uint32_t, std::uint32_t>> speed;
     std::optional<std::uint32_t> loops;
-    std::uint64_t next_at = 0;
+    std::uint64_t next_at = 0; // Held world-clock milliseconds.
 
     ~W8AmbientTrack();
     void Reschedule();

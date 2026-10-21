@@ -66,7 +66,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
@@ -432,22 +431,12 @@ void TriggerEvent::Update()
         return;
     }
     if (action == 2) {
-        W8GameTimer::Flags flags = timer.m_flags;
-
         if (CurrentGame().combat.has_value()) {
-            if (flags.paused || (g_shared_timer_paused && !flags.raw_time) ||
-                g_shared_timer_flag0) {
-                return;
-            }
-            timer.m_flags.paused = true;
-            timer.m_start = timer.GetTime() - timer.m_start;
+            timer.Pause();
             return;
         }
-        if (flags.paused || (g_shared_timer_paused && !flags.raw_time) || g_shared_timer_flag0) {
-            timer.m_flags.paused = false;
-            timer.m_start = timer.GetTime() - timer.m_start;
-            timer.SetDuration(-1.0f);
-        }
+        timer.Resume();
+        if (SharedGameTimersHeld()) return;
     }
 
     if (timer.GetProgress() <= 1.0f || trigger->HasActorWithinRadius(5000.0f, true)) {
@@ -642,7 +631,7 @@ Trigger::Trigger(World* world)
     action_data[0] = 0;
     action_data_mode = W8TriggerActionDataMode::toggle_alternate;
     item_group_seed =
-        static_cast<unsigned int>(MonotonicMilliseconds() + CurrentGame().rng.below(30000));
+        static_cast<unsigned int>(WorldClockMilliseconds() + CurrentGame().rng.below(30000));
     gold = 0;
     uses_remaining = 0;
     trigger_id = world ? world->next_trigger_id++ : 0;
@@ -1657,7 +1646,7 @@ void Trigger::Run(int source)
                 m_pEvent->timer.SetDuration(m_lData2 * 720.0f);
                 m_pEvent->timer.Restart();
                 m_pEvent->trigger = this;
-                m_pEvent->timer.SetMode(W8_TIMER_CLOCK_GAME);
+                m_pEvent->timer.SetMode(TimerClock::Calendar);
                 m_pWorld->timed_events.push_back(m_pEvent.get());
             }
         }
@@ -1878,7 +1867,7 @@ void Trigger::Run(int source)
 
     case 0x4b: {
         if (recipients.empty()) return;
-        const auto selected = MonotonicMilliseconds() % recipients.size();
+        const auto selected = WorldClockMilliseconds() % recipients.size();
         RunDestination(recipients[selected].c_str());
         break;
     }

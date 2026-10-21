@@ -9,10 +9,9 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/timer.h"
 
-std::uint32_t GameClockTicks()
+std::uint64_t WorldClockMilliseconds()
 {
-    return static_cast<std::uint32_t>(MonotonicMicroseconds() /
-                                      (1'000'000 / W8_SHARED_TIMER_TICKS_PER_SECOND));
+    return GameInProgress() ? static_cast<std::uint64_t>(CurrentGame().visual_time.count()) : 0;
 }
 
 std::uint32_t GameClockMilliseconds()
@@ -20,8 +19,6 @@ std::uint32_t GameClockMilliseconds()
     return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
 }
 
-std::uint32_t g_shared_timer_pause_base;
-std::uint32_t g_shared_timer_pause_time;
 bool g_shared_timer_paused;
 bool g_shared_timer_flag0;
 bool g_level_motion_resume_pending;
@@ -29,7 +26,6 @@ bool g_level_motion_resume_pending;
 void PauseSharedGameTimers(void)
 {
     g_shared_timer_paused = true;
-    g_shared_timer_pause_time = GameClockTicks() - g_shared_timer_pause_base;
 
     GameTimeAccumulator().m_flags.paused = true;
 }
@@ -38,8 +34,6 @@ void ResumeSharedGameTimers(void)
 {
     g_shared_timer_paused = false;
     g_shared_timer_flag0 = false;
-    g_shared_timer_pause_base = GameClockTicks() - g_shared_timer_pause_time;
-    g_shared_timer_pause_time = 0;
 
     GameTimeAccumulator().m_flags.paused = false;
 }
@@ -49,17 +43,12 @@ std::uint32_t W8GameTimer::GetTime()
     return ReadClock();
 }
 
-W8GameTimer::W8GameTimer() : W8GameTimer(1.0f, false) {}
+W8GameTimer::W8GameTimer() : W8GameTimer(1.0f) {}
 
-/* The startup status object uses the duration-bearing constructor at
-   0x004397F0.  It differs from the default constructor only in the raw-time
-   flag and in converting seconds to the timer's 1/10000-second units. */
-W8GameTimer::W8GameTimer(float duration, bool raw_time)
+W8GameTimer::W8GameTimer(float duration, TimerClock clock)
 {
-    Flags initial_flags = {false, false, 0, false, false, 0, 0};
-    m_clock_mode = W8_TIMER_CLOCK_SHARED;
-    m_flags = initial_flags;
-    m_flags.raw_time = raw_time;
+    m_clock_mode = clock;
+    m_flags = {};
     m_start = 0;
     m_end = 0;
     m_duration_seconds = 0;
@@ -80,7 +69,7 @@ void W8GameTimer::SetDuration(float duration)
     m_end = m_start + m_duration;
 }
 
-void W8GameTimer::SetMode(W8TimerClock mode)
+void W8GameTimer::SetMode(TimerClock mode)
 {
     m_clock_mode = mode;
     Restart();
@@ -88,8 +77,30 @@ void W8GameTimer::SetMode(W8TimerClock mode)
 
 void W8GameTimer::Restart()
 {
+    m_flags.paused = false;
+    paused_elapsed_ = 0;
     m_start = ReadClock();
     m_end = m_start + m_duration;
+}
+
+std::uint32_t W8GameTimer::ElapsedTicks() const
+{
+    return m_flags.paused ? paused_elapsed_ : ReadClock() - m_start;
+}
+
+void W8GameTimer::Pause()
+{
+    if (m_flags.paused) return;
+    paused_elapsed_ = ElapsedTicks();
+    m_flags.paused = true;
+}
+
+void W8GameTimer::Resume()
+{
+    if (!m_flags.paused) return;
+    m_start = ReadClock() - paused_elapsed_;
+    m_end = m_start + m_duration;
+    m_flags.paused = false;
 }
 
 void W8GameTimer::SetDurationScale(float scale)
@@ -98,7 +109,7 @@ void W8GameTimer::SetDurationScale(float scale)
     if (scale < 0.5f) {
         m_flags.slow_scale = true;
     }
-    float progress = GetProgress();
+    const float progress = m_duration > 0 ? ElapsedTicks() / static_cast<float>(m_duration) : 1.0f;
     m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
     SetProgress(progress);
 }
@@ -107,38 +118,31 @@ void W8GameTimer::ResetDurationScale()
 {
     m_flags.slow_scale = false;
     m_duration_scale = 1.0f;
-    float progress = GetProgress();
+    const float progress = m_duration > 0 ? ElapsedTicks() / static_cast<float>(m_duration) : 1.0f;
     m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
     SetProgress(progress);
 }
 
 float W8GameTimer::GetProgress()
 {
-    const std::uint32_t sample = ReadClock();
-    const std::uint32_t start = m_start;
-    const std::uint32_t end = m_end;
-    float progress = (sample - start) / static_cast<float>(end - start);
-    int completed = static_cast<int>(progress);
-
+    if (m_flags.paused ||
+        ((m_clock_mode == TimerClock::World || m_clock_mode == TimerClock::Calendar) &&
+         SharedGameTimersHeld()))
+        return 0.0f;
+    if (m_duration <= 0) return 1.0f;
+    const float progress = ElapsedTicks() / static_cast<float>(m_duration);
+    const auto completed = static_cast<std::uint32_t>(progress);
     if (completed > 0) {
-        m_start =
-            static_cast<std::uint32_t>(completed - 1) * static_cast<std::uint32_t>(m_duration) +
-            end;
+        m_start += completed * static_cast<std::uint32_t>(m_duration);
         m_end = m_start + m_duration;
     }
-
-    if (!m_flags.paused && (!g_shared_timer_paused || m_flags.raw_time) && !g_shared_timer_flag0 &&
-        (!g_level_motion_resume_pending || m_flags.raw_time)) {
-        return progress;
-    }
-    return 0.0f;
+    return progress;
 }
 
 void W8GameTimer::SetProgress(float progress)
 {
-    const std::uint32_t sample = ReadClock();
-    m_start = sample - static_cast<std::uint32_t>(
-                           static_cast<int>(static_cast<unsigned int>(m_duration) * progress));
+    paused_elapsed_ = static_cast<std::uint32_t>(m_duration * progress);
+    m_start = ReadClock() - paused_elapsed_;
     m_end = m_start + m_duration;
 }
 
@@ -153,7 +157,8 @@ try {
         const std::uint32_t sample = ReadClock();
         unsigned int elapsed =
             static_cast<unsigned int>(static_cast<unsigned int>(m_duration) * progress);
-        m_start = sample < elapsed ? 0 : sample - elapsed;
+        paused_elapsed_ = elapsed;
+        m_start = sample - elapsed; // Unsigned interval subtraction also works at a new game epoch.
         m_end = m_start + m_duration;
     }
     return true;
@@ -163,26 +168,22 @@ try {
 
 float W8GameTimer::GetElapsedSeconds()
 {
-    const std::uint32_t sample = ReadClock();
-    return ((sample - m_start) / static_cast<float>(m_end - m_start)) * m_duration_seconds;
+    return ElapsedTicks() / static_cast<float>(W8_SHARED_TIMER_TICKS_PER_SECOND);
 }
 
 std::uint32_t W8GameTimer::ReadClock() const
 {
     switch (m_clock_mode) {
-    case W8_TIMER_CLOCK_GAME:
-        // Retail wraps the game-day clock modulo 2^32 after a few game days.
+    case TimerClock::Calendar:
         return (static_cast<std::uint32_t>(CurrentGame().status.game_time_days) * 86400000u +
                 CurrentGame().status.game_time_ms) *
                10u;
-    default:
-        break;
+    case TimerClock::Presentation:
+        return static_cast<std::uint32_t>(MonotonicMicroseconds() / 100);
+    case TimerClock::Game:
+        return GameClockMilliseconds() * 10u;
+    case TimerClock::World:
+        return static_cast<std::uint32_t>(WorldClockMilliseconds() * 10u);
     }
-    if (!m_flags.raw_time) {
-        if (g_shared_timer_paused) {
-            return g_shared_timer_pause_time;
-        }
-        return GameClockTicks() - g_shared_timer_pause_base;
-    }
-    return GameClockTicks();
+    return 0;
 }

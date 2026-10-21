@@ -532,7 +532,7 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
     if (timer_flags.paused) {
         return m_rotation;
     }
-    if (g_shared_timer_paused && !timer_flags.raw_time) {
+    if (g_shared_timer_paused) {
         return m_rotation;
     }
     if (g_shared_timer_flag0) {
@@ -611,12 +611,8 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
     }
 
     timer_flags = GameTimeAccumulator().m_flags;
-    if (timer_flags.paused || (g_shared_timer_paused && !timer_flags.raw_time) ||
-        g_shared_timer_flag0) {
+    if (timer_flags.paused || (g_shared_timer_paused) || g_shared_timer_flag0) {
         if (!g_level_motion_resume_pending) {
-            return result;
-        }
-        if (timer_flags.raw_time) {
             return result;
         }
         g_level_motion_resume_pending = false;

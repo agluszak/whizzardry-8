@@ -2141,10 +2141,6 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
     REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
-    g_level_motion_resume_pending = true;
-    GameTimeAccumulator().m_flags.raw_time = true;
-    REQUIRE(controller.move(data, W8_CAMERA_MOTION_FORWARD, basis).displacement == glm::vec3(0));
-    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
 }
 
 TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",

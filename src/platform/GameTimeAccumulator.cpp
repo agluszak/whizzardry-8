@@ -55,16 +55,13 @@ void W8GameTimeAccumulator::ResetTimeScale()
 
 float W8GameTimeAccumulator::Update(std::chrono::milliseconds elapsed)
 {
-    if (m_flags.paused || (g_shared_timer_paused && !m_flags.raw_time) || g_shared_timer_flag0) {
+    if (m_flags.paused || SharedGameTimersHeld()) {
         m_frame_delta = 0.0f;
     } else {
         const auto ticks =
             static_cast<float>(elapsed.count()) * (W8_SHARED_TIMER_TICKS_PER_SECOND / 1000.0f);
         m_frame_delta = std::min(ticks / static_cast<float>(m_duration), m_max_frame_delta);
         m_elapsed += m_frame_delta;
-    }
-    if (g_level_motion_resume_pending && !m_flags.raw_time) {
-        return 0.0f;
     }
     return m_frame_delta;
 }

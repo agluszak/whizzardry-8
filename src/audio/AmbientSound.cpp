@@ -36,7 +36,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
@@ -52,11 +51,11 @@ W8AmbientTrack::~W8AmbientTrack()
 }
 void W8AmbientTrack::Reschedule()
 {
-    next_at = MonotonicMilliseconds() + RandomRange(time_min, time_max);
+    next_at = WorldClockMilliseconds() + RandomRange(time_min, time_max);
 }
 bool W8AmbientTrack::Due() const
 {
-    return !loops && next_at <= MonotonicMilliseconds() && !wiz8::sound::is_playing(instance);
+    return !loops && next_at <= WorldClockMilliseconds() && !wiz8::sound::is_playing(instance);
 }
 std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t maximum)
 {
@@ -201,10 +200,6 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                                     wiz8::sound::volume(sound_handle).value_or(0);
                                 match->fade_timer.SetDuration(1.5f / match->target_volume);
                                 match->fade_timer.Restart();
-                                match->fade_timer.m_flags.paused = false;
-                                match->fade_timer.m_start =
-                                    match->fade_timer.GetTime() - match->fade_timer.m_start;
-                                match->fade_timer.SetDuration(-1.0f);
                                 sound_handle = nullptr;
                                 handed_off = true;
                             }
@@ -220,9 +215,6 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                             (volume_max * g_settings.sound_effects_volume) / 0x7f;
                         fade_timer.SetDuration(1.5f / full_volume);
                         fade_timer.Restart();
-                        fade_timer.m_flags.paused = false;
-                        fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-                        fade_timer.SetDuration(-1.0f);
                     }
                     return;
                 }
@@ -267,9 +259,6 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                 target_volume = full_volume;
                 fade_timer.SetDuration(1.5f / full_volume);
                 fade_timer.Restart();
-                fade_timer.m_flags.paused = false;
-                fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-                fade_timer.SetDuration(-1.0f);
             }
         }
     }
@@ -367,9 +356,6 @@ void W8AmbientSound::Service(bool entered)
         sound_handle = wiz8::sound::play(config.wave_name, {.volume = 0, .loops = 0});
         fade_timer.SetDuration(1.5f / target_volume);
         fade_timer.Restart();
-        fade_timer.m_flags.paused = false;
-        fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-        fade_timer.SetDuration(-1.0f);
     }
 }
 
@@ -417,8 +403,7 @@ void W8AmbientSound::UpdateFade()
                 } else if (target_volume < current_volume) {
                     --current_volume;
                 } else if (!timer->m_flags.paused) {
-                    timer->m_flags.paused = true;
-                    timer->m_start = timer->GetTime() - timer->m_start;
+                    timer->Pause();
                 }
                 wiz8::sound::set_volume(sound_handle, current_volume);
             }

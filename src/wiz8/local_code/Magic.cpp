@@ -68,7 +68,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
@@ -2012,10 +2011,12 @@ static bool CheckAndRestartSpellCooldown(int spell_id)
     bool affected = true;
     for (unsigned int index = 0; index < 14; ++index) {
         if (g_cooldown_gated_spells[index] == spell_id) {
-            if (TimeUntilDeadline(CurrentGame().spell_cooldowns[index]) != 0) {
+            if (CurrentGame().time.count() <
+                static_cast<std::int64_t>(CurrentGame().spell_cooldowns[index])) {
                 affected = false;
             }
-            CurrentGame().spell_cooldowns[index] = MonotonicMilliseconds() + (180000);
+            CurrentGame().spell_cooldowns[index] =
+                static_cast<std::uint64_t>(CurrentGame().time.count()) + 180000;
             break;
         }
     }

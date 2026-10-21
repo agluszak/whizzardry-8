@@ -240,7 +240,7 @@ bool AscensionScript::landShaker(int command)
         return false;
     }
     if (!avalanche_gate_) {
-        avalanche_gate_.emplace(1.0f, false, true);
+        avalanche_gate_.emplace(1.0f, TimerClock::World, true);
         return false;
     }
     if (!avalanche_gate_->PollFinished()) {

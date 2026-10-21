@@ -337,7 +337,7 @@ bool MartensBluff2Script::spikeball(int command)
             spikeball_count_ = command;
         }
         if (!spikeball_gate_) {
-            spikeball_gate_.emplace(2.0f, false, true);
+            spikeball_gate_.emplace(2.0f, TimerClock::World, true);
             addMaster(&MartensBluff2Script::spikeball, &MartensBluff2Script::captureSpikeball);
         }
     }
@@ -648,7 +648,7 @@ bool MartensBluff2Script::idolGas(int command)
             idol_gas_gate_->Arm();
             return false;
         }
-        idol_gas_gate_.emplace(4.0f, false, true);
+        idol_gas_gate_.emplace(4.0f, TimerClock::World, true);
         return false;
     }
     if (!idol_gas_armed_) {
