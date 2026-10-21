@@ -103,10 +103,11 @@ struct World {
     std::vector<std::unique_ptr<ParticleSystem>> particles;
     std::vector<std::unique_ptr<ParticleSystem>> retired_particles;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
-    // Trigger destruction unregisters its owned event from this schedule.
-    std::vector<TriggerEvent*> timed_events;
-    std::vector<std::unique_ptr<TriggerEvent>> standalone_trigger_events;
     std::vector<std::unique_ptr<Trigger>> triggers;
+    // Destroy actions before the triggers they borrow. Only the update loop erases actions.
+    std::vector<std::unique_ptr<TriggerEvent>> timed_events;
+    TriggerEvent* findTimedAction(const Trigger* trigger) const;
+    TriggerEvent& addTimedAction(Trigger* trigger);
     std::vector<std::unique_ptr<Prop>> plsProps;
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;

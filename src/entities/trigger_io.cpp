@@ -140,6 +140,7 @@ static void ApplySavedLocks(World& world, const SavedTriggerLocks& section)
 // FUNCTION: WIZ8 0x0043BE60
 void Trigger::Save(wiz8::File& hFile)
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     unsigned char version = 5;
     int trigger_count = static_cast<int>(GetWorld()->triggers.size());
     unsigned char has_action_data;
@@ -177,12 +178,11 @@ void Trigger::Save(wiz8::File& hFile)
                 action_flags |= 0x200;
             }
             hFile.write(&action_flags, sizeof(action_flags));
-            if (m_lData1 != 0 && m_pEvent != 0 &&
-                std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                float progress = m_pEvent->timer.GetProgress();
+            if (m_lData1 != 0 && timed_action != nullptr) {
+                float progress = timed_action->timer.GetProgress();
                 if (progress <= g_trigger_progress_limit) {
-                    progress_delay =
-                        static_cast<unsigned int>(m_pEvent->timer.GetProgress() * 1e+03f + 1.0f);
+                    progress_delay = static_cast<unsigned int>(
+                        timed_action->timer.GetProgress() * 1e+03f + 1.0f);
                 } else {
                     progress_delay = 64000;
                 }
@@ -280,6 +280,7 @@ static SavedTrigger DecodeSavedTrigger(W8Chunk& file, std::uint8_t version, bool
    its timed event with the saved progress. */
 void Trigger::Restore(SavedTrigger saved)
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     flags = saved.flags;
     state_index = saved.state_index;
     state_direction = saved.state_direction;
@@ -300,18 +301,15 @@ void Trigger::Restore(SavedTrigger saved)
         data.jammed = door.jammed;
         if (door.packed) {
             if (m_lData1 != 0 && door.progress_delay != 0) {
-                if (m_pEvent == 0) {
-                    m_pEvent = std::make_unique<TriggerEvent>();
-                    m_pEvent->trigger = this;
-                    m_pEvent->action = 2;
-                    m_pEvent->timer.SetDuration(m_lData1 < 0 ? 10.0f
-                                                             : static_cast<float>(m_lData1));
-                    m_pEvent->timer.Restart();
-                    m_pEvent->repeat = true;
+                if (timed_action == 0) {
+                    timed_action = &m_pWorld->addTimedAction(this);
+                    timed_action->action = 2;
+                    timed_action->timer.SetDuration(m_lData1 < 0 ? 10.0f
+                                                                 : static_cast<float>(m_lData1));
+                    timed_action->timer.Restart();
+                    timed_action->repeat = true;
                 }
-                m_pEvent->timer.SetProgress(door.progress_delay * 0.001f);
-                if (!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()))
-                    m_pWorld->timed_events.push_back(m_pEvent.get());
+                timed_action->timer.SetProgress(door.progress_delay * 0.001f);
             }
             data.item = static_cast<short>(door.item);
         }
@@ -952,13 +950,12 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
                 throw std::runtime_error(
                     fmt::format("trigger {}: missile trigger needs a time", trigger->name));
             if (trigger->m_lData2 < 0) {
-                trigger->m_pEvent = std::make_unique<TriggerEvent>();
-                trigger->m_pEvent->action = static_cast<short>(trigger->initial_action);
-                trigger->m_pEvent->timer.SetDuration(abs(trigger->m_lData2) * 0.001f);
-                trigger->m_pEvent->timer.Restart();
-                trigger->m_pEvent->trigger = trigger;
+                auto& timed_action = world->addTimedAction(trigger);
+                timed_action.action = static_cast<short>(trigger->initial_action);
+                timed_action.timer.SetDuration(abs(trigger->m_lData2) * 0.001f);
+                timed_action.timer.Restart();
+
                 trigger->flags |= W8_TRIGGER_RUNNING;
-                world->timed_events.push_back(trigger->m_pEvent.get());
             }
         } else if (trigger->initial_action > 0x24 && trigger->initial_action < 0x2c &&
                    trigger->m_lData1 >= 0) {
