@@ -125,6 +125,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
     bool finished;
 
     // Facts may replace the NPC script and select a new invocation while this runs.
+    const auto cancellation_generation = cancellation_generation_;
     const auto script_owner = session_.binding.script;
     if (!script_owner || script_line < 0) return;
     session_.current_quote_index = script_line;
@@ -257,8 +258,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                 default:
                     break;
                 }
-                if (cancelled_) {
-                    cancelled_ = false;
+                if (cancellation_generation != cancellation_generation_) {
                     return;
                 }
                 if (finished) {
@@ -266,8 +266,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                 }
             }
         }
-        if (cancelled_) {
-            cancelled_ = false;
+        if (cancellation_generation != cancellation_generation_) {
             return;
         }
         if (response >= 0) {
@@ -402,7 +401,7 @@ void W8NpcDialogue::QueueQuoteEntry(int quote_index, int entry_index, int contin
 
 void W8NpcDialogue::Cancel()
 {
-    cancelled_ = true;
+    ++cancellation_generation_;
 }
 
 /* Run every kind-0x17 consequence entry of the given quote - the reply

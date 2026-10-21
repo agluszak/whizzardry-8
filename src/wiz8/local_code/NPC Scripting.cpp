@@ -533,7 +533,9 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             if (session_.npc->record->voice_script == 0) {
                 for (const W8MessageBoxLine& queued_line : queue_) {
                     const auto* queued = std::get_if<W8NpcQueuedQuote>(&queued_line.action);
-                    if (queued == 0 || queued->suppress_entries ||
+                    if (queued == 0 || !queued->binding.script || queued->quote_index < 0 ||
+                        queued->quote_index >= queued->binding.script->quote_count ||
+                        queued->suppress_entries ||
                         std::ranges::find(pending_quotes_, queued->quote_index) ==
                             pending_quotes_.end()) {
                         continue;
@@ -559,7 +561,8 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         }
 
         const W8NpcScriptFile* script = session_.binding.script.get();
-        if (script != 0 && !quote_line->suppress_entries && quote_index < script->quote_count) {
+        if (script != 0 && !quote_line->suppress_entries && quote_index >= 0 &&
+            quote_index < script->quote_count) {
             const W8NpcScriptQuote* quote = &script->quotes[quote_index];
             for (index = 0; index < quote->entry_count; ++index) {
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;

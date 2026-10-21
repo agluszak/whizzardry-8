@@ -109,7 +109,7 @@ private:
     /* Quotes queued with mark_pending since the queue last ran dry. */
     std::vector<int> pending_quotes_;
     bool queue_idle_ = false;
-    bool cancelled_ = false;
+    unsigned int cancellation_generation_ = 0;
     bool held_by_scene_ = false;
 };
 
