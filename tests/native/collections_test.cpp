@@ -682,10 +682,6 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     const ScopedGame game;
     auto& rows = CurrentGame().party.rows;
     auto& characters = CurrentGame().party.characters;
-    struct RestoreState {
-        std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
-        ~RestoreState() { gpSCSV = std::move(view); }
-    } restore;
     CurrentGame().party.members[0].emplace();
     characters[0].hp_current = 1;
     rows[0].committed.kind = W8_ACTION_CAST_SPELL;
@@ -693,18 +689,16 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     rows[0].committed.detail_block.spell.power_level = 2;
     rows[0].committed.target = {W8_TARGET_KIND_MONSTER, -1, 17, -1, {}, {}};
     rows[0].remembered.spell = {W8_ACTION_CAST_SPELL, 7};
-    gpSCSV = std::make_unique<W8SpellCastingView>();
-    gpSCSV->draft = rows[0].remembered.spell;
-    gpSCSV->draft.detail = 9;
-    gpSCSV->draft.detail_block.spell.power_level = 3;
+    W8Action draft = rows[0].remembered.spell;
+    draft.detail = 9;
+    draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
-    CommitActionTarget(0, W8_TARGETING_CONTEXT_SHARED, target, false);
-    const auto assessed = SelectCombatAction(0, W8_TARGETING_CONTEXT_SHARED);
+    CommitActionTarget(0, W8EditedAction{draft}, target, false);
+    const auto assessed = SelectCombatAction(0, W8EditedAction{draft});
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
-    gpSCSV->draft.target.iType = W8_TARGET_KIND_NONE;
+    draft.target.iType = W8_TARGET_KIND_NONE;
     REQUIRE(assessed.target == target);
-    gpSCSV.reset();
     REQUIRE(rows[0].committed.detail == 5);
     REQUIRE(rows[0].committed.detail_block.spell.power_level == 2);
     REQUIRE(rows[0].committed.target.iMonsterID == 17);

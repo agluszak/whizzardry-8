@@ -590,6 +590,6 @@ void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
 
-/* Which stored action the slot is editing: the open picker's draft for the
-   selected slot, otherwise its in-combat or out-of-combat action. */
-W8TargetingContext GetEditedActionContext(int party_slot);
+/* Which action the slot is editing: the open picker's draft for the selected
+   slot, otherwise its stored in-combat or out-of-combat action. */
+W8EditedAction GetEditedActionContext(int party_slot);

@@ -179,10 +179,21 @@ struct W8TargetAssessment {
 enum W8TargetingContext : std::uint8_t {
     W8_TARGETING_CONTEXT_OUT_OF_COMBAT = 0,
     W8_TARGETING_CONTEXT_IN_COMBAT = 1,
-    W8_TARGETING_CONTEXT_SHARED = 2,
     W8_TARGETING_CONTEXT_SPELL = 3,
     W8_TARGETING_CONTEXT_ITEM = 4,
     W8_TARGETING_CONTEXT_BREATH = 5,
     W8_TARGETING_CONTEXT_ATTACK = 8 /* fixed basic attack, without a target/detail block */
+};
+
+/* The action a targeting operation reads and aims: one stored on the party slot's row,
+   named by its context, or a picker's draft that the picker passes in and that is
+   edited in place. */
+struct W8EditedAction {
+    W8EditedAction(W8TargetingContext stored) : context(stored) {}
+    explicit W8EditedAction(W8Action& picker_draft) : draft(&picker_draft) {}
+    bool operator==(W8TargetingContext stored) const { return !draft && context == stored; }
+
+    W8TargetingContext context = W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    W8Action* draft = nullptr;
 };
 #endif

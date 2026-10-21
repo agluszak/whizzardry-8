@@ -3688,7 +3688,8 @@ void FallbackFromUnreachableAction(int party_slot)
                                                    row->committed.detail_block.item_use.item));
                 const W8TargetNeed needed_kind =
                     GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
-                ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind);
+                ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind,
+                                           nullptr);
                 return;
             }
         } else {
@@ -6667,10 +6668,11 @@ unsigned char UpdateSurpriseFade(void)
     return done;
 }
 
-W8TargetingContext GetEditedActionContext(int party_slot)
+W8EditedAction GetEditedActionContext(int party_slot)
 {
-    if (party_slot == CurrentGame().status.selected_character && (gpSCSV || ItemUseDraft())) {
-        return W8_TARGETING_CONTEXT_SHARED;
+    if (party_slot == CurrentGame().status.selected_character) {
+        if (gpSCSV) return W8EditedAction{gpSCSV->draft};
+        if (auto* draft = ItemUseDraft()) return W8EditedAction{*draft};
     }
     return CurrentGame().combat.has_value() ? W8_TARGETING_CONTEXT_IN_COMBAT
                                             : W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
@@ -6678,7 +6680,7 @@ W8TargetingContext GetEditedActionContext(int party_slot)
 
 // The interaction controller evaluates a choice, commits its gameplay state,
 // and then refreshes the presentation of that committed choice.
-void AimAtTarget(int actor, const W8CombatSlot* target, W8TargetingContext context)
+void AimAtTarget(int actor, const W8CombatSlot* target, W8EditedAction context)
 {
     const auto action = SelectCombatAction(actor, context);
     const auto chosen = *target; // The caller may borrow one of the remembered blocks.
@@ -6754,7 +6756,8 @@ void SetTargetingMode(W8TargetNeed state)
     SetTargetConeEnabled(state == W8_TARGET_NEED_CONE);
 }
 
-void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind)
+void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed needed_kind,
+                                W8Action* draft)
 {
     W8CombatSlot target;
     int cursor = -1;
@@ -6777,8 +6780,8 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
             target.iMonsterID = CurrentGame().npc_interaction.target_location_id;
             AimAtTarget(selected, &target, GetEditedActionContext(selected));
             needed_kind = W8_TARGET_NEED_NONE;
-        } else if (g_settings.autotarget_spells != 0 &&
-                   RepickActionTarget(selected, W8_TARGETING_CONTEXT_SHARED, 0)) {
+        } else if (g_settings.autotarget_spells != 0 && draft &&
+                   RepickActionTarget(selected, W8EditedAction{*draft}, 0)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             PointCameraAtCombatTarget(&source,
