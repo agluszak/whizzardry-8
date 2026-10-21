@@ -220,15 +220,15 @@ add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_g
 target_link_libraries(native_world_graphics PRIVATE wiz8_engine SDL3::SDL3)
 
 # Scenarios through the real game loop against installed retail assets
-# (WIZ8_ASSET_ROOT); skipped when it is unset. bink_video.cpp is recompiled
+# (WIZ8_ASSET_ROOT); skipped when it is unset. movie.cpp is recompiled
 # with WIZ8_RUNTIME_TESTS (as is platform/timer.cpp, the game clock) so their test
 # hooks replace the archives' objects.
 add_executable(native_runtime_test runtime/runtime_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/native/bink_video.cpp"
+    "${PROJECT_SOURCE_DIR}/src/native/movie.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/timer.cpp")
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
-target_link_libraries(native_runtime_test PRIVATE wiz8_engine SDL3::SDL3)
+target_link_libraries(native_runtime_test PRIVATE wiz8_engine SDL3::SDL3 PkgConfig::FFMPEG)
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"

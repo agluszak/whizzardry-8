@@ -23,13 +23,12 @@
 
 #include <wiz8/asset_paths.h>
 
-#include "../../src/native/movie.h"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
-#include "wiz8/bink_video.h"
 #include "wiz8/canvas/image_assets.h"
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/cursor.h"
+#include "wiz8/movie.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
@@ -157,10 +156,12 @@ TEST_CASE("game graphics")
             REQUIRE((decoded.frame().width == 32 && decoded.frame().height == 24));
             movie_pixels = decoded.frame().pixels;
         }
-        W8BinkVideo movie;
-        movie.SetTarget(BeginVideoPresentation());
-        REQUIRE(movie.Open(movie_path, 0));
-        REQUIRE(!movie.UpdateFrame());
+        auto* target = BeginVideoPresentation();
+        REQUIRE(target);
+        SDL_FillSurfaceRect(target, nullptr, 0);
+        W8NativeVideo movie;
+        REQUIRE(movie.play(movie_path, *target));
+        REQUIRE(!movie.advance());
         // The actual presentation surface reaches GPU output; the game primary stays intact.
         RenderFrame();
         buffer = g_renderer->readback();
