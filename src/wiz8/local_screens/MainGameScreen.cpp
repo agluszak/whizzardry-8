@@ -60,6 +60,7 @@
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/cursor.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/entities/trigger.h"
@@ -4995,7 +4996,9 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
         } else if (!CurrentGame().advancement.held) {
-            ActivateSelectedProp();
+            if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
+                !CurrentGame().activateSelectedNativeObject())
+                ActivateSelectedProp();
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
@@ -5139,6 +5142,11 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                     return;
                 }
                 ScreenPointer().showSlot(cursor);
+                return;
+            }
+            if (SelectedNativeObject(*GetWorld()) && !CurrentGame().advancement.held &&
+                CurrentGame().party.held.item.iItemNo == -1) {
+                ScreenPointer().showSlot(13);
                 return;
             }
             int prop_index = GetSelectedPropIndex();

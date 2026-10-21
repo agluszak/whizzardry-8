@@ -24,6 +24,9 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <vsg/app/Camera.h>
+#include <vsg/app/ProjectionMatrix.h>
+#include <vsg/app/ViewMatrix.h>
 #include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Object.h>
@@ -34,6 +37,7 @@
 #include <vsg/state/DescriptorBuffer.h>
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/PipelineLayout.h>
+#include <vsg/state/ViewportState.h>
 #include <vulkan/vulkan_core.h>
 
 #include "geometry.h"
@@ -63,6 +67,7 @@
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
@@ -84,6 +89,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
@@ -2304,4 +2310,48 @@ TEST_CASE("World posters preserve full-image UVs and infer rectangular aspect", 
     REQUIRE(mesh.vertex_locations[0] == glm::vec3(-250, -125, 0));
     REQUIRE(mesh.vertex_locations[2] == glm::vec3(250, 125, 0));
     REQUIRE(mesh.texcoords[0][0] == std::vector<glm::vec2>{{0, 1}, {0, 0}, {1, 0}, {1, 1}});
+}
+
+TEST_CASE("Native world objects activate through graph identity and game activity gates",
+          "[geometry][native-content]")
+{
+    ScopedGame scope;
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& world = *game.level.primary;
+    world.camera = &world.scene->camera;
+    world.camera->setClipRange(1, 10);
+    game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
+    LoadNativeLevelObject(game);
+    REQUIRE(world.native_objects.size() == 1);
+    auto& object = *world.native_objects.front();
+    auto camera = vsg::Camera::create(
+        vsg::Perspective::create(60, 1, 1, 10),
+        vsg::LookAt::create(vsg::dvec3(0, 0, 0), vsg::dvec3(0, 0, 1), vsg::dvec3(0, 1, 0)),
+        vsg::ViewportState::create(0, 0, 64, 64));
+    world.picked.position = {.1f, .1f, 1};
+    world.scene->pick(*camera, std::span{&world.picked, 1});
+    REQUIRE(SelectedNativeObject(world) == &object);
+    game.advancement.held = false;
+    REQUIRE(game.activateSelectedNativeObject());
+    REQUIRE(object.illuminated);
+    REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism glows.");
+    game.advancement.held = true;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.advancement.held = false;
+    game.party.held.item.iItemNo = 5;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.party.held.item.iItemNo = -1;
+    game.activity.place = Activity::Place::Camp;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.activity.place = Activity::Place::World;
+    world.camera->transform.setLocation(0, 0, -6000);
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    world.camera->transform.setLocation(0, 0, 0);
+    REQUIRE(game.activateSelectedNativeObject());
+    REQUIRE_FALSE(object.illuminated);
+    REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
+    world.native_objects.clear();
+    REQUIRE_FALSE(world.picked.hit);
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
 }

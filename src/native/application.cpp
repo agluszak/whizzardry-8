@@ -34,6 +34,7 @@ struct LaunchOptions {
     bool load_at_startup = false;
     bool windowed = false;
     std::string string_data;
+    std::string native_object;
 };
 
 LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
@@ -50,13 +51,17 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
             options.load_at_startup = true;
         else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
             options.windowed = true;
-        else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
+        else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0 ||
+                 SDL_strcasecmp(option.c_str(), "/NATIVEOBJECT") == 0) {
             const auto value = separator != std::string_view::npos
                                    ? arguments[index].substr(separator + 1)
                                : ++index < arguments.size() ? arguments[index]
                                                             : std::string_view{};
             if (value.empty()) throw std::invalid_argument(option + " requires a filename");
-            options.string_data = value;
+            if (SDL_strcasecmp(option.c_str(), "/NATIVEOBJECT") == 0)
+                options.native_object = value;
+            else
+                options.string_data = value;
         }
     }
     return options;
@@ -84,6 +89,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error("Sound initialization failed");
         data_ = std::make_unique<GameData>();
         games_ = std::make_unique<GameSession>();
+        games_->native_object_file = wiz8::path_from_utf8(options.native_object);
         game_started_ = true;
         if (!InitializeGame(*data_, *games_, options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");

@@ -70,6 +70,7 @@ Game& GameSession::begin()
     end();
     auto& game = game_.emplace();
     game.rng = next_stream_;
+    game.native_object_file = native_object_file;
     game.events.observe(observer_);
     return game;
 }

@@ -459,6 +459,8 @@ void RenderFrame(void)
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
                     false);
     }
+    g_current_model_instance = nullptr;
+    if (GetWorld()) GetWorld()->picked = {};
     if (GetWorld() != 0 && g_world_render_enabled) {
         if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
@@ -476,6 +478,7 @@ void RenderFrame(void)
                               half_height;
             RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
                         std::span{&pick, 1});
+            GetWorld()->picked = pick;
             g_current_model_instance = render::gameOwner(pick);
             ResolvePickedProp();
         }
@@ -571,6 +574,7 @@ void SetWorldModelPickingEnabled(bool enabled)
     g_world_pick_enabled = enabled;
     if (!enabled) {
         g_current_model_instance = 0;
+        if (GetWorld()) GetWorld()->picked = {};
     }
 }
 

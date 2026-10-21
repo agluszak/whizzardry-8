@@ -28,6 +28,7 @@
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/entities/trigger.h"
