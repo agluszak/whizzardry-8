@@ -31,7 +31,6 @@
 #include <vsg/nodes/Transform.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
-#include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/ImageInfo.h>
 #include <vsg/state/PipelineLayout.h>
 
@@ -335,12 +334,21 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     ensureParts();
     for (const auto& part : parts)
         if (part->mesh == &mesh) {
-            part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
-                              instance->skinTable(*part->mesh));
+            updatePose(*part, true);
             if (index < part->pose.positions.size()) return part->pose.positions[index];
             break;
         }
     return {};
+}
+
+void InstanceNode::updatePose(Part& part, bool check_blanking)
+{
+    const int skin = instance->skinTable(*part.mesh);
+    Mesh::PolygonSelection visible;
+    if (&part == parts.front() && instance->visible_polygons)
+        visible = std::span<const std::uint32_t>(*instance->visible_polygons);
+    part.pose.update(*part.mesh, instance->frame_index, instance->frame_interpolation, skin,
+                     check_blanking, visible);
 }
 
 namespace {
@@ -413,9 +421,6 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     const bool highlight_body = highlighted && instance->highlight_pass_mode == 1;
     const auto setPipeline = [&](DrawNode& node, std::uint32_t shader, FaceCull cull,
                                  Winding winding = Winding::Standard) {
-        std::erase_if(node.stateCommands, [](const auto& command) {
-            return command->template cast<vsg::BindGraphicsPipeline>() != nullptr;
-        });
         node.setPipeline(
             context.pipeline(shader, cull, winding),
             context.pipeline(shader, cull,
@@ -426,8 +431,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         const int skin = instance->skinTable(mesh);
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
-        part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
-                          !static_geometry);
+        updatePose(*part, !static_geometry);
         auto& pose = part->pose;
         const auto& asset = *pose.asset;
         auto instance_block = packInstance(*instance, mesh, pass);
@@ -462,11 +466,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
             auto& sampled = pose.passes[pass_index];
             auto& cached = part->passes[pass_index];
             auto materials = source.materials;
-            const bool front_material =
-                source.side == 0 ||
-                (!asset.animated &&
-                 (mesh.render_control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)));
-            if (highlight_body && source.pass == 0 && front_material)
+            if (highlight_body && source.pass == 0 && source.material_side == 0)
                 std::ranges::fill(materials, instance->highlight_material);
             const auto pass_values =
                 packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time);
@@ -475,9 +475,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.data = makeArray(pass_values);
                 cached.bind = context.descriptor(2, cached.data);
                 cached.batches.resize(source.batches.size());
-                const auto bound = vsg::dsphere(asset.bounds_center.x, asset.bounds_center.y,
-                                                asset.bounds_center.z, asset.bounds_radius);
-                cached.cull = vsg::CullNode::create(bound, cached.body);
+                cached.cull = vsg::CullNode::create(vsg::dsphere(), cached.body);
                 part->graph->addChild(cached.cull);
             } else {
                 store(*cached.data, pass_values);
@@ -489,7 +487,9 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
             const bool show_shell =
                 highlighted && source.pass == 0 && source.side == 0 && shell_part && shell_texture;
-            cached.cull->bound.radius = asset.bounds_radius;
+            // Bounds can change in place; the shell below may widen them.
+            cached.cull->bound.set(asset.bounds_center.x, asset.bounds_center.y,
+                                   asset.bounds_center.z, asset.bounds_radius);
             if (show_shell) {
                 if (!cached.expanded) {
                     cached.expanded = vsg::vec3Array::create(sampled.positions->size());
@@ -528,20 +528,18 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.expanded->dirty();
             }
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
-                const auto& batch = source.batches[batch_index];
                 auto& state = cached.batches[batch_index];
-                const auto shader = !highlight_body && instance->diffuse_scale_enabled &&
-                                            source.pass == 0 && batch.inherits_shader
-                                        ? fadingShader(batch.shader.value)
-                                        : batch.shader.value;
+                const auto shader =
+                    !highlight_body && instance->diffuse_scale_enabled && source.pass == 0
+                        ? fadingShader(source.shader.value)
+                        : source.shader.value;
                 const auto cull =
                     source.cull ? (source.side ? FaceCull::Front : FaceCull::Back) : FaceCull::None;
                 const auto sorted =
                     asset.sorted || (!highlight_body && instance->diffuse_scale_enabled);
                 if (!state.leaf) {
-                    state.leaf =
-                        DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
-                                         asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
+                    state.leaf = DrawNode::create(sampled.draws[batch_index], sampled.positions,
+                                                  sorted, asset.offset_pass_keys ? source.pass : 0);
                     state.leaf->authored_normals = sampled.authored_normals;
                     state.leaf->cull = cull;
                     state.leaf->add(part->instance_bind);
@@ -573,7 +571,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     for (std::size_t binding = 1; binding < draw->arrays.size(); ++binding)
                         arrays.push_back(draw->arrays[binding]->data);
                     draw->assignArrays(arrays);
-                    state.shell = DrawNode::create(draw, cached.expanded, true, asset.sort_bias,
+                    state.shell = DrawNode::create(draw, cached.expanded, true,
                                                    asset.offset_pass_keys ? source.pass : 0);
                     state.shell->authored_normals = sampled.authored_normals;
                     state.shell->cull = cull;

@@ -87,8 +87,12 @@ Unlayered code may use the layers.
   may use other SDL formats; palette, TGA and STI decoding is explicit.
 - **Render ownership.** `WorldScene::root` is the actual VSG graph. A visual
   instance owns its transform and drawable subgraph; its model owns shared render
-  topology, UVs and material batches. Ordinary VSG subgraphs can join the root
-  without a Wizardry material or submission adapter. Typed scene collections
+  topology, UVs, material batches and baked vertex colours. Only a topology
+  change rebuilds that asset; skins, bounds, pass-wide materials, textures and
+  shaders, and the lighting bake update it in place. The polygons a view leaves
+  visible are an input to the instance's pose, not state on the shared mesh.
+  Ordinary VSG subgraphs can join the root without a Wizardry material or
+  submission adapter. Typed scene collections
   remain where game activation, ownership and world queries need them; they do
   not define render parentage. Adopting or detaching a subtree updates those
   collections by traversing its graph. The spatial index retains collision, authored

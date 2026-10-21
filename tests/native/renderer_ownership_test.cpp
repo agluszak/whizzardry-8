@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -48,6 +49,7 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
@@ -146,14 +148,15 @@ TEST_CASE("Static instances share ordinary position and normal arrays", "[render
     REQUIRE(first.asset == second.asset);
     REQUIRE(first.passes[0].positions == second.passes[0].positions);
     REQUIRE(first.passes[0].normals == second.passes[0].normals);
+    // A view's polygon selection belongs to the pose, not the shared mesh.
     const auto asset = first.asset;
-    mesh.getActivePolygonTable(1);
-    mesh.setActivePolygonCount(0);
-    first.update(mesh, 0, 0);
+    const std::vector<std::uint32_t> none, all{0};
+    first.update(mesh, 0, 0, -1, true, none);
+    second.update(mesh, 0, 0);
     REQUIRE(first.asset == asset);
     REQUIRE(first.passes[0].draws[0]->indexCount == 0);
-    mesh.setActivePolygonCount(1);
-    first.update(mesh, 0, 0);
+    REQUIRE(second.passes[0].draws[0]->indexCount == 3);
+    first.update(mesh, 0, 0, -1, true, all);
     REQUIRE(first.asset == asset);
     REQUIRE(first.passes[0].draws[0]->indexCount == 3);
 }
@@ -198,7 +201,7 @@ TEST_CASE("Attached instances inherit graph parent movement and detach in either
     REQUIRE(scene.dynamic_meshes.empty());
 }
 
-TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
+TEST_CASE("Replacing a damage texture keeps the shared asset and refreshes blanking",
           "[renderer][materials]")
 {
     auto mesh = std::make_shared<Mesh>(1, 3);
@@ -207,9 +210,13 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     positions[0] = {0, 0, 0};
     positions[1] = {1, 0, 0};
     positions[2] = {0, 1, 0};
-    auto body = std::make_shared<Texture>();
-    body->source_path = "body.tga";
-    body->setName("Body");
+    const auto texture = [](const char* name) {
+        auto result = std::make_shared<Texture>();
+        result->source_path = std::string(name) + ".tga";
+        result->setName(name);
+        return result;
+    };
+    auto body = texture("Body");
     auto* base = mesh->getPolygonTextureTable(0, 0, true);
     (*base)[0] = body;
     const int skin = mesh->CreateSkinTable("damaged0", -1);
@@ -224,19 +231,24 @@ TEST_CASE("Replacing a damage texture refreshes blanking and the shared asset",
     render::MeshPose pose(*mesh);
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
-    const auto original_asset = pose.asset;
+    const auto asset = pose.asset;
 
-    auto blank = std::make_shared<Texture>();
-    blank->source_path = "blank-body.tga";
-    blank->setName("blank-body");
-    REQUIRE(mesh->replaceSkinTexture(skin, "BODY", blank));
+    auto scarred = texture("Scarred");
+    REQUIRE(mesh->replaceSkinTexture(skin, "BODY", scarred));
     pose.update(*mesh, 0, 0, skin);
-    REQUIRE(pose.asset != original_asset);
+    REQUIRE(pose.asset == asset);
+    REQUIRE(pose.texture(*mesh, 0, 0, skin) == scarred);
+    REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
+
+    REQUIRE(mesh->replaceSkinTexture(skin, "SCARRED", texture("blank-body")));
+    pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.asset == asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 0);
     REQUIRE(mesh->GetActivePolygons(skin, true).value().empty());
 
     REQUIRE(mesh->replaceSkinTexture(skin, "BLANK-BODY", body));
     pose.update(*mesh, 0, 0, skin);
+    REQUIRE(pose.asset == asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
     REQUIRE(pose.texture(*mesh, 0, 0, skin) == body);
     REQUIRE((*base)[0] == body);
@@ -746,4 +758,63 @@ TEST_CASE("VSG cull bounds enclose sky geometry and animated highlight shells",
     REQUIRE(unhighlighted.draws == 1);
     REQUIRE(unhighlighted.nodes == body.nodes);
     REQUIRE(bound->bound.radius == body_radius);
+}
+
+TEST_CASE("Mesh bound changes reach the shared asset and its cull node in place",
+          "[renderer][culling]")
+{
+    struct Culls : vsg::ConstVisitor {
+        std::vector<const vsg::CullNode*> nodes;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::CullNode& node) override
+        {
+            nodes.push_back(&node);
+            node.traverse(*this);
+        }
+    };
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    auto* positions = mesh->getVertexLoc();
+    positions[1] = {1, 0, 0};
+    positions[2] = {0, 1, 0};
+    MeshInstance instance;
+    instance.setModel(mesh);
+    render::RenderContext context({640, 480});
+    instance.renderNode()->prepare(context, {}, 1);
+    const auto asset = mesh->renderAsset();
+
+    mesh->setBounds({10, 10, 10}, {12, 12, 12}, {11, 11, 11}, 2);
+    instance.renderNode()->prepare(context, {}, 2);
+    REQUIRE(mesh->renderAsset() == asset);
+    Culls culls;
+    instance.renderNode()->accept(culls);
+    REQUIRE(culls.nodes.size() == 1);
+    REQUIRE(culls.nodes.front()->bound.center == vsg::dvec3(11, 11, 11));
+    REQUIRE(culls.nodes.front()->bound.radius == 2);
+}
+
+TEST_CASE("Pass-wide mesh state patches the shared asset in place", "[renderer][materials]")
+{
+    Mesh mesh(1, 3);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    const auto asset = mesh.renderAsset();
+    auto material = std::make_shared<Material>();
+    auto detail = std::make_shared<Texture>();
+    DrawShader shader;
+    shader.value ^= DrawShader::MASK_DEPTH_WRITE;
+    mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    mesh.setTexture(detail, 0, 1);
+    mesh.setShader(shader, 0);
+    mesh.enable(Mesh::CONTROL_SORTED_RENDERING);
+    REQUIRE(mesh.renderAsset() == asset);
+    const auto& pass = asset->passes.at(0);
+    REQUIRE(pass.materials == std::vector{material});
+    REQUIRE(pass.batches.at(0).textures[1] == detail);
+    REQUIRE(pass.shader.value == shader.value);
+    REQUIRE(asset->sorted);
+
+    // Drawing another side changes the topology.
+    mesh.enable(Mesh::CONTROL_BACK);
+    REQUIRE(mesh.renderAsset() != asset);
+    REQUIRE(mesh.renderAsset()->passes.size() == 2);
 }

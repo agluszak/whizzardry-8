@@ -79,10 +79,8 @@ public:
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    void reindexPolygons(std::span<const std::uint32_t> indices);
-    void reindexVertices(std::span<const std::uint32_t> indices);
-    /* Bakes pending vertex lighting into the first colour table. Rendering calls
-       this before it reads the mesh's tables. */
+    /* Bakes pending vertex lighting into the render asset's first-pass colours.
+       Rendering calls this before it draws the asset. */
     void applyPendingLighting();
     std::shared_ptr<render::MeshAsset> renderAsset();
     std::vector<std::shared_ptr<Texture>>* getPolygonTextureTable(std::int32_t pass,
@@ -95,7 +93,6 @@ public:
     std::uint32_t* getVertexShadeIndex(int table);
     glm::vec3* getVertexNormal();
     glm::vec4* getPolyEq();
-    glm::vec3* getVertexDIG(std::int32_t vertex, int table);
     glm::vec4* getVertexSCG(std::int32_t vertex, int table);
     glm::vec4* getVertexDCG(std::int32_t vertex, int table);
     Material* getMaterial(std::int32_t polygon, e_side side) const;
@@ -103,45 +100,25 @@ public:
     void setMaterial(std::shared_ptr<Material> material, std::int32_t polygon, e_side side);
     void setTexture(std::shared_ptr<Texture> texture, std::int32_t polygon, std::int32_t layer);
     // RECOMP: ?setDirty@Mesh@@QAEXW4e_flags@1@@Z
-    void setDirty(e_flags flag)
-    {
-        invalidateRenderAsset();
-        dirty_flags |= 1u << flag;
-    }
-    /* Drops the cached render asset after a change to the mesh's tables. */
+    void setDirty(e_flags flag) { dirty_flags |= 1u << flag; }
+    /* Drops the cached render asset after a change to the mesh's topology or
+       to the positions and normals a static asset copies. */
     void invalidateRenderAsset() { render_asset_.reset(); }
     // RECOMP: ?clearDirty@Mesh@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
-    DrawShader* getPolyShader(std::int32_t polygon, int layer);
     DrawShader getShader(std::int32_t polygon) const;
     void setShader(DrawShader shader, std::int32_t pass);
     void setUVCount(std::int32_t count);
     std::int32_t getUVCount() const;
-    void setActivePolygonCount(std::int32_t count);
-    std::int32_t getActivePolygonCount();
-    std::int32_t getPassCount() const;
     std::int32_t getPolygonCount() const;
     std::int32_t getVertexCount() const;
-    void setPassCount(std::int32_t count);
-    void setSortBias(float bias)
-    {
-        sort_bias = bias;
-        invalidateRenderAsset();
-    }
-    float getSortBias() const;
-    void disable(e_control control);
-    void enable(e_control control)
-    {
-        render_control |= 1u << control;
-        invalidateRenderAsset();
-    }
+    void enable(e_control control);
     void setDirtyAll()
     {
         setDirty(DIRTY_BOUNDS);
         setDirty(DIRTY_POLYGON_NORMALS);
         setDirty(DIRTY_VERTEX_NORMALS);
     }
-    std::uint32_t* getActivePolygonTable(int table);
     glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
@@ -160,20 +137,16 @@ public:
     std::array<DrawShader, MAX_PASSES> shaders;
     // Per-polygon texture and per-vertex material tables are created on demand.
     std::array<std::array<std::vector<std::shared_ptr<Texture>>, 2>, MAX_PASSES> poly_textures;
-    std::array<std::vector<DrawShader>, MAX_PASSES> poly_shaders;
     std::array<std::array<std::vector<std::shared_ptr<Material>>, 2>, MAX_PASSES> vertex_materials;
     std::vector<glm::ivec3> poly_vertices;
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
     std::array<std::array<std::vector<glm::vec2>, 2>, MAX_PASSES> texcoords;
-    std::array<std::vector<glm::vec3>, MAX_PASSES> dig;
     std::array<std::vector<glm::vec4>, MAX_PASSES> dcg;
     std::array<std::vector<glm::vec4>, MAX_PASSES> scg;
     std::vector<glm::vec3> vertex_locations;
     std::vector<glm::vec3> vertex_normals;
     std::vector<std::uint32_t> vertex_shade_indices;
-    std::vector<std::uint32_t> active_polygons;
-    std::int32_t active_polygon_count = 0;
     glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
@@ -182,7 +155,6 @@ public:
     std::int32_t vertex_location_count = 0;
     std::int32_t polygon_count = 0;
     std::int32_t uv_count = 0;
-    float sort_bias = 0.0f;
     std::uint32_t dirty_flags = 0;
     std::uint32_t render_control = 0;
 
@@ -194,7 +166,6 @@ public:
     int FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
     void AddPart(std::unique_ptr<Mesh> part);
-    /* The mesh submitted after this one in its model, or null. */
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
@@ -204,7 +175,6 @@ public:
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
-    void RemoveSkinTable(int index);
     /* One animation frame decoded from its compressed tables. Positions
        interpolate toward the next frame; normals are this frame's own. */
     struct FrameGeometry {

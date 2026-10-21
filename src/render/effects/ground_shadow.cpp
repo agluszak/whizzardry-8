@@ -57,21 +57,32 @@ struct GroundShadowAsset {
     }
 };
 
+// The first-pass colours a model's lighting bakes into, if it has any yet.
+static vsg::ref_ptr<vsg::vec4Array> bakedColors(const render::MeshAsset& asset)
+{
+    for (const auto& pass : asset.passes)
+        if (pass.pass == 0 && (pass.draw_flags & render::HasColors)) return pass.attributes[1];
+    return {};
+}
+
 struct ShadowRenderData {
     struct Part {
         Mesh* mesh;
         std::shared_ptr<render::MeshAsset> source_asset;
         std::uint32_t control;
+        vsg::ref_ptr<vsg::vec4Array> colors;
+        // The asset vertex that carries each source vertex's baked colour.
+        std::vector<std::uint32_t> color_vertices;
         render::EffectGeometry geometry;
         vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
         std::array<vsg::ref_ptr<render::DrawNode>, 2> draws;
         std::array<vsg::ref_ptr<vsg::vec4Array>, 2> instances;
         vsg::ref_ptr<vsg::BindDescriptorSet> batch;
 
-        static std::uint32_t flags(const Mesh& source)
+        static std::uint32_t flags(const Mesh& source, bool colors)
         {
             std::uint32_t flags = render::HasTexcoord0;
-            if (!source.dig[0].empty()) flags |= render::HasColors;
+            if (colors) flags |= render::HasColors;
             if (!source.dcg[0].empty()) flags |= render::HasDiffuseMultipliers;
             if (!source.scg[0].empty()) flags |= render::HasSpecularMultipliers;
             return flags;
@@ -79,10 +90,20 @@ struct ShadowRenderData {
         Part(render::RenderContext& context, Mesh& mesh, const GroundShadowAsset& asset,
              std::uint32_t capacity, vsg::ref_ptr<vsg::BindDescriptorSet> batch)
             : mesh(&mesh), source_asset(mesh.renderAsset()), control(mesh.render_control),
-              geometry(context, capacity, asset.material, flags(mesh),
+              colors(bakedColors(*source_asset)),
+              geometry(context, capacity, asset.material, flags(mesh, colors != nullptr),
                        mesh.vertex_location_count != 0, 0),
               batch(batch)
         {
+            if (colors) {
+                color_vertices.resize(static_cast<std::size_t>(mesh.vertex_location_count));
+                const auto& pass =
+                    *std::ranges::find_if(source_asset->passes, [&](const auto& pass) {
+                        return pass.attributes[1] == colors;
+                    });
+                for (std::uint32_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex)
+                    color_vertices[pass.source_vertices[vertex]] = vertex;
+            }
             geometry.normals->properties.dataVariance = vsg::DYNAMIC_DATA;
             auto indices = vsg::uintArray::create(capacity);
             for (std::uint32_t vertex = 0; vertex < capacity; ++vertex)
@@ -209,7 +230,8 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         } else {
             auto& part = data.parts[part_index];
             if (part->mesh != &model || part->source_asset != model.renderAsset() ||
-                part->control != control || count > part->geometry.positions->size()) {
+                part->colors != bakedColors(*part->source_asset) || part->control != control ||
+                count > part->geometry.positions->size()) {
                 const auto previous_capacity =
                     static_cast<std::uint32_t>(part->geometry.positions->size());
                 const auto capacity = count > previous_capacity
@@ -225,7 +247,6 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         const auto* triangles = model.getPolyVertex();
         const auto* positions = model.getVertexLoc();
         const auto* normals = model.getVertexNormal();
-        const auto* dig = model.dig[0].empty() ? nullptr : model.dig[0].data();
         const auto* dcg = model.dcg[0].empty() ? nullptr : model.dcg[0].data();
         const auto* scg = model.scg[0].empty() ? nullptr : model.scg[0].data();
         glm::vec3 center;
@@ -270,11 +291,9 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
                 }
                 update(geometry.attributes[0]->at(written), vsg::vec4(uv.x, uv.y, 0, 0),
                        attributes_changed[0]);
-                if (dig) {
-                    const auto color = dig[vertex];
+                if (part.colors)
                     update(geometry.attributes[1]->at(written),
-                           vsg::vec4(color.x, color.y, color.z, 0), attributes_changed[1]);
-                }
+                           part.colors->at(part.color_vertices[vertex]), attributes_changed[1]);
                 if (dcg) {
                     const auto color = dcg[vertex];
                     update(geometry.attributes[2]->at(written),
