@@ -24,6 +24,7 @@
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_time.h>
@@ -1727,6 +1728,8 @@ try {
     game.autosave_due = Game::kAutosaveInterval;
     SanitizeLoadedItems();
     return true;
-} catch (const std::exception&) {
+} catch (const std::exception& error) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot load save %.*s: %s",
+                 static_cast<int>(slot_name.size()), slot_name.data(), error.what());
     return false;
 }
