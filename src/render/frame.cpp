@@ -61,6 +61,7 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/startup_world.h"
@@ -474,7 +475,7 @@ void RenderFrame(void)
                               half_height;
             RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
                         std::span{&pick, 1});
-            g_current_model_instance = pick.selected_model;
+            g_current_model_instance = render::gameOwner(pick);
             ResolvePickedProp();
         }
     }

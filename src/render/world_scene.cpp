@@ -720,14 +720,11 @@ void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
         double nearest = std::numeric_limits<double>::max();
         for (const auto& hit : test->intersections) {
             if (hit->ratio >= nearest) continue;
-            MeshInstance* owner = nullptr;
             const render::DrawNode* drawable = nullptr;
             auto model_view = camera.viewMatrix->transform();
             for (auto* node : hit->nodePath) {
                 if (const auto* transform = dynamic_cast<const vsg::Transform*>(node))
                     model_view = transform->transform(model_view);
-                if (const auto* instance = dynamic_cast<const render::InstanceNode*>(node))
-                    owner = instance->instance;
                 if (const auto* draw = dynamic_cast<const render::DrawNode*>(node)) drawable = draw;
             }
             if (drawable && !drawable->pickable) continue;
@@ -774,7 +771,7 @@ void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
                 if (drawable->cull == FaceCull::Back ? facing <= 0 : facing >= 0) continue;
             }
             nearest = hit->ratio;
-            pick.selected_model = owner;
+            pick.hit = hit;
             const auto clip =
                 camera.projectionMatrix->transform() * vsg::dvec4(eye_intersection, 1);
             pick.position.z = static_cast<float>(1 - clip.z / clip.w * 2);
@@ -991,4 +988,13 @@ glm::dmat4 Light::worldMatrix() const
         parent_matrix =
             glm::dmat4(render::toGlm(render_attachment->transform(render::toVsg(parent_matrix))));
     return parent_matrix * transform.matrix();
+}
+
+MeshInstance* render::gameOwner(const Pick& pick)
+{
+    if (pick.hit)
+        for (auto node = pick.hit->nodePath.rbegin(); node != pick.hit->nodePath.rend(); ++node)
+            if (const auto* instance = dynamic_cast<const InstanceNode*>(*node))
+                return instance->instance;
+    return nullptr;
 }

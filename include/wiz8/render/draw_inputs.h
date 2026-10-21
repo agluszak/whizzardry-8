@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <span>
 
+#include <vsg/utils/LineSegmentIntersector.h>
+
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -42,7 +44,9 @@ struct Pick {
     // Normalized pick point: x and y are the cursor's viewport-space
     // coordinates; z starts at the far value 1.0 and keeps the nearest hit.
     glm::vec3 position{0, 0, 1};
-    MeshInstance* selected_model{};
+    // The intersection retains VSG coordinates, primitive data and graph identity.
+    // Its node path borrows the scene nodes until the next graph mutation.
+    vsg::ref_ptr<vsg::LineSegmentIntersector::Intersection> hit;
 };
 
 // Distances and clamped amplitudes of the camera's depth cue.
