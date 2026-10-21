@@ -306,22 +306,15 @@ the licensed runtime scenarios after every step.
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
    ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) is still captured from its world: `SaveStatusHeader` writes the sections from
-     live objects. `ReadLevelStatus` decodes every section into `W8LoadedLevelStatus::Data`
-     before applying any (the trigger, prop, lock and action sections as
-     `SavedWorldSection`s), but `Data` also holds prepared resources (monster
-     representations, the default script, NPC bindings) and decoding still reads the
-     replacement world's trigger and automap counts. Turn the decoded part into a
-     `LevelState` value with `encode` and `decode`, and build the world from it.
-   - The game keeps the levels the party has left as undecoded LVLS group images
-     (`Game::left_levels`); a save copies them as bytes. Once level states are values,
-     the game holds those values instead (keeping the groups of levels it never decoded
-     intact) and a save encodes them.
-   - A load decodes every game section before replacing the current game, but a level
-     group is decoded only when the party enters its level, so a malformed group still
-     fails then rather than at load. In order: a `LevelState` that exists without a live
-     `World`; replacement worlds built from those values; then decoding the level groups
-     with the rest of the save.
+     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), and
+     a load decodes every group before it replaces the game. What remains is the other
+     direction: `SaveStatusHeader` writes the sections from live objects. Capture a
+     `LevelState` from the world and encode it, so leaving a level and saving go through
+     the value; then the game can hold `LevelState`s for the levels it has left instead
+     of their bytes (`Game::left_levels`), keeping the groups of levels it never decoded
+     intact, and the world can be built from its level's assets and that value alone.
+     The encoder has to reproduce the retail records byte for byte, so it needs retail
+     saves to check against (see "Needs research").
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.

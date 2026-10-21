@@ -50,6 +50,7 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -917,7 +918,26 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger rejects an incomplete saved item group"
     store("truncated-trigger.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("truncated-trigger.bin"));
     REQUIRE_THROWS(ReadSavePayload(
-        *file, [](W8Chunk& chunk) { return DecodeSavedTriggers(chunk, 1, false).size(); }));
+        *file, [](W8Chunk& chunk) { return DecodeSavedTriggers(chunk, false).size(); }));
+}
+
+TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loader][automap]")
+{
+    // A level without automap cells writes the notes alone; one with cells writes its
+    // bitmap first. The reader tells them apart without the level's world.
+    const auto section = [](const std::vector<bool>* visited) {
+        auto writer = wiz8::open_memory_writer();
+        if (visited) REQUIRE(SavePackedBits(*writer, *visited));
+        const std::uint32_t signature = 0xf00df00d, count = 0;
+        writer->write(&signature, sizeof(signature));
+        writer->write(&count, sizeof(count));
+        writer->write(&signature, sizeof(signature));
+        auto file = wiz8::open_memory(writer->written_memory());
+        return ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadAutomapNotes(chunk); });
+    };
+    REQUIRE(section(nullptr).visited.empty());
+    const std::vector<bool> visited{true, false, true};
+    REQUIRE(section(&visited).visited == visited);
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",

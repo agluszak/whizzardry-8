@@ -325,13 +325,13 @@ void Trigger::Restore(SavedTrigger saved)
     }
 }
 
-/* The trigger chunk's records. Tags 1-4 restore the trigger in the same position, tag 5
-   names its trigger, and anything else ends the walk. */
-std::vector<SavedTrigger> DecodeSavedTriggers(W8Chunk& file, std::size_t trigger_count,
-                                              bool from_assets)
+/* The trigger chunk's records, one per trigger the writer's level had. Tags 1-4 restore
+   the trigger in the same position, tag 5 names its trigger, and anything else ends the
+   walk. */
+std::vector<SavedTrigger> DecodeSavedTriggers(W8Chunk& file, bool from_assets)
 {
     std::vector<SavedTrigger> saved;
-    for (std::size_t index = 0; index < trigger_count; ++index) {
+    while (file.RemainingBytes() > 0) {
         const auto tag = file.ReadValue<std::uint8_t>();
         // The dispatcher skips the remainder of this completed section.
         if (tag < 1 || tag > 5) break;
@@ -352,8 +352,10 @@ static void ApplySavedTriggers(World& world, std::vector<SavedTrigger>& section)
 {
     for (std::size_t index = 0; index < section.size(); ++index) {
         auto& saved = section[index];
-        auto* trigger =
-            saved.name ? FindTriggerInWorld(world, *saved.name) : world.triggers[index].get();
+        // A record past the level's triggers has nothing to restore.
+        auto* trigger = saved.name                      ? FindTriggerInWorld(world, *saved.name)
+                        : index < world.triggers.size() ? world.triggers[index].get()
+                                                        : nullptr;
         if (trigger) trigger->Restore(std::move(saved));
     }
 }

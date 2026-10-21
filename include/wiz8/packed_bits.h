@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace wiz8 {
@@ -35,6 +36,7 @@ inline void ClearBit(std::vector<bool>& bits, std::size_t bit)
    The Huffman-packed bit set stores magic
    0xDEADD00D, the bit count, the packed size, the packed bit_count / 32 + 1
    words and the magic again. A failed load leaves `bits` unchanged. */
+inline constexpr std::uint32_t kPackedBitsMagic = 0xdeadd00d;
 bool LoadPackedBits(wiz8::File& file, std::vector<bool>& bits);
 bool SavePackedBits(wiz8::File& file, const std::vector<bool>& bits);
 
