@@ -18,6 +18,9 @@ namespace render {
 class RenderContext;
 class MeshPose;
 
+// Existing-game callers opt into resolving their owner from a VSG hit.
+MeshInstance* gameOwner(const Pick& pick);
+
 inline constexpr vsg::Mask render_mask = 1;
 inline constexpr vsg::Mask pick_mask = 2;
 
@@ -65,6 +68,7 @@ public:
     void accept(vsg::Visitor&) override;
     void accept(vsg::ConstVisitor&) const override;
     void accept(vsg::RecordTraversal&) const override;
+    void advanceTextures(std::chrono::milliseconds now);
     void prepare(RenderContext&, const ScenePass&, std::uint64_t frame_number,
                  bool static_geometry = false);
     std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index);

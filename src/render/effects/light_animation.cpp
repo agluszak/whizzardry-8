@@ -18,9 +18,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
@@ -39,8 +37,6 @@
    0x0049BA50, since that unit runs past its own assertion interval. No CPP path
    string in the image names this unit; the class ownership is nevertheless
    established by its definitions. */
-
-unsigned int g_light_update_flags = 1;
 
 /* Normalizes a retail 15-bit raw draw to a 0..1 flicker probability;
    only Update uses it. */
@@ -77,7 +73,7 @@ glm::vec3 ParametricLightAnim::GetInterpolatedColor(float blend) const
     return glm::min(glm::mix(color, color_to, blend), glm::vec3(1));
 }
 
-void Light::Update()
+void Light::Update(float seconds)
 {
     if (auto* definition = std::get_if<KeyframedLightAnim>(&animator)) {
         if (definition->key_frames.empty()) return;
@@ -125,9 +121,10 @@ void Light::Update()
         return;
     }
 
-    const auto ticks = MonotonicMilliseconds();
+    if (animation_time == seconds) return;
+    animation_time = seconds;
     KeyframeTrack* path = (path_ai ? &*path_ai : nullptr);
-    float seconds = ticks * 0.001f;
+    if (m_level_time < 0) m_path_time = m_level_time = seconds;
     auto* definition = std::get_if<ParametricLightAnim>(&animator);
     if (!definition) return;
     if (definition->period < 0.0001f) {
@@ -259,7 +256,8 @@ void Light::Reset()
         if (parametric->flags & W8_PARAM_LIGHT_COLOR) diffuse = parametric->color;
     }
     m_level = 0;
-    m_path_time = m_level_time = MonotonicMilliseconds() * .001f;
+    animation_time.reset();
+    m_path_time = m_level_time = -1;
 }
 
 /* Serialize the trigger-toggled lights of the loaded worlds: a version byte and
@@ -349,12 +347,10 @@ Light::Light(WorldScene* scene, bool cycle_color, float range, const glm::vec3* 
     setName("MonFixedLight");
     attenuation_model = Light::ATTENUATION_3DSTUDIO_MAX;
     enable_flags |= (1UL << Light::ENABLE_RANGE_FAR);
-    enable_flags |= (1UL << Light::ENABLE_BOUNDING_SPHERE);
     far_end = range;
     near_start = 0.0;
     near_end = 0.0;
     far_start = 0.0;
-    safe_range = 5000.0f;
     setLinearAttenuation(range, 0.0019569471f);
     specular = glm::vec3(0);
     diffuse = (*first_color);
@@ -377,10 +373,9 @@ void Light::SetVisible(bool visible)
     this->visible = visible;
 }
 
-void Light::Update(const glm::vec3* position)
+void Light::Update(const glm::vec3* position, float now)
 {
     auto& state = std::get<MonsterLightAnim>(animator);
-    const float now = GameTimeAccumulator().GetElapsed();
     if (!state.start_time) state.start_time = now;
     const float elapsed = now - *state.start_time;
 
@@ -403,9 +398,9 @@ void Light::Update(const glm::vec3* position)
     this->transform.setLocation(location);
 }
 
-void Light::StartFadeOut()
+void Light::StartFadeOut(float world_seconds)
 {
     auto& state = std::get<MonsterLightAnim>(animator);
     state.fade_out = true;
-    state.start_time = GameTimeAccumulator().GetElapsed();
+    state.start_time = world_seconds;
 }

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <set>
@@ -160,12 +161,14 @@ TEST_CASE("Animated texture random triggers advance once across views", "[random
     playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
                          std::make_shared<Texture>()};
     Texture animation(std::move(playback));
-    animation.UpdateFrame(42);
+    animation.UpdateFrame(std::chrono::milliseconds{42});
     REQUIRE(trace.draws.size() == 2);
     const auto selected = animation.currentFrame();
-    animation.UpdateFrame(42);
+    animation.resolve();
+    animation.resolve();
+    animation.UpdateFrame(std::chrono::milliseconds{42});
     REQUIRE(animation.currentFrame() == selected);
     REQUIRE(trace.draws.size() == 2);
-    animation.UpdateFrame(43);
+    animation.UpdateFrame(std::chrono::milliseconds{43});
     REQUIRE(trace.draws.size() == 4);
 }

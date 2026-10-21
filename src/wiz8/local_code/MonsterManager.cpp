@@ -35,7 +35,6 @@
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
@@ -71,7 +70,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/notices.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/render/quality.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -220,23 +218,11 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
 
     camera_position = cameraLocation(world);
     monster_info->p3D->visual.SelectLOD(&camera_position);
+    UpdateMonsterDamageAppearance(monster_info);
     monster_info->p3D->UpdateRepresentation(&world);
     world.compiledIndex()->UpdateMonsterLocation(
         static_cast<unsigned short>(monster_info->location_id), monster_info->position);
     monster_info->fActive = true;
-    if (monster_info->p3D != 0) {
-        int damage_stage_count = monster_info->p3D->GetDamageStageCount();
-        if (damage_stage_count > 1) {
-            int damage_stage =
-                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) *
-                 damage_stage_count) /
-                monster_info->uiHPMax;
-            if (damage_stage >= damage_stage_count - 1) {
-                damage_stage = damage_stage_count - 1;
-            }
-            monster_info->p3D->SetDamageStage(damage_stage);
-        }
-    }
     monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
     if (record->can_open_doors) {
         monster_info->p3D->nav.movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
@@ -507,7 +493,7 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
     Monster* monster = monster_info->p3D;
 
     if (monster != 0) {
-        int count = monster->GetDamageStageCount();
+        const int count = monster->damage_stage_count;
         if (count > 1) {
             int value =
                 ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
@@ -515,7 +501,7 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
             if (value >= count - 1) {
                 value = count - 1;
             }
-            monster->SetDamageStage(value);
+            monster->visual.damage_stage = value;
         }
     }
 }
@@ -524,23 +510,6 @@ int GetMonsterQuadrant(W8MonsterInfo* monster_info)
 {
     assert(monster_info != 0);
     return GetQuadrantForPosition(monster_info->p3D->nav.GetPosition());
-}
-
-int GetMonsterCycleFallbackValue(unsigned int monster_species)
-{
-    const W8MonsterRecord* record;
-
-    record = MonsterDBFromSpecies(monster_species);
-    if (record == 0) {
-        return -1;
-    }
-    if (auto* world = GetWorld(); world && findMonsterAsset(*world, record->cycle_name)) {
-        return 0;
-    }
-    if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
-        return record->alternate_model_index;
-    }
-    return record->model_index;
 }
 
 void ProcessMonstersAtCombatEnd(bool forced_cleanup)

@@ -238,8 +238,6 @@ struct W8LevelRuntimeBlock {
     int move_percent_shown;
     Font* text_box_font;
     Palette16 palette;
-    W8ActionKind selection_kind;
-    bool selection_settled;
     uint64_t tooltip_since;
     bool tooltip_pending;
     uint64_t countdown3;

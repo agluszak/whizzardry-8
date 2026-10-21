@@ -45,9 +45,9 @@ void RestoreAutomapCameraPosition(void);
 
 /* Recompute the automap's visible world bounds from lit cells. */
 void UpdateAutomapBounds(void);
-/* When the automap dirty flag is set, light a batch of pending
-   visited cells through the table-1 vertex lights, then clear the flag once
-   the batch finds nothing left. */
+/* When the automap dirty flag is set, reveal a batch of pending visited
+   cells in the map view, then clear the flag once the batch finds nothing
+   left. */
 void RefreshDirtyAutomap(void);
 /* Pack `position` into a cell key, mark it visited if known, and
    return 1 only when that mark was newly set (retry one cell higher on miss). */
