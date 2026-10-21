@@ -1723,6 +1723,18 @@ void QuickSaveScenario()
        not name item 0 as the selected world item. */
     game.move_pointer(320, 180);
 
+    // Reject a malformed save through the loading screen while the fight is suspended.
+    const auto saved_bytes = wiz8::open_file(save)->read_text();
+    auto* running = &CurrentGame();
+    auto* world = GetWorld();
+    std::ofstream(save, std::ios::binary).write("bad", 3);
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    game.wait_screen("rejected-load", W8_SCREEN_MAIN_GAME);
+    REQUIRE(&CurrentGame() == running);
+    REQUIRE(GetWorld() == world);
+    REQUIRE(CurrentGame().combat.has_value());
+    std::ofstream(save, std::ios::binary).write(saved_bytes.data(), saved_bytes.size());
+
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     bool loading = false;
     game.wait("quick-load", [&] {

@@ -1229,9 +1229,7 @@ void PumpReviewTransition(void)
         }
         g_ending_autosave = false;
     }
-    if (GetLoadedLevelID() != -1) {
-        LoadCurrentLevelData();
-    }
+    LeaveLevel();
     exit_review = false;
     while (auto next_input = PollInputEvent()) {
         input = *next_input;

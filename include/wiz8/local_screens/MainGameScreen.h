@@ -583,7 +583,6 @@ void SetCombatSelection(int value);
 void SetCombatTarget(int value);
 
 void UpdateScreenOverlays(int frame);
-bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);
 void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
