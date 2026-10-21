@@ -185,7 +185,7 @@ void Light::Update(float seconds)
         Prop* prop = m_prop;
         MeshInstance* instance = 0;
         if (prop != 0) {
-            instance = prop->ToggleRepAnimationDefault();
+            instance = prop->FrameModel(prop->subcycle);
             Mesh* model = static_cast<Mesh*>(instance->getModel());
             if (!MeshHasAnimatedTexture(model)) {
                 m_prop = 0;

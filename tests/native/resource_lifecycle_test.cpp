@@ -399,6 +399,31 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual rows load into their named cy
     REQUIRE(visual->visual.pending_cycle == W8_SPELL_VISUAL_EXPLOSION * 7 + 2); // EXPLOSION3
 }
 
+// Animations hold shared frame meshes; each player shows every frame on a model of
+// its own, so copies of one source animate independently.
+TEST_CASE("A cycle player shows every frame on its own model", "[resources][animation]")
+{
+    Animation animation;
+    auto frames = std::make_unique<AnimationMesh>();
+    frames->frame_count = 2;
+    frames->frames = {{std::make_shared<Mesh>(), {}}, {std::make_shared<Mesh>(), {}}};
+    animation.entries[2] = std::move(frames);
+    const auto* first_frame = animation.entries[2]->frames[0].mesh.get();
+    const auto* second_frame = animation.entries[2]->frames[1].mesh.get();
+
+    CyclePlayer first;
+    first.active_animation = &animation;
+    CyclePlayer second(first);
+    second.active_animation = &animation;
+    auto* shown = first.SelectCycleFrameLod(0, 2);
+    REQUIRE(first.SelectCycleFrameLod(1, 2) == shown);
+    REQUIRE(shown->getModel() == second_frame);
+    auto* other = second.SelectCycleFrameLod(0, 2);
+    REQUIRE(other != shown);
+    REQUIRE(other->getModel() == first_frame);
+    REQUIRE(shown->getModel() == second_frame);
+}
+
 TEST_CASE("Shake instances retire before reentrant completion and can restart",
           "[resources][shake]")
 {
@@ -694,28 +719,4 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
         REQUIRE(world.spell_visuals.empty());
         SetTargetConeEnabled(false);
     }
-}
-
-TEST_CASE("Collecting monster models preserves the selected playback cycle",
-          "[resources][animation]")
-{
-    World world;
-    Monster monster(&world);
-    for (int cycle = 0; cycle < 2; ++cycle) {
-        auto animation = std::make_unique<Animation>();
-        animation->path_lists = true;
-        animation->frame_count = cycle == 0 ? 4 : 2;
-        monster.cycles[cycle].emplace_back(EmitterLights{}, std::move(animation), 1.0f);
-    }
-    monster.visual.current_cycle = 0;
-    monster.visual.current_subcycle = 0;
-    monster.visual.active_animation = monster.cycles[0][0].animation.get();
-    monster.visual.animation_playing = true;
-    std::vector<MeshInstance*> instances;
-    monster.CollectModelInstances(instances);
-    // A lighting/skin walk must not replace the current four-frame animation
-    // with the unrelated two-frame cycle visited last.
-    monster.visual.SetSubCycle(3);
-    REQUIRE(monster.visual.subcycle == 3);
-    REQUIRE(monster.visual.frameCount() == 4);
 }

@@ -35,6 +35,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_resources.h"
+#include "wiz8/render/transform.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/update.h"
 
@@ -501,26 +502,29 @@ std::shared_ptr<Mesh> ReuseOrBuildMeshResource(const SingleLevelMeshRecord& reco
     return model;
 }
 
+// Where the record places its mesh; records before version 2 carry no placement.
+Transform3D RecordPlacement(const SingleLevelMeshRecord& record)
+{
+    Transform3D placement;
+    if (record.version > 1) {
+        const auto rotation =
+            record.rotation * glm::mat3_cast(glm::angleAxis(float(3.1415926), glm::vec3(1, 0, 0)));
+        placement.setLocation(glm::dvec3(record.location) * 500.0);
+        placement.setRotation(rotation);
+    }
+    return placement;
+}
+
 std::unique_ptr<MeshInstance> PlaceMeshInstance(const SingleLevelMeshRecord& record,
                                                 std::shared_ptr<Mesh> resource)
 {
     if (!resource) return {};
     auto instance = CreateModelInstance(std::move(resource));
     instance->setName("Level mesh instance");
-    if (record.version > 1) {
-        const auto rotation =
-            record.rotation * glm::mat3_cast(glm::angleAxis(float(3.1415926), glm::vec3(1, 0, 0)));
-        instance->transform.setLocation(glm::dvec3(record.location) * 500.0);
-        instance->transform.setRotation(rotation);
-    }
+    instance->transform = RecordPlacement(record);
     return instance;
 }
 } // namespace
-
-bool ReadSingleLevelMeshHasVertexFrames(wiz8::File& file)
-{
-    return (ReadSingleLevelMeshRecord(file).flags & W8_LEVEL_MESH_LOD_VERTICES) != 0;
-}
 
 std::unique_ptr<MeshInstance> ReadSingleLevelMesh(wiz8::File& file,
                                                   const std::filesystem::path& texture_directory)
@@ -528,6 +532,15 @@ try {
     const MeshResourceKey key{file.physical_path(), file.tell(), texture_directory};
     auto record = ReadSingleLevelMeshRecord(file);
     return PlaceMeshInstance(record, ReuseOrBuildMeshResource(record, key));
+} catch (const std::exception&) {
+    return {};
+}
+
+PlacedMesh ReadPlacedMesh(wiz8::File& file, const std::filesystem::path& texture_directory)
+try {
+    const MeshResourceKey key{file.physical_path(), file.tell(), texture_directory};
+    const auto record = ReadSingleLevelMeshRecord(file);
+    return {ReuseOrBuildMeshResource(record, key), RecordPlacement(record)};
 } catch (const std::exception&) {
     return {};
 }

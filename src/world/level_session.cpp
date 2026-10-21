@@ -262,7 +262,7 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
         const auto prop_name = "Clouds0" + std::to_string(index);
         Prop* prop = FindPropByName(sky, prop_name.c_str());
         if (prop == nullptr) continue;
-        if (MeshInstance* instance = prop->ToggleRepAnimation(0)) {
+        if (MeshInstance* instance = prop->FrameModel(0)) {
             for (Mesh* mesh : meshParts(static_cast<Mesh*>(instance->getModel()))) {
                 mesh->setMaterial(material, 0, Mesh::SIDE_FRONT);
             }

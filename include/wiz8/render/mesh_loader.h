@@ -5,6 +5,8 @@
 #include <memory>
 #include <vector>
 
+#include "wiz8/render/transform.h"
+
 namespace wiz8 {
 class File;
 }
@@ -34,6 +36,7 @@ struct W8CompressedMeshFace {
 static_assert(sizeof(W8SerializedMeshFace) == 0x29);
 static_assert(sizeof(W8CompressedMeshFace) == 0x21);
 
+class Mesh;
 class MeshInstance;
 
 // Loaders return detached owned instances; failure returns an empty result.
@@ -42,5 +45,9 @@ std::unique_ptr<MeshInstance> ReadSingleLevelMesh(wiz8::File& file,
 std::vector<std::unique_ptr<MeshInstance>>
 ReadMultipleLevelMeshes(wiz8::File& file, std::size_t expected_count,
                         const std::filesystem::path& texture_directory);
-// Decode and discard the record, sharing the full loader's wire-format interpretation.
-bool ReadSingleLevelMeshHasVertexFrames(wiz8::File& file);
+// The shared mesh a record describes and where the record places it, without an instance.
+struct PlacedMesh {
+    std::shared_ptr<Mesh> mesh;
+    Transform3D placement;
+};
+PlacedMesh ReadPlacedMesh(wiz8::File& file, const std::filesystem::path& texture_directory);

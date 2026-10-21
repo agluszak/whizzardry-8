@@ -554,12 +554,12 @@ static void animation_record_contracts()
         animation->paths[0].push_back(animation->path);
         animation->entries[0] = std::make_unique<AnimationMesh>();
         animation->entries[0]->source_file = std::string(300, 'x');
-        animation->entries[0]->meshes.resize(2);
+        animation->entries[0]->frames.resize(2);
         animation->meshes[0].push_back(std::make_unique<AnimationMesh>(*animation->entries[0]));
         auto copy = std::make_unique<Animation>(*animation);
         REQUIRE((copy->entries[0] != animation->entries[0]));
         REQUIRE((copy->meshes[0][0] != animation->meshes[0][0]));
-        REQUIRE((copy->entries[0]->meshes.size() == 2));
+        REQUIRE((copy->entries[0]->frames.size() == 2));
         REQUIRE((copy->frame_bounds.data() != animation->frame_bounds.data()));
         REQUIRE(copy->path);
         copy->path->nodes[0].x = 9;

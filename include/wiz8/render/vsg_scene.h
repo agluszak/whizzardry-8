@@ -80,7 +80,15 @@ public:
 private:
     void ensureParts();
     struct Part;
-    std::vector<std::unique_ptr<Part>> parts;
+    // Every model the instance has drawn keeps its parts, so an animation that switches
+    // between frame models reuses their draw graphs instead of rebuilding them.
+    struct DrawnModel {
+        std::shared_ptr<Mesh> model;
+        std::vector<std::unique_ptr<Part>> parts;
+    };
+    std::vector<DrawnModel> drawn;
+    // The current model's parts: its head, and the rest of its chain when drawn.
+    std::vector<Part*> parts;
     vsg::ref_ptr<vsg::Switch> geometry;
     vsg::ref_ptr<vsg::PipelineLayout> prepared_layout;
     std::uint64_t prepared_frame = ~std::uint64_t{0};

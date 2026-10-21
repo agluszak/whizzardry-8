@@ -26,7 +26,6 @@ struct W8Plane;
 
 void SetSceneAmbientLightWhite(WorldScene* scene);
 void SetModelInstanceExclusionMask(MeshInstance* node, int value);
-std::unique_ptr<MeshInstance> DuplicateModelInstance(const MeshInstance& instance);
 void UpdateWorldMonsters(World* world);
 // Advance the world's prop animations by the step's `elapsed` time.
 void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed);

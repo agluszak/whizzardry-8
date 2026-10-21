@@ -76,7 +76,7 @@ private:
     std::shared_ptr<Mesh> model_;
 
 public:
-    enum { RENDER_LIGHTING_BAKED = 0x02u, RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
+    enum { RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
 
     Texture* FindMouthTexture(); /* 0x00481080 */
     // The skin table this instance draws `mesh` with: the one named skin + damage_stage, or
@@ -93,6 +93,8 @@ public:
     unsigned int frame_index;
     int damage_stage;
     std::string skin;
+    // The models whose vertex lighting has been baked for this instance's placement.
+    std::vector<const Mesh*> baked_models;
     int highlight_pass_mode;
     glm::vec3 light_scale;
     bool diffuse_scale_enabled;
