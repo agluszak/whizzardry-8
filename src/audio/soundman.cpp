@@ -38,6 +38,7 @@ struct AudioClip {
 };
 
 struct AudioPlayback {
+    std::string resource;
     std::shared_ptr<MIX_Mixer> owner;
     // Track destruction synchronizes with mixing before closing its input.
     Clip clip;
@@ -201,6 +202,7 @@ Playback stream_resolved(const std::string& filename, PlayOptions options)
 {
     auto playback = create_playback(options.group);
     if (!playback) return {};
+    playback->resource = filename;
     playback->input = w8_native::open_audio_input(filename.c_str());
     if (!playback->input) return {};
     std::unique_ptr<MIX_AudioDecoder, decltype(&MIX_DestroyAudioDecoder)> decoder(
@@ -282,6 +284,7 @@ Playback play(const Clip& clip, PlayOptions options)
     if (!service_state.enabled || !clip || !clip->audio) return {};
     auto playback = create_playback(options.group);
     if (!playback || !MIX_SetTrackAudio(playback->track.get(), clip->audio.get())) return {};
+    playback->resource = clip->name;
     playback->duration = MIX_GetAudioDuration(clip->audio.get());
     return start(std::move(playback), clip, std::move(options));
 }
@@ -308,10 +311,9 @@ bool is_playing(const Playback& playback)
 
 bool is_file_playing(std::string_view path)
 {
+    const auto resource = resolve_path(path);
     return std::ranges::any_of(service_state.active, [&](const Playback& playback) {
-        const auto& clip = playback->clip;
-        return clip && is_playing(playback) && clip->name.size() == path.size() &&
-               SDL_strncasecmp(clip->name.c_str(), path.data(), path.size()) == 0;
+        return is_playing(playback) && playback->resource == resource;
     });
 }
 

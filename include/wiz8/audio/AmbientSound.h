@@ -15,6 +15,7 @@ struct W8Chunk;
 #include "wiz8/platform/game_timer.h"
 
 struct World;
+struct SharedAmbientGroup;
 // One level-owned voice and its optional random replay schedule.
 struct W8AmbientTrack {
     wiz8::sound::Clip clip;
@@ -54,10 +55,7 @@ public:
     void UpdatePosition(const glm::vec3* listener);
     /* 0x00479970: per-frame service while in range; 'entered' forces an immediate roll */
     void Service(bool entered);
-    /* 0x0047A310: step the 1.5-second shared-group volume fade */
-    void UpdateFade();
-
-    W8AmbientSound* FindNextMatching(std::string_view match_name, W8AmbientSound* previous);
+    SharedAmbientGroup* group = nullptr; // Borrowed from the owning world.
 
     std::string name;
     W8AmbientSoundConfig config; /* 0x004: wave filename; shared sounds match on it */
@@ -65,7 +63,6 @@ public:
     glm::vec3 position;  /* 0x088: emitter world position */
     unsigned int volume_min;     /* 0x094 */
     unsigned int volume_max;     /* 0x098 */
-    unsigned int target_volume;  /* 0x09c: fade endpoint */
     unsigned int current_volume; /* 0x0a0: live fade value */
     int speed_min;               /* 0x0a4: playback speed low bound */
     int speed_max;               /* 0x0a8: playback speed high bound */
@@ -84,7 +81,23 @@ public:
     float region_angle;              /* 0x0ec: rotation about region_axis, radians */
     glm::vec3 region_axis;   /* 0x0f0 */
     glm::vec3 region_scale;  /* 0x0fc: per-axis region scale */
-    W8GameTimer fade_timer;          /* 0x108 */
+};
+
+// A shared loop stays here while regions change its target gain.
+struct SharedAmbientGroup {
+    std::string resource;
+    std::vector<W8AmbientSound*> emitters;
+    W8AmbientSound* selected = nullptr;
+    wiz8::sound::Playback playback;
+    unsigned target_volume = 0, current_volume = 0;
+    W8GameTimer fade_timer;
+
+    ~SharedAmbientGroup();
+    void retarget(unsigned volume, unsigned full_volume);
+    void updatePosition(W8AmbientSound& emitter, const glm::vec3& listener);
+    void service(W8AmbientSound& emitter);
+    void updateFade();
+    void stop(W8AmbientSound& emitter);
 };
 
 /* Reverb environment id indexing g_footstep_surfaces. The serialized selector
@@ -185,6 +198,7 @@ struct AmbientAudioSystem {
     ~AmbientAudioSystem();
     wiz8::sound::Playback footstep_loop;
     std::vector<std::unique_ptr<W8AmbientSound>> emitters;
+    std::vector<std::unique_ptr<SharedAmbientGroup>> shared_groups;
     std::vector<std::unique_ptr<W8AmbientTrack>> tracks;
     std::vector<std::unique_ptr<Sound3D>> script_sounds;
     std::vector<std::unique_ptr<Sound3D>> one_shots;
