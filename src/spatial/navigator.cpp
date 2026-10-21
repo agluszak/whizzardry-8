@@ -66,7 +66,7 @@ std::vector<Navigator*> activeNavigators()
 /* Trims the recorded route to the boundary of the `radius` sphere around
    `target`: walks stored positions while they stay inside, then lerps the
    crossing point into path_destination and over the first outside waypoint, moves
-   path_position_index there, and clears flag 0x00400000. */
+   path_position_index there. */
 bool NavigatorRoute::TruncatePathAtRadius(const glm::vec3* target, float radius)
 {
     unsigned int index = path_cursor;
@@ -92,35 +92,24 @@ bool NavigatorRoute::TruncatePathAtRadius(const glm::vec3* target, float radius)
                           path[index - 1].position.z);
         path[index].position = path_destination;
         path_position_index = static_cast<unsigned short>(index);
-        flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
         return true;
     }
-    flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     return false;
 }
 
-/* The stored route's total length, measured on first use from path_length_origin
-   through every recorded position at or past the current index and cached in
-   path_length under the 0x00400000 flag. Entries whose preceding path value
-   carries bit 0x2 contribute nothing. */
-float NavigatorRoute::MeasurePathLength()
+/* Measure the remaining route, excluding teleportal hops (value bit 0x2). */
+float NavigatorRoute::MeasurePathLength() const
 {
-    unsigned int index = 1;
-    if ((flags & W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED) == 0) {
-        path_length = 0;
-        if (path_cursor > 0) {
-            index = path_cursor;
+    float length = 0.0f;
+    glm::vec3 previous = path_length_origin;
+    for (unsigned int index = std::max(1u, static_cast<unsigned int>(path_cursor));
+         index <= path_position_index; ++index) {
+        if ((path[index - 1].value & 2) == 0) {
+            length += glm::length(path[index].position - previous);
         }
-        glm::vec3 previous = path_length_origin;
-        for (; index <= path_position_index; ++index) {
-            if ((path[index - 1].value & 2) == 0) {
-                path_length += glm::length((path[index].position - previous));
-            }
-            previous = path[index].position;
-        }
-        flags |= W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
+        previous = path[index].position;
     }
-    return path_length;
+    return length;
 }
 
 /* Grow route storage, keeping positions and their values together. */
@@ -265,15 +254,13 @@ NavigatorRoute::NavigatorRoute()
     path_cursor = 0;
     follow_offset = 0;
     path.resize(10);
-    path_length = 0;
     separation = 0.0f;
     segment_start = glm::vec3(0);
     path_destination = glm::vec3(0);
 }
 
 /* The from/to attachment: a ready-made two-position route that starts at the
-   first recorded position, with path_length carrying the direct segment length
-   until a real path is built over it. */
+   first recorded position. */
 NavigatorRoute::NavigatorRoute(const glm::vec3* from, const glm::vec3* to)
 {
     flags = W8_NAV_ATTACHMENT_POSITION_RECORDED;
@@ -281,14 +268,12 @@ NavigatorRoute::NavigatorRoute(const glm::vec3* from, const glm::vec3* to)
     path_cursor = 1;
     follow_offset = 0;
     path.resize(10);
-    path_length = 0;
     separation = 0.0f;
     segment_start = *from;
     path[0].position = *from;
     path_destination = *to;
     path[1].position = *to;
     path_length_origin = segment_start;
-    path_length = glm::length((path_destination - segment_start));
 }
 
 /* A second pass of defaults over the same tail, run straight after the
@@ -993,7 +978,6 @@ void NavigatorRoute::InitializeSegment(const glm::vec3* source, const glm::vec3*
     flags = (flags & 0xc810000) | W8_NAV_ATTACHMENT_POSITION_RECORDED;
     path_position_index = 1;
     path_cursor = 1;
-    path_length = 0;
     separation = 0;
     segment_start = *source;
     path[0].position = *source;
@@ -1002,7 +986,6 @@ void NavigatorRoute::InitializeSegment(const glm::vec3* source, const glm::vec3*
     path_length_origin = segment_start;
     follow_offset = 0;
     for (auto& entry : path) entry.value = 0;
-    path_length = glm::length((path_destination - segment_start));
 }
 
 void NavigatorRoute::CopyPathFrom(const NavigatorRoute* other)
@@ -1011,7 +994,6 @@ void NavigatorRoute::CopyPathFrom(const NavigatorRoute* other)
     path_cursor = other->path_cursor;
     path_position_index = other->path_position_index;
     follow_offset = other->follow_offset;
-    path_length = other->path_length;
     separation = other->separation;
     segment_start = other->segment_start;
     path_length_origin = other->segment_start;
@@ -1055,7 +1037,6 @@ bool NavigatorRoute::AdvanceAlongPathPositions(float distance, glm::vec3* positi
     if ((flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0 && distance > NAVIGATOR_MAXIMUM_DROP) {
         on_path = true;
     }
-    flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     delta = path[path_cursor].position - local;
     segment = glm::length(((glm::vec2(delta.x, delta.z))));
     if (segment < 1.0 && path_cursor == path_position_index) {
