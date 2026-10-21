@@ -106,7 +106,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
     if (!m_voice_started && m_portrait_clock + 750 < MonotonicMilliseconds()) {
         m_voice_started = true;
         const auto path = GetCharacterVoicePath(*m_character, 0);
-        m_voice = wiz8::sound::play(path, {.volume = g_settings.voice_volume & 0xffu});
+        m_voice = wiz8::sound::play(path, {.channel = wiz8::sound::VolumeChannel::voice});
         m_mouth_gap = LoadMouthGapTrack(path);
         m_portrait.voice_remaining_ms =
             wiz8::sound::playback_time(m_voice)

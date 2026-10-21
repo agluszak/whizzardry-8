@@ -18,9 +18,13 @@ namespace wiz8::sound {
 // Playback groups allow independent stopping of effects, ambient sounds and music.
 enum class Group : std::uint8_t { effects, ambient, music };
 
+enum class VolumeChannel : std::uint8_t { effects, voice, footsteps, music, unscaled };
+
 struct PlayOptions {
-    // 0..127; unset uses the default effects volume.
+    // Authored gain, independent of the user setting. Unset means 127.
     std::optional<std::uint32_t> volume{};
+    VolumeChannel channel = VolumeChannel::effects;
+    float gain_scale = 1.0f;
     // Total plays; 0 repeats until stopped.
     std::uint32_t loops = 1;
     // Sample frames per second; unset keeps the clip's own rate.
@@ -63,8 +67,8 @@ bool is_file_playing(std::string_view path);
 bool stop(const Playback& playback, std::uint32_t fade_out_ms = 0);
 bool stop_group(Group group);
 
-void set_default_volume(std::uint32_t volume);
-bool set_volume(const Playback& playback, std::uint32_t volume);
+void set_channel_volume(VolumeChannel channel, std::uint32_t volume);
+bool set_volume(const Playback& playback, std::uint32_t volume, float gain_scale = 1.0f);
 std::optional<std::uint32_t> volume(const Playback& playback);
 void set_position(const Playback& playback, glm::vec3 position);
 

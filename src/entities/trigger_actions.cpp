@@ -407,8 +407,7 @@ bool Trigger::PlayActionSound(std::string_view sound_name, int volume)
     }
     if ((flags & W8_TRIGGER_POSITIONED) == 0) {
         if (m_pProp == 0) {
-            wiz8::sound::play(sound_name, {.volume = std::uint32_t(
-                                               (g_settings.sound_effects_volume * volume) / 0x7f)});
+            wiz8::sound::play(sound_name, {.volume = std::uint32_t(volume)});
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();

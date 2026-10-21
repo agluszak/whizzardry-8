@@ -15,9 +15,9 @@
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
 {
     wiz8::sound::stop(speech.voice_handle);
-    speech.voice_handle =
-        wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.voice_volume * 70 / 100),
-                                 .on_finished = std::move(on_finished)});
+    speech.voice_handle = wiz8::sound::play(path, {.channel = wiz8::sound::VolumeChannel::voice,
+                                                   .gain_scale = 0.7f,
+                                                   .on_finished = std::move(on_finished)});
     speech.voice_started_at = MonotonicMilliseconds();
     speech.voice_playing = speech.voice_handle != nullptr;
     return speech.voice_playing;

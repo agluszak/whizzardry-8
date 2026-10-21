@@ -16,7 +16,7 @@ public:
     Sound3D(const Sound3D& other) : Sound3D(other.wave_name.c_str()) { *this = other; }
     ~Sound3D();
     bool IsPlaying();
-    void Update(const glm::vec3& listener, float yaw, unsigned effects_volume);
+    void Update(const glm::vec3& listener, float yaw);
     void Stop();
     // The caller owns this voice for its complete lifetime.
     unsigned char Play(bool loop);

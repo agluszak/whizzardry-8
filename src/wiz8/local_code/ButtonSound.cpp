@@ -28,5 +28,5 @@ void PlayButtonSound(UiPointerAction action)
     default:
         return;
     }
-    wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.sound_effects_volume >> 1)});
+    wiz8::sound::play(path, {.gain_scale = 0.5f});
 }

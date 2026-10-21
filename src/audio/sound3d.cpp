@@ -47,15 +47,14 @@ unsigned char Sound3D::Play(bool loop)
 wiz8::sound::PlayOptions Sound3D::BuildSoundOptions(const glm::vec3& listener)
 {
     const float angle = -GetCameraYawRadians();
-    const unsigned int scaled_volume = (volume * g_settings.sound_effects_volume) / 0x7f;
     const glm::mat3 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
     const glm::vec3 node_position = position;
     const glm::vec3 offset = node_position - listener;
     const glm::vec3 listener_offset = listener - node_position;
-    return {.volume = static_cast<unsigned int>(
-                (falloff > 0 ? std::clamp(1.0f - glm::length(listener_offset) / falloff, 0.0f, 1.0f)
-                             : 0.0f) *
-                scaled_volume),
+    return {.volume = static_cast<unsigned int>(volume),
+            .gain_scale =
+                falloff > 0 ? std::clamp(1.0f - glm::length(listener_offset) / falloff, 0.0f, 1.0f)
+                            : 0.0f,
             .position = rotation * offset};
 }
 
@@ -75,7 +74,7 @@ void Sound3D::Stop()
     }
 }
 
-void Sound3D::Update(const glm::vec3& listener, float yaw, unsigned effects_volume)
+void Sound3D::Update(const glm::vec3& listener, float yaw)
 {
     if (!sound_handle) return;
     if (!wiz8::sound::is_playing(sound_handle)) {
@@ -86,6 +85,5 @@ void Sound3D::Update(const glm::vec3& listener, float yaw, unsigned effects_volu
     wiz8::sound::set_position(sound_handle, rotation * (position - listener));
     const float gain =
         falloff > 0 ? std::clamp(1.0f - glm::length(position - listener) / falloff, 0.0f, 1.0f) : 0;
-    wiz8::sound::set_volume(sound_handle,
-                            static_cast<std::uint32_t>(gain * volume * effects_volume / 127.0f));
+    wiz8::sound::set_volume(sound_handle, volume, gain);
 }

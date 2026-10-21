@@ -201,5 +201,5 @@ struct AmbientAudioSystem {
     std::vector<std::unique_ptr<W8AmbientTrack>> tracks;
     std::vector<std::unique_ptr<Sound3D>> script_sounds;
     std::vector<std::unique_ptr<Sound3D>> one_shots;
-    void update(const glm::vec3& listener, float yaw, unsigned effects_volume);
+    void update(const glm::vec3& listener, float yaw);
 };

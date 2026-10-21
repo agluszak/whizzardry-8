@@ -1362,7 +1362,7 @@ void ShowEndingScreen(void)
     }
     if (*sound != 0) {
         g_ending_sound = wiz8::sound::stream(
-            sound, {.volume = std::uint32_t(g_settings.voice_volume * 0x7f / 0xff)});
+            sound, {.channel = wiz8::sound::VolumeChannel::voice, .gain_scale = 127.0f / 255.0f});
     }
     if (schedule_fade) {
         BeginScreenFade(fade_to_black, 1, 0x4b0, 0, true, 1);

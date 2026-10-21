@@ -240,6 +240,9 @@ void LoadGameConfiguration(void)
         SaveGameConfiguration();
     }
     SetSoundEffectsVolume(g_settings.sound_effects_volume);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::voice, g_settings.voice_volume);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::footsteps,
+                                    g_settings.footstep_volume);
     SetMusicVolume(g_settings.music_volume);
 }
 
