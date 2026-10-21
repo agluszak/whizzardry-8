@@ -7,7 +7,6 @@
 
 struct World;
 
-void UpdateWorldMesh();
 void UpdateWorldMeshFromQuads(World* world);
 void UpdateWorldOctree(World* world);
 

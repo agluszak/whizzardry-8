@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -1089,8 +1090,6 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
         W8Action choice{action, detail};
         if (data) choice.detail_block = *data;
-        if (gpSCSV || ItemUseDraft())
-            choice.target = CurrentGame().party.rows[party_slot].committed.target;
         SetCharacterCombatAction(party_slot, choice, notify);
         return;
     }
@@ -1207,32 +1206,39 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
         game.events.push(CombatPanelChanged{});
 }
 
-/* Whether a slot may switch to the given action context, optionally repairing
-   the aim state first when the caller allows it. */
-bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow_missing_target,
-                          bool allow_equipment_changes)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
+namespace {
+enum class SwitchGate : std::uint8_t { Allow, Refuse, CheckAction };
 
+/* The checks that come before the action itself. An idle screen that is not
+   asking for a target accepts any action while somebody can act; otherwise the
+   slot has to be able to act. */
+SwitchGate GateActionSwitch(int party_slot)
+{
     if (TargetingMode() == W8_TARGET_NEED_NONE && IsScreenIdle()) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
             if (IsPartySlotEligible(slot)) {
-                return true;
+                return SwitchGate::Allow;
             }
         }
-        return false;
+        return SwitchGate::Refuse;
     }
-    if (!CanPartySlotParticipate(party_slot)) {
-        return false;
+    if (!CanPartySlotParticipate(party_slot) ||
+        CurrentGame().party.characters[party_slot].highest_condition > W8_CONDITION_TURNCOAT) {
+        return SwitchGate::Refuse;
     }
-    if (character->highest_condition > W8_CONDITION_TURNCOAT) {
-        return false;
-    }
-    const auto selected = SelectCombatAction(party_slot, context);
-    if (selected.kind == W8_ACTION_NONE) {
-        return false;
-    }
+    return SwitchGate::CheckAction;
+}
+
+/* Whether the slot can carry out a fully specified action, optionally readying
+   its primary weapon first when the caller allows equipment changes. */
+bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missing_target,
+                      bool allow_equipment_changes)
+{
+    W8Character* character = &CurrentGame().party.characters[party_slot];
+
     switch (selected.kind) {
+    case W8_ACTION_NONE:
+        return false;
     case W8_ACTION_ATTACK:
         if (!CanAnyHandReachTarget(party_slot)) {
             if (!allow_equipment_changes) {
@@ -1261,9 +1267,6 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
         }
         break;
     case W8_ACTION_CAST_SPELL:
-        if (context == W8_TARGETING_CONTEXT_DIALOGUE && CharacterHasCastableSpell(character)) {
-            return true;
-        }
         if (selected.detail == 0) {
             return false;
         }
@@ -1272,9 +1275,6 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
         }
         break;
     case W8_ACTION_USE_ITEM:
-        if (context == W8_TARGETING_CONTEXT_DIALOGUE) {
-            return true;
-        }
         if (CurrentGame().party.itemAt(selected.detail_block.item_use.item) == 0) {
             return false;
         }
@@ -1301,6 +1301,34 @@ bool CharacterCanSwitchTo(int party_slot, W8TargetingContext context, bool allow
         }
     }
     return true;
+}
+} // namespace
+
+/* Whether a slot may switch to the action held in the given context,
+   optionally repairing the aim state first when the caller allows it. */
+bool CharacterCanSwitchTo(int party_slot, W8EditedAction context, bool allow_missing_target,
+                          bool allow_equipment_changes)
+{
+    if (const auto gate = GateActionSwitch(party_slot); gate != SwitchGate::CheckAction) {
+        return gate == SwitchGate::Allow;
+    }
+    return CanPerformAction(party_slot, SelectCombatAction(party_slot, context),
+                            allow_missing_target, allow_equipment_changes);
+}
+
+bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
+{
+    if (const auto gate = GateActionSwitch(party_slot); gate != SwitchGate::CheckAction) {
+        return gate == SwitchGate::Allow;
+    }
+    switch (candidate) {
+    case W8_ACTION_CAST_SPELL:
+        return CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]);
+    case W8_ACTION_USE_ITEM:
+        return true;
+    default:
+        return CanPerformAction(party_slot, W8Action{candidate}, true, false);
+    }
 }
 
 /* Face the monster toward whatever its combat slot targets before the attack

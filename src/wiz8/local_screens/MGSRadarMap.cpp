@@ -128,7 +128,10 @@ static OverlayQuad* AcquireRadarBlip(int sector, bool lit)
         g_radar_icon_cursors[sector] = cursor + 1;
         icon = pool[cursor].get();
     } else {
-        auto owned = std::make_unique<OverlayQuad>(*pool.front());
+        auto owned = makeOverlayFromTexture(pool.front()->texture, pool.front()->size.x / 640.0,
+                                            pool.front()->size.y / 480.0, true, true);
+        owned->scale = pool.front()->scale;
+        owned->color = pool.front()->color;
         icon = owned.get();
         pool.push_back(std::move(owned));
     }
@@ -193,10 +196,10 @@ void RefreshRadarMap(void)
     if (!map_surface) return;
     if (g_radar_zoomed) {
         for (int slot = 0; slot < 8; ++slot) {
-            W8PartyFormationPosition* position = &CurrentGame().party.formation.positions[slot];
+            const auto seat = CurrentGame().party.formation.cellOf(slot);
 
-            if (CurrentGame().party.members[slot].has_value() && position->bQuadrant != -1) {
-                int cell = position->bQuadrant * 3 + position->bQuadrantSlot;
+            if (CurrentGame().party.members[slot].has_value() && seat) {
+                const int cell = seat->row * 3 + seat->column;
                 CatalogArtwork::Load(0xa5, 0).draw(
                     *map_surface, CurrentGame().party.orderIndexOf(slot),
                     g_radar_cell_offsets[cell].x, g_radar_cell_offsets[cell].y);

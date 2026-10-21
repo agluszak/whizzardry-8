@@ -12,7 +12,6 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/retail_save_records.h" // IWYU pragma: keep - the NPC state codec copies use.
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -28,6 +27,7 @@
 #if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
 #pragma clang diagnostic pop
 #endif
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -77,7 +77,6 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
-#include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -1144,7 +1143,6 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     for (index = 0; index < static_cast<int>(story.npcs.size()); ++index) {
         released = story.npcs[index].get();
         if (released != 0 && released->binding_unavailable != 0) {
-            story.retired_npcs.push_back(std::move(story.npcs[index]));
             story.npcs[index] = std::move(owner);
             npc->partner_index = static_cast<unsigned char>(index);
             return npc;
@@ -1190,39 +1188,25 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         }
         if (slot > 255) throw std::runtime_error("too many NPC bindings");
         auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
-        W8NpcState* npc;
-        if (existing != pending.records.end())
-            npc = existing->state.get();
-        else {
-            std::unique_ptr<W8NpcState> owner;
-            if (source) {
-                owner = std::make_unique<W8NpcState>();
-                wiz8::retail::decode<W8NpcState>(wiz8::retail::encode(*source), *owner);
-                owner->record = source->record;
-                owner->items = source->items;
-                owner->character = source->character;
-            } else
-                owner = MakeNpcRuntimeNode(kind);
-            npc = owner.get();
-            pending.records.push_back({slot, std::move(owner)});
+        if (existing == pending.records.end()) {
+            pending.records.push_back({.slot = slot});
+            if (!source) pending.records.back().created = MakeNpcRuntimeNode(kind);
+            existing = pending.records.end() - 1;
         }
         reserved[slot] = true;
-        npc->partner_index = static_cast<unsigned char>(slot);
-        npc->location_id = info.location_id;
-        npc->is_present = true;
-        npc->has_monster = true;
-        npc->binding_unavailable = false;
-        npc->level_band = GetLevelBand(world.level_id);
-        npc->bound_level = static_cast<unsigned char>(world.level_id);
+        existing->location_id = info.location_id;
+        existing->level_band = GetLevelBand(world.level_id);
+        existing->bound_level = static_cast<unsigned char>(world.level_id);
+        // Without a created state the slot holds the story's own NPC (source).
+        W8NpcState& npc = existing->created ? *existing->created : *CurrentGame().story.npcs[slot];
+        existing->script = LoadNpcScriptResources(npc, info.p3D);
         info.bound_npc_index = slot;
-        ReloadNpcScriptResources(npc, info.p3D);
     };
     for (const auto* list :
          {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
         for (const auto& info : *list) prepare(*info);
     auto& story = CurrentGame().story;
     story.npcs.reserve(reserved.size());
-    story.retired_npcs.reserve(story.retired_npcs.size() + pending.records.size());
     return pending;
 }
 
@@ -1230,12 +1214,22 @@ void InstallNpcBindings(W8PreparedNpcBindings pending)
 {
     auto& story = CurrentGame().story;
     for (auto& binding : pending.records) {
-        if (static_cast<size_t>(binding.slot) == story.npcs.size())
-            story.npcs.push_back(std::move(binding.state));
-        else {
-            story.retired_npcs.push_back(std::move(story.npcs[binding.slot]));
-            story.npcs[binding.slot] = std::move(binding.state);
+        if (binding.created) {
+            // A new NPC takes the slot; work still holding a released one there keeps it.
+            if (static_cast<size_t>(binding.slot) == story.npcs.size())
+                story.npcs.push_back(std::move(binding.created));
+            else
+                story.npcs[binding.slot] = std::move(binding.created);
         }
+        W8NpcState& npc = *story.npcs[binding.slot];
+        npc.partner_index = static_cast<unsigned char>(binding.slot);
+        npc.location_id = binding.location_id;
+        npc.is_present = true;
+        npc.has_monster = true;
+        npc.binding_unavailable = false;
+        npc.level_band = binding.level_band;
+        npc.bound_level = binding.bound_level;
+        npc.script_file = std::move(binding.script);
     }
 }
 
@@ -1401,7 +1395,7 @@ void ReleaseNpcBinding(int value)
 void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
 {
     auto& states = CurrentGame().story.npcs;
-    states = std::move(npcs);
+    states.assign(std::make_move_iterator(npcs.begin()), std::make_move_iterator(npcs.end()));
     for (std::size_t index = 0; index < states.size(); ++index) {
         auto* npc = states[index].get();
         npc->partner_index = static_cast<unsigned char>(index);

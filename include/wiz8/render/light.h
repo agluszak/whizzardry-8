@@ -27,7 +27,6 @@ struct W8Chunk;
 namespace wiz8 {
 class File;
 }
-extern unsigned int g_light_update_flags;
 
 enum W8ParametricLightFlag {
     W8_PARAM_LIGHT_MODE_MASK = 3,
@@ -85,7 +84,6 @@ public:
         ENABLE_SPOT = 0,
         ENABLE_DIRECTIONAL = 1,
 
-        ENABLE_BOUNDING_SPHERE = 2,
         ENABLE_RANGE_NEAR = 3,
         ENABLE_RANGE_FAR = 4
     };
@@ -100,8 +98,6 @@ public:
 
     Light(const Light& other);
 
-    // Derives the light's eye-space values for one scene view.
-    void beginPass(const DrawTransform& view, float brightness);
     Light& operator=(const Light& other);
 
 public:
@@ -121,11 +117,6 @@ public:
     double far_start;                     /* 0x168 */
     double far_end;                       /* 0x170 */
 
-    float scaled_near_start = 0; /* 0x178 */
-    float scaled_far_end = 0;    /* 0x17c */
-    float near_attenuation = 0;  /* 0x180 */
-    float far_attenuation = 0;   /* 0x184 */
-
     glm::vec3 opengl_attenuation;    /* 0x188 */
     std::uint32_t enable_flags;           /* 0x194 */
     glm::vec3 ambient;               /* 0x198 */
@@ -135,28 +126,11 @@ public:
     float spot_angle;                     /* 0x1c8 */
     float spot_exponent;                  /* 0x1cc */
     float intensity;                      /* 0x1d0 */
-    float safe_range;                     /* 0x1d4 */
-    glm::vec4 scaled_ambient{0};     /* 0x1d8: ambient * intensity */
-    glm::vec4 scaled_diffuse{0};     /* 0x1e8: diffuse * intensity */
-    glm::vec4 scaled_specular{0};    /* 0x1f8: specular * intensity */
-    glm::vec3 spot_direction_eye{0}; /* 0x208 */
-    float spot_cutoff = 0;                    /* 0x214: cos(spot_angle) */
-    float attenuation_range = 0;              /* 0x218: scaled far end */
-    enum {
-        DERIVED_ACTIVE = 0x01u,
-        DERIVED_SPOT = 0x02u,
-        DERIVED_DIRECTIONAL = 0x04u,
-        DERIVED_OPENGL_ATTENUATION = 0x08u,
-        DERIVED_CONSTANT_ATTENUATION = 0x10u,
-        DERIVED_RANGE_CULL = 0x20u
-    };
-    std::uint32_t derived_flags; /* 0x21c */
-    std::uint32_t channel_mask;  /* 0x220 */
 public:
 public:
     void Reset();                                              /* 0x0049D070 */
     void SetDefinitionTime(float time);                        /* 0x0049C940 */
-    void Update();                                             /* 0x0049C960 */
+    void Update(float world_seconds);                                             /* 0x0049C960 */
 
     float positionalX() const { return m_position.x; }
     float positionalY() const { return m_position.y; }
@@ -165,7 +139,6 @@ public:
     {
         attenuation_model = Light::ATTENUATION_3DSTUDIO_MAX;
         enable_flags |= 0x10; /* ENABLE_RANGE_FAR */
-        enable_flags |= 4;    /* ENABLE_BOUNDING_SPHERE */
     }
 
     /* One value, not three floats: 0x0049C690 copies it through the base-pointer
@@ -178,15 +151,16 @@ public:
     /* Raised by light-toggle triggers; the save path serializes the names of
        lights carrying it so their toggled state persists in savegames. */
     bool m_save_marked; /* 0x23a */
-    /* MonotonicMilliseconds()/1000 timestamp of the last intensity/color update. */
-    float m_level_time;
+    /* Held-world seconds of the last intensity/color update. */
+    float m_level_time = -1;
+    std::optional<float> animation_time;
     /* Current 0..1 sweep level driving intensity and the color lerp. */
     float m_level;
     std::optional<KeyframeTrack> path_ai;
     /* Current path entry index, advanced by m_path_direction. */
     int m_path_index;
-    /* MonotonicMilliseconds()/1000 timestamp of the last path advance. */
-    float m_path_time;
+    /* Held-world seconds of the last path advance. */
+    float m_path_time = -1;
     /* Path step direction, +1 or -1 under the ping-pong flag. */
     int m_path_direction;
     Prop* m_prop; /* 0x254 */
@@ -195,8 +169,8 @@ public:
           const glm::vec3* second_color);
     void SetVisible(bool visible);
     void SetRange(float range);
-    void Update(const glm::vec3* position);
-    void StartFadeOut();
+    void Update(const glm::vec3* position, float world_seconds);
+    void StartFadeOut(float world_seconds);
 
 public:
     std::string name = "anonymous";
@@ -219,7 +193,6 @@ public:
     glm::dmat4 worldMatrix() const;
     void setScene(WorldScene* value);
     std::uint32_t group_mask = 0x80000000u;
-    glm::vec3 eye_location{0};
     void setGroupMask(std::uint32_t value) { group_mask = value; }
     std::uint32_t getGroupMask() const { return group_mask; }
 };

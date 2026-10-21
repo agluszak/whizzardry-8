@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -358,6 +359,23 @@ void InstanceNode::ensureParts()
                     [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
         parts.clear();
         for (auto* mesh : models) parts.push_back(std::make_unique<Part>(*mesh));
+    }
+}
+
+void InstanceNode::advanceTextures(std::chrono::milliseconds now)
+{
+    ensureParts();
+    for (const auto& part : parts) {
+        for (const auto& pass : part->mesh->textures)
+            for (const auto& texture : pass)
+                if (texture) texture->UpdateFrame(now);
+        for (const auto& pass : part->mesh->poly_textures)
+            for (const auto& layer : pass)
+                for (std::size_t polygon = 0; polygon < layer.size(); ++polygon)
+                    if (const auto& texture = layer[polygon]) texture->UpdateFrame(now);
+        for (const auto& skin : part->mesh->skins)
+            for (std::size_t polygon = 0; polygon < skin.textures.size(); ++polygon)
+                if (const auto& texture = skin.textures[polygon]) texture->UpdateFrame(now);
     }
 }
 

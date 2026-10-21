@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <span>
 
+#include <vsg/utils/LineSegmentIntersector.h>
+
 #include "glm/ext/matrix_float4x4.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -14,21 +16,11 @@ class FogParams;
 class Light;
 class MeshInstance;
 
-// Eye-space planes: [0, 6) bound the view frustum and [6, 32) are user planes.
-struct ClipPlanes {
-    std::array<glm::vec4, 32> planes{};
-    std::uint32_t mask = 0;
-};
-
 // The transforms one mesh submission, visibility query or light pass uses.
 // Callers compose them explicitly; the renderer keeps no current matrix.
 struct DrawTransform {
-    static constexpr std::size_t max_user_clip_planes = 26;
-
     glm::mat4 model_view{1};
     glm::mat4 projection{1};
-    // Eye-space user clip planes, borrowed from the scene pass that owns them.
-    std::span<const glm::vec4> user_clip_planes;
 
     // The same view with an object transform applied before it.
     DrawTransform withModel(const glm::mat4& model) const;
@@ -36,12 +28,8 @@ struct DrawTransform {
 
     glm::mat4 inverseModelView() const;
     float maxModelViewScale() const;
-    // Inverse transpose of the model-view basis with model scaling removed.
-    glm::mat4 normalMatrix() const;
     // The projection rescaled for clipping against the near plane.
     glm::mat4 projectClipNear() const;
-    ClipPlanes clipPlanes() const;
-    bool sphereVisible(const glm::vec3& center, float radius) const;
 };
 
 // Brings an object-space plane into the eye space of `model_view`.
@@ -56,7 +44,9 @@ struct Pick {
     // Normalized pick point: x and y are the cursor's viewport-space
     // coordinates; z starts at the far value 1.0 and keeps the nearest hit.
     glm::vec3 position{0, 0, 1};
-    MeshInstance* selected_model{};
+    // The intersection retains VSG coordinates, primitive data and graph identity.
+    // Its node path borrows the scene nodes until the next graph mutation.
+    vsg::ref_ptr<vsg::LineSegmentIntersector::Intersection> hit;
 };
 
 // Distances and clamped amplitudes of the camera's depth cue.
@@ -88,7 +78,6 @@ struct ScenePass {
     glm::vec4 ambient_light{0};
     // The colour fogged fragments blend towards, in [0, 1].
     glm::vec4 fog_color{0};
-    std::span<Light* const> lights;
     std::span<FogParams* const> fogs;
     DepthCue depth_cue;
     // Light and fog groups the submission ignores.

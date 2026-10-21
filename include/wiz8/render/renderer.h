@@ -37,7 +37,9 @@ public:
 
     void beginFrame(const glm::vec4& clear = {0, 0, 0, 1});
     void addView(vsg::ref_ptr<vsg::View> view);
-    void drawOverlayQuad(const OverlayQuad& quad);
+    void prepareOverlay(OverlayQuad& quad);
+    void addOverlay(vsg::ref_ptr<vsg::Node> node);
+    void drawOverlayQuad(OverlayQuad& quad);
     // Capture copies the rendered image before the presentation engine owns it.
     // The returned surface remains valid until the next captured frame.
     void endFrame(bool present = true, bool capture = false);
