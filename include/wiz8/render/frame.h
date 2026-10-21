@@ -86,7 +86,9 @@ std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> tex
                                                     double height, bool alpha_blend, bool square);
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
-bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary);
+bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect);
+/* Render the current world's map view into a caller-owned surface the same way. */
+bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect);
 
 struct W8ControlsRect;
 

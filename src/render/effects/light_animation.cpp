@@ -38,8 +38,6 @@
    string in the image names this unit; the class ownership is nevertheless
    established by its definitions. */
 
-unsigned int g_light_update_flags = 1;
-
 /* Normalizes a retail 15-bit raw draw to a 0..1 flicker probability;
    only Update uses it. */
 const float g_light_flicker_random_unit_scale = 3.0518509447574615e-05f;

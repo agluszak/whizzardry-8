@@ -526,7 +526,7 @@ struct WorldScene::CachedView {
 
 WorldScene::WorldScene()
     : root(vsg::Group::create()), game_root(vsg::StateGroup::create()),
-      objects(vsg::Group::create())
+      objects(vsg::Group::create()), map_root(vsg::StateGroup::create())
 {
     game_root->addChild(objects);
     root->addChild(game_root);
@@ -543,6 +543,7 @@ WorldScene::~WorldScene()
     // Stop graph traversal from retaining borrowers of its game objects.
     objects->children.clear();
     root->children.clear();
+    map_root->children.clear();
 }
 MeshInstance* WorldScene::addStaticMesh(std::unique_ptr<MeshInstance> mesh)
 {
@@ -653,6 +654,30 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
                                                std::uint64_t frame_number)
 {
     prepare(context, frame, frame_number);
+    const ScenePass pass{.frame = frame,
+                         .ambient_light = glm::vec4(ambient_light, 0),
+                         .fog_color = glm::vec4(glm::clamp(fog_color, 0.0f, 1.0f), 0),
+                         .fogs = fogs,
+                         .depth_cue = source ? source->depthCue() : DepthCue{}};
+    return cachedView(context, source, root, pass, std::move(viewport), frame_number);
+}
+vsg::ref_ptr<vsg::View> WorldScene::createMapView(render::RenderContext& context,
+                                                  const SceneFrame& frame,
+                                                  vsg::ref_ptr<vsg::ViewportState> viewport,
+                                                  std::uint64_t frame_number)
+{
+    // Explored colours are the map's whole appearance: no ambient, lights, fog or depth cue.
+    const ScenePass pass{.frame = frame};
+    render::bindViewState(*map_root, context);
+    const auto graph = map.prepare(context, static_meshes, pass);
+    if (map_root->children.empty()) map_root->addChild(graph);
+    return cachedView(context, &map.camera, map_root, pass, std::move(viewport), frame_number);
+}
+vsg::ref_ptr<vsg::View> WorldScene::cachedView(render::RenderContext& context, Camera3D* source,
+                                               vsg::ref_ptr<vsg::Node> graph, const ScenePass& pass,
+                                               vsg::ref_ptr<vsg::ViewportState> viewport,
+                                               std::uint64_t frame_number)
+{
     const auto dimensions = viewport->getViewport();
     auto found = std::ranges::find_if(views, [&](const auto& entry) {
         const auto& previous = entry->viewport;
@@ -676,7 +701,7 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
         entry->projection = render::Projection::create(vsg::dmat4{});
         entry->view_matrix = render::ViewMatrix::create(vsg::dmat4{});
         entry->view->camera = vsg::Camera::create(entry->projection, entry->view_matrix, viewport);
-        entry->view->addChild(root);
+        entry->view->addChild(graph);
         entry->translucent = vsg::StateGroup::create();
         entry->translucent->addChild(render::TranslucentStage::create());
         entry->view->addChild(entry->translucent);
@@ -695,13 +720,8 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
     (*found)->view_matrix->matrix = render::toVsg(glm::dmat4(transform.model_view));
     view->camera->viewportState = viewport;
     view->mask = render::render_mask;
-    ScenePass pass{.frame = frame,
-                   .ambient_light = glm::vec4(ambient_light, 0),
-                   .fog_color = glm::vec4(glm::clamp(fog_color, 0.0f, 1.0f), 0),
-                   .fogs = fogs,
-                   .depth_cue = source ? source->depthCue() : DepthCue{}};
     render::CountIndices counts;
-    root->accept(counts);
+    graph->accept(counts);
     std::vector<glm::vec4> clip_planes_eye;
     for (const auto& plane : clip_planes)
         if (plane->visible)

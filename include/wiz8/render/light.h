@@ -27,7 +27,6 @@ struct W8Chunk;
 namespace wiz8 {
 class File;
 }
-extern unsigned int g_light_update_flags;
 
 enum W8ParametricLightFlag {
     W8_PARAM_LIGHT_MODE_MASK = 3,

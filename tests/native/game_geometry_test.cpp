@@ -385,7 +385,7 @@ static void baked_lighting()
     REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
     const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
-    const auto colors = mesh.GetVertexLights(false, -1);
+    const auto colors = mesh.GetVertexLights(false);
     REQUIRE(close(colors[0], glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
     REQUIRE(close(colors[1], glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
     REQUIRE((mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY)));
@@ -416,18 +416,6 @@ static void baked_lighting()
     light.transform.setLocation(glm::dvec3(position));
     REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     REQUIRE(colors[0] == glm::vec3(0, 0, 0));
-    auto world = instance.transform.matrix<glm::mat4>();
-    mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
-    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(0, 0, 0)));
-    REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
-    mesh.RevealVerticesNear({10, 0, -4}, 0.25f, world);
-    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(1, 1, 1)));
-    colors[1] = glm::vec3(0);
-    mesh.RevealVerticesNear({10, 0, -4}, -1, world);
-    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
-    mesh.RevealVerticesNear(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1, world);
-    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     instance.setModel(nullptr);
 }
 
@@ -1619,7 +1607,7 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
     REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
 }
 
-TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry]")
+TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry]")
 {
     const glm::vec3 environment{0.25f, 0.5f, 0.75f};
     Mesh mesh(0, 4);
@@ -1630,7 +1618,7 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
     mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
     mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
-    const auto lights = mesh.GetVertexLights(true, 0);
+    const auto lights = mesh.GetVertexLights(true);
     for (unsigned vertex = 0; vertex < 4; ++vertex) {
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
@@ -1653,12 +1641,6 @@ TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry
         REQUIRE(close(mixed.dig[0][vertex],
                       (ambient[vertex] * sunlight[vertex] + lights[vertex] + environment) * 2.0f));
 
-    mesh.vertex_light_table = 1;
-    const auto alternate = mesh.GetVertexLights(true, 1);
-    std::ranges::fill(alternate, glm::vec3(3, 4, 5));
-    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto alternate_mesh = mesh.getTriMesh();
-    REQUIRE(alternate_mesh.dig[0][0] == glm::vec3(6, 8, 10));
     mesh.SetAmbientColor({2, 3, 4}, environment, 0);
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
     REQUIRE(mesh.getTriMesh().dig[0][0] == glm::vec3(0));

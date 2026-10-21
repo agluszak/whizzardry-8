@@ -115,7 +115,7 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
     for (auto* mesh : meshParts(static_cast<Mesh*>(instance->getModel()))) {
         const auto count = mesh->vertex_location_count;
         if (count <= 0) continue;
-        const auto vertex_lights = mesh->GetVertexLights(true, -1);
+        const auto vertex_lights = mesh->GetVertexLights(true);
         mesh->GetVertexSunlight(true);
         if (vertex_lights.empty()) return false;
         if (lights.empty()) continue;
@@ -187,30 +187,6 @@ bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scen
         BakeInstanceVertexLighting(instance, lights);
     }
     return true;
-}
-
-/* Walk every live world mesh (octree mesh table, or the update-mesh chain when
-   there is no octree) and point its vertex-light table index at `table`, then
-   raise flags bit 1 so the next bake uses that table. */
-void SetWorldMeshVertexLightTable(int table)
-{
-    if (GetWorld()->compiledIndex() == 0) {
-        for (Mesh* model :
-             meshParts(static_cast<Mesh*>(GetWorld()->update_mesh_source->getModel()))) {
-            model->vertex_light_table = table;
-            model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-        }
-    } else {
-        for (unsigned int mesh = 0; mesh < GetWorld()->compiledIndex()->m_meshCount; ++mesh) {
-            MeshInstance* instance = GetWorld()->psrMeshes[mesh];
-            if (instance != 0) {
-                for (Mesh* model : meshParts(static_cast<Mesh*>(instance->getModel()))) {
-                    model->vertex_light_table = table;
-                    model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-                }
-            }
-        }
-    }
 }
 
 /* Visibility queries share midpoint/corner generation and retain early-exit order. */

@@ -516,11 +516,21 @@ void RenderFrame(void)
     }
 }
 
+/* Finish an offscreen frame and copy its image into a caller-owned surface. */
+static bool ReadFrameInto(SDL_Surface& target)
+{
+    g_renderer->endFrame(false, true);
+    auto* buffer = g_renderer->readback();
+    if (!buffer) return false;
+    StretchCpuSurface(*buffer, target, SDL_SCALEMODE_NEAREST);
+    return true;
+}
+
 /* Render offscreen and copy the completed image into a caller-owned surface.
    `rect` selects a logical 640x480 viewport; otherwise the stored game viewport
-   applies. Saves use this for SHOT screenshots and the automap for its backdrop. */
+   applies. Saves use this for SHOT screenshots. */
 // FUNCTION: WIZ8 0x00426f80
-bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool render_secondary)
+bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
 {
     if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
     glm::vec3 clear_color{1.0f};
@@ -530,15 +540,24 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect, bool rend
         GetWorldLightValue(GetWorld(), &clear_color);
     g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
     const DesignRect bounds = rect ? *rect : g_viewport;
-    if (render_secondary && g_render_mesh_sky && GetSecondaryWorld())
+    if (g_render_mesh_sky && GetSecondaryWorld())
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &bounds, true);
     RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &bounds, true);
-    g_renderer->endFrame(false, true);
-    if (auto* buffer = g_renderer->readback()) {
-        StretchCpuSurface(*buffer, *target, SDL_SCALEMODE_NEAREST);
-        return true;
-    }
-    return false;
+    return ReadFrameInto(*target);
+}
+
+bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect)
+{
+    if (!g_renderer || !g_renderer->isOpen() || !GetWorld()) return false;
+    g_renderer->beginFrame(glm::vec4(0, 0, 0, 1));
+    auto frame = CurrentSceneFrame();
+    // The map keeps the retail automap's reduced texture detail.
+    frame.texture_reduction = 3;
+    const auto area = ToSurfaceRect(rect, g_renderer->width(), g_renderer->height());
+    g_renderer->addView(GetWorld()->scene->createMapView(
+        g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
+        g_renderer->frameNumber()));
+    return ReadFrameInto(target);
 }
 
 /* Both static scenes take the light direction as their fog colour. */
