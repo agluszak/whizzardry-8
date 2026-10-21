@@ -12,6 +12,7 @@
 
 #include "asset_paths.h"
 #include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/chunk.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/local_code/GameplayInit.h"

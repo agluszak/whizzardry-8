@@ -349,7 +349,7 @@ bool stop_group(Group group)
 void set_channel_volume(VolumeChannel channel, std::uint32_t volume)
 {
     if (channel == VolumeChannel::unscaled) return;
-    service_state.channel_volume[static_cast<std::size_t>(channel)] = std::min(volume, 127u);
+    service_state.channel_volume[static_cast<std::size_t>(channel)] = volume;
     for (const auto& playback : service_state.active)
         if (playback->channel == channel)
             set_volume(playback, playback->source_volume, playback->gain_scale);

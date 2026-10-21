@@ -28,6 +28,7 @@
 #include "prepared_assets.h"
 #include "scoped_game.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/music_playlist.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
 #include <glm/ext/vector_float3.hpp>
@@ -47,6 +48,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/world.h"

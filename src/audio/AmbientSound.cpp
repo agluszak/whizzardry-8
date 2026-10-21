@@ -61,11 +61,13 @@ std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t m
 {
     return minimum + (maximum > minimum ? PresentationRng().below(maximum - minimum) : 0);
 }
-wiz8::sound::Playback W8AmbientTrack::Fire(std::uint32_t volume, std::optional<glm::vec3> position)
+wiz8::sound::Playback W8AmbientTrack::Fire(std::uint32_t volume, std::optional<glm::vec3> position,
+                                           float gain_scale)
 {
     auto playback = wiz8::sound::play(
         clip,
         {.volume = volume,
+         .gain_scale = gain_scale,
          .loops = loops.value_or(1),
          .rate = speed ? std::optional(RandomRange(speed->first, speed->second)) : std::nullopt,
          .group = wiz8::sound::Group::ambient,
@@ -198,7 +200,7 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                 float angle = -GetCameraYawRadians();
                 glm::mat3 rotation;
                 glm::vec3 transformed;
-                unsigned int volume;
+                float gain_scale;
 
                 rotation = glm::mat3(1);
                 rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -206,14 +208,12 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                 transformed = rotation * offset;
                 wiz8::sound::set_position(sound_handle, transformed);
                 if (radius * kNavigatorMode3Scale <= distance) {
-                    volume = current_volume;
+                    gain_scale = 1.0f;
                 } else {
-                    volume = static_cast<unsigned int>(
-                        (1.0f - (distance - radius * kNavigatorMode3Scale) /
-                                    (radius * g_ambient_sound_inner_radius_scale)) *
-                        current_volume);
+                    gain_scale = 1.0f - (distance - radius * kNavigatorMode3Scale) /
+                                            (radius * g_ambient_sound_inner_radius_scale);
                 }
-                wiz8::sound::set_volume(sound_handle, volume);
+                wiz8::sound::set_volume(sound_handle, current_volume, gain_scale);
             }
             return;
         }
@@ -255,7 +255,7 @@ void W8AmbientSound::Service(bool entered)
                 glm::vec3 to_listener;
                 float distance;
                 unsigned int volume;
-                unsigned int heard_volume;
+                float gain_scale;
 
                 camera = cameraLocation();
                 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
@@ -267,14 +267,12 @@ void W8AmbientSound::Service(bool entered)
                     (PresentationRng().below(volume_max - volume_min) + volume_min));
                 current_volume = volume;
                 if (distance < radius * kNavigatorMode3Scale) {
-                    heard_volume = current_volume;
+                    gain_scale = 1.0f;
                 } else {
-                    heard_volume = static_cast<unsigned int>(
-                        (1.0f - (distance - radius * kNavigatorMode3Scale) /
-                                    (radius * g_ambient_sound_inner_radius_scale)) *
-                        current_volume);
+                    gain_scale = 1.0f - (distance - radius * kNavigatorMode3Scale) /
+                                            (radius * g_ambient_sound_inner_radius_scale);
                 }
-                sound_handle = random->Fire(heard_volume, transformed);
+                sound_handle = random->Fire(current_volume, transformed, gain_scale);
             }
         }
         return;
