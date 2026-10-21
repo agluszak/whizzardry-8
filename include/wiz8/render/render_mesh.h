@@ -34,11 +34,9 @@ enum MeshAttribute : std::uint32_t {
 struct MeshAsset {
     struct Batch {
         std::array<std::shared_ptr<Texture>, 2> textures;
-        DrawShader shader;
         std::uint32_t first_index = 0;
         std::uint32_t index_count = 0;
         std::uint32_t first_polygon = 0;
-        bool inherits_shader = true;
     };
     struct Pass {
         unsigned pass = 0;
@@ -57,14 +55,12 @@ struct MeshAsset {
         std::vector<std::uint32_t> polygons;
         std::vector<Batch> batches;
         std::vector<std::shared_ptr<Material>> materials;
+        DrawShader shader;
         std::uint32_t draw_flags = 0;
-        bool has_texcoord0 = false;
     };
     std::vector<Pass> passes;
-    std::vector<glm::ivec3> triangles;
     glm::vec3 bounds_center{0};
     float bounds_radius = 0;
-    float sort_bias = 0;
     bool sorted = false;
     bool animated = false;
     bool offset_pass_keys = true;

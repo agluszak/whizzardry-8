@@ -110,24 +110,14 @@ public:
     void invalidateRenderAsset() { render_asset_.reset(); }
     // RECOMP: ?clearDirty@Mesh@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
-    DrawShader* getPolyShader(std::int32_t polygon, int layer);
     DrawShader getShader(std::int32_t polygon) const;
     void setShader(DrawShader shader, std::int32_t pass);
     void setUVCount(std::int32_t count);
     std::int32_t getUVCount() const;
     void setActivePolygonCount(std::int32_t count);
     std::int32_t getActivePolygonCount();
-    std::int32_t getPassCount() const;
     std::int32_t getPolygonCount() const;
     std::int32_t getVertexCount() const;
-    void setPassCount(std::int32_t count);
-    void setSortBias(float bias)
-    {
-        sort_bias = bias;
-        invalidateRenderAsset();
-    }
-    float getSortBias() const;
-    void disable(e_control control);
     void enable(e_control control)
     {
         render_control |= 1u << control;
@@ -158,7 +148,6 @@ public:
     std::array<DrawShader, MAX_PASSES> shaders;
     // Per-polygon texture and per-vertex material tables are created on demand.
     std::array<std::array<std::vector<std::shared_ptr<Texture>>, 2>, MAX_PASSES> poly_textures;
-    std::array<std::vector<DrawShader>, MAX_PASSES> poly_shaders;
     std::array<std::array<std::vector<std::shared_ptr<Material>>, 2>, MAX_PASSES> vertex_materials;
     std::vector<glm::ivec3> poly_vertices;
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
@@ -180,7 +169,6 @@ public:
     std::int32_t vertex_location_count = 0;
     std::int32_t polygon_count = 0;
     std::int32_t uv_count = 0;
-    float sort_bias = 0.0f;
     std::uint32_t dirty_flags = 0;
     std::uint32_t render_control = 0;
 
@@ -192,7 +180,6 @@ public:
     int FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
     void AddPart(std::unique_ptr<Mesh> part);
-    /* The mesh submitted after this one in its model, or null. */
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
@@ -202,7 +189,6 @@ public:
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
-    void RemoveSkinTable(int index);
     /* One animation frame decoded from its compressed tables. Positions
        interpolate toward the next frame; normals are this frame's own. */
     struct FrameGeometry {

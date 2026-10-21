@@ -580,20 +580,18 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.expanded->dirty();
             }
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
-                const auto& batch = source.batches[batch_index];
                 auto& state = cached.batches[batch_index];
-                const auto shader = !highlight_body && instance->diffuse_scale_enabled &&
-                                            source.pass == 0 && batch.inherits_shader
-                                        ? fadingShader(batch.shader.value)
-                                        : batch.shader.value;
+                const auto shader =
+                    !highlight_body && instance->diffuse_scale_enabled && source.pass == 0
+                        ? fadingShader(source.shader.value)
+                        : source.shader.value;
                 const auto cull =
                     source.cull ? (source.side ? FaceCull::Front : FaceCull::Back) : FaceCull::None;
                 const auto sorted =
                     asset.sorted || (!highlight_body && instance->diffuse_scale_enabled);
                 if (!state.leaf) {
-                    state.leaf =
-                        DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
-                                         asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
+                    state.leaf = DrawNode::create(sampled.draws[batch_index], sampled.positions,
+                                                  sorted, asset.offset_pass_keys ? source.pass : 0);
                     state.leaf->authored_normals = sampled.authored_normals;
                     state.leaf->cull = cull;
                     state.leaf->add(part->instance_bind);
@@ -625,7 +623,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     for (std::size_t binding = 1; binding < draw->arrays.size(); ++binding)
                         arrays.push_back(draw->arrays[binding]->data);
                     draw->assignArrays(arrays);
-                    state.shell = DrawNode::create(draw, cached.expanded, true, asset.sort_bias,
+                    state.shell = DrawNode::create(draw, cached.expanded, true,
                                                    asset.offset_pass_keys ? source.pass : 0);
                     state.shell->authored_normals = sampled.authored_normals;
                     state.shell->cull = cull;

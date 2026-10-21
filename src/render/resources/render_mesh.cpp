@@ -65,7 +65,6 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
     const auto* dig = tableOrNull(mesh.dig[pass]);
     const auto* dcg = tableOrNull(mesh.dcg[pass]);
     const auto* scg = tableOrNull(mesh.scg[pass]);
-    const auto* poly_shaders = tableOrNull(mesh.poly_shaders[pass]);
 
     MeshAsset::Pass result;
     result.pass = static_cast<unsigned>(pass);
@@ -78,7 +77,7 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         !authored_faces && side && (control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)) ? 0
                                                                                           : side;
     result.draw_flags = passFlags(mesh, pass, material_side);
-    result.has_texcoord0 = texcoords0 != nullptr;
+    result.shader = mesh.shaders[pass];
 
     std::map<Material*, std::uint32_t> slots;
     const auto slotOf = [&](const std::shared_ptr<Material>& material) {
@@ -130,18 +129,17 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
             indices.push_back(renderVertex(triangle[corner], uv[corner]));
         result.polygons.push_back(static_cast<std::uint32_t>(polygon));
         const std::array textures{textureAt(polygon, 0), textureAt(polygon, 1)};
-        const auto shader = poly_shaders ? poly_shaders[polygon] : mesh.shaders[pass];
         if (!result.batches.empty()) {
             auto& previous = result.batches.back();
-            if (previous.textures == textures && previous.shader.value == shader.value &&
+            if (previous.textures == textures &&
                 skinsMatch(previous.first_polygon, static_cast<std::uint32_t>(polygon))) {
                 previous.index_count += 3;
                 continue;
             }
         }
-        result.batches.push_back({textures, shader,
+        result.batches.push_back({textures,
                                   wiz8::checked_integer<std::uint32_t>(indices.size() - 3), 3,
-                                  static_cast<std::uint32_t>(polygon), !poly_shaders});
+                                  static_cast<std::uint32_t>(polygon)});
     }
     for (std::size_t attribute = 0; attribute < result.attributes.size(); ++attribute) {
         auto array = vsg::vec4Array::create(attributes.size());
@@ -175,14 +173,11 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
     mesh.applyPendingLighting();
     auto asset = std::make_shared<MeshAsset>();
     if (mesh.vertex_location_count <= 0 || mesh.polygon_count <= 0) return asset;
-    const auto* triangles = mesh.getPolyVertex();
-    asset->triangles.assign(triangles, triangles + mesh.polygon_count);
     // VSG needs the actual all-frame model bound even where the draw controls
     // mark the mesh's own bounds as authored (the sky).
     const auto bounds = mesh.getBounds();
     asset->bounds_center = bounds.sphere.center;
     asset->bounds_radius = bounds.sphere.radius;
-    asset->sort_bias = mesh.sort_bias;
     const auto control = mesh.render_control;
     asset->sorted = (control & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();

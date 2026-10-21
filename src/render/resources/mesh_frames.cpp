@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
@@ -247,8 +246,8 @@ std::vector<std::shared_ptr<Texture>>* Mesh::GetTextureTable(int table)
     return skin != skins.end() ? &skin->textures : nullptr;
 }
 
-/* Clone one polygon-texture table under an owned name. Table ids are the lowest
-   free non-negative integer and remain stable independently of vector position. */
+/* Clone one polygon-texture table under an owned name. Skins are never removed,
+   so a table's id is its creation index. */
 int Mesh::CreateSkinTable(std::string_view name, int base_table)
 {
     if (FindSkinTable(name) != -1) {
@@ -261,11 +260,7 @@ int Mesh::CreateSkinTable(std::string_view name, int base_table)
     if (source == nullptr) {
         return -1;
     }
-    int table = 0;
-    while (std::any_of(skins.begin(), skins.end(),
-                       [table](const auto& skin) { return skin.id == table; })) {
-        ++table;
-    }
+    const int table = wiz8::checked_integer<int>(skins.size());
     Skin skin{table, std::string(name), *source, std::nullopt, false};
     skins.push_back(std::move(skin));
     render_asset_.reset();
@@ -299,17 +294,6 @@ bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
     }
     return matched;
 }
-
-void Mesh::RemoveSkinTable(int index)
-{
-    if (static_cast<unsigned int>(index) < skins.size()) {
-        skins.erase(std::next(skins.begin(), index));
-        render_asset_.reset();
-    }
-}
-
-/* Skin tables are named with the owning cycle plus a one-character suffix.
-   Final teardown removes every table whose name has that cycle prefix. */
 
 static void DecompressMeshNormals(const unsigned char* normals, int count, glm::vec3* destination)
 {

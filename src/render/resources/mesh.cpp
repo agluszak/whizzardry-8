@@ -1,6 +1,5 @@
 #include "wiz8/render/mesh.h"
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -219,14 +218,6 @@ std::vector<std::shared_ptr<Texture>>* Mesh::getPolygonTextureTable(std::int32_t
     return assignments.empty() ? nullptr : &assignments;
 }
 
-DrawShader* Mesh::getPolyShader(std::int32_t polygon, int layer)
-{
-    if (polygon < 0 || polygon > 3) {
-        return 0;
-    }
-    return GetLazyMeshTable(*this, poly_shaders[polygon], polygon_count, layer);
-}
-
 glm::ivec3* Mesh::getPolyUVIndex(std::int32_t layer, int table)
 {
     if (layer < 0 || layer > 3) {
@@ -280,7 +271,7 @@ Mesh::Mesh(std::int32_t polygons, std::int32_t vertices)
 void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
 {
     /* Reset really discards table storage and its references; pass-wide material/texture/shader
-       state and sort bias survive. Default destruction needs no model reset or client callbacks.
+       state survives. Default destruction needs no model reset or client callbacks.
        This includes the former freeAll path at SURRENDER 0x1003DEA0. */
     active_polygons = std::vector<std::uint32_t>{};
     poly_vertices = std::vector<glm::ivec3>{};
@@ -292,7 +283,6 @@ void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
     poly_textures = {};
     texcoords = {};
     poly_uv_indices = {};
-    poly_shaders = {};
     dig = {};
     dcg = {};
     scg = {};
@@ -418,28 +408,6 @@ glm::vec4* Mesh::getVertexSCG(std::int32_t vertex, int table)
 glm::vec4* Mesh::getVertexDCG(std::int32_t vertex, int table)
 {
     return GetVertexColorTable(*this, dcg, vertex, table);
-}
-
-float Mesh::getSortBias() const
-{
-    return sort_bias;
-}
-
-void Mesh::disable(e_control control)
-{
-    render_control &= ~(1u << control);
-    invalidateRenderAsset();
-}
-
-void Mesh::setPassCount(std::int32_t count)
-{
-    pass_count = std::clamp<std::int32_t>(count, 1, MAX_PASSES);
-    invalidateRenderAsset();
-}
-
-std::int32_t Mesh::getPassCount() const
-{
-    return pass_count;
 }
 
 std::int32_t Mesh::getPolygonCount() const

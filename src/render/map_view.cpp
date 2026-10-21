@@ -156,15 +156,14 @@ void MapView::Surface::build(render::RenderContext& context, const MeshInstance&
             draw->firstIndex = ranges[batch].first;
             draw->indexCount = ranges[batch].second;
             draw->instanceCount = 1;
-            auto leaf =
-                render::DrawNode::create(draw, source.positions, asset->sorted, asset->sort_bias,
-                                         asset->offset_pass_keys ? source.pass : 0);
+            auto leaf = render::DrawNode::create(draw, source.positions, asset->sorted,
+                                                 asset->offset_pass_keys ? source.pass : 0);
             leaf->cull = cull;
             leaf->pickable = false;
             leaf->sort_order = sort_order;
             leaf->add(instance_bind);
             leaf->add(pass_bind);
-            const auto shader = source.batches[batch].shader.value;
+            const auto shader = source.shader.value;
             leaf->setPipeline(context.pipeline(shader, cull, Winding::Standard),
                               context.pipeline(shader, cull, Winding::Reversed));
             body->addChild(leaf);
@@ -193,7 +192,7 @@ void MapView::Surface::update(render::RenderContext& context, const MeshInstance
             auto detail = context.texture(draw.textures[1].get(), pass.frame.texture_reduction);
             if (batch.images && batch.texture == texture && batch.detail == detail) continue;
             if (batch.images) batch.leaf->remove(batch.images);
-            batch.images = context.batchSet(draw.shader.value, texture, detail);
+            batch.images = context.batchSet(source.shader.value, texture, detail);
             batch.leaf->add(batch.images);
             batch.texture = texture;
             batch.detail = detail;

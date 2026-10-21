@@ -9,7 +9,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
-#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/texture.h"
@@ -34,7 +33,7 @@ static bool lazyTables()
     REQUIRE((empty.getPolyVertex() == nullptr && empty.getVertexLoc() == nullptr));
     REQUIRE((empty.getVertexNormal() == nullptr && empty.getPolyEq() == nullptr));
     REQUIRE((empty.getActivePolygonTable(1) == nullptr && empty.getVertexShadeIndex(1) == nullptr));
-    REQUIRE((empty.getPolyShader(0, 1) == nullptr && empty.getPolyUVIndex(0, 1) == nullptr));
+    REQUIRE(empty.getPolyUVIndex(0, 1) == nullptr);
     REQUIRE((empty.getVertexTexCoords(0, 0, 1) == nullptr && empty.getVertexDIG(0, 1) == nullptr));
     REQUIRE((empty.getVertexDCG(0, 1) == nullptr && empty.getVertexSCG(0, 1) == nullptr));
     REQUIRE(empty.getPolygonTextureTable(0, 0, true) == nullptr);
@@ -45,8 +44,7 @@ static bool lazyTables()
              mesh.vertex_normals.empty()));
     REQUIRE((mesh.poly_equations.empty() && mesh.active_polygons.empty()));
     for (int pass = 0; pass < Mesh::MAX_PASSES; ++pass) {
-        REQUIRE(
-            (mesh.getPolyShader(pass, 0) == nullptr && mesh.getPolyUVIndex(pass, 0) == nullptr));
+        REQUIRE(mesh.getPolyUVIndex(pass, 0) == nullptr);
         REQUIRE((mesh.getVertexDIG(pass, 0) == nullptr && mesh.getVertexDCG(pass, 0) == nullptr));
         REQUIRE(mesh.getVertexSCG(pass, 0) == nullptr);
         for (int side = 0; side < 2; ++side) {
@@ -80,14 +78,12 @@ static bool lazyTables()
         REQUIRE((dcg.x == 1 && dcg.y == 1 && dcg.z == 1 && dcg.w == 1));
         REQUIRE((scg.x == 1 && scg.y == 1 && scg.z == 1 && scg.w == 1));
     }
-    REQUIRE(mesh.getPolyShader(3, 1)[0].value == DrawShader().value);
     REQUIRE(mesh.getVertexShadeIndex(1)[0] == 0);
     REQUIRE((*mesh.getPolygonTextureTable(3, 1, true))[0].get() == nullptr);
     REQUIRE((*mesh.getVertexMaterialTable(3, Mesh::SIDE_BACK, true))[0].get() == nullptr);
     REQUIRE((mesh.getVertexDIG(-1, 1) == nullptr && mesh.getVertexDIG(4, 1) == nullptr));
     REQUIRE(mesh.getVertexTexCoords(0, 2, 1) == nullptr);
-    REQUIRE((mesh.getPolygonTextureTable(4, 0, true) == nullptr &&
-             mesh.getPolyShader(-1, 1) == nullptr));
+    REQUIRE(mesh.getPolygonTextureTable(4, 0, true) == nullptr);
     REQUIRE(mesh.getVertexMaterialTable(0, static_cast<Mesh::e_side>(2), true) == nullptr);
     return true;
 }
@@ -133,15 +129,12 @@ static bool reset()
         (*mesh.getPolygonTextureTable(1, 0, true))[0] = texture;
         mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
         mesh.setTexture(texture, 0, 0);
-        mesh.setSortBias(0.25f);
-        mesh.setPassCount(3);
         REQUIRE(mesh.texcoords[2][0][6].x == 0.5f);
         mesh.reset(2, 4);
         REQUIRE(
             (mesh.getVertexCount() == 4 && mesh.getUVCount() == 4 && mesh.getPolygonCount() == 2));
-        REQUIRE((mesh.getPassCount() == 1 && mesh.getActivePolygonCount() == 2));
-        REQUIRE((mesh.getSortBias() == 0.25f &&
-                 mesh.getMaterial(0, Mesh::SIDE_FRONT) == material.get()));
+        REQUIRE(mesh.getActivePolygonCount() == 2);
+        REQUIRE(mesh.getMaterial(0, Mesh::SIDE_FRONT) == material.get());
         REQUIRE(mesh.getTexture(0, 0) == texture.get());
         REQUIRE((mesh.vertex_locations.empty() && mesh.vertex_locations.capacity() == 0));
         REQUIRE((mesh.texcoords[2][0].empty() && mesh.texcoords[2][0].capacity() == 0));
