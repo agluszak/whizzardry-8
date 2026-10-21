@@ -1,5 +1,6 @@
 #include "wiz8/entities/monster.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -317,12 +318,11 @@ void Monster::CopyCycle(signed char cycle, const Monster* other, signed char oth
 
 Monster::Monster(World* owner)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
-      scale_x(1.0f), scale_y(1.0f), scale_z(1.0f), missile_frame(0), spell_frame(0), talking(0),
-      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), inactive(false),
-      pending_finalize(1), disabled(0), nearest_to_party(false), spell_vertex_warned(0),
-      missile_point_warned(0), script(0), script_wait(MONSCR_NONE), trigger(0),
-      spell_effect_armed(0), sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE),
-      hostility_preserved(false), sound(nullptr)
+      missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
+      mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
+      nearest_to_party(false), spell_vertex_warned(0), missile_point_warned(0), script(0),
+      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0),
+      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(false), sound(nullptr)
 {
     nav.monster_owner = this;
     formation = glm::vec3(0);
@@ -350,8 +350,8 @@ Monster::Monster(World* owner)
 
 Monster::Monster(const Monster& rhs, World* owner)
     : owner_world(owner), nav(rhs.nav, owner), visual(rhs.visual, owner),
-      runtime_flags(rhs.runtime_flags), location_id(rhs.location_id), scale_x(1.0f), scale_y(1.0f),
-      scale_z(1.0f), missile_frame(rhs.missile_frame), spell_frame(rhs.spell_frame), talking(0),
+      runtime_flags(rhs.runtime_flags), location_id(rhs.location_id),
+      missile_frame(rhs.missile_frame), spell_frame(rhs.spell_frame), talking(0),
       animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0),
       inactive(rhs.inactive), pending_finalize(1), disabled(0), nearest_to_party(false),
       hover_base_min(rhs.hover_base_min), hover_base_max(rhs.hover_base_max),
@@ -405,7 +405,7 @@ Monster::Monster(const Monster& rhs, World* owner)
     move_dirty = true;
     target_scale = 1.0f;
     current_scale = 1.0f;
-    runtime_flags &= ~(W8_MONSTER_KEEP_FRAME_DIRECTION | W8_MONSTER_SCALING_Y | W8_MONSTER_PARKED |
+    runtime_flags &= ~(W8_MONSTER_KEEP_FRAME_DIRECTION | W8_MONSTER_PARKED |
                        W8_MONSTER_REMOVE_AFTER_FADE | W8_MONSTER_REMOVE_NOW);
     removal_state = W8_MONSTER_REMOVAL_NONE;
     cycle_callback = 0;
@@ -817,9 +817,9 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
         return true;
     }
 
-    MeshInstance* model = AnimObjDispatch(animation, 2, dispatch_value);
-    if (model != 0) {
-        Mesh* mesh = static_cast<Mesh*>(model->getModel());
+    const auto frame = AnimObjDispatch(animation, 2, dispatch_value);
+    if (frame) {
+        Mesh* mesh = frame.mesh.get();
         if (const auto mapped = findMappedVertex(mesh, mapped_index)) {
             mesh = mapped->mesh;
             const int vertex = mapped->index;
@@ -1405,18 +1405,7 @@ void Monster::UpdateRepresentation(World* world)
     }
     visual.SetRotation(&rotation);
 
-    if ((runtime_flags & W8_MONSTER_SCALING_Y) != 0) {
-        model = visual.GetCurrentModelInstance();
-        const auto source_scale = model->transform.getScale();
-        float scale_y = static_cast<float>(source_scale.y) * this->scale_y;
-        float scale_z = static_cast<float>(source_scale.z);
-        glm::dvec3 scale;
-        scale.x = source_scale.x;
-        scale.y = static_cast<double>(scale_y);
-        scale.z = static_cast<double>(scale_z);
-        model->transform.setScale(scale);
-        this->scale_y -= 0.1f;
-    }
+    if (visual.model_scale) visual.model_scale = CycleModelScale();
 
     if (talking && animate_mouth) {
         if (mouth_open) {
@@ -2185,11 +2174,6 @@ void Monster::SetRuntimeBehaviour(W8AnimationBehaviour behaviour)
     visual.pending_behaviour = behaviour;
 }
 
-bool Monster::IsScalingY()
-{
-    return (runtime_flags & W8_MONSTER_SCALING_Y) != 0;
-}
-
 void Monster::SetActive(bool state)
 {
     nav.active = state;
@@ -2342,67 +2326,28 @@ void Monster::AimAtMonster(Monster* target, bool alternate)
     }
 }
 
-/* Flatten every model instance reachable from every cycle and subcycle. The
-   temporary vectors used by the damage-appearance accessors below prove the
-   element type: AniMesh's frame lookup returns MeshInstance objects and the
-   consumers read their first-party fields beyond the MeshInstance base. */
-void Monster::CollectModelInstances(std::vector<MeshInstance*>& instances)
+/* Every distinct mesh this monster's animations draw, over every cycle, LOD and
+   frame: what load-time skin setup has to reach. */
+std::vector<Mesh*> Monster::CollectModelMeshes()
 {
-    int cycle;
-
-    GetTotalAnimationCount();
-    for (cycle = W8_MONSTER_CYCLE_BIRTH; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
-        int subcycle;
-
-        for (subcycle = 0; subcycle < GetNumSubsPerCycle(static_cast<signed char>(cycle));
-             ++subcycle) {
-            auto& cycle_animations = cycles[cycle];
-            Animation* animation;
-
-            if (subcycle >= static_cast<int>(cycle_animations.size())) {
-                ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                                 name, g_cycle_names[cycle].name, subcycle));
-            }
-            animation = cycle_animations[subcycle].animation.get();
-            if (animation == 0) {
-                continue;
-            }
-
-            if (animation->path_lists == 0) {
-                int list_index;
-
-                for (list_index = 0; list_index < 3; ++list_index) {
-                    AnimationMesh* mesh = animation->entries[list_index].get();
-                    if (mesh != 0) {
-                        int frame_count = mesh->frame_count;
-
-                        if (mesh->single_instance) {
-                            instances.push_back(GetAniMeshFrame(mesh, 0));
-                        } else {
-                            int frame;
-
-                            for (frame = 0; frame < frame_count; ++frame) {
-                                instances.push_back(GetAniMeshFrame(mesh, frame));
-                            }
-                        }
-                    }
-                }
-            } else if (animation->path_lists == 1) {
-                int list_index;
-
-                for (list_index = 0; list_index < 3; ++list_index) {
-                    for (const auto& owned_mesh : animation->meshes[list_index]) {
-                        auto* mesh = owned_mesh.get();
-                        if (!mesh) continue;
-                        const int frame_count = mesh->frame_count;
-                        for (int frame = 0; frame < frame_count; ++frame) {
-                            instances.push_back(GetAniMeshFrame(mesh, frame));
-                        }
-                    }
-                }
+    std::vector<Mesh*> meshes;
+    const auto add = [&](const AnimationMesh* mesh) {
+        if (!mesh) return;
+        for (const auto& frame : mesh->frames)
+            if (frame.mesh && std::ranges::find(meshes, frame.mesh.get()) == meshes.end())
+                meshes.push_back(frame.mesh.get());
+    };
+    for (const auto& cycle : cycles) {
+        for (const auto& slot : cycle) {
+            const Animation* animation = slot.animation.get();
+            if (!animation) continue;
+            for (int lod = 0; lod < 3; ++lod) {
+                add(animation->entries[lod].get());
+                for (const auto& mesh : animation->meshes[lod]) add(mesh.get());
             }
         }
     }
+    return meshes;
 }
 
 /* Replace one named texture in a damage stage. Model instances own the normal
@@ -2421,10 +2366,8 @@ bool Monster::ReplaceSkinTexture(int stage, std::string_view old_name, std::stri
 
     if (texture->playback) texture->Prepare();
     const auto table_name = fmt::format("{}{}", visual.skin, stage);
-    std::vector<MeshInstance*> instances;
-    CollectModelInstances(instances);
-    for (MeshInstance* instance : instances) {
-        for (auto* mesh : meshParts(instance->getModel())) {
+    for (Mesh* model : CollectModelMeshes()) {
+        for (auto* mesh : meshParts(model)) {
             const int table = mesh->FindSkinTable(table_name);
             if (table != -1 && mesh->replaceSkinTexture(table, old_name, texture)) replaced = true;
         }
@@ -2449,11 +2392,10 @@ int Monster::AddDamageStage(int stage)
 {
     const auto name = fmt::format("{}{}", visual.skin, stage);
     const auto base = fmt::format("{}0", visual.skin);
-    std::vector<MeshInstance*> instances;
-    CollectModelInstances(instances);
-    if (instances.empty()) return -1;
-    for (MeshInstance* instance : instances) {
-        for (auto* mesh : meshParts(instance->getModel())) {
+    const auto models = CollectModelMeshes();
+    if (models.empty()) return -1;
+    for (Mesh* model : models) {
+        for (auto* mesh : meshParts(model)) {
             if (mesh->FindSkinTable(name) == -1)
                 mesh->CreateSkinTable(name, stage > 0 ? mesh->FindSkinTable(base) : -1);
         }
@@ -2649,33 +2591,20 @@ void Monster::RefreshStandingHeight()
     }
 }
 
+/* The model's scale for the current cycle: the monster's own, the death
+   cycle's share of it while dying, mirrored on X for a left-handed monster. */
+glm::vec3 Monster::CycleModelScale() const
+{
+    const float cycle_scale =
+        visual.current_cycle == W8_MONSTER_CYCLE_DIE ? death_scale * scale : scale;
+    return {visual.mirror_x ? -cycle_scale : cycle_scale, cycle_scale, cycle_scale};
+}
+
 void Monster::ApplyRepresentationScale()
 {
     float old_scale = nav.movement.scale;
     nav.SetScale(scale);
-    for (int cycle = 0; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
-        float cycle_scale = scale;
-        if (cycle == W8_MONSTER_CYCLE_DIE) {
-            cycle_scale = death_scale * scale;
-        }
-        float x_scale = cycle_scale;
-        if (visual.mirror_x) {
-            x_scale = cycle_scale * -1.0f;
-        }
-        int animation_count = static_cast<int>(cycles[cycle].size());
-        for (int index = 0; index < animation_count; ++index) {
-            Animation* animation = cycles[cycle][index].animation.get();
-            // The retail query precedes the null check.
-            int frame_count = AnimObjValue(animation, 2);
-            if (animation != 0 && frame_count != 0) {
-                for (int frame = 0; frame < frame_count; ++frame) {
-                    MeshInstance* instance =
-                        AnimObjDispatch(animation, 2, static_cast<unsigned char>(frame));
-                    instance->transform.setScale(glm::dvec3(x_scale, cycle_scale, cycle_scale));
-                }
-            }
-        }
-    }
+    visual.model_scale = CycleModelScale();
     if (!visual.particles.empty()) {
         for (int index = 0; index < static_cast<int>(visual.particles.size()); ++index) {
             ParticleSystem* particle = visual.particles[index].m_pstParticles.get();

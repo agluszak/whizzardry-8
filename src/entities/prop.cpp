@@ -256,10 +256,10 @@ bool ResolvePickedProp()
 
         instance = 0;
         if (representation->currentAnimation()->path_lists == 1) {
-            int count = static_cast<int>(AnimObjListCount(representation->currentAnimation(), 2));
+            int count = static_cast<int>(std::min<std::size_t>(
+                AnimObjListCount(representation->currentAnimation(), 2), prop->models.size()));
             for (instance_index = 0; instance_index < count; ++instance_index) {
-                instance = AnimObjDispatchList(representation->currentAnimation(), 2,
-                                               static_cast<signed char>(instance_index));
+                instance = prop->models[instance_index].get();
                 if (g_current_model_instance == instance) {
                     break;
                 }
@@ -268,7 +268,7 @@ bool ResolvePickedProp()
                 continue;
             }
         } else {
-            instance = representation->ToggleAnimation(representation->subcycle);
+            instance = representation->FrameModel(representation->subcycle);
             if (g_current_model_instance != instance) {
                 continue;
             }
@@ -301,13 +301,49 @@ bool ResolvePickedProp()
     return valid;
 }
 
-/* Start or stop the prop's own animation, whichever it is not doing. */
-MeshInstance* Prop::ToggleAnimation(int argument)
+/* A model can be picked unless the level marks its prop otherwise, or it draws
+   a sorted mesh for a prop without a trigger. */
+static void SetModelPickable(const Prop& prop, MeshInstance& model, const Mesh& mesh)
 {
-    if (currentAnimation()->path_lists == 0) {
-        return AnimObjDispatch(currentAnimation(), 2, argument);
+    const bool pickable =
+        prop.pickable && !((mesh.flags & W8_MESH_SORTED_RENDERING) != 0 && prop.trigger == 0);
+    if (pickable)
+        model.render_flags &= ~MeshInstance::RENDER_NO_PICK;
+    else
+        model.render_flags |= MeshInstance::RENDER_NO_PICK;
+}
+
+/* Show part `index` of the prop's path-list animation on its model. */
+static MeshInstance& ShowPart(Prop& prop, Animation* animation, int index)
+{
+    const auto part = AnimObjDispatchList(animation, 2, static_cast<signed char>(index));
+    assert(part);
+    auto& model = prop.model(static_cast<std::size_t>(index));
+    ShowFrame(model, part);
+    return model;
+}
+
+MeshInstance& Prop::model(std::size_t index)
+{
+    while (models.size() <= index) {
+        auto& added = models.emplace_back(std::make_unique<MeshInstance>());
+        added->setName(fmt::format("Prop: {}", name));
+        if (face_camera) {
+            added->setAlignment(1);
+            added->setAlignAxis(glm::vec3(0, 1, 0));
+        }
     }
-    return AnimObjDispatchList(currentAnimation(), 2, 0);
+    return *models[index];
+}
+
+MeshInstance* Prop::FrameModel(int frame)
+{
+    const auto shown = currentAnimation()->path_lists == 0
+                           ? AnimObjDispatch(currentAnimation(), 2, frame)
+                           : AnimObjDispatchList(currentAnimation(), 2, 0);
+    if (!shown) return nullptr;
+    ShowFrame(model(0), shown);
+    return &model(0);
 }
 
 /* Select the currentAnimation() slot whose second byte carries the requested tag.
@@ -388,30 +424,6 @@ unsigned char Prop::AdvanceAnimationSegment()
     animation_playing = 1;
     subcycle = first_frame;
     return static_cast<unsigned char>(segment);
-}
-
-/* The same toggle reached through the prop rather than through the member. */
-MeshInstance* Prop::ToggleRepAnimation(int argument)
-{
-    Prop* rep = this;
-
-    if (!rep->currentAnimation()->path_lists) {
-        return AnimObjDispatch(rep->currentAnimation(), 2, argument);
-    }
-    return AnimObjDispatchList(rep->currentAnimation(), 2, 0);
-}
-
-/* And again with the member's own stored argument instead of a caller's -
-   which is what makes 0x64 the animation's default argument. */
-MeshInstance* Prop::ToggleRepAnimationDefault()
-{
-    Prop* rep = this;
-    unsigned char argument = rep->subcycle;
-
-    if (!rep->currentAnimation()->path_lists) {
-        return AnimObjDispatch(rep->currentAnimation(), 2, argument);
-    }
-    return AnimObjDispatchList(rep->currentAnimation(), 2, 0);
 }
 
 /* Resolve the bounds of the prop's current animation frame. */
@@ -553,11 +565,9 @@ void Prop::ApplyAnimationPaths()
     if (this->currentAnimation()->path_lists == 1) {
         count = AnimObjListCount(this->currentAnimation(), 2);
         for (index = 0; index < static_cast<int>(count); ++index) {
-            MeshInstance* mesh = static_cast<MeshInstance*>(
-                AnimObjDispatchList(this->currentAnimation(), 2, static_cast<signed char>(index)));
+            MeshInstance* mesh = &ShowPart(*this, this->currentAnimation(), index);
             KeyframeTrack* path;
 
-            assert(mesh != 0);
             path = AnimObjListEntry(this->currentAnimation(), 2, static_cast<signed char>(index));
             if (path != 0) {
                 glm::vec3 location;
@@ -789,16 +799,9 @@ void Prop::ApplyAnimationFrame(NavigationMesh* pathing)
     int index;
 
     if (animation->path_lists != 1) {
-        Prop* rep = this;
-        unsigned char frame = rep->subcycle;
-        MeshInstance* mesh;
+        MeshInstance* mesh = FrameModel(subcycle);
         KeyframeTrack* path;
 
-        if (animation->path_lists == 0) {
-            mesh = AnimObjDispatch(animation, 2, frame);
-        } else {
-            mesh = AnimObjDispatchList(animation, 2, 0);
-        }
         assert(mesh != 0);
         path = (animation->path ? &*animation->path : nullptr);
         if (path != 0) {
@@ -810,10 +813,9 @@ void Prop::ApplyAnimationFrame(NavigationMesh* pathing)
 
     count = AnimObjListCount(animation, 2);
     for (index = 0; index < static_cast<int>(count); ++index) {
-        MeshInstance* mesh = AnimObjDispatchList(animation, 2, static_cast<signed char>(index));
+        MeshInstance* mesh = &ShowPart(*this, animation, index);
         KeyframeTrack* path;
 
-        assert(mesh != 0);
         path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
         if (path != 0) {
             glm::vec3 location;
@@ -870,9 +872,7 @@ void Prop::AttachAnimationInstances(World* world)
         has_scales = false;
         count = static_cast<int>(AnimObjListCount(animation, 2));
         for (index = 0; index < count; ++index) {
-            instance = static_cast<MeshInstance*>(
-                AnimObjDispatchList(animation, 2, static_cast<signed char>(index)));
-            assert(instance != 0);
+            instance = &ShowPart(*this, animation, index);
             instance->visible = true;
             instance->setScene((world->scene.get()));
             instance->light_scale = glm::vec3(0);
@@ -882,9 +882,7 @@ void Prop::AttachAnimationInstances(World* world)
                 instance->frame_interpolation = 0.0f;
             }
             mesh = static_cast<Mesh*>(instance->getModel());
-            if (mesh != 0 && (mesh->flags & W8_MESH_SORTED_RENDERING) != 0 && trigger == 0) {
-                instance->render_flags |= MeshInstance::RENDER_NO_PICK;
-            }
+            SetModelPickable(*this, *instance, *mesh);
             path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
             if (path == 0) {
                 continue;
@@ -933,7 +931,7 @@ void Prop::AttachAnimationInstances(World* world)
             animation_position = position;
         }
     } else {
-        instance = static_cast<MeshInstance*>(this->ToggleAnimation(this->subcycle));
+        instance = this->FrameModel(this->subcycle);
         assert(instance != 0);
         instance->visible = true;
         instance->setScene((world->scene.get()));
@@ -944,9 +942,7 @@ void Prop::AttachAnimationInstances(World* world)
             instance->frame_interpolation = 0.0f;
         }
         mesh = static_cast<Mesh*>(instance->getModel());
-        if (mesh != 0 && (mesh->flags & W8_MESH_SORTED_RENDERING) != 0 && trigger == 0) {
-            instance->render_flags |= MeshInstance::RENDER_NO_PICK;
-        }
+        SetModelPickable(*this, *instance, *mesh);
         if (animation->path) {
             instance->transform = sampleKeyframeTrack(*animation->path, instance->transform);
         } else {
@@ -971,32 +967,9 @@ void Prop::AttachAnimationInstances(World* world)
    entry when a run is in progress) is pulled. */
 void Prop::DetachAnimationInstances(World* world)
 {
-    MeshInstance* instance;
-    std::size_t count;
-    int index;
-
     assert(world != 0);
     this->saved_subcycle = this->subcycle;
-    if (this->currentAnimation()->path_lists == 1) {
-        count = AnimObjListCount(this->currentAnimation(), 2);
-        for (index = 0; index < static_cast<int>(count); ++index) {
-            instance = static_cast<MeshInstance*>(
-                AnimObjDispatchList(this->currentAnimation(), 2, static_cast<signed char>(index)));
-            assert(instance != 0);
-            instance->visible = false;
-            instance->setScene(0);
-        }
-    } else {
-        unsigned char frame = this->subcycle;
-
-        if (this->currentAnimation()->path_lists == 0) {
-            instance =
-                static_cast<MeshInstance*>(AnimObjDispatch(this->currentAnimation(), 2, frame));
-        } else {
-            instance =
-                static_cast<MeshInstance*>(AnimObjDispatchList(this->currentAnimation(), 2, 0));
-        }
-        assert(instance != 0);
+    for (const auto& instance : models) {
         instance->visible = false;
         instance->setScene(0);
     }
@@ -1074,8 +1047,7 @@ int Prop::BuildOrRefreshPathingRepresentation(NavigationMesh* pathing)
     if (AnimObjListCount(this->currentAnimation(), 2) != 1) {
         ShutdownWithErrorBox("Collideable props should have a single LOD.");
     }
-    instance = AnimObjDispatchList(this->currentAnimation(), 2, 0);
-    assert(instance != 0);
+    instance = &ShowPart(*this, this->currentAnimation(), 0);
 
     if (!collision_ready) {
         initializeCollision(pathing, instance, name.c_str(),
@@ -1288,30 +1260,14 @@ try {
         }
         this->play_chance = animation->play_chance;
         this->random_play = animation->random_play != 0;
-        list_count = AnimObjValue(animation, 2);
-        for (entry_index = 0; entry_index < list_count; ++entry_index) {
-            MeshInstance* instance;
-            Mesh* mesh_model;
-            std::string named;
-
-            if (currentAnimation()->path_lists == 0) {
-                instance =
-                    AnimObjDispatch(currentAnimation(), 2, static_cast<unsigned char>(entry_index));
-            } else {
-                instance = AnimObjDispatchList(currentAnimation(), 2, 0);
-            }
-            named = fmt::format("Prop: {}", prop->name);
-            instance->setName(named.c_str());
-            mesh_model = static_cast<Mesh*>(instance->getModel());
-            for (auto* mesh_part : meshParts(mesh_model)) {
-                if (animation->path_lists == 0) {
+        face_camera = option_byte != 0;
+        if (animation->path_lists == 0) {
+            list_count = AnimObjValue(animation, 2);
+            for (entry_index = 0; entry_index < list_count; ++entry_index) {
+                const auto frame =
+                    AnimObjDispatch(animation, 2, static_cast<unsigned char>(entry_index));
+                for (auto* mesh_part : meshParts(frame.mesh.get()))
                     mesh_part->GetVertexSunlight(true);
-                }
-            }
-            if (option_byte != 0) {
-                const glm::vec3 axis(0, 1, 0);
-                instance->setAlignment(1);
-                instance->setAlignAxis(axis);
             }
         }
         list_count = AnimObjListCount(animation, 2);
@@ -1341,18 +1297,9 @@ try {
     }
 
     if (animation->path_lists == 0) {
-        AnimationMesh* mesh = AnimObjEntry(animation, 2, 0);
-        unsigned char value_count = mesh->frame_count;
-        MeshInstance* frame = GetAniMeshFrame(mesh, 0);
-        unsigned int frame_i;
-
-        assert(frame != 0);
-        auto box = frame->getModel()->getBounds().box;
-        for (frame_i = 0; frame_i < value_count; ++frame_i) {
-            frame = GetAniMeshFrame(mesh, frame_i);
-            assert(frame != 0);
-            box.include(frame->getModel()->getBounds().box);
-        }
+        const AnimationMesh* mesh = AnimObjEntry(animation, 2, 0);
+        auto box = mesh->frames.front().mesh->getBounds().box;
+        for (const auto& frame : mesh->frames) box.include(frame.mesh->getBounds().box);
         bounds_min = box.minimum;
         bounds_max = box.maximum;
         const auto size = box.maximum - box.minimum;
@@ -1449,46 +1396,6 @@ int Prop::GetAnimationState() const
         return static_cast<int>(AnimObjValue(animation, 2));
     }
     return -1;
-}
-
-/* Every model instance the representation's animation can display: one per
-   frame of each mesh entry (a single-instance mesh contributes frame zero
-   only), or one per frame of every mesh in each mesh list. */
-void Prop::CollectModelInstances(std::vector<MeshInstance*>& instances)
-{
-    const Animation* animation = this->currentAnimation();
-    if (animation == 0) {
-        return;
-    }
-    if (!animation->path_lists) {
-        for (const auto& entry : animation->entries) {
-            AnimationMesh* mesh = entry.get();
-            if (mesh == 0) {
-                continue;
-            }
-            int frame_count = mesh->frame_count;
-            if (mesh->single_instance) {
-                instances.push_back(GetAniMeshFrame(mesh, 0));
-            } else {
-                for (int frame = 0; frame < frame_count; ++frame) {
-                    instances.push_back(GetAniMeshFrame(mesh, frame));
-                }
-            }
-        }
-    } else if (animation->path_lists == 1) {
-        for (auto& frame_meshes : animation->meshes) {
-            for (const auto& owned_mesh : frame_meshes) {
-                auto* mesh = owned_mesh.get();
-                if (mesh == 0) {
-                    continue;
-                }
-                int frame_count = mesh->frame_count;
-                for (int frame = 0; frame < frame_count; ++frame) {
-                    instances.push_back(GetAniMeshFrame(mesh, frame));
-                }
-            }
-        }
-    }
 }
 
 /* APST chunk writer: a 0xDEADD00D signature, the format version and the prop

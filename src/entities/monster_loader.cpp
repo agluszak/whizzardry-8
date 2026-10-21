@@ -41,10 +41,7 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
-#include "wiz8/render/material_loader.h"
-#include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/picking.h"
@@ -432,14 +429,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
     if (opacity >= 0.0f && opacity < 1.0f) {
         monster->visual.opacity = opacity;
     }
-    if (glow > 0.0f) {
-        std::vector<MeshInstance*> instances;
-        monster->CollectModelInstances(instances);
-        for (MeshInstance* instance : instances) {
-            instance->emissive_override_enabled = true;
-            instance->emissive_override = glow;
-        }
-    }
+    if (glow > 0.0f) monster->visual.emissive_override = glow;
 
     monster->hover_base_min = hover_range_start;
     monster->hover_base_max = hover_range_end;

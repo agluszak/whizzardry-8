@@ -377,13 +377,6 @@ Substantial but contained work.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
-- **One active visual per actor.** (#478, with #481.) Monsters, missiles and spell
-  visuals are copied from per-world definitions, and an actor's damage stage and
-  light scale reach only its active model instance. Each animation still owns a live
-  `MeshInstance` for every frame and LOD alternative, and spawning an actor deep-copies
-  them. Load-time skin and glow setup still walks them through `CollectModelInstances`.
-  Make the alternatives shared asset data that the actor's single visual root selects
-  from.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

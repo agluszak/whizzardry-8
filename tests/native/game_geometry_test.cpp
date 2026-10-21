@@ -1178,7 +1178,6 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
         mesh->frame_count = 1;
         mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
                                   : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
-        mesh->meshes.push_back(std::make_unique<MeshInstance>(nullptr));
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::optional<KeyframeTrack>(std::in_place);
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));

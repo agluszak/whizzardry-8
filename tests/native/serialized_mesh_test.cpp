@@ -285,22 +285,22 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
         second = ReadAnimatedMesh(*input, {});
         REQUIRE(second);
     }
-    REQUIRE(first->meshes.size() == 1);
-    REQUIRE(second->meshes.size() == 1);
-    REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
+    REQUIRE(first->frames.size() == 1);
+    REQUIRE(second->frames.size() == 1);
+    REQUIRE(first->frames[0].mesh == second->frames[0].mesh);
     REQUIRE(first->frame_count == 2);
     REQUIRE(second->frame_count == 2);
-    REQUIRE(first->meshes[0]->frame_index == 0);
-    REQUIRE(second->meshes[0]->frame_index == 0);
     REQUIRE(first->bounds.minimum == glm::vec3(0));
     REQUIRE(first->bounds.maximum == glm::vec3(3, 1, 0));
     REQUIRE(first->radius == std::sqrt(10.0f) * 0.5f);
-    REQUIRE(first->meshes[0]->frame_index == 0);
-    auto* first_frame = GetAniMeshFrame(first.get(), 1);
-    REQUIRE(first_frame->frame_index == 1);
-    REQUIRE(second->meshes[0]->frame_index == 0);
-    REQUIRE(GetAniMeshFrame(second.get(), 0)->frame_index == 0);
-    REQUIRE(first_frame->frame_index == 1);
+    // Playback belongs to the instance showing a frame, not to the shared mesh.
+    MeshInstance shown_first;
+    MeshInstance shown_second;
+    ShowFrame(shown_first, GetAniMeshFrame(*first, 1));
+    ShowFrame(shown_second, GetAniMeshFrame(*second, 0));
+    REQUIRE(shown_first.getModel() == shown_second.getModel());
+    REQUIRE(shown_first.frame_index == 1);
+    REQUIRE(shown_second.frame_index == 0);
 }
 
 TEST_CASE("Animated frame indices determine playback order before publication")
@@ -330,9 +330,9 @@ TEST_CASE("Animated frame indices determine playback order before publication")
     auto file = wiz8::open_file(path);
     auto mesh = ReadAnimatedMesh(*file, {});
     REQUIRE(mesh);
-    REQUIRE(mesh->meshes.size() == 2);
-    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
-    REQUIRE(GetAniMeshFrame(mesh.get(), 1)->getModel()->getBounds().box.minimum.x == 2000);
+    REQUIRE(mesh->frames.size() == 2);
+    REQUIRE(GetAniMeshFrame(*mesh, 0).mesh->getBounds().box.minimum.x == 0);
+    REQUIRE(GetAniMeshFrame(*mesh, 1).mesh->getBounds().box.minimum.x == 2000);
     {
         auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
         writer->seek(second_index, wiz8::SeekOrigin::begin);
@@ -340,7 +340,7 @@ TEST_CASE("Animated frame indices determine playback order before publication")
     }
     file->seek(0, wiz8::SeekOrigin::begin);
     REQUIRE_FALSE(ReadAnimatedMesh(*file, {}));
-    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
+    REQUIRE(GetAniMeshFrame(*mesh, 0).mesh->getBounds().box.minimum.x == 0);
 }
 
 TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex markers")
@@ -423,7 +423,7 @@ TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex m
     REQUIRE(seam);
     std::weak_ptr<Material> lifetime =
         (*head->getVertexMaterialTable(0, Mesh::SIDE_FRONT, false))[0];
-    auto duplicate = DuplicateModelInstance(*instance);
+    auto duplicate = std::make_unique<MeshInstance>(*instance);
     instance.reset();
     REQUIRE(duplicate->getModel() == head);
     REQUIRE_FALSE(lifetime.expired());

@@ -49,7 +49,7 @@ bool AnyCombatMonsterBusy(const Combat& fight)
             return true;
         }
         if (monster_info->pCombat) {
-            if (monster->HasPendingCycle() || monster->IsScalingY()) {
+            if (monster->HasPendingCycle()) {
                 return true;
             }
             if (monster->IsAnimating() != 0 && cycle != W8_MONSTER_CYCLE_IDLE &&

@@ -8,10 +8,9 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/spatial/bounding_box.h"
-
-struct AnimationMesh;
+#include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/keyframe_track.h"
+#include "wiz8/spatial/bounding_box.h"
 struct LevelLoadContext;
 class Light;
 class MeshInstance;
@@ -59,9 +58,11 @@ KeyframeTrack* AnimObjListEntry(Animation* animation, signed char list_index,
                                 signed char entry_index);
 bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation,
                          std::vector<std::unique_ptr<Light>>* light_list);
-MeshInstance* AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value);
-MeshInstance* AnimObjDispatchList(Animation* animation, signed char list_index,
-                                  signed char entry_index);
+// The frame a mesh-entry animation shows for `value`, or a path-list animation's first part.
+AnimationFrame AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value);
+// A path-list animation's part `entry_index`.
+AnimationFrame AnimObjDispatchList(Animation* animation, signed char list_index,
+                                   signed char entry_index);
 AnimationMesh* AnimObjEntry(Animation* animation, signed char list_index, std::size_t entry_index);
 std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char list_index,
                                             unsigned int frame);

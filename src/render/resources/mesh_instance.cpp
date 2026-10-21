@@ -209,6 +209,7 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
 
     skin = other.skin;
     damage_stage = other.damage_stage;
+    baked_models = other.baked_models;
     highlight_pass_mode = other.highlight_pass_mode;
     highlight_material.reset();
     light_scale = other.light_scale;
@@ -299,18 +300,18 @@ void InstanceNode::accept(vsg::RecordTraversal& visitor) const
 }
 void InstanceNode::ensureParts()
 {
-    if (!instance || !instance->getModel()) {
-        parts.clear();
-        return;
+    parts.clear();
+    if (!instance || !instance->model_) return;
+    auto shown = std::ranges::find(drawn, instance->model_, &DrawnModel::model);
+    if (shown == drawn.end()) {
+        DrawnModel added{instance->model_, {}};
+        for (auto* mesh : meshParts(added.model.get()))
+            added.parts.push_back(std::make_unique<Part>(*mesh));
+        drawn.push_back(std::move(added));
+        shown = drawn.end() - 1;
     }
-    std::vector<Mesh*> models;
-    for (auto* mesh : meshParts(instance->getModel(), instance->draw_parts)) models.push_back(mesh);
-    if (parts.size() != models.size() ||
-        !std::equal(models.begin(), models.end(), parts.begin(),
-                    [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
-        parts.clear();
-        for (auto* mesh : models) parts.push_back(std::make_unique<Part>(*mesh));
-    }
+    const std::size_t count = instance->draw_parts ? shown->parts.size() : 1;
+    for (std::size_t index = 0; index < count; ++index) parts.push_back(shown->parts[index].get());
 }
 
 void InstanceNode::advanceTextures(std::chrono::milliseconds now)
@@ -441,8 +442,8 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         } else {
             store(*part->instance_data, instance_block);
         }
-        const bool shadow = part.get() == parts.front().get() &&
-                            (instance->render_flags & MeshInstance::RENDER_SHADOW);
+        const bool shadow =
+            part == parts.front() && (instance->render_flags & MeshInstance::RENDER_SHADOW);
         if (shadow && !part->shadow_switch) {
             auto [node, data] = extrusionShadow(context, *instance, mesh, pass);
             part->shadow_switch = vsg::Switch::create();
@@ -479,7 +480,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 store(*cached.data, pass_values);
             }
             const bool shell_part =
-                part.get() == parts.front().get() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
+                part == parts.front() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
             const bool shell_texture =
                 !mesh.poly_textures[0][0].empty() ||
                 (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));

@@ -174,12 +174,13 @@ void FinalizeWorldScenes(WorldScene& scene)
         BakeInstanceVertexLightingIfNeeded(instance, &scene);
 }
 
-/* Bake dynamic-scene lights into one not-yet-lit model instance. render_flags
-   bit 1 is the lit marker. */
+/* Bake dynamic-scene lights into the model an instance shows, the first time it
+   shows it. */
 bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scene)
 {
-    if (!(instance->render_flags & MeshInstance::RENDER_LIGHTING_BAKED)) {
-        instance->render_flags |= MeshInstance::RENDER_LIGHTING_BAKED;
+    const Mesh* model = instance->getModel();
+    if (!std::ranges::contains(instance->baked_models, model)) {
+        instance->baked_models.push_back(model);
         instance->setExclusionMask(1);
         std::vector<Light*> lights;
         for (auto* light : scene->lights)
@@ -226,14 +227,6 @@ std::unique_ptr<MeshInstance> CreateModelInstance(std::shared_ptr<Mesh> model)
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
     return instance;
-}
-
-std::unique_ptr<MeshInstance> DuplicateModelInstance(const MeshInstance& instance)
-{
-    auto copy = std::make_unique<MeshInstance>(nullptr);
-    *copy = instance;
-    copy->setName("ST_CreateInstance");
-    return copy;
 }
 
 static void ConfigureLightDefaults(Light& light, std::string_view name)
