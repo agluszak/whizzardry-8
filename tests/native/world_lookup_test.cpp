@@ -355,3 +355,11 @@ TEST_CASE("An untimed camera trigger owns its shake until the event is removed",
     }
     REQUIRE(CameraShakes().Update({0, 0, 0}) == 0.0f);
 }
+
+TEST_CASE("Trigger names retain empty tokens, duplicates and authored spacing",
+          "[levels][triggers]")
+{
+    REQUIRE(ParseTriggerNames("").empty());
+    const std::vector<std::string> expected{"A", "", "A", " b", ""};
+    REQUIRE(ParseTriggerNames("A,,A, b,") == expected);
+}

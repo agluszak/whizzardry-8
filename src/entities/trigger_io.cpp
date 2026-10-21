@@ -471,6 +471,7 @@ W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle)
 
 Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
 {
+    std::string recipient_text;
     /* Retail read these uninitialised when the FileRead chain short-circuited;
        natively they start at zero. */
     std::unique_ptr<Trigger> owner;
@@ -565,7 +566,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         trigger->trigger_kind = W8TriggerKind::item;
         trigger->range_maximum = range * 500.0f;
         trigger->range_minimum = minimum_range * 500.0f;
-        trigger->recipients = recipients;
+        recipient_text = recipients;
         trigger->state_count = static_cast<unsigned char>(byte1);
         trigger->state_index = 0;
         trigger->state_direction = W8TriggerStateDirection::forward;
@@ -665,13 +666,13 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         assignFlag(trigger->flags, W8_TRIGGER_ENABLED, enabled != 0);
         assignFlag(trigger->flags, W8_TRIGGER_KEEP_ON_FINISH, keep_on_finish != 0);
         if (plane == 1) trigger->flags |= W8_TRIGGER_PLANE;
-        trigger->recipients = recipients;
+        recipient_text = recipients;
         /* Retail 0x00442483 hands plane triggers to the game data whenever it
            exists; AddTriggerPlane itself picks the octree or build path. */
         if ((trigger->flags & W8_TRIGGER_PLANE) != 0 && world->collisionIndex() != 0) {
             world->collisionIndex()->AddTriggerPlane(trigger->representation_vectors, trigger);
         }
-        if (trigger->initial_action == 0x34 && trigger->recipients.empty()) {
+        if (trigger->initial_action == 0x34 && recipient_text.empty()) {
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
@@ -822,7 +823,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         if ((packed_flags & 0x20) != 0) trigger->flags |= 0x400000;
 
         if (recipients[0] != 0) {
-            trigger->recipients = recipients;
+            recipient_text = recipients;
         }
         trigger->required_item_id = location_variable[0] == 0 ? -1 : atoi(location_variable);
         trigger->alternate_action = static_cast<unsigned short>(alternate_action);
@@ -854,7 +855,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         SDL_strupr(required_states);
         SDL_strupr(state_to_modify);
         if (required_states[0] != 0) {
-            trigger->required_states = required_states;
+            trigger->required_states = ParseTriggerNames(required_states);
         }
         if (state_to_modify[0] != 0) {
             trigger->state_to_modify = state_to_modify;
@@ -936,7 +937,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         if (representation_kind == 2 && world->collisionIndex() != 0) {
             world->collisionIndex()->AddTriggerPlane(trigger->representation_vectors, trigger);
         }
-        if (trigger->initial_action == 0x34 && trigger->recipients.empty()) {
+        if (trigger->initial_action == 0x34 && recipient_text.empty()) {
             trigger->range_minimum = 0.0f;
             trigger->range_maximum = 0.0f;
         }
@@ -963,6 +964,15 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         }
         break;
     }
+    }
+    trigger->recipients = ParseTriggerNames(recipient_text);
+    trigger->recipient_group = atoi(recipient_text.c_str());
+    for (const auto action :
+         {trigger->initial_action, trigger->alternate_action, trigger->fallback_action}) {
+        if (action == 9 || action == 0x0e || action == 0x34 || action == 0x3f) {
+            trigger->recipient_name = recipient_text;
+            break;
+        }
     }
     world->triggers.push_back(std::move(owner));
     return trigger;
