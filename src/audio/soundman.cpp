@@ -50,6 +50,7 @@ struct AudioPlayback {
     VolumeChannel channel = VolumeChannel::effects;
     std::uint32_t source_volume = 127;
     float gain_scale = 1.0f;
+    VolumeRounding rounding = VolumeRounding::before_attenuation;
     std::uint64_t started_at = 0;
     Sint64 duration = -1;
     bool positional = false;
@@ -352,15 +353,20 @@ void set_channel_volume(VolumeChannel channel, std::uint32_t volume)
     service_state.channel_volume[static_cast<std::size_t>(channel)] = volume;
     for (const auto& playback : service_state.active)
         if (playback->channel == channel)
-            set_volume(playback, playback->source_volume, playback->gain_scale);
+            set_volume(playback, playback->source_volume, playback->gain_scale, playback->rounding);
 }
 
-bool set_volume(const Playback& playback, std::uint32_t volume, float gain_scale)
+bool set_volume(const Playback& playback, std::uint32_t volume, float gain_scale,
+                VolumeRounding rounding)
 {
     if (!live(playback)) return false;
     playback->source_volume = volume;
     playback->gain_scale = gain_scale;
+    playback->rounding = rounding;
     const auto setting = service_state.channel_volume[static_cast<std::size_t>(playback->channel)];
+    if (rounding == VolumeRounding::after_attenuation)
+        return set_gain(playback->track.get(),
+                        static_cast<std::uint32_t>(gain_scale * volume * setting / 127.0f));
     const auto scaled = static_cast<std::uint32_t>((std::uint64_t(volume) * setting) / 127);
     return set_gain(playback->track.get(), static_cast<std::uint32_t>(scaled * gain_scale));
 }

@@ -872,16 +872,20 @@ TEST_CASE_METHOD(AudioFixture, "Volume settings preserve source gain and ambient
     auto effect = wiz8::sound::play("tone.wav", {.volume = 100, .loops = 0});
     auto voice =
         wiz8::sound::play("tone.wav", {.volume = 90, .channel = VolumeChannel::voice, .loops = 0});
+    auto positional = wiz8::sound::play("tone.wav", {.volume = 3, .loops = 0});
+    wiz8::sound::set_volume(positional, 3, 0.9f, wiz8::sound::VolumeRounding::after_attenuation);
     auto expected_rng = PresentationRng();
     SetSoundEffectsVolume(0);
     REQUIRE(wiz8::sound::volume(effect) == 0);
     REQUIRE(wiz8::sound::volume(voice) == 90);
     SetSoundEffectsVolume(64);
     REQUIRE(wiz8::sound::volume(effect) == 50);
+    REQUIRE(wiz8::sound::volume(positional) == 1);
     REQUIRE(observed->in_range == 1);
     REQUIRE(observed->current_volume == 73);
     REQUIRE(observed->random->next_at == 12345);
     REQUIRE(PresentationRng().next() == expected_rng.next());
     SetSoundEffectsVolume(127);
     REQUIRE(wiz8::sound::volume(effect) == 100);
+    REQUIRE(wiz8::sound::volume(positional) == 2);
 }

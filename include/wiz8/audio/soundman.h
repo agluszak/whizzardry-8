@@ -20,6 +20,9 @@ enum class Group : std::uint8_t { effects, ambient, music };
 
 enum class VolumeChannel : std::uint8_t { effects, voice, footsteps, music, unscaled };
 
+// Positional updates historically round after attenuation; ambient fades round before it.
+enum class VolumeRounding : std::uint8_t { before_attenuation, after_attenuation };
+
 struct PlayOptions {
     // Authored gain, independent of the user setting. Unset means 127.
     std::optional<std::uint32_t> volume{};
@@ -68,7 +71,8 @@ bool stop(const Playback& playback, std::uint32_t fade_out_ms = 0);
 bool stop_group(Group group);
 
 void set_channel_volume(VolumeChannel channel, std::uint32_t volume);
-bool set_volume(const Playback& playback, std::uint32_t volume, float gain_scale = 1.0f);
+bool set_volume(const Playback& playback, std::uint32_t volume, float gain_scale = 1.0f,
+                VolumeRounding rounding = VolumeRounding::before_attenuation);
 std::optional<std::uint32_t> volume(const Playback& playback);
 void set_position(const Playback& playback, glm::vec3 position);
 

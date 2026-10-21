@@ -85,5 +85,6 @@ void Sound3D::Update(const glm::vec3& listener, float yaw)
     wiz8::sound::set_position(sound_handle, rotation * (position - listener));
     const float gain =
         falloff > 0 ? std::clamp(1.0f - glm::length(position - listener) / falloff, 0.0f, 1.0f) : 0;
-    wiz8::sound::set_volume(sound_handle, volume, gain);
+    wiz8::sound::set_volume(sound_handle, volume, gain,
+                            wiz8::sound::VolumeRounding::after_attenuation);
 }
