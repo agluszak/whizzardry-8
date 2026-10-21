@@ -77,7 +77,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
-#include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
