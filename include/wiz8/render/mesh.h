@@ -54,17 +54,12 @@ public:
     using PolygonSelection = std::optional<std::span<const std::uint32_t>>;
     /* Front/back table indices, corresponding to CONTROL_FRONT/BACK. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
-    /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals,
-       calculateVertexNormals and updateTriMesh clear bits 0, 1, 2 and 3. */
-    enum e_flags {
-        DIRTY_BOUNDS = 0,
-        DIRTY_POLYGON_NORMALS = 1,
-        DIRTY_VERTEX_NORMALS = 2,
-        DIRTY_TRI_MESH = 3
-    };
+    /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals
+       and calculateVertexNormals clear bits 0, 1 and 2. */
+    enum e_flags { DIRTY_BOUNDS = 0, DIRTY_POLYGON_NORMALS = 1, DIRTY_VERTEX_NORMALS = 2 };
     /* Bit indices into render_control. Rendering tests bits 0/1 as
-       front/back sides. updateTriMesh skips auto box when bit 4 is set and
-       auto sphere when bit 5 is set. */
+       front/back sides. Bits 4 and 5 mark the box and sphere as authored
+       rather than derived from the vertices (the sky sets both). */
     enum e_control {
         CONTROL_FRONT = 0,
         CONTROL_BACK = 1,
@@ -75,39 +70,6 @@ public:
         CONTROL_SORTED_RENDERING = 6
     };
     enum { MAX_PASSES = 4 };
-    /* Borrowed triangle-mesh view: updateTriMesh fills it from the live tables. Keep the model
-       and its table storage unchanged until submitMesh finishes submission. */
-    struct TriMesh {
-        std::int32_t vertex_count = 0;
-        std::int32_t polygon_count = 0;
-        std::int32_t pass_count = 0;
-        std::uint32_t control_flags = 0;
-        const glm::ivec3* poly_vertices = nullptr;
-        const glm::vec4* poly_equations = nullptr;
-        const glm::vec2* texcoords[4][2]{};
-        const glm::vec3* positions = nullptr;
-        const glm::vec3* normals = nullptr;
-        const glm::vec3* dig[4]{};
-        const glm::vec4* dcg[4]{};
-        const glm::vec4* scg[4]{};
-        std::shared_ptr<Material> materials[4][2];
-        std::shared_ptr<Texture> textures[4][2];
-        DrawShader shaders[4];
-        std::vector<std::shared_ptr<Material>>* vertex_materials[4][2]{};
-        std::vector<std::shared_ptr<Texture>>* poly_textures[4][2]{};
-        DrawShader* poly_shaders[4]{};
-        const glm::ivec3* poly_uv[4]{};
-        glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
-        glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
-        glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
-        float bounds_radius = 0.0f;
-        float sort_bias = 0.0f;
-        std::optional<float> diffuse_scale;
-        std::optional<float> emissive_override;
-        PolygonSelection active_polygons;
-        std::span<const float> vertex_alpha;
-    };
-
     Mesh(std::int32_t polygons = 0, std::int32_t vertices = 0);
     Mesh(const Mesh&) = delete;
 
@@ -119,7 +81,9 @@ public:
     Bounds getBounds();
     void reindexPolygons(std::span<const std::uint32_t> indices);
     void reindexVertices(std::span<const std::uint32_t> indices);
-    TriMesh getTriMesh();
+    /* Bakes pending vertex lighting into the first colour table. Rendering calls
+       this before it reads the mesh's tables. */
+    void applyPendingLighting();
     std::shared_ptr<render::MeshAsset> renderAsset();
     std::vector<std::shared_ptr<Texture>>* getPolygonTextureTable(std::int32_t pass,
                                                                   std::int32_t layer, bool create);
@@ -141,12 +105,11 @@ public:
     // RECOMP: ?setDirty@Mesh@@QAEXW4e_flags@1@@Z
     void setDirty(e_flags flag)
     {
-        render_asset_.reset();
-        std::uint32_t mask = 1 << flag;
-        if ((dirty_flags & mask) == 0) {
-            dirty_flags |= mask | (1u << DIRTY_TRI_MESH);
-        }
+        invalidateRenderAsset();
+        dirty_flags |= 1u << flag;
     }
+    /* Drops the cached render asset after a change to the mesh's tables. */
+    void invalidateRenderAsset() { render_asset_.reset(); }
     // RECOMP: ?clearDirty@Mesh@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
     DrawShader* getPolyShader(std::int32_t polygon, int layer);
@@ -163,21 +126,20 @@ public:
     void setSortBias(float bias)
     {
         sort_bias = bias;
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     float getSortBias() const;
     void disable(e_control control);
     void enable(e_control control)
     {
         render_control |= 1u << control;
-        setDirty(DIRTY_TRI_MESH);
+        invalidateRenderAsset();
     }
     void setDirtyAll()
     {
         setDirty(DIRTY_BOUNDS);
         setDirty(DIRTY_POLYGON_NORMALS);
         setDirty(DIRTY_VERTEX_NORMALS);
-        setDirty(DIRTY_TRI_MESH);
     }
     std::uint32_t* getActivePolygonTable(int table);
     glm::vec3* getVertexLoc();
@@ -187,7 +149,6 @@ public:
                    float radius);
 
 protected:
-    void updateTriMesh();
     void calculateBounds();
     void calculatePolygonNormals();
     void calculateVertexNormals();
@@ -222,7 +183,6 @@ public:
     std::int32_t polygon_count = 0;
     std::int32_t uv_count = 0;
     float sort_bias = 0.0f;
-    TriMesh tri_mesh;
     std::uint32_t dirty_flags = 0;
     std::uint32_t render_control = 0;
 

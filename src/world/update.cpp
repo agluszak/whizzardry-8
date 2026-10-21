@@ -373,7 +373,7 @@ void SetSceneMeshShaderBit3(WorldScene* scene, int argument)
                         polygon_shader[index].value |= DrawShader::MASK_DEPTH_WRITE;
                     }
                 }
-                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
+                if (polygon_shader) mesh->invalidateRenderAsset();
             }
         }
     }
@@ -411,7 +411,7 @@ void SetSceneMeshShaderLowBits(WorldScene* scene, int argument)
                             (polygon_shader[index].value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
                     }
                 }
-                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
+                if (polygon_shader) mesh->invalidateRenderAsset();
             }
         }
     }
