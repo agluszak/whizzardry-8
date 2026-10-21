@@ -620,7 +620,6 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     const W8MonsterRecord* record;
     W8MonsterInfo* member;
     W8SpellEffectEntry* effect;
-    SpellVisual* visual;
     glm::vec3 position;
     glm::vec3 patrol_point;
     unsigned char best_range;
@@ -712,12 +711,12 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         }
         break;
     case W8_RT_AI_FOLLOW_LURE:
-        effect = FindMonsterControlSpellEffect();
-        if (effect == 0 || (visual = effect->spell_visuals[0]) == 0) {
+        effect = CurrentGame().hypnotic_lure ? &CurrentGame().hypnotic_lure->cast : nullptr;
+        if (effect == 0) {
             break;
         }
-        if (monster->nav.SetMovementTargetToNavigator(&(visual)->nav, 2500.0) == 0) {
-            position = visual->nav.GetPosition();
+        if (monster->nav.SetMovementTargetToAnchor(effect->target.point, 2500.0) == 0) {
+            position = effect->target.point;
             monster->nav.AimAtPosition(&position);
         }
         break;
@@ -2315,33 +2314,15 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     return furthest;
 }
 
-/* Whether the point the monster-control effect is anchored to is still within
-   reach. spell_visuals.data sits at W8SpellEffectEntry + 0x10c; the first visual is
-   a SpellVisual whose Navigator secondary base is the ordinary GrCycle
-   conversion at +0x18. With no effect running, or nothing anchored, there is
-   nothing to be in range of; failing the test falls back on where the party
-   is standing. */
+/* Follow the gameplay anchor even if neither lure visual could be created. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
-    W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
-    SpellVisual* visual;
-    Navigator* anchor_navigator;
-    short in_range;
-    glm::vec3 party;
-
-    if (effect == 0) {
-        return 0;
-    }
-    visual = effect->spell_visuals[0];
-    if (visual == 0) {
-        return 0;
-    }
-    anchor_navigator = &(visual)->nav;
-    in_range = monster_info->entity->nav.SetMovementTargetToNavigator(anchor_navigator, 2500.0);
-    if (in_range == 0) {
-        party = anchor_navigator->GetPosition();
-        monster_info->entity->nav.AimAtPosition(&party);
-    }
+    const auto& lure = CurrentGame().hypnotic_lure;
+    if (!lure) return 0;
+    const auto& anchor = lure->cast.target.point;
+    auto& nav = monster_info->entity->nav;
+    const auto in_range = nav.SetMovementTargetToAnchor(anchor, 2500.0);
+    if (!in_range) nav.AimAtPosition(&anchor);
     return in_range;
 }
 

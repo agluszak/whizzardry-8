@@ -461,8 +461,11 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             AgeAllMonsterSight();
         }
         CurrentGame().spell_effects.clear();
+        CurrentGame().hypnotic_lure.reset();
+        CurrentGame().expired_lures.clear();
     } else {
-        W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
+        const auto& lure = CurrentGame().hypnotic_lure;
+        auto* effect = lure ? &lure->cast : nullptr;
 
         if (effect != 0) {
             SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);

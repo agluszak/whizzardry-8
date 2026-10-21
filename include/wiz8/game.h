@@ -124,9 +124,10 @@ public:
     /* What the party is doing. The camp commands set the place; dialogue and story scenes
        set the rest. */
     Activity activity;
-    /* Spells still taking effect: casts whose missiles are in flight, and the
-       sustained monster control the HYPN section saves. */
+    /* Transient casts, and the separately owned persistent lure. */
     std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
+    std::unique_ptr<HypnoticLure> hypnotic_lure;
+    std::vector<std::unique_ptr<HypnoticLure>> expired_lures;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech;
     // The NPC conversation's progress: its speaker, queued script work and owed reply.

@@ -586,9 +586,9 @@ void AdvanceTimedEffects(unsigned int minutes)
     for (unsigned int remaining = minutes; remaining != 0; --remaining) {
         TickSpellEffects();
     }
-    W8SpellEffectEntry* control = FindMonsterControlSpellEffect();
-    if (control != 0 && control->turns_remaining != 0) {
-        ApplyMonsterControlToNearbyMonsters(control);
+    auto& lure = CurrentGame().hypnotic_lure;
+    if (lure && lure->turns_remaining != 0) {
+        ApplyMonsterControlToNearbyMonsters(&lure->cast);
     }
     if (party_changed || combat_changed) {
         wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");

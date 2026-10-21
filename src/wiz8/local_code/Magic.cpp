@@ -361,23 +361,9 @@ bool g_force_spell_failure;
 /* Whether every queued effect still has time left on it. */
 bool AllSpellEffectsStillRunning(void)
 {
-    int index;
-
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        if (CurrentGame().spell_effects[index]->turns_remaining == 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
-W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
-{
-    for (const auto& owned : CurrentGame().spell_effects) {
-        auto& effect = *owned;
-        if (effect.kind == W8_SPELL_HYPNOTIC_LURE) return &effect;
-    }
-    return nullptr;
+    const auto& game = CurrentGame();
+    return game.spell_effects.empty() && game.expired_lures.empty() &&
+           (!game.hypnotic_lure || game.hypnotic_lure->turns_remaining != 0);
 }
 
 /* Count every queued effect down by one turn. The monster-control effect
@@ -396,13 +382,9 @@ static void ReleaseHypnoticLureControl()
 
 void TickSpellEffects(void)
 {
-    for (const auto& effect : CurrentGame().spell_effects) {
-        if (effect->turns_remaining != 0) {
-            --effect->turns_remaining;
-            if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE)
-                ReleaseHypnoticLureControl();
-        }
-    }
+    auto& lure = CurrentGame().hypnotic_lure;
+    if (lure && lure->turns_remaining != 0 && --lure->turns_remaining == 0)
+        ReleaseHypnoticLureControl();
 }
 
 bool PartyHasCondition(int effect_id)
@@ -504,6 +486,33 @@ void AbsorbMissileDamage(Missile* missile)
 
 void FinishSpellEffect(W8SpellEffectEntry* effect);
 
+static void UpdateHypnoticLure(HypnoticLure& lure, bool expired)
+{
+    auto& effect = lure.cast;
+    if (!effect.targets_resolved) {
+        effect.targets_resolved = true;
+        if (MonsterCanAimSpell(effect.kind) && !effect.Source.fBackfire &&
+            !effect.Source.fReflection)
+            ProvokeListedMonsterGroups(&effect.Source, effect.monster_ids);
+        ProcessSpellEffectTargets(&effect);
+        if (TargetSourceIsMonster(&effect.OrigSource, 0) && CurrentGame().combat)
+            CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
+                                            ActionStep::finishing);
+    }
+    if (!expired) return;
+    if (Data().spells[effect.kind].needs_aim != 0 && !IsCombatEffectSlotSpell(effect.kind)) {
+        const auto target_type = GetSpellTargetType(effect.kind, false);
+        if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
+            if (g_settings.verbose_combat_messages == 0) ReportSpellResult(&effect);
+            FinishSpellEffectTargets(&effect);
+        }
+    }
+    for (auto* visual : effect.spell_visuals) {
+        visual->auto_release = true;
+        visual->finished = true;
+    }
+}
+
 /* Advance every queued spell effect one frame. An effect first checks that
    everything it owns is still live: its visuals have started, its missiles
    carry their launch flag, and its monster list still points at live manager
@@ -515,6 +524,14 @@ void FinishSpellEffect(W8SpellEffectEntry* effect);
    is removed from the queue and deleted. */
 void UpdateSpellEffects(void)
 {
+    auto& game = CurrentGame();
+    for (auto& lure : game.expired_lures) UpdateHypnoticLure(*lure, true);
+    game.expired_lures.clear();
+    if (game.hypnotic_lure) {
+        const bool expired = game.hypnotic_lure->turns_remaining == 0;
+        UpdateHypnoticLure(*game.hypnotic_lure, expired);
+        if (expired) game.hypnotic_lure.reset();
+    }
     bool handled = false;
     int index;
 
@@ -551,7 +568,7 @@ void UpdateSpellEffects(void)
 
         bool process =
             ((Data().spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
-             effect.sustained || alive) &&
+             alive) &&
             !effect.targets_resolved;
         if (process) {
 
@@ -596,11 +613,7 @@ void UpdateSpellEffects(void)
             }
         }
 
-        if (effect.sustained) {
-            if (effect.turns_remaining != 0) {
-                continue;
-            }
-        } else if (!alive || !effect.targets_resolved) {
+        if (!alive || !effect.targets_resolved) {
             continue;
         }
 
@@ -621,9 +634,6 @@ void UpdateSpellEffects(void)
              ++release_visual) {
             SpellVisual* visual = effect.spell_visuals[release_visual];
             visual->auto_release = true;
-            if (effect.sustained) {
-                visual->finished = true;
-            }
         }
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
@@ -1847,12 +1857,11 @@ void W8SpellEffectEntry::AddVisual(SpellVisual* visual)
 /* Put the lure's two effects a thousand units below the target. The target
    point itself moves down, so subsequent users see the lowered position.
    Only the named companion effect has its mode set. */
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target)
+void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target)
 {
     glm::vec3 position;
     SpellVisual* effect;
 
-    target->point.y -= 1000.0f;
     position = target->point;
 
     effect = SpawnSpellEffect(&position, Data().spells[W8_SPELL_HYPNOTIC_LURE].resource_name,
@@ -2876,6 +2885,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 break;
             case W8_TARGET_TYPE_POINT:
                 if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
+                    // The retail HYPN anchor uses this lowered coordinate, exactly once.
+                    target->point.y -= 1000.0f;
                     SpawnLureEffects(&owner, power_level, target);
                 } else {
                     if (spell_id != W8_SPELL_SUMMON_ELEMENTAL) {
@@ -2968,21 +2979,23 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         owner.monster_ids = monster_markers;
         owner.target_indices = party_markers;
         owner.recast = recast;
+        int lure_duration = 0;
         if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
-            owner.sustained = true;
-            owner.turns_remaining = RollEffectDuration(&owner.definition);
-            for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-                auto& previous = *CurrentGame().spell_effects[index];
-                if (previous.kind == W8_SPELL_HYPNOTIC_LURE) {
-                    previous.turns_remaining = 0;
-                    ReleaseHypnoticLureControl();
-                    break;
-                }
+            lure_duration = RollEffectDuration(&owner.definition);
+            if (CurrentGame().hypnotic_lure) {
+                ReleaseHypnoticLureControl();
+                CurrentGame().expired_lures.push_back(std::move(CurrentGame().hypnotic_lure));
             }
         }
         if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
             !CurrentGame().activity.conversation_aside) {
-            CurrentGame().spell_effects.push_back(std::move(pending));
+            if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
+                // Keep owner valid through the remainder of casting.
+                CurrentGame().hypnotic_lure = std::make_unique<HypnoticLure>();
+                CurrentGame().hypnotic_lure->turns_remaining = lure_duration;
+            } else {
+                CurrentGame().spell_effects.push_back(std::move(pending));
+            }
         } else {
             ProcessSpellEffectTargets(&owner);
             // Immediate casts have no queued owner to retire their visuals later.
@@ -3047,6 +3060,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             }
         }
         return 2;
+    }
+    if (pending && spell_id == W8_SPELL_HYPNOTIC_LURE && CurrentGame().hypnotic_lure) {
+        CurrentGame().hypnotic_lure->cast = std::move(owner);
     }
     if (!source->fBackfire) {
         return 1;

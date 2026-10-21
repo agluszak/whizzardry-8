@@ -110,8 +110,8 @@ std::vector<W8JournalEntry> decode_journal(std::span<const std::byte> payload);
 
 /* The HYPN section: the sustained monster-control effect. Its pointer lists and result are
    rebuilt while it runs, not saved. */
-std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control);
-W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload);
+std::vector<std::byte> encode(const HypnoticLure& lure);
+HypnoticLure decode_monster_control(std::span<const std::byte> payload);
 
 /* A CHAR section: a character the game keeps outside the party under its file name, which
    is shorter than 64 bytes. */

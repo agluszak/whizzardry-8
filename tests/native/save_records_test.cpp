@@ -1183,19 +1183,20 @@ TEST_CASE("Faction sections keep every byte", "[save][records]")
 
 TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 {
-    W8SpellEffectEntry effect{};
+    HypnoticLure lure;
+    auto& effect = lure.cast;
     effect.kind = static_cast<W8SpellId>(0x26);
-    effect.turns_remaining = 5;
-    effect.sustained = true;
+    lure.turns_remaining = 5;
+    effect.target.point.y = -1000.0f;
     effect.definition.power_level = 3;
     effect.monster_ids = {4, 5}; // Rebuilt while the effect runs, not saved.
-    const auto payload = wiz8::save::encode(effect);
+    const auto payload = wiz8::save::encode(lure);
     // Spell, turns, two sources and two targets, four flags and the definition.
     REQUIRE(payload.size() == 4 + 4 + 2 * (0x34 + 0x20) + 4 + 0x30);
     const auto decoded = wiz8::save::decode_monster_control(payload);
-    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 && decoded.sustained &&
-             !decoded.recast && decoded.definition.power_level == 3 &&
-             decoded.monster_ids.empty()));
+    REQUIRE((decoded.cast.kind == effect.kind && decoded.turns_remaining == 5 &&
+             !decoded.cast.recast && decoded.cast.definition.power_level == 3 &&
+             decoded.cast.monster_ids.empty() && decoded.cast.target.point.y == -1000.0f));
     REQUIRE(wiz8::save::encode(decoded) == payload);
     REQUIRE_THROWS(
         wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));

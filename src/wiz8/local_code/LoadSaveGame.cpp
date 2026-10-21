@@ -1059,7 +1059,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         chunks, W8_CHUNK_FACTION_STATE,
         wiz8::save::encode(wiz8::save::Factions{story.faction_relations, story.factions}));
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
-    if (const auto* control = FindMonsterControlSpellEffect())
+    if (const auto& control = game.hypnotic_lure)
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
     RequireSection(SaveStatusHeader(&chunks), "level status");
 }
@@ -1684,8 +1684,7 @@ try {
         case W8_CHUNK_MONSTER_CONTROL:
             installs.emplace_back([control = wiz8::save::decode_monster_control(
                                        ReadChunkPayload(chunks))](Game& game) mutable {
-                game.spell_effects.push_back(
-                    std::make_unique<W8SpellEffectEntry>(std::move(control)));
+                game.hypnotic_lure = std::make_unique<HypnoticLure>(std::move(control));
             });
             break;
         }

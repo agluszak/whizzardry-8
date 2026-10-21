@@ -1165,39 +1165,41 @@ std::vector<W8JournalEntry> decode_journal(std::span<const std::byte> payload)
 static_assert(std::is_trivially_copyable_v<W8SpellEffectDefinition> &&
               sizeof(W8SpellEffectDefinition) == 0x30);
 
-std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
+std::vector<std::byte> encode(const HypnoticLure& lure)
 {
     Writer out;
+    const auto& monster_control = lure.cast;
     out.value(static_cast<std::int32_t>(monster_control.kind));
-    out.value(std::int32_t{monster_control.turns_remaining});
+    out.value(std::int32_t{lure.turns_remaining});
     out.record(monster_control.Source);
     out.record(monster_control.target);
     out.record(monster_control.OrigSource);
     out.record(monster_control.OrigTarget);
     out.flag(monster_control.recast);
-    out.flag(monster_control.sustained);
+    out.flag(true);
     out.flag(monster_control.missiles_pending);
     out.flag(monster_control.targets_resolved);
     out.value(monster_control.definition);
     return out.take();
 }
 
-W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
+HypnoticLure decode_monster_control(std::span<const std::byte> payload)
 {
     Reader in(payload);
-    W8SpellEffectEntry effect{};
+    HypnoticLure lure;
+    auto& effect = lure.cast;
     effect.kind = static_cast<W8SpellId>(in.value<std::int32_t>());
-    effect.turns_remaining = in.value<std::int32_t>();
+    lure.turns_remaining = in.value<std::int32_t>();
     in.record(effect.Source);
     in.record(effect.target);
     in.record(effect.OrigSource);
     in.record(effect.OrigTarget);
     effect.recast = in.flag();
-    effect.sustained = in.flag();
+    in.flag(); // Retail sustained flag; HYPN is always the persistent lure.
     effect.missiles_pending = in.flag();
     effect.targets_resolved = in.flag();
     effect.definition = in.value<W8SpellEffectDefinition>();
-    return effect;
+    return lure;
 }
 
 // A CHAR section's file name field.
