@@ -361,15 +361,22 @@ TEST_CASE("events_test")
     clock_actions.clear();
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     drain_events();
-    REQUIRE((!gfApplicationActive && suspensions == 1));
+    REQUIRE((!gfApplicationActive && suspensions == 0));
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
-    REQUIRE((gfApplicationActive && restorations == 1));
+    REQUIRE((gfApplicationActive && restorations == 0));
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
-    REQUIRE((restorations == 1 && clock_actions.size() == 2));
+    REQUIRE((restorations == 0 && clock_actions.size() == 2));
     REQUIRE((clock_actions[0] == W8_MOVE_TIMER_SUSPEND &&
              clock_actions[1] == W8_MOVE_TIMER_RESUME_MAIN_GAME));
+    focus(SDL_EVENT_WINDOW_MINIMIZED);
+    drain_events();
+    REQUIRE(suspensions == 1);
+    focus(SDL_EVENT_WINDOW_RESTORED);
+    drain_events();
+    REQUIRE(restorations == 1);
+    REQUIRE(clock_actions.size() == 2);
     SDL_Event resize{};
     resize.type = SDL_EVENT_WINDOW_RESIZED;
     resize.window.windowID = id;

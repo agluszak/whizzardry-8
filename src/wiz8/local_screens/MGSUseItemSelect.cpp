@@ -180,7 +180,7 @@ bool OpenUseItemSelectView(int slot)
         hud->repaint.submenu_buttons = true;
     }
     RefreshUseItemSelectionForSlot(slot);
-    SelectSpellCastingPartySlot(slot);
+    SelectSpellCastingPartySlot(slot, use_item->draft);
     return true;
 }
 
@@ -360,7 +360,7 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
     use_item->dirty[2] = true;
-    SelectSpellCastingPartySlot(CurrentGame().status.selected_character);
+    SelectSpellCastingPartySlot(CurrentGame().status.selected_character, use_item->draft);
     use_item->pool = pool;
     use_item->filter->SetEnabled(true);
     use_item->filter->SetPressed(true);
@@ -587,7 +587,8 @@ void SelectUseItemLine(int iTextLine)
     RedrawTextBox();
     target_type = GetSpellTargetType(GetItemSpell(item),
                                      ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, MainGameHud() == nullptr));
+    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, MainGameHud() == nullptr),
+                               &use_item->draft);
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -

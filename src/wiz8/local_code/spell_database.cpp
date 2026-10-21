@@ -13,7 +13,6 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/cycle_player.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/loaded_game_data.h"
