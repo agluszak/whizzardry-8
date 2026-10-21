@@ -960,7 +960,8 @@ bool NavigationMesh::BuildAttachmentPath(PathSearchScratch& path_search, Navigat
             glm::vec3* destination = &attachment->path_destination;
             glm::vec3* slot = &attachment->path[attachment->lastWaypoint()].position;
             *slot = *destination;
-            if (((attachment->path_cursor < attachment->lastWaypoint()) ||
+            if (attachment->lastWaypoint() >= 2 &&
+                ((attachment->path_cursor < attachment->lastWaypoint()) ||
                  ((attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0)) &&
                 (tracePathSpan(attachment->path[attachment->lastWaypoint() - 2].position,
                                *(destination), false, false)
@@ -1951,6 +1952,18 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
     nodes[selected].parent_node = 0;
 
     unsigned short route_node = previous;
+    // Direct-search prop annotations and waypoint appends can address the same slot.
+    // Keep the planning writes in order without making spare slots part of the route.
+    std::vector<unsigned short> values;
+    unsigned int prop_count = 0;
+    const auto annotate = [&](std::size_t index, unsigned short value) {
+        if (values.size() <= index) values.resize(index + 1);
+        values[index] = value;
+    };
+    const auto append = [&](const glm::vec3* point) {
+        annotate(attachment->lastWaypoint(), 0);
+        attachment->AppendPathPosition(point, 0);
+    };
     attachment->path.resize(2);
     attachment->path_cursor = 1;
     unsigned short anchor_node = previous;
@@ -1959,7 +1972,8 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
         W8PathSearchNode* node = &nodes[route_parent];
         if ((node->flags & W8_PATH_SEARCH_INACTIVE_CELL) != 0) {
             if ((attachment->flags & 0x08000000) == 0) {
-                ProcessSearchNodeProps(route_parent, false, nodes);
+                if (const auto prop = ProcessSearchNodeProps(route_parent, false, nodes))
+                    annotate(prop_count++, static_cast<unsigned short>(prop));
             } else {
                 ProcessSearchNodeProps(route_parent, true, nodes);
             }
@@ -1967,7 +1981,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
 
         if (!CanReachSearchNode(path_search, &nodes[anchor_node].position, route_parent, radius,
                                 nodes)) {
-            attachment->AppendPathPosition(&nodes[route_node].position, 0);
+            append(&nodes[route_node].position);
             anchor_node = route_node;
         }
 
@@ -1998,7 +2012,10 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
     }
 
     // 0x0046473A: the route ends at the last node walked, not at the last anchor.
-    attachment->AppendPathPosition(&nodes[route_node].position, 0);
+    append(&nodes[route_node].position);
+    annotate(prop_count, 0);
+    for (std::size_t index = 0; index < std::min(values.size(), attachment->path.size()); ++index)
+        attachment->path[index].value = values[index];
 
     if (attachment->lastWaypoint() > 1) {
         attachment->path.pop_back();
