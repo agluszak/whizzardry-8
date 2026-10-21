@@ -5,6 +5,7 @@
 
 struct BoundingBox;
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <span>
