@@ -27,7 +27,6 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/entities/spell_visual.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"

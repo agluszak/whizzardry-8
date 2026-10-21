@@ -486,27 +486,34 @@ void AbsorbMissileDamage(Missile* missile)
 
 void FinishSpellEffect(W8SpellEffectEntry* effect);
 
+static void ResolveQueuedSpellTargets(W8SpellEffectEntry& effect)
+{
+    effect.targets_resolved = true;
+    if (MonsterCanAimSpell(effect.kind) && !effect.Source.fBackfire && !effect.Source.fReflection)
+        ProvokeListedMonsterGroups(&effect.Source, effect.monster_ids);
+    ProcessSpellEffectTargets(&effect);
+    if (TargetSourceIsMonster(&effect.OrigSource, 0) && CurrentGame().combat) {
+        assert(effect.OrigSource.iMonsterID != -1);
+        CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
+                                        ActionStep::finishing);
+    }
+}
+
+static void FinishAimedSpellTargets(W8SpellEffectEntry& effect)
+{
+    if (Data().spells[effect.kind].needs_aim == 0 || IsCombatEffectSlotSpell(effect.kind)) return;
+    const auto target_type = GetSpellTargetType(effect.kind, false);
+    if (target_type == W8_TARGET_TYPE_RADIUS || target_type == W8_TARGET_TYPE_PARTY) return;
+    if (g_settings.verbose_combat_messages == 0) ReportSpellResult(&effect);
+    FinishSpellEffectTargets(&effect);
+}
+
 static void UpdateHypnoticLure(HypnoticLure& lure, bool expired)
 {
     auto& effect = lure.cast;
-    if (!effect.targets_resolved) {
-        effect.targets_resolved = true;
-        if (MonsterCanAimSpell(effect.kind) && !effect.Source.fBackfire &&
-            !effect.Source.fReflection)
-            ProvokeListedMonsterGroups(&effect.Source, effect.monster_ids);
-        ProcessSpellEffectTargets(&effect);
-        if (TargetSourceIsMonster(&effect.OrigSource, 0) && CurrentGame().combat)
-            CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
-                                            ActionStep::finishing);
-    }
+    if (!effect.targets_resolved) ResolveQueuedSpellTargets(effect);
     if (!expired) return;
-    if (Data().spells[effect.kind].needs_aim != 0 && !IsCombatEffectSlotSpell(effect.kind)) {
-        const auto target_type = GetSpellTargetType(effect.kind, false);
-        if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
-            if (g_settings.verbose_combat_messages == 0) ReportSpellResult(&effect);
-            FinishSpellEffectTargets(&effect);
-        }
-    }
+    FinishAimedSpellTargets(effect);
     for (auto* visual : effect.spell_visuals) {
         visual->auto_release = true;
         visual->finished = true;
@@ -544,38 +551,16 @@ void UpdateSpellEffects(void)
         }
     }
     bool handled = false;
-    int index;
-
-    if (static_cast<int>(CurrentGame().spell_effects.size()) <= 0) {
-        return;
-    }
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        auto& effect = *CurrentGame().spell_effects[index];
-        bool alive = true;
-
-        for (int visual_index = 0;
-             visual_index < static_cast<int>(effect.spell_visuals.size()) && alive;
-             ++visual_index) {
-            SpellVisual* visual = effect.spell_visuals[visual_index];
-            if (!visual->finished) {
-                alive = false;
-            }
-        }
-        for (int missile_index = 0;
-             missile_index < static_cast<int>(effect.missiles.size()) && alive; ++missile_index) {
-            Missile* missile = effect.missiles[missile_index];
-            if (!missile->flight_done) {
-                alive = false;
-            }
-        }
-        for (int monster_index = 0;
-             monster_index < static_cast<int>(effect.target_indices.size()) && alive;
-             ++monster_index) {
-            int entry = effect.target_indices[monster_index];
-            if (CurrentGame().monster_manager_entries[entry].effect_icon_active) {
-                alive = false;
-            }
-        }
+    for (std::size_t index = 0; index < game.spell_effects.size(); ++index) {
+        auto& effect = *game.spell_effects[index];
+        bool alive =
+            std::ranges::all_of(effect.spell_visuals,
+                                [](const auto* visual) { return visual->finished; }) &&
+            std::ranges::all_of(effect.missiles,
+                                [](const auto* missile) { return missile->flight_done; }) &&
+            std::ranges::all_of(effect.target_indices, [&game](int entry) {
+                return !game.monster_manager_entries[entry].effect_icon_active;
+            });
 
         bool process =
             ((Data().spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
@@ -607,20 +592,7 @@ void UpdateSpellEffects(void)
                 effect.missiles_pending = false;
                 handled = true;
             } else {
-                effect.targets_resolved = true;
-                if (MonsterCanAimSpell(effect.kind) && !effect.Source.fBackfire &&
-                    !effect.Source.fReflection) {
-                    ProvokeListedMonsterGroups(&effect.Source, effect.monster_ids);
-                }
-                ProcessSpellEffectTargets(&effect);
-                if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
-                    assert(effect.OrigSource.iMonsterID != -1);
-                    /* The casting monster's turn finishes with its spell. */
-                    if (CurrentGame().combat.has_value()) {
-                        CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
-                                                        ActionStep::finishing);
-                    }
-                }
+                ResolveQueuedSpellTargets(effect);
             }
         }
 
@@ -628,28 +600,15 @@ void UpdateSpellEffects(void)
             continue;
         }
 
-        if (!handled && Data().spells[effect.kind].needs_aim != 0 &&
-            !IsCombatEffectSlotSpell(effect.kind)) {
-            W8SpellTargetType target_type = GetSpellTargetType(effect.kind, false);
-            if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
-                if (g_settings.verbose_combat_messages == 0) {
-                    ReportSpellResult(&effect);
-                }
-                FinishSpellEffectTargets(&effect);
-            }
-        }
+        if (!handled) FinishAimedSpellTargets(effect);
         if (effect.kind == W8_SPELL_BOILING_BLOOD) {
             FinishSpellEffect(&effect);
         }
-        for (int release_visual = 0; release_visual < static_cast<int>(effect.spell_visuals.size());
-             ++release_visual) {
-            SpellVisual* visual = effect.spell_visuals[release_visual];
-            visual->auto_release = true;
-        }
+        for (auto* visual : effect.spell_visuals) visual->auto_release = true;
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
         }
-        CurrentGame().spell_effects.erase(CurrentGame().spell_effects.begin() + index);
+        game.spell_effects.erase(game.spell_effects.begin() + index);
         --index;
     }
 }
