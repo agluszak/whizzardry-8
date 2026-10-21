@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -170,8 +171,8 @@ static bool reset()
         mesh.getVertexLoc()[1] = glm::vec3(1, 2, 3);
         mesh.setUVCount(7);
         mesh.getVertexTexCoords(2, 0, 1)[6] = glm::vec2(0.5f, 0.75f);
-        mesh.getVertexMaterialTable(1, Mesh::SIDE_BACK, true)->set(2, material);
-        mesh.getPolygonTextureTable(1, 0, true)->set(0, texture);
+        (*mesh.getVertexMaterialTable(1, Mesh::SIDE_BACK, true))[2] = material;
+        (*mesh.getPolygonTextureTable(1, 0, true))[0] = texture;
         mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
         mesh.setTexture(texture, 0, 0);
         mesh.setSortBias(0.25f);
@@ -205,47 +206,38 @@ TEST_CASE("mesh_ownership_test")
     REQUIRE(reset());
 }
 
-TEST_CASE("Mesh resource assignments retain one owner per resource and survive reindexing")
+TEST_CASE("Mesh resource assignments keep resources until their last use and survive reindexing")
 {
     Mesh mesh(3, 4);
     auto material = std::make_shared<Material>();
     auto texture = std::make_shared<Texture>();
     auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
     auto* textures = mesh.getPolygonTextureTable(0, 0, true);
-    for (int vertex = 0; vertex < 4; ++vertex) materials->set(vertex, material);
-    for (int polygon = 0; polygon < 3; ++polygon) textures->set(polygon, texture);
-    REQUIRE(material.use_count() == 2);
-    REQUIRE(texture.use_count() == 2);
-    const auto borrowed = mesh.getTriMesh();
+    std::ranges::fill(*materials, material);
+    std::ranges::fill(*textures, texture);
     auto other = std::make_shared<Material>();
-    materials->set(2, other);
-    materials->set(3, nullptr);
-    // Growing the resource pool keeps the already published table view valid.
-    REQUIRE((*borrowed.vertex_materials[0][0])[2] == other);
+    (*materials)[2] = other;
+    (*materials)[3] = nullptr;
     const std::array<std::uint32_t, 4> permutation{3, 2, 0, 1};
     mesh.reindexVertices(permutation);
     REQUIRE((*materials)[0] == nullptr);
     REQUIRE((*materials)[1] == other);
     REQUIRE((*materials)[2] == material);
-    std::weak_ptr<Material> lifetime = other;
+    std::weak_ptr<Material> material_lifetime = other;
     other.reset();
-    materials->set(1, material);
-    REQUIRE(lifetime.expired()); // Replacing the last assignment releases ownership.
-    REQUIRE(material.use_count() == 2);
-    textures->set(1, nullptr);
+    (*materials)[1] = material;
+    REQUIRE(material_lifetime.expired()); // Replacing the last assignment releases ownership.
+    (*textures)[1] = nullptr;
     const std::array<std::uint32_t, 3> polygons{1, 2, 0};
     mesh.reindexPolygons(polygons);
     REQUIRE((*textures)[0] == nullptr);
     REQUIRE((*textures)[1] == texture);
     REQUIRE((*textures)[2] == texture);
-    // Shrinking after reindexing releases only resources with no remaining uses.
+    // Shrinking releases a resource only once no remaining polygon uses it.
+    std::weak_ptr<Texture> texture_lifetime = texture;
+    texture.reset();
     textures->resize(2);
-    REQUIRE(texture.use_count() == 2);
+    REQUIRE_FALSE(texture_lifetime.expired());
     textures->resize(1);
-    REQUIRE(texture.use_count() == 1);
-    textures->resize(3);
-    textures->set(2, texture); // Reuse a released pool entry.
-    textures->set(2, texture); // Reassigning the same resource must not add a use.
-    textures->set(2, nullptr);
-    REQUIRE(texture.use_count() == 1);
+    REQUIRE(texture_lifetime.expired());
 }

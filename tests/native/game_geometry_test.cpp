@@ -84,7 +84,6 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
@@ -1621,10 +1620,10 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
                           2.0f));
 
     auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
-    materials->set(0, material);
-    materials->set(1, zero_material);
-    materials->set(2, nullptr);
-    materials->set(3, material);
+    (*materials)[0] = material;
+    (*materials)[1] = zero_material;
+    (*materials)[2] = nullptr;
+    (*materials)[3] = material;
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
     const auto mixed = mesh.getTriMesh();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
