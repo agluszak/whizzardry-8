@@ -163,9 +163,16 @@ void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
 
 struct World;
+/* One NPC slot's binding to the loaded level, staged so a failed load leaves the
+   story untouched. An NPC the story already has keeps its state and only takes the
+   new binding; `created` holds a state made for this level. */
 struct W8PreparedNpcBinding {
     int slot;
-    std::unique_ptr<W8NpcState> state;
+    std::unique_ptr<W8NpcState> created;
+    int location_id = 0;
+    unsigned char level_band = 0;
+    unsigned char bound_level = 0;
+    std::unique_ptr<W8NpcScriptFile> script;
 };
 struct W8PreparedNpcBindings {
     std::vector<W8PreparedNpcBinding> records;

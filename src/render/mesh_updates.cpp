@@ -165,24 +165,3 @@ void UpdateWorldOctree(World* world)
 {
     world->compiledIndex()->UpdateCameraVisibility();
 }
-
-void UpdateWorldMesh()
-{
-    MeshInstance* source;
-    Mesh* mesh;
-    std::uint32_t* table;
-    std::int32_t polygon_count;
-    std::uint32_t index;
-
-    assert(GetWorld() != nullptr);
-    source = GetWorld()->update_mesh_source;
-    if (source != 0) {
-        mesh = static_cast<Mesh*>(source->getModel());
-        polygon_count = mesh->polygon_count;
-        mesh->setActivePolygonCount(polygon_count);
-        table = mesh->getActivePolygonTable(1);
-        for (index = 0; static_cast<std::int32_t>(index) < polygon_count; ++index) {
-            table[index] = index;
-        }
-    }
-}

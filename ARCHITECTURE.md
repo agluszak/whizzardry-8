@@ -74,7 +74,7 @@ Unlayered code may use the layers.
 | `render/` | VSG scene topology, shared mesh assets and instance poses, material state, views, Vulkan resources and presentation; SDL CPU canvas publication and overlay composition. SDL owns the platform window. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
-| `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
+| `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. A monster species, missile kind or spell visual is loaded once into a never-live definition (`World::*_definitions`), which every live entity is copied from. An actor's damage stage and light scale are on its `CyclePlayer`, which applies them to the active model instance. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
 | `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
 | `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` is the fight: starting, ending and pacing it (`fight`), attack resolution (`attack`), hostility, range, the party's move in a round, group attacks and combat sounds; it resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
 
@@ -101,6 +101,14 @@ Unlayered code may use the layers.
   inputs. Each camera has its own depth cue and derived light, fog and clipping
   data. Materials resolve animated textures while updating, rather than freezing
   their initial frame.
+- **Map view.** The automap is a separate view of the world scene, not a change
+  to it. `WorldScene::map` (`MapView`) owns the map's orthographic camera, the
+  `MapFilters.txt` texture exclusions and the explored vertices. Its graph holds
+  only static geometry: draws that share each static mesh's arrays, materials and
+  textures, with map-owned index and colour arrays. It has no actors, effects,
+  lights, fog or ambient light. The layer is the map camera's near clip. Opening
+  the map changes no gameplay camera, lighting, picking or mesh state, so
+  gameplay needs nothing restored afterwards.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs
   run in shaders. The descriptor layout is scoped to Wizardry geometry.
   Animated retail faces retain their authored integer-frame polygon normals
@@ -120,10 +128,26 @@ Unlayered code may use the layers.
   during acquisition or present-mode updates. Offscreen capture renders the same
   prepared graph; presentation surfaces without transfer-source support use it
   for screenshots as well.
-- **UI publication.** Drawing still uses the 640×480 ARGB1555 CPU canvas.
-  Invalidation publishes pixels into a separate texture image, so `Draw`
-  without `Refresh` cannot expose uncommitted painting. VSG composes that image,
-  overlays, video and the cursor with the world views.
+- **UI publication.** Refresh converts the requested rectangle from the ARGB1555
+  CPU canvas directly into the committed dynamic VSG pixel array. `Draw` without
+  `Refresh` stays private. Widgets own retained VSG geometry, image bindings and
+  explicit blend/alpha-test state. Layer groups preserve composition order; the
+  cursor uses rectangular artwork and an explicit hotspot.
+- **Native content.** Picking returns VSG intersections, including node paths,
+  coordinates and primitive data. Existing-game callers resolve `MeshInstance`
+  only when needed. `loadGameContent` reads static indexed VSG position/normal/UV
+  geometry and adapts it to game lighting, ambient and fog without a retail mesh.
+  Ordinary subgraphs can continue using standard VSG materials.
+- **Visual clocks.** `Game::visual_time` stops with world and shared-timer holds.
+  World texture playback, UV scrolling and light animation use it. Texture lookup
+  and extra views never advance animation or draw random values. UI texture
+  playback and glow use presentation time. Particles retain their game-step clock
+  and activity gates; keyframed lights follow their actor's sampled cycle time.
+  Legacy gameplay timers retain their save-progress contracts until their owners
+  migrate to step countdowns.
+- **Window events.** Focus controls pause and input release. Minimize/restore
+  controls presentation. Pixel-size changes follow the high-density drawable;
+  reopening presentation never reapplies startup window dimensions.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
 - **Shaders and platforms.** GLSL is compiled to SPIR-V in the normal build.
@@ -198,15 +222,15 @@ Unlayered code may use the layers.
 - **What `Game` is.** `Game` (`game.h`) is one play-through. It owns:
   - the party and the status record;
   - the random stream, `rng`;
-  - the story (`story.h`): facts, faction dispositions and relations, the journal, NPC
-    states and level-script variables;
+  - the story (`story.h`): facts, faction dispositions and relations, the journal, the
+    learned keyword notebook, NPC states and level-script variables;
   - the text boxes' message log;
   - combat and the spell effects still in progress;
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
-  - the NPC conversation: its progress (`npc_dialogue`), its interface state and saved
-    transcript (`npc_interaction`, which also stages the next script notice), the quote
+  - the NPC conversation: its progress (`npc_dialogue`), its interface state
+    (`npc_interaction`, which also stages the next script notice), the quote
     or portrait message on screen and the NPC voice (`npc_presentation`, `npc_speech`)
     and the Al-Sedexus scene;
   - the shared spell cooldowns;

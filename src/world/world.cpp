@@ -210,11 +210,7 @@ void UpdateWorldCameraAndPaths(World* world, unsigned int flags)
                     world->party_camera.last_automap_refresh_position = camera_position;
                     camera_position.y -= g_default_world_height;
                     const glm::vec3 automap_position = camera_position;
-                    if (AutomapHasCellAt(&automap_position)) {
-                        SetWorldMeshVertexLightTable(1);
-                        UpdateAutomapBounds();
-                        SetWorldMeshVertexLightTable(0);
-                    }
+                    if (AutomapHasCellAt(&automap_position)) UpdateAutomapBounds();
                 }
                 DispatchWorldCursorNodeCommand(0, 0, 0);
             }

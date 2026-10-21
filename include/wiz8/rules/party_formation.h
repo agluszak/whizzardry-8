@@ -1,37 +1,61 @@
 #ifndef WIZ8_LAYOUTS_PARTY_FORMATION_H
 #define WIZ8_LAYOUTS_PARTY_FORMATION_H
 
+#include <array>
 #include <optional>
 #include <span>
 
 #include "wiz8/rules/party_slot.h"
 
+enum { W8_FORMATION_ROWS = 5, W8_FORMATION_COLUMNS = 3 };
+
+struct W8FormationCell {
+    int row;
+    int column;
+
+    bool operator==(const W8FormationCell&) const = default;
+};
+
+/* A slot's formation state other than where it stands; the cell grid is the
+   only record of placement. */
 struct W8PartyFormationPosition {
-    /* The row the slot stands in, -1 while unseated. */
-    signed char bQuadrant;
-    /* The quadrant remembered while the slot is unseated by death; the
-       revival path in UpdateFormationSlotState re-seats into it and then
-       clears it. */
-    signed char bOldQuadrant;
-    signed char bQuadrantSlot;
-    signed char facing;
-    unsigned char unknown_04[8];
+    /* The row remembered while the slot is unseated by death; the revival
+       path in UpdateFormationSlotState re-seats into it and then clears it. */
+    signed char revival_row = -1;
+    signed char facing = 0;
+    /* Saved bytes with no known meaning, kept for round trips. */
+    std::array<unsigned char, 8> unknown_04{};
 
     bool operator==(const W8PartyFormationPosition&) const = default;
 };
 
 struct W8PartyFormationState {
-    W8PartyFormationState();
-    void setPosition(int slot, signed char row, signed char column, bool detach,
+    /* The party slot seated in a cell, if any. */
+    std::optional<int> occupant(int row, int column) const;
+    std::optional<W8FormationCell> cellOf(int slot) const;
+    /* The row the slot stands in, -1 while unseated. */
+    int rowOf(int slot) const;
+    int rowOccupants(int row) const;
+
+    /* Seat the slot in a cell, or unseat it. `detach` re-packs the row it
+       left and `update_facing` turns it the way its new row faces. */
+    void setPosition(int slot, std::optional<W8FormationCell> cell, bool detach,
                      bool update_facing);
-    void compactRow(unsigned char row);
+    /* Exchange two slots' cells; each seated slot faces the way its new row does. */
+    void swap(int slot_a, int slot_b);
+    /* A lone occupant moves to column 0, two pack toward column 2. */
+    void compactRow(int row);
     // Unseat every slot that has no member.
     void reconcile(std::span<const std::optional<W8PartyMember>, 8> members);
 
-    signed char bOccupantChar[5][3];
-    unsigned char ubQuadrantOccupants[5]; /* 0x0f */
-    W8PartyFormationPosition positions[8];
-    unsigned char unknown_74[0x10];
+    /* The party slot seated in each row's cells, -1 for an empty cell. */
+    std::array<std::array<signed char, W8_FORMATION_COLUMNS>, W8_FORMATION_ROWS> cells = [] {
+        std::array<std::array<signed char, W8_FORMATION_COLUMNS>, W8_FORMATION_ROWS> empty;
+        for (auto& row : empty) row.fill(-1);
+        return empty;
+    }();
+    std::array<W8PartyFormationPosition, 8> positions{};
+    std::array<unsigned char, 0x10> unknown_74{};
 
     bool operator==(const W8PartyFormationState&) const = default;
 };

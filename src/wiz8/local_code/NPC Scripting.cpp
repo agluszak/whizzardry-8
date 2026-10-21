@@ -120,9 +120,9 @@ void ApplyScriptedDialogueKeyword(const ScriptContext& context, W8NpcQuoteEntryK
         std::string keyword_text;
         keyword_text = text;
         if (!context.activity.conversation || !CurrentGame().npc_interaction.scripted_dialogue) {
-            AddNpcDialogueKeyword(keyword_text, category, 1);
+            LearnDialogueKeyword(keyword_text, category, true);
         } else {
-            AddDialogueTranscriptKeyword(keyword_text, category);
+            LearnDialogueKeyword(keyword_text, category, false);
         }
     }
 }
@@ -254,9 +254,9 @@ static void ShowConsumedItemQuote(std::string_view text)
 
 /* Remove one stack unit of the matching item: the character backpacks first
    (the slot whose address equals `item` wins, or any slot carrying `item_id`
-   when `match_item_id` is set), then the party pool, then the pending
-   trade item. The first hit announces the loss through the quote bubble or
-   the layout-4 path and returns. */
+   when `match_item_id` is set), then the party pool. The first hit announces
+   the loss through the quote bubble or the layout-4 path and returns; failing
+   those, one unit of a matching offered item is used up. */
 void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int match_item_id,
                          int item_id)
 {
@@ -290,16 +290,13 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
             return;
         }
     }
-    if (CurrentGame().npc_interaction.held_item_pending && item != 0 &&
-        CurrentGame().npc_interaction.pending_item.iItemNo == item->iItemNo) {
-        if (item->stack_count != 0) {
-            --item->stack_count;
+    auto& offer = CurrentGame().npc_interaction.offered_item;
+    if (offer && item != 0 && offer->iItemNo == item->iItemNo) {
+        if (offer->stack_count != 0) {
+            --offer->stack_count;
         }
-        if (item->stack_count == 0) {
-            CurrentGame().npc_interaction.held_item_pending = false;
-            if (!context.activity.conversation) {
-                (void)TakeInventoryItem(context.game, {W8ItemStorage::Hand});
-            }
+        if (offer->stack_count == 0) {
+            offer.reset();
         }
     }
 }
@@ -324,17 +321,19 @@ std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
     return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
 }
 
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster)
+{
+    const std::string script_name = FormatNpcVoiceSoundPath(&npc);
+    auto script = LoadNpcScriptFile(fmt::format("Data\\NPC Scripts\\{}.nsf", script_name));
+    if (script != 0 && monster != 0) {
+        monster->SetScript(fmt::format("{}.msf", script_name).c_str(), true);
+    }
+    return script;
+}
+
 void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster)
 {
-    const std::string script_name = FormatNpcVoiceSoundPath(npc);
-    std::string resource_name = fmt::format("Data\\NPC Scripts\\{}.nsf", script_name);
-    npc->script_file = LoadNpcScriptFile(resource_name);
-    if (npc->script_file != 0) {
-        if (monster != 0) {
-            resource_name = fmt::format("{}.msf", script_name);
-            monster->SetScript(resource_name.c_str(), true);
-        }
-    }
+    npc->script_file = LoadNpcScriptResources(*npc, monster);
 }
 
 void W8NpcDialogue::Advance(const ScriptContext& context)
@@ -375,7 +374,7 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current)
         BindNpcToMonster(npc->name_style, false, -1);
     }
     session_.finished_quote_index = -1;
-    session_.npc = npc;
+    session_.npc = npc->shared_from_this();
 }
 
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
@@ -462,7 +461,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
         [[fallthrough]];
     case W8_NPC_ENTRY_PRICE_CHECK:
     case W8_NPC_ENTRY_ALWAYS_PRICE_CHECK:
-        OpenNpcDialog(entry, continuation_quote);
+        OpenNpcDialog(session_.npc->script_file, entry, continuation_quote);
         break;
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(Data(), context.game.rng, entry->operand0, true, true, false);
@@ -474,7 +473,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
             if (item.iItemNo != -1) break;
             if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
         }
-        ClearNpcItemId(session_.npc, entry->operand0);
+        ClearNpcItemId(session_.npc.get(), entry->operand0);
         if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             RebuildNpcTradeItemList(false);
         }
@@ -516,7 +515,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
     W8MessageBoxLine& line = *current;
     npc = line.npc_kind != -1 ? GetNpcStateByKind(line.npc_kind) : 0;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
-        if (npc != 0 && npc != session_.npc) {
+        if (npc != 0 && npc != session_.npc.get()) {
             Begin(npc, true);
         }
         if (queue_idle_) {
@@ -556,7 +555,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;
                 if ((kind == W8_NPC_ENTRY_PRICE_CHECK || kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) &&
                     (kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK ||
-                     !NpcKnowsFact(session_.npc, static_cast<W8FactId>(quote_index)))) {
+                     !NpcKnowsFact(session_.npc.get(), static_cast<W8FactId>(quote_index)))) {
                     Speak(context, 0x12, false);
                     reply_ = W8NpcReplyState::pending;
                     QueueQuoteEntry(quote_index, index, quote_index, true);
@@ -621,7 +620,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             case W8NpcCommand::close_and_resume_npc:
                 CloseNpcDialogueIfActive();
                 if (CurrentGame().npc_interaction.dialogue_npc != 0) {
-                    ResumeNpc(CurrentGame().npc_interaction.dialogue_npc, 1);
+                    ResumeNpc(CurrentGame().npc_interaction.dialogue_npc.get(), 1);
                 }
                 break;
             case W8NpcCommand::reopen_transcript:
@@ -637,7 +636,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 break;
             case W8NpcCommand::remove_speaking_npc: {
                 EndNpcDialogueSession(false);
-                Monster* monster = GetNpcMonster(dialogue.session_.npc);
+                Monster* monster = GetNpcMonster(dialogue.session_.npc.get());
                 if (monster != 0) {
                     monster->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
                 }

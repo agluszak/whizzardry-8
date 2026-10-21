@@ -621,8 +621,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     }
     hud.text_box_font = &g_wiz_text_font_secondary;
     hud.palette = g_wiz_text_font_secondary.glyphs->colors;
-    hud.selection_kind = W8_ACTION_NONE;
-    hud.selection_settled = false;
     hud.tooltip_since = 0;
     hud.tooltip_pending = false;
     hud.pending_highlight = {};
