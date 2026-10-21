@@ -103,6 +103,7 @@ private:
 
     Session session_{};
     std::optional<Session> suspended_;
+    std::optional<Session> reply_session_;
     W8NpcReplyState reply_ = W8NpcReplyState::none;
     std::optional<W8NpcPriceCheck> price_check_;
     std::list<W8MessageBoxLine> queue_;

@@ -425,6 +425,10 @@ void W8NpcDialogue::RunDeclineActions(const ScriptContext& context, int quote_in
    or runs the quote's decline entries. */
 void W8NpcDialogue::Answer(const ScriptContext& context, std::string_view text)
 {
+    if (reply_session_) {
+        session_ = std::move(*reply_session_);
+        reply_session_.reset();
+    }
     if (!price_check_) {
         const int line = FindReplyQuote(text);
         if (line != -1) {
@@ -457,6 +461,7 @@ void W8NpcDialogue::SpeechFinished()
 
 void W8NpcDialogue::ReplyDialogOpened(std::optional<W8NpcPriceCheck> price_check)
 {
+    reply_session_ = session_;
     reply_ = W8NpcReplyState::dialog_open;
     if (price_check) {
         price_check_ = std::move(price_check);
@@ -465,11 +470,13 @@ void W8NpcDialogue::ReplyDialogOpened(std::optional<W8NpcPriceCheck> price_check
 
 void W8NpcDialogue::ReplyDialogClosed()
 {
+    reply_session_.reset();
     reply_ = W8NpcReplyState::none;
 }
 
 void W8NpcDialogue::AbandonReply()
 {
+    reply_session_.reset();
     reply_ = W8NpcReplyState::none;
     price_check_.reset();
 }
