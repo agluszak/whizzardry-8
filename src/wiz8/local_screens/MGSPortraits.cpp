@@ -163,8 +163,7 @@ void SyncPartyPortraitVitalsBars(void)
                 spell_bar != static_cast<unsigned int>(entry->cached_spell_bar) ||
                 (g_settings.numeric_hit_points != 0 &&
                  static_cast<int>(character->hp_current) != entry->cached_hp)) {
-                entry->portrait_stats_dirty = true;
-                if (auto* hud = MainGameHud()) hud->repaint.panels = true;
+                if (auto* hud = MainGameHud()) hud->repaint.portrait_bars.set(slot);
             }
         }
 
@@ -599,8 +598,6 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
                               bar_y - numeric_hp_mode + menu_y);
         }
 
-        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
-                         bar_y + menu_y + 0x2d);
         if (g_settings.numeric_hit_points != 0) {
             W8TextBuffer text;
             W8ControlsRect bounds;
@@ -614,15 +611,14 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             text.SetLayoutBounds(&bounds, true);
             g_smfnt_font.resetPalette();
             text.SetText(fmt::format("{:d}", character->hp_current), g_smfnt_font);
-            InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom);
             const SDL_Rect background{bounds.left, bounds.top + 1, bounds.right - bounds.left,
                                       bounds.bottom - bounds.top - 1};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &background, 0x8000);
             text.RenderToTarget(0, false, GetFrameBufferSurface());
         }
+        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
+                         menu_y + (numeric_hp_mode ? 0x46 : bar_y + 0x2d));
     }
-
-    entry->portrait_stats_dirty = false;
 }
 
 void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alternate, int spell_id)

@@ -15,6 +15,7 @@ void CreateLevelButtons(void);
 short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitStatus status,
                              short slot);
 void SyncPartyPortraitVitalsBars(void);
+void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
 void RecordCharacterDamage(int party_slot, unsigned int amount);
 /* Advance per-slot portrait FX counters on a 100ms clock and dirty redraw. */
 void TickPartyPortraitFx(void);
