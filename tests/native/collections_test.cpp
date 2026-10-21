@@ -75,6 +75,7 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
@@ -1134,16 +1135,44 @@ TEST_CASE("Formation reconciliation repairs only its owning party", "[party][for
 {
     const ScopedGame game;
     W8Party party;
-    party.formation.setPosition(0, 0, 0, false, true);
-    party.formation.setPosition(1, 0, 1, false, true);
+    party.formation.setPosition(0, W8FormationCell{0, 0}, false, true);
+    party.formation.setPosition(1, W8FormationCell{0, 1}, false, true);
     party.members[1].emplace();
     const auto previous = party;
     party.formation.reconcile(party.members);
-    REQUIRE(party.formation.positions[0].bQuadrant == -1);
-    REQUIRE(party.formation.positions[1].bQuadrantSlot == 0);
-    REQUIRE(party.formation.ubQuadrantOccupants[0] == 1);
-    REQUIRE(previous.formation.ubQuadrantOccupants[0] == 2);
-    REQUIRE(previous.formation.positions[1].bQuadrantSlot == 1);
+    REQUIRE_FALSE(party.formation.cellOf(0));
+    REQUIRE(party.formation.cellOf(1) == W8FormationCell{0, 0});
+    REQUIRE(party.formation.rowOccupants(0) == 1);
+    REQUIRE(previous.formation.rowOccupants(0) == 2);
+    REQUIRE(previous.formation.cellOf(1) == W8FormationCell{0, 1});
+}
+
+TEST_CASE("Formation swaps exchange cells and save the derived placement", "[party][formation]")
+{
+    W8PartyFormationState formation;
+    formation.setPosition(0, W8FormationCell{0, 0}, false, true);
+    formation.setPosition(1, W8FormationCell{2, 1}, false, true);
+    formation.positions[1].revival_row = 3;
+    formation.swap(0, 1);
+    REQUIRE(formation.cellOf(0) == W8FormationCell{2, 1});
+    REQUIRE(formation.cellOf(1) == W8FormationCell{0, 0});
+    REQUIRE(formation.positions[0].facing == 2); // Each faces the way its new row does.
+    REQUIRE(formation.positions[1].facing == 0);
+
+    const auto disk = wiz8::retail::encode_image(formation);
+    REQUIRE(disk.positions[0].row == 2);
+    REQUIRE(disk.positions[0].column == 1);
+    REQUIRE(disk.positions[1].old_row == 3);
+    REQUIRE(disk.positions[2].row == -1);
+    REQUIRE(disk.row_occupants[0] == 1);
+    REQUIRE(disk.row_occupants[2] == 1);
+    W8PartyFormationState loaded;
+    wiz8::retail::decode_image(disk, loaded);
+    REQUIRE(loaded == formation);
+
+    auto corrupt = disk;
+    corrupt.occupants[4][2] = 1; // Slot 1 in two cells.
+    REQUIRE_THROWS(wiz8::retail::decode_image(corrupt, loaded));
 }
 
 TEST_CASE("Pools follow a changed ceiling and keep their level otherwise", "[party][stats]")
