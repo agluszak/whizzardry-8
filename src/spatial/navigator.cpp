@@ -1038,7 +1038,8 @@ bool NavigatorRoute::AdvanceAlongPathPositions(float distance, glm::vec3* positi
 }
 
 bool NavigatorRoute::withinHopHeight(std::span<const W8PathSurface> surfaces,
-                                     const glm::vec2& point, std::size_t base, bool include_next) const
+                                     const glm::vec2& point, std::size_t base,
+                                     bool include_next) const
 {
     auto projection =
         segmentMath::project(point, glm::vec2(path[base].position.x, path[base].position.z),
