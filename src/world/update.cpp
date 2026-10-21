@@ -27,6 +27,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
@@ -114,7 +115,7 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
     for (auto* mesh : meshParts(static_cast<Mesh*>(instance->getModel()))) {
         const auto count = mesh->vertex_location_count;
         if (count <= 0) continue;
-        const auto vertex_lights = mesh->GetVertexLights(true, -1);
+        const auto vertex_lights = mesh->GetVertexLights(true);
         mesh->GetVertexSunlight(true);
         if (vertex_lights.empty()) return false;
         if (lights.empty()) continue;
@@ -187,30 +188,6 @@ bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scen
     return true;
 }
 
-/* Walk every live world mesh (octree mesh table, or the update-mesh chain when
-   there is no octree) and point its vertex-light table index at `table`, then
-   raise flags bit 1 so the next bake uses that table. */
-void SetWorldMeshVertexLightTable(int table)
-{
-    if (GetWorld()->compiledIndex() == 0) {
-        for (Mesh* model :
-             meshParts(static_cast<Mesh*>(GetWorld()->update_mesh_source->getModel()))) {
-            model->vertex_light_table = table;
-            model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-        }
-    } else {
-        for (unsigned int mesh = 0; mesh < GetWorld()->compiledIndex()->m_meshCount; ++mesh) {
-            MeshInstance* instance = GetWorld()->psrMeshes[mesh];
-            if (instance != 0) {
-                for (Mesh* model : meshParts(static_cast<Mesh*>(instance->getModel()))) {
-                    model->vertex_light_table = table;
-                    model->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-                }
-            }
-        }
-    }
-}
-
 /* Visibility queries share midpoint/corner generation and retain early-exit order. */
 bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds)
 {
@@ -263,7 +240,6 @@ static void ConfigureLightDefaults(Light& light, std::string_view name)
     light.setName(std::string(name));
     light.attenuation_model = Light::ATTENUATION_3DSTUDIO_MAX;
     light.enable_flags |= (1UL << Light::ENABLE_RANGE_FAR);
-    light.enable_flags |= (1UL << Light::ENABLE_BOUNDING_SPHERE);
 }
 
 std::unique_ptr<Light> CreateLight(WorldScene* scene, std::string_view name)
@@ -300,7 +276,6 @@ Light* CreateRangedWorldLight(World* world, std::string_view name)
     light->near_end = 0.0;
     light->far_start = 0.0;
     light->far_end = 1500.0;
-    light->safe_range = 5000.0f;
     light->setLinearAttenuation(1500.0f, 0.0019569471f);
     return AddWorldLight(world, std::move(light));
 }
@@ -322,7 +297,6 @@ void ConfigureWorldLight(Light* light, float range)
     light->near_start = 0.0;
     light->near_end = 0.0;
     light->far_start = 0.0;
-    light->safe_range = 5000.0f;
     light->setLinearAttenuation(range, 0.0019569471f);
 }
 
@@ -351,14 +325,15 @@ void WorldUpdateLights(World* world)
     // Authored lights are owned by the world. Cycle lights remain owned by
     // their emitter and participate while attached to this world's scene.
     for (const auto& light : world->transient_lights)
-        if (!std::holds_alternative<std::monostate>(light->animator)) light->Update();
+        if (!std::holds_alternative<std::monostate>(light->animator))
+            light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
     const auto update_cycles = [&](const auto& cycles) {
         for (const auto& cycle : cycles) {
             if (!cycle->visual.m_plsLights) continue;
             for (const auto& light : *cycle->visual.m_plsLights)
                 if (!std::holds_alternative<std::monostate>(light->animator) &&
                     light->scene == (world->scene.get()))
-                    light->Update();
+                    light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
         }
     };
     update_cycles(world->monsters);

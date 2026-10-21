@@ -16,7 +16,6 @@ target_sources(wiz8_engine PRIVATE
     ../audio/SoundEvent.cpp
     ../audio/AmbientSound.cpp
     ../audio/mouth_gap.cpp
-    ../entities/entity_assets.cpp
     dialog_code/ButtonAppearance.cpp
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
