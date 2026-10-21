@@ -64,6 +64,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/vsg_material.h"
@@ -603,6 +604,8 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
                 if (visual->instance && visual->instance->visible && visual->instance->getModel())
                     polygons += visual->instance->getModel()->polygon_count;
             }
+            if (auto* native = dynamic_cast<render::NativeContent*>(&transform))
+                native->prepare(context, pass);
             transform.traverse(*this);
         }
     } prepare_instances(context, pass, frame_number, static_exclusion_mask, submitted_polygons);

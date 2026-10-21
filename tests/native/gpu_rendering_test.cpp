@@ -2,6 +2,7 @@
 #include <array>
 #include <initializer_list>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -14,11 +15,16 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
+#include <vsg/core/Array.h>
+#include <vsg/io/write.h>
+#include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
+#include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/utils/Builder.h>
 
 #include "surface_pixels.h"
+#include "temporary_directory.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
@@ -28,8 +34,10 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/texture_animation.h"
@@ -376,4 +384,60 @@ TEST_CASE("Wizardry globally sorts transparent triangles around opaque VSG and d
     expect(24, 0x800040);
     expect(40, 0x400080);
     expect(48, 0x00e600);
+}
+
+TEST_CASE("Imported native VSG content shares game lighting, fog and picking")
+{
+    Fixture fixture;
+    ScopedTemporaryDirectory directory("wiz8-native-content");
+    auto positions = vsg::vec3Array::create({{-1, -1, 3}, {1, -1, 3}, {0, 1, 3}});
+    auto normals = vsg::vec3Array::create(3, vsg::vec3(0, 0, -1));
+    auto source = vsg::VertexIndexDraw::create();
+    source->assignArrays({positions, normals});
+    source->assignIndices(vsg::ushortArray::create({0, 1, 2}));
+    source->indexCount = 3;
+    source->instanceCount = 1;
+    const auto path = directory.path / "triangle.vsgt";
+    REQUIRE(vsg::write(source, path.string()));
+    auto material = std::make_shared<Material>();
+    material->setAmbient(glm::vec4(1));
+    material->setDiffuse(glm::vec4(1, 0, 0, 1));
+    material->setSpecular(glm::vec4(0));
+    material->setEmissive(glm::vec4(0));
+    auto object = render::loadGameContent(path, material);
+    WorldScene scene;
+    scene.root->addChild(object);
+    scene.camera.setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
+    scene.camera.setClipRange(1, 10);
+    scene.camera.setViewPlane({-2, -2, 2, 2}, 1);
+    scene.ambient_light = glm::vec3(0);
+    scene.fog_color = {0, 0, 1};
+    Light light(&scene, Light::PRESET_DIRECTIONAL);
+    light.ambient = light.specular = glm::vec3(0);
+    light.diffuse = glm::vec3(.5f);
+    FogParams fog(&scene);
+    fog.setRange(0, 1);
+    fog.setDensity(.25f);
+    const auto draw = [&] {
+        fixture.renderer->beginFrame();
+        auto view = scene.createView(fixture.renderer->context(), &scene.camera, {},
+                                     vsg::ViewportState::create(0, 0, 64, 64),
+                                     fixture.renderer->frameNumber());
+        Pick pick;
+        scene.pick(*view->camera, std::span{&pick, 1});
+        REQUIRE(pick.hit);
+        REQUIRE(std::ranges::find(pick.hit->nodePath, object.get()) != pick.hit->nodePath.end());
+        REQUIRE(render::gameOwner(pick) == nullptr);
+        fixture.renderer->addView(view);
+        fixture.renderer->endFrame(false, true);
+        return fixture.pixel(32, 32);
+    };
+    const auto lit = draw();
+    REQUIRE(((lit >> 16) & 255) >= 94);
+    REQUIRE(((lit >> 16) & 255) <= 97);
+    REQUIRE((lit & 255) >= 62);
+    light.diffuse = glm::vec3(0);
+    const auto dark = draw();
+    REQUIRE((dark & 0xff0000) == 0);
+    REQUIRE((dark & 255) >= 62);
 }
