@@ -519,7 +519,7 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
         return false;
     }
     if (FindEntityByName("Mookholo", &position, 0, 0)) {
-        group = SpawnMonsters(0xb, 1, &position, 0, true, false, false);
+        group = SpawnMonsters(0xb, 1, &position, 0, true, false);
         if (GetLocationVarIDByName("ScregActive") != -1) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
@@ -582,7 +582,7 @@ bool ArnikaScript::yellowButton(Trigger* pTrigger)
 
     g_trigger_feedback = true;
     if (FindEntityByName("Bguards", &position, 0, 0)) {
-        group = SpawnMonsters(0xc, 6, &position, 1, true, false, false);
+        group = SpawnMonsters(0xc, 6, &position, 1, true, false);
         if (group != 0) {
             info = FindMonster(group->leader_location_id);
             info->entity->SetScript("guard.msf", true);
@@ -656,7 +656,7 @@ bool ArnikaScript::genVaultDoor(Trigger* pTrigger)
             return false;
         }
         CreateLocationVar("GolemSpawned", 1);
-        SpawnMonsters(0x31, 1, &position, 1, true, false, false);
+        SpawnMonsters(0x31, 1, &position, 1, true, false);
         wiz8::sound::play("Data\\Sound\\Ambients\\Temp Transporting.wav");
     }
     return true;

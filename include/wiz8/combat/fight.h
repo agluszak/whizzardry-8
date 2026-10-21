@@ -63,7 +63,6 @@ bool CharacterCanSwitchTo(int party_slot, W8EditedAction context, bool allow_mis
 bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate);
 bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
 void NotifyNearbyMonsters(int what);
-void CombatLog(std::string_view text);
 void BeginCombatRound(void);
 void EndMonsterTurn(W8MonsterInfo* monster_info);
 void EndMonsterAttack(W8MonsterInfo* monster_info);

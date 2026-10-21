@@ -235,7 +235,7 @@ bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
     } else {
         ShowString(Data().strings[0x969]);
         if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
-            SpawnMonsters(0xec, 1, &position, 0, true, false, false);
+            SpawnMonsters(0xec, 1, &position, 0, true, false);
         }
     }
     destination.iItemNo = -1;

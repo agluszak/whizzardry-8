@@ -2368,9 +2368,6 @@ bool ProcessMainGameInput(void)
 /* The active screen's frame, including modal input and pending transitions. */
 void MainGameScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     ApplyPendingMouselook();
     ApplyPendingTooltip();
     if (g_modal_owner) {
@@ -2453,9 +2450,7 @@ void MainGameScreen::frame()
         !MainGame()->combat_targets[MainGameHud()->hover_combat_slot]->hitAt(point))
         MainGameHud()->hover_combat_slot = -1;
     TickAmbientFollowUpIdle(ProcessMainGameInput());
-    if (!IsRecordModeActive()) {
-        HandleManualCameraHotkeys();
-    }
+    HandleManualCameraHotkeys();
     if (!g_camera_path_active && g_mouselook_active && g_mouselook_left_held) {
         MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
         if (GetInputState().modifiers & SHIFT_DOWN) {
@@ -2786,9 +2781,6 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
             } else if (text_box_mode == W8_TEXT_BOX_MODE_SPECIAL_PANEL) {
                 text_box_variant = 2;
             } else {
-                DebugMessage(
-                    0, fmt::format("WARNING: Drawing text box while Text Buffer = {:d} (AlexP)",
-                                   static_cast<unsigned int>(text_box_mode)));
                 goto draw_formation_panel;
             }
             CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(),
@@ -2904,9 +2896,6 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
             EnsureRadarMapOverlay();
         }
         RenderFrame();
-        if (g_dev_mode) {
-            CurrentGame().status.dev_flagged = true;
-        }
     }
 }
 

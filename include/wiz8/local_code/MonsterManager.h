@@ -433,7 +433,6 @@ void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
-W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
 void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,

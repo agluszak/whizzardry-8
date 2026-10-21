@@ -46,7 +46,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 
@@ -692,7 +691,7 @@ bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group)
 /* Allocate one live monster group, create its members, activate them, and
    register it on the species or encounter list. */
 W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name, bool announce_spawn, bool place_on_ground)
+                            bool use_alternate_name, bool place_on_ground)
 {
     W8MonsterGroup* group;
     const W8MonsterRecord* record;
@@ -778,12 +777,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
     RefreshMonsterGroup(group);
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
-
-    if (announce_spawn && g_dev_mode) {
-        const char* verb = count == 1 ? "appears" : "appear";
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::format("{:d} {} {} nearby!", count, GetMonsterGroupName(group), verb));
-    }
 
     return group;
 }
@@ -1163,7 +1156,7 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
     glm::vec3 spawn;
     unsigned int index;
 
-    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false, false, false);
+    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false, false);
     if (new_group == 0 || new_group->MemberCount() != group->MemberCount()) {
         return 0;
     }

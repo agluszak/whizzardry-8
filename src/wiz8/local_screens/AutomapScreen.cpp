@@ -58,7 +58,6 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -78,7 +77,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
-#include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
@@ -109,8 +107,6 @@ std::vector<std::unique_ptr<OverlayQuad>> g_automap_markers;
 std::vector<std::unique_ptr<ClipPlane>> g_automap_created_layers;
 std::unique_ptr<AutomapButtons> g_automap_buttons;
 struct W8AutomapState {
-    uint64_t blink_time = 0;
-    bool blink_enabled = false;
     unsigned char pending_cell_lighting = 0;
 };
 static std::unique_ptr<W8AutomapState> g_automap_state;
@@ -163,8 +159,6 @@ glm::ivec2 g_automap_button_positions[16] = {
 };
 glm::ivec2 g_automap_cursor_offsets[5] = {{0, 0}, {8, 7}, {1, 24}, {1, 24}, {8, 7}};
 float g_automap_range = 10000.0f;
-/* Developer I-key latch; retail has no rendering consumer for this toggle. */
-bool g_automap_developer_i_toggle = true;
 int g_automap_layer = -1;
 bool g_automap_bounds_dirty = true;
 std::vector<ClipPlane*> g_automap_layers;
@@ -182,7 +176,6 @@ W8AutomapTool g_automap_tool = W8AutomapTool::Select;
 bool g_automap_cursor_inside;
 bool g_automap_redraw;
 unsigned int g_automap_page;
-bool g_automap_show_all_monsters;
 bool g_automap_overlay_redraw;
 float g_automap_zoom;
 /* The camera's near clip: how far above the selected layer it floats. */
@@ -516,7 +509,6 @@ bool AutomapScreen::enter(const ScreenRequest&)
     if (!g_automap_state) {
         g_automap_state = std::make_unique<W8AutomapState>();
     }
-    g_automap_state->blink_time = MonotonicMilliseconds();
     g_automap_viewport.left = 12;
     g_automap_viewport.top = 32;
     g_automap_viewport.right = 467;
@@ -723,10 +715,6 @@ void AutomapScreen::frame()
         moved = true;
     }
     if (moved) SetAutomapCameraPoint(&g_automap_position);
-    if (MonotonicMilliseconds() - g_automap_state->blink_time > 500) {
-        if (g_automap_state->blink_enabled) DrawVideoInspector(0xdc, 0x32);
-        g_automap_state->blink_time = MonotonicMilliseconds();
-    }
     RenderAutomapFrame();
 }
 
@@ -1360,8 +1348,7 @@ void RenderAutomapMarkers(void)
         glm::vec3 location;
         location = monster->visual.GetLocation();
         FindAutomapLayerAtHeight(location.y);
-        if (g_automap_show_all_monsters || detect_all ||
-            (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
+        if (detect_all || (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (location.x < left || left + g_automap_zoom < location.x || location.z < top ||
@@ -1694,7 +1681,6 @@ bool HandleAutomapKey(const InputEvent* input)
         return true;
     }
     case SDLK_ESCAPE:
-    drop_tool:
         /* Escape drops the tool, or leaves the screen when none is held. */
         if (g_automap_tool == W8AutomapTool::Select) {
             ReturnToPreviousScreen();
@@ -1743,69 +1729,6 @@ bool HandleAutomapKey(const InputEvent* input)
     case SDLK_4:
         SetAutomapLayer(input->key - 0x31);
         return true;
-    case SDLK_A:
-        /* Developer: reveal the whole map. */
-        if (g_dev_mode) {
-            std::ranges::fill(GetWorld()->automap.visited, true);
-            g_automap_bounds_dirty = true;
-            g_automap_redraw = true;
-            g_automap_overlay_redraw = true;
-            UpdateAutomapBounds();
-            g_automap_zoom = g_automap_top_y - g_automap_bounds_min.y;
-            {
-                glm::vec3 center(g_automap_bounds_min.x + g_automap_bounds_max.x,
-                                 g_automap_bounds_max.y + g_automap_bounds_min.y,
-                                 g_automap_bounds_min.z + g_automap_bounds_max.z);
-                glm::vec3 position = center / 2.0f;
-                position.y = g_automap_top_y;
-                SetAutomapCameraPoint(&position);
-            }
-            SetAutomapToolCursor(g_automap_tool);
-            SetAutomapButtonMode(AutomapZoomMode::ZoomInOnly);
-            RenderAutomapFrame();
-            return true;
-        }
-        break;
-    case SDLK_C:
-        /* Developer: forget the whole map. */
-        if (g_dev_mode) {
-            std::ranges::fill(GetWorld()->automap.visited, false);
-            g_automap_bounds_dirty = true;
-            UpdateAutomapBounds();
-            return true;
-        }
-        break;
-    case SDLK_I:
-        if (g_dev_mode) {
-            g_automap_developer_i_toggle = !g_automap_developer_i_toggle;
-            g_automap_redraw = true;
-            return true;
-        }
-        break;
-    case SDLK_S:
-        if (g_dev_mode) {
-            g_automap_redraw = true;
-            g_automap_show_all_monsters = !g_automap_show_all_monsters;
-            return true;
-        }
-        break;
-    case SDLK_F1:
-        if (g_dev_mode) {
-            /* Developer: move the party to the map position. */
-            auto pose = partyPose(*GetWorld());
-            pose.position = g_automap_position;
-            restorePartyPose(*GetWorld(), pose);
-            ResetCurrentEnvironment();
-            ResetCurrentEnvironment();
-            goto drop_tool;
-        }
-        break;
-    case SDLK_F10:
-        if (g_dev_mode) {
-            g_automap_state->blink_enabled = !g_automap_state->blink_enabled;
-            return true;
-        }
-        break;
     }
     return false;
 }

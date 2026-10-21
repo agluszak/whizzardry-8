@@ -61,7 +61,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -641,8 +640,7 @@ static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 }
 
 /* The location id of the nearest live monster whose current model instance is
-   under the cursor, or -1. Born monsters come first; the unborn list joins the
-   scan only while g_dev_mode is set. The cursor coordinates are carried but
+   under the cursor, or -1. The cursor coordinates are carried but
    unused - the hover test is MonsterUsesCurrentModelInstance. */
 int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 {
@@ -663,21 +661,6 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
         if (distance < best_distance) {
             result = monster_info->location_id;
             best_distance = distance;
-        }
-    }
-    if (g_dev_mode) {
-        for (index = 0; index < CurrentLevelPopulation().monster_roster.unborn().size(); ++index) {
-            W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
-            float distance;
-
-            if (!IsMonsterHoverSelectable(monster_info)) {
-                continue;
-            }
-            distance = MonsterDistanceToCamera(monster_info->entity.find());
-            if (distance < best_distance) {
-                result = monster_info->location_id;
-                best_distance = distance;
-            }
         }
     }
     return result;

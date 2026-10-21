@@ -7,7 +7,6 @@
 #include <span>
 #include <vector>
 
-#include <fmt/format.h>
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
@@ -53,8 +52,6 @@
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -143,10 +140,6 @@ const int g_combat_effect_slot_spells_and_cast_success[23] = {
 
 /* The per-slot weights ChooseMonsterSpell rolls against. */
 static int g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
-
-/* Reported once, so a monster missing its special-attack cycle does not flood
-   the log. */
-static bool g_special_attack_cycle_error_reported;
 
 /* The timed sight service. The dirty flag is raised by the condition and
    enchantment writers whenever what monsters can see of the party may have
@@ -590,18 +583,8 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
 {
     W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
     if (monster_group->encounter_registered) {
-        if (g_dev_mode) {
-            DebugMessage(
-                0, fmt::format(
-                       "Monster {:d} and associated monsters killed because it couldn't patrol",
-                       monster_info->location_id));
-        }
         MarkMonsterGroupForRemoval(monster_info->monster_group_id);
     } else {
-        if (g_dev_mode) {
-            DebugMessage(0, fmt::format("{} {:d} can't path!", GetMonsterName(monster_info, 0, 0),
-                                        monster_info->location_id));
-        }
         monster_info->pathing_cooldown = 0x14;
         if (monster_info->movement_stall_ticks < 2) {
             monster_info->movement_stall_ticks = 2;
@@ -748,7 +731,8 @@ void UpdateAllMonsterAI(void)
 
 /* The cycle a monster must have to cast at all. */
 
-/* Reported once, so a monster missing its spell cycle does not flood the log. */
+/* Retail's once-only missing-spell-cycle report. Only MonsterSpellTargetOK still
+   reads it: the first such target it meets is refused, later ones are not. */
 static bool g_spell_cycle_error_reported;
 
 /* Decide what one monster does this round. A monster taken out of the fight
@@ -838,11 +822,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
             }
             if (record->spell_chance != 0) {
                 if (!monster_info->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
-                    if (!g_spell_cycle_error_reported) {
-                        DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                    record->name0));
-                        g_spell_cycle_error_reported = true;
-                    }
+                    g_spell_cycle_error_reported = true;
                 } else {
                     for (spell = 0; spell < 10; ++spell) {
                         if (IsSpellUsableByMonster(monster_info, record->spells[spell], true)) {
@@ -930,11 +910,7 @@ members:
         }
         if (record->spell_chance != 0) {
             if (!member->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
-                if (!g_spell_cycle_error_reported) {
-                    DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                record->name0));
-                    g_spell_cycle_error_reported = true;
-                }
+                g_spell_cycle_error_reported = true;
             } else {
                 for (spell = 0; spell < 10; ++spell) {
                     if (MonsterCanAimSpell(record->spells[spell]) &&
@@ -1532,9 +1508,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (record->spell_chance != 0) {
                     if (!target->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
                         if (!g_spell_cycle_error_reported) {
-                            DebugMessage(0,
-                                         fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                     record->name0));
                             g_spell_cycle_error_reported = true;
                             return false;
                         }
@@ -1705,8 +1678,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_ROUT:
     case W8_SPELL_BOILING_BLOOD_EXPLOSION:
     default:
-        DebugMessage(0, fmt::format("WARNING: MonsterSpellTargetOK - unlisted spell {:d}({})",
-                                    spell_id, Data().spells[spell_id].display_name));
         break;
     }
     return true;
@@ -2199,11 +2170,6 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
         return false;
     }
     if (!monster_info->entity->IsCycleSupported(0x12)) {
-        if (!g_special_attack_cycle_error_reported) {
-            DebugMessage(0, fmt::format("ERROR: {} is missing a SPECIAL ATTACK animation cycle",
-                                        record->name0));
-            g_special_attack_cycle_error_reported = true;
-        }
         return false;
     }
     if (CurrentGame().combat.has_value() && monster_info->pCombat->special_cooldown != 0) {
@@ -2580,8 +2546,6 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
     }
     if (monster_group->leader_location_id == -0x32323233 ||
         (leader = FindMonster(monster_group->leader_location_id)) == 0 || !leader->entity) {
-        DebugMessage(1, fmt::format("ERROR: Group {:d} is without an active leader",
-                                    monster_group->group_id));
         return false;
     }
     if (!CurrentGame().combat.has_value()) {

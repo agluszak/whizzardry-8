@@ -19,7 +19,7 @@ bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argume
 bool ShowLevelMessage(int message_id);
 
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
-                              bool settle, bool a, bool b); /* 0x004D8F00 */
+                              bool settle, bool use_alternate_name); /* 0x004D8F00 */
 /* A one-shot positional sound owned by `world`'s script sounds; null when the
    loudness fraction is negative. */
 Sound3D* CreateAndPlaySoundNode(World& world, const char* sound_name, glm::vec3 position,

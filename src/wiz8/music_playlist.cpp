@@ -18,7 +18,6 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/ui_input.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
@@ -189,9 +188,6 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
 
     if (resource == 0) {
         return false;
-    }
-    if (g_dev_mode) {
-        RequestExitScreen();
     }
 
     path = fmt::format("Data\\Music\\{}", resource);
