@@ -7,6 +7,7 @@
 
 #include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/vector_double3.hpp>
 #include <glm/geometric.hpp>
 
 #include "wiz8/filesystem.h"
