@@ -264,8 +264,6 @@ vsg::ref_ptr<vsg::Group> MapView::prepare(render::RenderContext& context,
         for (auto* mesh : meshParts(instance.getModel())) {
             // Level geometry has no animation frames, so its asset owns positions.
             if (!mesh->frames.empty()) continue;
-            // Baking may replace the shared asset; finish it before comparing.
-            mesh->applyPendingLighting();
             const auto asset = mesh->renderAsset();
             auto& surface = this->surface(*mesh);
             if (surface.asset != asset || surface.layout != context.layout ||

@@ -88,6 +88,7 @@
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/triangle_projection.h"
@@ -1600,12 +1601,15 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
 TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry]")
 {
     const glm::vec3 environment{0.25f, 0.5f, 0.75f};
-    Mesh mesh(0, 4);
+    Mesh mesh(2, 4);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    mesh.getPolyVertex()[1] = {0, 2, 3};
     auto material = std::make_shared<Material>();
     material->setAmbient(glm::vec4(0.5f, 0.25f, 1, 1));
     auto zero_material = std::make_shared<Material>();
     zero_material->setAmbient(glm::vec4(0));
     mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    const auto asset = mesh.renderAsset();
     mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
     const auto lights = mesh.GetVertexLights(true);
@@ -1613,11 +1617,21 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
     }
+    // The bake writes the shared asset's colours; read them back per source vertex.
     const auto baked = [&] {
         mesh.applyPendingLighting();
-        return mesh.getVertexDIG(0, 0);
+        const auto& pass = mesh.renderAsset()->passes.at(0);
+        REQUIRE((pass.draw_flags & render::HasColors) != 0);
+        std::array<glm::vec3, 4> colors{};
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto& color = pass.attributes[1]->at(vertex);
+            colors.at(pass.source_vertices[vertex]) = {color.x, color.y, color.z};
+        }
+        return colors;
     };
-    const auto* base = baked();
+    const auto base = baked();
+    // The first bake fills the existing asset's colours.
+    REQUIRE(mesh.renderAsset() == asset);
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(base[vertex],
                       (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment) *
@@ -1629,7 +1643,7 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
     (*materials)[2] = nullptr;
     (*materials)[3] = material;
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto* mixed = baked();
+    const auto mixed = baked();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(mixed[vertex],

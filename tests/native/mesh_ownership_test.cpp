@@ -34,7 +34,7 @@ static bool lazyTables()
     REQUIRE((empty.getVertexNormal() == nullptr && empty.getPolyEq() == nullptr));
     REQUIRE((empty.getActivePolygonTable(1) == nullptr && empty.getVertexShadeIndex(1) == nullptr));
     REQUIRE(empty.getPolyUVIndex(0, 1) == nullptr);
-    REQUIRE((empty.getVertexTexCoords(0, 0, 1) == nullptr && empty.getVertexDIG(0, 1) == nullptr));
+    REQUIRE(empty.getVertexTexCoords(0, 0, 1) == nullptr);
     REQUIRE((empty.getVertexDCG(0, 1) == nullptr && empty.getVertexSCG(0, 1) == nullptr));
     REQUIRE(empty.getPolygonTextureTable(0, 0, true) == nullptr);
     REQUIRE(empty.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true) == nullptr);
@@ -45,7 +45,7 @@ static bool lazyTables()
     REQUIRE((mesh.poly_equations.empty() && mesh.active_polygons.empty()));
     for (int pass = 0; pass < Mesh::MAX_PASSES; ++pass) {
         REQUIRE(mesh.getPolyUVIndex(pass, 0) == nullptr);
-        REQUIRE((mesh.getVertexDIG(pass, 0) == nullptr && mesh.getVertexDCG(pass, 0) == nullptr));
+        REQUIRE(mesh.getVertexDCG(pass, 0) == nullptr);
         REQUIRE(mesh.getVertexSCG(pass, 0) == nullptr);
         for (int side = 0; side < 2; ++side) {
             REQUIRE(mesh.getPolygonTextureTable(pass, side, false) == nullptr);
@@ -70,9 +70,7 @@ static bool lazyTables()
     auto* active = mesh.getActivePolygonTable(1);
     REQUIRE((active[0] == 0 && active[1] == 1));
     mesh.setActivePolygonCount(1);
-    auto* dig = mesh.getVertexDIG(0, 1);
     for (int index = 0; index < 3; ++index) {
-        REQUIRE(dig[index] == glm::vec3(0, 0, 0));
         const auto& dcg = mesh.getVertexDCG(0, 1)[index];
         const auto& scg = mesh.getVertexSCG(0, 1)[index];
         REQUIRE((dcg.x == 1 && dcg.y == 1 && dcg.z == 1 && dcg.w == 1));
@@ -81,7 +79,7 @@ static bool lazyTables()
     REQUIRE(mesh.getVertexShadeIndex(1)[0] == 0);
     REQUIRE((*mesh.getPolygonTextureTable(3, 1, true))[0].get() == nullptr);
     REQUIRE((*mesh.getVertexMaterialTable(3, Mesh::SIDE_BACK, true))[0].get() == nullptr);
-    REQUIRE((mesh.getVertexDIG(-1, 1) == nullptr && mesh.getVertexDIG(4, 1) == nullptr));
+    REQUIRE((mesh.getVertexDCG(-1, 1) == nullptr && mesh.getVertexDCG(4, 1) == nullptr));
     REQUIRE(mesh.getVertexTexCoords(0, 2, 1) == nullptr);
     REQUIRE(mesh.getPolygonTextureTable(4, 0, true) == nullptr);
     REQUIRE(mesh.getVertexMaterialTable(0, static_cast<Mesh::e_side>(2), true) == nullptr);

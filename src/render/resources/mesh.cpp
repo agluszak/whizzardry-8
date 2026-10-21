@@ -252,15 +252,6 @@ glm::ivec3* Mesh::getPolyUVIndex(std::int32_t layer, int table)
     return slot.empty() ? nullptr : slot.data();
 }
 
-glm::vec3* Mesh::getVertexDIG(std::int32_t vertex, int table)
-{
-    if (vertex < 0 || vertex > 3) {
-        return 0;
-    }
-    return GetLazyMeshTable(*this, dig[vertex], vertex_location_count, table,
-                            glm::vec3(0.0f, 0.0f, 0.0f));
-}
-
 glm::vec2* Mesh::getVertexTexCoords(std::int32_t vertex, std::int32_t layer, int table)
 {
     if (vertex < 0 || vertex > 3 || layer < 0 || layer > 1) {
@@ -304,7 +295,6 @@ void Mesh::reset(std::int32_t polygons, std::int32_t vertices)
     poly_textures = {};
     texcoords = {};
     poly_uv_indices = {};
-    dig = {};
     dcg = {};
     scg = {};
     bounds_minimum = glm::vec3(0);
@@ -397,6 +387,7 @@ void Mesh::relocateVertices(const glm::vec3& offset)
 
 void Mesh::applyPendingLighting()
 {
+    // Without an asset there is nothing to update; building one bakes it.
     if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0) {
         updateBakedLighting();
         flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);

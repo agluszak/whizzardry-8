@@ -23,6 +23,7 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/bounding_box.h"
 
@@ -81,13 +82,13 @@ BoundingBox Mesh::GetFrameBounds(int frame) const
     return boundingBox(std::span<const glm::vec3>(locations));
 }
 
-/* Bake the sunlight, lights, ambient and environment terms into the first
-   vertex colour table. */
+/* Bake the sunlight, lights, ambient and environment terms into the colours of
+   the render asset's first-pass vertices. */
 void Mesh::updateBakedLighting()
 {
     const auto& lights = vertex_lights;
-    if (lights.empty() || vertex_sunlight.empty()) return;
-    auto* destination = getVertexDIG(0, 1);
+    if (!render_asset_ || lights.empty() || vertex_sunlight.empty()) return;
+    std::vector<glm::vec3> baked(static_cast<std::size_t>(vertex_location_count));
     const auto* materials = getVertexMaterialTable(0, SIDE_FRONT, false);
     const bool suppress_ambient = ambient_color == glm::vec3(0);
     const glm::vec3 base_ambient =
@@ -123,7 +124,17 @@ void Mesh::updateBakedLighting()
         }
         if (add_environment) color += environment;
         if (light_scale != 1) color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
-        destination[vertex] = color;
+        baked[vertex] = color;
+    }
+    for (auto& pass : render_asset_->passes) {
+        if (pass.pass != 0) continue;
+        auto& colors = *pass.attributes[1];
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto& color = baked[pass.source_vertices[vertex]];
+            colors.at(vertex) = vsg::vec4(color.x, color.y, color.z, 0);
+        }
+        colors.dirty();
+        pass.draw_flags |= render::HasColors;
     }
 }
 

@@ -79,8 +79,8 @@ public:
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    /* Bakes pending vertex lighting into the first colour table. Rendering calls
-       this before it reads the mesh's tables. */
+    /* Bakes pending vertex lighting into the render asset's first-pass colours.
+       Rendering calls this before it draws the asset. */
     void applyPendingLighting();
     std::shared_ptr<render::MeshAsset> renderAsset();
     std::vector<std::shared_ptr<Texture>>* getPolygonTextureTable(std::int32_t pass,
@@ -93,7 +93,6 @@ public:
     std::uint32_t* getVertexShadeIndex(int table);
     glm::vec3* getVertexNormal();
     glm::vec4* getPolyEq();
-    glm::vec3* getVertexDIG(std::int32_t vertex, int table);
     glm::vec4* getVertexSCG(std::int32_t vertex, int table);
     glm::vec4* getVertexDCG(std::int32_t vertex, int table);
     Material* getMaterial(std::int32_t polygon, e_side side) const;
@@ -146,7 +145,6 @@ public:
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
     std::array<std::array<std::vector<glm::vec2>, 2>, MAX_PASSES> texcoords;
-    std::array<std::vector<glm::vec3>, MAX_PASSES> dig;
     std::array<std::vector<glm::vec4>, MAX_PASSES> dcg;
     std::array<std::vector<glm::vec4>, MAX_PASSES> scg;
     std::vector<glm::vec3> vertex_locations;

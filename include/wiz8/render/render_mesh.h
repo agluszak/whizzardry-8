@@ -92,8 +92,6 @@ public:
     explicit MeshPose(Mesh& mesh);
     void update(Mesh& mesh, unsigned frame, float interpolation, int skin = -1,
                 bool check_blanking = true);
-    // Refresh live baked colours without rebuilding topology or batch nodes.
-    void refreshColors(const Mesh& mesh);
     std::shared_ptr<Texture> texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
                                      int skin, unsigned layer = 0) const;
 

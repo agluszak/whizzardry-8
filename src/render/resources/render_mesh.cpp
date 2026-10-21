@@ -48,7 +48,6 @@ template<class T> const T* tableOrNull(const std::vector<T>& table)
 std::uint32_t passFlags(const Mesh& mesh, int pass, int side)
 {
     std::uint32_t flags = 0;
-    if (!mesh.dig[pass].empty()) flags |= HasColors;
     if (!mesh.dcg[pass].empty()) flags |= HasDiffuseMultipliers;
     if (!mesh.scg[pass].empty()) flags |= HasSpecularMultipliers;
     if (!mesh.texcoords[pass][0].empty()) flags |= HasTexcoord0;
@@ -62,7 +61,6 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
     const auto control = mesh.render_control;
     const auto* texcoords0 = tableOrNull(mesh.texcoords[pass][0]);
     const auto* texcoords1 = tableOrNull(mesh.texcoords[pass][1]);
-    const auto* dig = tableOrNull(mesh.dig[pass]);
     const auto* dcg = tableOrNull(mesh.dcg[pass]);
     const auto* scg = tableOrNull(mesh.scg[pass]);
 
@@ -106,8 +104,8 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         const auto uv0 = texcoords0 ? texcoords0[mapped ? vertex : uv] : glm::vec2(0);
         const auto uv1 = texcoords1 ? texcoords1[vertex] : glm::vec2(0);
         const auto material = vertex_materials ? slotOf(vertex_materials[vertex]) : pass_material;
-        attributes.push_back({glm::vec4(uv0, uv1), dig ? glm::vec4(dig[vertex], 0) : glm::vec4(0),
-                              dcg ? dcg[vertex] : glm::vec4(1), scg ? scg[vertex] : glm::vec4(1),
+        attributes.push_back({glm::vec4(uv0, uv1), glm::vec4(0), dcg ? dcg[vertex] : glm::vec4(1),
+                              scg ? scg[vertex] : glm::vec4(1),
                               glm::vec4(static_cast<float>(material), mapped ? 1.f : 0.f, 1.f, 0)});
         result.source_vertices.push_back(static_cast<std::uint32_t>(vertex));
         return entry->second;
@@ -148,7 +146,7 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         auto array = vsg::vec4Array::create(attributes.size());
         for (std::size_t vertex = 0; vertex < attributes.size(); ++vertex)
             array->at(vertex) = toVsg(attributes[vertex][attribute]);
-        // Baked light contributions can change while the topology stays shared.
+        // Mesh lighting bakes into the colours while the topology stays shared.
         if (attribute == 1) array->properties.dataVariance = vsg::DYNAMIC_DATA;
         result.attributes[attribute] = std::move(array);
     }
@@ -173,7 +171,6 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
 
 std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
 {
-    mesh.applyPendingLighting();
     auto asset = std::make_shared<MeshAsset>();
     if (mesh.vertex_location_count <= 0 || mesh.polygon_count <= 0) return asset;
     const auto control = mesh.render_control;
@@ -254,8 +251,6 @@ void MeshPose::makeDraws()
 void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
                       bool check_blanking)
 {
-    // Baking may allocate its first colour table and invalidate the asset.
-    // Complete that work before testing whether the topology is still shared.
     mesh.applyPendingLighting();
     if (const auto current = mesh.renderAsset(); current != asset) {
         asset = current;
@@ -302,7 +297,6 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
             for (std::size_t triangle = 0; triangle < pass.source_polygons.size(); ++triangle)
                 pass.authored_normals->at(triangle) =
                     toVsg(polygon_normals[pass.source_polygons[triangle]]);
-    refreshColors(mesh);
 }
 
 void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
@@ -356,23 +350,6 @@ void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
     }
 }
 
-void MeshPose::refreshColors(const Mesh& mesh)
-{
-    for (auto& pass : asset->passes) {
-        const auto& colors = mesh.dig[pass.pass];
-        if (colors.empty()) continue;
-        auto& destination = *pass.attributes[1];
-        bool changed = false;
-        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
-            const auto value = toVsg(glm::vec4(colors[pass.source_vertices[vertex]], 0));
-            if (destination.at(vertex) == value) continue;
-            destination.at(vertex) = value;
-            changed = true;
-        }
-        if (changed) destination.dirty();
-    }
-}
-
 std::shared_ptr<Texture> MeshPose::texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
                                            int skin, unsigned layer) const
 {
@@ -402,7 +379,10 @@ bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& po
 
 std::shared_ptr<render::MeshAsset> Mesh::renderAsset()
 {
-    if (!render_asset_) render_asset_ = render::makeMeshAsset(*this);
+    if (!render_asset_) {
+        render_asset_ = render::makeMeshAsset(*this);
+        updateBakedLighting();
+    }
     // Bounds follow the mesh without a rebuild. VSG needs the actual all-frame
     // model bound even where the draw controls mark the mesh's own bounds as
     // authored (the sky).
