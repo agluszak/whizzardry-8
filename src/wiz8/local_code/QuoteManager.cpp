@@ -697,17 +697,9 @@ bool W8CharacterEvent::Dispatch()
                 GetLoadedLevelID() != 0) {
                 return false;
             }
-            if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
-                SetNpcScriptEventActive(1);
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
-            }
-            CurrentGame().npc_dialogue.Begin(npc, true);
+            CurrentGame().npc_dialogue.Begin(npc, true, (flags & W8_EVENT_NPC_SCRIPT) != 0);
             CurrentGame().npc_dialogue.Speak(MakeScriptContext(CurrentGame()), event_type,
                                              (flags & W8_EVENT_NPC_SCRIPT) != 0);
-            if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
-                SetNpcScriptEventActive(0);
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
-            }
             slot->active_character_event = this;
             CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
             return true;

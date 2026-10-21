@@ -30,7 +30,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
 
     /* The NPC's current script. A reply dialog showing one of its entries shares it, so
        replacing or releasing the script leaves the open dialog valid. */
-    std::shared_ptr<W8NpcScriptFile> script_file;
+    std::shared_ptr<const W8NpcScriptFile> script_file;
     /* 0x04: spawned flag; FindNpcOfKind returns it as the "in the world"
        answer, facts/combat paths set it, and 0xffff is the never-set
        sentinel normalized to zero on load. */

@@ -20,4 +20,4 @@ std::string GetNpcQuoteText(W8NpcState* npc, int type);
 
 bool IsPartySlotEligible(int slot);
 
-std::string FormatNpcVoiceSoundPath(W8NpcState* npc);
+std::string FormatNpcVoiceSoundPath(W8NpcState* npc, bool script_event = false);

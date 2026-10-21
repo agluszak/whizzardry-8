@@ -34,8 +34,9 @@
    request-buffer layout. The option-list strings and the two price-check
    strings live in the Data().strings message table. */
 
-W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* message,
-                         int aux_data, std::function<void(W8NpcDialog&)> closed)
+W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script,
+                         const W8NpcQuoteEntry* message, int aux_data,
+                         std::function<void(W8NpcDialog&)> closed)
     : m_closed(std::move(closed)), m_script(std::move(script))
 {
     short height = 0x46;
