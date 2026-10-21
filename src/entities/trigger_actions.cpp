@@ -32,7 +32,6 @@
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -351,14 +350,9 @@ void Trigger::Activate()
             running = true;
             Run(-1);
             running = false;
-        } else {
-            TriggerEvent* event = timed_action;
-            if (event != nullptr) {
-                event->timer.Restart();
-                if (event->m_pCountdown.has_value()) {
-                    event->m_pCountdown->Restart();
-                }
-            }
+        } else if (timed_action) {
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown) timed_action->m_pCountdown->Restart();
         }
     }
 }
