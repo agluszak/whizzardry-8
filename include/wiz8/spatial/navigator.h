@@ -126,7 +126,7 @@ struct NavigatorRoute {
 
 private:
     bool withinHopHeight(std::span<const W8PathSurface> surfaces, const glm::vec2& point,
-                         unsigned base, bool include_next) const;
+                         std::size_t base, bool include_next) const;
 };
 
 struct NavigatorMovement {

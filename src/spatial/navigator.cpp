@@ -69,7 +69,7 @@ std::vector<Navigator*> activeNavigators()
    lastWaypoint() there. */
 bool NavigatorRoute::TruncatePathAtRadius(const glm::vec3* target, float radius)
 {
-    unsigned int index = path_cursor;
+    std::size_t index = path_cursor;
     float distance = glm::length((path[index].position - *target));
     float previous_distance = distance;
 
@@ -1038,7 +1038,7 @@ bool NavigatorRoute::AdvanceAlongPathPositions(float distance, glm::vec3* positi
 }
 
 bool NavigatorRoute::withinHopHeight(std::span<const W8PathSurface> surfaces,
-                                     const glm::vec2& point, unsigned base, bool include_next) const
+                                     const glm::vec2& point, std::size_t base, bool include_next) const
 {
     auto projection =
         segmentMath::project(point, glm::vec2(path[base].position.x, path[base].position.z),
@@ -1062,7 +1062,7 @@ bool NavigatorRoute::withinHopHeight(std::span<const W8PathSurface> surfaces,
 bool NavigatorRoute::checkPositionHopHeight(std::span<const W8PathSurface> surfaces,
                                             const glm::vec3& position) const
 {
-    const unsigned base = path_cursor == 1 ? 1 : path_cursor - 1;
+    const std::size_t base = path_cursor == 1 ? 1 : path_cursor - 1;
     if (lastWaypoint() < base + 1) return false;
     return withinHopHeight(surfaces, {position.x, position.z}, base, false);
 }
