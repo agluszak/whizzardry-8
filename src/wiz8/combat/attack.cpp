@@ -167,28 +167,6 @@ int GetCharacterHandDamageBonus(const W8Character* character, int hand)
 
 /* Nine attack modes, one bit each, held in the low half of a word. */
 
-/* Fold specific melee animation cycles onto ATTACK_CLOSE, and the throw
-   and shoot cycles onto ATTACK_RANGED. Other cycles retain their identity. */
-W8MonsterCycle NormalizeMonsterCycle(W8MonsterCycle cycle)
-{
-    switch (cycle) {
-    case W8_MONSTER_CYCLE_ATTACK_SWING:
-    case W8_MONSTER_CYCLE_ATTACK_THRUST:
-    case W8_MONSTER_CYCLE_ATTACK_BASH:
-    case W8_MONSTER_CYCLE_ATTACK_MELEE:
-    case W8_MONSTER_CYCLE_ATTACK_PUNCH:
-    case W8_MONSTER_CYCLE_ATTACK_KICK:
-    case W8_MONSTER_CYCLE_ATTACK_LASH:
-        return W8_MONSTER_CYCLE_ATTACK_CLOSE;
-    case W8_MONSTER_CYCLE_ATTACK_THROW:
-    case W8_MONSTER_CYCLE_ATTACK_SHOOT:
-        return W8_MONSTER_CYCLE_ATTACK_RANGED;
-    default:
-        break;
-    }
-    return cycle;
-}
-
 /* Pick one of the attack modes a mask allows, at random. The walk wraps round
    the nine bits, counting only the ones that are set, until it has passed as
    many as the roll asked for - so a mask with one bit always answers that bit
