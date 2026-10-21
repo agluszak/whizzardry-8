@@ -135,10 +135,10 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
         return false;
     }
     target_record = GetMonsterDataForInfo(target);
-    source_monster = source->p3D;
+    source_monster = source->entity.find();
     observer_position = source_monster->nav.movement.position;
     observer_position.y += source_monster->nav.movement.height_offset;
-    target_monster = target->p3D;
+    target_monster = target->entity.find();
     target_position = target_monster->nav.movement.position;
     target_position.y += target_monster->nav.movement.height_offset;
     observer_yaw = source_monster->nav.GetYaw();
@@ -247,7 +247,7 @@ bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
         monster_info = FindMonster(group->MemberLocationId(index));
-        if (monster_info->fActive && !monster_info->p3D->IsDying() &&
+        if (monster_info->fActive && !monster_info->entity->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
             return true;
@@ -379,7 +379,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
     viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
     assert(viewing_distance > 0.0f);
     record = GetMonsterDataForInfo(monster_info);
-    monster = monster_info->p3D;
+    monster = monster_info->entity.find();
     own_position = monster->nav.movement.position;
     own_position.y += monster->nav.movement.height_offset;
 
@@ -397,7 +397,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 auto* entry = &(*monster_info->monster_visibility)[other->location_id];
                 entry->about_location_id = other->location_id;
                 {
-                    Monster* other_monster = other->p3D;
+                    Monster* other_monster = other->entity.find();
                     float distance;
 
                     other_position = other_monster->nav.movement.position;
@@ -406,7 +406,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     entry->line_of_sight = false;
                     bool can_see = false;
 
-                    distance = monster->GetDistanceToMonster(other->p3D);
+                    distance = monster->GetDistanceToMonster(other->entity.find());
                     if (viewing_distance >= distance) {
                         bool line_of_sight = monster->HasLineOfSightToMonster(other_monster);
 
@@ -433,7 +433,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     if (!entry->line_of_sight) {
                         std::ranges::fill(entry->los_flags, false);
                     } else {
-                        monster->GetMonsterSightFlags(other->p3D, entry->los_flags,
+                        monster->GetMonsterSightFlags(other->entity.find(), entry->los_flags,
                                                       entry->los_flags + 2);
                         if (monster_info->has_projectile_origin) {
                             bool found = monster->GetProjectilePosition(&trace_position);
@@ -787,8 +787,8 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
 
     source_info = FindMonster(source->leader_location_id);
     target_info = FindMonster(target->leader_location_id);
-    source_monster = source_info->p3D;
-    target_monster = target_info->p3D;
+    source_monster = source_info->entity.find();
+    target_monster = target_info->entity.find();
     if (!target_info->pCombat) {
         distance = source_monster->GetDistanceToMonster(target_monster);
         world = GetWorld();

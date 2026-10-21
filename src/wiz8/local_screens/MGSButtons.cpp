@@ -794,7 +794,7 @@ void DrawSubMenuCharacterAction(void)
         if (character->highest_condition == W8_CONDITION_NONE) {
             return;
         }
-        text = Data().strings[g_condition_notices[character->highest_condition].name];
+        text = Data().strings[kConditionNotices[character->highest_condition].name];
     } else {
         action = row->committed.kind;
         switch (action) {

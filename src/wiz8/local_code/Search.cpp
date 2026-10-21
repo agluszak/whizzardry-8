@@ -127,8 +127,8 @@ void W8Searchable::GetPosition(glm::vec3* position)
 {
     (*position) = glm::vec3(0);
     if (world_item != 0) {
-        if (world_item->p3D != 0) {
-            *position = world_item->p3D->GetSearchPosition();
+        if (world_item->entity) {
+            *position = world_item->entity->GetSearchPosition();
             return;
         }
         (*position) =

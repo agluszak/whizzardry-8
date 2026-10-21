@@ -54,18 +54,6 @@ static W8WorldCursorState* WorldCursor()
     return GetWorld() ? GetWorld()->cursor.get() : nullptr;
 }
 
-/* The cursor scene node relocated to position on each move. */
-
-/* Set when the cursor is opened while a shift key is held; while set the
-   update keeps the latched dragged monster instead of re-picking. */
-static bool g_cursor_pick_latch;
-
-/* 0x60ab44: the saved world-cursor monster group id; -1 until a cursor is
-   torn down. Seeds and restores monster_group_id. */
-static int g_cursor_saved_group_id = -1;
-
-static float g_cursor_projection_distance = 4000.0f;
-
 /* Build the world cursor on demand: allocate and clear the state block, load
    the 3DCursor monster cycle into it, create its tracking light and seed the
    probe box from the monster's animation bounds. */
@@ -83,7 +71,7 @@ void InitializeWorldCursor(void)
         cursor.track_ground = true;
         cursor.range = 50000.0f;
         cursor.left_held = false;
-        cursor.monster_group_id = g_cursor_saved_group_id;
+        cursor.monster_group_id = GetWorld()->cursor_recall.monster_group_id;
         cursor.detached = false;
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
@@ -134,16 +122,15 @@ void InitializeWorldCursor(void)
         UpdateWorldCursorPlacement();
         if (g_dev_mode && (((GetInputState().modifiers & SHIFT_DOWN) != 0) ||
                            ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-            g_cursor_pick_latch = true;
+            cursor.pick_latched = true;
         }
     }
 }
 
 /* Tear the world cursor down completely: detach and delete its monster,
    release the tracked light and the carried value, then publish
-   the retirement through the UI state. The shared camera-distance slot returns
-   to the cursor's own last value and the cursor's vertical position is
-   flattened before that distance is taken. */
+   the retirement through the UI state. The world recalls the cursor's flattened
+   distance from the camera and its monster group for the next cursor. */
 void ReleaseWorldCursor(void)
 {
     W8WorldCursorState* cursor = WorldCursor();
@@ -157,7 +144,7 @@ void ReleaseWorldCursor(void)
     camera.y = 0.0f;
     cursor->position.y = 0.0f;
     delta = cursor->position - camera;
-    g_cursor_projection_distance = glm::length(delta);
+    GetWorld()->cursor_recall.projection_distance = glm::length(delta);
 
     DetachMonsterRepresentation(cursor->monster);
     DestroyWorldMonster(cursor->monster);
@@ -166,7 +153,7 @@ void ReleaseWorldCursor(void)
         cursor->light = 0;
     }
     cursor->group_bind_pending = false;
-    g_cursor_saved_group_id = cursor->monster_group_id;
+    GetWorld()->cursor_recall.monster_group_id = cursor->monster_group_id;
     EnableCursorScene();
     RequestRefreshPartyState();
 
@@ -202,11 +189,9 @@ void ApplyWorldCursorInput(void)
     if (g_dev_mode) {
         if (((GetInputState().modifiers & SHIFT_DOWN) == 0) &&
             ((GetInputState().modifiers & CTRL_DOWN) == 0)) {
-            if (g_cursor_pick_latch) {
-                g_cursor_pick_latch = false;
-            }
+            cursor.pick_latched = false;
             cursor.dragged_location_id = 0;
-        } else if (!g_cursor_pick_latch && cursor.dragged_location_id == 0) {
+        } else if (!cursor.pick_latched && cursor.dragged_location_id == 0) {
             if (auto* nearest = FindNearestMonsterInfo(&cursor.position, 2500.0))
                 cursor.dragged_location_id = nearest->location_id;
         }
@@ -270,13 +255,13 @@ void ApplyWorldCursorInput(void)
         }
         // The dragged monster may have been removed or unloaded since the drag began.
         const auto* dragged = FindMonster(cursor.dragged_location_id, false);
-        if (dragged == nullptr || dragged->p3D == nullptr) {
+        if (dragged == nullptr || !dragged->entity) {
             cursor.dragged_location_id = 0;
         } else {
-            dragged->p3D->nav.SetPositionInternal(&cursor.position);
+            dragged->entity->nav.SetPositionInternal(&cursor.position);
             GetWorldSpatialIndex()->UpdateMonsterLocation(dragged->location_id, cursor.position);
             if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-                dragged->p3D->ForwardReferencePosition(1);
+                dragged->entity->ForwardReferencePosition(1);
             }
         }
         cursor.last_published = cursor.position;
@@ -316,20 +301,17 @@ void BindCursorMonsterToGroup(void)
                 monster_group = FindMonsterGroup(monster_group->leader_group_id);
             }
             monster_info = FindMonster(monster_group->leader_location_id);
-            if (monster_info != 0 && monster_info->p3D != 0 &&
-                !monster_info->p3D->SetScript("Test.msf", true)) {
+            if (monster_info != 0 && monster_info->entity &&
+                !monster_info->entity->SetScript("Test.msf", true)) {
                 ApplyToMonsterGroupLeader(monster_group, &position, true);
             }
         }
     }
 }
 
-/* Reset the cursor range to its default 4000 units. The cursor release path
-   (ReleaseWorldCursor) writes the flattened camera distance to the
-   same slot before the cursor is freed. */
-void ResetWorldCursorRange(void)
+void ResetWorldCursorDistance(World& world)
 {
-    g_cursor_projection_distance = 4000.0f;
+    world.cursor_recall.projection_distance = W8WorldCursorRecall{}.projection_distance;
 }
 
 /* Install an action-range distance into the live cursor: subtract
@@ -529,7 +511,7 @@ signed char MarchWorldCursorTarget(glm::vec3* target)
     return 0;
 }
 
-/* Update the world cursor's placement: derive a point g_cursor_projection_distance units
+/* Update the world cursor's placement: derive a point the recalled projection distance
    in front of the yaw-rotated camera, resolve it through the cursor walk and
    store the result as the cursor position and camera-relative offset. */
 void UpdateWorldCursorPlacement(void)
@@ -541,8 +523,8 @@ void UpdateWorldCursorPlacement(void)
     camera.y -= g_default_world_height;
     cursor = WorldCursor();
     cursor->last_published = glm::vec3(-100000000.0f);
-    target =
-        camera + glm::rotateY(glm::vec3(0, 0, g_cursor_projection_distance), partyCamera().m_yaw);
+    target = camera + glm::rotateY(glm::vec3(0, 0, GetWorld()->cursor_recall.projection_distance),
+                                   partyCamera().m_yaw);
     cursor->position = camera;
     cursor->track_ground = true;
     if (MarchWorldCursorTarget(&target) == 0) {

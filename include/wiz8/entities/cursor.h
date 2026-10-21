@@ -1,6 +1,8 @@
 #pragma once
 #include "glm/ext/vector_float3.hpp"
 
+struct World;
+
 /* 0x00490AF0: toggle the 3D world cursor. If a cursor exists, release it;
    if not, initialize one. */
 void ToggleWorldCursor(void);
@@ -13,7 +15,7 @@ void UpdateWorldCursor(void);
 /* 0x004914E0: when the cursor's group-bind flag is set, locate the monster
    group recorded on the cursor and attach its leader at the cursor point. */
 void BindCursorMonsterToGroup(void);
-/* 0x00491EC0: place the world cursor's target point g_cursor_projection_distance units in
+/* 0x00491EC0: place the world cursor's target point the world's recalled distance in
    front of the camera and re-derive the cursor position from it. */
 void UpdateWorldCursorPlacement(void);
 /* 0x004919E0: march the requested cursor target from the stored position,
@@ -25,4 +27,5 @@ signed char MarchWorldCursorTarget(glm::vec3* target);
    keep the settled height. */
 int ResolveWorldCursorTarget(glm::vec3* position);
 void GetWorldCursorTargetPosition(glm::vec3* position);
-void ResetWorldCursorRange(void); /* 0x00492530 */
+// 0x00492530: a new cursor in `world` is placed at the default distance again.
+void ResetWorldCursorDistance(World& world);

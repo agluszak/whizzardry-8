@@ -20,18 +20,12 @@ a requirement); entities compose `CyclePlayer`, `Navigator` and other values; sp
 and navigation queries take explicit inputs; and `Game::level` owns the worlds, which
 own their resources and entities. Its ownership and API tail:
 
-- **World-cursor state.** The cursor's pick latch, saved monster group and projection
-  distance (`g_cursor_pick_latch`, `g_cursor_saved_group_id`,
-  `g_cursor_projection_distance` in `entities/cursor.cpp`) are process statics copied
-  into and out of the cursor the world owns. Make them members of that cursor.
-- **Actor entity links.** A monster record reaches its scene entity through
-  `W8MonsterInfo::p3D` (about 500 uses) and a world item through `W8WorldItem::p3D`.
-  These links stay within one world and are kept in step with the entities ("Worlds and
-  levels"), but only an active record is sure to have one, and most callers dereference
-  `p3D` without checking. Give the records a checked accessor for their entity (or let
-  the record own it) and migrate the callers, starting outside the combat files, so
-  each caller says whether it looks an entity up if active or requires one (combat
-  reads `monster_info->p3D` directly).
+- **Actor entity links.** Records reach their entities through `EntityLink`
+  (ARCHITECTURE.md, "Worlds and levels"), but the migration was mechanical: callers that
+  dereferenced the link now require an entity, and those that passed it on look it up.
+  About 105 `entity.find()` calls hand a possibly null entity to helpers such as
+  `SetMonsterSpellIcon` or `AimAtMonster`; each such helper should take the record or a
+  reference, as its callers' guarantees allow.
 
 ## Target architecture
 
@@ -173,9 +167,9 @@ the licensed runtime scenarios after every step.
 3. **Inventory and party in `rules`.** The storage and item rules are behind the
    boundary and take a `RuleContext` (ARCHITECTURE.md, "Inventory"). What remains:
    - The commands in `wiz8/inventory.h` (about 30) still take `Game&`, because what
-     they owe after a rule reaches unmigrated code: settlement applies death and
-     combat's hand changes (`SettleActiveParty`, `SetCharacterCondition`,
-     `ReconcileCombatHandChange`), acquisition updates story facts and runs
+     they owe after a rule reaches unmigrated code: settlement's host applies
+     combat's hand and death bookkeeping (ARCHITECTURE.md, "Conditions"), acquisition
+     updates story facts and runs
      exceptional-item reactions, an unstored item drops into the world, and `UseItem`
      and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
      members once conditions (step 6) and facts (step 7) take explicit state.
@@ -218,15 +212,13 @@ the licensed runtime scenarios after every step.
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
      portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
      viewport mode, which the screen should hand the camera when it changes.
-   - The router builds the main game, camp and character screens without the
-     `GameSession` it already passes to `CreateScreen`; they should take their game and
-     data from it. Because the screens' teardown helpers find their state globally,
-     `GameloopExit` makes each suspended screen current before it leaves; once a screen
-     can update, paint and be destroyed from its members and explicit inputs, that
-     shutdown procedure goes. Do this for one whole flow first, the main game's HUD
-     and dialogue: explicit dependencies, operations as members (or taking the panel
-     they operate on), dialogue widgets, quote layout and portrait presentation moved
-     out of `Game` (step 1), and the migrated global accessors deleted.
+   - The main game, camp and character screens are built with their game and use it in
+     their members, but their free helpers (most of `local_screens`) still reach it and
+     the HUD globally. Finish one whole flow first, the main game's HUD and dialogue:
+     operations as members (or taking the panel they operate on), dialogue widgets,
+     quote layout and portrait presentation moved out of `Game` (step 1), and the
+     migrated global accessors deleted, so the screen updates, paints and is destroyed
+     from its members and explicit inputs.
    - The pointer (the shown cursor and its request, in `Screens.cpp`) and the targeting
      mode (`TargetingMode()`, in `MainGameScreen.cpp`) are module state. The camp shares
      both with a main game suspended under it, and a camp opened from party creation
@@ -235,9 +227,11 @@ the licensed runtime scenarios after every step.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
-   - Painting still updates: `DrawMainGameScreen` synchronizes the party's facing,
-     applies the targeting presentation and updates the radar blips before it paints.
-     Make the frame "update presentation state, paint the 640×480 canvas, commit it".
+   - Painting still updates: the main game's frame now updates its facing, targeting
+     presentation, radar blips and text-box request before `DrawMainGameScreen`
+     (`UpdateMainGamePresentation`), but the draw still refreshes the portrait,
+     condition, submenu and HUD buttons, which repaint as they change. Make the frame
+     "update presentation state, paint the 640×480 canvas, commit it".
      Once painting is free of updates, try a full paint or coarse per-panel
      invalidation, and keep `MainGameRepaint`'s finer propagation (one part requesting
      others, a separate pass mapping parts to rectangles, per-panel shadow state) only
@@ -270,13 +264,13 @@ the licensed runtime scenarios after every step.
        operations in `combat/fight.cpp` (rounds, surprise, the end check, action
        choices). They should take the game, then a `RuleContext`, and return what
        happened instead of reporting it.
-     - `Combat::waitingOn` still polls presentation each step: the camera's
-       transition, each combat monster's cycle, frame and facing, and the missiles in
-       flight (`BlocksEndingCombat`, which `Combat::step` also polls to release the
-       engaged missile). A monster is busy until its attack cycle passes half its
-       frames or its yaw comes within an epsilon of its target, and a missile until its
-       impact cycle starts. The renderer migration that this waited for has landed:
-       grow the entity-to-game signal boundary (`SimulationSink`) with the transitions
+     - `Combat::waitingOn` still polls each step: the camera's transition, each combat
+       monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
+       facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,
+       which `Combat::step` also polls to release the engaged missile). Combat no longer
+       reads cycle indices or frame counts, but it still asks every step rather than
+       hearing when an actor becomes ready. The renderer migration that this waited for
+       has landed: grow the entity-to-game signal boundary (`SimulationSink`) with the transitions
        combat needs (an attack reaches its release point, a missile impacts, an actor
        becomes ready, a camera cue completes), raised from inside the entity's animation
        and navigation update, including transitions the monster manager causes earlier
@@ -285,20 +279,13 @@ the licensed runtime scenarios after every step.
        animation no longer changes combat's knowledge of cycle indices and frame
        thresholds, and the same commands, elapsed times, state and random stream give
        the same progression whatever the views draw.
-   - **Conditions, death and party settlement first.** Inventory reaches them already:
-     an inventory change settles the party (`SettleActiveParty`), settlement derives
-     statistics, an exhausted hit-point pool calls `SetCharacterCondition`, applying a
-     condition rebuilds its modifiers and settles again, and death changes party,
-     combat and NPC state and plays a sound. Make the chain one operation over explicit
-     party, data and random inputs that reports what happened; the game applies the
-     combat, NPC and world consequences and presentation the notices, sounds and
-     targeting cues. Done when condition and resource transitions run in `rules`
-     without `CurrentGame()`, `Data()`, screen, world or audio dependencies, one
-     inventory command performs its whole settlement in an intended order, existing
-     consumers use that path and the old global entry points are gone. Then cheat
-     death, poison immunity, equipment-driven exhaustion and once-only death are
-     testable without the engine, and item effects, spells and attacks build on it.
-     Do this before moving the rest of combat and magic.
+   - Party conditions, death and settlement are rules ("Conditions" in
+     ARCHITECTURE.md). Their game host still reaches its consequences through
+     globals (formation seats, targeting, the speech reactions, `FindMonster`), and
+     most callers pass `CurrentGame()`; those go as the callers receive the game.
+     Item effects, spells and attacks should build on these rules rather than
+     touching condition durations themselves. Monster conditions
+     (`SetMonsterCondition` and its siblings) still act on the world's records.
 7. **Story state.** `Game::story` and `Game::message_log` hold it, and NPC scripting and
    the level scripts act on a `ScriptContext` (ARCHITECTURE.md, "Scripts").
    - The fact API (`GetFact`/`SetFact`, about 210 calls) still reaches the game;
@@ -319,25 +306,22 @@ the licensed runtime scenarios after every step.
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
    ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) is still captured from and applied to its world: `SaveStatusHeader` writes the
-     sections from live objects, and `ReadLevelStatus` decodes MONS, ITEM, CUBE, MONG,
-     AUTO, AMBS, PART and LGHT into `W8LoadedLevelStatus::Data` but reads TRIG, APST,
-     LCKS/LOCK and TRES straight into the replacement world. Give those four sections
-     value records, turn `Data` into a `LevelState` value with `encode` and `decode`, and
-     build the world from it.
-   - `CurrentGame.SAV` is still the store for levels the party has left: departure
-     rewrites the departing level's group into it, arrival reads the group back, and a
-     save copies the other levels' groups from it as bytes. Once level states are values,
-     the game owns them (keeping the groups of levels it never decoded intact) and a save
-     encodes them, so `CurrentGame.SAV` goes away.
-   - A load is atomic per section, not per save: `LoadGame` begins the replacement game,
-     then decodes and installs sections one at a time, so a failure in a later section
-     leaves the earlier ones installed. Decode the whole save, level states included,
-     before replacing the current game.
-   - In order: value records for TRIG, APST, LCKS/LOCK and TRES; a `LevelState` that
-     exists without a live `World`; visited-level states owned by the game, with
-     undecoded groups kept as opaque bytes; replacement worlds built from those values;
-     a complete staged load; then `CurrentGame.SAV` removed as working storage.
+     LGHT) is still captured from its world: `SaveStatusHeader` writes the sections from
+     live objects. `ReadLevelStatus` decodes every section into `W8LoadedLevelStatus::Data`
+     before applying any (the trigger, prop, lock and action sections as
+     `SavedWorldSection`s), but `Data` also holds prepared resources (monster
+     representations, the default script, NPC bindings) and decoding still reads the
+     replacement world's trigger and automap counts. Turn the decoded part into a
+     `LevelState` value with `encode` and `decode`, and build the world from it.
+   - The game keeps the levels the party has left as undecoded LVLS group images
+     (`Game::left_levels`); a save copies them as bytes. Once level states are values,
+     the game holds those values instead (keeping the groups of levels it never decoded
+     intact) and a save encodes them.
+   - A load decodes every game section before replacing the current game, but a level
+     group is decoded only when the party enters its level, so a malformed group still
+     fails then rather than at load. In order: a `LevelState` that exists without a live
+     `World`; replacement worlds built from those values; then decoding the level groups
+     with the rest of the save.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.
@@ -361,9 +345,7 @@ each.
   layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
   in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
   `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
-  `ItemEffects`, and the runtime enums used as disk field types. Geometry has one
-  too: `W8PathEdge` is packed to its 14-byte WPT image and later WPT versions are
-  read straight into the navigation mesh's vector.
+  `ItemEffects`, and the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;

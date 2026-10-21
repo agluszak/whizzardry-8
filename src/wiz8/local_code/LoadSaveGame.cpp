@@ -9,6 +9,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <functional>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -43,6 +44,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/script.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
@@ -149,7 +151,6 @@ struct SaveVersion {
 constexpr SaveVersion kCurrentSaveVersion{1, 2, 4};
 constexpr SaveVersion kUnversionedSave{1, 0, 0};
 
-constexpr std::string_view kCurrentGamePath = "saves\\CurrentGame.SAV";
 constexpr std::string_view kAutoSaveName = "AutoSave";
 
 std::string SaveSlotPath(std::string_view name)
@@ -168,6 +169,7 @@ bool IsRegularFile(std::string_view path)
     return status && status->info.type == SDL_PATHTYPE_FILE;
 }
 
+// Earlier versions kept their working file among the saves; it is not a slot.
 bool IsCurrentGameFileName(std::string_view name)
 {
     return CompareTextIgnoreAsciiCase(name, "CurrentGame.SAV") == 0;
@@ -349,7 +351,7 @@ wiz8::save::DialogueTranscript CaptureDialogueTranscript(const Story& story,
 {
     wiz8::save::DialogueTranscript transcript;
     transcript.keywords = story.keywords;
-    transcript.view = {state.dialogue_category_filter, state.transcript_sorted};
+    transcript.view = {state.dialogue_category_filter, story.keywords_sorted};
     return transcript;
 }
 
@@ -359,7 +361,7 @@ void InstallDialogueTranscript(wiz8::save::DialogueTranscript transcript, Story&
     story.keywords = std::move(transcript.keywords);
     if (transcript.view) {
         state.dialogue_category_filter = transcript.view->category_filter;
-        state.transcript_sorted = transcript.view->sorted;
+        story.keywords_sorted = transcript.view->sorted;
     }
 }
 
@@ -590,8 +592,8 @@ void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* 
    unborn, movement and order sections. */
 void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 {
-    if (!info || !info->p3D) throw std::runtime_error("missing monster");
-    Monster& monster = *info->p3D;
+    if (!info || !info->entity) throw std::runtime_error("missing monster");
+    Monster& monster = *info->entity;
     auto image = wiz8::retail::encode_image(*info);
     if (info->fActive) {
         auto position = monster.GetRepresentationLocation();
@@ -663,7 +665,7 @@ SavedMonster ReadMonster(W8Chunk& chunk)
     auto& script = saved.script;
     if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
     info.fActive = false;
-    info.p3D = nullptr;
+    info.entity.detach();
     info.pCombat = nullptr;
     saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
     auto& movement = saved.movement;
@@ -695,6 +697,8 @@ struct W8LoadedLevelStatus::Data {
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
     std::vector<W8LightState> lights;
+    // The trigger, prop, lock and action sections, in the order they were read.
+    std::vector<SavedWorldSection> world_sections;
     std::shared_ptr<Script> default_script;
     W8PreparedNpcBindings npc_bindings;
     std::vector<int> pending_deaths;
@@ -704,8 +708,9 @@ W8LoadedLevelStatus::W8LoadedLevelStatus() : data(std::make_unique<Data>()) {}
 W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 
 namespace {
-/* Build the replacement's local state; decode gameplay records without registering them. */
-void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
+/* Decode one section of a level group into the group's values. The replacement world is
+   only read, for how many triggers and automap keys its level has. */
+void ReadLevelSection(const World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
                       unsigned int chunk_id, bool from_assets, bool baseline = false)
 {
     switch (chunk_id) {
@@ -748,19 +753,20 @@ void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& ch
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
     case W8_CHUNK_TRIGGER_STATES:
-        RequireSection(LoadTriggerRuntimeStates(world, chunk), "trigger runtime state");
+        data.world_sections.emplace_back(DecodeSavedTriggerLocks(chunk));
         break;
     case W8_CHUNK_TRIGGER_ACTIONS:
-        RequireSection(LoadTriggerActionData(world, chunk), "trigger action data");
+        data.world_sections.emplace_back(DecodeSavedTriggerActions(chunk));
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
         data.automap = ReadAutomapNotes(chunk, world.automap.keys.size());
         break;
     case W8_CHUNK_TRIGGERS:
-        RequireSection(LoadWorldTriggers(&world, chunk, from_assets), "trigger state");
+        data.world_sections.emplace_back(
+            DecodeSavedTriggers(chunk, world.triggers.size(), from_assets));
         break;
     case W8_CHUNK_PROPS:
-        LoadWorldProps(&world, chunk);
+        data.world_sections.emplace_back(DecodeSavedProps(chunk));
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
         if (!data.cursors) data.cursors.emplace();
@@ -782,13 +788,21 @@ void ReadLevelSection(World& world, W8LoadedLevelStatus::Data& data, W8Chunk& ch
     }
 }
 
-/* Copy the other levels' LVLS groups from the running CurrentGame save into a new save. */
-void CopyCurrentGameChunks(W8Chunk& source, W8Chunk& destination)
+/* A level's LVLS group as a RIFF image of its own, copied from `source`'s current chunk. */
+std::vector<std::byte> CopyLevelGroupImage(W8Chunk& source)
 {
-    source.ForEachChunk([&](unsigned int id) {
-        if (id != W8_CHUNK_LEVEL_STATUS || PeekGroupLevel(source) == GetLoadedLevelID()) return;
-        RequireSection(destination.CopyCurrentChunkFrom(&source), "save chunk copy");
-    });
+    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
+    W8Chunk image;
+    RequireSection(image.OpenWrite(file), "level image");
+    RequireSection(image.CopyCurrentChunkFrom(&source), "level image copy");
+    image.Close();
+    return file->written_memory();
+}
+
+// Open a level image for reading.
+void OpenLevelImage(W8Chunk& chunk, const std::vector<std::byte>& image)
+{
+    RequireSection(chunk.OpenRead(wiz8::open_memory(image)), "level image");
 }
 
 /* Autosaves wait for a quiet moment: no world-cursor lock, nobody dying, no
@@ -998,15 +1012,18 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
    LVLS group last. */
 static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot, W8Chunk& chunks)
 {
-    if (CompareTextIgnoreAsciiCase(name, "CurrentGame") != 0 &&
-        wiz8::file_status(wiz8::user_path(kCurrentGamePath))) {
-        W8Chunk current_game;
-        if (!current_game.OpenRead(wiz8::user_path(kCurrentGamePath)))
-            throw std::runtime_error("open current game");
-        CopyCurrentGameChunks(current_game, chunks);
-        current_game.Close();
-    }
     auto& game = CurrentGame();
+    // The levels the party left, as they were left; the current level is written live below.
+    for (const auto& [level, image] : game.left_levels) {
+        if (level == GetLoadedLevelID()) continue;
+        W8Chunk source;
+        OpenLevelImage(source, image);
+        source.ForEachChunk([&](unsigned int id) {
+            if (id == W8_CHUNK_LEVEL_STATUS)
+                RequireSection(chunks.CopyCurrentChunkFrom(&source), "save chunk copy");
+        });
+        source.Close();
+    }
     for (const auto& stored : game.stored_characters)
         WriteChunkPayload(chunks, W8_CHUNK_CHARACTER, wiz8::save::encode(stored));
     {
@@ -1072,23 +1089,13 @@ std::string BuildLevelStatusPath(unsigned int level)
     return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
 
-/* Rewrite a status file with the current level's group replaced and every
-   other level's group kept. */
-bool SaveLevelStatus(const char* path)
+bool StoreLeftLevel(Game& game)
 try {
-    if (!path) return false;
-    SaveTransaction transaction(path);
-    if (wiz8::file_status(wiz8::user_path(path))) {
-        W8Chunk source;
-        if (!source.OpenRead(wiz8::user_path(path))) return false;
-        source.ForEachChunk([&](unsigned int id) {
-            if (id == W8_CHUNK_LEVEL_STATUS && PeekGroupLevel(source) == GetLoadedLevelID()) return;
-            RequireSection(transaction.chunks.CopyCurrentChunkFrom(&source), "level status copy");
-        });
-        source.Close();
-    }
-    if (!SaveStatusHeader(&transaction.chunks)) return false;
-    transaction.commit();
+    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
+    W8Chunk image;
+    if (!image.OpenWrite(file) || !SaveStatusHeader(&image)) return false;
+    image.Close();
+    game.left_levels[GetLoadedLevelID()] = file->written_memory();
     return true;
 } catch (const std::exception&) {
     return false;
@@ -1159,11 +1166,10 @@ try {
     return false;
 }
 
-std::unique_ptr<W8LoadedLevelStatus>
-ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
+namespace {
+std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chunk, int level,
+                                                     bool from_assets)
 {
-    W8Chunk chunk;
-    if (!chunk.OpenRead(path)) return nullptr;
     auto status = std::make_unique<W8LoadedLevelStatus>();
     auto& data = *status->data;
     const bool found = WithLevelGroup(chunk, level, [&] {
@@ -1184,6 +1190,7 @@ ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool
         });
     });
     if (!found) return nullptr;
+    for (auto& section : data.world_sections) ApplySavedSection(world, section);
     std::unordered_set<int> group_ids, monster_ids;
     for (const auto& group : data.groups) {
         if (!group_ids.insert(group.group->group_id).second)
@@ -1206,11 +1213,11 @@ ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool
         if (group == data.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
             throw std::runtime_error("missing saved monster group");
         auto model = ReadMonsterRepresentation(world, &info);
-        info.p3D = model.get();
+        info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, info.p3D);
+        RestoreMonsterSpellIcons(world, info, info.entity.find());
         // Keep the encounter default script cached until activation assigns it.
-        if (group->group->encounter_registered && !info.p3D->script && !data.default_script)
+        if (group->group->encounter_registered && !info.entity->script && !data.default_script)
             data.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')
             saved.script->resource = LoadMonsterScript(saved.script->name);
@@ -1218,6 +1225,24 @@ ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool
     if (data.cursors) BuildWorldCursorNodes(world, std::move(*data.cursors));
     PrepareLevelPopulation(world, *status);
     return status;
+}
+} // namespace
+
+std::unique_ptr<W8LoadedLevelStatus>
+ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
+{
+    W8Chunk chunk;
+    if (!chunk.OpenRead(path)) return nullptr;
+    return ReadLevelStatus(world, chunk, level, from_assets);
+}
+
+std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level)
+{
+    const auto left = game.left_levels.find(level);
+    if (left == game.left_levels.end()) return nullptr;
+    W8Chunk chunk;
+    OpenLevelImage(chunk, left->second);
+    return ReadLevelStatus(world, chunk, level, false);
 }
 
 void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
@@ -1261,9 +1286,9 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto* info = records[index];
         if (!info) continue;
         auto& saved = data.monsters[index];
-        if (saved.movement) saved.movement->Apply(*info->p3D);
-        if (saved.orders) saved.orders->Apply(*info, *info->p3D);
-        if (saved.script) saved.script->Apply(*info, *info->p3D);
+        if (saved.movement) saved.movement->Apply(*info->entity);
+        if (saved.orders) saved.orders->Apply(*info, *info->entity);
+        if (saved.script) saved.script->Apply(*info, *info->entity);
         if (info->hp_current == 0) data.pending_deaths.push_back(info->location_id);
     }
     // Resolve durable links against this population, preserving stored member order.
@@ -1276,7 +1301,7 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             group->leader_group_id = 0;
         for (int& ally : group->allied_group_ids)
             if (ally == group->group_id || (ally && !population.findGroup(ally))) ally = 0;
-        auto* leader = population.findMonster(group->leader_location_id)->p3D;
+        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
         leader->formation = group->formation;
         if (group->encounter_registered && !leader->script)
             leader->UseScript(data.default_script, true);
@@ -1290,21 +1315,23 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto* formation_leader = population.findMonster(lead_group->leader_location_id);
         if (!formation_leader) throw std::runtime_error("missing formation leader");
         for (int id : group->MemberIds()) {
-            auto* member = population.findMonster(id)->p3D;
-            member->nav.LinkGroupNavigator(
-                member == formation_leader->p3D ? nullptr : &formation_leader->p3D->nav, false);
+            auto* member = population.findMonster(id)->entity.find();
+            member->nav.LinkGroupNavigator(member == formation_leader->entity.find()
+                                               ? nullptr
+                                               : &formation_leader->entity->nav,
+                                           false);
         }
     }
     for (const auto& group : population.monster_groups) {
         if (group->leader_group_id) continue;
-        auto* leader = population.findMonster(group->leader_location_id)->p3D;
+        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
         // Restored levels start outside combat. Propagate the saved path using
         // this population, independently of the old world's combat clock.
         leader->nav.CopyPathToGroup();
         if (!leader->nav.movement_stopped) {
             for (const auto& member : population.monster_roster.live())
-                if (member->p3D->nav.linked_navigator == &(leader)->nav)
-                    member->p3D->nav.movement_stopped = false;
+                if (member->entity->nav.linked_navigator == &(leader)->nav)
+                    member->entity->nav.movement_stopped = false;
         }
     }
     if (data.encounters) world.encounters = std::move(*data.encounters);
@@ -1360,9 +1387,9 @@ void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
         image.saved_marker = 1;
         image.next = index < item_info.contents.size() ? 1 : 0;
         if (item->fActive) {
-            const auto position = item->p3D->GetLocation();
+            const auto position = item->entity->GetLocation();
             image.position = {position.x, position.y, position.z};
-            image.entity_flags = item->p3D->flags;
+            image.entity_flags = item->entity->flags;
         }
         handle.write(&image, sizeof(image));
     }
@@ -1447,11 +1474,10 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
                                     : W8ScreenshotCaptureResult::failed;
 }
 
-/* Delete the last-used slot and the CurrentGame save. */
+/* Delete the last-used slot. */
 void DeleteCurrentSaveFiles(void)
 {
     wiz8::remove_file(wiz8::user_path(SaveSlotPath(GetLastSaveName())));
-    wiz8::remove_file(wiz8::user_path(kCurrentGamePath));
 }
 
 /* Save now if autosaving is enabled (or the game is Iron Man) and the moment
@@ -1538,11 +1564,14 @@ try {
     return {};
 }
 
-/* Load one level's world items from the current save without listing them. */
+/* Load the world items of a level the party left, without listing them. */
 bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
+    const auto& left = CurrentGame().left_levels;
+    const auto image = left.find(level);
+    if (image == left.end()) return false;
     W8Chunk chunk;
-    if (!chunk.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
+    OpenLevelImage(chunk, image->second);
     const bool found = WithLevelGroup(chunk, level, [&] {
         chunk.ForEachChunk([&](unsigned int section) {
             if (section != W8_CHUNK_WORLD_ITEMS) return;
@@ -1574,68 +1603,96 @@ try {
     return {};
 }
 
-/* Load a save slot: tear down the live session, make the slot the new
-   CurrentGame, apply each section, then re-arm the message countdowns, the
-   gameplay timer and the held-item cursor and normalize the loaded items. */
+/* Load a save slot. Every section is decoded first, so a malformed one fails the load
+   before the game in progress is replaced; then a new game begins and the sections are
+   installed in the order the file holds them (keeping each level's group undecoded until
+   the party enters the level). The message countdowns, the gameplay timer and the held
+   item are re-armed and the loaded items normalized last. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
-    auto& game = games.begin();
-    wiz8::copy_file(wiz8::user_path(SaveSlotPath(slot_name)), wiz8::user_path(kCurrentGamePath));
     W8Chunk chunks;
-    if (!chunks.OpenRead(wiz8::user_path(kCurrentGamePath))) return false;
+    if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return false;
+    std::vector<std::move_only_function<void(Game&)>> installs;
+    // The message boxes' encoding follows the save version the status section names.
+    auto save_version = GameStatus{}.retail.save_version;
     chunks.ForEachChunk([&](unsigned int id) {
         switch (id) {
+        case W8_CHUNK_LEVEL_STATUS: {
+            const int level = PeekGroupLevel(chunks);
+            installs.emplace_back([level, image = CopyLevelGroupImage(chunks)](Game& game) mutable {
+                game.left_levels[level] = std::move(image);
+            });
+            break;
+        }
         case W8_CHUNK_GAME_STATUS: {
             auto saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks));
-            game.status = std::move(saved.status);
-            game.party = std::move(saved.party);
+            save_version = saved.status.retail.save_version;
+            installs.emplace_back([saved = std::move(saved)](Game& game) mutable {
+                game.status = std::move(saved.status);
+                game.party = std::move(saved.party);
+            });
             break;
         }
         case W8_CHUNK_CHARACTER:
             // A malformed record is skipped; the last complete one under a name wins.
             try {
-                StoreCharacter(game, wiz8::save::decode_stored_character(ReadChunkPayload(chunks)));
+                installs.emplace_back(
+                    [stored = wiz8::save::decode_stored_character(ReadChunkPayload(chunks))](
+                        Game& game) mutable { StoreCharacter(game, std::move(stored)); });
             } catch (const std::runtime_error&) {
             }
             break;
         case W8_CHUNK_MESSAGE_STORAGE:
-            InstallMessageBoxes(wiz8::save::decode_message_boxes(ReadChunkPayload(chunks),
-                                                                 game.status.retail.save_version),
-                                game);
+            installs.emplace_back(
+                [boxes = wiz8::save::decode_message_boxes(ReadChunkPayload(chunks), save_version)](
+                    Game& game) mutable { InstallMessageBoxes(std::move(boxes), game); });
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
-            std::ranges::move(wiz8::save::decode_location_variables(ReadChunkPayload(chunks)),
-                              std::back_inserter(game.story.location_variables));
+            installs.emplace_back([variables = wiz8::save::decode_location_variables(
+                                       ReadChunkPayload(chunks))](Game& game) mutable {
+                std::ranges::move(variables, std::back_inserter(game.story.location_variables));
+            });
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
-            InstallDialogueTranscript(
-                wiz8::save::decode_dialogue_transcript(ReadChunkPayload(chunks)), game.story,
-                CurrentGame().npc_interaction);
+            installs.emplace_back([transcript = wiz8::save::decode_dialogue_transcript(
+                                       ReadChunkPayload(chunks))](Game& game) mutable {
+                InstallDialogueTranscript(std::move(transcript), game.story, game.npc_interaction);
+            });
             break;
         case W8_CHUNK_NPC_STATES:
-            InstallNpcStates(
-                wiz8::save::decode_npc_states(ReadChunkPayload(chunks), Data().npcs.size()));
+            installs.emplace_back([npcs = wiz8::save::decode_npc_states(ReadChunkPayload(chunks),
+                                                                        Data().npcs.size())](
+                                      Game&) mutable { InstallNpcStates(std::move(npcs)); });
             break;
         case W8_CHUNK_FACT_STATE:
-            InstallFacts(wiz8::save::decode_facts(ReadChunkPayload(chunks)));
+            installs.emplace_back([facts = wiz8::save::decode_facts(ReadChunkPayload(chunks))](
+                                      Game&) { InstallFacts(facts); });
             break;
-        case W8_CHUNK_FACTION_STATE: {
-            auto factions = wiz8::save::decode_factions(ReadChunkPayload(chunks));
-            game.story.faction_relations = factions.relations;
-            game.story.factions = factions.states;
-            game.story.factions[W8_FACTION_PARTY].disposition_score = 100;
+        case W8_CHUNK_FACTION_STATE:
+            installs.emplace_back(
+                [factions = wiz8::save::decode_factions(ReadChunkPayload(chunks))](Game& game) {
+                    game.story.faction_relations = factions.relations;
+                    game.story.factions = factions.states;
+                    game.story.factions[W8_FACTION_PARTY].disposition_score = 100;
+                });
             break;
-        }
         case W8_CHUNK_JOURNAL:
-            game.story.journal = wiz8::save::decode_journal(ReadChunkPayload(chunks));
+            installs.emplace_back(
+                [journal = wiz8::save::decode_journal(ReadChunkPayload(chunks))](
+                    Game& game) mutable { game.story.journal = std::move(journal); });
             break;
         case W8_CHUNK_MONSTER_CONTROL:
-            game.spell_effects.push_back(std::make_unique<W8SpellEffectEntry>(
-                wiz8::save::decode_monster_control(ReadChunkPayload(chunks))));
+            installs.emplace_back([control = wiz8::save::decode_monster_control(
+                                       ReadChunkPayload(chunks))](Game& game) mutable {
+                game.spell_effects.push_back(
+                    std::make_unique<W8SpellEffectEntry>(std::move(control)));
+            });
             break;
         }
     });
     chunks.Close();
+    auto& game = games.begin();
+    for (auto& install : installs) install(game);
     for (std::size_t box = 0; box < game.message_log.size(); ++box) {
         for (std::size_t line = 0; line < game.status.text_box_lines_shown[box]; ++line) {
             auto& message = game.message_log[box][line];

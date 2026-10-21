@@ -35,6 +35,7 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -713,8 +714,10 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         void operator()(W8NpcMarkMissing missing) const
         {
             context.status.skip_next_condition_reaction = true;
-            SetCharacterCondition(missing.party_slot, W8_CONDITION_MISSING, W8_CONDITION_INDEFINITE,
-                                  0, 0, 0);
+            InflictCondition(CurrentGame(), missing.party_slot,
+                             {.condition = W8_CONDITION_MISSING,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = false});
             context.status.condition13_clock = 1;
             context.status.condition13_stamp = context.status.world_clock;
             context.status.pending_condition_party_slot = missing.party_slot;

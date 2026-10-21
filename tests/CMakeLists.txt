@@ -8,6 +8,9 @@ add_test(NAME layer_boundaries
 add_executable(native_party_storage_test native/party_storage_test.cpp)
 target_link_libraries(native_party_storage_test PRIVATE wiz8_rules)
 catch_discover_tests(native_party_storage_test TEST_PREFIX "native_party_storage/")
+add_executable(native_party_conditions_test native/party_conditions_test.cpp)
+target_link_libraries(native_party_conditions_test PRIVATE wiz8_rules)
+catch_discover_tests(native_party_conditions_test TEST_PREFIX "native_party_conditions/")
 
 # Reuse the runtime clock hook for deterministic timer checks without game assets.
 add_executable(native_game_timer_test native/game_timer_test.cpp

@@ -60,28 +60,16 @@ struct W8PathSurface {
     unsigned short first_edge;
 };
 
-/* The compact surface record written to a .WPT file. It retains only the
-   persistent flags, first edge and world position from the live surface. */
-struct W8FileWaypoint {
-    unsigned short flags;
-    unsigned short first_edge;
-    struct {
-        float x, y, z;
-    } position;
-};
-
-#pragma pack(push, 1)
+/* One directed link between waypoints; `next` chains a waypoint's links from its
+   `first_edge`, and index zero ends a chain. The .WPT reader converts the file's
+   records into these. */
 struct W8PathEdge {
-    unsigned int flags;
-    unsigned short source;
-    unsigned short destination;
-    float distance;
-    unsigned short next;
+    unsigned int flags = 0;
+    unsigned short source = 0;
+    unsigned short destination = 0;
+    float distance = 0;
+    unsigned short next = 0;
 };
-#pragma pack(pop)
-
-static_assert(sizeof(W8PathEdge) == 0x0e, "W8PathEdge_must_be_0x0e");
-static_assert(sizeof(W8FileWaypoint) == 0x10, "W8FileWaypoint_must_be_0x10");
 
 /* One named conditional-path set. FindPathHandle compares path.name and then
    walks the zero-terminated lookup run starting at lookup_index: each lookup

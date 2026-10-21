@@ -42,7 +42,9 @@ are enforced:
   party storage (`W8Party`, formation), item rules (`item_rules.h`: names, equip slots,
   requirements, item making), the inventory's storage rules (`inventory.h`), character
   derivation (modifier blocks, effective attributes and skills, statistics and the
-  party's shared load), the event log (`events.h`) and the party's `Activity`. Functions
+  party's shared load), members' conditions, enchantments, death and the party's
+  settlement (`party_conditions.h`), the event log (`events.h`) and the party's
+  `Activity`. Functions
   that read the databases take `const GameData&`; those that change the party, draw
   random numbers or report events take a `RuleContext` (`rule_context.h`: the data, the
   party, the game's `Rng` and `Events`, and whether the game has started), which
@@ -180,14 +182,19 @@ Unlayered code may use the layers.
   combat membership are queries over ownership, not maintained counters; retail
   count fields are decoded data, re-derived when saving. Formation linking
   reserves a destination before changing either relationship.
-- A monster or world item record links to its scene entity (`p3D`). Activation sets the link,
-  and removal or deactivation clears it before the entity is destroyed. An active record
-  always has an entity, but an inactive one may not. Anything that keeps an actor
+- A monster or world item record links to its scene entity (`entity`, an `EntityLink`).
+  Activation attaches it, and removal or deactivation detaches it before the entity is
+  destroyed. An active record always has an entity, but an inactive one may not, so a
+  caller says which it needs: `entity.find()` may find none, and `entity->` and
+  `*entity` require one (asserted). Anything that keeps an actor
   past the current call keeps its id: a monster's location id or a world item's runtime
   id. It looks the actor up again when it is used and does nothing when the actor is
   gone. Navigators target and follow each other by address, so a destroyed navigator
   clears every link to itself. A placed item's level trigger belongs to the item's
   record, because the item's entity is rebuilt each time the item comes back into range.
+- A world owns its cursor while it is shown (`World::cursor`) and what a new cursor
+  starts from (`World::cursor_recall`: the last cursor's distance from the camera, reset
+  when a fight ends, and its monster group), so no cursor state outlives its world.
 - A level's script is part of the level ("Scripts"). Its masters return completion
   directly; masters armed during a dispatch wait for the next frame.
 
@@ -341,7 +348,8 @@ Unlayered code may use the layers.
   steps it once per frame after `Combat::waitingOn` reports nothing to wait on (camera,
   monster animation, hit sound, retiring spell effect, missile, queued NPC script, in
   that order). The held hit sound is released by its completion callback; the camera,
-  monsters and missiles are read as they are. The scheduler and the actions it runs are
+  monsters and missiles are read as they are, the monsters through
+  `Monster::HoldsCombatTurn`, so their cycles and frame thresholds stay in the entity. The scheduler and the actions it runs are
   `Combat` members that take the game (`combat/actions.cpp`); a party member's action
   is `ExecuteCharacterAction(game, slot)`, because members also act outside a fight.
   Outside code changes the turn only through `endTurnOf` and `setStepOf`, which leave
@@ -379,14 +387,19 @@ Unlayered code may use the layers.
   level group's STAT record. A save captures each value from the game (the GSTA copy is
   stamped with the camera, difficulty and Iron Man file time, shown messages carry their
   remaining countdowns, and location variables fold in the level script's state) and
-  writes its payload. A load begins the replacement game first, then decodes each
-  payload whole before installing it, so a malformed section is never half-applied;
-  sections are installed one at a time, though, so a failure in a later section leaves
-  the earlier ones installed and the load fails. A malformed CHAR section is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
+  writes its payload. A load decodes every section before it begins the replacement
+  game, so a malformed section fails the load and leaves the game in progress
+  untouched; the decoded sections are then installed in file order. A malformed CHAR
+  section is skipped. The retail records of these sections exist only in `save_codec.cpp`, and
   `GameStatus::retail` carries the serialized bytes that are not game state. A started
   game keeps character files in `Game::stored_characters`. The level groups are still
-  written from and read into live worlds by `LoadSaveGame.cpp`, and `CurrentGame.SAV`
-  holds the groups of levels the party has left.
+  written from live worlds by `LoadSaveGame.cpp`; reading one decodes the whole group
+  into values (`saved_world_sections.h` for the trigger, prop, lock and action sections)
+  before any of it reaches the replacement world, then applies the sections in the order
+  they were read. The game keeps the groups of levels the party has left, undecoded, in
+  `Game::left_levels` (each a RIFF image of its own, in memory): leaving a level stores
+  its group, entering one reads it back, a save writes them beside the current level's,
+  and a load brings every saved group in. No working file sits beside the saves.
 - **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
   its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
   the bytes of its unnamed slots.
@@ -443,16 +456,31 @@ Unlayered code may use the layers.
   alone. `party_stats.h` evaluates the members, assigns the shared load, derives, and
   then applies the resource transitions: hit points, stamina and spell points follow
   changed ceilings and the fatigue band follows stamina; an exhausted hit-point pool
-  and a crossed carrying capacity are reported, and `live_party.h` applies death and
-  the overload notice. An operation captures one `CharacterBaseline`; the transitions
+  and a crossed carrying capacity are reported, and settlement turns them into death
+  and the overload notice ("Conditions"). An operation captures one `CharacterBaseline`; the transitions
   compare against it and swings read its damage bonuses (retail scores swings with
   the bonus its previous calculation left), so a second pass, as after a fatigue-band
   change, cannot change the result. Every change a statistic depends on settles the
-  party (`SettleActiveParty`); condition changes rebuild the member's condition block
-  first (`RebuildConditionModifiers`). The creation editor, which edits effective
+  party (`SettleParty`). The creation editor, which edits effective
   attributes and skill levels itself, recalculates without re-evaluating them
   (`RecalculateEditedCharacterStats`), and learning a spell rebuilds the realm
   ceilings for every profession, as retail does, and lets the pools follow.
+- **Conditions.** `party_conditions.h` holds a member's conditions and enchantments,
+  death and the party's settlement as rules over a `RuleContext` and a `PartyHost`.
+  The rules change the party, draw from the game's stream and push notices, display
+  changes and `CharacterDied`; the host supplies what they read from the game (the
+  statistic rules, the world's suspension, the level band, a swallowing monster's level,
+  whether a fight still owes a full cheat-death revival) and applies what they owe it
+  (unequipping through the inventory, combat's hand and death bookkeeping, formation
+  seats and the portrait pose, sight refreshes, targeting, the NPC's state and the
+  members' spoken reactions), each at the point the rules reach it so the order of
+  consequences and draws is kept. Inflicting, lifting, aging and enchanting rebuild
+  the member's condition block and settle the party once; settling kills a member whose
+  pool ran out, and death's own bookkeeping happens only when the death condition
+  takes hold. `live_party.h` applies the rules to the game's party with the game as
+  host (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …), and the
+  presenter plays the death sound. Monster conditions stay with the world's monster
+  records (`ConditionsAndEnchantments.cpp`).
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,
   and cancelling it prevents late completions from restarting idle dialogue.
@@ -471,13 +499,16 @@ widget tree.
   under the destination unless it asks to discard it; a return discards the
   current screen and resumes the top of the stack; returning with nothing
   suspended ends the program. `CreateScreen` builds a screen when it is first
-  requested and the router destroys it when it is discarded, so a suspended
+  requested, with the game for the screens that belong to one (the main game, the camp
+  and the character screen), and the router destroys it when it is discarded, so a suspended
   main game keeps its HUD (`MainGameScreen::hud`; its draw path receives it, and the
   main game's other free functions reach it through `MainGameHud()`). The camp,
   character and options screens are rebuilt on every visit: their `rebuildRequest`
   makes the router destroy them when they are suspended and enter a new one with that
   request in place of resuming them (a rebuilt camp reviews the character it showed).
   They hold their per-visit state as members and exist only while current.
+- Discarding suspended screens, on a load or at shutdown, has each leave while it is
+  still on the stack, so its teardown finds it through `FindScreen`.
 - Other modules reach a screen through `FindScreen<T>()` (or `MainGame()`),
   never through a global slot: `PresentGameEvent` hands an event to the screen
   that shows it, and UI code calls a screen's own methods. The intro film,
@@ -564,7 +595,9 @@ widget tree.
 - The main game's invalidation is per part too: its HUD's `MainGameRepaint` records
   each portrait and HUD part the next draw repaints, `everything` for a full repaint
   (which entering the main game asks for) and `panels` for the pass that refreshes the
-  panels tracking their own state. `DrawMainGameScreen` paints the recorded parts
+  panels tracking their own state. Each frame first updates what it shows
+  (`UpdateMainGamePresentation`: the party's facing, the targeting presentation, the
+  radar blips and the text box's repaint), then `DrawMainGameScreen` paints the recorded parts
   (`ApplyMainGameRepaint`, where painting one part may record others), invalidates the
   rectangles of the parts it was asked for, and clears the record. Screen code marks the
   parts it changed; game events mark the shown main game's parts through the presenter.

@@ -145,38 +145,6 @@ void InvalidateAndRecalculateCharacterClassData(W8Character* character)
     CalcCharacterTableValue(character);
 }
 
-/* The Valkyrie cheat-death trait fires instead of death while the character
-   is not already deep into unconsciousness: a notice, an unconscious stint
-   shortened by the profession-level scale, and hit points rolled back up -
-   from a scaled share of the maximum once per combat, a scaled share of the
-   current pool every other time. */
-void CheatDeathRevive(Game& game, int party_slot)
-{
-    W8Character* character = &game.party.characters[party_slot];
-
-    game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x173]});
-    SetCharacterCondition(
-        party_slot, W8_CONDITION_UNCONSCIOUS,
-        character->uiCondition[W8_CONDITION_UNCONSCIOUS] -
-            static_cast<int>(ScaleValueByProfessionLevel(character, W8_TRAIT_CHEAT_DEATH, 5.0f)) +
-            7,
-        0, 0, 1);
-    if (game.combat.has_value() && !game.combat->characters[party_slot].cheat_death_used) {
-        character->hp_current =
-            (game.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                 character, W8_TRAIT_CHEAT_DEATH,
-                 static_cast<unsigned int>(character->uiHPMax) * 0.5f))) +
-             0x32) *
-            character->uiHPMax / 100;
-        game.combat->characters[party_slot].cheat_death_used = true;
-    } else {
-        character->hp_current =
-            game.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                character, W8_TRAIT_CHEAT_DEATH, character->hp_current))) +
-            1;
-    }
-}
-
 /* Reveal the target's item bindings with a strength banded by the party
    slot's level in its current profession: level/4 + 1, zero percent. */
 int RevealCharacterItemBindingsByProfession(const W8Party& party, int party_slot,

@@ -1,6 +1,5 @@
 #include <cassert>
 #include <chrono>
-#include <cmath>
 #include <variant>
 
 #include "wiz8/combat/attack.h"
@@ -21,7 +20,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_actions.h"
-#include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -42,39 +40,15 @@ bool AnyCombatMonsterBusy(const Combat& fight)
     auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int monster_index = 0; monster_index < monster_count; ++monster_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
-        Monster* monster = monster_info->p3D;
-        W8MonsterCycle cycle = static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
-        if (cycle == W8_MONSTER_CYCLE_DIE &&
-            GetMonsterDataForInfo(monster_info)->record_id == 0x234) {
+        auto& monster = *monster_info->entity;
+        // A dying boss holds the fight until its death plays out.
+        if (monster.IsPlayingDeath() && GetMonsterDataForInfo(monster_info)->record_id == 0x234)
             return true;
-        }
-        if (monster_info->pCombat) {
-            if (monster->HasPendingCycle()) {
-                return true;
-            }
-            if (monster->IsAnimating() != 0 && cycle != W8_MONSTER_CYCLE_IDLE &&
-                cycle != W8_MONSTER_CYCLE_SPICE && cycle != W8_MONSTER_CYCLE_WALK &&
-                cycle != W8_MONSTER_CYCLE_DIE) {
-                if (!fight.resolvingTurnOf(MonsterActor{monster_info->location_id})) {
-                    return true;
-                }
-                if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_CLOSE) {
-                    if (NormalizeMonsterCycle(cycle) != W8_MONSTER_CYCLE_ATTACK_RANGED) {
-                        return true;
-                    }
-                    return !monster_info->fMissileReleased;
-                }
-                if (monster->Query(W8_MONSTER_QUERY_FRAME) <
-                    monster->Query(W8_MONSTER_QUERY_FRAME_COUNT) / 2) {
-                    return true;
-                }
-            }
-            if (fabsf(monster->nav.movement.target_yaw - monster->nav.movement.yaw) >=
-                    g_camera_transition_epsilon &&
-                monster_info->highest_condition < W8_CONDITION_WEBBED) {
-                return true;
-            }
-        }
+        if (monster_info->pCombat &&
+            monster.HoldsCombatTurn(fight.resolvingTurnOf(MonsterActor{monster_info->location_id}),
+                                    monster_info->fMissileReleased,
+                                    monster_info->highest_condition < W8_CONDITION_WEBBED))
+            return true;
         monster_count = CurrentLevelPopulation().monster_roster.live().size();
     }
     return false;

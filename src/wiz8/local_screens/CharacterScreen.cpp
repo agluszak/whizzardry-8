@@ -131,7 +131,7 @@ void CharacterScreen::BuildControls()
     if (m_mode == W8_CHARACTER_EDIT && GameStarted() &&
         CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetVisible(true);
-        if (CurrentGame().combat.has_value()) {
+        if (m_game.combat.has_value()) {
             m_reset->SetEnabled(false);
         }
     }
@@ -438,7 +438,7 @@ bool CharacterScreen::CommitCharacter()
     if (m_mode != W8_CHARACTER_EDIT) {
         FinalizeCreatedCharacter(&m_character, &m_creation_state, creating);
     }
-    if (!GameStarted() && !CurrentGame().status.skip_loose_character_check) {
+    if (!GameStarted() && !m_game.status.skip_loose_character_check) {
         if (m_original != 0) {
             std::string path;
             path = BuildCharacterPath(m_original->name, -1);
@@ -458,10 +458,9 @@ bool CharacterScreen::CommitCharacter()
         if (was_in_party) m_original->fInParty = true;
         if (m_original->iProfession == W8_PROFESSION_GADGETEER)
             UpgradeProfessionClassItem(
-                CurrentGame(),
-                was_in_party ? PartyMember(CurrentGame(), CharacterPointerToPartySlot(m_original))
-                             : Outsider(*m_original));
-        RecalculateCharacterDerivedStats(CurrentGame(), *m_original);
+                m_game, was_in_party ? PartyMember(m_game, CharacterPointerToPartySlot(m_original))
+                                     : Outsider(*m_original));
+        RecalculateCharacterDerivedStats(m_game, *m_original);
     }
     return true;
 }
@@ -545,7 +544,7 @@ bool CharacterScreen::ValidateName()
     if (m_original != 0 && strcmp(m_original->name.c_str(), m_character.name.c_str()) == 0) {
         return true;
     }
-    if (!GameStarted() && !CurrentGame().status.skip_loose_character_check) {
+    if (!GameStarted() && !m_game.status.skip_loose_character_check) {
         std::string path;
         path = BuildCharacterPath(m_character.name, -1);
         if ([&]() {
@@ -557,9 +556,8 @@ bool CharacterScreen::ValidateName()
         }
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-        if (CurrentGame().party.members[index].has_value() &&
-            strcmp(CurrentGame().party.characters[index].name.c_str(), m_character.name.c_str()) ==
-                0) {
+        if (m_game.party.members[index].has_value() &&
+            strcmp(m_game.party.characters[index].name.c_str(), m_character.name.c_str()) == 0) {
             ShowMessage(Data().strings[0xd5], 0, 0);
             return false;
         }

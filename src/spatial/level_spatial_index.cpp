@@ -1005,10 +1005,10 @@ LevelSpatialIndex::traceSphereHit(const glm::vec3& from, const glm::vec3& to, in
         }
         W8MonsterInfo* info =
             (owner_world ? owner_world->population->findMonster(target) : nullptr);
-        if (info == 0 || info->p3D == 0) {
+        if (info == 0 || !info->entity) {
             goto no_probes;
         }
-        navigator = &(info->p3D)->nav;
+        navigator = &info->entity->nav;
         radius = navigator->movement.alternate_radius;
     }
     if (navigator != 0 && pathing != 0) {
@@ -1027,7 +1027,7 @@ no_probes:;
                 W8MonsterInfo* info =
                     (owner_world ? owner_world->population->findMonster(id) : nullptr);
                 if (info != 0) {
-                    Monster* monster = info->p3D;
+                    Monster* monster = info->entity.find();
                     if (monster != 0 && monster->nav.active &&
                         (monster->nav.trace_mask & flags) == 0) {
                         const glm::vec3 center(monster->nav.movement.position.x,
@@ -1392,8 +1392,8 @@ void LevelSpatialIndex::UpdateMonsterLocation(unsigned short location_id, const 
         return;
     }
     info = (owner_world ? owner_world->population->findMonster(location_id) : nullptr);
-    if (info != 0 && info->p3D != 0) {
-        monster = info->p3D;
+    if (info != 0 && info->entity) {
+        monster = info->entity.find();
         sector = GetSectorForPosition(&position);
         if (sector == 0 || (mesh = meshForRegion(sector)) == 0) {
             monster->sector_mesh = 0;
@@ -1879,9 +1879,9 @@ bool LevelSpatialIndex::isBoxOccupied(const BoundingBox& box) const
     for (index = 0; index < count; ++index) {
         W8MonsterInfo* info =
             (owner_world ? owner_world->population->findMonster(objects[index]) : nullptr);
-        if (info != 0 && info->p3D != 0) {
-            glm::vec3 position = info->p3D->nav.GetPosition();
-            float radius = info->p3D->nav.radius;
+        if (info != 0 && info->entity) {
+            glm::vec3 position = info->entity->nav.GetPosition();
+            float radius = info->entity->nav.radius;
             if (box.minimum.x - radius < position.x && position.x < radius + box.maximum.x &&
                 box.minimum.y - radius < position.y && position.y < radius + box.maximum.y &&
                 box.minimum.z - radius < position.z && position.z < radius + box.maximum.z) {
@@ -2080,7 +2080,7 @@ static bool OverlapsNearbyMonster(const World* world, const glm::vec3& point, fl
 {
     return std::ranges::any_of(locations, [&](std::uint32_t id) {
         auto* info = world && world->population ? world->population->findMonster(id) : nullptr;
-        auto* monster = info ? info->p3D : nullptr;
+        auto* monster = info ? info->entity.find() : nullptr;
         if (!monster) return false;
         const auto delta = monster->nav.GetPosition() - point;
         const float clearance =

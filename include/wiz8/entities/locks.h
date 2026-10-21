@@ -1,5 +1,5 @@
 #pragma once
-struct W8Chunk;
+struct SavedLock;
 /* Persisted lock/trap device state: `completed` latches once the pick/disarm
    interaction finishes; `pins` holds the eight tumbler bytes of a pickable
    lock, re-rolled by LockState::Reset. */
@@ -20,7 +20,7 @@ struct LockState {
     /* Re-rolls the eight pin bytes of a pickable lock and
        resets its difficulty-derived countdown and interaction state. */
     void Reset(); /* 0x00445730 */
-    void ReadRuntimeRecord(W8Chunk& handle, int version, int restoring);
+    void Restore(const SavedLock& saved);
     /* Spends one point of the lock countdown and reports whether one
        remained to spend. */
     bool ConsumeCountdown(); /* 0x004457A0 */

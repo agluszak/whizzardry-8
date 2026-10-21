@@ -34,7 +34,7 @@
 #include "wiz8/utility.h"
 
 /* The per-special-attack condition each attack slot tries to inflict, indexing the same
-   rows as g_condition_notices. */
+   rows as kConditionNotices. */
 static W8Condition g_special_attack_condition_table[32][2] = {
     {W8_CONDITION_NONE, W8_CONDITION_NONE},        {W8_CONDITION_BLIND, W8_CONDITION_NONE},
     {W8_CONDITION_BLIND, W8_CONDITION_NONE},       {W8_CONDITION_NONE, W8_CONDITION_NONE},
@@ -409,8 +409,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     case 1:
                         text = fmt::format(
                             "{:d} {}", uiHits[i],
-                            Data().strings[g_condition_notices[g_special_attack_condition_table
-                                                                   [special_attack_kind][i]]
+                            Data().strings[kConditionNotices[g_special_attack_condition_table
+                                                                 [special_attack_kind][i]]
                                                .plural]);
                         break;
                     case 2:

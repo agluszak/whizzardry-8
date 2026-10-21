@@ -29,6 +29,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -95,22 +96,22 @@ static void RemoveNpcKindMonster(int npc_kind)
     }
     if (!monster_info->fActive) {
         RemoveMonsterNow(monster_info);
-    } else if (monster_info->p3D != 0) {
-        monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+    } else if (monster_info->entity) {
+        monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
     }
 }
 
 static void FadeOutNpcKindMonster(int npc_kind)
 {
     if (W8MonsterInfo* monster_info = FindNpcKindMonster(npc_kind)) {
-        monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+        monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
     }
 }
 
 static void SetMonsterGroupScript(int species, const char* script)
 {
     if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(species)) {
-        monster_info->p3D->SetScript(script, true);
+        monster_info->entity->SetScript(script, true);
     }
 }
 
@@ -262,7 +263,7 @@ void UpdateSedexusScene(const ScriptContext& context)
             if (context.party.members[party_slot].has_value() &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
-                RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
+                LiftCondition(CurrentGame(), party_slot, W8_CONDITION_UNCONSCIOUS, false);
                 sedexus_party_slot = context.status.sedexus_party_slot;
             }
         }
@@ -297,8 +298,10 @@ void BeginSedexusCapture(const ScriptContext& context)
             (context.party.characters[party_slot].hp_current > 0 ||
              context.party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
             party_slot != static_cast<unsigned int>(context.status.sedexus_party_slot)) {
-            SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
-                                  0, 0);
+            InflictCondition(CurrentGame(), party_slot,
+                             {.condition = W8_CONDITION_UNCONSCIOUS,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = false});
         }
     }
 }
@@ -322,7 +325,7 @@ static void ResolveSedexusCapture(void)
         if (location_id != 0) {
             info = FindMonsterByLocation(location_id);
             if (info != 0) {
-                info->p3D->SetScript("proximitytemplar.msf", true);
+                info->entity->SetScript("proximitytemplar.msf", true);
             }
         }
     }
@@ -486,7 +489,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0xdc)) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
-            monster_info->p3D->SetCycleCallback(0x12, NpcScriptHenchmanDeparted);
+            monster_info->entity->SetCycleCallback(0x12, NpcScriptHenchmanDeparted);
         }
         ClearMainGameTargetState();
         break;
@@ -494,7 +497,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::prince_disappears: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1ab)) {
-            monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+            monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = FindFirstMonsterByID(0x15d)) {
             SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
@@ -504,7 +507,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::prince_not_home: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1aa)) {
-            monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+            monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         break;
     }
@@ -527,7 +530,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         W8MonsterInfo* monster_info = FindNpcKindMonster(0xc);
         glm::vec3 position;
         if (monster_info != 0 && FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
-            monster_info->p3D->SetPosition(&position);
+            monster_info->entity->SetPosition(&position);
         }
         break;
     }
@@ -535,7 +538,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         EndNpcDialogueSession(false);
         BeginScriptedWorldAction();
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x112)) {
-            monster_info->p3D->SetCycleCallback(0x12, NpcScriptHenchmanArrives);
+            monster_info->entity->SetCycleCallback(0x12, NpcScriptHenchmanArrives);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
         }
@@ -574,7 +577,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             int location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
-                monster_info->p3D->ForwardReferencePosition(0);
+                monster_info->entity->ForwardReferencePosition(0);
             }
             npc = GetNpcStateByKind(0x84);
             if (npc != 0) {
@@ -591,8 +594,8 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         glm::vec3 position;
         if (FindEntityByName("NP_PHOONZANGLEE", &position, 0, 0) &&
             (monster_info = FindMonsterGroupLeader(0x197)) != 0) {
-            monster_info->p3D->SetPosition(&position);
-            monster_info->p3D->ForwardReferencePosition(0);
+            monster_info->entity->SetPosition(&position);
+            monster_info->entity->ForwardReferencePosition(0);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
         }
@@ -615,7 +618,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                     if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-                        monster_info->p3D->nav.AimAtPosition(&position);
+                        monster_info->entity->nav.AimAtPosition(&position);
                     }
                 }
             }
@@ -630,7 +633,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::savant_hack: {
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1b6)) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
-            monster_info->p3D->SetCycleCallback(0x19, NpcScriptSavantHackDone);
+            monster_info->entity->SetCycleCallback(0x19, NpcScriptSavantHackDone);
         }
         break;
     }

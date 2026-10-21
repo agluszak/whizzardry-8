@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <fmt/format.h>
@@ -35,6 +36,7 @@
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/locks.h"
 #include "wiz8/entities/missile.h"
+#include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -1430,9 +1432,9 @@ void SaveWorldProps(wiz8::File& handle)
     }
 }
 
-/* Both APST formats decode six animation bytes before updating a matching
-   prop. Unknown records are decoded and ignored within the chunk boundary. */
-void LoadWorldProps(World* world, W8Chunk& chunk)
+/* Both APST formats store six animation bytes per prop, keyed by name or, in the older
+   format, by the prop's legacy id. */
+std::vector<SavedProp> DecodeSavedProps(W8Chunk& chunk)
 {
     const auto signature = chunk.ReadValue<unsigned int>();
     const bool named = signature == 0xDEADD00D;
@@ -1441,31 +1443,36 @@ void LoadWorldProps(World* world, W8Chunk& chunk)
     const std::size_t key_size = named ? 64 : sizeof(int);
     if (std::uint64_t{count} * (key_size + 6) > static_cast<std::uint64_t>(chunk.RemainingBytes()))
         throw std::runtime_error("invalid saved prop count");
-    for (unsigned int index = 0; index < count; ++index) {
-        char name[65]{};
-        int key = 0;
+    std::vector<SavedProp> saved(count);
+    for (auto& prop : saved) {
         if (named) {
+            char name[65]{};
             chunk.ReadBytes(name, 64);
             if (std::find(name, name + 64, '\0') == name + 64)
                 throw std::runtime_error("unterminated saved prop name");
+            prop.key = std::string(name);
         } else {
-            chunk.ReadValue(key);
+            prop.key = chunk.ReadValue<int>();
         }
-        Prop::SavedAnimationState state;
-        static_assert(sizeof(state) == 6);
-        chunk.ReadBytes(&state, sizeof(state));
+        static_assert(sizeof(prop.state) == 6);
+        chunk.ReadBytes(&prop.state, sizeof(prop.state));
+    }
+    return saved;
+}
+
+void ApplySavedProps(World& world, const std::vector<SavedProp>& section)
+{
+    for (const auto& saved : section) {
         Prop* prop = nullptr;
-        if (named) {
-            prop = FindPropByName(world, name);
+        if (const auto* name = std::get_if<std::string>(&saved.key)) {
+            prop = FindPropByName(&world, *name);
         } else {
-            for (const auto& candidate : world->plsProps) {
-                if (candidate->legacy_save_id == key) {
-                    prop = candidate.get();
-                    break;
-                }
-            }
+            const auto found =
+                std::ranges::find(world.plsProps, std::get<int>(saved.key),
+                                  [](const auto& candidate) { return candidate->legacy_save_id; });
+            if (found != world.plsProps.end()) prop = found->get();
         }
-        if (prop) prop->ApplyAnimationState(state, WorldPathing(*world));
+        if (prop) prop->ApplyAnimationState(saved.state, WorldPathing(world));
     }
 }
 
