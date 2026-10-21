@@ -44,8 +44,6 @@ enum W8NavigatorLinkMode : unsigned char {
      a search and store the result code there.
    - FOLLOW_PATH makes the mover advance along the recorded waypoint positions
      (AdvanceAlongPathPositions) instead of steering directly at the target.
-   - PATH_LENGTH_CACHED latches MeasurePathLength's cached path_length; any
-     waypoint edit clears it.
    - START_WAYPOINT marks start_waypoint as the next position to steer to;
      the planner sets both together and the mover clears the bit on arrival.
    - POSITION_RECORDED is raised whenever recorded_position is recorded. */
@@ -55,7 +53,6 @@ enum W8NavigatorAttachmentFlag {
     W8_NAV_ATTACHMENT_FOLLOW_PATH = 0x00010000,
     W8_NAV_ATTACHMENT_START_WAYPOINT = 0x00080000,
     W8_NAV_ATTACHMENT_COLLISION_PREDICTED = 0x00100000,
-    W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED = 0x00400000,
     W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR = 0x00800000,
     W8_NAV_ATTACHMENT_TELEPORT_PHASE = 0x01000000,
     W8_NAV_ATTACHMENT_POSITION_RECORDED = 0x02000000,
@@ -80,18 +77,14 @@ struct NavigatorRoute {
     };
     std::vector<PathEntry> path;
     float separation;
-    /* Direct segment length after initialization; MeasurePathLength later
-       replaces it with the eligible route length and latches flag 0x00400000. */
-    float path_length;
 
     NavigatorRoute(); /* 0x00456210 */
     /* The from/to form 0x004604B0 constructs on the stack: both endpoints of
-       the segment are seeded as recorded positions and path_length holds the
-       straight-line distance. */
+       the segment are seeded as recorded positions. */
     NavigatorRoute(const glm::vec3* from, const glm::vec3* to); /* 0x00456280 */
-    /* Lazily sums the stored segment lengths into path_length, skipping
+    /* Sum the remaining stored segment lengths, skipping
        entries whose preceding path value carries bit 0x2. */
-    float MeasurePathLength(); /* 0x00456B00 */
+    float MeasurePathLength() const; /* 0x00456B00 */
 
     /* Also expanded in OctPath.cpp at 0x00465F63, 0x0046400A and
        0x00464820: set the recorded flag before copying the three components. */
@@ -106,7 +99,6 @@ struct NavigatorRoute {
         }
         path[path_position_index] = {saved_position, value};
         ++path_position_index;
-        flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
     }
 
     void CopyPathFrom(const NavigatorRoute* other);
