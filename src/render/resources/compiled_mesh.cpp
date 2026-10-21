@@ -173,7 +173,7 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
                   "CompiledMesh::Read -- Could not get vertex normal array.\n",
                   "CompiledMesh::Read -- Could not read m_pVertNorms.\n");
 
-    ReadMeshArray(*file, model->GetVertexLights(true, -1),
+    ReadMeshArray(*file, model->GetVertexLights(true),
                   "CompiledMesh::Read -- Could not get static lighting array.\n",
                   "CompiledMesh::Read -- Could not read m_pVertLights.\n");
 

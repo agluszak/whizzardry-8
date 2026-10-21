@@ -16,7 +16,6 @@
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -44,9 +43,7 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/render/camera.h"
@@ -350,7 +347,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
 
 /* Aim at whatever the caller names, by kind. The other three fields are left
    at BAD_INDEX, so only the kind's own field is meaningful. */
-void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context)
+void AimByKind(int actor, W8TargetKind kind, W8EditedAction context)
 {
     W8CombatSlot target;
 
@@ -359,7 +356,7 @@ void AimByKind(int actor, W8TargetKind kind, W8TargetingContext context)
     AimAtTarget(actor, &target, context);
 }
 
-void AimAtCharacter(int actor, int character_slot, W8TargetingContext context)
+void AimAtCharacter(int actor, int character_slot, W8EditedAction context)
 {
     W8CombatSlot target;
 
@@ -369,7 +366,7 @@ void AimAtCharacter(int actor, int character_slot, W8TargetingContext context)
     AimAtTarget(actor, &target, context);
 }
 
-void AimAtCharacterIndirect(int actor, int character_slot, W8TargetingContext context)
+void AimAtCharacterIndirect(int actor, int character_slot, W8EditedAction context)
 {
     W8CombatSlot target;
 
@@ -1058,13 +1055,13 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
     return false;
 }
 
-/* Clear the current draft target before restoring the ordinary targeting UI. */
-void SelectSpellCastingPartySlot(int party_slot)
+/* Clear a picker's draft target before restoring the ordinary targeting UI. */
+void SelectSpellCastingPartySlot(int party_slot, W8Action& draft)
 {
     W8CombatSlot target;
 
     ResetCombatSlot(&target);
-    AimAtTarget(party_slot, &target, W8_TARGETING_CONTEXT_SHARED);
+    AimAtTarget(party_slot, &target, W8EditedAction{draft});
     SetTargetingMode(W8_TARGET_NEED_NONE);
 }
 
@@ -1147,7 +1144,7 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
    block at it. A nonzero `arg` restarts the breath cycle. Repicking the
    executing (out-of-combat) target also copies it to the in-combat target when
    that one no longer matches or reaches. */
-bool RepickActionTarget(int party_slot, W8TargetingContext context, int arg)
+bool RepickActionTarget(int party_slot, W8EditedAction context, int arg)
 {
     W8CombatSlot new_target;
     bool is_attack_kind = false;
@@ -1288,55 +1285,37 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
     return AssessMonsterAim(party_slot, 2, monster_info, selected, {}, sighting);
 }
 
-/* Whether a party slot's chosen action has anything at all to aim at. Each
-   action asks its own question: an attack looks for one targetable monster, a
-   fifth-kind action looks at the other party members first and then at the
-   monsters, and casting or using an item hands the question to the spell.
+/* Whether a submenu candidate has anything at all to aim at. An attack looks
+   for one targetable monster and protecting looks at the other party members
+   first and then at the monsters.
 
    An action this does not know about answers yes, so the check narrows rather
    than gates - only the actions with a way of being impossible can fail it.
-   The two dialogue-driven actions answer yes as well until the dialogue has
-   settled, since until then there is no spell or item to ask about. */
-bool SlotHasAnyValidTarget(int party_slot)
+   Casting and item use answer yes as well, since no spell or item has been
+   chosen yet. A slot that cannot take part has no action to aim. */
+bool CandidateHasAnyValidTarget(int party_slot, W8ActionKind candidate)
 {
-    const auto editing_context = GetEditedActionContext(party_slot);
-    const auto edited_action = party_slot < 0 ? W8Action{W8_ACTION_NONE, -1, {}, {}}
-                                              : SelectCombatAction(party_slot, editing_context);
-    const bool sighting = editing_context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    if (!CanPartySlotParticipate(party_slot) && candidate != W8_ACTION_WALK &&
+        candidate != W8_ACTION_RUN) {
+        return true;
+    }
+    const W8Action edited_action{candidate};
 
     W8CombatSlot target;
     unsigned int index;
     unsigned int other_slot;
 
-    switch (edited_action.kind) {
+    switch (candidate) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
             if (AssessMonsterTarget(party_slot, GetMonsterListEntry(index)->location_id,
-                                    edited_action, false, sighting)) {
+                                    edited_action, false, false)) {
                 return true;
             }
         }
         return false;
 
-    case W8_ACTION_CAST_SPELL:
-        if (MainGameHud()->selection_settled) {
-            return SpellHasAnyValidTarget(party_slot, edited_action.detail, false);
-        }
-        break;
-
-    case W8_ACTION_USE_ITEM:
-        if (MainGameHud()->selection_settled) {
-            const W8ItemInstance* item =
-                CurrentGame().party.itemAt(edited_action.detail_block.item_use.item);
-
-            if (item == 0) {
-                return false;
-            }
-            return SpellHasAnyValidTarget(party_slot, Data().items[item->iItemNo].spell_id,
-                                          ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-        }
-        break;
     case W8_ACTION_PROTECT:
         for (other_slot = 0; other_slot < 8; ++other_slot) {
             if (other_slot == static_cast<unsigned int>(party_slot)) {
@@ -1799,35 +1778,33 @@ bool AnyMonsterVisible(void)
 
 /* Commit the chosen target and, when requested, remember it for this action
    kind. Presentation is updated separately by the interaction controller. */
-void CommitActionTarget(int actor, W8TargetingContext context, const W8CombatSlot& target,
+void CommitActionTarget(int actor, W8EditedAction context, const W8CombatSlot& target,
                         bool remember_action_target)
 {
     auto& row = CurrentGame().party.rows[actor];
     const auto action = SelectCombatAction(actor, context);
-    switch (context) {
-    case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
-        row.executing.target = target;
-        break;
-    case W8_TARGETING_CONTEXT_IN_COMBAT:
-        row.committed.target = target;
-        break;
-    case W8_TARGETING_CONTEXT_SHARED:
-        if (gpSCSV)
-            gpSCSV->draft.target = target;
-        else if (auto* draft = ItemUseDraft())
-            draft->target = target;
-        break;
-    case W8_TARGETING_CONTEXT_SPELL:
-        row.remembered.spell.target = target;
-        break;
-    case W8_TARGETING_CONTEXT_ITEM:
-        row.remembered.item_target = target;
-        break;
-    case W8_TARGETING_CONTEXT_BREATH:
-        row.remembered.breath_target = target;
-        break;
-    default:
-        return;
+    if (context.draft) {
+        context.draft->target = target;
+    } else {
+        switch (context.context) {
+        case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
+            row.executing.target = target;
+            break;
+        case W8_TARGETING_CONTEXT_IN_COMBAT:
+            row.committed.target = target;
+            break;
+        case W8_TARGETING_CONTEXT_SPELL:
+            row.remembered.spell.target = target;
+            break;
+        case W8_TARGETING_CONTEXT_ITEM:
+            row.remembered.item_target = target;
+            break;
+        case W8_TARGETING_CONTEXT_BREATH:
+            row.remembered.breath_target = target;
+            break;
+        default:
+            return;
+        }
     }
     if (remember_action_target && target.iType != W8_TARGET_KIND_NONE) {
         switch (action.kind) {
@@ -2027,41 +2004,36 @@ void ReconcilePartyEquipmentAfterCombat(void)
 
 /* Ask the slot's currently selected action which context its outputs hold:
    the chosen action kind plus three context-dependent words. */
-W8Action SelectCombatAction(int party_slot, W8TargetingContext context)
+W8Action SelectCombatAction(int party_slot, W8EditedAction context)
 {
     const auto& row = CurrentGame().party.rows[party_slot];
     W8Action action;
-    switch (context) {
-    case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
-        action = row.executing.action();
-        break;
-    case W8_TARGETING_CONTEXT_IN_COMBAT:
-        action = row.committed;
-        break;
-    case W8_TARGETING_CONTEXT_SHARED:
-        if (gpSCSV) {
-            action = gpSCSV->draft;
-        } else {
-            action = ItemUseDraft() ? *ItemUseDraft() : W8Action{W8_ACTION_USE_ITEM, -1};
+    if (context.draft) {
+        action = *context.draft;
+    } else {
+        switch (context.context) {
+        case W8_TARGETING_CONTEXT_OUT_OF_COMBAT:
+            action = row.executing.action();
+            break;
+        case W8_TARGETING_CONTEXT_IN_COMBAT:
+            action = row.committed;
+            break;
+        case W8_TARGETING_CONTEXT_SPELL:
+            action = row.remembered.spell;
+            break;
+        case W8_TARGETING_CONTEXT_ITEM:
+            action = {W8_ACTION_USE_ITEM, -1, row.remembered.item_target,
+                      row.remembered.item_detail};
+            break;
+        case W8_TARGETING_CONTEXT_BREATH:
+            action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
+            break;
+        case W8_TARGETING_CONTEXT_ATTACK:
+            action = {W8_ACTION_ATTACK};
+            break;
+        default:
+            throw std::invalid_argument("invalid action selection");
         }
-        break;
-    case W8_TARGETING_CONTEXT_SPELL:
-        action = row.remembered.spell;
-        break;
-    case W8_TARGETING_CONTEXT_ITEM:
-        action = {W8_ACTION_USE_ITEM, -1, row.remembered.item_target, row.remembered.item_detail};
-        break;
-    case W8_TARGETING_CONTEXT_BREATH:
-        action = {W8_ACTION_BREATHE, -1, row.remembered.breath_target};
-        break;
-    case W8_TARGETING_CONTEXT_DIALOGUE:
-        action = {MainGameHud()->selection_kind};
-        break;
-    case W8_TARGETING_CONTEXT_ATTACK:
-        action = {W8_ACTION_ATTACK};
-        break;
-    default:
-        throw std::invalid_argument("invalid action selection");
     }
     if (!CanPartySlotParticipate(party_slot) && action.kind != W8_ACTION_WALK &&
         action.kind != W8_ACTION_RUN)

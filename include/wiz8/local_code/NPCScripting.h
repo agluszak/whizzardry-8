@@ -28,7 +28,7 @@ enum class W8NpcReplyState : unsigned char { none, pending, dialog_open };
 /* An open price-check dialog: accepting spends price and runs quote_index,
    telling it to npc as a fact unless the entry was an always-price-check. */
 struct W8NpcPriceCheck {
-    W8NpcState* npc;
+    std::shared_ptr<W8NpcState> npc;
     int quote_index;
     int price;
     bool tells_fact;
@@ -40,7 +40,7 @@ struct W8NpcPriceCheck {
    class decides which script step follows. */
 class W8NpcDialogue {
 public:
-    W8NpcState* speaker() const { return session_.npc; }
+    W8NpcState* speaker() const { return session_.npc.get(); }
     int current_quote() const { return session_.current_quote_index; }
     W8NpcReplyState reply() const { return reply_; }
     const std::optional<W8NpcPriceCheck>& price_check() const { return price_check_; }
@@ -80,7 +80,7 @@ public:
 private:
     /* A conversation position. Begin can suspend one and Advance resumes it. */
     struct Session {
-        W8NpcState* npc;
+        std::shared_ptr<W8NpcState> npc;
         int current_quote_index;
         /* The last quote presentation finished; Speak continues its
            subquotes instead of restarting. */
@@ -155,3 +155,6 @@ void AuditNpcScriptQuotes(GameStatus& status);
 /* The NPC-side rebinding pass; reloads the NPC's .nsf script
    file and rebuilds its runtime bindings. */
 void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster);
+/* Load the NPC's .nsf script and give its monster the matching .msf script,
+   without changing the NPC. */
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster);

@@ -1042,7 +1042,7 @@ DialogueTranscript decode_dialogue_transcript(std::span<const std::byte> payload
     return transcript;
 }
 
-std::vector<std::byte> encode(std::span<const std::unique_ptr<W8NpcState>> npcs)
+std::vector<std::byte> encode(std::span<const std::shared_ptr<W8NpcState>> npcs)
 {
     Writer out;
     out.value(kNpcStateVersion);

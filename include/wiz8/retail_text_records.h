@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -53,14 +54,18 @@ template<class T> void pointer_slot(EntityLink<T>& live, std::span<const std::by
     live.detach();
 }
 
-/* Runtime-exclusive resources use the same on-disk pointer-presence word.
+/* Owned runtime resources use the same on-disk pointer-presence word.
    The decoder never adopts saved process addresses. */
-template<class T> void pointer_slot(const std::unique_ptr<T>& live, std::span<std::byte> bytes)
+template<class Owner>
+    requires requires(Owner& owner) { owner.reset(); }
+void pointer_slot(const Owner& live, std::span<std::byte> bytes)
 {
     const std::uint32_t present = static_cast<bool>(live);
     std::memcpy(bytes.data(), &present, sizeof(present));
 }
-template<class T> void pointer_slot(std::unique_ptr<T>& live, std::span<const std::byte>)
+template<class Owner>
+    requires requires(Owner& owner) { owner.reset(); }
+void pointer_slot(Owner& live, std::span<const std::byte>)
 {
     live.reset();
 }
@@ -166,33 +171,55 @@ void item_run(Items& items, Bytes bytes, Value value, Text text)
         nested(items[index], bytes.subspan(index * sizeof(ItemInstance), sizeof(ItemInstance)),
                value, text);
 }
+/* A slot's saved position. Its row and column are written by the formation
+   record from the cell grid. */
 template<> struct Record<W8PartyFormationPosition> {
     using Disk = FormationPosition;
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text)
     {
-        value(&runtime.bQuadrant, bytes.subspan(offsetof(Disk, row), sizeof(Disk::row)));
-        value(&runtime.bOldQuadrant, bytes.subspan(offsetof(Disk, old_row), sizeof(Disk::old_row)));
-        value(&runtime.bQuadrantSlot, bytes.subspan(offsetof(Disk, column), sizeof(Disk::column)));
+        value(&runtime.revival_row, bytes.subspan(offsetof(Disk, old_row), sizeof(Disk::old_row)));
         value(&runtime.facing, bytes.subspan(offsetof(Disk, facing), sizeof(Disk::facing)));
         value(&runtime.unknown_04,
               bytes.subspan(offsetof(Disk, unknown_04), sizeof(Disk::unknown_04)));
     }
 };
+/* The occupant grid is the authority for placement. Retail also stores each
+   slot's row and column and each row's occupant count; those are rebuilt from
+   the grid when saving and not read back. */
 template<> struct Record<W8PartyFormationState> {
     using Disk = PartyFormation;
     template<class Runtime, class Bytes, class Value, class Text>
     static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
     {
-        value(&runtime.bOccupantChar,
-              bytes.subspan(offsetof(Disk, occupants), sizeof(Disk::occupants)));
-        value(&runtime.ubQuadrantOccupants,
-              bytes.subspan(offsetof(Disk, row_occupants), sizeof(Disk::row_occupants)));
-        for (std::size_t index = 0; index < std::size(runtime.positions); ++index)
-            nested(runtime.positions[index],
-                   bytes.subspan(offsetof(Disk, positions) + index * sizeof(FormationPosition),
-                                 sizeof(FormationPosition)),
-                   value, text);
+        value(&runtime.cells, bytes.subspan(offsetof(Disk, occupants), sizeof(Disk::occupants)));
+        if constexpr (std::is_const_v<Runtime>) {
+            std::array<std::uint8_t, W8_FORMATION_ROWS> row_occupants;
+            for (int row = 0; row < W8_FORMATION_ROWS; ++row)
+                row_occupants[row] = static_cast<std::uint8_t>(runtime.rowOccupants(row));
+            value(&row_occupants,
+                  bytes.subspan(offsetof(Disk, row_occupants), sizeof(Disk::row_occupants)));
+        } else {
+            std::array<int, 8> seats{};
+            for (const auto& row : runtime.cells)
+                for (const signed char slot : row)
+                    if (slot != -1 && (slot < 0 || slot >= 8 || seats[slot]++ != 0))
+                        throw std::runtime_error("Invalid retail party formation");
+        }
+        for (std::size_t index = 0; index < std::size(runtime.positions); ++index) {
+            const auto position =
+                bytes.subspan(offsetof(Disk, positions) + index * sizeof(FormationPosition),
+                              sizeof(FormationPosition));
+            if constexpr (std::is_const_v<Runtime>) {
+                const auto cell = runtime.cellOf(static_cast<int>(index));
+                const std::int8_t row = cell ? static_cast<std::int8_t>(cell->row) : -1;
+                const std::int8_t column = cell ? static_cast<std::int8_t>(cell->column) : -1;
+                value(&row, position.subspan(offsetof(FormationPosition, row), sizeof(row)));
+                value(&column,
+                      position.subspan(offsetof(FormationPosition, column), sizeof(column)));
+            }
+            nested(runtime.positions[index], position, value, text);
+        }
         value(&runtime.unknown_74,
               bytes.subspan(offsetof(Disk, unknown_74), sizeof(Disk::unknown_74)));
     }
