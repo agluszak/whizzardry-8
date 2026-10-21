@@ -41,6 +41,8 @@ struct MeshAsset {
     struct Pass {
         unsigned pass = 0;
         unsigned side = 0;
+        // The side whose materials this pass draws (the front when reused).
+        unsigned material_side = 0;
         bool reverse_normals = false;
         bool cull = true;
         // Shader locations 2..6: UVs, additive colour, diffuse/specular
@@ -58,6 +60,12 @@ struct MeshAsset {
         DrawShader shader;
         std::uint32_t draw_flags = 0;
     };
+    // Pass-wide state changes that keep the topology. A pass that takes its
+    // materials or a texture layer from a per-element table ignores them.
+    void setMaterial(unsigned pass, unsigned side, const std::shared_ptr<Material>& material);
+    void setTexture(unsigned pass, unsigned layer, const std::shared_ptr<Texture>& texture);
+    void setShader(unsigned pass, DrawShader shader);
+
     std::vector<Pass> passes;
     glm::vec3 bounds_center{0};
     float bounds_radius = 0;

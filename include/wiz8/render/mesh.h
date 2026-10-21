@@ -115,11 +115,7 @@ public:
     std::int32_t getActivePolygonCount();
     std::int32_t getPolygonCount() const;
     std::int32_t getVertexCount() const;
-    void enable(e_control control)
-    {
-        render_control |= 1u << control;
-        invalidateRenderAsset();
-    }
+    void enable(e_control control);
     void setDirtyAll()
     {
         setDirty(DIRTY_BOUNDS);

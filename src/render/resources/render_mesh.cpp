@@ -76,6 +76,7 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
     const int material_side =
         !authored_faces && side && (control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)) ? 0
                                                                                           : side;
+    result.material_side = static_cast<unsigned>(material_side);
     result.draw_flags = passFlags(mesh, pass, material_side);
     result.shader = mesh.shaders[pass];
 
@@ -186,6 +187,27 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
         }
     }
     return asset;
+}
+
+void MeshAsset::setMaterial(unsigned pass, unsigned side, const std::shared_ptr<Material>& material)
+{
+    for (auto& source : passes)
+        if (source.pass == pass && source.material_side == side &&
+            !(source.draw_flags & HasVertexMaterials))
+            source.materials = {material};
+}
+
+void MeshAsset::setTexture(unsigned pass, unsigned layer, const std::shared_ptr<Texture>& texture)
+{
+    for (auto& source : passes)
+        if (source.pass == pass)
+            for (auto& batch : source.batches) batch.textures.at(layer) = texture;
+}
+
+void MeshAsset::setShader(unsigned pass, DrawShader shader)
+{
+    for (auto& source : passes)
+        if (source.pass == pass) source.shader = shader;
 }
 
 MeshPose::MeshPose(Mesh& mesh) : asset(mesh.renderAsset())

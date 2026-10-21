@@ -36,6 +36,7 @@ public:
     void accept(vsg::RecordTraversal& traversal) const override;
     void traverse(vsg::Visitor& visitor) override;
     void traverse(vsg::ConstVisitor& visitor) const override;
+    // Replaces any pipeline set before.
     void setPipeline(vsg::ref_ptr<vsg::BindGraphicsPipeline> pipeline,
                      vsg::ref_ptr<vsg::BindGraphicsPipeline> reflected);
     void recordSorted(vsg::RecordTraversal&, const vsg::BindIndexBuffer&, std::uint32_t first,

@@ -49,6 +49,7 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/draw_shader.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
@@ -785,4 +786,30 @@ TEST_CASE("Mesh bound changes reach the shared asset and its cull node in place"
     REQUIRE(culls.nodes.size() == 1);
     REQUIRE(culls.nodes.front()->bound.center == vsg::dvec3(11, 11, 11));
     REQUIRE(culls.nodes.front()->bound.radius == 2);
+}
+
+TEST_CASE("Pass-wide mesh state patches the shared asset in place", "[renderer][materials]")
+{
+    Mesh mesh(1, 3);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    const auto asset = mesh.renderAsset();
+    auto material = std::make_shared<Material>();
+    auto detail = std::make_shared<Texture>();
+    DrawShader shader;
+    shader.value ^= DrawShader::MASK_DEPTH_WRITE;
+    mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    mesh.setTexture(detail, 0, 1);
+    mesh.setShader(shader, 0);
+    mesh.enable(Mesh::CONTROL_SORTED_RENDERING);
+    REQUIRE(mesh.renderAsset() == asset);
+    const auto& pass = asset->passes.at(0);
+    REQUIRE(pass.materials == std::vector{material});
+    REQUIRE(pass.batches.at(0).textures[1] == detail);
+    REQUIRE(pass.shader.value == shader.value);
+    REQUIRE(asset->sorted);
+
+    // Drawing another side changes the topology.
+    mesh.enable(Mesh::CONTROL_BACK);
+    REQUIRE(mesh.renderAsset() != asset);
+    REQUIRE(mesh.renderAsset()->passes.size() == 2);
 }

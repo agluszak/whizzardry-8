@@ -31,7 +31,6 @@
 #include <vsg/nodes/Transform.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
-#include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/ImageInfo.h>
 #include <vsg/state/PipelineLayout.h>
 
@@ -466,9 +465,6 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
     const auto setPipeline = [&](DrawNode& node, std::uint32_t shader, FaceCull cull,
                                  Winding winding = Winding::Standard) {
-        std::erase_if(node.stateCommands, [](const auto& command) {
-            return command->template cast<vsg::BindGraphicsPipeline>() != nullptr;
-        });
         node.setPipeline(
             context.pipeline(shader, cull, winding),
             context.pipeline(shader, cull,
@@ -514,11 +510,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
             auto& sampled = pose.passes[pass_index];
             auto& cached = part->passes[pass_index];
             auto materials = source.materials;
-            const bool front_material =
-                source.side == 0 ||
-                (!asset.animated &&
-                 (mesh.render_control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)));
-            if (highlight_body && source.pass == 0 && front_material)
+            if (highlight_body && source.pass == 0 && source.material_side == 0)
                 std::ranges::fill(materials, instance->highlight_material);
             const auto pass_values =
                 packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time);

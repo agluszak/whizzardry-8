@@ -24,13 +24,14 @@
 
 #include "wiz8/math.h"
 #include "wiz8/render/mesh_math.h"
+#include "wiz8/render/render_mesh.h"
 
 /* Bounds-checked pass/side slots; out-of-range indices are ignored. */
 void Mesh::setShader(DrawShader shader, std::int32_t pass)
 {
     if (pass >= 0 && pass < 4) {
         shaders[pass] = shader;
-        invalidateRenderAsset();
+        if (render_asset_) render_asset_->setShader(pass, shader);
     }
 }
 
@@ -56,7 +57,9 @@ void Mesh::setMaterial(std::shared_ptr<Material> material, std::int32_t pass, e_
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
         materials[pass][side] = std::move(material);
-        invalidateRenderAsset();
+        // The bake reads the pass material's ambient.
+        flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+        if (render_asset_) render_asset_->setMaterial(pass, side, materials[pass][side]);
     }
 }
 
@@ -72,6 +75,24 @@ void Mesh::setTexture(std::shared_ptr<Texture> texture, std::int32_t pass, std::
 {
     if (pass >= 0 && pass < 4 && layer >= 0 && layer < 2) {
         textures[pass][layer] = std::move(texture);
+        if (render_asset_ && poly_textures[pass][layer].empty())
+            render_asset_->setTexture(pass, layer, textures[pass][layer]);
+    }
+}
+
+void Mesh::enable(e_control control)
+{
+    render_control |= 1u << control;
+    switch (control) {
+    case CONTROL_SORTED_RENDERING:
+        if (render_asset_) render_asset_->sorted = true;
+        break;
+    case CONTROL_SKIP_AUTO_BOX:
+    case CONTROL_SKIP_AUTO_SPHERE:
+        // Authored bounds do not reach the asset, which keeps the real bound.
+        break;
+    default:
+        // The sides drawn, their culling and their materials are topology.
         invalidateRenderAsset();
     }
 }
