@@ -1,6 +1,7 @@
 #include "wiz8/render/native_content.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
@@ -96,6 +97,11 @@ NativeContent::NativeContent(vsg::ref_ptr<vsg::Node> source, std::shared_ptr<Mat
     } import(*this);
     source->accept(import);
     if (parts.empty()) throw std::runtime_error("Native content has no supported indexed geometry");
+}
+
+void NativeContent::advanceTextures(std::chrono::milliseconds now)
+{
+    if (texture) texture->UpdateFrame(now);
 }
 
 void NativeContent::prepare(RenderContext& context, const ScenePass& pass)

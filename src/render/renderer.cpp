@@ -429,7 +429,6 @@ try {
 void Renderer::beginFrame(const glm::vec4& clear)
 {
     ++impl->frame_number;
-    impl->context->frame_number = impl->frame_number;
     impl->frame_root->children.clear();
     impl->current_overlay = {};
     impl->overlay_count = 0;
@@ -504,9 +503,7 @@ void Renderer::prepareOverlay(OverlayQuad& quad)
     if (positions_changed) quad.positions->dirty();
     if (uv_changed) quad.texcoords->dirty();
     if (colors_changed) quad.colors->dirty();
-    auto image = quad.image     ? quad.image
-                 : quad.texture ? quad.texture->imageInfo(0, impl->frame_number)
-                                : impl->white;
+    auto image = quad.image ? quad.image : quad.texture ? quad.texture->imageInfo(0) : impl->white;
     if (!image) image = impl->white;
     if (quad.layout != impl->overlay_layout || quad.bound_image != image ||
         quad.bound_material != quad.material) {

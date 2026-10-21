@@ -1,6 +1,7 @@
 #include "wiz8/render/frame.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -44,6 +45,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/platform/game_timer.h"
@@ -386,7 +388,9 @@ static SceneFrame CurrentSceneFrame()
     return {.environment_offset = CurrentEnvironmentOffset(),
             .brightness = g_monster_light_scale,
             .texture_reduction = g_resident_texture_policy,
-            .time = RenderClockSeconds()};
+            .time = GameInProgress()
+                        ? std::chrono::duration<double>(CurrentGame().visual_time).count()
+                        : RenderClockSeconds()};
 }
 
 /* Render one scene into either the full output or a logical 640x480 viewport.
@@ -582,6 +586,7 @@ std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> tex
 {
     auto quad = std::make_unique<OverlayQuad>();
     quad->texture = std::move(texture);
+    if (quad->texture) quad->texture->setAnimationClock(TextureClock::Presentation);
     quad->size = {width * 640, height * 480};
     quad->material.blend = alpha_blend ? OverlayBlend::Alpha : OverlayBlend::Opaque;
     if (quad->texture) {

@@ -204,8 +204,8 @@ the licensed runtime scenarios after every step.
      (`world_item.cpp`), keyframe tracks, the environment's lighting transition, random
      ambient sounds' next play, trigger item-group seeds and random subcycles, spell
      cooldowns (`Magic.cpp`), and the portrait idle clock the rest sequence arms
-     (`GameplayTime.cpp`). The renderer's light animations and texture playback stay on
-     the monotonic clock until the VulkanSceneGraph migration settles their owner.
+     (`GameplayTime.cpp`). Visual light/texture animation now has explicit held-world
+     or presentation clock ownership (ARCHITECTURE.md, "Visual clocks").
 5. **Presentation owned by screens.** The main game repaints what its HUD's record
    (`MainGameRepaint`) holds, game code reports changes as events, the draw path
    receives the HUD, and the pointer derives the held-item cursor every frame

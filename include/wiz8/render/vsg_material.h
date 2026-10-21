@@ -38,7 +38,6 @@ namespace render {
 class RenderContext {
 public:
     explicit RenderContext(VkExtent2D extent);
-    std::uint64_t frame_number = 0;
 
     vsg::ref_ptr<vsg::PipelineLayout> layout;
     vsg::ref_ptr<vsg::DescriptorSetLayout> view_layout;

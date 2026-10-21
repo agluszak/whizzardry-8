@@ -68,6 +68,7 @@ public:
     void accept(vsg::Visitor&) override;
     void accept(vsg::ConstVisitor&) const override;
     void accept(vsg::RecordTraversal&) const override;
+    void advanceTextures(std::chrono::milliseconds now);
     void prepare(RenderContext&, const ScenePass&, std::uint64_t frame_number,
                  bool static_geometry = false);
     std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index);

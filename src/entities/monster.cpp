@@ -1,6 +1,7 @@
 #include "wiz8/entities/monster.h"
 
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <memory>
 #include <optional>
@@ -1478,7 +1479,8 @@ void Monster::UpdateRepresentation(World* world)
             SetModelInstanceExclusionMask(model, 4);
         }
         if (monster_light != 0) {
-            monster_light->Update(&position);
+            monster_light->Update(&position,
+                                  std::chrono::duration<float>(CurrentGame().visual_time).count());
         }
         if (!visual.enabled) {
             visual.enabled = true;
@@ -1698,7 +1700,8 @@ void Monster::SetCycle(signed char cycle)
                                              CurrentGame().rng.below(0x168)));
         }
         if (monster_light != 0) {
-            monster_light->StartFadeOut();
+            monster_light->StartFadeOut(
+                std::chrono::duration<float>(CurrentGame().visual_time).count());
         }
     }
 }

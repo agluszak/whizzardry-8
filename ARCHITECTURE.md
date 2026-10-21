@@ -118,10 +118,26 @@ Unlayered code may use the layers.
   during acquisition or present-mode updates. Offscreen capture renders the same
   prepared graph; presentation surfaces without transfer-source support use it
   for screenshots as well.
-- **UI publication.** Drawing still uses the 640×480 ARGB1555 CPU canvas.
-  Invalidation publishes pixels into a separate texture image, so `Draw`
-  without `Refresh` cannot expose uncommitted painting. VSG composes that image,
-  overlays, video and the cursor with the world views.
+- **UI publication.** Refresh converts the requested rectangle from the ARGB1555
+  CPU canvas directly into the committed dynamic VSG pixel array. `Draw` without
+  `Refresh` stays private. Widgets own retained VSG geometry, image bindings and
+  explicit blend/alpha-test state. Layer groups preserve composition order; the
+  cursor uses rectangular artwork and an explicit hotspot.
+- **Native content.** Picking returns VSG intersections, including node paths,
+  coordinates and primitive data. Existing-game callers resolve `MeshInstance`
+  only when needed. `loadGameContent` reads static indexed VSG position/normal/UV
+  geometry and adapts it to game lighting, ambient and fog without a retail mesh.
+  Ordinary subgraphs can continue using standard VSG materials.
+- **Visual clocks.** `Game::visual_time` stops with world and shared-timer holds.
+  World texture playback, UV scrolling and light animation use it. Texture lookup
+  and extra views never advance animation or draw random values. UI texture
+  playback and glow use presentation time. Particles retain their game-step clock
+  and activity gates; keyframed lights follow their actor's sampled cycle time.
+  Legacy gameplay timers retain their save-progress contracts until their owners
+  migrate to step countdowns.
+- **Window events.** Focus controls pause and input release. Minimize/restore
+  controls presentation. Pixel-size changes follow the high-density drawable;
+  reopening presentation never reapplies startup window dimensions.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
 - **Shaders and platforms.** GLSL is compiled to SPIR-V in the normal build.

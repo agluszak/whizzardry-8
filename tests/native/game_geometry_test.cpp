@@ -72,7 +72,6 @@
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -1105,6 +1104,15 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
     REQUIRE(keys.key_frames.front() == 1);
     REQUIRE(source.path_ai->nodes.front().x == 1);
     REQUIRE_FALSE(copy.path_ai->timed);
+    // A fade starts at its game event, even if the light is sampled later.
+    Light fading;
+    fading.animator.emplace<MonsterLightAnim>();
+    fading.StartFadeOut(10);
+    const glm::vec3 position(0);
+    fading.Update(&position, 15);
+    REQUIRE(fading.intensity == 0.5f);
+    fading.Update(&position, 20);
+    REQUIRE(fading.intensity == 0);
 }
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
@@ -1445,21 +1453,21 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.visible = false;
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 0);
     particles.visible = true;
     particles.SetTraversalEnabled(false);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 0);
 
     particles.SetTraversalEnabled(true);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 1);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.active_particle_count == 2);
     particles.DeactivateParticle(0);
     particles.SetActive(false);
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE_FALSE(particles.particle_active[0]);
     REQUIRE(particles.particle_active[1]);
 
@@ -1504,7 +1512,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.release_when_done = true;
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
-    particles.AdvanceSimulation();
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.active_particle_count == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
@@ -1516,6 +1524,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
 TEST_CASE("Particle simulation resolves nested animation before views consume it",
           "[geometry][particles]")
 {
+    ScopedGame game;
     auto first = std::make_shared<Texture>();
     auto last = std::make_shared<Texture>();
     auto inner = std::make_shared<Texture>(TexturePlayback{});
@@ -1532,14 +1541,17 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.SetTexture(outer);
     REQUIRE(particles.activateParticle(false));
-    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    auto& prepared = *particles.texture_frames.front()->playback->textures.front();
+    REQUIRE(&prepared != inner.get());
     REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
-    particles.AdvanceSimulation();
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
     REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
-    inner->SetFrame(0);
-    inner->playback->frame_tick = MonotonicMilliseconds() - 1000;
+    REQUIRE(inner->currentFrame() == first.get());
+    prepared.SetFrame(0);
+    game.game.time += std::chrono::milliseconds{1000};
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);
@@ -2348,4 +2360,29 @@ TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offs
         REQUIRE(row[0] == 0xffff);
         REQUIRE(row[300] == 0xffff);
     }
+}
+
+TEST_CASE("Recycled particles restart texture playback at their new birth", "[geometry][particles]")
+{
+    ScopedGame game;
+    TexturePlayback playback;
+    playback.animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    playback.frame_rate = 1;
+    playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
+                         std::make_shared<Texture>()};
+    ParticleSystem particles(nullptr, 1);
+    particles.emitting = false;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 0;
+    particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
+    particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
+    REQUIRE(particles.activateParticle(false));
+    particles.AdvanceSimulation(game.game.time);
+    particles.DeactivateParticle(0);
+    game.game.time = std::chrono::milliseconds{10000};
+    REQUIRE(particles.activateParticle(false));
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
+    REQUIRE(particles.active_particle_count == 1);
+    REQUIRE(particles.texture_frames.front()->playback->frame == 1);
 }

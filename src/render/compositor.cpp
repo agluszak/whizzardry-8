@@ -1,5 +1,6 @@
 #include "wiz8/render/compositor.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -17,7 +18,9 @@
 #include <vsg/state/Sampler.h>
 #include <vulkan/vulkan_core.h>
 
+#include "wiz8/platform/timer.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/render/texture.h"
 
 OverlayQuad::~OverlayQuad()
 {
@@ -54,7 +57,12 @@ void Compositor::clear()
 void Compositor::draw(Renderer& renderer, OverlayLayer layer)
 {
     for (auto* quad : widgets)
-        if (quad->layer == layer) renderer.prepareOverlay(*quad);
+        if (quad->layer == layer) {
+            if (quad->visible && quad->texture)
+                quad->texture->UpdateFrame(std::chrono::milliseconds(MonotonicMilliseconds()),
+                                           TextureClock::Presentation);
+            renderer.prepareOverlay(*quad);
+        }
     renderer.addOverlay(layers[std::size_t(layer)]);
 }
 

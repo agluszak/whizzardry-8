@@ -27,6 +27,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/geometry.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
@@ -349,14 +350,15 @@ void WorldUpdateLights(World* world)
     // Authored lights are owned by the world. Cycle lights remain owned by
     // their emitter and participate while attached to this world's scene.
     for (const auto& light : world->transient_lights)
-        if (!std::holds_alternative<std::monostate>(light->animator)) light->Update();
+        if (!std::holds_alternative<std::monostate>(light->animator))
+            light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
     const auto update_cycles = [&](const auto& cycles) {
         for (const auto& cycle : cycles) {
             if (!cycle->visual.m_plsLights) continue;
             for (const auto& light : *cycle->visual.m_plsLights)
                 if (!std::holds_alternative<std::monostate>(light->animator) &&
                     light->scene == (world->scene.get()))
-                    light->Update();
+                    light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
         }
     };
     update_cycles(world->monsters);
