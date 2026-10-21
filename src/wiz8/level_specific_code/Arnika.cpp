@@ -29,6 +29,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
