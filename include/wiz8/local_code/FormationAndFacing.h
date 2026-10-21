@@ -1,11 +1,13 @@
 #pragma once
 
+#include <optional>
+
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/rules/party_formation.h"
 
 struct W8MonsterInfo;
 struct W8CombatSlot;
 struct W8PartySlotRow;
-struct W8PartyFormationState;
 
 unsigned int TurnPartyTo(unsigned int degrees);
 void TurnPartyToImmediate(unsigned int degrees, signed char snap);
@@ -36,12 +38,11 @@ void RestoreCombatFormation(void);
 /* Give one joining party slot its formation position, scanning
    the row order for the first free one. */
 void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot);
-/* Move one party position into a formation row and column,
-   updating both rows' occupant lists. */
-void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row,
-                          signed char new_column, bool announce, bool detach, bool update_facing);
-/* Re-place the positions left in a row after one moved out: a
-   single occupant goes to column 0, two pack toward column 2. */
+/* Move one party slot into a formation cell, or unseat it, announcing the row
+   change when asked and redrawing the live formation's displays. */
+void SetFormationPosition(W8PartyFormationState* formation, int slot,
+                          std::optional<W8FormationCell> cell, bool announce, bool detach,
+                          bool update_facing);
 
 void InitializePartyFormation(W8PartyFormationState* state);
 /* Remember the formation combat started with. */
@@ -50,8 +51,8 @@ void SaveCombatFormation(void);
    characters that can no longer hold their edited place and writing the
    result back into both formations. */
 void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live);
-/* Keep one slot's seat in step with its liveness - death stashes
-   its quadrant in bOldQuadrant and unseats it, revival re-seats it there or
+/* Keep one slot's seat in step with its liveness - death remembers
+   its row as the revival row and unseats it, revival re-seats it there or
    in a fallback row. */
 void UpdateFormationSlotState(W8PartyFormationState* formation, int slot);
 /* Seat one party slot in a formation row, shuffling its occupants

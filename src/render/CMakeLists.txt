@@ -14,6 +14,8 @@ set(NATIVE_RENDER_SOURCES
     resources/mesh.cpp
     resources/mesh_frames.cpp
     resources/mesh_instance.cpp
+    map_view.cpp
+    native_content.cpp
     world_scene.cpp
     resources/texture.cpp
 )

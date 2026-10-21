@@ -2,9 +2,9 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <deque>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -65,6 +65,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/vsg_material.h"
@@ -101,11 +102,11 @@ bool bindViewState(vsg::StateGroup& group, RenderContext& context)
 class WorldViewState : public vsg::Inherit<vsg::ViewDependentState, WorldViewState> {
 public:
     WorldViewState(vsg::View* view, RenderContext& context, const ScenePass& source,
-                   std::size_t sorted_indices, std::size_t opaque_indices,
+                   std::size_t light_count, std::size_t sorted_indices, std::size_t opaque_indices,
                    std::span<const glm::vec4> clip_planes)
         : Inherit(view), context(context), context_layout(context.layout)
     {
-        refresh(source, sorted_indices, opaque_indices, clip_planes);
+        refresh(source, light_count, sorted_indices, opaque_indices, clip_planes);
     }
 
     bool usesContext(const RenderContext& candidate) const
@@ -113,17 +114,16 @@ public:
         return context_layout == candidate.layout;
     }
 
-    void refresh(const ScenePass& source, std::size_t sorted_capacity, std::size_t opaque_capacity,
-                 std::span<const glm::vec4> clip_planes)
+    void refresh(const ScenePass& source, std::size_t light_count, std::size_t sorted_capacity,
+                 std::size_t opaque_capacity, std::span<const glm::vec4> clip_planes)
     {
         pass = source;
         eye_clip_planes.assign(clip_planes.begin(), clip_planes.end());
-        source_lights.assign(source.lights.begin(), source.lights.end());
+        prepared_lights.resize(light_count);
         fog_pointers.assign(source.fogs.begin(), source.fogs.end());
         std::erase_if(fog_pointers, [](const auto* fog) { return !fog->visible; });
-        pass.lights = source_lights;
         pass.fogs = fog_pointers;
-        const auto values = packView(pass, eye_clip_planes);
+        const auto values = packView(pass, eye_clip_planes, prepared_lights);
         if (!block || block->size() < values.size()) {
             block = vsg::vec4Array::create(capacity(values.size()));
             block->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
@@ -137,8 +137,7 @@ public:
     void clear() override
     {
         vsg::ViewDependentState::clear();
-        copied_light_count = 0;
-        light_pointers.clear();
+        prepared_lights.clear();
         sorted.clear();
         opaque_cursor = 0;
     }
@@ -159,9 +158,7 @@ public:
     void traverse(vsg::RecordTraversal& visitor) const override
     {
         vsg::ViewDependentState::traverse(visitor);
-        auto current = pass;
-        current.lights = light_pointers;
-        store(*block, packView(current, eye_clip_planes));
+        store(*block, packView(pass, eye_clip_planes, prepared_lights));
     }
     void compile(vsg::Context& compile_context) override
     {
@@ -183,11 +180,8 @@ public:
     void addLight(const Light& source, const vsg::dmat4& model_view)
     {
         if (!source.visible || source.intensity == 0) return;
-        if (copied_light_count == copied_lights.size()) copied_lights.emplace_back();
-        auto& copy = copied_lights[copied_light_count++];
-        copy = source;
-        prepareLightAt(copy, toGlm(model_view), pass.frame.brightness);
-        if (copy.derived_flags & Light::DERIVED_ACTIVE) light_pointers.push_back(&copy);
+        auto prepared = prepareLightAt(source, toGlm(model_view), pass.frame.brightness);
+        if (static_cast<unsigned>(prepared[0].w) & 1u) prepared_lights.push_back(prepared);
     }
     void addSorted(const DrawNode& node, const vsg::dmat4& model_view)
     {
@@ -312,11 +306,8 @@ private:
     vsg::ref_ptr<vsg::PipelineLayout> context_layout;
     ScenePass pass;
     std::vector<glm::vec4> eye_clip_planes;
-    std::vector<Light*> source_lights;
     std::vector<FogParams*> fog_pointers;
-    std::deque<Light> copied_lights;
-    std::size_t copied_light_count = 0;
-    std::vector<Light*> light_pointers;
+    std::vector<PreparedLight> prepared_lights;
     std::vector<Sorted> sorted;
     vsg::ref_ptr<vsg::vec4Array> block;
     vsg::ref_ptr<vsg::DescriptorSet> game_set;
@@ -535,7 +526,7 @@ struct WorldScene::CachedView {
 
 WorldScene::WorldScene()
     : root(vsg::Group::create()), game_root(vsg::StateGroup::create()),
-      objects(vsg::Group::create())
+      objects(vsg::Group::create()), map_root(vsg::StateGroup::create())
 {
     game_root->addChild(objects);
     root->addChild(game_root);
@@ -552,6 +543,7 @@ WorldScene::~WorldScene()
     // Stop graph traversal from retaining borrowers of its game objects.
     objects->children.clear();
     root->children.clear();
+    map_root->children.clear();
 }
 MeshInstance* WorldScene::addStaticMesh(std::unique_ptr<MeshInstance> mesh)
 {
@@ -564,6 +556,24 @@ MeshInstance* WorldScene::addStaticMesh(std::unique_ptr<MeshInstance> mesh)
     static_meshes.push_back(std::move(mesh));
     return result;
 }
+void WorldScene::advanceVisuals(std::chrono::milliseconds now)
+{
+    struct Advance : vsg::Visitor {
+        std::chrono::milliseconds now;
+        explicit Advance(std::chrono::milliseconds now) : now(now) {}
+        void apply(vsg::Object& object) override { object.traverse(*this); }
+        void apply(vsg::Transform& transform) override
+        {
+            if (auto* instance = dynamic_cast<render::InstanceNode*>(&transform))
+                instance->advanceTextures(now);
+            if (auto* native = dynamic_cast<render::NativeContent*>(&transform))
+                native->advanceTextures(now);
+            transform.traverse(*this);
+        }
+    } advance(now);
+    root->accept(advance);
+}
+
 void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame,
                          std::uint64_t frame_number)
 {
@@ -573,7 +583,6 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
     const ScenePass pass{.frame = frame,
                          .ambient_light = glm::vec4(ambient_light, 0),
                          .fog_color = glm::vec4(fog_color, 0),
-                         .lights = lights,
                          .fogs = fogs};
     submitted_polygons = 0;
     // Equal-depth translucent triangles keep the game's submission precedence:
@@ -615,6 +624,8 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
                 if (visual->instance && visual->instance->visible && visual->instance->getModel())
                     polygons += visual->instance->getModel()->polygon_count;
             }
+            if (auto* native = dynamic_cast<render::NativeContent*>(&transform))
+                native->prepare(context, pass);
             transform.traverse(*this);
         }
     } prepare_instances(context, pass, frame_number, static_exclusion_mask, submitted_polygons);
@@ -643,6 +654,30 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
                                                std::uint64_t frame_number)
 {
     prepare(context, frame, frame_number);
+    const ScenePass pass{.frame = frame,
+                         .ambient_light = glm::vec4(ambient_light, 0),
+                         .fog_color = glm::vec4(glm::clamp(fog_color, 0.0f, 1.0f), 0),
+                         .fogs = fogs,
+                         .depth_cue = source ? source->depthCue() : DepthCue{}};
+    return cachedView(context, source, root, pass, std::move(viewport), frame_number);
+}
+vsg::ref_ptr<vsg::View> WorldScene::createMapView(render::RenderContext& context,
+                                                  const SceneFrame& frame,
+                                                  vsg::ref_ptr<vsg::ViewportState> viewport,
+                                                  std::uint64_t frame_number)
+{
+    // Explored colours are the map's whole appearance: no ambient, lights, fog or depth cue.
+    const ScenePass pass{.frame = frame};
+    render::bindViewState(*map_root, context);
+    const auto graph = map.prepare(context, static_meshes, pass);
+    if (map_root->children.empty()) map_root->addChild(graph);
+    return cachedView(context, &map.camera, map_root, pass, std::move(viewport), frame_number);
+}
+vsg::ref_ptr<vsg::View> WorldScene::cachedView(render::RenderContext& context, Camera3D* source,
+                                               vsg::ref_ptr<vsg::Node> graph, const ScenePass& pass,
+                                               vsg::ref_ptr<vsg::ViewportState> viewport,
+                                               std::uint64_t frame_number)
+{
     const auto dimensions = viewport->getViewport();
     auto found = std::ranges::find_if(views, [&](const auto& entry) {
         const auto& previous = entry->viewport;
@@ -666,7 +701,7 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
         entry->projection = render::Projection::create(vsg::dmat4{});
         entry->view_matrix = render::ViewMatrix::create(vsg::dmat4{});
         entry->view->camera = vsg::Camera::create(entry->projection, entry->view_matrix, viewport);
-        entry->view->addChild(root);
+        entry->view->addChild(graph);
         entry->translucent = vsg::StateGroup::create();
         entry->translucent->addChild(render::TranslucentStage::create());
         entry->view->addChild(entry->translucent);
@@ -685,15 +720,8 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
     (*found)->view_matrix->matrix = render::toVsg(glm::dmat4(transform.model_view));
     view->camera->viewportState = viewport;
     view->mask = render::render_mask;
-    ScenePass pass{.frame = frame,
-                   .ambient_light = glm::vec4(ambient_light, 0),
-                   .fog_color = glm::vec4(glm::clamp(fog_color, 0.0f, 1.0f), 0),
-                   .lights = lights,
-                   .fogs = fogs,
-                   .depth_cue = source ? source->depthCue() : DepthCue{}};
     render::CountIndices counts;
-    root->accept(counts);
-    pass.lights = counts.lights;
+    graph->accept(counts);
     std::vector<glm::vec4> clip_planes_eye;
     for (const auto& plane : clip_planes)
         if (plane->visible)
@@ -702,10 +730,11 @@ vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, C
                                   plane->getClipPlane()));
     auto* state = dynamic_cast<render::WorldViewState*>(view->viewDependentState.get());
     if (state && state->usesContext(context))
-        state->refresh(pass, counts.sorted, counts.opaque, clip_planes_eye);
+        state->refresh(pass, counts.lights.size(), counts.sorted, counts.opaque, clip_planes_eye);
     else
-        view->viewDependentState = render::WorldViewState::create(
-            view.get(), context, pass, counts.sorted, counts.opaque, clip_planes_eye);
+        view->viewDependentState =
+            render::WorldViewState::create(view.get(), context, pass, counts.lights.size(),
+                                           counts.sorted, counts.opaque, clip_planes_eye);
     return view;
 }
 void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
@@ -733,14 +762,11 @@ void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
         double nearest = std::numeric_limits<double>::max();
         for (const auto& hit : test->intersections) {
             if (hit->ratio >= nearest) continue;
-            MeshInstance* owner = nullptr;
             const render::DrawNode* drawable = nullptr;
             auto model_view = camera.viewMatrix->transform();
             for (auto* node : hit->nodePath) {
                 if (const auto* transform = dynamic_cast<const vsg::Transform*>(node))
                     model_view = transform->transform(model_view);
-                if (const auto* instance = dynamic_cast<const render::InstanceNode*>(node))
-                    owner = instance->instance;
                 if (const auto* draw = dynamic_cast<const render::DrawNode*>(node)) drawable = draw;
             }
             if (drawable && !drawable->pickable) continue;
@@ -787,7 +813,7 @@ void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
                 if (drawable->cull == FaceCull::Back ? facing <= 0 : facing >= 0) continue;
             }
             nearest = hit->ratio;
-            pick.selected_model = owner;
+            pick.hit = hit;
             const auto clip =
                 camera.projectionMatrix->transform() * vsg::dvec4(eye_intersection, 1);
             pick.position.z = static_cast<float>(1 - clip.z / clip.w * 2);
@@ -1004,4 +1030,13 @@ glm::dmat4 Light::worldMatrix() const
         parent_matrix =
             glm::dmat4(render::toGlm(render_attachment->transform(render::toVsg(parent_matrix))));
     return parent_matrix * transform.matrix();
+}
+
+MeshInstance* render::gameOwner(const Pick& pick)
+{
+    if (pick.hit)
+        for (auto node = pick.hit->nodePath.rbegin(); node != pick.hit->nodePath.rend(); ++node)
+            if (const auto* instance = dynamic_cast<const InstanceNode*>(*node))
+                return instance->instance;
+    return nullptr;
 }

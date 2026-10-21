@@ -34,7 +34,7 @@ struct W8PendingNoticeLine {
 
 /* An NPC script notice waiting for DispatchPendingNpcScriptNotice. */
 struct W8PendingNotice {
-    W8NpcState* npc;
+    std::shared_ptr<W8NpcState> npc;
     W8ItemInstance item;
     int line;
     bool flag;
@@ -56,7 +56,7 @@ enum W8NpcTradeMode : unsigned char {
 
 /* The NPC conversation's interface state for one play-through: the dialogue layout and
    trade tables, the transcript view's category, the quote bubble and the staged script
-   notice; the transcript's keywords are the story's. The game owns it (`Game::npc_interaction`), so a new game starts it afresh.
+   notice. The game owns it (`Game::npc_interaction`), so a new game starts it afresh.
    Transitional: most of it is presentation the main game screen should own. */
 struct W8NpcInteractionState {
     // Out of line, where the dialogue's interface is a complete type.
@@ -87,17 +87,15 @@ struct W8NpcInteractionState {
     /* The text-box line the mouse/wheel handlers last selected, -1 for none. */
     int hovered_text_line{};
     W8NpcTradeFilter trade_filter = W8_NPC_TRADE_FILTER_NONE;
-    W8NpcState* dialogue_npc{};
+    std::shared_ptr<W8NpcState> dialogue_npc{};
     W8DialogueCategory dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query{};
-    /* The item a pending NPC notice carries; copied from pending_notice
-       when the dialogue opens. */
-    W8ItemInstance pending_item{};
-    /* pending_item came in through the cursor item; dialogue close returns it
-       to the hand and the consume path drains its stack. */
-    bool held_item_pending{};
+    /* The item the party is offering, taken out of the hand when the dialogue
+       opens with it. Consuming it drains its stack; whatever remains goes back
+       when the conversation ends. */
+    std::optional<W8ItemInstance> offered_item{};
     std::optional<QuoteBubble> quote_bubble{};
     short quote_x{};
     short quote_y{};
