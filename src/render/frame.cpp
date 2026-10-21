@@ -1011,10 +1011,6 @@ void DrawVideoInspector(int left, unsigned int top)
             DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
                                   {text_left, text_top + 0x6e},
                                   fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
-            DrawTextAndInvalidate(
-                GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top + 0x78},
-                fmt::format("MM: {:d}K",
-                            static_cast<unsigned int>(g_decompressed_mesh_bytes) >> 10));
             return;
         }
         if (g_video_inspector_mode == 3) {
