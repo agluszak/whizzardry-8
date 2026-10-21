@@ -820,6 +820,7 @@ TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across regi
                  "[audio][ambient]")
 {
     startOfflineAudio();
+    SetSoundEffectsVolume(127);
     SharedAmbientGroup group;
     group.resource = "tone.wav";
     W8AmbientSound first, second, third;

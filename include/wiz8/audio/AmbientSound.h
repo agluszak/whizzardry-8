@@ -71,9 +71,8 @@ public:
     float radius;                /* 0x0b4: audible range in world units */
     unsigned char in_range;      /* 0x0b8: listener currently inside radius/region */
     unsigned char looping;       /* 0x0b9: continuous loop vs random one-shot */
-    wiz8::sound::Playback sound_handle;      // Current playback, shared during group handoff.
+    wiz8::sound::Playback sound_handle;      // Positional playback.
     std::unique_ptr<W8AmbientTrack> random; // One-shot schedule; empty for looping sounds.
-    unsigned char shared;  /* 0x0c4: shared 2D group sound; voices hand off by name */
     unsigned char bounded; /* 0x0c5: region test enabled (v2 trigger field) */
     glm::vec3 region_min;    /* 0x0c8 */
     glm::vec3 region_max;    /* 0x0d4 */

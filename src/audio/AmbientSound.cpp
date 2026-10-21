@@ -27,7 +27,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/chunk.h"
-#include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -118,8 +117,8 @@ void StartAmbientSoundList(World& world)
 
 W8AmbientSound::W8AmbientSound()
     : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0),
-      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(), shared(0),
-      bounded(0), region_angle(0)
+      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(), bounded(0),
+      region_angle(0)
 {
     config.wave_name[0] = 0;
     position = glm::vec3(0);
@@ -286,7 +285,7 @@ void W8AmbientSound::Service(bool entered)
     if (sound_handle != nullptr) {
         return;
     }
-    if (shared == 0) {
+    if (!group) {
         float angle = -GetCameraYawRadians();
         glm::vec3 camera;
         glm::mat3 rotation;
@@ -547,7 +546,6 @@ bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundCo
     sound->radius = radius;
     sound->looping = looping;
     sound->bounded = bounded;
-    sound->shared = shared;
     if (shared) {
         auto found = std::ranges::find_if(world->audio.shared_groups, [&](const auto& group) {
             return CompareTextIgnoreAsciiCase(group->resource, config->wave_name) == 0;
