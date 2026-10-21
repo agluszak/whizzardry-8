@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
