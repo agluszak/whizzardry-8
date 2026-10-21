@@ -53,7 +53,6 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
-#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -345,21 +344,19 @@ std::vector<W8LocationVariable> CaptureLocationVariables(const Game& game, const
     return variables;
 }
 
-wiz8::save::DialogueTranscript CaptureDialogueTranscript(const W8NpcInteractionState& state)
+wiz8::save::DialogueTranscript CaptureDialogueTranscript(const Story& story,
+                                                         const W8NpcInteractionState& state)
 {
     wiz8::save::DialogueTranscript transcript;
-    for (const auto& keyword : state.dialogue_transcript) transcript.keywords.push_back(*keyword);
+    transcript.keywords = story.keywords;
     transcript.view = {state.dialogue_category_filter, state.transcript_sorted};
     return transcript;
 }
 
-void InstallDialogueTranscript(wiz8::save::DialogueTranscript transcript,
+void InstallDialogueTranscript(wiz8::save::DialogueTranscript transcript, Story& story,
                                W8NpcInteractionState& state)
 {
-    state.dialogue_transcript.clear();
-    for (auto& keyword : transcript.keywords)
-        state.dialogue_transcript.push_back(
-            std::make_unique<W8DialogueTranscriptRecord>(std::move(keyword)));
+    story.keywords = std::move(transcript.keywords);
     if (transcript.view) {
         state.dialogue_category_filter = transcript.view->category_filter;
         state.transcript_sorted = transcript.view->sorted;
@@ -1036,7 +1033,8 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     if (const auto variables = CaptureLocationVariables(game, GetWorld()); !variables.empty())
         WriteChunkPayload(chunks, W8_CHUNK_LOCATION_VARIABLES, wiz8::save::encode(variables));
     WriteChunkPayload(chunks, W8_CHUNK_NPC_TRANSCRIPT,
-                      wiz8::save::encode(CaptureDialogueTranscript(CurrentGame().npc_interaction)));
+                      wiz8::save::encode(CaptureDialogueTranscript(CurrentGame().story,
+                                                                   CurrentGame().npc_interaction)));
     WriteChunkPayload(chunks, W8_CHUNK_NPC_STATES, wiz8::save::encode(story.npcs));
     WriteChunkPayload(chunks, W8_CHUNK_FACT_STATE, wiz8::save::encode(story.facts));
     WriteChunkPayload(
@@ -1443,7 +1441,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.right = 640;
     rect.bottom = 480;
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
-    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect, true)
+    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect)
                                     ? W8ScreenshotCaptureResult::succeeded
                                     : W8ScreenshotCaptureResult::failed;
 }
@@ -1610,7 +1608,7 @@ try {
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
             InstallDialogueTranscript(
-                wiz8::save::decode_dialogue_transcript(ReadChunkPayload(chunks)),
+                wiz8::save::decode_dialogue_transcript(ReadChunkPayload(chunks)), game.story,
                 CurrentGame().npc_interaction);
             break;
         case W8_CHUNK_NPC_STATES:

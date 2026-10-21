@@ -112,8 +112,14 @@ struct World {
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
     std::unique_ptr<W8WorldCursorState> cursor;
+    /* The *_definitions hold one loaded, never-live representation per monster
+       species, spell visual and missile kind. Live entities are copied from them;
+       they hold no scene attachments and no navigator registration. */
+    std::vector<std::unique_ptr<Monster>> monster_definitions;
     std::vector<std::unique_ptr<Monster>> monsters;
+    std::vector<std::unique_ptr<SpellVisual>> spell_visual_definitions;
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
+    std::vector<std::unique_ptr<Missile>> missile_definitions;
     std::vector<std::unique_ptr<Missile>> missiles;
     W8EncounterState encounters;
     // Where the entities report missile hits and release frames; null reports nowhere.

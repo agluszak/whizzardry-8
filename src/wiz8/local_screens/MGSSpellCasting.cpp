@@ -242,7 +242,7 @@ bool OpenSpellCastingView(int party_slot)
     MainGameHud()->text_box_visible = false;
     SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
     gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
-    SelectSpellCastingPartySlot(party_slot);
+    SelectSpellCastingPartySlot(party_slot, gpSCSV->draft);
     gpSCSV->selected_spell_index = -1;
     SelectSpellCastingCharacter(party_slot);
     if (auto* hud = MainGameHud()) {
@@ -317,7 +317,7 @@ static void ClearSpellCastingChoice()
     SelectSpellPowerLevel(-1);
     gpSCSV->dialog_confirmed = false;
     UpdateSpellPowerPips();
-    SelectSpellCastingPartySlot(CurrentGame().status.selected_character);
+    SelectSpellCastingPartySlot(CurrentGame().status.selected_character, gpSCSV->draft);
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
@@ -926,7 +926,7 @@ static void SelectSpellCastingListRow(int index)
     color = gpSCSV->spells[index].color;
     if (color == 0 || color == 4) {
         gpSCSV->uiSpellIndex = -1;
-        ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE);
+        ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE, &gpSCSV->draft);
         ShowSpellCastingError(spell_id);
         QueueCharacterEvent(
             &CurrentGame().party.characters[CurrentGame().status.selected_character], 0x35, 0,
@@ -948,7 +948,7 @@ static void SelectSpellCastingListRow(int index)
     gpSCSV->draft.detail = spell_id;
     needed = GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
     target_type = GetSpellTargetType(spell_id, false);
-    ConfigureSpellTargetFilter(target_type, needed);
+    ConfigureSpellTargetFilter(target_type, needed, &gpSCSV->draft);
     SelectSpellPowerLevel(-1);
     UpdateSpellPowerPips();
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;

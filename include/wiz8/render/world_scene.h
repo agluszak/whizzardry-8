@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -13,6 +14,7 @@
 
 #include "wiz8/render/camera.h"
 #include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/map_view.h"
 
 class MeshInstance;
 class Light;
@@ -47,6 +49,8 @@ public:
     std::vector<std::unique_ptr<ClipPlane>> clip_planes;
     unsigned static_exclusion_mask = 1;
     unsigned submitted_polygons = 0;
+    // The automap's independent view of static_meshes.
+    MapView map;
 
     // Ordinary VSG subgraphs may join this group directly. Wizardry's material
     // descriptors are scoped to its own children, never imposed on this root.
@@ -66,7 +70,12 @@ public:
     vsg::ref_ptr<vsg::View> createView(render::RenderContext&, Camera3D*, const SceneFrame&,
                                        vsg::ref_ptr<vsg::ViewportState>,
                                        std::uint64_t frame_number);
+    // The map view: static geometry only, drawn with the map's own camera and appearance.
+    vsg::ref_ptr<vsg::View> createMapView(render::RenderContext&, const SceneFrame&,
+                                          vsg::ref_ptr<vsg::ViewportState>,
+                                          std::uint64_t frame_number);
     void pick(const vsg::Camera&, std::span<Pick>) const;
+    void advanceVisuals(std::chrono::milliseconds now);
 
     glm::vec3 getAmbientLight() const { return ambient_light; }
     glm::vec3 getFogColor() const { return fog_color; }
@@ -80,6 +89,11 @@ private:
     std::vector<std::unique_ptr<CachedView>> views;
     vsg::ref_ptr<vsg::StateGroup> game_root;
     vsg::ref_ptr<vsg::Group> objects;
+    vsg::ref_ptr<vsg::StateGroup> map_root;
     std::uint64_t prepared_frame = ~std::uint64_t{0};
     void prepare(render::RenderContext&, const SceneFrame&, std::uint64_t frame_number);
+    vsg::ref_ptr<vsg::View> cachedView(render::RenderContext&, Camera3D* source,
+                                       vsg::ref_ptr<vsg::Node> graph, const ScenePass&,
+                                       vsg::ref_ptr<vsg::ViewportState>,
+                                       std::uint64_t frame_number);
 };

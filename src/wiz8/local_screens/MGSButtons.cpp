@@ -1245,163 +1245,87 @@ bool BuildSubMenuPanel(short notification)
     return true;
 }
 
-W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot)
+/* Whether the slot may perform a candidate action, in entry-state terms:
+   USABLE/UNUSABLE or the _SELECTED variant when it is already queued. */
+static W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot, W8ActionKind candidate)
 {
-    unsigned char matches;
-
-    matches = 0;
-    if (MainGameHud()->selection_kind == CurrentGame().party.rows[party_slot].committed.kind &&
-        !MainGameHud()->selection_settled) {
-        matches = 1;
+    const int queued = candidate == CurrentGame().party.rows[party_slot].committed.kind ? 1 : 0;
+    if (CharacterCanChooseAction(party_slot, candidate) &&
+        CandidateHasAnyValidTarget(party_slot, candidate)) {
+        return static_cast<W8SubMenuEntryState>(queued);
     }
-    if (CharacterCanSwitchTo(party_slot, GetEditedActionContext(party_slot), true, false) &&
-        SlotHasAnyValidTarget(party_slot)) {
-        return static_cast<W8SubMenuEntryState>(matches);
-    }
-    return static_cast<W8SubMenuEntryState>(matches + W8_SUBMENU_ENTRY_UNUSABLE);
+    return static_cast<W8SubMenuEntryState>(queued + W8_SUBMENU_ENTRY_UNUSABLE);
 }
 
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
 {
-    W8SubMenuEntryState state;
-    W8Character* character;
-
-    character = &CurrentGame().party.characters[party_slot];
-    state = W8_SUBMENU_ENTRY_UNAVAILABLE;
-    MapSubMenuSelection(menu, item);
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     switch (menu) {
     case W8_SUBMENU_ATTACK:
         switch (item) {
+        case 0:
+            return CheckSubMenuActionUsable(party_slot, W8_ACTION_ATTACK);
         case 1:
             if (CharacterHasTrait(character, W8_TRAIT_BERSERK)) {
-                state = CheckSubMenuActionUsable(party_slot);
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_BERSERK);
             }
             break;
         case 2:
             if (CharacterHasTrait(character, W8_TRAIT_BREATHE)) {
-                state = CheckSubMenuActionUsable(party_slot);
-            }
-            break;
-        case 4:
-            if (CanPartySlotPray(party_slot)) {
-                state = CheckSubMenuActionUsable(party_slot);
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_BREATHE);
             }
             break;
         case 3:
             if (CanPartySlotTurnUndead(party_slot)) {
-                state = CheckSubMenuActionUsable(party_slot);
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_TURN_UNDEAD);
             }
             break;
-        case 0:
-            state = CheckSubMenuActionUsable(party_slot);
+        case 4:
+            if (CanPartySlotPray(party_slot)) {
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_PRAY);
+            }
             break;
         }
         break;
     case W8_SUBMENU_DEFEND:
-        if (item >= 0 && item <= 1) {
-            state = CheckSubMenuActionUsable(party_slot);
+        if (item == 0) {
+            return CheckSubMenuActionUsable(party_slot, W8_ACTION_DEFEND);
+        }
+        if (item == 1) {
+            return CheckSubMenuActionUsable(party_slot, W8_ACTION_PROTECT);
         }
         break;
     case W8_SUBMENU_ITEMS:
         if (item == 0) {
             if (CurrentGame().combat.has_value()) {
-                state = CheckSubMenuActionUsable(party_slot);
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_EQUIP);
             }
         } else if (item == 1) {
             if (CountUsableCharacterItems(character) != 0) {
-                state = CheckSubMenuActionUsable(party_slot);
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_USE_ITEM);
             }
         } else if (item == 2) {
-            state = CanPartySlotUseRecordedItem(party_slot) ? W8_SUBMENU_ENTRY_USABLE
-                                                            : W8_SUBMENU_ENTRY_UNAVAILABLE;
+            return CanPartySlotUseRecordedItem(party_slot) ? W8_SUBMENU_ENTRY_USABLE
+                                                           : W8_SUBMENU_ENTRY_UNAVAILABLE;
         }
         break;
     case W8_SUBMENU_SPELLS:
         if (item == 0) {
             if (CharacterHasCastableSpell(character)) {
-                state = CheckSubMenuActionUsable(party_slot);
+                return CheckSubMenuActionUsable(party_slot, W8_ACTION_CAST_SPELL);
             }
         } else if (item == 1) {
-            if (CanPartySlotCastRecordedSpell(party_slot)) {
-                state = W8_SUBMENU_ENTRY_USABLE;
-            } else {
-                state = GetAffordableSpellPowerLevel(party_slot) != 0
-                            ? W8_SUBMENU_ENTRY_USABLE
-                            : W8_SUBMENU_ENTRY_UNAVAILABLE;
+            if (CanPartySlotCastRecordedSpell(party_slot) ||
+                GetAffordableSpellPowerLevel(party_slot) != 0) {
+                return W8_SUBMENU_ENTRY_USABLE;
             }
         }
         break;
     case W8_SUBMENU_MOVE:
         if (item >= 0 && item <= 1) {
-            state = W8_SUBMENU_ENTRY_USABLE;
+            return W8_SUBMENU_ENTRY_USABLE;
         }
         break;
     }
-    MainGameHud()->selection_kind = W8_ACTION_NONE;
-    MainGameHud()->selection_settled = false;
-    return state;
-}
-
-void MapSubMenuSelection(short menu, short item)
-{
-    W8ActionKind action;
-    bool settled;
-
-    action = W8_ACTION_NONE;
-    settled = false;
-    switch (menu) {
-    case W8_SUBMENU_ATTACK:
-        switch (item) {
-        case 0:
-            action = W8_ACTION_ATTACK;
-            break;
-        case 1:
-            action = W8_ACTION_BERSERK;
-            break;
-        case 2:
-            action = W8_ACTION_BREATHE;
-            break;
-        case 3:
-            action = W8_ACTION_TURN_UNDEAD;
-            break;
-        case 4:
-            action = W8_ACTION_PRAY;
-            break;
-        }
-        break;
-    case W8_SUBMENU_DEFEND:
-        if (item == 0) {
-            action = W8_ACTION_DEFEND;
-        } else if (item == 1) {
-            action = W8_ACTION_PROTECT;
-        }
-        break;
-    case W8_SUBMENU_ITEMS:
-        if (item == 0) {
-            action = W8_ACTION_EQUIP;
-        } else if (item == 1) {
-            action = W8_ACTION_USE_ITEM;
-        } else if (item == 2) {
-            action = W8_ACTION_USE_ITEM;
-            settled = true;
-        }
-        break;
-    case W8_SUBMENU_SPELLS:
-        if (item == 0) {
-            action = W8_ACTION_CAST_SPELL;
-        } else if (item == 1) {
-            action = W8_ACTION_CAST_SPELL;
-            settled = true;
-        }
-        break;
-    case W8_SUBMENU_MOVE:
-        if (item == 0) {
-            action = W8_ACTION_WALK;
-        } else if (item == 1) {
-            action = W8_ACTION_RUN;
-        }
-        break;
-    }
-    MainGameHud()->selection_kind = action;
-    MainGameHud()->selection_settled = settled;
+    return W8_SUBMENU_ENTRY_UNAVAILABLE;
 }

@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -482,10 +483,10 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         }
     }
     PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
-    CurrentGame().party.formation.positions[slot].bOldQuadrant = 0xff;
+    CurrentGame().party.formation.positions[slot].revival_row = -1;
 
     if (GameStarted()) {
-        CurrentGame().planned_formation.positions[slot].bOldQuadrant = 0xff;
+        CurrentGame().planned_formation.positions[slot].revival_row = -1;
         PostCharacterNotice(slot, Data().strings[0x250]);
     }
 
@@ -507,12 +508,13 @@ void RemoveCharacterFromParty(int party_slot)
     character->fInParty = false;
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
-    SetFormationPosition(&CurrentGame().party.formation, party_slot, -1, -1, false, true, true);
+    SetFormationPosition(&CurrentGame().party.formation, party_slot, std::nullopt, false, true,
+                         true);
     if (CurrentGame().combat.has_value()) {
-        SetFormationPosition(&CurrentGame().planned_formation, party_slot, -1, -1, false, true,
-                             true);
-        SetFormationPosition(&CurrentGame().combat->saved_formation, party_slot, -1, -1, false,
+        SetFormationPosition(&CurrentGame().planned_formation, party_slot, std::nullopt, false,
                              true, true);
+        SetFormationPosition(&CurrentGame().combat->saved_formation, party_slot, std::nullopt,
+                             false, true, true);
     }
     if (GameStarted()) {
         PostCharacterNotice(party_slot, Data().strings[0x251]);
@@ -571,7 +573,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
         }
     }
     PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
-    CurrentGame().party.formation.positions[slot].bOldQuadrant = 0xff;
+    CurrentGame().party.formation.positions[slot].revival_row = -1;
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
         unsigned int cost = ComputeStartingEquipmentCost(character);
