@@ -9,6 +9,7 @@
 
 #include "save_payload.h"
 #include "scoped_game.h"
+#include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
@@ -18,6 +19,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -330,4 +332,33 @@ TEST_CASE_METHOD(TimerFixture, "World paths, item radar and ambient replay wait 
     REQUIRE(ambient.Due());
     advance(9'000'000);
     REQUIRE_FALSE(item.IsRadarBlipLit());
+}
+
+TEST_CASE("Spell practice queries are pure and attempts restart even a running cooldown",
+          "[timers]")
+{
+    ScopedGame game;
+    GameData records;
+    records.spells.resize(W8_SPELL_SET_PORTAL + 1);
+    ScopedGameData data{std::move(records)};
+    W8CombatSlot target{};
+    REQUIRE(AttemptSpellPractice(W8_SPELL_LIGHT, &target, 1, 0));
+    const auto deadlines = game.game.spell_cooldowns;
+    REQUIRE_FALSE(SpellAffectedTarget(W8_SPELL_LIGHT, &target, 1, 179999));
+    REQUIRE(SpellAffectedTarget(W8_SPELL_LIGHT, &target, 1, 180000));
+    REQUIRE(game.game.spell_cooldowns == deadlines);
+    REQUIRE_FALSE(AttemptSpellPractice(W8_SPELL_LIGHT, &target, 1, 179999));
+    REQUIRE_FALSE(SpellAffectedTarget(W8_SPELL_LIGHT, &target, 1, 180000));
+    REQUIRE(AttemptSpellPractice(W8_SPELL_LIGHT, &target, 1, 359999));
+
+    // An ineffective Remove Curse still consumes practice eligibility.
+    target.iType = W8_TARGET_KIND_CHARACTER;
+    REQUIRE_FALSE(AttemptSpellPractice(W8_SPELL_REMOVE_CURSE, &target, 1, 0));
+    game.game.party.characters[0].uiCondition[W8_CONDITION_HEXED] = 1;
+    REQUIRE_FALSE(SpellAffectedTarget(W8_SPELL_REMOVE_CURSE, &target, 1, 179999));
+    REQUIRE(SpellAffectedTarget(W8_SPELL_REMOVE_CURSE, &target, 1, 180000));
+    const auto before_combat = game.game.spell_cooldowns;
+    game.game.combat.emplace();
+    REQUIRE(AttemptSpellPractice(W8_SPELL_REMOVE_CURSE, &target, 1, 1));
+    REQUIRE(game.game.spell_cooldowns == before_combat);
 }

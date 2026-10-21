@@ -1129,8 +1129,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     }
 
     if (skill != W8_SKILL_NONE) {
-        if (SpellAffectedTarget(character, spell_id,
-                                &CurrentGame().party.rows[party_slot].executing.target, power)) {
+        if (AttemptSpellPractice(spell_id, &CurrentGame().party.rows[party_slot].executing.target,
+                                 power, static_cast<std::uint64_t>(CurrentGame().time.count()))) {
             PracticeCharacterSkill(CurrentGame(), character, skill,
                                    Data().spells[spell_id].spell_level + (power >> 1), false);
         }
