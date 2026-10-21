@@ -261,8 +261,7 @@ void ApplyWorldCursorInput(void)
         cursor.monster->SetAdjustedPosition(&lifted);
 
         if (cursor.light != 0) {
-            node_location = glm::dvec3(cursor.position);
-            cursor.light->transform.setLocation(node_location);
+            cursor.light->transform.setLocation(glm::dvec3(cursor.position));
         }
         // The dragged monster may have been removed or unloaded since the drag began.
         const auto* dragged = FindMonster(cursor.dragged_location_id, false);
