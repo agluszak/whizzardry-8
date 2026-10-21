@@ -188,6 +188,9 @@ Unlayered code may use the layers.
   gone. Navigators target and follow each other by address, so a destroyed navigator
   clears every link to itself. A placed item's level trigger belongs to the item's
   record, because the item's entity is rebuilt each time the item comes back into range.
+- A world owns its cursor while it is shown (`World::cursor`) and what a new cursor
+  starts from (`World::cursor_recall`: the last cursor's distance from the camera, reset
+  when a fight ends, and its monster group), so no cursor state outlives its world.
 - A level's script is part of the level ("Scripts"). Its masters return completion
   directly; masters armed during a dispatch wait for the next frame.
 

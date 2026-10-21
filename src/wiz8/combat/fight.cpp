@@ -1027,7 +1027,7 @@ void Game::endCombat(bool forced_cleanup)
     SettleActiveParty(*this);
     ClearLevelMovementState();
     CurrentGame().events.push(MonstersChanged{});
-    ResetWorldCursorRange();
+    if (auto* world = level.primary.get()) ResetWorldCursorDistance(*world);
     if (activity.in_world()) {
         ApplyCombatEndEffects();
         ReportSaveFailed(true);

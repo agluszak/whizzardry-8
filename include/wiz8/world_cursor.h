@@ -68,6 +68,17 @@ struct W8WorldCursorState {
        the update looks it up, drags it to the cursor position and releases
        it when shift lifts or the monster is gone. */
     int dragged_location_id{};
+    /* Set when the cursor opens while a developer drag modifier is held; while set, the
+       update keeps the dragged monster instead of picking the nearest one. */
+    bool pick_latched{};
+};
+
+/* What a world remembers between showings of its cursor: a new cursor is placed this far
+   in front of the camera (where the last one was, until a fight ends) and starts with the
+   monster group the last one selected. */
+struct W8WorldCursorRecall {
+    float projection_distance = 4000.0f;
+    int monster_group_id = -1;
 };
 
 /* Build the 3D cursor, light and initial camera-relative bounds. */
