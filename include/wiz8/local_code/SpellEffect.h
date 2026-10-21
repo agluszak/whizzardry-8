@@ -123,7 +123,7 @@ struct W8SpellEffectEntry {
 /* One persistent lure. The cast retains its source, anchor, power and report
    until expiration; it is not part of the transient spell queue. */
 struct HypnoticLure {
-    W8SpellEffectEntry cast;
+    W8SpellEffectEntry cast{};
     int turns_remaining = 0;
 };
 /* Advance every queued spell effect one frame. */
