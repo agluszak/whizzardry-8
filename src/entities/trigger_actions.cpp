@@ -26,7 +26,6 @@
 #include <glm/matrix.hpp>
 
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/sound3d.h"
@@ -68,7 +67,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"

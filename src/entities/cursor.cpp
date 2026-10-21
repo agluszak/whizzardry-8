@@ -27,7 +27,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
 #include "wiz8/rules/targeting.h"

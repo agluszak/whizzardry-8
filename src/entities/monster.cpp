@@ -67,7 +67,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/ground_shadow.h"

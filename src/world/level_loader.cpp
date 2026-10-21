@@ -34,7 +34,6 @@
 #include "application.h"
 #include "asset_paths.h"
 #include "geometry.h"
-#include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"

@@ -16,7 +16,6 @@
 
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/levels.h"
@@ -56,6 +55,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
+#include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"

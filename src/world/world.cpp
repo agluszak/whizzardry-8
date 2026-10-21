@@ -13,6 +13,7 @@
 
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
+#include <glm/trigonometric.hpp>
 
 #include "asset_paths.h"
 #include "camera_motion.h"
@@ -51,7 +52,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"

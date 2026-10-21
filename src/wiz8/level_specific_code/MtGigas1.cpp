@@ -2,7 +2,6 @@
 
 #include <memory>
 
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/animation_types.h"
@@ -12,7 +11,6 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"

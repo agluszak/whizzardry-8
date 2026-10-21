@@ -10,7 +10,6 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
