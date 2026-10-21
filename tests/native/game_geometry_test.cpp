@@ -18,6 +18,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
@@ -51,6 +52,7 @@
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/camera_motion.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/entities/animation.h"
@@ -2323,4 +2325,27 @@ TEST_CASE("Surface ray queries keep chance and skip filters local", "[geometry]"
     REQUIRE_FALSE(traceSurfaces(surfaces, vertices, segment, {.skip_filtered = true}));
     REQUIRE(traceSurfaces(surfaces, vertices, segment, {}));
     REQUIRE(surfaces[0].flags == definition.flags);
+}
+
+TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offsets",
+          "[geometry][cursor]")
+{
+    SpriteSheet sprites;
+    sprites.colors[7] = 0xffff;
+    sprites.frames.push_back({.indices = std::vector<std::uint16_t>(301 * 19, 7),
+                              .offset = {11, -4},
+                              .width = 301,
+                              .height = 19});
+    const auto animation = VideoVObjectToTextureAnim(sprites, 0, 1, true);
+    REQUIRE(animation->playback->textures.size() == 1);
+    const auto* image = animation->playback->textures.front()->getSurface();
+    REQUIRE(image);
+    REQUIRE(image->w == 301);
+    REQUIRE(image->h == 19);
+    for (int y : {0, 18}) {
+        const auto* row = reinterpret_cast<const std::uint16_t*>(
+            static_cast<const unsigned char*>(image->pixels) + y * image->pitch);
+        REQUIRE(row[0] == 0xffff);
+        REQUIRE(row[300] == 0xffff);
+    }
 }

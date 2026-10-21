@@ -664,35 +664,14 @@ static void MoveSystemCursor(int x, int y)
 
 bool ResizeMouseCursorSurface(int width, int height)
 {
-    int extent;
-    float mapping_scale;
-
-    if (g_cursor_image_width == width && g_cursor_image_height == height) {
-        return true;
-    }
-    extent = width > height ? width : height;
-    if (extent <= 16)
-        extent = 16;
-    else if (extent <= 32)
-        extent = 32;
-    else if (extent <= 64)
-        extent = 64;
-    else if (extent <= 128)
-        extent = 128;
-    else if (extent <= 256)
-        extent = 256;
-    else
-        extent = -1;
-    if (extent < 0) return false;
-    g_mouse_surface = std::shared_ptr<SDL_Surface>(
-        CreateCpuStorage(extent, extent, g_mouse_surface->format).release(), SDL_DestroySurface);
-    g_cursor_node.reset();
-    mapping_scale = g_texture_inset_pixels / extent;
-    auto texture = std::make_shared<Texture>(g_mouse_surface);
-    g_cursor_node = makeOverlayFromTexture(texture, extent / 640.0, extent / 480.0, true, false);
+    if (width <= 0 || height <= 0) return false;
+    if (g_mouse_surface && g_mouse_surface->w == width && g_mouse_surface->h == height) return true;
+    auto storage = CreateCpuStorage(width, height, SDL_PIXELFORMAT_ARGB1555);
+    if (!storage) return false;
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(std::move(storage));
+    g_cursor_node = makeOverlayFromTexture(std::make_shared<Texture>(g_mouse_surface),
+                                           width / 640.0, height / 480.0, true, false);
     g_compositor.attach(*g_cursor_node, OverlayLayer::Cursor);
-    g_cursor_node->uv_min = glm::vec2(mapping_scale);
-    g_cursor_node->uv_max = 1.0f + g_cursor_node->uv_min;
     PositionMouseCursor(g_cursor_width, g_cursor_height, false);
     return true;
 }
@@ -724,7 +703,7 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
         return false;
     }
     const SpriteFrame& properties = sprites.frames[region];
-    if (!ResizeMouseCursorSurface(properties.width + 1, properties.height + 1)) {
+    if (!ResizeMouseCursorSurface(properties.width, properties.height)) {
         return false;
     }
     if (g_cursor_hotspot_x != offset_x || g_cursor_hotspot_y != offset_y) {
@@ -738,7 +717,10 @@ bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t reg
     g_cursor_image_width = properties.width;
     g_cursor_image_height = properties.height;
     ClearMouseSurface();
-    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, 0, 0);
+    // A standalone cursor image has no baked sprite-canvas offset. Its placement
+    // comes exclusively from the explicit hotspot.
+    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, -properties.offset.x,
+                                         -properties.offset.y);
 }
 
 void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
@@ -878,10 +860,9 @@ bool InitializeMouseCursorScene(void)
     if (!g_mouse_surface) return false;
     ClearMouseSurface();
     auto texture = std::make_shared<Texture>(g_mouse_surface);
-    g_cursor_node = makeOverlayFromTexture(texture, .2, 128.0 / 480.0, true, false);
+    g_cursor_node = makeOverlayFromTexture(texture, g_mouse_surface->w / 640.0,
+                                           g_mouse_surface->h / 480.0, true, false);
     g_compositor.attach(*g_cursor_node, OverlayLayer::Cursor);
-    g_cursor_node->uv_min = glm::vec2(g_texture_inset_pixels / 128.0f);
-    g_cursor_node->uv_max = 1.0f + g_cursor_node->uv_min;
     PositionMouseCursor(640, 480, true);
     return true;
 }
@@ -1259,69 +1240,30 @@ std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
                                                    unsigned short start_frame,
                                                    unsigned short frame_count, bool use_argb1555)
 {
-    unsigned short frame;
-    unsigned short end_frame;
-    std::uint32_t extent;
-    unsigned short largest;
-
     auto animation = std::make_shared<Texture>(TexturePlayback{});
     animation->setName("VideoVObjecttoTextureAnim");
-    animation->setMipmapBias(-8.0f);
-
-    frame = start_frame;
-    end_frame = static_cast<unsigned short>(start_frame + frame_count);
-    while (frame < end_frame) {
-        if (frame < sprites.frames.size()) {
-            const SpriteFrame& properties = sprites.frames[frame];
-            largest = properties.height;
-            if (properties.height < properties.width) {
-                largest = properties.width;
-            }
-            if (largest < 0x101) {
-                if (largest < 0x81) {
-                    if (largest < 0x41) {
-                        if (largest < 0x21) {
-                            extent = ((largest < 0x11) - 1 & 0x10) + 0x10;
-                        } else {
-                            extent = 0x40;
-                        }
-                    } else {
-                        extent = 0x80;
-                    }
-                } else {
-                    extent = 0x100;
-                }
-            } else {
-                extent = static_cast<std::uint32_t>(-1);
-            }
-
-            std::shared_ptr<SDL_Surface> surface;
-            if (!use_argb1555) {
-                surface = std::shared_ptr<SDL_Surface>(
-                    CreateCpuStorage(extent, extent, SDL_PIXELFORMAT_XRGB1555).release(),
-                    SDL_DestroySurface);
-            } else {
-                surface = std::shared_ptr<SDL_Surface>(
-                    CreateCpuStorage(extent, extent, SDL_PIXELFORMAT_ARGB1555).release(),
-                    SDL_DestroySurface);
-            }
-            SDL_FillSurfaceRect(surface.get(), nullptr, 0);
-            if (BlitVideoObjectToColorSurface(sprites, frame, *surface, 0, 0)) {
-                auto texture = std::make_shared<Texture>();
-                texture->setName("VideoVObjecttoTextureAnim");
-                texture->setMipmapBias(-8.0f);
-                texture->setSurfacePtr(surface);
-                texture->setWrapS(Texture::WRAP_CLAMP);
-                texture->setWrapT(Texture::WRAP_CLAMP);
-                texture->setMagFilter(Texture::FILTER_NONE);
-                texture->setMinFilter(Texture::FILTER_NONE);
-
-                texture->setMipmap(Texture::MIPMAP_NONE);
-
-                animation->AddTexture(std::move(texture));
-            }
-        }
-        ++frame;
+    const auto end = std::min(sprites.frames.size(), std::size_t(start_frame) + frame_count);
+    for (std::size_t frame = start_frame; frame < end; ++frame) {
+        const auto& properties = sprites.frames[frame];
+        auto surface =
+            CreateCpuStorage(properties.width, properties.height,
+                             use_argb1555 ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555);
+        if (!surface) continue;
+        SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+        if (!BlitVideoObjectToColorSurface(sprites, frame, *surface, -properties.offset.x,
+                                           -properties.offset.y))
+            continue;
+        auto texture = std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(surface)));
+        texture->setName("VideoVObjecttoTextureAnim");
+        auto dimensions = texture->getDimensions();
+        dimensions.native_size = true;
+        texture->setDimensions(dimensions);
+        texture->setWrapS(Texture::WRAP_CLAMP);
+        texture->setWrapT(Texture::WRAP_CLAMP);
+        texture->setMagFilter(Texture::FILTER_NONE);
+        texture->setMinFilter(Texture::FILTER_NONE);
+        texture->setMipmap(Texture::MIPMAP_NONE);
+        animation->AddTexture(std::move(texture));
     }
     return animation;
 }
