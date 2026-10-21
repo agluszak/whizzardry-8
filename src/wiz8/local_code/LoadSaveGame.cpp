@@ -350,7 +350,7 @@ wiz8::save::DialogueTranscript CaptureDialogueTranscript(const Story& story,
 {
     wiz8::save::DialogueTranscript transcript;
     transcript.keywords = story.keywords;
-    transcript.view = {state.dialogue_category_filter, state.transcript_sorted};
+    transcript.view = {state.dialogue_category_filter, story.keywords_sorted};
     return transcript;
 }
 
@@ -360,7 +360,7 @@ void InstallDialogueTranscript(wiz8::save::DialogueTranscript transcript, Story&
     story.keywords = std::move(transcript.keywords);
     if (transcript.view) {
         state.dialogue_category_filter = transcript.view->category_filter;
-        state.transcript_sorted = transcript.view->sorted;
+        story.keywords_sorted = transcript.view->sorted;
     }
 }
 

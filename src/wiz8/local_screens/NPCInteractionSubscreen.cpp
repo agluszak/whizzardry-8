@@ -1967,11 +1967,11 @@ void OpenNpcDialogueTranscriptLayout(void)
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptCategoryFilter(
         CurrentGame().npc_interaction.dialogue_category_filter);
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptSorted(
-        CurrentGame().npc_interaction.transcript_sorted);
+        CurrentGame().story.keywords_sorted);
     CurrentGame().npc_interaction.ui->transcript->Expand();
     SyncNpcDialogueTranscriptScrollButtons();
     SyncDialogueCategoryButtons();
-    if (CurrentGame().npc_interaction.transcript_sorted) {
+    if (CurrentGame().story.keywords_sorted) {
         SetNpcActionPressed(W8_NPC_CONTROL_SORT_BUTTON, true);
     } else {
         SetNpcActionPressed(W8_NPC_CONTROL_SORT_BUTTON, false);
@@ -2092,12 +2092,12 @@ static void SyncNpcDialogueListFilter(void)
     if (CurrentGame()
             .npc_interaction.ui->actions[W8_NPC_CONTROL_SORT_BUTTON]
             .interaction.selected) {
-        CurrentGame().npc_interaction.transcript_sorted = true;
+        CurrentGame().story.keywords_sorted = true;
     } else {
-        CurrentGame().npc_interaction.transcript_sorted = false;
+        CurrentGame().story.keywords_sorted = false;
     }
     CurrentGame().npc_interaction.ui->transcript->SetTranscriptSorted(
-        CurrentGame().npc_interaction.transcript_sorted);
+        CurrentGame().story.keywords_sorted);
 }
 
 static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueCategory category)

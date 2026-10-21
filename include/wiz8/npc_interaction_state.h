@@ -55,7 +55,7 @@ enum W8NpcTradeMode : unsigned char {
 };
 
 /* The NPC conversation's interface state for one play-through: the dialogue layout and
-   trade tables, the transcript the save keeps, the quote bubble and the staged script
+   trade tables, the transcript view's category, the quote bubble and the staged script
    notice. The game owns it (`Game::npc_interaction`), so a new game starts it afresh.
    Transitional: most of it is presentation the main game screen should own. */
 struct W8NpcInteractionState {
@@ -92,7 +92,6 @@ struct W8NpcInteractionState {
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query{};
-    bool transcript_sorted{};
     /* The item the party is offering, taken out of the hand when the dialogue
        opens with it. Consuming it drains its stack; whatever remains goes back
        when the conversation ends. */
