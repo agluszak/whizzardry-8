@@ -242,7 +242,7 @@ TEST_CASE("world graphics")
     if (mode && strcmp(mode, "kill") == 0) {
         W8MonsterInfo* monster = nullptr;
         for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
-            if (candidate->fActive && candidate->p3D && candidate->hp_current) {
+            if (candidate->fActive && candidate->entity.find() && candidate->hp_current) {
                 monster = candidate.get();
                 break;
             }

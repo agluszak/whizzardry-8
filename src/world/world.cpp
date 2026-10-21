@@ -428,7 +428,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
 
     if (check_items) {
         for (const auto& item : CurrentLevelPopulation().world_items) {
-            WorldItemEntity* owner = item->p3D;
+            WorldItemEntity* owner = item->entity.find();
             if (owner != 0) {
                 glm::vec3 center;
                 center = owner->GetSearchPosition();
@@ -444,7 +444,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
     if (check_monsters) {
         for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* info = monster_owner.get();
-            Monster* monster = info->p3D;
+            Monster* monster = info->entity.find();
             if (monster != 0) {
                 const auto center = monster->GetAnimationCenter();
                 float other_radius;

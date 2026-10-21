@@ -347,8 +347,8 @@ bool MartensBluff1Script::transportSpawn()
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = FindMonster(location_id);
-        if (info != 0 && info->p3D != 0) {
-            info->p3D->SetScript("M1_Trang_trans.MSF", true);
+        if (info != 0 && info->entity) {
+            info->entity->SetScript("M1_Trang_trans.MSF", true);
         }
     }
     return true;

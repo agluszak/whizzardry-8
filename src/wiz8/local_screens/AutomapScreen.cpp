@@ -1356,7 +1356,7 @@ void RenderAutomapMarkers(void)
     const auto count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
-        Monster* monster = info->p3D;
+        Monster* monster = info->entity.find();
         glm::vec3 location;
         location = monster->visual.GetLocation();
         FindAutomapLayerAtHeight(location.y);
@@ -1393,7 +1393,7 @@ void RenderAutomapMarkers(void)
         }
     }
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
-        WorldItemEntity* item = world_item->p3D;
+        WorldItemEntity* item = world_item->entity.find();
         if (item == 0) {
             continue;
         }

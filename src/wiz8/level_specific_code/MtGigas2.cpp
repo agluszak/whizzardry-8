@@ -210,7 +210,7 @@ void MtGigas2Script::setup()
         if (npc != 0) {
             info = GetNpcMonsterInfo(npc);
             if (info != 0 && FindEntityByName("RubbleCovert", &position, 0, 0)) {
-                info->p3D->SetPosition(&position);
+                info->entity->SetPosition(&position);
             }
         }
     }

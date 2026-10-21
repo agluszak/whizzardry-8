@@ -597,7 +597,7 @@ try {
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
-        auto* monster = monster_info->p3D;
+        auto* monster = monster_info->entity.find();
         const glm::vec3 camera_position = cameraLocation(*world);
         monster->visual.SelectLOD(&camera_position);
         monster->nav.SetPathAI(std::move(path));

@@ -3,6 +3,7 @@
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/game.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/Magic.h"
@@ -38,5 +39,5 @@ void Game::startGolemAttack()
 void Game::castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level)
 {
     PointCastSpell(position, spell, power_level);
-    if (spell == W8_SPELL_HEAL_ALL) RemoveAllConditionsFromParty();
+    if (spell == W8_SPELL_HEAL_ALL) LiftAllConditionsFromParty(CurrentGame());
 }

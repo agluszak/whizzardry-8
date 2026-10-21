@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+struct SavedTrigger;
 
 #include <cassert>
 #include <cstdint>
@@ -183,7 +184,7 @@ public:
     void CompleteItemInteraction();
     void Activate();
     void Save(wiz8::File& hFile);
-    bool Load(W8Chunk& hFile, std::uint8_t version, bool from_assets = false);
+    void Restore(SavedTrigger saved);
     void RunLinkedTriggers();
     void FinishAction();
     void GetPosition(glm::vec3* position) const;
@@ -283,11 +284,8 @@ W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle);
    action data. */
 int ResetNextTriggerId(void);
 void SaveWorldTriggers(wiz8::File& handle);
-bool LoadWorldTriggers(World* world, W8Chunk& handle, bool from_assets = false);
 void SaveTriggerRuntimeStates(wiz8::File& handle);
-bool LoadTriggerRuntimeStates(World& world, W8Chunk& handle);
 void SaveTriggerActionData(wiz8::File& handle);
-bool LoadTriggerActionData(World& world, W8Chunk& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */

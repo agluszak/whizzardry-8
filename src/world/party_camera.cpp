@@ -779,7 +779,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
             if (group != 0) {
                 monster_info = FindMonster(group->leader_location_id);
                 PointCameraAtMonster(monster_info, true, true);
-                position = monster_info->p3D->nav.GetPosition();
+                position = monster_info->entity->nav.GetPosition();
                 target = position;
                 if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_ALL_TARGETS) {
                     if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP) {
@@ -793,7 +793,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
                         partyCamera().BeginOrientationTransition(pitch, angle, false);
                     }
                 }
-                monster_info->p3D->ForwardReferencePosition(0);
+                monster_info->entity->ForwardReferencePosition(0);
             }
             npc = GetNpcStateByKind(0x34);
         }
@@ -808,7 +808,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
             group = FindFirstMonsterByID(0x1b4);
             if (group != 0) {
                 monster_info = FindMonster(group->leader_location_id);
-                monster_info->p3D->ForwardReferencePosition(0);
+                monster_info->entity->ForwardReferencePosition(0);
                 return;
             }
         } else if (SDL_strcasecmp(path->name0, "CameraPath4") == 0) {
@@ -842,7 +842,7 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
             return;
         }
     }
-    monster = monster_info->p3D;
+    monster = monster_info->entity.find();
     if (!monster->IsRenderable(true)) {
         return;
     }

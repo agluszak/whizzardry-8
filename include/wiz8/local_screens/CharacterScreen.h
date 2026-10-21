@@ -20,6 +20,8 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
+class Game;
+
 class W8DialogBase;
 class CharacterScreen;
 class W8CharacterPageEntry;
@@ -302,6 +304,8 @@ class CharacterScreen final : public Screen {
 public:
     static constexpr W8ScreenId id = W8_SCREEN_CHARACTER;
 
+    // The screen is rebuilt on every visit, within one game.
+    explicit CharacterScreen(Game& game) : m_game(game) {}
     bool enter(const ScreenRequest& request) override;
     void frame() override;
     bool leave(ScreenDeparture departure) override;
@@ -339,6 +343,7 @@ public:
     W8Character* GetOriginalCharacter();
     void DrawNavigation(SDL_Surface& target);
 
+    Game& m_game;
     W8CharacterScreenMode m_mode = W8_CHARACTER_CREATE;
     int m_page_index = -1;
     bool m_header_dirty = false;

@@ -65,6 +65,8 @@ struct Story {
     /* The learned keyword notebook. Every addition and removal changes it at once;
        the dialogue transcript only shows it. */
     std::vector<W8DialogueTranscriptRecord> keywords;
+    // Whether the transcript lists the notebook sorted; saves keep it with the keywords.
+    bool keywords_sorted = false;
     /* Indexed by the slot that party rows and monster bindings name. A released NPC's
        slot can go to a different NPC; anything still working with the released one
        shares it, so it never starts referring to the slot's new occupant. */

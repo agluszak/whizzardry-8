@@ -41,6 +41,7 @@
 #include "navigation_flags.h"
 #include "packed_bits.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/binary_reader.h"
 #include "wiz8/combat/range.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/cycle_player.h"
@@ -84,7 +85,7 @@ Monster* navigationMonster(const NavigationMesh& navigation, int location)
     const auto* world = navigation.owner_octree ? navigation.owner_octree->owner_world : nullptr;
     if (!world || !world->population) return nullptr;
     auto* info = world->population->findMonster(location);
-    return info ? info->p3D : nullptr;
+    return info ? info->entity.find() : nullptr;
 }
 class SteeringStep {
 public:
@@ -203,44 +204,61 @@ void W8PathHeapHandle::DeleteRoot(W8PathSearchNode* node)
     node->flags |= W8_PATH_SEARCH_CLOSED;
 }
 
+namespace {
+/* A waypoint as a .WPT file stores it: the persistent flags, the first edge and the
+   world position. */
+struct WaypointRecord {
+    std::uint16_t flags = 0;
+    std::uint16_t first_edge = 0;
+    glm::vec3 position{0, 0, 0};
+};
+
+WaypointRecord ReadWaypointRecord(wiz8::BinaryReader& reader)
+{
+    WaypointRecord record;
+    record.flags = reader.record<std::uint16_t>();
+    record.first_edge = reader.record<std::uint16_t>();
+    for (int axis = 0; axis < 3; ++axis) record.position[axis] = reader.record<float>();
+    return record;
+}
+
+/* An edge as a .WPT file stores it, in little-endian fields: flags (4 bytes), the
+   source waypoint (2, absent in version one, which derives it from the chains), the
+   destination (2), the distance (4) and the next edge (2). */
+W8PathEdge ReadEdgeRecord(wiz8::BinaryReader& reader, unsigned int version)
+{
+    W8PathEdge edge;
+    edge.flags = reader.record<std::uint32_t>();
+    if (version != 1) edge.source = reader.record<std::uint16_t>();
+    edge.destination = reader.record<std::uint16_t>();
+    edge.distance = reader.record<float>();
+    edge.next = reader.record<std::uint16_t>();
+    return edge;
+}
+} // namespace
+
 /* Read a versioned .WPT snapshot and rebuild its live graph representation.
-   Version one stores the four persistent edge fields separately; later files
-   contain the complete packed 0x0e-byte edge record. */
+   Version one stores the edges without their source waypoint. */
 unsigned char NavigationMesh::ReadWaypointFile(LevelSpatialIndex& octree)
 try {
     if (path_node_count == 0) {
         return false;
     }
     auto handle = wiz8::open_file(wiz8::asset_path(std::string(level_name) + ".WPT"));
-    unsigned int version, edge_nodes, waypoint_count, link_count;
-    handle->read_exact(&version, sizeof(version));
-    handle->read_exact(&edge_nodes, sizeof(edge_nodes));
-    handle->read_exact(&waypoint_count, sizeof(waypoint_count));
-    handle->read_exact(&link_count, sizeof(link_count));
+    wiz8::BinaryReader reader(*handle);
+    const auto version = reader.record<std::uint32_t>();
+    reader.record<std::uint32_t>(); // the edge node count, which nothing reads
+    const auto waypoint_count = reader.record<std::uint32_t>();
+    const auto link_count = reader.record<std::uint32_t>();
     if (version < 1 || waypoint_count == 0 || waypoint_count > 0xffff || link_count == 0 ||
         link_count > 0xffff) {
         return false;
     }
-    const auto required = std::uint64_t{waypoint_count} * sizeof(W8FileWaypoint) +
-                          std::uint64_t{link_count} * (version == 1 ? 12 : sizeof(W8PathEdge));
-    if (required > static_cast<std::uint64_t>(handle->size() - handle->tell())) {
-        return false;
-    }
-    std::vector<W8FileWaypoint> file_waypoints(waypoint_count);
+    std::vector<WaypointRecord> file_waypoints(waypoint_count);
+    for (auto& waypoint : file_waypoints) waypoint = ReadWaypointRecord(reader);
     std::vector<W8PathSurface> waypoints(waypoint_count);
     std::vector<W8PathEdge> edges(link_count);
-    handle->read_exact(file_waypoints.data(), file_waypoints.size() * sizeof(W8FileWaypoint));
-    if (version == 1) {
-        for (unsigned int index = 0; index < link_count; ++index) {
-            auto& item = edges[index];
-            handle->read_exact(&item.flags, sizeof(item.flags));
-            handle->read_exact(&item.destination, sizeof(item.destination));
-            handle->read_exact(&item.distance, sizeof(item.distance));
-            handle->read_exact(&item.next, sizeof(item.next));
-        }
-    } else {
-        handle->read_exact(edges.data(), std::size_t{link_count} * sizeof(W8PathEdge));
-    }
+    for (auto& edge : edges) edge = ReadEdgeRecord(reader, version);
     for (unsigned int index = 1; index < link_count; ++index) {
         const auto& edge = edges[index];
         if (edge.destination >= waypoint_count || edge.source >= waypoint_count ||
@@ -255,7 +273,7 @@ try {
         destination.flags = source.flags;
         destination.index = static_cast<unsigned short>(surface);
         destination.first_edge = source.first_edge;
-        destination.position = {source.position.x, source.position.y, source.position.z};
+        destination.position = source.position;
         if ((destination.flags & 0xf000) == 0) {
             destination.flags |= 0x2000;
         }
@@ -1450,10 +1468,10 @@ void NavigationMesh::AdjustFinalPathEndpoint(NavigatorMovement* movement, float 
             (owner_octree->owner_world
                  ? owner_octree->owner_world->population->findMonster(target_location)
                  : nullptr);
-        if (info == nullptr || info->p3D == nullptr) {
+        if (info == nullptr || !info->entity) {
             return;
         }
-        target = &(info->p3D)->nav;
+        target = &info->entity->nav;
     }
     const float target_radius = target->movement.alternate_radius;
     const glm::vec3 target_position = target->GetPosition();
@@ -1590,8 +1608,8 @@ unsigned int NavigationMesh::CollectPathProbes(PathSearchScratch& path_search,
                                    ? owner_octree->owner_world->population->findMonster(location_id)
                                    : nullptr);
         if (info != 0) {
-            if (info != 0 && info->p3D != 0 && info->p3D->nav.active) {
-                Monster* monster = info->p3D;
+            if (info != 0 && info->entity && info->entity->nav.active) {
+                Monster* monster = info->entity.find();
                 glm::vec3 monster_position = monster->nav.GetPosition();
                 glm::vec3 monster_delta = monster_position - movement->position;
                 distance = glm::length(monster_delta);
@@ -2123,11 +2141,11 @@ unsigned short NavigationMesh::ResolveSearchNodeCollisions(PathSearchScratch& pa
         if (probe_index < path_search.probe_count) {
             continue;
         }
-        if (info->p3D == 0 || !info->p3D->nav.active) {
+        if (!info->entity || !info->entity->nav.active) {
             continue;
         }
 
-        Monster* monster = info->p3D;
+        Monster* monster = info->entity.find();
         glm::vec3 monster_position = monster->nav.GetPosition();
         glm::vec3 delta = node->position - monster_position;
         float distance = glm::length(delta);
@@ -2615,7 +2633,7 @@ unsigned int NavigationMesh::StepMonsterAlongPath(NavigatorMovement* movement, f
         owner_octree->owner_world->population->findMonster(movement->location_id);
     W8MonsterGroup* group =
         owner_octree->owner_world->population->findGroup(monster_info->monster_group_id);
-    monster_info->p3D->nav.group_linked = true;
+    monster_info->entity->nav.group_linked = true;
     float remaining = g_rate * GameTimeAccumulator().GetFrameDelta();
     do {
         if (remaining <= 0.0f) {

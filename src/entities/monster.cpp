@@ -989,7 +989,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on)
     std::string path;
 
     info = FindMonster(location_id);
-    rep = info->p3D;
+    rep = info->entity.find();
     if (on == 0) {
         item = rep->objects[party_slot].get();
         if (item != 0) {
@@ -1002,11 +1002,12 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on)
             path = fmt::format(
                 "Data\\Monsters\\Bitmaps\\{}",
                 g_party_target_marker_bitmaps[CurrentGame().party.orderIndexOf(party_slot)]);
-            rep->objects[party_slot] = CreateMonsterIconItem(*info->p3D->owner_world, path.c_str());
+            rep->objects[party_slot] =
+                CreateMonsterIconItem(*info->entity->owner_world, path.c_str());
             ++rep->icon_count;
         }
     }
-    info->p3D->UpdateAttachedObjects();
+    info->entity->UpdateAttachedObjects();
 }
 
 /* Start making the representation visible.  Reversing an active fade-out
@@ -1183,20 +1184,20 @@ void UpdateNearestMonsterGroupMembers()
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
                 W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index));
 
-                if (member != 0 && member->p3D != 0) {
-                    glm::vec3 position = member->p3D->nav.GetPosition();
+                if (member != 0 && member->entity) {
+                    glm::vec3 position = member->entity->nav.GetPosition();
                     float distance = glm::length((position - player_position));
 
                     if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
                         nearest_distance = distance;
                         nearest = member;
                     } else {
-                        member->p3D->nearest_to_party = false;
+                        member->entity->nearest_to_party = false;
                     }
                 }
             }
             if (nearest != 0) {
-                nearest->p3D->nearest_to_party = true;
+                nearest->entity->nearest_to_party = true;
             }
         }
     }
@@ -2783,4 +2784,31 @@ void Monster::SetCyclePosition(glm::vec3* position)
 {
     visual.SetLocation(position);
     nav.SetPositionInternal(position);
+}
+
+bool Monster::IsPlayingDeath()
+{
+    return Query(W8_MONSTER_QUERY_CYCLE) == W8_MONSTER_CYCLE_DIE;
+}
+
+bool Monster::HoldsCombatTurn(bool resolving_own_action, bool missile_released, bool can_turn)
+{
+    if (HasPendingCycle() || IsScalingY()) return true;
+    const auto cycle = static_cast<W8MonsterCycle>(Query(W8_MONSTER_QUERY_CYCLE));
+    if (IsAnimating() != 0 && cycle != W8_MONSTER_CYCLE_IDLE && cycle != W8_MONSTER_CYCLE_SPICE &&
+        cycle != W8_MONSTER_CYCLE_WALK && cycle != W8_MONSTER_CYCLE_DIE) {
+        if (!resolving_own_action) return true;
+        switch (NormalizeMonsterCycle(cycle)) {
+        case W8_MONSTER_CYCLE_ATTACK_CLOSE:
+            if (Query(W8_MONSTER_QUERY_FRAME) < Query(W8_MONSTER_QUERY_FRAME_COUNT) / 2)
+                return true;
+            break;
+        case W8_MONSTER_CYCLE_ATTACK_RANGED:
+            return !missile_released;
+        default:
+            return true;
+        }
+    }
+    return can_turn &&
+           std::fabs(nav.movement.target_yaw - nav.movement.yaw) >= g_camera_transition_epsilon;
 }

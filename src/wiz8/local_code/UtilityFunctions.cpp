@@ -163,11 +163,6 @@ bool IsPartyCharacterPointer(const W8Character* character)
     return false;
 }
 
-void AdjustByteByPercent(unsigned char* value, unsigned int percent)
-{
-    *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
-}
-
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
 {
     *value += *value * percent / 100;

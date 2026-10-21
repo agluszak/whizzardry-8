@@ -100,8 +100,8 @@ void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled)
     } else {
         item->entity_flags &= ~mask;
     }
-    if (item->p3D != 0) {
-        item->p3D->SetFlags(mask, enabled);
+    if (item->entity) {
+        item->entity->SetFlags(mask, enabled);
     }
 }
 
@@ -457,16 +457,16 @@ void ActivateItem(W8WorldItem* item)
 
     auto entity = LoadItemFromFile(zItemName);
     if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", zItemName));
-    item->p3D = entity.get();
+    item->entity.attach(*entity);
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
-        item->p3D->LightRadarBlip();
+        item->entity->LightRadarBlip();
     }
     position = item->position;
-    item->p3D->SetLocation(&position);
-    item->p3D->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
-                                         kInverseFullTurnDegrees));
-    item->p3D->flags |= item->entity_flags;
-    item->p3D->AttachMesh(GetWorld());
+    item->entity->SetLocation(&position);
+    item->entity->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
+                                            kInverseFullTurnDegrees));
+    item->entity->flags |= item->entity_flags;
+    item->entity->AttachMesh(GetWorld());
     GetWorld()->plsItems.push_back(std::move(entity));
     item->fActive = true;
     ++CurrentGame().item_manager_pending;
@@ -474,7 +474,7 @@ void ActivateItem(W8WorldItem* item)
     sun = FindWorldLight("SUN");
     if (sun != 0) {
         sun_position = glm::vec3(sun->transform.getLocation());
-        mesh = static_cast<MeshInstance*>(item->p3D->GetMesh());
+        mesh = static_cast<MeshInstance*>(item->entity->GetMesh());
         if (mesh != 0) {
             if (GetWorldSpatialIndex()->hasLineOfSight(position, sun_position)) {
                 mesh->light_scale = glm::vec3(1);
@@ -486,7 +486,7 @@ void ActivateItem(W8WorldItem* item)
 }
 
 /* Take one item out of the world. Its three assertions name the two fields
-   they guard - fActive and p3D - and the item keeps its last position and
+   they guard - fActive and the entity link - and the item keeps its last position and
    entity flags so it can be put back. */
 void DeactivateWorldItem(W8WorldItem* item)
 {
@@ -494,18 +494,18 @@ void DeactivateWorldItem(W8WorldItem* item)
 
     assert(item != 0);
     assert(item->fActive);
-    assert(item->p3D != 0);
+    assert(item->entity);
 
     if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
 
-    position = item->p3D->GetLocation();
+    position = item->entity->GetLocation();
     item->position = position;
-    item->entity_flags = item->p3D->flags;
+    item->entity_flags = item->entity->flags;
 
-    item->p3D->DetachMesh();
+    item->entity->DetachMesh();
     std::erase_if(GetWorld()->plsItems,
-                  [item](const auto& owner) { return owner.get() == item->p3D; });
-    item->p3D = 0;
+                  [item](const auto& owner) { return owner.get() == item->entity.find(); });
+    item->entity.detach();
     item->fActive = false;
     --CurrentGame().item_manager_pending;
 }
@@ -528,13 +528,13 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (!item->fActive) {
             continue;
         }
-        if (item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) {
+        if (item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) {
             continue;
         }
-        if (!item->p3D->IsSelected()) {
+        if (!item->entity->IsSelected()) {
             continue;
         }
-        distance = ItemDistanceToCamera(item->p3D);
+        distance = ItemDistanceToCamera(item->entity.find());
         if (distance < max_distance && distance < best_distance) {
             result = item->runtime_id;
             best_distance = distance;
@@ -576,7 +576,7 @@ void UpdateNearbyWorldItems(void)
         } else {
             glm::vec3 location;
 
-            location = item->p3D->GetLocation();
+            location = item->entity->GetLocation();
             if (glm::distance(location, camera) > 2.5e+04f) {
                 DeactivateWorldItem(item);
             }
@@ -646,7 +646,7 @@ static void OnItemPickerClosed(W8WorldItem* group)
     if (group->contents.size() == 1) {
         item = group->contents.front().get();
         item->position = group->position;
-        if (item->p3D == 0) {
+        if (!item->entity) {
             ActivateItem(item);
         }
         AddWorldItem(std::move(group->contents.front()));
@@ -693,7 +693,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
             return 0;
         }
     }
-    if ((item->p3D->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
+    if ((item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
         ReceiveItemInHand(CurrentGame(), item->item);
     }
     index = ItemIndex(runtime_id);
@@ -725,14 +725,14 @@ static int g_last_visible_world_item = -1;
 
 static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
 {
-    if (item->p3D != 0) {
+    if (item->entity) {
         glm::vec3 position;
         glm::vec3 eye;
-        position = item->p3D->GetLocation();
+        position = item->entity->GetLocation();
         eye = cameraLocation();
         glm::vec3 delta = position - camera;
         if (glm::length(delta) < static_cast<float>(2500.0)) {
-            auto bounds = item->p3D->GetCachedLocalBounds();
+            auto bounds = item->entity->GetCachedLocalBounds();
             bounds.minimum += position;
             bounds.maximum += position;
             return targetMarkerVisible(eye, bounds) != 0;
@@ -823,8 +823,8 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
         }
     }
 
-    if (item->p3D != 0) {
-        item->p3D->SetLocation(&probe);
+    if (item->entity) {
+        item->entity->SetLocation(&probe);
     }
     item->position = probe;
     return true;
@@ -859,8 +859,8 @@ bool SettleWorldItem(W8WorldItem* item)
         }
         item->sector_id = sector;
     }
-    if (item->p3D != 0) {
-        item->p3D->SetLocation(&start);
+    if (item->entity) {
+        item->entity->SetLocation(&start);
     }
     item->position = start;
     return true;
@@ -932,7 +932,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
     std::vector<std::unique_ptr<W8WorldItem>> items;
     if (monster_info != 0) {
         const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-        glm::vec3 position = monster_info->p3D->nav.GetPosition();
+        glm::vec3 position = monster_info->entity->nav.GetPosition();
         std::unique_ptr<W8WorldItem> item;
         int gold = 0;
         int slot;

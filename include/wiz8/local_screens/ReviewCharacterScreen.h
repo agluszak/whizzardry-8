@@ -30,6 +30,8 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
+class Game;
+
 /* The UI orders Other before Accessory, and places the two non-group filters last. */
 enum W8CampItemFilterButton {
     W8_CAMP_ITEM_FILTER_BUTTON_HAND = 0,
@@ -476,7 +478,8 @@ class CampScreen final : public Screen {
 public:
     static constexpr W8ScreenId id = W8_SCREEN_CAMP;
 
-    CampScreen() = default;
+    // The camp is rebuilt on every visit, within one game.
+    explicit CampScreen(Game& game) : game_(game) {}
 
     /* Build the pages for `request.character` (null when no character is
        selected); `request.parameter_4` names an identifying character. */
@@ -517,6 +520,7 @@ public:
     W8CampPage page = W8_CAMP_PAGE_ITEMS;
 
 private:
+    Game& game_;
     CampHeaderButtons header_buttons;
     CampPageButtons page_buttons;
     UiLayer main_input{UiLayerOrder::CampMain};

@@ -166,12 +166,12 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
         monster_info = FindMonster(index);
         if (monster_info != 0) {
             spawned_monster_id_ = index;
-            monster_info->p3D->visual.instance_scale = 1.0f;
-            monster_info->p3D->visual.apply_instance_scale = true;
-            monster_info->p3D->BeginFadeIn(2.0f);
-            monster_info->p3D->GetMappedPosition(&mapped);
-            look_target = monster_info->p3D->nav.movement.position;
-            look_target.y += monster_info->p3D->nav.movement.height_offset;
+            monster_info->entity->visual.instance_scale = 1.0f;
+            monster_info->entity->visual.apply_instance_scale = true;
+            monster_info->entity->BeginFadeIn(2.0f);
+            monster_info->entity->GetMappedPosition(&mapped);
+            look_target = monster_info->entity->nav.movement.position;
+            look_target.y += monster_info->entity->nav.movement.height_offset;
             partyCamera().LookAt(&look_target, false);
             npc_dialogue_closed = false;
             addMaster(&SwampScript::gasFireItemDrop);

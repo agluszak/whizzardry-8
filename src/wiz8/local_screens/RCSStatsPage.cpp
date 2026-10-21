@@ -466,7 +466,7 @@ static void DrawCampEffectEntry(const W8Character& character, const W8CampEffect
         g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x15e, line * 0xe + 0xbf},
                  fmt::format("{} {}", Data().strings[0x8d1],
-                             Data().strings[g_condition_notices[entry->index].name]));
+                             Data().strings[kConditionNotices[entry->index].name]));
         g_wiz_text_font_secondary.resetPalette();
         int next = line + 1;
         if (entry->turns == W8_CONDITION_INDEFINITE) {

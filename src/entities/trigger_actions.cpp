@@ -381,8 +381,8 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
                 break;
             }
             W8MonsterInfo* monster_info = FindMonster(location_id);
-            if (monster_info != 0 && monster_info->p3D != 0) {
-                glm::vec3 monster_position = monster_info->p3D->nav.GetPosition();
+            if (monster_info != 0 && monster_info->entity) {
+                glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
                 if (glm::length((monster_position - center)) <= radius) {
                     return true;
                 }
@@ -1006,7 +1006,7 @@ void WakeMonsterGroup(int monster_id)
     if (monster_info == nullptr) return;
 
     group.members_active = true;
-    Monster* monster = monster_info->p3D;
+    Monster* monster = monster_info->entity.find();
     if (monster == nullptr) return;
     monster->visual.rep_active = true;
     monster->visual.animation_playing = 1;

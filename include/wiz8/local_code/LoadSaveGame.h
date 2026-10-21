@@ -58,8 +58,10 @@ bool SaveGameExists(void);
    Please Wait screen drives it. */
 bool LoadGame(GameSession& games, std::string_view slot_name);
 
-bool SaveLevelStatus(const char* path);
+class Game;
 struct World;
+// Store the current level's group among the levels the game has left (Game::left_levels).
+bool StoreLeftLevel(Game& game);
 // Decoded level data. Its implementation stays with the existing retail codecs.
 struct W8LoadedLevelStatus {
     struct Data;
@@ -70,6 +72,8 @@ struct W8LoadedLevelStatus {
 std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world,
                                                      const std::filesystem::path& path, int level,
                                                      bool from_assets = false);
+// The level's state as the party left it, or null when it never left the level.
+std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level);
 void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status);
 void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);

@@ -101,10 +101,10 @@ void CosmicCircleScript::setup()
         }
         ctx.status.cc_arena_spawned = true;
         if (pMonsterInfoDs != nullptr) {
-            pMonsterInfoDs->p3D->nav.AimAtPosition(&positionAltheides);
+            pMonsterInfoDs->entity->nav.AimAtPosition(&positionAltheides);
         }
         if (pMonsterInfoAltheides != nullptr) {
-            pMonsterInfoAltheides->p3D->nav.AimAtPosition(&positionDs);
+            pMonsterInfoAltheides->entity->nav.AimAtPosition(&positionDs);
         }
         pTrigger = FindTriggerByName("CC_TRIGGERPLANE2");
         if (pTrigger != 0) {

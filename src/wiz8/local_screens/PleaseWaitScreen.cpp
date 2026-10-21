@@ -87,7 +87,6 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     case W8_PLEASE_WAIT_NEW_GAME:
         SeedNewGameFacts(CurrentGame().status);
         parameter = SelectNewGameStartLevel();
-        wiz8::remove_file(wiz8::user_path("saves\\CurrentGame.SAV"));
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
         parameter = request.parameter;

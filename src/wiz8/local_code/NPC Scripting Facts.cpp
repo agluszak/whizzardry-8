@@ -28,6 +28,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
@@ -173,7 +174,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0 &&
             context.party.characters[context.status.party_slot].uiCondition[W8_CONDITION_MISSING] !=
                 0) {
-            RemoveCharacterCondition(context.status.party_slot, W8_CONDITION_MISSING, true);
+            LiftCondition(CurrentGame(), context.status.party_slot, W8_CONDITION_MISSING, true);
         }
         return;
     case W8_FACT_ALIGNMENT_TRANG:
@@ -345,7 +346,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (monster_info == 0) {
             return;
         }
-        monster_info->p3D->SetScript("Guard.msf", true);
+        monster_info->entity->SetScript("Guard.msf", true);
         return;
     case W8_FACT_MURAL_OPEN:
         if (value != 0) {
@@ -726,7 +727,8 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (monster_info == 0) {
             return;
         }
-        if (!monster_info->p3D->IsCycleInterruptable(monster_info->p3D->visual.pending_cycle)) {
+        if (!monster_info->entity->IsCycleInterruptable(
+                monster_info->entity->visual.pending_cycle)) {
             return;
         }
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
@@ -812,7 +814,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         group = FindFirstMonsterByID(0xc2);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
-            monster_info->p3D->SetScript("MoveSavantBoffo.msf", true);
+            monster_info->entity->SetScript("MoveSavantBoffo.msf", true);
         }
         wiz8::sound::stream("Data\\Sound\\Misc\\Earthquake End.wav");
         {
@@ -905,7 +907,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
          entry_index < CurrentLevelPopulation().monster_roster.live().size(); ++entry_index) {
         W8MonsterInfo* entry = GetMonsterListEntry(entry_index);
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !entry->p3D->IsDying()) {
+            !entry->entity->IsDying()) {
 
             MonsterStartsDying(entry, true);
         }
@@ -946,8 +948,8 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
             if (context.status.rpc_active) {
                 if (context.party.characters[context.status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    RemoveCharacterCondition(context.status.sedexus_party_slot,
-                                             W8_CONDITION_INFATUATED, false);
+                    LiftCondition(CurrentGame(), context.status.sedexus_party_slot,
+                                  W8_CONDITION_INFATUATED, false);
                 }
                 QueueCharacterEvent(&context.party.characters[context.status.sedexus_party_slot],
                                     131, 0, kCharacterEventFullVolume);
