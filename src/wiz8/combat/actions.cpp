@@ -68,7 +68,7 @@ constexpr int kBreathNoticeId = 0x65b;
    Self targets and empty slots leave the axis unchanged. */
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
 {
-    if (!monster_info || !monster_info->p3D) return;
+    if (!monster_info || !monster_info->entity) return;
     glm::vec3 position;
     int location_id;
     Monster* target_monster;
@@ -80,8 +80,8 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         no_target = monster_info->location_id == location_id;
         break;
     case W8_TARGET_KIND_PLACE:
-        monster_info->p3D->visual.m_axis = monster_info->Target.point;
-        monster_info->p3D->visual.aim_set = true;
+        monster_info->entity->visual.m_axis = monster_info->Target.point;
+        monster_info->entity->visual.aim_set = true;
         return;
     case W8_TARGET_KIND_GROUP:
         location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
@@ -93,18 +93,18 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
         return;
     default:
         position = cameraLocation();
-        monster_info->p3D->visual.m_axis = position;
-        monster_info->p3D->visual.aim_set = true;
+        monster_info->entity->visual.m_axis = position;
+        monster_info->entity->visual.aim_set = true;
         return;
     }
     if (!no_target) {
         target_monster = GetMonsterByLocationID(location_id);
         if (!target_monster) return;
-        monster_info->p3D->visual.m_axis.x = target_monster->nav.movement.position.x;
-        monster_info->p3D->visual.m_axis.y =
+        monster_info->entity->visual.m_axis.x = target_monster->nav.movement.position.x;
+        monster_info->entity->visual.m_axis.y =
             target_monster->nav.movement.position.y + target_monster->nav.movement.height_offset;
-        monster_info->p3D->visual.m_axis.z = target_monster->nav.movement.position.z;
-        monster_info->p3D->visual.aim_set = true;
+        monster_info->entity->visual.m_axis.z = target_monster->nav.movement.position.z;
+        monster_info->entity->visual.aim_set = true;
     }
 }
 
@@ -157,7 +157,7 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
     }
     SetTargetSourceToMonster(monster_info, &source);
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
-        monster_info->p3D->visual.aim_set = false;
+        monster_info->entity->visual.aim_set = false;
         PointCameraAtCombatTarget(&source, &monster_info->Target);
         PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target,
                                    monster_targets, char_targets,
@@ -559,21 +559,21 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                         approach_distance =
                             CalcRangeDistance(W8_RANGE_SHORT) * g_prepath_link_height;
                     }
-                    GetMonsterAttackSourceOffset(monster_info->p3D, sight, &position);
+                    GetMonsterAttackSourceOffset(monster_info->entity.find(), sight, &position);
                     engage_distance = CalcRangeDistance(range);
                     MonsterChooseTarget(monster_info, &monster_info->Target,
                                         W8VisibilityCondition::SightState);
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                         target_info = FindMonster(monster_info->Target.iMonsterID);
-                        move_result = monster_info->p3D->ConfigureMovementToMonster(
-                            target_info->p3D, approach_distance, engage_distance, position, sight,
-                            &move_flag);
+                        move_result = monster_info->entity->ConfigureMovementToMonster(
+                            target_info->entity.find(), approach_distance, engage_distance,
+                            position, sight, &move_flag);
                     } else {
                         if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
                             break;
                         }
-                        move_result = monster_info->p3D->ConfigureMovementToPlayer(
+                        move_result = monster_info->entity->ConfigureMovementToPlayer(
                             approach_distance, engage_distance, position, sight, &move_flag);
                     }
                     if (move_result == 1 || (move_result == 3 && move_flag != 0)) {
@@ -622,7 +622,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                 continue;
             }
             SetUpMonsterTurn(monster_info);
-            result = monster_info->p3D->LinkToStartupNavigator() != 0;
+            result = monster_info->entity->LinkToStartupNavigator() != 0;
             if (result != 0) {
                 game.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
@@ -631,7 +631,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         case W8_MONSTER_ACTION_ADVANCE:
             SetUpMonsterTurn(monster_info);
-            result = monster_info->p3D->LinkToStartupNavigator() != 0;
+            result = monster_info->entity->LinkToStartupNavigator() != 0;
             if (result != 0) {
                 monster_info->pCombat->advancing = true;
                 if (interrupt != 0xc) {
@@ -679,7 +679,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         if (result != 0) {
             if (monster_info->action_kind != W8_MONSTER_ACTION_WAIT &&
                 monster_info->action_kind != W8_MONSTER_ACTION_PROTECT) {
-                monster_info->p3D->nav.SetHalted(false);
+                monster_info->entity->nav.SetHalted(false);
             }
             break;
         }
@@ -821,7 +821,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
     case W8_MONSTER_ACTION_BACK_OFF:
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
         PointCameraAtMonster(monster_info, false, true);
-        if (!monster_info->p3D->nav.movement_complete) {
+        if (!monster_info->entity->nav.movement_complete) {
             outcome = ActionStep::resolving;
             break;
         }
@@ -832,13 +832,14 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
             monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
             if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                monster_info->p3D->ForwardReferencePosition(0);
+                monster_info->entity->ForwardReferencePosition(0);
             } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info->p3D->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID), false);
+                monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
+                                                   false);
             }
         }
         RefreshAllSight();
-        entity = monster_info->p3D;
+        entity = monster_info->entity.find();
         combat = monster_info->pCombat.get();
         if (static_cast<int>((entity->nav.movement.callback_threshold <= 0.0f
                                   ? entity->nav.movement.callback_progress /

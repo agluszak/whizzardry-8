@@ -172,8 +172,8 @@ void AscensionScript::peakInit()
             }
             if (group != nullptr) {
                 W8MonsterInfo* info = FindMonster(group->leader_location_id);
-                if (info != nullptr && info->p3D != nullptr) {
-                    info->p3D->SetScript("proximitylandslide.msf", true);
+                if (info != nullptr && info->entity) {
+                    info->entity->SetScript("proximitylandslide.msf", true);
                 }
             }
             SpawnAscensionAmbush();
@@ -362,7 +362,7 @@ bool AscensionScript::path1Camera(Trigger* pTrigger)
         W8MonsterInfo* info = GetMonsterListEntry(index);
 
         if (info->fActive && info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !info->p3D->IsDying()) {
+            !info->entity->IsDying()) {
             MonsterStartsDying(info, true);
         }
     }

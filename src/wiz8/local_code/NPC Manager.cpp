@@ -628,7 +628,7 @@ Monster* GetNpcMonster(W8NpcState* npc)
     if (monster_info == 0) {
         return 0;
     }
-    return monster_info->p3D;
+    return monster_info->entity.find();
 }
 
 /* Move the NPC into one disposition band. Each band is written as one
@@ -1060,7 +1060,7 @@ static void SelectStartNpcGreeting(void)
             if (monster_info == 0) {
                 return;
             }
-            monster = monster_info->p3D;
+            monster = monster_info->entity.find();
             head = glm::vec3(monster->nav.movement.position.x,
                              monster->nav.movement.position.y + monster->nav.movement.height_offset,
                              monster->nav.movement.position.z);
@@ -1199,7 +1199,7 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         existing->bound_level = static_cast<unsigned char>(world.level_id);
         // Without a created state the slot holds the story's own NPC (source).
         W8NpcState& npc = existing->created ? *existing->created : *CurrentGame().story.npcs[slot];
-        existing->script = LoadNpcScriptResources(npc, info.p3D);
+        existing->script = LoadNpcScriptResources(npc, info.entity.find());
         info.bound_npc_index = slot;
     };
     for (const auto* list :
@@ -1833,7 +1833,7 @@ void UpdateNpcEvents(void)
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_LASH, W8_ANIMATION_PLAY_ONCE);
-            monster_info->p3D->SetCycleCallback(0x10, TriggerBelaVoice);
+            monster_info->entity->SetCycleCallback(0x10, TriggerBelaVoice);
         }
         CurrentGame().status.bela_cycle_tick = 0;
     }
@@ -2066,7 +2066,7 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
         if (!FindEntityByName(entity_name, &position, 0, 0)) {
             return false;
         }
-        monster_info->p3D->SetPosition(&position);
+        monster_info->entity->SetPosition(&position);
         return true;
     }
 }
@@ -2097,7 +2097,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
             if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
-                monster_info->p3D->SetPosition(&position);
+                monster_info->entity->SetPosition(&position);
                 if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
                     CreateLocationVar("CODESgtRubbleTeleport", 1);
                 } else {
@@ -2112,7 +2112,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         }
         if (GetLocationVarValueByName("CODESgtRubbleTeleport") == 1) {
             if (monster_info != nullptr && FindEntityByName("rubbleUnderWater", &position, 0, 0)) {
-                monster_info->p3D->SetPosition(&position);
+                monster_info->entity->SetPosition(&position);
                 SetTriggerVariableByName("CODESgtRubbleTeleport", 2);
             }
             npc->event_pending = 0;
@@ -2125,7 +2125,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
 
         monster_info = GetNpcMonsterInfo(npc);
         if (monster_info != 0) {
-            position = monster_info->p3D->nav.GetPosition();
+            position = monster_info->entity->nav.GetPosition();
             W8WorldItem* item = AddWorldItem(
                 SpawnItem(0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
 

@@ -380,7 +380,7 @@ void ArnikaScript::setup()
     if (GetLocationVarIDByName("ScregActive") != -1 &&
         GetLocationVarValueByName("ScregActive") == 1) {
         npc = GetNpcStateByKind(0x17);
-        if (npc != 0 && (monster_info = GetNpcMonsterInfo(npc)) != 0 && monster_info->p3D != 0) {
+        if (npc != 0 && (monster_info = GetNpcMonsterInfo(npc)) != 0 && monster_info->entity) {
             return;
         }
         SetTriggerVariableByName("ScregActive", 0);
@@ -389,9 +389,9 @@ void ArnikaScript::setup()
         npc = GetNpcStateByKind(0x18);
         if (npc != 0) {
             monster_info = GetNpcMonsterInfo(npc);
-            if (monster_info != 0 && monster_info->p3D != 0 &&
+            if (monster_info != 0 && monster_info->entity &&
                 FindEntityByName("Inside_Inn", &position, 0, 0)) {
-                monster_info->p3D->SetPosition(&position);
+                monster_info->entity->SetPosition(&position);
             }
         }
     }
@@ -585,7 +585,7 @@ bool ArnikaScript::yellowButton(Trigger* pTrigger)
         group = SpawnMonsters(0xc, 6, &position, 1, true, false, false);
         if (group != 0) {
             info = FindMonster(group->leader_location_id);
-            info->p3D->SetScript("guard.msf", true);
+            info->entity->SetScript("guard.msf", true);
         }
     }
     return true;
@@ -1013,8 +1013,8 @@ int ArnikaScript::pedestalItem(int* previous_item)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            position = info->p3D->nav.movement.position;
-            position.y += info->p3D->nav.movement.height_offset;
+            position = info->entity->nav.movement.position;
+            position.y += info->entity->nav.movement.height_offset;
             partyCamera().LookAt(&position, false);
         }
         QueueNpcScriptNotice(npc, 0, 8, false, 0);

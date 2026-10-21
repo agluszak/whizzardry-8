@@ -614,7 +614,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (selected->name_style != 0x84 && selected->name_style != 0x85) {
         info = GetNpcMonsterInfo(selected);
         if (info != 0) {
-            info->p3D->ForwardReferencePosition(0);
+            info->entity->ForwardReferencePosition(0);
         }
     }
     state = &CurrentGame().npc_interaction;
@@ -625,8 +625,8 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     if (info == 0) {
         return;
     }
-    position = info->p3D->nav.movement.position;
-    position.y += info->p3D->nav.movement.height_offset;
+    position = info->entity->nav.movement.position;
+    position.y += info->entity->nav.movement.height_offset;
     partyCamera().LookAt(&position, false);
 }
 
@@ -758,11 +758,11 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
         CurrentGame().npc_interaction.saved_camera_pitch = partyCamera().m_pitch;
         dialogue_info = GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc.get());
         if (dialogue_info != 0) {
-            position = dialogue_info->p3D->nav.movement.position;
-            position.y += dialogue_info->p3D->nav.movement.height_offset;
+            position = dialogue_info->entity->nav.movement.position;
+            position.y += dialogue_info->entity->nav.movement.height_offset;
             partyCamera().LookAt(&position, false);
         }
-        info->p3D->ForwardReferencePosition(0);
+        info->entity->ForwardReferencePosition(0);
     }
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     CurrentGame().npc_interaction.text_box_collapsed = true;
@@ -1034,7 +1034,7 @@ void ServiceNpcDialogue(void)
     W8MonsterInfo* monster_info =
         GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc.get());
     if (monster_info != 0) {
-        monster_info->p3D->nav.UpdateAngles();
+        monster_info->entity->nav.UpdateAngles();
     }
     if (CurrentGame().npc_interaction.scripted_dialogue) {
         return;
@@ -3752,8 +3752,8 @@ void LookAtDialogueNpc(void)
 {
     W8MonsterInfo* info = GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc.get());
     if (info != 0) {
-        glm::vec3 position = info->p3D->nav.movement.position;
-        position.y += info->p3D->nav.movement.height_offset;
+        glm::vec3 position = info->entity->nav.movement.position;
+        position.y += info->entity->nav.movement.height_offset;
         partyCamera().LookAt(&position, false);
     }
 }
@@ -3995,7 +3995,7 @@ static void HandleNpcDialogueDeparture(unsigned char value)
 
     if (CurrentGame().npc_interaction.dialogue_npc->name_style == 0x2a &&
         (info = GetNpcMonsterInfo(CurrentGame().npc_interaction.dialogue_npc.get())) != 0) {
-        info->p3D->SetScript("Guard.msf", true);
+        info->entity->SetScript("Guard.msf", true);
     }
     if ((value == 0 || !CurrentGame().npc_interaction.dialogue_npc->dismissed_flag ||
          CurrentGame().npc_interaction.dialogue_npc->record->allow_dismissed_departure_dialogue !=

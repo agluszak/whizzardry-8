@@ -260,7 +260,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
     detect_all = PartyHasCondition(0x40);
 
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
-        WorldItemEntity* item = world_item->p3D;
+        WorldItemEntity* item = world_item->entity.find();
 
         if (item != 0) {
             if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
@@ -283,7 +283,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
 
     for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* info = monster_owner.get();
-        Monster* monster = info->p3D;
+        Monster* monster = info->entity.find();
 
         if (monster != 0 && info->fActive && info->within_viewing_distance &&
             (!monster->disabled || detect_all)) {

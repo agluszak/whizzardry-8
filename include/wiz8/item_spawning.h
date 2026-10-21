@@ -5,6 +5,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/entity_link.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/rules/item_instance.h"
 
@@ -20,7 +21,8 @@ enum {
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
     int runtime_id;      /* 0x00 */
-    WorldItemEntity* p3D; // Scene entity, deactivated before removing the world record.
+    // The scene entity, deactivated before the world record is removed.
+    EntityLink<WorldItemEntity> entity;
     /* The level trigger placed with this item. The record keeps it, not the scene entity,
        because the entity is rebuilt each time the item comes back into range. The trigger
        belongs to the same world and outlives the record. */
