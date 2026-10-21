@@ -385,6 +385,7 @@ void AimAtPlace(int actor)
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     GetWorldCursorTargetPosition(&position);
+    target.point = position;
     AimAtTarget(actor, &target, GetEditedActionContext(actor));
 }
 
