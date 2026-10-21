@@ -525,12 +525,23 @@ static void UpdateHypnoticLure(HypnoticLure& lure, bool expired)
 void UpdateSpellEffects(void)
 {
     auto& game = CurrentGame();
-    for (auto& lure : game.expired_lures) UpdateHypnoticLure(*lure, true);
-    game.expired_lures.clear();
+    while (!game.expired_lures.empty()) {
+        // Finishing a cast can reflect it, appending another retiring lure.
+        auto lure = std::move(game.expired_lures.front());
+        game.expired_lures.erase(game.expired_lures.begin());
+        UpdateHypnoticLure(*lure, true);
+    }
     if (game.hypnotic_lure) {
-        const bool expired = game.hypnotic_lure->turns_remaining == 0;
-        UpdateHypnoticLure(*game.hypnotic_lure, expired);
-        if (expired) game.hypnotic_lure.reset();
+        auto* lure = game.hypnotic_lure.get();
+        const bool expired = lure->turns_remaining == 0;
+        UpdateHypnoticLure(*lure, expired);
+        if (expired) {
+            if (game.hypnotic_lure.get() == lure)
+                game.hypnotic_lure.reset();
+            else
+                std::erase_if(game.expired_lures,
+                              [lure](const auto& retired) { return retired.get() == lure; });
+        }
     }
     bool handled = false;
     int index;
