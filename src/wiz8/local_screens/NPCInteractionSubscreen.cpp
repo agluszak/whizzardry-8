@@ -3561,7 +3561,7 @@ void DrainNpcDialogueDeferralInput(void)
    suspended while the modal is up unless the dialogue stays live; for the
    price-check opcodes the base price in the request is discounted by the
    NPC's effect percentage and the party's best haggle skill. */
-void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* request,
+void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuoteEntry* request,
                    int aux_data)
 {
     W8MonsterInfo* monster_info;
@@ -3593,13 +3593,13 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntr
     SetTargetCursor(W8_CURSOR_NONE);
 }
 
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette)
 {
     SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
 }
 
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette, W8QuoteNotice notice,
                               int npc_kind)
 {
@@ -3892,7 +3892,7 @@ void QueueDialogueNpcRefusal(void)
 void OnNpcDialogClosed(W8NpcDialog& dialog)
 {
     W8NpcDialog* npc_dialog = &dialog;
-    W8NpcQuoteEntry* request = npc_dialog->m_message;
+    const W8NpcQuoteEntry* request = npc_dialog->m_message;
     std::string field_text;
     std::string entry_text;
     int index;

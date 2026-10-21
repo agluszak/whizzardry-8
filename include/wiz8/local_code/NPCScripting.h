@@ -50,7 +50,8 @@ public:
 
     /* Make `npc` the speaker. `suspend_current` keeps the current
        conversation, which resumes once the queue drains. */
-    void Begin(W8NpcState* npc, bool suspend_current);
+    void Begin(W8NpcState* npc, bool suspend_current, bool script_event = false);
+    const W8NpcScriptBinding& binding() const { return session_.binding; }
     /* One frame: unless a quote is on screen, a scene holds the queue or a
        reply dialog is open, run the next queued action; once the queue
        drains, resume a suspended conversation. */
@@ -81,6 +82,7 @@ private:
     /* A conversation position. Begin can suspend one and Advance resumes it. */
     struct Session {
         std::shared_ptr<W8NpcState> npc;
+        W8NpcScriptBinding binding;
         int current_quote_index;
         /* The last quote presentation finished; Speak continues its
            subquotes instead of restarting. */
@@ -92,9 +94,9 @@ private:
     void Push(W8NpcAction action, bool prepend);
     void QueueQuoteEntry(int quote, int entry, int continuation_quote, bool prepend);
     void RunNextAction(const ScriptContext& context);
-    void RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry* entry,
+    void RunQuoteEntry(const ScriptContext& context, const W8NpcQuoteEntry* entry,
                        int continuation_quote);
-    int SelectResponse(const ScriptContext& context, W8NpcQuoteEntry* entry, int quote,
+    int SelectResponse(const ScriptContext& context, const W8NpcQuoteEntry* entry, int quote,
                        int entry_index);
     int FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(const ScriptContext& context, int quote);
@@ -121,7 +123,7 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
    "won't say" quotes. */
 enum class W8NpcSubquoteOutcome : unsigned char { presented, unknown, classified };
 /* Present one subquote of the speaker's current quote (npc_dialogue_view.cpp). */
-W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, W8NpcScriptQuote* quote,
+W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcScriptQuote* quote,
                                       unsigned char subquote_index, bool notice_only,
                                       bool force_npc_voice);
 /* Add a keyword a quote entry of `kind` teaches to the dialogue keyword lists. */
@@ -138,7 +140,6 @@ struct W8NpcScriptItemQuote {
 };
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id);
 void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context);
-void SetNpcScriptEventActive(unsigned char value);
 /* Resolves NPC-name, named-person, and region keywords to a quote
    id; returns -1 when nothing matches. */
 int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
