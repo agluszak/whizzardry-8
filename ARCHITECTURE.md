@@ -159,7 +159,9 @@ Unlayered code may use the layers.
   clock. Timer saves still store retail progress/scale, rebased on load even at zero;
   pause controls hold simulation clocks without a wall-clock offset accumulator.
 - **Window events.** Focus controls pause and input release. Minimize/restore
-  controls presentation. Pixel-size changes follow the high-density drawable;
+  controls presentation. Focus restoration resets the current screen's simulation
+  lap, so time spent away never reaches game or world time. Pixel-size changes follow
+  the high-density drawable;
   reopening presentation never reapplies startup window dimensions.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
