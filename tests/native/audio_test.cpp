@@ -46,6 +46,7 @@
 #include "wiz8/combat/sounds.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
@@ -725,6 +726,26 @@ TEST_CASE_METHOD(AudioFixture,
     wiz8::sound::service();
     wiz8::sound::release_cache();
     REQUIRE(calls == 0);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Discarding NPC presentation cancels its pending voice completion",
+                 "[audio][ownership]")
+{
+    startOfflineAudio();
+    unsigned calls = 0;
+    const auto targets = LiveUiTargetCount();
+    {
+        W8NpcDialoguePanel panel;
+        panel.quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
+        panel.quote_input->add(SDL_Rect{0, 0, 20, 20},
+                               [](const UiPointerEvent&) { return UiResult::Handled; });
+        REQUIRE(PlayNpcVoice(panel.speech, "tone.wav", [&] { ++calls; }));
+        mix(8192);
+        REQUIRE_FALSE(wiz8::sound::is_playing(panel.speech.voice_handle));
+    }
+    wiz8::sound::service();
+    REQUIRE(calls == 0);
+    REQUIRE(LiveUiTargetCount() == targets);
 }
 
 TEST_CASE_METHOD(AudioFixture, "Only servicing audio dispatches deferred completion callbacks",

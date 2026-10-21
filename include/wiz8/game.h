@@ -24,7 +24,6 @@
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
-#include "wiz8/npc_speech.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -135,8 +134,6 @@ public:
        staged script notice. */
     W8NpcInteractionState npc_interaction;
     // The quote or portrait message on screen and the NPC voice that speaks it.
-    W8NpcPresentation npc_presentation = W8NpcPresentation::none;
-    W8NpcSpeech npc_speech;
     W8SedexusScene sedexus_scene;
     // The deadline of each shared three-minute spell cooldown (`g_cooldown_gated_spells`).
     std::array<std::uint64_t, 14> spell_cooldowns{};

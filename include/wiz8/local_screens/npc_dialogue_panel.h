@@ -8,7 +8,9 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/ui_input.h"
 
 struct NpcDialogueUi;
 
@@ -49,6 +51,9 @@ struct W8NpcDialoguePanel {
     W8NpcDialoguePanel(const W8NpcDialoguePanel&) = delete;
     W8NpcDialoguePanel& operator=(const W8NpcDialoguePanel&) = delete;
 
+    W8NpcSpeech speech;
+    W8NpcPresentation presentation = W8NpcPresentation::none;
+    std::unique_ptr<UiLayer> quote_input;
     W8NpcTradeMode trade_mode{};
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout{};

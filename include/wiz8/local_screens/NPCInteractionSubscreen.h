@@ -10,7 +10,6 @@
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
-void HideNpcQuoteBubbleRegion();
 
 #include <array>
 #include <functional>

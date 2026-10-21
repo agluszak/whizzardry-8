@@ -151,10 +151,8 @@ the licensed runtime scenarios after every step.
      the conversation's progress waits on (the open layout, the hidden panel or dialogue,
      a modal dialog), which `W8NpcDialogue::Advance` and the NPC script read every step.
      Those go once the dialogue's progress hears from its interface instead of reading
-     it. `Game` still holds `npc_presentation` and `npc_speech` (the quote on screen and
-     the NPC voice, which scripts wait on), and the portrait animation in
-     `monster_manager_entries`, which combat and magic drive directly; move them to the
-     screen with step 5, behind events.
+     it. The portrait animation in `monster_manager_entries`, which combat and magic
+     drive directly, still belongs on the screen with step 5, behind events.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the

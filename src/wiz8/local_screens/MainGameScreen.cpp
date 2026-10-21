@@ -2565,7 +2565,6 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             ReleasePartyMovement();
         }
 
-        HideNpcQuoteBubbleRegion();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();

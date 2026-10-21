@@ -133,12 +133,10 @@ bool NpcEditingText()
 }
 } // namespace
 
-static std::unique_ptr<UiLayer> npc_quote_input;
-
 void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
 {
-    npc_quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
-    npc_quote_input->add(
+    MainGame()->dialogue.quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
+    MainGame()->dialogue.quote_input->add(
         SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
             if (event.action != UiPointerAction::Up || event.captured_buttons)
                 PlayButtonSound(event.action);
@@ -146,11 +144,6 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
                 AfterUiDispatch([] { TryFinishNpcVoicePlayback(CurrentGame().status, true); });
             return UiResult::Handled;
         });
-}
-
-void HideNpcQuoteBubbleRegion()
-{
-    npc_quote_input.reset();
 }
 
 static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
@@ -234,7 +227,10 @@ static bool AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mod
 void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 W8NpcDialoguePanel::W8NpcDialoguePanel() = default;
-W8NpcDialoguePanel::~W8NpcDialoguePanel() = default;
+W8NpcDialoguePanel::~W8NpcDialoguePanel()
+{
+    StopNpcVoice(speech);
+}
 
 namespace {
 // The dialogue's interface, or null while there is no main game to show it.
@@ -3656,7 +3652,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
     MainGame()->dialogue.quote_visible = false;
     const bool had_bubble = MainGame()->dialogue.quote_bubble.has_value();
     MainGame()->dialogue.quote_bubble.reset();
-    HideNpcQuoteBubbleRegion();
+    MainGame()->dialogue.quote_input.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         if (had_bubble) {
             ClearSurfaceRect(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,

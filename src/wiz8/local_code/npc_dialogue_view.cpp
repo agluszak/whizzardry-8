@@ -42,42 +42,35 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
 
-static void FinishNpcVoicePlayback(bool resume_script);
+static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script);
 
 static int g_empty_quote_text_index;
 
 bool IsNpcScriptSessionActive(void)
 {
-    return CurrentGame().npc_presentation != W8NpcPresentation::none;
+    return MainGame() && MainGame()->dialogue.presentation != W8NpcPresentation::none;
 }
 
 bool IsNpcVoicePlaying(void)
 {
-    return CurrentGame().npc_speech.voice_playing;
-}
-
-void ShowNpcScriptNoticeBubble(std::string_view text)
-{
-    SetNpcQuoteBubbleVisible(true, text, 0, -1, 0x47);
-    CurrentGame().npc_speech.voice_playing = false;
-    CurrentGame().npc_speech.voice_started_at = MonotonicMilliseconds();
-    HoldNpcSpeech(CurrentGame().npc_speech, 2000);
+    return MainGame() && MainGame()->dialogue.speech.voice_playing;
 }
 
 void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context)
 {
+    if (!MainGame()) return;
     W8NpcState* speaker = CurrentGame().npc_dialogue.speaker();
-    if (CurrentGame().npc_presentation == W8NpcPresentation::portrait_message) {
-        if (IsNpcSpeechHoldOver(CurrentGame().npc_speech)) {
-            FinishNpcVoicePlayback(true);
+    if (MainGame()->dialogue.presentation == W8NpcPresentation::portrait_message) {
+        if (IsNpcSpeechHoldOver(MainGame()->dialogue.speech)) {
+            FinishNpcVoicePlayback(*MainGame(), true);
         }
-    } else if (CurrentGame().npc_presentation == W8NpcPresentation::quote) {
-        if (!CurrentGame().npc_speech.voice_playing &&
-            IsNpcSpeechHoldOver(CurrentGame().npc_speech)) {
-            FinishNpcVoicePlayback(true);
+    } else if (MainGame()->dialogue.presentation == W8NpcPresentation::quote) {
+        if (!MainGame()->dialogue.speech.voice_playing &&
+            IsNpcSpeechHoldOver(MainGame()->dialogue.speech)) {
+            FinishNpcVoicePlayback(*MainGame(), true);
         }
-        if (CurrentGame().npc_speech.voice_playing && !speaker->is_grouped) {
-            UpdateNpcMouth(CurrentGame().npc_speech, GetNpcMonster(speaker));
+        if (MainGame()->dialogue.speech.voice_playing && !speaker->is_grouped) {
+            UpdateNpcMouth(MainGame()->dialogue.speech, GetNpcMonster(speaker));
         }
     }
 
@@ -86,7 +79,7 @@ void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context)
             ScreenPointer().showSlot(1);
             return;
         }
-        if (CurrentGame().npc_presentation != W8NpcPresentation::quote) {
+        if (MainGame()->dialogue.presentation != W8NpcPresentation::quote) {
             if (!CurrentGame().npc_dialogue.has_queued_actions()) {
                 if (ScreenPointer().shownSlot() != W8_CURSOR_TEXT_INPUT) {
                     ScreenPointer().showSlot(W8_CURSOR_NONE);
@@ -97,15 +90,6 @@ void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context)
             ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
         }
     }
-}
-
-/* Completion callback armed on the NPC voice. A natural stream end finishes
-   the quote but leaves the session active for a 700 ms hold. */
-static void NpcVoiceEosCallback()
-{
-    FinishNpcVoicePlayback(false);
-    CurrentGame().npc_presentation = W8NpcPresentation::quote;
-    HoldNpcSpeech(CurrentGame().npc_speech, 700);
 }
 
 /* Speak one subquote of the staged quote: build the voice path under
@@ -124,10 +108,8 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
     Monster* monster;
     std::string voice_dir;
     std::string voice_path;
-    std::string voice_stem;
     std::string display_text;
     std::string plain_text;
-    std::string prefixed_text;
 
     static const int s_empty_quote_text_ids[2] = {1867, 1868};
 
@@ -135,9 +117,9 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
         voice_path = "Data\\Sound\\npcs\\Dialogue Alert.wav";
         display_text = quote->subquotes[subquote_index];
         if (!notice_only) {
-            CurrentGame().npc_presentation = W8NpcPresentation::portrait_message;
+            MainGame()->dialogue.presentation = W8NpcPresentation::portrait_message;
             SetNpcQuoteBubbleVisible(true, display_text, 0, -1, -1);
-            HoldNpcSpeech(CurrentGame().npc_speech,
+            HoldNpcSpeech(MainGame()->dialogue.speech,
                           wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
         }
@@ -150,9 +132,9 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
     } else {
         voice_dir = "npcs";
     }
-    voice_stem = CurrentGame().npc_dialogue.binding().voice_stem;
-    voice_path = fmt::format("Data\\Sound\\{}\\{}\\{}_{:03d}", voice_dir, voice_stem, voice_stem,
-                             current_quote);
+    voice_path = fmt::format("Data\\Sound\\{}\\{}\\{}_{:03d}", voice_dir,
+                             CurrentGame().npc_dialogue.binding().voice_stem,
+                             CurrentGame().npc_dialogue.binding().voice_stem, current_quote);
     if (subquote_index > 0) {
         voice_path.push_back(static_cast<char>(subquote_index + 'a' - 1));
     }
@@ -193,57 +175,60 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
         }
         if (CompareTextIgnoreAsciiCase(plain_text, "SOUND") != 0 && !speaker->is_grouped) {
             if (!context.activity.conversation && speaker->record->voice_script == 0) {
-                prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
-                display_text = prefixed_text;
+                display_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
             }
             SetNpcQuoteBubbleVisible(true, display_text, 0, current_quote, -1, {},
                                      speaker->partner_index);
         }
-        const bool voiced = PlayNpcVoice(CurrentGame().npc_speech, voice_path, NpcVoiceEosCallback);
+        const bool voiced =
+            PlayNpcVoice(MainGame()->dialogue.speech, voice_path, [screen = MainGame()] {
+                FinishNpcVoicePlayback(*screen, false);
+                screen->dialogue.presentation = W8NpcPresentation::quote;
+                HoldNpcSpeech(screen->dialogue.speech, 700);
+            });
         monster = GetNpcMonster(speaker);
         if (monster != 0) {
             monster->StartTalking(true);
         }
         if (!voiced) {
-            HoldNpcSpeech(CurrentGame().npc_speech,
+            HoldNpcSpeech(MainGame()->dialogue.speech,
                           wiz8::text::grapheme_count(display_text) * 60 + 2000);
         }
         entry = GetNpcGroupEntry(speaker);
         if (entry != 0) {
             SetPartyPortraitEventState(speaker->group_index, true, current_quote, display_text, 1);
-            BeginPortraitVoice(speaker->group_index, CurrentGame().npc_speech.voice_handle,
-                               voice_path, CurrentGame().npc_speech.hold_ms);
+            BeginPortraitVoice(speaker->group_index, MainGame()->dialogue.speech.voice_handle,
+                               voice_path, MainGame()->dialogue.speech.hold_ms);
             if (voiced) {
                 context.party.rows[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
                 CurrentGame().npc_interaction.last_notice_npc_kind = speaker->partner_index;
             }
         } else if (voiced) {
-            CurrentGame().npc_speech.gap_track = LoadMouthGapTrack(voice_path);
+            MainGame()->dialogue.speech.gap_track = LoadMouthGapTrack(voice_path);
         }
-        CurrentGame().npc_presentation = W8NpcPresentation::quote;
+        MainGame()->dialogue.presentation = W8NpcPresentation::quote;
         return W8NpcSubquoteOutcome::presented;
     }
-    prefixed_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
-    display_text = prefixed_text;
+    display_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
     ShowNotice(W8_FONT_PALETTE_TEXT_BOX, display_text, 0, W8_NOTICE_WRAP_TEXT_BOX);
     return W8NpcSubquoteOutcome::presented;
 }
 
-static void FinishNpcVoicePlayback(bool resume_script)
+static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script)
 {
-    W8NpcState* const speaker = CurrentGame().npc_dialogue.speaker();
-    const int current_quote = CurrentGame().npc_dialogue.current_quote();
-    if (CurrentGame().npc_presentation == W8NpcPresentation::portrait_message) {
-        CurrentGame().npc_presentation = W8NpcPresentation::none;
+    W8NpcState* const speaker = screen.game.npc_dialogue.speaker();
+    const int current_quote = screen.game.npc_dialogue.current_quote();
+    if (screen.dialogue.presentation == W8NpcPresentation::portrait_message) {
+        screen.dialogue.presentation = W8NpcPresentation::none;
         SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
-        CurrentGame().npc_dialogue.SpeechFinished();
+        screen.game.npc_dialogue.SpeechFinished();
         return;
     }
-    if (CurrentGame().npc_presentation != W8NpcPresentation::quote) {
+    if (screen.dialogue.presentation != W8NpcPresentation::quote) {
         return;
     }
-    StopNpcVoice(CurrentGame().npc_speech);
+    StopNpcVoice(screen.dialogue.speech);
     Monster* monster = GetNpcMonster(speaker);
     if (monster != 0) {
         monster->StopTalking();
@@ -252,13 +237,13 @@ static void FinishNpcVoicePlayback(bool resume_script)
         FinishPortraitSpeech(speaker->group_index);
         SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
     }
-    CurrentGame().npc_presentation = W8NpcPresentation::none;
-    CurrentGame().npc_dialogue.SpeechFinished();
-    if (CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none && resume_script) {
-        if (speaker != 0 && CurrentGame().npc_dialogue.binding().script != 0 &&
-            current_quote < CurrentGame().npc_dialogue.binding().script->quote_count) {
+    screen.dialogue.presentation = W8NpcPresentation::none;
+    screen.game.npc_dialogue.SpeechFinished();
+    if (screen.game.npc_dialogue.reply() == W8NpcReplyState::none && resume_script) {
+        if (speaker != 0 && screen.game.npc_dialogue.binding().script != 0 &&
+            current_quote < screen.game.npc_dialogue.binding().script->quote_count) {
             SetNpcQuoteBubbleVisible(
-                false, {}, &CurrentGame().npc_dialogue.binding().script->quotes[current_quote],
+                false, {}, &screen.game.npc_dialogue.binding().script->quotes[current_quote],
                 current_quote, -1);
             return;
         }
@@ -271,18 +256,19 @@ static void FinishNpcVoicePlayback(bool resume_script)
 void TryFinishNpcVoicePlayback(const GameStatus& status, bool force)
 {
     if (status.world_cursor_gate == 0 || GetLoadedLevelID() != 4) {
-        if (!force && MonotonicMilliseconds() - CurrentGame().npc_speech.voice_started_at <= 500) {
+        if (!force &&
+            MonotonicMilliseconds() - MainGame()->dialogue.speech.voice_started_at <= 500) {
             return;
         }
-        FinishNpcVoicePlayback(true);
+        FinishNpcVoicePlayback(*MainGame(), true);
     }
 }
 
 void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice)
 {
-    CurrentGame().npc_presentation = W8NpcPresentation::portrait_message;
+    MainGame()->dialogue.presentation = W8NpcPresentation::portrait_message;
     SetNpcQuoteBubbleVisible(true, text, 0, -1, -1, notice, -1);
-    HoldNpcSpeech(CurrentGame().npc_speech, ComputePortraitMessageDuration(text));
+    HoldNpcSpeech(MainGame()->dialogue.speech, ComputePortraitMessageDuration(text));
 }
 
 /* Repost the NPC's current quote bubble after a modal sub-dialog closes, or
@@ -305,12 +291,13 @@ void RestoreCurrentNpcQuoteBubble(void)
    the generic start-game click that accompanies a silent text notice. */
 void DisplayNpcQuote(std::string_view text, bool play_sound)
 {
-    std::string sound_path;
-
-    ShowNpcScriptNoticeBubble(text);
-    CurrentGame().npc_presentation = W8NpcPresentation::quote;
+    SetNpcQuoteBubbleVisible(true, text, 0, -1, 0x47);
+    auto& speech = MainGame()->dialogue.speech;
+    speech.voice_playing = false;
+    speech.voice_started_at = MonotonicMilliseconds();
+    HoldNpcSpeech(speech, 2000);
+    MainGame()->dialogue.presentation = W8NpcPresentation::quote;
     if (play_sound) {
-        sound_path = "Data\\Sound\\misc\\startgame.wav";
-        wiz8::sound::play(sound_path);
+        wiz8::sound::play("Data\\Sound\\misc\\startgame.wav");
     }
 }
