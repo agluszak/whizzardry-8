@@ -159,7 +159,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);
         if (FindEntityByName("NP_catwalk", &position, 0, 0)) {
-            SpawnMonsters(0x14a, 1, &position, 1, true, false, false);
+            SpawnMonsters(0x14a, 1, &position, 1, true, false);
         }
         return true;
     }

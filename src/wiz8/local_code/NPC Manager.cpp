@@ -485,7 +485,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         if (!species) {
             return 0;
         }
-        W8MonsterGroup* group = CreateGroup(*species, 1, &position, true, false, true);
+        W8MonsterGroup* group = CreateGroup(*species, 1, &position, true, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
             CopyCharacterConditionsToTarget(dismissed_character, &monster->location_id);
@@ -2051,7 +2051,7 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
             return false;
         }
         copied = position;
-        CreateGroup(*species, 1, &copied, true, false, true);
+        CreateGroup(*species, 1, &copied, true, true);
         return true;
     }
     if (!npc->is_present) {

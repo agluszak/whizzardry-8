@@ -82,22 +82,22 @@ void CosmicCircleScript::setup()
 
     if (!ctx.status.world_suspended && !ctx.status.cc_arena_spawned) {
         if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {
-            group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false, false);
+            group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false);
             uiMonsterID = group->MemberLocationId(0);
             assert(uiMonsterID != 0);
             pMonsterInfoAltheides = FindMonster(uiMonsterID);
         }
         if (FindEntityByName("NP_DSARENA", &positionDs, 0, 0)) {
-            group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false, false);
+            group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false);
             uiMonsterID = group->MemberLocationId(0);
             assert(uiMonsterID != 0);
             pMonsterInfoDs = FindMonster(uiMonsterID);
         }
         if (FindEntityByName("NP_BELASTART", &positionBela, 0, 0)) {
-            SpawnMonsters(0x1b4, 1, &positionBela, 2, true, false, false);
+            SpawnMonsters(0x1b4, 1, &positionBela, 2, true, false);
         }
         if (FindEntityByName("NP_PHOONZANG1", &positionPhoonzang, 0, 0)) {
-            SpawnMonsters(0x197, 1, &positionPhoonzang, 2, true, false, false);
+            SpawnMonsters(0x197, 1, &positionPhoonzang, 2, true, false);
         }
         ctx.status.cc_arena_spawned = true;
         if (pMonsterInfoDs != nullptr) {

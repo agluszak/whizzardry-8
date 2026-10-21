@@ -65,9 +65,9 @@ bool OnRoachTriggerActivated(Trigger* trigger)
     positions[0].z += 1e+03f;
     positions[1].z += 1e+03f;
     positions[2].z += 1e+03f;
-    SpawnMonsters(0x138, 3, &positions[0], 1, false, false, false);
-    SpawnMonsters(0x138, 3, &positions[1], 1, false, false, false);
-    SpawnMonsters(0x138, 3, &positions[2], 1, false, false, false);
+    SpawnMonsters(0x138, 3, &positions[0], 1, false, false);
+    SpawnMonsters(0x138, 3, &positions[1], 1, false, false);
+    SpawnMonsters(0x138, 3, &positions[2], 1, false, false);
     CreateLocationVar("RoachesSpawned", 1);
     return true;
 }
@@ -79,7 +79,7 @@ bool OnSpiderTriggerActivated(Trigger* trigger)
     glm::vec3 position;
 
     if (FindEntityByName("spiderman", &position, 0, 0)) {
-        SpawnMonsters(0x19c, 6, &position, 1, false, false, false);
+        SpawnMonsters(0x19c, 6, &position, 1, false, false);
     }
     return true;
 }
@@ -103,7 +103,7 @@ bool OnCoffinlideActivated(Trigger* trigger)
     glm::vec3 position;
 
     if (GetLocationVarIDByName("HeadSpawned") == -1 && FindEntityByName("Head", &position, 0, 0)) {
-        SpawnMonsters(0x12d, 1, &position, 1, true, false, false);
+        SpawnMonsters(0x12d, 1, &position, 1, true, false);
         CreateLocationVar("HeadSpawned", 1);
     }
     return true;

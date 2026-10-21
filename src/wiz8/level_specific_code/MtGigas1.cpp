@@ -54,7 +54,7 @@ bool MudWall(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("NP_BadassMonster", &position, 0, 0)) {
-        SpawnMonsters(0x157, 1, &position, 1, true, false, false);
+        SpawnMonsters(0x157, 1, &position, 1, true, false);
     }
     return true;
 }

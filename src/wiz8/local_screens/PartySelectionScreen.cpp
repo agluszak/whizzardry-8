@@ -1281,9 +1281,6 @@ bool PartySelectionScreen::leave(ScreenDeparture)
 
 void PartySelectionScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     PartySelectionScreen* controller = this;
     if (controller->m_dialog) {
         controller->m_dialog->ProcessInput();

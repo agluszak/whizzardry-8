@@ -16,7 +16,6 @@
 
 #include <fmt/format.h>
 #include <fmt/printf.h>
-#include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
@@ -79,7 +78,6 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
@@ -375,9 +373,6 @@ done:
         unsigned int experience = record->experience_override;
         if (experience == 0) {
             experience = record->experience;
-            if (experience == 0) {
-                DebugMessage(0, fmt::format("DATA ERROR: {} is worth 0 XPs", record->name0));
-            }
         }
         CurrentGame().combat->experience_pool += experience;
         if (CurrentGame().status.status_ints[monster_species] == 0) {
@@ -686,32 +681,6 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     monster_info->entity->SetAnimating(true);
     monster_info->entity->nav.active = true;
     monster_info->entity->inactive = false;
-}
-
-static double DistanceBetweenPositions(const glm::vec3* first, const glm::vec3& second)
-{
-    return glm::length((*first - second));
-}
-
-W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance)
-{
-    W8MonsterInfo* nearest = nullptr;
-    double nearest_distance = 1.0e11;
-
-    for (const auto* monsters : {&CurrentLevelPopulation().monster_roster.live(),
-                                 &CurrentLevelPopulation().monster_roster.unborn()}) {
-        for (const auto& monster_owner : *monsters) {
-            auto* monster_info = monster_owner.get();
-            const double distance =
-                DistanceBetweenPositions(position, monster_info->entity->nav.GetPosition());
-            if (distance < nearest_distance &&
-                (maximum_distance == 0.0 || distance < maximum_distance)) {
-                nearest = monster_info;
-                nearest_distance = distance;
-            }
-        }
-    }
-    return nearest;
 }
 
 static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
@@ -1236,12 +1205,7 @@ std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* r
             "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
         return CurrentGame().status.monster_name_buffer;
     }
-    if (monster_info->monster_group_id == 0) {
-        if (!monster_info->entity->IsDying()) {
-            DebugMessage(
-                1, fmt::format("ERROR: Monster ID {:d} has no group", monster_info->location_id));
-        }
-    } else {
+    if (monster_info->monster_group_id != 0) {
         monster_group = FindMonsterGroup(monster_info->monster_group_id);
         assert(monster_group != 0);
         if (monster_group->alternate_name) {
@@ -1324,8 +1288,6 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
         }
     }
 
-    if (g_dev_mode)
-        return fmt::format("{:d}/{:d}", monster_info->hp_current, monster_info->uiHPMax);
     const auto current = health_knowledge < 10 || suppress_exact_health
                              ? "?"
                              : fmt::format("{:d}", monster_info->hp_current);

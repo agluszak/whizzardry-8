@@ -117,7 +117,7 @@ bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
             CreateLocationVar("LezboDemonAppeared", 1);
         }
         if (FindEntityByName("NP_Al-Sedexus", &position, 0, 0)) {
-            SpawnMonsters(0x124, 1, &position, 0, true, false, false);
+            SpawnMonsters(0x124, 1, &position, 0, true, false);
         }
         pTrigger->required_item_id = 0x1fc;
     }
