@@ -31,7 +31,6 @@
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
 #include "wiz8/entities/emitter_cycles.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/spell_visual.h"
@@ -227,6 +226,7 @@ struct SpellVisualFixture {
     ~SpellVisualFixture()
     {
         world.spell_visuals.clear();
+        world.spell_visual_definitions.clear();
         world.spatial.reset();
     }
 };
@@ -235,14 +235,12 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "Spell visual fallback uses world-owned sources of the correct type",
                  "[resources][spell]")
 {
-    auto& named = *world.spell_visuals.emplace_back(std::make_unique<SpellVisual>(&world));
-    auto& generic = *world.spell_visuals.emplace_back(std::make_unique<SpellVisual>(&world));
+    auto& definitions = world.spell_visual_definitions;
+    auto& named = *definitions.emplace_back(std::make_unique<SpellVisual>(&world));
+    auto& generic = *definitions.emplace_back(std::make_unique<SpellVisual>(&world));
     named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
     named.asset_name = "Named";
     generic.asset_name = "Generic";
-    // A projectile with the same name must never be mistaken for a spell visual.
-    auto& projectile = *world.missiles.emplace_back(std::make_unique<Missile>(&world));
-    projectile.asset_name = "Named";
     const int first_cycle = W8_SPELL_VISUAL_EXPLOSION * 7;
     generic.resources.cycles[first_cycle + 1].animation = std::make_unique<Animation>();
     const glm::vec3 position{11, 22, 33};
@@ -257,19 +255,19 @@ TEST_CASE_METHOD(SpellVisualFixture,
         REQUIRE(visual->flags0 == 23);
         REQUIRE(visual->billboard);
         REQUIRE(visual->nav.GetPosition() == position);
-        REQUIRE(visuals.size() == 3);
+        REQUIRE(visuals.size() == 1);
         REQUIRE(visuals.back().get() == visual);
         visuals.pop_back();
     }
-    REQUIRE(visuals.size() == 2);
-    REQUIRE(findSpellVisualAsset(world, "nAmEd", W8_SPELL_VISUAL_EXPLOSION) == &named);
+    REQUIRE(definitions.size() == 2);
 
-    // A supported named cycle takes precedence over the fallback.
+    // A supported named cycle takes precedence over the fallback, whatever
+    // the case of the requested name.
     named.resources.cycles[first_cycle + 2].animation = std::make_unique<Animation>();
-    auto* visual = SpawnSpellEffect(&position, "Named", 4, 31, 47);
+    auto* visual = SpawnSpellEffect(&position, "nAmEd", 4, 31, 47);
     REQUIRE(visual);
     REQUIRE(visual->visual.pending_cycle == first_cycle + 2);
-    REQUIRE(visual->asset_name == "Named");
+    REQUIRE(visual->asset_name == "nAmEd");
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resources][spell]")
@@ -649,7 +647,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
                  "[resources][spell][ownership]")
 {
     world.camera = &world.scene->camera;
-    auto& source = *world.spell_visuals.emplace_back(std::make_unique<SpellVisual>(&world));
+    auto& source =
+        *world.spell_visual_definitions.emplace_back(std::make_unique<SpellVisual>(&world));
     source.asset_name = "TargetCone";
     source.mode = W8_SPELL_VISUAL_CONE;
     source.resources.cycles[static_cast<int>(W8_SPELL_VISUAL_CONE) * SPELL_CYCLES_PER_GROUP]
@@ -657,12 +656,12 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
     for (int attempt = 0; attempt < 2; ++attempt) {
         SetTargetConeEnabled(true);
         REQUIRE(world.target_cone);
-        REQUIRE(world.spell_visuals.size() == 2);
+        REQUIRE(world.spell_visuals.size() == 1);
         SetTargetConeEnabled(true);
-        REQUIRE(world.spell_visuals.size() == 2);
+        REQUIRE(world.spell_visuals.size() == 1);
         SetTargetConeEnabled(false);
         REQUIRE_FALSE(world.target_cone);
-        REQUIRE(world.spell_visuals.size() == 1);
+        REQUIRE(world.spell_visuals.empty());
         SetTargetConeEnabled(false);
     }
 }

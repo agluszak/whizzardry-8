@@ -65,11 +65,7 @@ static void EnsureMonsterBaseSkin(Monster* monster, std::string_view monster_nam
 {
     if (skins_started) return;
     damage_stage = monster->AddDamageStage(monster_name, 0);
-    std::vector<MeshInstance*> instances;
-    monster->CollectModelInstances(instances);
-    for (MeshInstance* instance : instances) {
-        instance->damage_stage = damage_stage;
-    }
+    monster->visual.damage_stage = damage_stage;
     skins_started = true;
 }
 
@@ -507,10 +503,8 @@ static void WithdrawMonsterDefinition(World& world, Monster& definition)
     for (auto& cycle : definition.cycles)
         for (auto& slot : cycle)
             for (auto& light : slot.lights.lights) light->setScene(nullptr);
-    definition.visual.SetLights(nullptr);
+    definition.visual.WithdrawFromScene();
     if (definition.monster_light) definition.monster_light->setScene(nullptr);
-    for (auto& attachment : definition.visual.particles)
-        if (attachment.m_pstParticles) attachment.m_pstParticles->setScene(nullptr);
     std::erase(world.navigators, &definition.nav);
 }
 

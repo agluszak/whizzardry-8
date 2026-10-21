@@ -44,7 +44,6 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
-#include "wiz8/entities/entity_assets.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/spell_visual.h"
@@ -378,6 +377,7 @@ Monster::Monster(const Monster& rhs, World* owner)
     random_idle_fps_min = rhs.random_idle_fps_min;
     random_idle_fps_max = rhs.random_idle_fps_max;
     left_handed = rhs.left_handed;
+    damage_stage_count = rhs.damage_stage_count;
     for (signed char cycle = W8_MONSTER_CYCLE_BIRTH; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
         CopyCycle(cycle, &rhs, cycle);
     }
@@ -446,7 +446,6 @@ void Monster::Update()
     W8MonsterInfo* monster_info = 0;
     float distance;
     int cycle;
-    int index;
 
     party_position = cameraLocation();
     {
@@ -457,12 +456,7 @@ void Monster::Update()
 
     if (sunlit_state == W8_MONSTER_SUNLIGHT_UNKNOWN || g_monster_light_scale < 1.0f) {
         current_scale = 0.75f;
-        std::vector<MeshInstance*> model_instances;
-        CollectModelInstances(model_instances);
-        for (index = 0; index < static_cast<int>(model_instances.size()); ++index) {
-            MeshInstance* model = model_instances[index];
-            model->light_scale = glm::vec3(0.75f);
-        }
+        visual.light_scale = current_scale;
         target_scale = 0.75f;
         light_scale_timer.SetDuration(0.025f);
         light_scale_timer.Restart();
@@ -510,7 +504,7 @@ void Monster::Update()
                 current_scale = target_scale;
             }
         }
-        RefreshModelLightScale();
+        visual.light_scale = current_scale;
         light_scale_timer.Restart();
     }
 
@@ -1687,7 +1681,7 @@ void Monster::SetCycle(signed char cycle)
         monster_light->SetVisible(visual.enabled);
     }
 
-    RefreshModelLightScale();
+    visual.light_scale = current_scale;
 
     if (cycle == W8_MONSTER_CYCLE_DIE) {
         glm::vec4 empty;
@@ -2367,16 +2361,6 @@ void Monster::AimAtMonster(Monster* target, bool alternate)
     }
 }
 
-/* Apply the active light scale to the current model chain. */
-void Monster::RefreshModelLightScale()
-{
-    std::vector<MeshInstance*> model_instances;
-    CollectModelInstances(model_instances);
-    for (MeshInstance* model : model_instances) {
-        model->light_scale = glm::vec3(current_scale);
-    }
-}
-
 /* Flatten every model instance reachable from every cycle and subcycle. The
    temporary vectors used by the damage-appearance accessors below prove the
    element type: AniMesh's frame lookup returns MeshInstance objects and the
@@ -2489,36 +2473,8 @@ int Monster::AddDamageStage(std::string_view base_name, int stage)
             result = instance->AddExistingDamageStage(name.c_str());
         }
     }
+    if (!instances.empty()) ++damage_stage_count;
     return result;
-}
-
-/* The final registered Monster for a cycle name owns removal of that name's
-   per-mesh skin tables. */
-
-/* Select the damage-stage model on every frame instance owned by this
-   Monster. UpdateMonsterDamageAppearance supplies the HP-derived stage. */
-void Monster::SetDamageStage(int stage)
-{
-    std::vector<MeshInstance*> instances;
-    int index;
-
-    CollectModelInstances(instances);
-    for (index = 0; index < static_cast<int>(instances.size()); ++index) {
-        instances[index]->damage_stage = stage;
-    }
-}
-
-/* Every frame instance in one Monster carries the same number of available
-   damage stages, so the first instance supplies the count. */
-int Monster::GetDamageStageCount()
-{
-    std::vector<MeshInstance*> instances;
-
-    CollectModelInstances(instances);
-    if (!instances.empty()) {
-        return static_cast<int>(instances[0]->damage_stage_tables.size());
-    }
-    return 0;
 }
 
 /* Floating damage feedback: render the amount into a scratch ARGB1555
