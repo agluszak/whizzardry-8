@@ -317,12 +317,11 @@ the licensed runtime scenarios after every step.
      (`Game::left_levels`); a save copies them as bytes. Once level states are values,
      the game holds those values instead (keeping the groups of levels it never decoded
      intact) and a save encodes them.
-   - A load is atomic per section, not per save: `LoadGame` begins the replacement game,
-     then decodes and installs sections one at a time, so a failure in a later section
-     leaves the earlier ones installed. Decode the whole save, level states included,
-     before replacing the current game.
-   - In order: a `LevelState` that exists without a live `World`; replacement worlds
-     built from those values; then a complete staged load.
+   - A load decodes every game section before replacing the current game, but a level
+     group is decoded only when the party enters its level, so a malformed group still
+     fails then rather than at load. In order: a `LevelState` that exists without a live
+     `World`; replacement worlds built from those values; then decoding the level groups
+     with the rest of the save.
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.
