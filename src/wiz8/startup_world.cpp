@@ -2,7 +2,6 @@
 
 #include <memory>
 
-#include "wiz8/entities/animation_mesh.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/spatial/navigator.h"
@@ -19,7 +18,6 @@ Navigator* PartyNavigator()
 /* Original translation-unit ownership of startup navigation and its globals is unknown. */
 bool InitializeStartupNavigation(void)
 {
-    InitializeAniMeshCache(-1, -1);
     InitializeRenderQuality();
     InitializeEnvironmentColours();
 
@@ -32,11 +30,9 @@ bool InitializeStartupNavigation(void)
     return true;
 }
 /* Tears down the startup navigation state InitializeStartupNavigation
-   built: the ani-mesh cache, environment globals, and the
-   party navigator itself. */
+   built: the environment globals and the party navigator itself. */
 void ShutdownStartupNavigation(void)
 {
-    FreeAniMeshCache();
     ClearEnvironmentObjects();
     party_navigator.reset();
 }

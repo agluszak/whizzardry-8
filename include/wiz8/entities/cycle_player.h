@@ -160,7 +160,7 @@ public:
     float frame_fraction;
 }; /* 0x1d8 */
 
-bool loadAnimationCycle(std::string_view name, CyclePlayer& player, int cycle_index, int value,
+bool loadAnimationCycle(std::string_view name, CyclePlayer& player, int cycle_index,
                         std::string_view directory,
-                        const std::function<bool(LevelLoadContext&, int, int)>& read_payload,
+                        const std::function<bool(LevelLoadContext&, int)>& read_payload,
                         std::string_view bitmap_directory = {});

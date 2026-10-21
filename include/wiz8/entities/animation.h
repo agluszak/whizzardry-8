@@ -57,8 +57,8 @@ unsigned int AnimObjValue(const Animation* animation, signed char index);
 unsigned int AnimObjListCount(Animation* animation, signed char index);
 KeyframeTrack* AnimObjListEntry(Animation* animation, signed char list_index,
                                 signed char entry_index);
-bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation, int load_all,
-                         std::vector<std::unique_ptr<Light>>* light_list, int);
+bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation,
+                         std::vector<std::unique_ptr<Light>>* light_list);
 MeshInstance* AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value);
 MeshInstance* AnimObjDispatchList(Animation* animation, signed char list_index,
                                   signed char entry_index);

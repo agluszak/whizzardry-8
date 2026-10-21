@@ -1207,7 +1207,7 @@ try {
                 return false;
             }
         }
-        mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder, true);
+        mesh = ReadAnimatedMesh(*hFile, info->bitmap_folder);
         if (!mesh) {
             return false;
         }
@@ -1282,7 +1282,7 @@ try {
             }
         }
         animation = &this->animation.emplace();
-        result = AnimObjReadFromFile(info, animation, 1, 0, 1);
+        result = AnimObjReadFromFile(info, animation, nullptr);
         if (animation->path_lists == 1) {
             animation->frame_count = frame_count;
         }
@@ -1342,7 +1342,7 @@ try {
 
     if (animation->path_lists == 0) {
         AnimationMesh* mesh = AnimObjEntry(animation, 2, 0);
-        unsigned char value_count = AniMeshValue(mesh);
+        unsigned char value_count = mesh->frame_count;
         MeshInstance* frame = GetAniMeshFrame(mesh, 0);
         unsigned int frame_i;
 
@@ -1466,8 +1466,8 @@ void Prop::CollectModelInstances(std::vector<MeshInstance*>& instances)
             if (mesh == 0) {
                 continue;
             }
-            int frame_count = AniMeshValue(mesh);
-            if (mesh->flags.single_instance) {
+            int frame_count = mesh->frame_count;
+            if (mesh->single_instance) {
                 instances.push_back(GetAniMeshFrame(mesh, 0));
             } else {
                 for (int frame = 0; frame < frame_count; ++frame) {
@@ -1482,7 +1482,7 @@ void Prop::CollectModelInstances(std::vector<MeshInstance*>& instances)
                 if (mesh == 0) {
                     continue;
                 }
-                int frame_count = AniMeshValue(mesh);
+                int frame_count = mesh->frame_count;
                 for (int frame = 0; frame < frame_count; ++frame) {
                     instances.push_back(GetAniMeshFrame(mesh, frame));
                 }

@@ -26,8 +26,8 @@
 Animation::Animation() = default;
 Animation::~Animation() = default;
 
-bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation, int load_all,
-                         std::vector<std::unique_ptr<Light>>* light_list, int)
+bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation,
+                         std::vector<std::unique_ptr<Light>>* light_list)
 try {
     unsigned char version = 0;
     bool success;
@@ -225,7 +225,7 @@ try {
                 channel >= static_cast<int>(std::size(animation->entries))) {
                 return false;
             }
-            auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder, load_all);
+            auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder);
             if (!mesh) return false;
             animation->entries[channel] = std::move(mesh);
         }
@@ -246,7 +246,7 @@ try {
                 if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
                     return false;
                 }
-                auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder, true);
+                auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder);
                 if (!mesh) return false;
                 animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
                                                   std::move(mesh));
@@ -273,7 +273,7 @@ try {
         if (mesh == 0) {
             animation->end_frame = animation->start_frame;
         } else if (!animation->path_lists) {
-            animation->end_frame = static_cast<unsigned char>(AniMeshValue(mesh) - 1);
+            animation->end_frame = static_cast<unsigned char>(mesh->frame_count - 1);
         } else {
             animation->end_frame = animation->frame_count - 1;
         }
@@ -325,21 +325,19 @@ std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char li
         const auto& bounds = animation->frame_bounds[frame];
         return BoundingBox{bounds.minimum, bounds.maximum};
     }
-    if (!animation->path_lists) return GetAniMeshBounds(animation->entries[list_index].get());
+    if (!animation->path_lists) {
+        const auto* mesh = animation->entries[list_index].get();
+        return mesh ? std::optional{mesh->bounds} : std::nullopt;
+    }
     if (frame >= animation->frame_count) return std::nullopt;
     if (animation->frame_bounds.size() < animation->frame_count)
         animation->frame_bounds.resize(animation->frame_count);
     auto* first_mesh = AnimObjEntry(animation, list_index, 0);
     if (!first_mesh) return std::nullopt;
-    auto bounds = GetAniMeshBounds(first_mesh);
-    if (!bounds) return std::nullopt;
+    auto bounds = first_mesh->bounds;
     const auto count = animation->meshes[list_index].size();
     for (std::size_t index = 0; index < count; ++index) {
-        if (index != 0) {
-            const auto mesh_bounds = GetAniMeshBounds(AnimObjEntry(animation, list_index, index));
-            if (!mesh_bounds) return std::nullopt;
-            bounds->include(*mesh_bounds);
-        }
+        if (index != 0) bounds.include(AnimObjEntry(animation, list_index, index)->bounds);
         auto* instance =
             AnimObjDispatchList(animation, list_index, static_cast<signed char>(index));
         if (!instance) return std::nullopt;
@@ -350,7 +348,7 @@ std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char li
             PathAISetValue(path, saved);
         }
     }
-    animation->frame_bounds[frame] = {true, bounds->minimum, bounds->maximum};
+    animation->frame_bounds[frame] = {true, bounds.minimum, bounds.maximum};
     return bounds;
 }
 
@@ -374,7 +372,7 @@ unsigned int AnimObjValue(const Animation* animation, signed char index)
 {
     assert(animation != 0);
     if (!animation->path_lists) {
-        return AniMeshValue(animation->entries[index].get());
+        return animation->entries[index]->frame_count;
     }
     return animation->frame_count;
 }

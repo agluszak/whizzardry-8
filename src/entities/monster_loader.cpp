@@ -74,7 +74,7 @@ static void EnsureMonsterBaseSkin(Monster* monster, std::string_view monster_nam
    stages, lights, and the list of binary .mon cycles. The definition is never
    randomized; each actor rolls its own appearance. */
 static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_view monster_name,
-                                                      int load_value, int location_id)
+                                                      int location_id)
 {
     std::unique_ptr<Monster> monster;
     bool success = true;
@@ -271,10 +271,9 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                             fields >> animation_scale;
 
                             success = loadAnimationCycle(
-                                argument, monster->visual, cycle, load_value, "data\\monsters",
-                                [&](LevelLoadContext& read_info, int read_cycle, int read_value) {
-                                    return monster->ReadCycleData(&read_info, read_cycle,
-                                                                  read_value) != 0;
+                                argument, monster->visual, cycle, "data\\monsters",
+                                [&](LevelLoadContext& read_info, int read_cycle) {
+                                    return monster->ReadCycleData(&read_info, read_cycle) != 0;
                                 });
                             if (!monster->visual.particles.empty()) {
                                 for (int index = 0;
@@ -512,14 +511,14 @@ static void WithdrawMonsterDefinition(World& world, Monster& definition)
    own appearance roll. The definition is loaded on first use and kept for the
    world's lifetime, so creating an actor never depends on another actor. */
 std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view monster_name,
-                                                int load_value, int location_id)
+                                                int location_id)
 {
     auto& definitions = world->monster_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return CompareTextIgnoreAsciiCase(candidate->asset_name, monster_name) == 0;
     });
     if (definition == definitions.end()) {
-        auto loaded = LoadMonsterDefinition(world, monster_name, load_value, location_id);
+        auto loaded = LoadMonsterDefinition(world, monster_name, location_id);
         if (!loaded) return nullptr;
         WithdrawMonsterDefinition(*world, *loaded);
         definitions.push_back(std::move(loaded));
@@ -581,7 +580,7 @@ W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycl
 /* Read one animation/subcycle into the Monster representation.  The current
    subcycle is the newly appended animation slot; its playback scale and light
    list are owned by a single cycle slot. */
-unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index, int load_all)
+unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index)
 {
     EmitterLights lights;
     Animation* animation;
@@ -592,7 +591,7 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index, in
 
     auto owner = std::make_unique<Animation>();
     animation = owner.get();
-    success = AnimObjReadFromFile(info, animation, load_all, &lights.lights, 0);
+    success = AnimObjReadFromFile(info, animation, &lights.lights);
     if (!success) return 0;
     if (cycle_index == W8_MONSTER_CYCLE_NONE) {
         cycle_index = static_cast<signed char>(animation->cycle);
@@ -638,16 +637,14 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index, in
     return success;
 }
 
-std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle,
-                                          int value)
+std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle)
 {
     auto monster = std::make_unique<Monster>(world);
     AllocateLegacyPropSaveId();
     monster->visual.current_cycle = -1;
-    if (!loadAnimationCycle(mon_name, monster->visual, cycle, value, "data\\monsters",
-                            [&](LevelLoadContext& read_info, int read_cycle, int read_value) {
-                                return monster->ReadCycleData(&read_info, read_cycle, read_value) !=
-                                       0;
+    if (!loadAnimationCycle(mon_name, monster->visual, cycle, "data\\monsters",
+                            [&](LevelLoadContext& read_info, int read_cycle) {
+                                return monster->ReadCycleData(&read_info, read_cycle) != 0;
                             }))
         return nullptr;
     for (auto& event : monster->visual.particles) {

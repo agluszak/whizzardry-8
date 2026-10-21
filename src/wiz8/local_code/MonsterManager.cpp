@@ -157,7 +157,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* r
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 {
     if (!monster_info || monster_info->fActive) return;
-    ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
+    ActivateMonster(monster_info);
     PrepareMonsterInWorld(*GetWorld(), *monster_info,
                           CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
     RequestRefreshPartyState();
@@ -229,18 +229,12 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
     }
 }
 
-/* Activate the representation lazily. The mode selects whether all available
-   cycles are loaded or only the startup cycle; both paths share the world
-   context and preserve the loader's success result for the source assertion. */
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
-                                                   W8MonsterActivationMode mode)
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
 {
     const W8MonsterRecord* record;
     record = GetMonsterDataForInfo(monster_info);
 
-    auto monster = Monster::ReadAllCycles(&world, record->cycle_name,
-                                          mode == W8_MONSTER_LOAD_ALL_CYCLES ? 1 : 0,
-                                          monster_info->location_id);
+    auto monster = Monster::ReadAllCycles(&world, record->cycle_name, monster_info->location_id);
     assert(monster);
     return monster;
 }
@@ -262,11 +256,11 @@ void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
     RefreshMonsterStandingHeight(monster_info->p3D);
 }
 
-void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode)
+void ActivateMonster(W8MonsterInfo* monster_info)
 {
     assert(monster_info && !monster_info->fActive);
     if (monster_info->p3D) return;
-    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info, mode);
+    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info);
     monster_info->p3D = monster.get();
     GetWorld()->monsters.push_back(std::move(monster));
     ConfigureMonsterRepresentation(*GetWorld(), monster_info);

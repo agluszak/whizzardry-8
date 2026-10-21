@@ -325,17 +325,6 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
     return true;
 }
 
-/* Brings every member of a group into the world. Front to back, and the list
-   length is re-read each time because activation can add to it. */
-void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode)
-{
-    unsigned int index;
-
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        ActivateMonster(FindMonster(monster_group->MemberLocationId(index)), mode);
-    }
-}
-
 void RefreshMonsterGroup(W8MonsterGroup* monster_group)
 {
     Monster* leader;
