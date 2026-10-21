@@ -55,7 +55,8 @@ void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool re
    cannot be paid; the flag picks the check flavor. */
 /* Turn the undead in sight; answers how many it reached, zero when it could not. With
    `check` it is the member's once-per-combat action and is refused when used up. */
-int TurnUndead(int party_slot, bool check);
+struct TextNotice;
+int TurnUndead(int party_slot, bool check, TextNotice& notice);
 /* The fatigue the slot's pending turn-undead costs, zero when it
    cannot be carried out. */
 int CharacterPrayAction(int party_slot);

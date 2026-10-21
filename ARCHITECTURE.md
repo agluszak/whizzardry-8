@@ -496,6 +496,12 @@ Unlayered code may use the layers.
   host (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …), and the
   presenter plays the death sound. Monster conditions stay with the world's monster
   records (`ConditionsAndEnchantments.cpp`).
+- **Combat notices.** A notice carries its UTF-8 emphasis span before wrapping.
+  Spell effects own their short announcement and accumulated result until it is
+  complete; death reports follow that summary. Group attacks build their summary
+  locally. Presentation wraps once and clips emphasis into each row; rules never
+  edit a rendered line. Short cast announcements therefore arrive with the result,
+  while complete detailed announcements and voice scheduling keep their own order.
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,
   and cancelling it prevents late completions from restarting idle dialogue.

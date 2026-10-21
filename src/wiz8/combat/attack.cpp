@@ -62,7 +62,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
@@ -878,8 +877,8 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     const W8MonsterRecord* record;
     std::string text;
     std::string location_name;
-    unsigned char target_start;
-    unsigned char target_stop;
+    std::size_t target_start;
+    std::size_t target_stop;
     signed char source_color;
     signed char target_color;
     unsigned int hit_location;
@@ -908,10 +907,10 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     target_stop = text.size();
     source_color = GetSourceNoticeColor(source);
     target_color = GetTargetNoticeColor(source, target);
-    CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color), text});
-    if (target_color != source_color) {
-        HighlightTextBoxRange(target_color, target_start, target_stop, -1);
-    }
+    CurrentGame().events.push(TextNotice{
+        .palette = static_cast<unsigned int>(source_color),
+        .text = std::move(text),
+        .highlight = {static_cast<unsigned char>(target_color), target_start, target_stop}});
     if (deflected) {
         CurrentGame().events.push(
             TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x214]});
@@ -1970,8 +1969,8 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
     W8MonsterInfo* second;
     std::string text;
     unsigned char palette;
-    unsigned char highlight_start;
-    unsigned char highlight_end;
+    std::size_t highlight_start;
+    std::size_t highlight_end;
     unsigned short name_id;
     int attempts;
     bool notices;
@@ -2085,11 +2084,9 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         (record->attack_multiple_targets == 0 || range > W8_RANGE_SHORT)) {
         CurrentGame().combat->attack_message += fmt::format(" {:d}x", combat->uiSwingsRemaining);
     }
-    CurrentGame().events.push(
-        TextNotice{W8_FONT_PALETTE_RUST, CurrentGame().combat->attack_message});
-    if (palette != 9) {
-        HighlightTextBoxRange(palette, highlight_start, highlight_end, -1);
-    }
+    CurrentGame().events.push(TextNotice{.palette = W8_FONT_PALETTE_RUST,
+                                         .text = CurrentGame().combat->attack_message,
+                                         .highlight = {palette, highlight_start, highlight_end}});
     OrientMonsterTowardTarget(monster_info, false);
 }
 
@@ -2886,13 +2883,13 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
     signed char source_color = GetSourceNoticeColor(source);
     std::string& message = CurrentGame().combat->attack_message;
     unsigned char color;
-    unsigned char highlight_start;
-    unsigned char highlight_stop;
+    std::size_t highlight_start;
+    std::size_t highlight_stop;
     if (TargetSourceIsCharacter(source, 0)) {
         color = static_cast<unsigned char>(CurrentGame().party.orderIndexOf(source->iChar));
         std::string name = CurrentGame().party.characters[source->iChar].name;
         highlight_start = 0;
-        highlight_stop = static_cast<unsigned char>(name.size());
+        highlight_stop = name.size();
         message = fmt::format("{} {} ", name, "accidentally strikes");
         if (target->iType == W8_TARGET_KIND_CHARACTER) {
             if (source->iChar == target->iChar) {
@@ -2912,7 +2909,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
         message =
             fmt::format("{} {} ", GetMonsterName(monster_info, record, 0), "accidentally strikes");
         color = GetTargetNoticeColor(source, target);
-        highlight_start = static_cast<unsigned char>(message.size());
+        highlight_start = message.size();
         if (target->iType == W8_TARGET_KIND_MONSTER && source->iMonsterID == target->iMonsterID) {
             message += Data().strings[g_gender_name_message_rows[record->name_group][3]].c_str();
         } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
@@ -2923,12 +2920,11 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
         }
     }
     if (!TargetSourceIsCharacter(source, 0)) {
-        highlight_stop = static_cast<unsigned char>(message.size());
+        highlight_stop = message.size();
     }
-    CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color), message});
-    if (source_color != color) {
-        HighlightTextBoxRange(color, highlight_start, highlight_stop, -1);
-    }
+    CurrentGame().events.push(TextNotice{.palette = static_cast<unsigned int>(source_color),
+                                         .text = message,
+                                         .highlight = {color, highlight_start, highlight_stop}});
 }
 
 /* Fumble banter after a redirected hit: half the time the attacker reacts to

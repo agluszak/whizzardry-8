@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <variant>
@@ -17,13 +18,6 @@ constexpr short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 constexpr unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
 // Wrap at the text box's full width.
 constexpr unsigned int W8_NOTICE_WRAP_TEXT_BOX = ~0U - 1;
-
-enum W8TextBoxMode : unsigned char {
-    W8_TEXT_BOX_MODE_NOTICE = 0,
-    // The next notice continues the current line.
-    W8_TEXT_BOX_MODE_APPEND = 1,
-    W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
-};
 
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
 enum W8FontPaletteIndex {
@@ -46,6 +40,13 @@ enum W8FontPaletteIndex {
     W8_FONT_PALETTE_COUNT = 16
 };
 
+// A UTF-8 byte span in the complete notice, before presentation wraps it.
+struct NoticeHighlight {
+    unsigned char palette = 0xff;
+    std::size_t start = 0;
+    std::size_t stop = 0;
+};
+
 // A line for the text box in a font palette, or a message dialog when forced.
 struct TextNotice {
     unsigned int palette = 0;
@@ -53,6 +54,7 @@ struct TextNotice {
     short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC;
     bool force_dialog = false;
+    NoticeHighlight highlight;
 };
 
 /* A party member's line, "Name: text", the name in the member's marching-order
@@ -63,6 +65,9 @@ struct CharacterNotice {
     short context = W8_NOTICE_TEXT_BOX_AUTOMATIC;
 };
 
+struct W8Party;
+TextNotice FormatCharacterNotice(const W8Party& party, const CharacterNotice& notice);
+
 /* A message dialog the player closes; `on_closed`, when set, receives whether it was
    accepted. A confirmation offers OK, and `cancel` adds a cancel button. */
 struct NoticeDialog {
@@ -70,12 +75,6 @@ struct NoticeDialog {
     std::function<void(bool)> on_closed;
     bool confirmation = true;
     bool cancel = false;
-};
-
-// How the text box takes the next notice; a value of -1 keeps the mode's current one.
-struct TextBoxModeChange {
-    W8TextBoxMode mode = W8_TEXT_BOX_MODE_NOTICE;
-    int value = -1;
 };
 
 /* A member says one of their lines (a character event type), as a voice and a portrait
@@ -159,13 +158,13 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
-                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
-                 CharacterActionChanged, EquipmentSettled, SkillAvailabilityChanged, SkillImproved,
-                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
-                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
-                 MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
-                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested>;
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, CharacterSpeech, CharacterDied,
+                 PartySlotChanged, PartyLoadChanged, CombatPanelChanged, CharacterActionChanged,
+                 EquipmentSettled, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
+                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
+                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
+                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
+                 TargetingRequested>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

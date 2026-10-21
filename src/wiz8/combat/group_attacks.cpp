@@ -97,9 +97,9 @@ static unsigned int RollSpecialAttackSum(unsigned int bound)
    stamina fraction - a character source scales off level and stamina, a
    monster source off its missile value and current runtime stat - and a kind
    five table doubles it. Kind six delegates to the summon. */
-void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
-                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
-                               std::vector<int> monster_targets)
+std::string ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
+                                      W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
+                                      std::vector<int> monster_targets)
 {
     bool announce;
     int iTarget;
@@ -119,6 +119,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
     int extra;
     bool resolved;
     std::string text;
+    std::string summary;
 
     announce = static_cast<signed char>(g_settings.verbose_combat_messages);
     if (pSource->iType == W8_TARGET_SOURCE_CHARACTER) {
@@ -396,14 +397,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         }
         if (!announce) {
             if (uiHits[0] == 0) {
-                AppendToLastTextLine(Data().strings[0x1a5], -1);
+                summary += Data().strings[0x1a5];
             } else {
                 for (i = 0; i < 2; ++i) {
                     if (uiHits[i] == 0) {
                         continue;
                     }
                     if (i == 1 && uiHits[0] != 0) {
-                        AppendToLastTextLine(",", -1);
+                        summary += ",";
                     }
                     switch (g_special_attack_table[special_attack_kind][i]) {
                     case 1:
@@ -430,15 +431,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                             uiTotals[i] / uiHits[i], -1);
                         break;
                     default:
-                        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                         continue;
                     }
-                    AppendToLastTextLine(text, -1);
-                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+                    summary += text;
                 }
             }
         }
     }
+    return summary;
 }
 
 /* Kind six: the kind selects the summoned species, the record's group-size

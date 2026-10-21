@@ -233,7 +233,7 @@ struct GameEventPresentation {
     void operator()(const TextNotice& notice) const
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
-                   notice.force_dialog);
+                   notice.force_dialog, notice.highlight);
     }
     void operator()(const CharacterNotice& notice) const
     {
@@ -242,10 +242,6 @@ struct GameEventPresentation {
     void operator()(const NoticeDialog& dialog) const
     {
         ShowNoticeLine(dialog.text, dialog.on_closed, dialog.confirmation, dialog.cancel);
-    }
-    void operator()(const TextBoxModeChange& change) const
-    {
-        SetTextBoxMode(change.mode, change.value);
     }
     void operator()(const CharacterSpeech& speech) const
     {

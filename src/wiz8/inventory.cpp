@@ -818,28 +818,30 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         }
 
         // Items outside the use-message table are used without an announcement.
+        TextNotice notice{.palette = W8_FONT_PALETTE_RUST};
         const bool announced = static_cast<int>(record->category) < W8_ITEM_USE_TYPE_COUNT;
         if (announced && TargetSourceIsCharacter(&target, 0)) {
-            game.events.push(CharacterNotice{
-                static_cast<unsigned int>(target.iChar),
-                fmt::format("{} {}", Data().strings[g_item_use_messages[record->category * 2]],
-                            GetItemDisplayName(Data(), item))});
+            notice = FormatCharacterNotice(
+                game.party,
+                CharacterNotice{
+                    static_cast<unsigned int>(target.iChar),
+                    fmt::format("{} {}", Data().strings[g_item_use_messages[record->category * 2]],
+                                GetItemDisplayName(Data(), item))});
         } else if (announced && TargetSourceIsMonster(&target, 0)) {
-            game.events.push(TextNotice{
+            notice = TextNotice{
                 9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
                                Data().strings[g_item_use_messages[record->category * 2]],
-                               GetItemDisplayName(Data(), item))});
+                               GetItemDisplayName(Data(), item))};
         }
 
-        if (g_settings.verbose_combat_messages == 0) {
-            game.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
+        if (g_settings.verbose_combat_messages != 0 || record->spell_id == W8_SPELL_NONE)
+            if (!notice.text.empty()) game.events.push(std::exchange(notice, {}));
         // A usable item without a spell does nothing.
         if (record->spell_id == W8_SPELL_NONE) {
             used = 0;
             fatigue_cost = 0;
         } else {
-            used = CastItemSpell(character, item, power);
+            used = CastItemSpell(character, item, power, std::move(notice));
             if (!used) {
                 fatigue_cost = 0;
             } else {

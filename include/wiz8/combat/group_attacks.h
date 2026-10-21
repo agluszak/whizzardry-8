@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 /* Local Code\GroupAttacks.cpp. The pair resolves a monster group's special
@@ -13,9 +14,9 @@ struct W8CombatSlot;
    Its two effect slots each roll against a per-target miss chance and dispatch
    on the effect style; the hit/damage tallies are summarized to the text box
    unless combat announcements are verbose. */
-void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
-                               W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
-                               std::vector<int> monster_targets);
+std::string ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
+                                      W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,
+                                      std::vector<int> monster_targets);
 /* Whether the special-attack kind is one of the seven the casting-blocked
    condition keeps from fleeing. */
 bool MonsterSpecialAttackHonorsCastingBlock(int special_attack_kind);

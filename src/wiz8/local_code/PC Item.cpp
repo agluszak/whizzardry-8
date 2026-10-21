@@ -1038,7 +1038,8 @@ void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8Comb
    raised for an item nobody has identified yet; the sound is keyed by the
    item's own resource name; and the effect's outcome decides whether the item
    is marked used, reported as a finding, or practised on afterwards. */
-int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power)
+int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power,
+                  TextNotice notice)
 {
     const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     unsigned int party_slot = CharacterPointerToPartySlot(character);
@@ -1060,6 +1061,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
             ? 1
             : 0;
     if (!ValidateSpellTarget(party_slot, spell_id, power, true, rejected_spell)) {
+        if (!notice.text.empty()) CurrentGame().events.push(std::move(notice));
         return 0;
     }
 
@@ -1106,9 +1108,9 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     {
         int power_out = static_cast<int>(power);
-        effect = CastSpellFromSource(spell_id, &target,
-                                     &CurrentGame().party.rows[party_slot].executing.target, power,
-                                     0, difficulty, false, &power_out, difficulty_kind, 0, 0);
+        effect = CastSpellFromSource(
+            spell_id, &target, &CurrentGame().party.rows[party_slot].executing.target, power, 0,
+            difficulty, false, &power_out, difficulty_kind, 0, 0, std::move(notice));
         power = static_cast<unsigned int>(power_out);
     }
 
@@ -1118,9 +1120,6 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
                        fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
                                     Data().spells[spell_id].display_name, power),
                        -1);
-            if (g_settings.verbose_combat_messages == 0) {
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
-            }
         }
         item->spell_hint = true;
     } else if (effect == 3) {

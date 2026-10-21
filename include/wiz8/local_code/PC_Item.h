@@ -99,7 +99,9 @@ bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot);
 unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
                                   unsigned int skill_level, unsigned int spell_id,
                                   unsigned int power);
-int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power);
+struct TextNotice;
+int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power,
+                  TextNotice notice);
 
 void SetCharacterItemUse(int party_slot, const W8Action& action);
 void BindEveryPartyItem(void);

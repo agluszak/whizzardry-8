@@ -61,16 +61,12 @@ UiResult HandleTextBody(const UiPointerEvent& event);
 UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
 }
 
-// GLOBAL: WIZ8 0x0069b7b8
-static W8TextBoxMode g_text_box_mode;
-// GLOBAL: WIZ8 0x0069b7bc
 int g_notice_line_count;
-static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 /* The screen the text box belongs to; its two panels sit at 0x0c
    and 0x14. */
 
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line);
+                             int wrapped_line, NoticeHighlight highlight, std::size_t offset);
 
 // Rebuild byte ranges and pixel hit boxes when the text or font changes.
 void W8MessageStorageRecord::RebuildEntries(const Font& font)
@@ -141,7 +137,7 @@ static short ResolveNoticeTextBox(short text_box)
 }
 
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line)
+                             int wrapped_line, NoticeHighlight highlight, std::size_t offset)
 {
     text_box = ResolveNoticeTextBox(text_box);
     if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
@@ -173,6 +169,12 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     ++CurrentGame().status.text_box_lines_used[text_box];
     record->font_palette = font_palette;
     record->highlight_color = 0xff;
+    if (highlight.palette != 0xff && highlight.start < offset + text.size() &&
+        highlight.stop > offset) {
+        record->highlight_color = highlight.palette;
+        record->highlight_start = std::max(highlight.start, offset) - offset;
+        record->highlight_stop = std::min(highlight.stop - offset, text.size());
+    }
     record->link = wrapped_line;
     record->length = -1;
     ++g_notice_line_count;
@@ -271,7 +273,7 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
 }
 
 void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
-                unsigned int wrap_width, bool force_dialog)
+                unsigned int wrap_width, bool force_dialog, NoticeHighlight highlight)
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
@@ -290,9 +292,9 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_notice_line_count = 0;
             CurrentGame().status.long_quote = 0;
         }
-        MainGameHud()->text_lines[8 + text_box] = 0;
         if (static_cast<unsigned int>(MainGameHud()->text_box_font->textWidth(text)) < wrap_width) {
-            AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
+            AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0, highlight,
+                             0);
         } else {
             std::string_view remaining(text);
             int line_index = 0;
@@ -312,18 +314,14 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 }
                 const auto line = remaining.substr(0, end);
                 AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
-                                 line_index++);
+                                 line_index++, highlight, text.size() - remaining.size());
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
-                if (!remaining.empty())
-                    MainGameHud()->text_lines[8 + text_box] =
-                        line_index == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
             }
         }
         if (CurrentGame().status.quote_audit && g_notice_line_count > 7) {
             CurrentGame().status.long_quote = 1;
         }
-        g_text_box_mode = W8_TEXT_BOX_MODE_NOTICE;
     } else if (force_dialog) {
         W8MessageDialogBase* dialog = CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
@@ -397,102 +395,6 @@ void ScrollDialogueTextBoxToLine(void)
         CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - offset);
 }
 
-/* Recolour the character span [start, stop) of the most recent line of one
-   text box. A -1 box means the one the current game mode posts to. When the
-   line was wrapped, the box's split position says where the second row
-   begins: a span ending before it recolours the previous row alone, one
-   crossing it is cut in two, and one past it moves down by the split. */
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop, short text_box)
-{
-    W8MessageStorageRecord* line;
-    W8MessageStorageRecord* previous;
-
-    assert(stop >= start);
-    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) {
-        return;
-    }
-    text_box = ResolveNoticeTextBox(text_box);
-    assert(CurrentGame().status.text_box_lines_used[text_box] > 0);
-    line = &CurrentGame()
-                .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 1];
-    if (MainGameHud()->text_lines[8 + text_box] == static_cast<unsigned int>(-1)) {
-        return;
-    }
-    if (MainGameHud()->text_lines[8 + text_box] == 0) {
-        line->highlight_stop = stop;
-        line->highlight_start = start;
-        line->highlight_color = color;
-        return;
-    }
-    assert(CurrentGame().status.text_box_lines_used[text_box] >= 2);
-    previous = &CurrentGame()
-                    .message_log[text_box][CurrentGame().status.text_box_lines_used[text_box] - 2];
-    if (start >= MainGameHud()->text_lines[8 + text_box]) {
-        line->highlight_start = start - MainGameHud()->text_lines[8 + text_box];
-    } else {
-        previous->highlight_start = start;
-        previous->highlight_color = color;
-        if (stop < MainGameHud()->text_lines[8 + text_box]) {
-            previous->highlight_stop = stop;
-            return;
-        }
-        previous->highlight_stop = previous->text.size();
-        line->highlight_start = 0;
-    }
-    line->highlight_stop = stop - MainGameHud()->text_lines[8 + text_box];
-    line->highlight_color = color;
-}
-
-/* Append text to the last used line of one text box. The line's record is
-   removed and the combined string posted again so wrapping, the shown count
-   and the continuation links rebuild, while the line keeps its channel,
-   highlight span and clock. With the merge mode off the text posts as a new
-   line instead. A -1 box means the one the current game mode posts to. */
-void AppendToLastTextLine(std::string_view text, short text_box)
-{
-    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
-        CurrentScreenState().id != W8_SCREEN_CAMP) {
-        return;
-    }
-    if (g_text_box_mode == W8_TEXT_BOX_MODE_NOTICE) {
-        ShowNotice(g_text_box_value, text, text_box);
-        return;
-    }
-    text_box = ResolveNoticeTextBox(text_box);
-    unsigned int* lines_used = &CurrentGame().status.text_box_lines_used[text_box];
-    assert(*lines_used > 0);
-    W8MessageStorageRecord* line = &CurrentGame().message_log[text_box][*lines_used - 1];
-    const auto merged = fmt::format("{}{}", line->text, text);
-    unsigned char channel = line->font_palette;
-    int link = line->link;
-    unsigned char color = line->highlight_color;
-    std::size_t stop = line->highlight_stop;
-    std::size_t start = line->highlight_start;
-    line->text.clear();
-    line->entries.clear();
-    if (CurrentGame().status.text_box_lines_shown[text_box] == *lines_used) {
-        assert(CurrentGame().status.text_box_lines_shown[text_box] > 0);
-        --CurrentGame().status.text_box_lines_shown[text_box];
-    }
-    --*lines_used;
-    ShowNotice(channel, merged, text_box);
-    if (color != 0xff) {
-        HighlightTextBoxRange(color, start, stop, text_box);
-    }
-    if (link != 0) {
-        W8MessageStorageRecord* last = &CurrentGame().message_log[text_box][*lines_used - 1];
-        int propagated = 0;
-        if (last->link != -1 && last->link + 1 > 0) {
-            W8MessageStorageRecord* entry = last;
-            do {
-                entry->link += link;
-                ++propagated;
-                --entry;
-            } while (propagated < last->link + 1);
-        }
-    }
-}
-
 /* Retail returns 7 when the text box is in a multi-line mode (spell / item /
    camp / NPC dialogue with the transcript collapsed); otherwise 1. The image
    retains this out-of-line emission while VC6 inlines it at other callers. */
@@ -512,20 +414,11 @@ int GetTextBoxVisibleLineCount(void)
 
 void PostCharacterNotice(int party_slot, std::string_view text, int context)
 {
-    const std::string_view separator =
-        (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
-    ShowNotice(
-        W8_FONT_PALETTE_WHITE,
-        fmt::format("{}{}{}", CurrentGame().party.characters[party_slot].name, separator, text),
-        context);
-    auto stop = CurrentGame().party.characters[party_slot].name.size();
-    if (text.starts_with("'")) {
-        ++stop;
-        if (text.starts_with("'s")) {
-            ++stop;
-        }
-    }
-    HighlightTextBoxRange(CurrentGame().party.orderIndexOf(party_slot), 0, stop, context);
+    const auto notice = FormatCharacterNotice(
+        CurrentGame().party,
+        {static_cast<unsigned int>(party_slot), std::string(text), static_cast<short>(context)});
+    ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width, notice.force_dialog,
+               notice.highlight);
 }
 
 bool CurrentDialogueLineHasContent(void)
@@ -764,21 +657,6 @@ UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
     RedrawTextBox();
     return UiResult::Handled;
 }
-}
-
-/* The text box's mode, and the setter that also records a value when one is
-   given - passing -1 leaves the value alone. */
-W8TextBoxMode GetTextBoxMode(void)
-{
-    return g_text_box_mode;
-}
-
-void SetTextBoxMode(W8TextBoxMode mode, int value)
-{
-    g_text_box_mode = mode;
-    if (value != -1) {
-        g_text_box_value = value;
-    }
 }
 
 /* Draw clickable notice-word overlays for one painted line. */
@@ -1254,61 +1132,6 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
 {
     return CurrentGame().message_log[text_box][line].text.substr(word->start,
                                                                  word->end - word->start + 1);
-}
-
-/* Re-show the last wrapped entry of `mode`'s message run as a notice line;
-   0xffff derives the mode from the live dialogue/camp/combat state. Retail
-   only fills `merged` when the run index range is non-empty, so a failing
-   (but returning) Fail left it uninitialized at ShowNoticeLine; the recovery keeps that
-   read. */
-void RefreshTextBoxMode(unsigned short mode)
-{
-    std::string merged;
-    W8MessageStorageRecord* line;
-    unsigned int last_line;
-    unsigned int group_lines;
-    unsigned int first_line;
-    unsigned int index;
-    size_t length;
-
-    if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
-        CurrentScreenState().id != W8_SCREEN_CAMP) {
-        return;
-    }
-    if (mode == 0xffff) {
-        if ((!CurrentGame().activity.conversation ||
-             (CurrentGame().activity.conversation &&
-              CurrentGame().npc_interaction.scripted_dialogue)) &&
-            !CurrentGame().activity.conversation_aside) {
-
-            mode = CurrentGame().combat.has_value();
-
-        } else {
-            mode = IsNpcDialogueTextBoxActive() ? 0 : 2;
-        }
-    }
-    int text_box = static_cast<short>(mode);
-    assert(CurrentGame().status.text_box_lines_used[text_box] != 0);
-    last_line = CurrentGame().status.text_box_lines_used[text_box] - 1;
-    group_lines = CurrentGame().message_log[text_box][last_line].link;
-    assert(last_line >= group_lines);
-    first_line = last_line - group_lines;
-    line = &CurrentGame().message_log[text_box][first_line];
-    length = 0;
-    for (index = first_line; index <= last_line; index++, line++) {
-        if (index == first_line) {
-            merged = line->text;
-            length = line->text.size();
-        } else {
-            if (line->text.size() + 1 + length > 499) {
-                break;
-            }
-            merged += g_W8TextSeparator;
-            merged += line->text;
-            length += 1 + line->text.size();
-        }
-    }
-    ShowNoticeLine(merged, 0, true, false);
 }
 
 /* Shared row hover for the NPC and use-item lists in text box two. */

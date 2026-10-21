@@ -57,11 +57,6 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 /* Copy a word's text span out of its source line. */
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
 void ScrollTextBoxToCursor(void);
-W8TextBoxMode GetTextBoxMode(void);
-void SetTextBoxMode(W8TextBoxMode mode, int value);
-/* Re-derive the text-box mode from the live screen state; 0xffff
-   asks for the automatic choice. */
-void RefreshTextBoxMode(unsigned short mode);
 /* The lock-interaction call convention - its caller passes the
    same (level, flag, backfire) triple CastSpellAtLockInteraction
    takes; the body reads the target only. */
@@ -70,10 +65,6 @@ void SetKnockKnockTarget(int target, int flag, int backfire);
    same (level, flag, backfire) triple. */
 void AttemptTrapDisarm(int level, int flag, signed char backfire);
 
-/* Merge text onto a box's last used line, re-posting the combined
-   line so wrapping, highlighting and the link counts rebuild; -1 picks the box
-   the current game mode writes to. */
-void AppendToLastTextLine(std::string_view text, short text_box);
 /* Wrapped line count of the notice ShowNotice last displayed;
    only maintained while game_status.quote_audit is raised. */
 extern int g_notice_line_count;
@@ -83,11 +74,6 @@ void ScrollDialogueTextBoxToLine(void);
 void ScrollTextBoxUp(int lines);
 void ScrollTextBoxDown(int lines);
 int GetTextBoxVisibleLineCount(void);
-
-/* Recolour the character span [start, stop) of the most recent
-   line in one text box; -1 picks the box the current game mode writes to. */
-void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t stop,
-                           short text_box);
 
 void SelectTextBox(short value);
 /* Ask for the text box to be redrawn without changing anything. */
@@ -108,6 +94,7 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 void RebuildMessageLogWords(void);
 void ShowNotice(unsigned int font_palette, std::string_view text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
-                unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
+                unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false,
+                NoticeHighlight highlight = {});
 
 void HighlightNoticeRow(int line);
