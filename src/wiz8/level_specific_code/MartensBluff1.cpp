@@ -376,7 +376,7 @@ bool MartensBluff1Script::transporter(int command)
             if (transport_gate_) {
                 transport_gate_->Arm();
             } else {
-                transport_gate_.emplace(60.0f, false, true);
+                transport_gate_.emplace(60.0f, TimerClock::World, true);
             }
             if (GetLocationVarIDByName("TransportSpawn") != -1) {
                 transport_gate_->SetProgress(GetLocationVarValueByName("TransportSpawn") *

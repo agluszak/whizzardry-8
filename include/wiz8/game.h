@@ -79,8 +79,8 @@ public:
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
     /* The step time this game has run: the sum of the elapsed times its steps were given.
-       Code below the step stamps and measures its deadlines on it. Some world code still
-       reads the monotonic clock or the shared timers (ROADMAP.md, "One step"). */
+       Game-step deadlines use this clock; world holds use visual_time, while UI
+       presentation and the saved game-day calendar are explicit timer domains. */
     std::chrono::milliseconds time{};
     // World visual time stops with world advancement and shared timer holds.
     // UI/cursor presentation continues on its own monotonic clock.

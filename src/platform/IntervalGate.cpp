@@ -1,16 +1,16 @@
 #include "wiz8/platform/IntervalGate.h"
 
-#include <cstdint>
+#include <algorithm>
 #include <exception>
 
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/game_timer.h"
 
-W8IntervalGate::W8IntervalGate() : W8GameTimer(1.0f, 0), m_finished(0) {}
+W8IntervalGate::W8IntervalGate() : W8GameTimer(1.0f), m_finished(0) {}
 
-W8IntervalGate::W8IntervalGate(float duration, bool raw_time, bool one_shot)
-    : W8GameTimer(duration, raw_time), m_finished(0)
+W8IntervalGate::W8IntervalGate(float duration, TimerClock clock, bool one_shot)
+    : W8GameTimer(duration, clock), m_finished(0)
 {
     if (one_shot) {
         m_flags.one_shot = true;
@@ -29,7 +29,15 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
     if (m_finished) {
         return 1;
     }
-    unsigned int intervals = (ReadClock() - m_start) / (m_end - m_start);
+    if (m_flags.paused ||
+        ((m_clock_mode == TimerClock::World || m_clock_mode == TimerClock::Calendar) &&
+         SharedGameTimersHeld()))
+        return 0;
+    if (m_duration <= 0) {
+        m_finished = m_flags.one_shot;
+        return 1;
+    }
+    unsigned int intervals = (ReadClock() - m_start) / static_cast<unsigned int>(m_duration);
     if (static_cast<int>(intervals) > 0) {
         if (m_flags.one_shot) {
             m_finished = true;
@@ -61,17 +69,18 @@ bool W8IntervalGate::SaveState(wiz8::File& handle)
 {
     float elapsed;
     if (!m_flags.one_shot) {
-        const std::uint32_t sample = ReadClock();
-        float progress = (sample - m_start) / static_cast<float>(m_end - m_start);
+        const float progress =
+            m_duration > 0 ? ElapsedTicks() / static_cast<float>(m_duration) : 1.0f;
         // The on-disk pair and its OR-combined result mirror W8GameTimer::Load.
         bool saved = (handle.write(&progress, sizeof(progress)), true);
         saved |= (handle.write(&m_duration_scale, sizeof(m_duration_scale)), true);
         return saved;
     }
-    if (m_finished) {
+    if (m_finished || m_duration <= 0) {
         elapsed = 0.0f;
     } else {
-        elapsed = GetElapsedSeconds();
+        elapsed = std::max(0.0f, (m_duration - static_cast<float>(ElapsedTicks())) /
+                                     W8_SHARED_TIMER_TICKS_PER_SECOND);
     }
     return (handle.write(&elapsed, sizeof(elapsed)), true);
 }

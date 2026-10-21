@@ -151,8 +151,13 @@ Unlayered code may use the layers.
   and extra views never advance animation or draw random values. UI texture
   playback and glow use presentation time. Particles retain their game-step clock
   and activity gates; keyframed lights follow their actor's sampled cycle time.
-  Legacy gameplay timers retain their save-progress contracts until their owners
-  migrate to step countdowns.
+  Inherited timers choose `TimerClock::World`, `Game`, `Presentation`, or `Calendar`.
+  World gates, monster script/light/fade delays, triggers, camera holds, shake,
+  ambient fades/replay, keyframes, environment transitions and item radar deadlines
+  use held world time. Spell cooldowns use game step time; UI delays and portrait
+  idle poses use presentation time. Calendar-trigger delays use the saved game-day
+  clock. Timer saves still store retail progress/scale, rebased on load even at zero;
+  pause controls hold simulation clocks without a wall-clock offset accumulator.
 - **Window events.** Focus controls pause and input release. Minimize/restore
   controls presentation. Pixel-size changes follow the high-density drawable;
   reopening presentation never reapplies startup window dimensions.
@@ -346,8 +351,9 @@ Unlayered code may use the layers.
   and, through `GameClockMilliseconds`, the world's animation clock (cycles, monsters,
   missiles, particles). Props, monster generators (`GeneratorInterval`) and the autosave
   countdown take the elapsed time itself, and stand still while the shared timers are
-  held (`SharedGameTimersHeld`), as their retail timers did. Some world code still reads
-  the monotonic clock or the shared timers (ROADMAP.md, "One step"). Two screens step the game and measure the time between their steps
+  held (`SharedGameTimersHeld`), as their retail timers did. Inherited world timers
+  use the held world clock; interface timers explicitly use presentation time. Two
+  screens step the game and measure the time between their steps
   (`LapTimer`): the main game, which each frame reads input and moves the camera, steps
   unless a screen transition is pending (passing its hold and whether a picker holds the
   combat turn), animates the portraits (`AnimatePartyPortraits`), then commits pickers,

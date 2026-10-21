@@ -44,7 +44,7 @@ struct WorldItemEntity {
     float bounds_radius = 0.0f;
     float pulse_level = 0.0f;
     unsigned int flags = 0;
-    uint64_t countdown = 0;
+    uint64_t countdown = 0; // Radar highlight deadline on held world time.
 
     void RefreshBounds();
     unsigned int SetFlags(unsigned int mask, bool enabled);

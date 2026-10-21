@@ -117,7 +117,7 @@ public:
     float m_yaw_distance; /* 0x0b0 */
     float m_pitch_distance; /* 0x0b4 */
     float m_transition_duration; /* 0x0b8 */
-    W8IntervalGate m_manual_input_timer{1.0f, false, true};
+    W8IntervalGate m_manual_input_timer{1.0f, TimerClock::World, true};
 
 private:
     bool CanTrackTarget();
