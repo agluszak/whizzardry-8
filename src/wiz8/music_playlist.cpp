@@ -105,7 +105,7 @@ MusicPlaylist MusicPlaylist::Parse(std::string resource, std::string_view text)
         const int weight = weight_start == row.npos ? 0 : atoi(line + weight_start + 1);
         found_unweighted |= weight_start == row.npos;
         parsed.tracks.push_back({row.substr(0, weight_start), weight});
-        parsed.weight_total += weight;
+        if (!found_unweighted) parsed.weight_total += weight;
     }
     if (found_unweighted) parsed.weight_total = 0;
     return parsed;
@@ -175,9 +175,8 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
 
     path = fmt::format("Data\\Music\\{}", resource);
     SDL_strupr(path.data());
-    g_music_fade = static_cast<unsigned char>(fade);
-
     if (strstr(path.c_str(), ".MPL") == 0) {
+        g_music_fade = static_cast<unsigned char>(fade);
         if (!g_music_playlist_active) {
             g_music_playlist.resource.clear();
         }
@@ -208,6 +207,7 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
         return false;
     }
     if (candidate.tracks.empty()) return false;
+    g_music_fade = static_cast<unsigned char>(fade);
     g_music_playlist = std::move(candidate);
     g_music_playlist_tick = MonotonicMilliseconds() - 1;
     if (replace_current != 0) {
