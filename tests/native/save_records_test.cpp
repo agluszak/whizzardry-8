@@ -534,7 +534,7 @@ static void animation_record_contracts()
         LevelLoadContext info{};
         info.hFile = file.get();
         auto animation = std::make_unique<Animation>();
-        REQUIRE((AnimObjReadFromFile(&info, animation.get(), 0, nullptr, 0)));
+        REQUIRE((AnimObjReadFromFile(&info, animation.get(), nullptr)));
         REQUIRE((animation->animation_playing == (flag != 0)));
         REQUIRE((animation->random_play == (flag != 0)));
         REQUIRE((((animation.get())->path_lists) == (flag != 0)));
@@ -554,8 +554,7 @@ static void animation_record_contracts()
         animation->paths[0].push_back(animation->path);
         animation->entries[0] = std::make_unique<AnimationMesh>();
         animation->entries[0]->source_file = std::string(300, 'x');
-        animation->entries[0]->bitmap_directory = "Textures/";
-        animation->entries[0]->meshes.resize(2); // Deferred frames have no instances yet.
+        animation->entries[0]->meshes.resize(2);
         animation->meshes[0].push_back(std::make_unique<AnimationMesh>(*animation->entries[0]));
         auto copy = std::make_unique<Animation>(*animation);
         REQUIRE((copy->entries[0] != animation->entries[0]));
@@ -570,7 +569,7 @@ static void animation_record_contracts()
         REQUIRE(animation->paths[0][0]->nodes[0].z == 3);
         animation.reset();
         REQUIRE((copy->entries[0]->source_file == std::string(300, 'x')));
-        REQUIRE((copy->meshes[0][0]->bitmap_directory == "Textures/"));
+        REQUIRE((copy->meshes[0][0]->source_file == std::string(300, 'x')));
         REQUIRE((copy->paths[0][0]->nodes[0].z == 7));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
         REQUIRE(copy_bounds);
@@ -579,74 +578,6 @@ static void animation_record_contracts()
         REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2)));
     }
     REQUIRE((wiz8::remove_file(wiz8::user_path(filename))));
-}
-
-static void animated_mesh_cache_contracts()
-{
-    REQUIRE((g_animesh_cache_list.empty()));
-    const int old_limit = g_animesh_cache_limit;
-    const int old_bytes = g_animesh_cache_bytes;
-    const int old_stamp = g_animesh_cache_stamp;
-    REQUIRE_FALSE(GetAniMeshBounds(nullptr));
-    {
-        AnimationMesh mesh;
-        mesh.flags.radius_loaded = true;
-        mesh.bounds_minimum = {-1, -2, -3};
-        mesh.bounds_maximum = {4, 5, 6};
-        auto bounds = GetAniMeshBounds(&mesh);
-        REQUIRE(bounds);
-        REQUIRE(bounds.value().minimum == glm::vec3(-1, -2, -3));
-        REQUIRE(bounds.value().maximum == glm::vec3(4, 5, 6));
-        REQUIRE(mesh.last_used == old_stamp);
-        REQUIRE(g_animesh_cache_stamp == old_stamp + 1);
-        REQUIRE_FALSE(mesh.flags.loaded);
-        bounds.value().minimum.x = -100;
-        const auto snapshot = GetAniMeshBounds(&mesh);
-        REQUIRE(snapshot);
-        REQUIRE(snapshot.value().minimum.x == -1);
-        REQUIRE(mesh.last_used == old_stamp + 1);
-    }
-    constexpr auto filename = "Data/empty-animation-mesh.dat";
-    {
-        auto file = wiz8::open_file(wiz8::asset_path(filename), wiz8::OpenMode::replace);
-        const unsigned char frame_count = 0;
-        file->write(&frame_count, 1);
-    }
-    {
-        AnimationMesh mesh;
-        mesh.source_file = wiz8::asset_path(filename);
-        REQUIRE_FALSE(GetAniMeshBounds(&mesh));
-        REQUIRE_FALSE(mesh.flags.radius_loaded);
-        REQUIRE(g_animesh_cache_stamp == old_stamp + 2);
-    }
-    REQUIRE(wiz8::remove_file(wiz8::asset_path(filename)));
-    g_animesh_cache_stamp = old_stamp;
-    {
-        AnimationMesh original;
-        REQUIRE((original.meshes.empty() && original.source_file.empty()));
-        REQUIRE((original.bounds_minimum == glm::vec3(0)));
-        original.flags.loaded = true;
-        original.flags.keep_loaded = true;
-        original.flags.cache_protected = true;
-        original.loaded_bytes = 32;
-        g_animesh_cache_bytes += 32;
-        g_animesh_cache_list.push_back(&original);
-        {
-            AnimationMesh copy(original);
-            REQUIRE((g_animesh_cache_bytes == old_bytes + 64));
-            REQUIRE((g_animesh_cache_list.size() == 2));
-            g_animesh_cache_limit = old_bytes;
-            EnforceAniMeshMemoryLimit(&original); // All candidates protected: no invalid erase.
-            REQUIRE(copy.flags.loaded);
-            copy.flags.cache_protected = false;
-            EnforceAniMeshMemoryLimit(&original);
-            REQUIRE((!copy.flags.loaded && original.flags.loaded));
-            REQUIRE((g_animesh_cache_bytes == old_bytes + 32));
-            REQUIRE((g_animesh_cache_list.size() == 1));
-        }
-    }
-    REQUIRE((g_animesh_cache_bytes == old_bytes && g_animesh_cache_list.empty()));
-    g_animesh_cache_limit = old_limit;
 }
 
 static void graphical_object_ownership_contracts()
@@ -1599,11 +1530,6 @@ TEST_CASE_METHOD(SaveFixture, "Animation records", "[save][records]")
 TEST_CASE_METHOD(SaveFixture, "Graphical object ownership", "[save][records]")
 {
     graphical_object_ownership_contracts();
-}
-
-TEST_CASE_METHOD(SaveFixture, "Animated mesh cache", "[save][records]")
-{
-    animated_mesh_cache_contracts();
 }
 
 TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves",

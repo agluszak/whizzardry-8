@@ -1353,17 +1353,6 @@ unsigned char Monster::GetNumSubsPerCycle(signed char bCycle)
     return static_cast<unsigned char>(cycles[bCycle].size());
 }
 
-/* Select the active AnimObj for a cycle and dispatch the requested LOD/frame.
-   This is the concrete implementation behind AnimRep's third vtable slot. */
-MeshInstance* Monster::SetCycleFrameLod(signed char cycle, signed char frame, signed char lod)
-{
-    Animation* animation = cycles[cycle][visual.current_subcycle].animation.get();
-    if (animation->path_lists == 0) {
-        return AnimObjDispatch(animation, lod, frame);
-    }
-    return AnimObjDispatchList(animation, lod, 0);
-}
-
 /* The selected subcycle's AniMesh for one animation cycle. */
 AnimationMesh* Monster::GetEmitterAniMesh(signed char cycle)
 {
@@ -2104,14 +2093,6 @@ Animation* Monster::GetCurrentAnimation()
         .animation.get();
 }
 
-/* Resolve the active cycle/subcycle AnimObj at the representation's selected LOD. */
-AnimationMesh* Monster::GetCurrentAniMesh()
-{
-    Animation* animation = cycles[visual.current_cycle][visual.current_subcycle].animation.get();
-    assert(animation != 0);
-    return AnimObjEntry(animation, visual.m_bLOD, 0);
-}
-
 /* Store one value in the two cycle records used as its compact mirrors, then
    propagate it to every attached object's +0x28 field.  The body consumes two
    cdecl arguments; callers that reserve another stack slot clean it themselves. */
@@ -2394,9 +2375,9 @@ void Monster::CollectModelInstances(std::vector<MeshInstance*>& instances)
                 for (list_index = 0; list_index < 3; ++list_index) {
                     AnimationMesh* mesh = animation->entries[list_index].get();
                     if (mesh != 0) {
-                        int frame_count = AniMeshValue(mesh);
+                        int frame_count = mesh->frame_count;
 
-                        if (mesh->flags.single_instance) {
+                        if (mesh->single_instance) {
                             instances.push_back(GetAniMeshFrame(mesh, 0));
                         } else {
                             int frame;
@@ -2414,7 +2395,7 @@ void Monster::CollectModelInstances(std::vector<MeshInstance*>& instances)
                     for (const auto& owned_mesh : animation->meshes[list_index]) {
                         auto* mesh = owned_mesh.get();
                         if (!mesh) continue;
-                        const int frame_count = AniMeshValue(mesh);
+                        const int frame_count = mesh->frame_count;
                         for (int frame = 0; frame < frame_count; ++frame) {
                             instances.push_back(GetAniMeshFrame(mesh, frame));
                         }

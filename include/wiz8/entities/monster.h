@@ -107,19 +107,16 @@ public:
     void SetCycle(signed char cycle);
     Animation* GetCurrentAnimation();
     void dispatchAnimationFrame(unsigned char previous_frame);
-    AnimationMesh* GetCurrentAniMesh();
     void Update();
     void GetMappedPosition(glm::vec3* position);
     std::optional<glm::vec3> GetAnimationCenter();
     void SetPosition(const glm::vec3* position);
 
     // Representation state that used to live in a separate Monster.
-    MeshInstance* SetCycleFrameLod(signed char cycle, signed char frame,
-                                   signed char lod);  /* 0x004BF8C0 */
     unsigned int ApplyEmitterSetting(signed char cycle); /* 0x004BF970 */
     AnimationMesh* GetEmitterAniMesh(signed char cycle);     /* 0x004BF920 */
     void CopyCycle(signed char cycle, const Monster* other, signed char other_cycle);
-    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index, int load_all);
+    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
 
     // Animation models must disappear before any cycle's registered lights.
     struct CycleSlot {
@@ -179,7 +176,7 @@ public:
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
     // Monster operations that were free Monster* wrappers around this object.
     static std::unique_ptr<Monster> ReadAllCycles(World* world, std::string_view monster_name,
-                                                  int load_value, int location_id);
+                                                  int location_id);
     std::optional<BoundingBox> GetWorldAnimationBounds();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;
@@ -371,8 +368,7 @@ public:
 W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycle = nullptr);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
-std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle,
-                                          int value);
+std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle);
 
 void UpdateNearestMonsterGroupMembers();
 void ApplyMonsterRepresentationScale(Monster* monster);

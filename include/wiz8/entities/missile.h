@@ -79,11 +79,8 @@ public:
     void SetCycle(signed char cycle);
     Animation* GetCurrentAnimation();
 
-    AnimationMesh* GetCurrentAniMesh();
-    MeshInstance* SetCycleFrameLod(signed char emitter, signed char frame, signed char lod);
     unsigned int ApplyEmitterSetting(signed char emitter);
-    AnimationMesh* GetEmitterAniMesh(signed char emitter);
-    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index, int);
+    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
     void StartIfHostActive(); /* 0x004A4050 */
     /* Decide what the missile struck - the party or a live monster - record it
        in combat_slot, roll the target's missile deflection and either hand

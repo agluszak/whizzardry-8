@@ -343,9 +343,9 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
     }();
     if (!handle) {
         const bool success = loadAnimationCycle(
-            name, output.get()->visual, 0, 1, "Data\\Missiles",
-            [&](LevelLoadContext& read_info, int read_cycle, int read_value) {
-                return output.get()->ReadCycleData(&read_info, read_cycle, read_value) != 0;
+            name, output.get()->visual, 0, "Data\\Missiles",
+            [&](LevelLoadContext& read_info, int read_cycle) {
+                return output.get()->ReadCycleData(&read_info, read_cycle) != 0;
             },
             "Data\\Spells\\Bitmaps");
         if (success) {
@@ -388,10 +388,9 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
                     }
 
                     success = loadAnimationCycle(
-                        resource, output.get()->visual, cycle, 1, "Data\\Missiles",
-                        [&](LevelLoadContext& read_info, int read_cycle, int read_value) {
-                            return output.get()->ReadCycleData(&read_info, read_cycle,
-                                                               read_value) != 0;
+                        resource, output.get()->visual, cycle, "Data\\Missiles",
+                        [&](LevelLoadContext& read_info, int read_cycle) {
+                            return output.get()->ReadCycleData(&read_info, read_cycle) != 0;
                         },
                         "Data\\Spells\\Bitmaps");
                     cycle_line = true;
@@ -540,24 +539,6 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
     return missile;
 }
 
-/* The missile and spell representations use the same ordinary AnimObj
-   operations for these two vtable slots.  Retail points both final tables at
-   the corresponding bodies at 0x004AB290 and 0x004AB310. */
-MeshInstance* Missile::SetCycleFrameLod(signed char emitter, signed char frame, signed char lod)
-{
-    return AnimObjDispatch(resources.cycles[emitter].animation.get(), lod, frame);
-}
-
-AnimationMesh* Missile::GetEmitterAniMesh(signed char emitter)
-{
-    Animation* target = resources.cycles[emitter].animation.get();
-
-    if (target == 0) {
-        return 0;
-    }
-    return AnimObjEntry(target, visual.m_bLOD, 0);
-}
-
 /* Apply the representation's current LOD to one required animation. */
 unsigned int Missile::ApplyEmitterSetting(signed char emitter)
 {
@@ -567,7 +548,7 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
     return AnimObjValue(target, visual.m_bLOD);
 }
 
-unsigned char Missile::ReadCycleData(LevelLoadContext* info, int cycle_index, int)
+unsigned char Missile::ReadCycleData(LevelLoadContext* info, int cycle_index)
 {
     assert(info != 0 && info->hFile != 0);
     return ReadEmitterCycle(visual, resources.cycles, info, cycle_index, true);
@@ -687,14 +668,6 @@ Animation* Missile::GetCurrentAnimation()
 float Missile::GetCurrentAnimationScale()
 {
     return resources.cycles[visual.current_cycle].animation->playback_scale;
-}
-
-AnimationMesh* Missile::GetCurrentAniMesh()
-{
-    Animation* animation = resources.cycles[visual.current_cycle].animation.get();
-
-    assert(animation != 0);
-    return animation->entries[visual.m_bLOD].get();
 }
 
 /* How many emitters the launcher has, counted by testing each for null rather

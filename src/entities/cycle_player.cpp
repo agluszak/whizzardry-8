@@ -241,9 +241,9 @@ try {
     return false;
 }
 
-bool loadAnimationCycle(std::string_view mon_name, CyclePlayer& cycle, int cycle_index, int value,
+bool loadAnimationCycle(std::string_view mon_name, CyclePlayer& cycle, int cycle_index,
                         std::string_view directory,
-                        const std::function<bool(LevelLoadContext&, int, int)>& read_payload,
+                        const std::function<bool(LevelLoadContext&, int)>& read_payload,
                         std::string_view bitmap_directory)
 try {
     LevelLoadContext info;
@@ -273,7 +273,7 @@ try {
     success = true;
 
     if ((handle->read(&version, 1).bytes == static_cast<std::size_t>(1)) == 0 || version != 1 ||
-        !readCyclePrefix(&info, cycle, cycle_index) || !read_payload(info, cycle_index, value)) {
+        !readCyclePrefix(&info, cycle, cycle_index) || !read_payload(info, cycle_index)) {
         success = false;
     }
 
@@ -560,7 +560,8 @@ unsigned char CyclePlayer::GetAnimationRadius(float* arg_radius)
     AnimationMesh* mesh = AnimObjEntry(active_animation, m_bLOD, 0);
 
     assert(mesh != 0);
-    return AniMeshRadius(mesh, arg_radius);
+    *arg_radius = mesh->radius;
+    return 1;
 }
 
 void CyclePlayer::advanceFrame()
@@ -709,7 +710,6 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         MeshInstance* psrMesh = static_cast<MeshInstance*>(SelectCycleFrameLod(subcycle, m_bLOD));
 
         assert(psrMesh != 0);
-        SetAniMeshCacheProtected(AnimObjEntry(active_animation, m_bLOD, 0), true);
         psrMesh->highlight_colour = highlight_colour;
         psrMesh->damage_stage = damage_stage;
         psrMesh->light_scale = glm::vec3(light_scale);
@@ -782,17 +782,11 @@ void CyclePlayer::DetachRepresentation(World* world)
             MeshInstance* mesh =
                 AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index));
             assert(mesh != 0);
-            AnimationMesh* ani_mesh = AnimObjEntry(active_animation, m_bLOD, 0);
-            if (ani_mesh != 0) {
-                SetAniMeshCacheProtected(ani_mesh, false);
-            }
             mesh->visible = false;
             mesh->setScene(0);
         }
     } else if (current_model_instance != 0) {
         assert(world != 0);
-        AnimationMesh* ani_mesh = AnimObjEntry(active_animation, m_bLOD, 0);
-        SetAniMeshCacheProtected(ani_mesh, false);
         current_model_instance->visible = false;
         current_model_instance->draw_parts = false;
         current_model_instance->setScene(0);

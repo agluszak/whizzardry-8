@@ -40,7 +40,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "local_code/MonsterGroup.h"
-#include "monster_actions.h"
 #include "named_position.h"
 #include "texture_animation.h"
 #include "wiz8/audio/AmbientSound.h"
@@ -598,7 +597,7 @@ try {
         auto* group = CreateGroup(monster_id, 1, &origin, true, false, true);
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
-        ActivateMonster(monster_info, W8_MONSTER_LOAD_ALL_CYCLES);
+        ActivateMonster(monster_info);
         auto* monster = monster_info->entity.find();
         const glm::vec3 camera_position(world->camera->transform.getLocation());
         monster->visual.SelectLOD(&camera_position);

@@ -5,12 +5,9 @@
 #include <exception>
 #include <filesystem>
 #include <memory>
-#include <optional>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
-#include <fmt/format.h>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 
 #include "wiz8/filesystem.h"
@@ -20,43 +17,12 @@
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/world/update.h"
 
-/* AniMesh cache: a generation stamp, the loaded-byte total, the 16 MiB primary
-   limit, the unused 1 MiB secondary limit the initializer still writes, and
-   the list EnforceAniMeshMemoryLimit walks. */
-int g_animesh_cache_stamp;
-int g_animesh_cache_bytes;
-int g_animesh_cache_limit;
-std::vector<AnimationMesh*> g_animesh_cache_list;
-
-/* The two caller-provided values override the original 16 MiB and 1 MiB
-   defaults only when positive. Startup passes -1 for both. */
-void InitializeAniMeshCache(int primary_limit, int secondary_limit)
-{
-    g_animesh_cache_stamp = 0;
-    g_animesh_cache_bytes = 0;
-    g_animesh_cache_limit = 0x1000000;
-    if (primary_limit > 0) {
-        g_animesh_cache_limit = primary_limit;
-    }
-    if (secondary_limit > 0) {
-    }
-    g_animesh_cache_list.clear();
-    g_animesh_cache_list.reserve(10);
-}
-
-/* Releases every cached ani-mesh entry and clears the list. */
-void FreeAniMeshCache(void)
-{
-    g_animesh_cache_list.clear();
-}
-
 AnimationMesh::AnimationMesh() = default;
+AnimationMesh::~AnimationMesh() = default;
 
 AnimationMesh::AnimationMesh(const AnimationMesh& other)
-    : flags(other.flags), frame_count(other.frame_count), bounds_minimum(other.bounds_minimum),
-      bounds_maximum(other.bounds_maximum), radius(other.radius), loaded_bytes(other.loaded_bytes),
-      bitmap_directory(other.bitmap_directory), source_file(other.source_file),
-      file_offset(other.file_offset), last_used(other.last_used)
+    : frame_count(other.frame_count), single_instance(other.single_instance), bounds(other.bounds),
+      radius(other.radius), source_file(other.source_file)
 {
     meshes.reserve(other.meshes.size());
     for (const auto& source : other.meshes) {
@@ -64,59 +30,21 @@ AnimationMesh::AnimationMesh(const AnimationMesh& other)
         if (copy) copy->setName("Ani Mesh Duplicate Instance");
         meshes.push_back(std::move(copy));
     }
-    if (flags.loaded) {
-        if (flags.keep_loaded) g_animesh_cache_list.push_back(this);
-        g_animesh_cache_bytes += loaded_bytes;
-    }
 }
 
-namespace {
-bool ReadAnimatedFrames(wiz8::File& file, AnimationMesh& mesh);
-bool ReloadAnimatedMesh(AnimationMesh& mesh);
-void RequireAnimatedMesh(AnimationMesh& mesh);
-}
-
-std::unique_ptr<AnimationMesh>
-ReadAnimatedMesh(wiz8::File& file, const std::filesystem::path& texture_directory, bool load_all)
-try {
-    auto mesh = std::make_unique<AnimationMesh>();
-    mesh->bitmap_directory = texture_directory;
-    mesh->source_file = file.physical_path();
-    mesh->file_offset = file.tell();
-    if (load_all) {
-        if (!ReadAnimatedFrames(file, *mesh)) return {};
-    } else {
-        unsigned char count;
-        file.read_exact(&count, sizeof(count));
-        if (!count) return {};
-        for (unsigned int index = 0; index < count; ++index) {
-            unsigned char frame;
-            file.read_exact(&frame, sizeof(frame));
-            if (frame >= count) return {};
-            if (ReadSingleLevelMeshHasVertexFrames(file)) break;
-        }
-        mesh->frame_count = count;
-        mesh->flags.frame_count_loaded = true;
-        mesh->flags.keep_loaded = true;
-    }
-    return mesh;
-} catch (const std::exception&) {
-    return {};
-}
-
-namespace {
 // Decode the full frame sequence into detached ownership before publishing it.
 // Source offsets identify resources; frame/channel labels are unnecessary.
-bool ReadAnimatedFrames(wiz8::File& file, AnimationMesh& mesh)
+std::unique_ptr<AnimationMesh> ReadAnimatedMesh(wiz8::File& file,
+                                                const std::filesystem::path& texture_directory)
 try {
     unsigned char count;
     file.read_exact(&count, sizeof(count));
-    if (!count) return false;
+    if (!count) return {};
     unsigned char first_index;
     file.read_exact(&first_index, sizeof(first_index));
-    if (first_index >= count) return false;
-    auto first = ReadSingleLevelMesh(file, mesh.bitmap_directory);
-    if (!first) return false;
+    if (first_index >= count) return {};
+    auto first = ReadSingleLevelMesh(file, texture_directory);
+    if (!first) return {};
     auto* model = static_cast<Mesh*>(first->getModel());
     const bool single = model->frames.size() > 1;
     std::vector<std::unique_ptr<MeshInstance>> frames(single ? 1 : count);
@@ -125,153 +53,35 @@ try {
         for (unsigned int index = 1; index < count; ++index) {
             unsigned char frame;
             file.read_exact(&frame, sizeof(frame));
-            if (frame >= count || frames[frame]) return false;
-            frames[frame] = ReadSingleLevelMesh(file, mesh.bitmap_directory);
-            if (!frames[frame]) return false;
+            if (frame >= count || frames[frame]) return {};
+            frames[frame] = ReadSingleLevelMesh(file, texture_directory);
+            if (!frames[frame]) return {};
         }
     }
-    // Model bounds already include all vertex frames. Inspect the detached
-    // instances directly: selecting frames here would change playback and LRU
-    // state merely to compute this summary.
-    BoundingBox bounds;
-    bool has_bounds = false;
-    float radius = 0;
+    // Model bounds already include all vertex frames.
+    auto mesh = std::make_unique<AnimationMesh>();
+    mesh->bounds = frames.front()->getModel()->getBounds().box;
     for (const auto& instance : frames) {
         const auto frame_bounds = instance->getModel()->getBounds().box;
-        radius = std::max(radius, glm::distance(frame_bounds.minimum, frame_bounds.maximum) * 0.5f);
-        if (has_bounds)
-            bounds.include(frame_bounds);
-        else
-            bounds = frame_bounds;
-        has_bounds = true;
+        mesh->radius = std::max(mesh->radius,
+                                glm::distance(frame_bounds.minimum, frame_bounds.maximum) * 0.5f);
+        mesh->bounds.include(frame_bounds);
     }
-
-    mesh.meshes = std::move(frames);
-    mesh.frame_count = count;
-    mesh.flags.single_instance = single;
-    mesh.flags.frame_count_loaded = true;
-    mesh.flags.loaded = true;
-    mesh.last_used = g_animesh_cache_stamp++;
-    g_animesh_cache_bytes += mesh.loaded_bytes;
-    mesh.radius = radius;
-    mesh.bounds_minimum = bounds.minimum;
-    mesh.bounds_maximum = bounds.maximum;
-    mesh.flags.radius_loaded = true;
-    if (mesh.flags.keep_loaded) g_animesh_cache_list.push_back(&mesh);
-    EnforceAniMeshMemoryLimit(&mesh);
-    return true;
+    mesh->meshes = std::move(frames);
+    mesh->frame_count = count;
+    mesh->single_instance = single;
+    mesh->source_file = file.physical_path();
+    return mesh;
 } catch (const std::exception&) {
-    return false;
-}
-
-bool ReloadAnimatedMesh(AnimationMesh& mesh)
-try {
-    auto file = wiz8::open_file(mesh.source_file);
-    file->seek(mesh.file_offset, wiz8::SeekOrigin::begin);
-    return ReadAnimatedFrames(*file, mesh);
-} catch (const std::exception&) {
-    return false;
-}
-
-// The frames read once already, so failing to read them again is an I/O error.
-void RequireAnimatedMesh(AnimationMesh& mesh)
-{
-    if (!ReloadAnimatedMesh(mesh))
-        throw std::runtime_error(fmt::format("cannot reload {}", mesh.source_file.string()));
-}
-} // namespace
-
-/* Hands back the mesh's cached bounding box, loading the mesh first if it has
-   not been. Touching it also stamps the storage clock, so asking for bounds
-   counts as a use for the memory-pressure walk. */
-std::optional<BoundingBox> GetAniMeshBounds(AnimationMesh* mesh)
-{
-    if (!mesh || (!mesh->flags.radius_loaded && !ReloadAnimatedMesh(*mesh))) return std::nullopt;
-    mesh->last_used = g_animesh_cache_stamp++;
-    return BoundingBox{mesh->bounds_minimum, mesh->bounds_maximum};
-}
-
-AnimationMesh::~AnimationMesh()
-{
-    std::erase(g_animesh_cache_list, this);
-    if (flags.loaded) UnloadAniMesh(this, true);
-}
-
-bool UnloadAniMesh(AnimationMesh* mesh, bool force)
-{
-    if (!mesh || (!force && !mesh->flags.keep_loaded)) return false;
-    if (!mesh->flags.single_instance) {
-        for (const auto& instance : mesh->meshes) {
-            if (!instance) continue;
-            instance->setScene(nullptr);
-            instance->visible = false;
-        }
-    }
-    if (mesh->flags.loaded) g_animesh_cache_bytes -= mesh->loaded_bytes;
-    mesh->meshes.clear();
-    mesh->flags.loaded = false;
-    return true;
+    return {};
 }
 
 MeshInstance* GetAniMeshFrame(AnimationMesh* mesh, unsigned char frame)
 {
     assert(mesh);
     assert(frame < mesh->frame_count);
-    if (!mesh->flags.loaded) RequireAnimatedMesh(*mesh);
-    MeshInstance* instance;
-    if (mesh->flags.single_instance) {
-        instance = mesh->meshes[0].get();
-        instance->frame_index = frame;
-    } else {
-        instance = mesh->meshes[frame].get();
-    }
-    mesh->last_used = g_animesh_cache_stamp;
-    ++g_animesh_cache_stamp;
+    if (!mesh->single_instance) return mesh->meshes[frame].get();
+    MeshInstance* instance = mesh->meshes[0].get();
+    instance->frame_index = frame;
     return instance;
-}
-
-unsigned char AniMeshValue(AnimationMesh* mesh)
-{
-    assert(mesh != 0);
-    if (!mesh->flags.frame_count_loaded) RequireAnimatedMesh(*mesh);
-    return mesh->frame_count;
-}
-
-bool AniMeshRadius(AnimationMesh* mesh, float* radius)
-{
-    assert(mesh != 0 && radius != 0);
-    if (mesh != 0 && radius != 0) {
-        if (!mesh->flags.radius_loaded) RequireAnimatedMesh(*mesh);
-        *radius = mesh->radius;
-        mesh->last_used = g_animesh_cache_stamp;
-        ++g_animesh_cache_stamp;
-        return true;
-    }
-    return false;
-}
-
-void SetAniMeshCacheProtected(AnimationMesh* mesh, bool enabled)
-{
-    assert(mesh != 0);
-    if (enabled) {
-        mesh->flags.cache_protected = true;
-        return;
-    }
-    mesh->flags.cache_protected = false;
-}
-
-void EnforceAniMeshMemoryLimit(AnimationMesh* current)
-{
-    while (g_animesh_cache_bytes > g_animesh_cache_limit) {
-        AnimationMesh* oldest = nullptr;
-        for (auto* candidate : g_animesh_cache_list) {
-            if (!candidate || candidate == current || candidate->flags.cache_protected) continue;
-            if (!oldest || static_cast<unsigned int>(candidate->last_used) <
-                               static_cast<unsigned int>(oldest->last_used)) {
-                oldest = candidate;
-            }
-        }
-        if (!oldest || !UnloadAniMesh(oldest, false)) return;
-        std::erase(g_animesh_cache_list, oldest);
-    }
 }
