@@ -229,10 +229,11 @@ Unlayered code may use the layers.
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
-  - the NPC conversation: its progress (`npc_dialogue`), its interface state
-    (`npc_interaction`, which also stages the next script notice), the quote
-    or portrait message on screen and the NPC voice (`npc_presentation`, `npc_speech`)
-    and the Al-Sedexus scene;
+  - the NPC conversation: its progress (`npc_dialogue`), who speaks with whom, the
+    offered item and the staged script notice (`npc_interaction`; the dialogue's
+    interface itself is the main game's `W8NpcDialoguePanel`), the quote or portrait
+    message on screen and the NPC voice (`npc_presentation`, `npc_speech`) and the
+    Al-Sedexus scene;
   - the shared spell cooldowns;
   - the gameplay timer;
   - the monster-manager entries;

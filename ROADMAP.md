@@ -145,12 +145,16 @@ the licensed runtime scenarios after every step.
      only the main menu, party selection and the Please Wait screen keep it; the other
      screens should take the game from it, and the code below them the game or a
      `RuleContext` (steps 3, 6 and 7).
-   - `Game` still holds interface state of the main game screen: `npc_interaction` (the
-     dialogue's layouts, trade tables, quote bubble and `NpcDialogueUi`; its staged
-     notice is game state), `npc_presentation` and `npc_speech`, and the portrait
-     animation in `monster_manager_entries`. The main game is discarded before its game
-     is replaced, so nothing forces them onto the game: move the widgets, quote layout and
-     portrait presentation to the screen with step 5.
+   - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
+     main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
+     (who speaks with whom, the offered item, the staged notice) and four interface facts
+     the conversation's progress waits on (the open layout, the hidden panel or dialogue,
+     a modal dialog), which `W8NpcDialogue::Advance` and the NPC script read every step.
+     Those go once the dialogue's progress hears from its interface instead of reading
+     it. `Game` still holds `npc_presentation` and `npc_speech` (the quote on screen and
+     the NPC voice, which scripts wait on), and the portrait animation in
+     `monster_manager_entries`, which combat and magic drive directly; move them to the
+     screen with step 5, behind events.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the
@@ -298,9 +302,9 @@ the licensed runtime scenarios after every step.
    - The fade and monster-cycle completions are plain function pointers, so the NPC
      story callbacks they run read `CurrentGame()`.
    - The game owns the dialogue's progress (`Game::npc_dialogue`) and the Al-Sedexus
-     scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module
-     state and its interface state lives in `Game` (step 1). The presentation belongs to
-     the dialogue's screen.
+     scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module state
+     and keeps its state in `Game` (step 1). The presentation belongs to the dialogue's
+     screen.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,

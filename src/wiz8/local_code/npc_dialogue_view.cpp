@@ -25,6 +25,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/message_box.h"
