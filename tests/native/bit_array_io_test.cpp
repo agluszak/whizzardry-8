@@ -24,7 +24,7 @@ TEST_CASE("packed bit IO")
         original[bit] = (words[bit / 32] >> (bit % 32)) & 1;
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        REQUIRE((SavePackedBits(*file, original)));
+        SavePackedBits(*file, original);
         REQUIRE((file->seek(0, wiz8::SeekOrigin::begin) == 0));
         Uint32 magic;
         REQUIRE((SDL_ReadU32LE(file->io(), &magic) && magic == 0xdeadd00d));
@@ -93,7 +93,7 @@ TEST_CASE("packed bit IO")
         std::vector<bool> source(count), resized(1);
         SetBit(source, count - 1);
         auto output = wiz8::open_file(path, wiz8::OpenMode::replace);
-        REQUIRE((SavePackedBits(*output, source)));
+        SavePackedBits(*output, source);
         output->seek(0, wiz8::SeekOrigin::begin);
         REQUIRE((LoadPackedBits(*output, resized) && resized.size() == count));
         REQUIRE((resized == source));
@@ -142,7 +142,7 @@ TEST_CASE("packed bits round trips word widths and repeated symbols")
         for (std::size_t bit = 0; bit < source.size(); ++bit)
             source[bit] = (words[bit / 32] >> (bit % 32)) & 1;
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        REQUIRE(SavePackedBits(*file, source));
+        SavePackedBits(*file, source);
         file->seek(0, wiz8::SeekOrigin::begin);
         REQUIRE(LoadPackedBits(*file, decoded));
         REQUIRE(decoded == source);

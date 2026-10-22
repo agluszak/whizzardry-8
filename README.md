@@ -13,9 +13,11 @@ This repository does **not** include game assets. You'll need your own retail co
 You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3.11 or newer, [Conan 2](https://conan.io/), Vulkan development headers and loader (`libvulkan-dev` on Debian/Ubuntu), and a working Vulkan driver. Conan handles the other C/C++ library dependencies; CMake fetches the pinned VulkanSceneGraph source.
 
 On Ubuntu, `tools/setup-linux.sh` does all of the following in one step (it is safe to
-re-run, and adds the toolchain PPA for libstdc++ 16 on releases older than 26.04). Claude
-Code cloud sessions run it from a SessionStart hook (`.claude/hooks/session-start.sh`).
-To do it by hand, from the repository root:
+re-run, and adds the toolchain PPA for libstdc++ 16 on releases older than 26.04). For
+Claude Code cloud sessions, paste `tools/cloud-setup.sh` into the cloud environment's
+setup script so the toolchain is part of the cached environment; sessions then run
+`tools/cloud-deps.sh` (see `CLAUDE.md`), which reuses Conan packages a previous project
+thread saved. To do it by hand, from the repository root:
 
 ```sh
 python3 -m pip install 'conan==2.33.0' 'cmake==4.4.4'

@@ -624,6 +624,27 @@ const float g_navigator_default_turn_rate = 4.398229598999023f;
 
 const float g_navigator_snap_angle = 0.029999999329447746f;
 
+/* Follow a stationary gameplay point without depending on a visual navigator. */
+unsigned short Navigator::SetMovementTargetToAnchor(const glm::vec3& anchor, double separation)
+{
+    target_navigator = nullptr;
+    movement.target_location_id = -1;
+    movement_target = glm::vec3(0);
+    collision_margin = separation;
+    PathAIClearOwned(path_ai ? &*path_ai : nullptr);
+    if (NavigationCombatActive(*this)) movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
+    unsigned short result = 0;
+    if (SetMovementTarget(&anchor, false) == 0) {
+        if (NavigationCombatActive(*this)) flags = 0;
+    } else {
+        flags = 6;
+        movement_target = anchor;
+        result = NavigationCombatActive(*this) ? movement.attachment->flags & 7 : 1;
+    }
+    target_last_position = anchor;
+    return result;
+}
+
 unsigned short Navigator::SetMovementTargetToNavigator(Navigator* target, double separation)
 {
     unsigned short result = 0;

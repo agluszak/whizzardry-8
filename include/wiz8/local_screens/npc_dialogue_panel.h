@@ -52,8 +52,6 @@ struct W8NpcDialoguePanel {
     W8NpcTradeMode trade_mode{};
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout{};
-    // Borrowed preview only; confirmation resolves trade_selection.
-    W8ItemInstance* trade_item{};
     std::vector<W8TradeSelection> trade_rows{};
     std::optional<W8TradeSelection> trade_selection{};
     std::unique_ptr<NpcDialogueUi> ui{};
@@ -89,7 +87,6 @@ struct W8NpcDialoguePanel {
     float saved_camera_pitch{};
     W8QuoteNotice quote_notice{};
     int trade_quantity{};
-    int selected_trade_row = -1; /* -1 for none */
     /* How many times the transcript layout has opened this session; the
        first open queues the greeting lines. */
     int transcript_open_count{};

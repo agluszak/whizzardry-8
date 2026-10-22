@@ -12,12 +12,26 @@ disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
 padding bytes that belong to a file live in `retail_opaque_records.h` and round-trip
 unchanged. A codec copies a field verbatim only when the runtime field is exactly as wide
 as its disk field, and throws otherwise; items, formations and NPC stock entries have
-codecs of their own, so their runtime types need not match a retail size.
+codecs of their own, so their runtime types need not match a retail size. Character
+attributes, resistances, enchantments, modifier blocks and HYPN effect definitions
+use explicit field offsets in byte images; the character codec is the sole declaration
+of its retail field layout.
 Runtime types are not meant to mirror retail memory layout, but types embedded in
 disk records still keep it until they get records of their own (ROADMAP.md,
 "Runtime types with semantic shape"). Runtime strings are UTF-8;
 retail UTF-16LE fields are decoded and encoded explicitly by utf8proc-based
 codecs, including malformed-input replacement and fixed field limits.
+
+Retail records also hold four-byte words that were process addresses when retail wrote
+them. No reader trusts one as an address. Each is one of these:
+- a presence word (`pointer_slot`, `presence_slot`): the writer stores whether the live
+  object exists, and a reader that needs the answer reads it from the disk image (an
+  NPC's character, a monster group's members, an NPC record's stock rules);
+- a framing word set by the section's writer: the world item marker, and its `next`
+  word, which says whether another record follows;
+- a dead address, written as a constant and ignored on read: the combat target's item
+  marker, a party slot's item address and the message list word are written as zero,
+  and the status block's two buffer words as one.
 
 The game only reads compiled OCT/WPT/PVL geometry; there is no level compiler or
 editor. Shipped `.rlk` region links remain readable.

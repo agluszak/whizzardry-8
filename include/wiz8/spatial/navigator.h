@@ -277,6 +277,7 @@ public:
     unsigned char ConfigureMovementToPosition(const glm::vec3* position); /* 0x00452630 */
     /* Point the movement target at another navigator's position and enter the
        moving mode; the result is nonzero once the target was accepted. */
+    unsigned short SetMovementTargetToAnchor(const glm::vec3& anchor, double separation);
     unsigned short SetMovementTargetToNavigator(Navigator* target,
                                                 double separation); /* 0x004526C0 */
     void LinkGroupNavigator(Navigator* target, bool combat_active);

@@ -230,7 +230,6 @@ static void ApplyPendingMouselook(void);
 void ApplyPendingTooltip(void);
 void UpdateCombatPortraitStatus(void);
 void UpdateKeyboardMenu(void);
-void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRepaint& requested);
 void InvalidatePortraitPanel(void);
 
 static void DrawMainGamePrompt(void);
@@ -2077,17 +2076,6 @@ void RefreshFlaggedMainGameState(void)
     }
 }
 
-/* Bottom-panel publication; portraits publish directly from their layout. */
-struct W8MainGameInvalidateRect {
-    int left;
-    int top;
-    int right;
-    int bottom;
-    bool apply_y_offset;
-};
-
-extern W8MainGameInvalidateRect g_main_game_invalidate_rects[14];
-
 W8LevelRuntimeBlock* MainGameHud()
 {
     auto* main_game = MainGame();
@@ -2616,6 +2604,9 @@ MainGameRepaint RepaintOfEverything()
 void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
 {
     const auto& repaint = hud.repaint;
+    const auto publish_chrome = [&hud](int left, int top, int right, int bottom) {
+        InvalidateRegion(left, top + hud.portrait_y_shift, right, bottom + hud.portrait_y_shift);
+    };
     int party_slot;
     int text_box_variant;
     W8TextBoxMode text_box_mode;
@@ -2627,6 +2618,8 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
     if (repaint.portrait_panel && !CurrentGame().combat) InvalidatePortraitPanel();
     if (repaint.combat_effects) RefreshCombatEffectHud();
     if (repaint.portrait_panel) {
+        const auto bounds = MainGame()->world_view->bounds();
+        InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w + 1, bounds.y + bounds.h + 1);
         if (!CurrentGame().advancement.held) {
             if (PartyMovementPanelShown()) {
                 InvalidatePartyMovementPanel();
@@ -2647,6 +2640,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
     if (repaint.roof_and_spell_icons) {
         RedrawRoofButtons();
         RefreshSpellIconHudRows();
+        InvalidateRegion(0, 0, 640, 17);
     }
     if (repaint.combat_progress && CurrentGame().combat.has_value() &&
         CurrentGame().combat->round_active) {
@@ -2687,6 +2681,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
             RedrawKeyboardMenuPanel(dirty);
     }
     if (repaint.layout) {
+        publish_chrome(0, 358, 640, 450);
         RedrawLayoutArrowButtons();
         CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0x269, 0x166);
         InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1);
@@ -2776,11 +2771,16 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
         ActivateNpcDialoguePanels(true);
     }
 finish_mode_overlays:
+    if (repaint.radar) publish_chrome(23, 360, 128, 450);
+    if (repaint.text_box) publish_chrome(129, 358, 511, 450);
+    if (repaint.formation) publish_chrome(512, 358, 617, 450);
+    if (repaint.combat_progress) InvalidateRegion(612, 452, 637, 474);
     if (repaint.text_box) {
         RedrawTextBoxScrollChrome();
     }
     if (repaint.submenu_buttons) {
         RedrawSubMenuButtons();
+        publish_chrome(31, 450, 607, 477);
     }
     if (repaint.character_action) {
         DrawSubMenuCharacterAction();
@@ -2788,12 +2788,16 @@ finish_mode_overlays:
     if (hud.open_submenu) {
         RefreshSubMenuPanel(repaint.submenu_panel);
     }
+    if (repaint.submenu_panel) publish_chrome(469, 382, 501, 462);
     if (repaint.options_button) {
         RedrawOptionsDiskButton();
+        publish_chrome(1, 450, 30, 477);
     }
     if (repaint.combat_stance) {
         RedrawCombatStanceButtons();
+        publish_chrome(293, 450, 525, 477);
     }
+    if (repaint.everything) ClearVideoDirtyBlocks();
 }
 
 W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
@@ -2832,11 +2836,9 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
    rectangles, paint overlays, and present. */
 void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
 {
-    const MainGameRepaint requested = hud.repaint;
-    if (requested.any()) {
+    if (hud.repaint.any()) {
         ApplyMainGameRepaint(hud, presentation);
     }
-    InvalidateRepaintedRegions(hud, requested);
     hud.repaint = {};
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
@@ -3007,8 +3009,6 @@ void RedrawCombatMonsterList(bool subject_valid)
     }
     if (live_row_count != static_cast<unsigned int>(MainGameHud()->group_list_rows) ||
         max_text_width != static_cast<unsigned int>(MainGameHud()->group_list_width)) {
-        g_main_game_invalidate_rects[9].right = max_text_width + 0xfa;
-        g_main_game_invalidate_rects[9].bottom = row_y;
         if (live_row_count == 0) {
             MainGame()->monster_list->setEnabled(false);
         } else {
@@ -3713,62 +3713,6 @@ DesignRect g_viewport_modes[7] = {
     {128, 18, 512, 450}, {128, 18, 512, 416}, {23, 18, 617, 416},
 };
 
-W8MainGameInvalidateRect g_main_game_invalidate_rects[14] = {
-    {0, 0, 639, 16, false},     {0, 358, 639, 449, true},  {23, 360, 127, 449, true},
-    {129, 358, 510, 449, true}, {31, 450, 606, 476, true}, {469, 382, 500, 461, true},
-    {512, 358, 616, 449, true}, {0, 0, 0, 0, false},       {127, 260, 513, 356, false},
-    {250, 25, 0, 0, false},     {1, 450, 29, 476, true},   {293, 450, 524, 476, true},
-    {612, 452, 636, 473, true}, {0, 0, 0, 0, false},
-};
-
-/* Invalidate the rectangle of each part a draw was asked to repaint, placed by the
-   current portrait layout; a full repaint invalidates the whole screen. A layout repaint
-   draws the chrome panels, which invalidate themselves. */
-void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRepaint& requested)
-{
-    int left;
-    int top;
-    int right;
-    int bottom;
-    if (requested.everything) {
-        ClearVideoDirtyBlocks();
-        return;
-    }
-    const bool chrome = !requested.layout;
-    // Indexed as g_main_game_invalidate_rects.
-    const std::array<bool, 14> parts{
-        requested.roof_and_spell_icons,
-        requested.layout,
-        chrome && requested.radar,
-        chrome && requested.text_box,
-        chrome && requested.submenu_buttons,
-        chrome && requested.submenu_panel,
-        chrome && requested.formation,
-        requested.portrait_panel,
-        false,
-        requested.monster_list,
-        chrome && requested.options_button,
-        chrome && requested.combat_stance,
-        requested.combat_progress,
-        chrome && requested.character_action,
-    };
-    for (std::size_t index = 0; index < parts.size(); ++index) {
-        if (!parts[index]) {
-            continue;
-        }
-        const W8MainGameInvalidateRect* entry = &g_main_game_invalidate_rects[index];
-        left = entry->left;
-        top = entry->top;
-        right = entry->right;
-        bottom = entry->bottom;
-        if (entry->apply_y_offset != 0) {
-            top += hud.portrait_y_shift;
-            bottom += hud.portrait_y_shift;
-        }
-        InvalidateRegion(left, top, right + 1, bottom + 1);
-    }
-}
-
 /* Queue a level change. With `flag` set the request is confirmed with a modal
    "Enter <level>?" dialog - NPC departure events decide whether the camera is
    simply snapped to the trigger location or the dialog owns the modal region
@@ -3822,12 +3766,7 @@ void SetViewportMode(W8ViewportMode mode)
     rect = &g_viewport_modes[static_cast<unsigned int>(mode)];
     MainGame()->world_view->setShape(
         SDL_Rect{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
-    W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[7];
-    viewport.left = rect->left;
-    viewport.top = rect->top;
-    viewport.right = rect->right;
-    viewport.bottom = rect->bottom;
-    SetViewport({viewport.left, viewport.top, viewport.right + 1, viewport.bottom + 1});
+    SetViewport({rect->left, rect->top, rect->right + 1, rect->bottom + 1});
     MainGameHud()->camera_mode = mode;
 }
 
@@ -6076,67 +6015,61 @@ void W8NpcDialogueTextController::SetTranscriptSorted(bool sorted)
     InvalidateAll();
 }
 
-/* The trade confirm button's activation callback. Selling mode first offers
-   the selected stack outright when the NPC's wanted list matches it; the
-   per-mode cases then move stock between the NPC list and the backpack or
-   party pool, and every exit repaints the purse and price readouts. */
+// Finish the transfer and its consequences before presenting the result.
 void ConfirmNpcTradeItem(void)
 {
-    auto& state = CurrentGame().npc_interaction;
-    if (!MainGame()->dialogue.trade_selection) return;
-    const auto selection = *MainGame()->dialogue.trade_selection;
+    auto& panel = MainGame()->dialogue;
+    if (!panel.trade_selection || panel.trade_mode == W8_NPC_TRADE_NONE) return;
+    auto& game = CurrentGame();
+    auto* npc = game.npc_interaction.dialogue_npc.get();
+    const auto selection = *panel.trade_selection;
+    const int actor = game.status.selected_character;
     const int row = MainGameHud()->selected_text_lines[2];
-    if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_GIVE) {
-        if (selection.source != W8TradeSource::Gold &&
-            !ResolveTradeSelection(state.dialogue_npc.get(), selection))
-            return;
-        if (selection.source == W8TradeSource::Backpack) {
-            const int owner = CurrentGame().party.npcIndex(selection.character);
-            auto* npc = owner == -1 ? nullptr : GetNpcState(owner);
-            auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection);
-            if (npc && item && NpcWantsItem(npc, item)) {
-                QueueCharacterEvent(&CurrentGame().party.characters[selection.character], 109, 0,
-                                    kCharacterEventFullVolume);
-                return;
-            }
-        }
+    const auto action = panel.trade_mode == W8_NPC_TRADE_GIVE       ? W8TradeAction::Offer
+                        : panel.trade_mode == W8_NPC_TRADE_SHOPLIFT ? W8TradeAction::Steal
+                                                                    : W8TradeAction::Exchange;
+    const auto result = CompleteNpcTrade(game, npc, actor, selection, panel.trade_quantity, action);
+    if (result.theft_succeeded)
+        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
+                                     GetItemDisplayName(Data(), &selection.expected)),
+                        true);
+    switch (result.outcome) {
+    case W8TradeOutcome::Offer:
         HandleNpcDialogueItemChoice();
-    } else if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        if (auto* item = ResolveTradeSelection(state.dialogue_npc.get(), selection))
-            AttemptNpcItemTrade(item,
-                                static_cast<unsigned char>(MainGame()->dialogue.trade_quantity),
-                                selection.slot);
-    } else if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_BUY ||
-               MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SELL) {
-        if (MainGame()->dialogue.trade_quantity <= 0 || MainGame()->dialogue.trade_quantity > 255)
-            return;
-        const auto result =
-            CompleteNpcTrade(state.dialogue_npc.get(), selection,
-                             static_cast<unsigned char>(MainGame()->dialogue.trade_quantity));
-        switch (result.outcome) {
-        case W8TradeOutcome::Complete:
-            if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-            SortNpcItems(state.dialogue_npc.get());
-            RebuildNpcTradeItemList(false);
+        break;
+    case W8TradeOutcome::Complete:
+        wiz8::sound::play("Data\\Sound\\misc\\Cash Transaction.wav");
+        if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
+        if (!result.theft_succeeded) SortNpcItems(npc);
+        RebuildNpcTradeItemList(false);
+        if (!result.theft_succeeded) {
             SetSelectedTextLine(row, 2);
             UpdateNpcTradeSelection(row, 0, 1);
-            if (result.accepted_topic)
-                CurrentGame().npc_dialogue.QueueQuote(0x15, false, false, false);
-            break;
-        case W8TradeOutcome::Refused:
-            CurrentGame().npc_dialogue.QueueQuote(0x11, false, false, false);
-            break;
-        case W8TradeOutcome::InsufficientGold:
-            CurrentGame().npc_dialogue.QueueQuote(0x14, false, false, false);
-            break;
-        case W8TradeOutcome::WantedByOwner:
-            QueueCharacterEvent(&CurrentGame().party.characters[selection.character], 109, 0,
-                                kCharacterEventFullVolume);
-            break;
-        case W8TradeOutcome::InvalidSelection:
-            RebuildNpcTradeItemList(false);
-            break;
         }
+        if (result.accepted_topic) game.npc_dialogue.QueueQuote(0x15, false, false, false);
+        break;
+    case W8TradeOutcome::TheftFailed:
+        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name),
+                        false);
+        break;
+    case W8TradeOutcome::TheftCaught:
+        game.npc_dialogue.QueueQuote(0x17, false, false, false);
+        CloseNpcDialogueOptionLayout();
+        ShowNpcDialogueTopicMenu();
+        break;
+    case W8TradeOutcome::Refused:
+        if (!result.theft_succeeded) game.npc_dialogue.QueueQuote(0x11, false, false, false);
+        break;
+    case W8TradeOutcome::InsufficientGold:
+        game.npc_dialogue.QueueQuote(0x14, false, false, false);
+        break;
+    case W8TradeOutcome::WantedByOwner:
+        QueueCharacterEvent(&game.party.characters[selection.character], 109, 0,
+                            kCharacterEventFullVolume);
+        return;
+    case W8TradeOutcome::InvalidSelection:
+        if (action == W8TradeAction::Exchange) RebuildNpcTradeItemList(false);
+        break;
     }
     RefreshNpcTradePartyGold();
     RefreshNpcTradePrice();
@@ -6320,29 +6253,32 @@ void PopulateNpcTradeList(void)
 
 void OpenNpcTradeQuantityDialog(void)
 {
-    W8SplitItemDialog* dialog;
-
-    if (MainGame()->dialogue.trade_item == 0 || MainGame()->dialogue.trade_item->stack_count < 2) {
-        return;
-    }
-    if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SELL) {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_SELL, MainGame()->dialogue.trade_item,
-                                       MainGame()->dialogue.trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    } else if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_BUY ||
-               MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_BUY, MainGame()->dialogue.trade_item,
-                                       MainGame()->dialogue.trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    } else {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_INVENTORY, MainGame()->dialogue.trade_item,
-                                       MainGame()->dialogue.trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    }
+    auto& panel = MainGame()->dialogue;
+    if (!panel.trade_selection || panel.trade_selection->expected.stack_count < 2) return;
+    const auto selection = *panel.trade_selection;
+    const auto mode = panel.trade_mode;
+    const auto npc = CurrentGame().npc_interaction.dialogue_npc;
+    const int actor = CurrentGame().status.selected_character;
+    const auto split_mode = mode == W8_NPC_TRADE_SELL ? W8_ITEM_SPLIT_SELL
+                            : mode == W8_NPC_TRADE_BUY || mode == W8_NPC_TRADE_SHOPLIFT
+                                ? W8_ITEM_SPLIT_BUY
+                                : W8_ITEM_SPLIT_INVENTORY;
+    auto dialog =
+        std::make_unique<W8SplitItemDialog>(split_mode, &selection.expected, panel.trade_quantity,
+                                            SDL_Point{kSplitDialogX, kSplitDialogY});
     dialog->SetText("");
-
-    dialog->on_complete = NpcTradeSplitDialogResult;
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    dialog->on_complete = [selection, mode, npc, actor](int count) {
+        auto* screen = MainGame();
+        if (!screen || count <= 0 || screen->dialogue.trade_mode != mode ||
+            screen->dialogue.trade_selection != selection ||
+            screen->game.npc_interaction.dialogue_npc != npc ||
+            screen->game.status.selected_character != actor ||
+            !ResolveTradeSelection(screen->game, npc.get(), selection))
+            return;
+        screen->dialogue.trade_quantity = count;
+        UpdateNpcTradeSelection(screen->hud->selected_text_lines[2], 0, 0);
+    };
+    OpenModal(std::move(dialog));
 }
 
 void SelectNpcBuyMode(void)
@@ -6354,56 +6290,6 @@ void SelectNpcBuyMode(void)
 void RestockNpcTradeStock(void)
 {
     RestockNpcInventory(CurrentGame().npc_interaction.dialogue_npc.get());
-}
-
-void NpcTradeSplitDialogResult(int count)
-{
-    if (count != 0) {
-        int slot = MainGameHud()->selected_text_lines[2];
-        MainGame()->dialogue.trade_quantity = count - 1;
-        SetSelectedTextLine(slot, 2);
-        UpdateNpcTradeSelection(slot, 0, 1);
-    }
-}
-
-bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index)
-{
-    std::string text;
-    signed char result;
-    W8Character* character =
-        &CurrentGame().party.characters[CurrentGame().status.selected_character];
-
-    result = AttemptNpcItemTheft(character, CurrentGame().npc_interaction.dialogue_npc.get(),
-                                 item->iItemNo, quantity);
-    if (result == W8_ITEM_THEFT_SUCCEEDED) {
-        text =
-            fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), item));
-        DisplayNpcQuote(text, true);
-        if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1) {
-            AddNpcTopic(CurrentGame().npc_interaction.dialogue_npc.get(), item->iItemNo);
-        }
-        const auto purchase = CompleteNpcItemPurchase(
-            CurrentGame().npc_interaction.dialogue_npc.get(), index, quantity, true);
-        if (purchase.outcome != W8TradeOutcome::Complete) return false;
-        if (purchase.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-        RebuildNpcTradeItemList(false);
-        return true;
-    }
-    if (result == W8_ITEM_THEFT_FAILED) {
-        text = fmt::sprintf(Data().strings[0x74f], character->name);
-        DisplayNpcQuote(text, false);
-        return false;
-    }
-    if (result == W8_ITEM_THEFT_CAUGHT) {
-        CurrentGame().npc_dialogue.QueueQuote(0x17, false, false, false);
-        SetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc.get(),
-                              W8_NPC_BAND_NEUTRAL);
-        ApplyFactionChange(3, CurrentGame().npc_interaction.dialogue_npc->record->faction, 1, -5);
-        CloseNpcDialogueOptionLayout();
-        ShowNpcDialogueTopicMenu();
-        return false;
-    }
-    return false;
 }
 
 /* Highlight a clicked transcript keyword; clicking it again submits it to

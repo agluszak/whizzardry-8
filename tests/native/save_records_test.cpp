@@ -134,6 +134,12 @@ static void character_file_contracts(const std::filesystem::path& assets,
         character.skills[0].unknown_14[0] = 0xa5;
         character.Hand[1].attacks = 7;
         character.conditions[1].source_monster = 42;
+        character.attributes[1].change_counter = -2;
+        character.enchantments[2].percent = 0x1234;
+        character.resistances[3].total = 0x5678;
+        character.condition_modifiers.armor_class_adjustment = -3;
+        character.equipment_bonus.skill_bonus[4] = -4;
+        character.bonus.unknown_4c[2] = 0xa5;
         auto expected = bytes;
         std::memcpy(expected.data() + 0x19d + 2, &points, sizeof(points));
         std::memcpy(expected.data() + 0x19d + 0x26 + 6, &level, sizeof(level));
@@ -142,6 +148,16 @@ static void character_file_contracts(const std::filesystem::path& assets,
         const int source_monster = 42;
         std::memcpy(expected.data() + 0x1149 + 0x5b + 0x15, &attacks, sizeof(attacks));
         std::memcpy(expected.data() + 0x1817 + 0x11 + 4, &source_monster, sizeof(source_monster));
+        expected[0x00e5 + 0x14 + 8] = std::byte{0xfe};
+        std::fill_n(expected.begin() + 0x00e5 + 0x14 + 9, 3, std::byte{0xff});
+        expected[0x0a65 + 2 * 0x0c + 4] = std::byte{0x34};
+        expected[0x0a65 + 2 * 0x0c + 5] = std::byte{0x12};
+        expected[0x0edd + 3 * 0x10 + 4] = std::byte{0x78};
+        expected[0x0edd + 3 * 0x10 + 5] = std::byte{0x56};
+        std::fill_n(expected.begin() + 0x0edd + 3 * 0x10 + 6, 2, std::byte{0});
+        expected[0x16a2 + 0x4b] = std::byte{0xfd};
+        expected[0x1709 + 0x13 + 4] = std::byte{0xfc};
+        expected[0x1770 + 0x4c + 2] = std::byte{0xa5};
         REQUIRE(wiz8::retail::encode(character) == expected);
         wiz8::retail::decode<W8Character>(expected, character);
         REQUIRE(character.skills[0].points == points);
@@ -149,6 +165,12 @@ static void character_file_contracts(const std::filesystem::path& assets,
         REQUIRE(character.skills[0].unknown_14[0] == 0xa5);
         REQUIRE(character.Hand[1].attacks == 7);
         REQUIRE(character.conditions[1].source_monster == 42);
+        REQUIRE(character.attributes[1].change_counter == -2);
+        REQUIRE(character.enchantments[2].percent == 0x1234);
+        REQUIRE(character.resistances[3].total == 0x5678);
+        REQUIRE(character.condition_modifiers.armor_class_adjustment == -3);
+        REQUIRE(character.equipment_bonus.skill_bonus[4] == -4);
+        REQUIRE(character.bonus.unknown_4c[2] == 0xa5);
         character.name = "改名";
         const auto edited = wiz8::retail::encode(character);
         REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
@@ -1226,19 +1248,64 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
     W8SpellEffectEntry effect{};
     effect.kind = static_cast<W8SpellId>(0x26);
     effect.turns_remaining = 5;
-    effect.sustained = true;
+    effect.target.point.y = -1000.0f;
+    effect.definition.radius = 1.5f;
+    effect.definition.magnitude = {-123, 4, 8};
+    for (unsigned char index = 0; index < 16; ++index)
+        effect.definition.condition_chances[index] = index;
     effect.definition.power_level = 3;
+    effect.definition.magnitude_base = -2;
+    effect.definition.duration_scale = 17;
+    effect.definition.percent = 75;
+    effect.definition.duration_base = -9;
+    effect.definition.duration_per_power = 2;
     effect.monster_ids = {4, 5}; // Rebuilt while the effect runs, not saved.
     const auto payload = wiz8::save::encode(effect);
     // Spell, turns, two sources and two targets, four flags and the definition.
     REQUIRE(payload.size() == 4 + 4 + 2 * (0x34 + 0x20) + 4 + 0x30);
+    constexpr unsigned char definition[] = {
+        0x00, 0x00, 0xc0, 0x3f, 0x85, 0xff, 0x04, 0x08, 0x00, 0x01, 0x02, 0x03,
+        0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x03, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff, 0x11, 0x00, 0x00, 0x00,
+        0x4b, 0x00, 0x00, 0x00, 0xf7, 0xff, 0xff, 0xff, 0x02, 0x00, 0x00, 0x00,
+    };
+    REQUIRE(std::memcmp(payload.data() + payload.size() - sizeof(definition), definition,
+                        sizeof(definition)) == 0);
     const auto decoded = wiz8::save::decode_monster_control(payload);
-    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 && decoded.sustained &&
-             !decoded.recast && decoded.definition.power_level == 3 &&
-             decoded.monster_ids.empty()));
+    REQUIRE(decoded.kind == effect.kind);
+    REQUIRE(decoded.turns_remaining == 5);
+    REQUIRE_FALSE(decoded.recast);
+    REQUIRE(decoded.definition.power_level == 3);
+    REQUIRE(decoded.target.point.y == -1000.0f);
+    REQUIRE(decoded.monster_ids.empty());
+    REQUIRE(payload[4 + 4 + 2 * (0x34 + 0x20) + 1] == std::byte{1});
     REQUIRE(wiz8::save::encode(decoded) == payload);
     REQUIRE_THROWS(
         wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));
+}
+
+TEST_CASE("The newest unexpired lure is the active monster-control effect", "[effects]")
+{
+    const ScopedGame game;
+    auto& effects = CurrentGame().spell_effects;
+
+    auto previous = std::make_unique<W8SpellEffectEntry>();
+    previous->kind = W8_SPELL_HYPNOTIC_LURE;
+    previous->turns_remaining = 3;
+    auto* previous_ptr = previous.get();
+    effects.push_back(std::move(previous));
+
+    auto replacement = std::make_unique<W8SpellEffectEntry>();
+    replacement->kind = W8_SPELL_HYPNOTIC_LURE;
+    replacement->turns_remaining = 5;
+    auto* replacement_ptr = replacement.get();
+    effects.push_back(std::move(replacement));
+
+    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    previous_ptr->turns_remaining = 0;
+    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    replacement_ptr->turns_remaining = 0;
+    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")

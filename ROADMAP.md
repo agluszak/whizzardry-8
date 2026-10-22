@@ -345,10 +345,8 @@ each.
   `uiCondition`. Verbatim codec copies check field widths, and items, formations and
   NPC stock entries have their own disk records, so those types may change shape. Retail
   disk records still embed other runtime types, which therefore keep their retail
-  layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
-  in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
-  `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
-  `ItemEffects`, and the runtime enums used as disk field types.
+  layout: `W8PartyThreatRecord`, `W8Dice`, `ItemProperties` and `ItemEffects`, and
+  the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;

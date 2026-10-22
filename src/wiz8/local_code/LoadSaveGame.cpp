@@ -666,8 +666,6 @@ SavedMonster ReadMonster(W8Chunk& chunk)
     auto& script = saved.script;
     if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
     info.fActive = false;
-    info.entity.detach();
-    info.pCombat = nullptr;
     saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
     auto& movement = saved.movement;
     if (version >= 2 && chunk.ReadValue<unsigned char>())
@@ -1396,7 +1394,8 @@ try {
     return false;
 }
 
-/* Write the container and its contents as the retail flat sequence. */
+/* Write the container and its contents as the retail flat sequence. Each record's
+   marker word is one, and its next word says whether another record follows. */
 // FUNCTION: WIZ8 0x00514be0
 void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
 {

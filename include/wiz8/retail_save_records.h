@@ -59,11 +59,11 @@ struct MonsterInfo {
     float stamina_regen_rate;
     float stamina_regen_accumulator;
     unsigned int uiCondition[W8_CONDITION_COUNT];
-    W8Enchantment enchantments[8];
+    std::array<std::byte, 0x60> enchantments;
     W8Condition highest_condition;
     int condition_argument;
     EffectSlot effect_slots[12];
-    W8GameplayModifierBlock modifiers;
+    std::array<std::byte, 0x67> modifiers;
     int fatigue_band;
     unsigned char pathing_cooldown;
     unsigned char attributes[W8_MONSTER_ATTR_COUNT];
@@ -306,8 +306,9 @@ template<> struct Record<W8MonsterInfo> {
         value(&runtime.stamina_regen_accumulator, field(offsetof(Disk, stamina_regen_accumulator),
                                                         sizeof(Disk::stamina_regen_accumulator)));
         value(&runtime.uiCondition, field(offsetof(Disk, uiCondition), sizeof(Disk::uiCondition)));
-        value(&runtime.enchantments,
-              field(offsetof(Disk, enchantments), sizeof(Disk::enchantments)));
+        for (std::size_t index = 0; index < std::size(runtime.enchantments); ++index)
+            nested(runtime.enchantments[index],
+                   field(offsetof(Disk, enchantments) + index * 0x0c, 0x0c), value, text);
         value(&runtime.highest_condition,
               field(offsetof(Disk, highest_condition), sizeof(Disk::highest_condition)));
         value(&runtime.condition_argument,
@@ -318,7 +319,8 @@ template<> struct Record<W8MonsterInfo> {
                 field(offsetof(Disk, effect_slots) + index * sizeof(EffectSlot),
                       sizeof(EffectSlot)),
                 value, text);
-        value(&runtime.modifiers, field(offsetof(Disk, modifiers), sizeof(Disk::modifiers)));
+        nested(runtime.modifiers, field(offsetof(Disk, modifiers), sizeof(Disk::modifiers)), value,
+               text);
         value(&runtime.fatigue_band,
               field(offsetof(Disk, fatigue_band), sizeof(Disk::fatigue_band)));
         value(&runtime.pathing_cooldown,
@@ -470,10 +472,8 @@ template<> struct Record<W8WorldItem> {
         value(&runtime.entity_flags,
               field(offsetof(Disk, entity_flags), sizeof(Disk::entity_flags)));
         value(&runtime.flags, field(offsetof(Disk, flags), sizeof(Disk::flags)));
-        value(&runtime.saved_marker,
-              field(offsetof(Disk, saved_marker), sizeof(Disk::saved_marker)));
-        // SaveItemFile supplies sibling link presence for the flat sequence.
-        presence_slot(runtime.contents, field(offsetof(Disk, next), sizeof(Disk::next)));
+        // saved_marker and next frame the flat sequence SaveItemFile writes and LoadItem
+        // reads; they are not item state.
         value(&runtime.vertical_velocity,
               field(offsetof(Disk, vertical_velocity), sizeof(Disk::vertical_velocity)));
         value(&runtime.sector_id, field(offsetof(Disk, sector_id), sizeof(Disk::sector_id)));
