@@ -116,6 +116,17 @@ TEST_CASE("VSG frame owns submitted overlay resources through completion")
     fixture.renderer->drawOverlayQuad(second);
     fixture.renderer->endFrame(false, true);
     REQUIRE(fixture.pixel(16, 32) == 0xff0000);
+
+    // A rotated quad turns about its centre: a wide band becomes a tall one.
+    second.visible = true;
+    second.position = {0, 120};
+    second.size = {640, 240};
+    second.rotation = 1.5707963f;
+    fixture.renderer->beginFrame({1, 0, 0, 1});
+    fixture.renderer->drawOverlayQuad(second);
+    fixture.renderer->endFrame(false, true);
+    REQUIRE(fixture.pixel(32, 4) == 0x0000ff);
+    REQUIRE(fixture.pixel(8, 32) == 0xff0000);
 }
 
 TEST_CASE("Two VSG views share ordinary and Wizardry geometry in one world")
