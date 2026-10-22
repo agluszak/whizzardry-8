@@ -706,19 +706,20 @@ void ResourceLifecycleScenario()
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
-    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[2]);
-    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
+    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[3]);
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 3);
     game.click("options-next", *FindScreen<OptionsScreen>()->m_navigation[1]);
     REQUIRE(FindScreen<OptionsScreen>()->m_current_page == 1);
     game.click("options-previous", *FindScreen<OptionsScreen>()->m_navigation[0]);
     REQUIRE(FindScreen<OptionsScreen>()->m_current_page == 0);
     auto* keyboard =
-        static_cast<W8OptionsKeyboardPanel*>(FindScreen<OptionsScreen>()->m_panels.front().get());
+        dynamic_cast<W8OptionsKeyboardPanel*>(FindScreen<OptionsScreen>()->m_panels.front().get());
+    REQUIRE(keyboard);
     game.click("options-key-capture", *keyboard->m_keys.front()->target);
     REQUIRE(FindScreen<OptionsScreen>()->m_key_capture == keyboard);
     game.press_at(30, 60);
     game.release_at(200, 190);
-    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 3);
     // The artwork hotspot selects the same panel as its button.
     game.click("options-artwork", {30, 60});
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 0);
