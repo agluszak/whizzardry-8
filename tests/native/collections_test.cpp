@@ -821,6 +821,27 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
     REQUIRE(GetWorld()->encounters.random_budget == 7);
 }
 
+TEST_CASE("Encounter decoding does not require an active game", "[groups][save]")
+{
+    const auto file = wiz8::open_memory_writer();
+    W8Chunk chunk;
+    REQUIRE(chunk.OpenWrite(file));
+    chunk.WriteChunk(W8ChunkId("MONG"), [&] {
+        chunk.WriteValue(1); // Legacy encounter header: budget and count only.
+        chunk.WriteValue(20);
+        chunk.WriteValue(1);
+        MonGen generator;
+        generator.Save(chunk.WriteStream());
+    });
+    chunk.Close();
+    REQUIRE(chunk.OpenRead(wiz8::open_memory(file->written_memory())));
+    chunk.ForEachChunk([&](unsigned) {
+        const auto saved = ReadEncounterState(chunk);
+        REQUIRE(saved.generators.size() == 1);
+        REQUIRE(saved.generators.front().custom_interval_seconds == 100);
+    });
+}
+
 TEST_CASE("Encounter state prepares independently and retains the retail save fields",
           "[groups][save]")
 {
