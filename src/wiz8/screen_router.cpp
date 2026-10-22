@@ -10,6 +10,7 @@
 #include "wiz8/game.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -26,6 +27,8 @@ struct ScreenRouter {
     ScreenFactory factory = CreateScreen;
     // The session the screens begin and end games in.
     GameSession* games = nullptr;
+    // The pointer every screen shows and aims with.
+    Pointer pointer;
     ScreenRequest current;
     std::unique_ptr<Screen> screen;
     ScreenRequest pending;
@@ -61,7 +64,7 @@ bool EnterScreen()
         router.screen = std::move(router.resuming);
         return router.screen->resume(router.current);
     }
-    router.screen = router.factory(router.current.id, *router.games);
+    router.screen = router.factory(router.current.id, *router.games, router.pointer);
     return router.screen->enter(router.current);
 }
 
@@ -109,6 +112,11 @@ bool ApplyRequest()
     return EnterScreen();
 }
 } // namespace
+
+Pointer& ScreenPointer()
+{
+    return router.pointer;
+}
 
 void ResetScreenRouting(GameSession& games, ScreenFactory factory)
 {
@@ -200,7 +208,7 @@ void GameLoop()
         return;
     }
     router.screen->frame();
-    PresentPointer();
+    router.pointer.present();
 }
 
 void GameloopExit()

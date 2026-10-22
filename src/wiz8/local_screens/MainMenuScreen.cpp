@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 
 #include <SDL3/SDL_keycode.h>
@@ -26,6 +25,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -47,13 +47,6 @@ constexpr std::array<SDL_Rect, 6> main_menu_item_bounds = {{
 constexpr std::array<int, 4> main_menu_sprite_objects = {0xea, 0xec, 0xeb, 0xed};
 constexpr short main_menu_item_count = static_cast<short>(main_menu_item_bounds.size());
 
-/* The main menu's developer-mode key hook. Retail never consumes the key: its
-   linker folded this body into IgnoreSpellCastingInput, which compiles to the
-   same bytes. */
-bool HandleDeveloperModeKey(const InputEvent*)
-{
-    return false;
-}
 } // namespace
 
 MainMenuScreen::MainMenuScreen(GameSession& games) : games_(games) {}
@@ -175,7 +168,7 @@ bool MainMenuScreen::enter(const ScreenRequest&)
     if (PreviousScreen() != W8_SCREEN_OPTIONS) {
         StartMusicResource("MainMenu.MPL", 0, 1);
     }
-    ResetPointerCursor();
+    ScreenPointer().reset();
 
     if (!g_pending_main_menu_message.empty()) {
         dialog_.reset(CreateMessageDialog());
@@ -192,9 +185,6 @@ bool MainMenuScreen::enter(const ScreenRequest&)
    shortcuts, before the shared 2D redraw and renderer transaction. */
 void MainMenuScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     if (dialog_) {
         dialog_->RefreshModal();
         if (!dialog_->ProcessInput()) {
@@ -206,14 +196,6 @@ void MainMenuScreen::frame()
     } else {
         PumpUiInput({.unhandled = [&](const InputEvent& input) {
             if (input.type != InputEventType::KeyDown) return InputRoute::Handled;
-            if (HandleDeveloperModeKey(&input)) {
-                if (g_dev_mode) {
-                    g_wiz_text_font_secondary.resetPalette();
-                    DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                                          {5, 5}, "Developer mode enabled.");
-                }
-                return InputRoute::Handled;
-            }
             switch (input.key) {
             case SDLK_RETURN:
                 drawItem(selected_item_, 2);

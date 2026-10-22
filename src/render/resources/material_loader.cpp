@@ -29,7 +29,6 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/screen.h"
@@ -267,7 +266,7 @@ std::shared_ptr<Texture> LoadTextureFromPath(const std::filesystem::path& path,
 bool MeshHasAnimatedTexture(Mesh* model)
 {
     if (model != 0) {
-        MeshResources<Texture>* textures = model->getPolygonTextureTable(0, 0, false);
+        auto* textures = model->getPolygonTextureTable(0, 0, false);
 
         if (textures != 0) {
             int polygon;
@@ -290,7 +289,7 @@ void SetModelAnimatedTextureFrame(MeshInstance* instance, int frame)
         Mesh* model = static_cast<Mesh*>(instance->getModel());
 
         if (model != 0) {
-            MeshResources<Texture>* textures = model->getPolygonTextureTable(0, 0, false);
+            auto* textures = model->getPolygonTextureTable(0, 0, false);
 
             if (textures != 0) {
                 if (auto* animation = (((*textures)[0].get() && (*textures)[0].get()->playback)
@@ -309,7 +308,7 @@ Texture* GetModelAnimatedTexture(MeshInstance* instance)
         Mesh* model = static_cast<Mesh*>(instance->getModel());
 
         if (model != 0) {
-            MeshResources<Texture>* textures = model->getPolygonTextureTable(0, 0, false);
+            auto* textures = model->getPolygonTextureTable(0, 0, false);
 
             if (textures != 0) {
                 return (((*textures)[0].get() && (*textures)[0].get()->playback)

@@ -27,12 +27,11 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/render/camera.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
@@ -75,8 +74,7 @@ void InitializeWorldCursor(void)
         cursor.detached = false;
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
-        cursor.dragged_location_id = 0;
-        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1, 1);
+        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1);
         cursor.monster = monster.get();
         GetWorld()->monsters.push_back(std::move(monster));
         cursor.monster->SetCycle(0);
@@ -120,10 +118,6 @@ void InitializeWorldCursor(void)
         cursor.probe_offsets[6] = minimum;
         cursor.probe_offsets[7] = glm::vec3(maximum.x, minimum.y, minimum.z);
         UpdateWorldCursorPlacement();
-        if (g_dev_mode && (((GetInputState().modifiers & SHIFT_DOWN) != 0) ||
-                           ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-            cursor.pick_latched = true;
-        }
     }
 }
 
@@ -171,7 +165,6 @@ void ReleaseWorldCursor(void)
 void ApplyWorldCursorInput(void)
 {
     glm::mat3 rotation;
-    glm::dvec3 node_location;
     glm::vec3 camera;
     glm::vec3 delta;
     glm::vec3 lifted;
@@ -186,16 +179,6 @@ void ApplyWorldCursorInput(void)
     cursor.input_delta.x = 0;
     cursor.input_delta.y = 0;
     cursor.input_delta.z = 0;
-    if (g_dev_mode) {
-        if (((GetInputState().modifiers & SHIFT_DOWN) == 0) &&
-            ((GetInputState().modifiers & CTRL_DOWN) == 0)) {
-            cursor.pick_latched = false;
-            cursor.dragged_location_id = 0;
-        } else if (!cursor.pick_latched && cursor.dragged_location_id == 0) {
-            if (auto* nearest = FindNearestMonsterInfo(&cursor.position, 2500.0))
-                cursor.dragged_location_id = nearest->location_id;
-        }
-    }
     if (!cursor.detached) {
         lifted = glm::vec3(delta.x, delta.y + 1e+03f, delta.z);
         if (cursor.range > 0.0f && cursor.range < glm::length(lifted)) {
@@ -203,13 +186,10 @@ void ApplyWorldCursorInput(void)
                         ? delta
                         : glm::normalize(delta) * static_cast<float>(cursor.range);
         }
-        rotation = GetWorld()->camera->transform.getRotation<glm::mat3>();
+        rotation = cameraRotation(*GetWorld());
         cursor.cam_rel_offset += delta;
         cursor.position = rotation * (cursor.cam_rel_offset);
-        node_location = GetWorld()->camera->transform.getLocation();
-        glm::vec3 scene_location;
-        scene_location = glm::vec3(node_location);
-        cursor.position += scene_location;
+        cursor.position += cameraLocation();
         if (cursor.track_ground) {
             if (cursor.position.y < saved_y) {
                 cursor.position.y = saved_y;
@@ -250,19 +230,7 @@ void ApplyWorldCursorInput(void)
         cursor.monster->SetAdjustedPosition(&lifted);
 
         if (cursor.light != 0) {
-            node_location = glm::dvec3(cursor.position);
-            cursor.light->transform.setLocation(node_location);
-        }
-        // The dragged monster may have been removed or unloaded since the drag began.
-        const auto* dragged = FindMonster(cursor.dragged_location_id, false);
-        if (dragged == nullptr || !dragged->entity) {
-            cursor.dragged_location_id = 0;
-        } else {
-            dragged->entity->nav.SetPositionInternal(&cursor.position);
-            GetWorldSpatialIndex()->UpdateMonsterLocation(dragged->location_id, cursor.position);
-            if (((GetInputState().modifiers & SHIFT_DOWN) != 0)) {
-                dragged->entity->ForwardReferencePosition(1);
-            }
+            cursor.light->transform.setLocation(glm::dvec3(cursor.position));
         }
         cursor.last_published = cursor.position;
     }
@@ -392,7 +360,7 @@ void UpdateWorldCursor(void)
     ApplyWorldCursorInput();
     position = cursor.position;
     if (!IsLeftButtonHeld()) {
-        if (cursor.left_held && TargetingMode() == W8_TARGET_NEED_PLACE) {
+        if (cursor.left_held && ScreenPointer().targeting() == W8_TARGET_NEED_PLACE) {
             camera = cameraLocation();
             if (ResolveWorldCursorTarget(&resolved) != 0 &&
                 !GetWorldSpatialIndex()->traceSight(camera, resolved)) {

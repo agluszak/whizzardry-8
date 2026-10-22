@@ -50,6 +50,7 @@
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -154,7 +155,7 @@ void BeginNpcScriptedScene(const ScriptContext& context)
     CurrentGame().npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
     context.activity.scripted_scene = true;
-    SetTargetingMode(W8_TARGET_NEED_ALLY);
+    context.events.push(TargetingRequested{W8_TARGET_NEED_ALLY});
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (context.party.members[party_slot].has_value()) {
             EnableMainGamePortraitSlot(party_slot);
@@ -183,7 +184,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     if (!context.combat.has_value() || context.game.party_movement_mode) {
         ClearLevelMovementStopped();
     }
-    SetTargetingMode(W8_TARGET_NEED_NONE);
+    context.events.push(TargetingRequested{});
     for (slot = 0; slot < 8; ++slot) {
         if (context.party.members[slot].has_value()) {
             DisableMainGamePortraitSlot(slot);
@@ -320,7 +321,7 @@ static void ResolveSedexusCapture(void)
     ReleaseNpcMonsterByKind(0x40);
     SetTriggerVariableByName("LezboDemonAppeared", 0);
     if (FindEntityByName("np_al-adryian51", &position, 0, 0)) {
-        group = SpawnMonsters(0xd8, 1, &position, 2, true, false, false);
+        group = SpawnMonsters(0xd8, 1, &position, 2, true, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonsterByLocation(location_id);
@@ -346,7 +347,7 @@ static void NpcScriptHenchmanArrives(Monster* monster)
 
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
         PointCameraAtTarget(&position, false, true);
-        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false, false);
+        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false);
         int location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
@@ -573,7 +574,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::savant_appears: {
         glm::vec3 position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
+            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false);
             int location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
@@ -613,7 +614,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             }
             glm::vec3 position;
             if (FindEntityByName("NP_VI1", &position, 0, 0)) {
-                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false, false);
+                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false);
                 int location_id = group->MemberLocationId(0);
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);

@@ -26,13 +26,11 @@
 #include <glm/matrix.hpp>
 
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -55,7 +53,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -68,7 +65,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
@@ -87,18 +83,17 @@
 
 class W8DialogBase;
 
-static std::string NextTriggerRecipient(const char*& cursor)
+std::vector<std::string> ParseTriggerNames(std::string_view text)
 {
-    if (!cursor) return {};
-    const char* comma = std::strchr(cursor, ',');
-    std::string name(cursor,
-                     comma ? static_cast<std::size_t>(comma - cursor) : std::strlen(cursor));
-    cursor = comma ? comma + 1 : nullptr;
-    return name;
+    std::vector<std::string> names;
+    if (text.empty()) return names;
+    for (;;) {
+        const auto comma = text.find(',');
+        names.emplace_back(text.substr(0, comma));
+        if (comma == text.npos) return names;
+        text.remove_prefix(comma + 1);
+    }
 }
-
-bool g_trigger_action_active;
-glm::vec3 g_trigger_action_scene_offset;
 
 bool g_trigger_feedback = true;
 
@@ -158,18 +153,10 @@ Trigger* FindTriggerForProp(World* world, Prop* prop)
                 while (hops < 5 && !other->recipients.empty() &&
                        (other->trigger_kind == W8TriggerKind::item ||
                         other->trigger_kind == W8TriggerKind::prop)) {
-                    const char* recipient =
-                        (other->recipients.empty() ? nullptr : other->recipients.c_str());
-                    Trigger* linked;
-
-                    do {
-
-                        if (recipient == 0) {
-                            goto next_trigger;
-                        }
-                        const auto recipient_name = NextTriggerRecipient(recipient);
-                        linked = FindTriggerByName(recipient_name.c_str());
-                    } while (linked != previous);
+                    if (std::ranges::none_of(other->recipients, [previous](const auto& name) {
+                            return FindTriggerByName(name) == previous;
+                        }))
+                        goto next_trigger;
                     if (other->doorData() != nullptr) {
                         return other;
                     }
@@ -275,24 +262,36 @@ void UpdateWorldTriggers(World* world)
     }
 }
 
+TriggerEvent* World::findTimedAction(const Trigger* trigger) const
+{
+    for (const auto& action : timed_events)
+        if (action->trigger == trigger && !action->completed) return action.get();
+    return nullptr;
+}
+
+TriggerEvent& World::addTimedAction(Trigger* trigger)
+{
+    if (auto* previous = findTimedAction(trigger)) previous->completed = true;
+    auto action = std::make_unique<TriggerEvent>();
+    action->trigger = trigger;
+    auto& result = *action;
+    timed_events.push_back(std::move(action));
+    return result;
+}
+
 void UpdateTimedTriggerEvents(void)
 {
     for (auto* world : {GetSecondaryWorld(), GetWorld()}) {
         if (!world) continue;
         auto& events = world->timed_events;
+        // Re-read size: actions appended by this step run in this step, in order.
         for (std::size_t index = 0; index < events.size();) {
-            auto* event = events[index];
+            auto* event = events[index].get();
             event->Update();
-            if (!event->completed) {
-                ++index;
-                continue;
-            }
-            events.erase(events.begin() + index);
-            if (event->trigger)
-                event->trigger->m_pEvent.reset();
+            if (event->completed)
+                events.erase(events.begin() + index);
             else
-                std::erase_if(world->standalone_trigger_events,
-                              [event](const auto& owner) { return owner.get() == event; });
+                ++index;
         }
     }
 }
@@ -336,6 +335,7 @@ void Trigger::CompleteItemInteraction()
 
 void Trigger::Activate()
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     if (const auto* door = doorData();
         door &&
         (lock_state.lock_type == LockType::none || lock_state.device_state.completed != 0) &&
@@ -344,14 +344,9 @@ void Trigger::Activate()
             running = true;
             Run(-1);
             running = false;
-        } else {
-            TriggerEvent* event = m_pEvent.get();
-            if (event != 0 && std::ranges::contains(m_pWorld->timed_events, event)) {
-                event->timer.Restart();
-                if (event->m_pCountdown.has_value()) {
-                    event->m_pCountdown->Restart();
-                }
-            }
+        } else if (timed_action) {
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown) timed_action->m_pCountdown->Restart();
         }
     }
 }
@@ -413,8 +408,7 @@ bool Trigger::PlayActionSound(std::string_view sound_name, int volume)
     }
     if ((flags & W8_TRIGGER_POSITIONED) == 0) {
         if (m_pProp == 0) {
-            wiz8::sound::play(sound_name, {.volume = std::uint32_t(
-                                               (g_settings.sound_effects_volume * volume) / 0x7f)});
+            wiz8::sound::play(sound_name, {.volume = std::uint32_t(volume)});
             return false;
         }
         const auto center = m_pProp->GetCenterPosition();
@@ -517,7 +511,7 @@ void TriggerEvent::Update()
     }
 
     case 0x3f: {
-        Trigger* target = FindTriggerByName(trigger->recipients.c_str());
+        Trigger* target = FindTriggerByName(trigger->recipient_name.c_str());
         if (target != 0) {
             target->Run(-1);
         }
@@ -525,9 +519,7 @@ void TriggerEvent::Update()
     }
 
     case 0x47: {
-        const char* name = (trigger->recipients.empty() ? nullptr : trigger->recipients.c_str());
-        while (name != 0) {
-            const auto recipient_name = NextTriggerRecipient(name);
+        for (const auto& recipient_name : trigger->recipients) {
             ParticleSystem* particle = FindParticleByName(recipient_name.c_str());
             if (particle != 0) {
                 particle->persisted = true;
@@ -582,14 +574,12 @@ void SetTriggerVariableByName(std::string_view name, int value)
    when the link-out and state-gate bits are set. */
 void Trigger::RunLinkedTriggers()
 {
-    const char* recipient;
 
     flags &= ~W8_TRIGGER_RUNNING;
     if ((flags & W8_TRIGGER_FIRE_LINKED) != 0 && (flags & W8_TRIGGER_LINK_ON_DEACTIVATE) != 0 &&
         !recipients.empty()) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 trigger->Run(-1);
             }
@@ -617,6 +607,8 @@ bool Trigger::RequiresItem()
     }
     return false;
 }
+
+Trigger::~Trigger() = default;
 
 Trigger::Trigger(World* world)
 {
@@ -694,9 +686,9 @@ void Trigger::UpdateActionAnimation()
 
 void Trigger::FinishAction()
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
     bool action_completed = false;
-    const char* recipient;
 
     flags &= ~W8_TRIGGER_RUNNING;
 
@@ -704,10 +696,10 @@ void Trigger::FinishAction()
         if (action != 0x39) {
             goto reactivate_linked_triggers;
         }
-        if (m_pEvent != 0) {
-            m_pEvent->completed = true;
+        if (timed_action != 0) {
+            timed_action->completed = true;
         }
-        g_trigger_action_active = false;
+        g_camera_shake_active = false;
         goto finish_linked_triggers;
     }
 
@@ -717,33 +709,33 @@ void Trigger::FinishAction()
 
     switch (action) {
     case 0x0c:
-        if (m_pEvent != 0 && m_lData2 > 0) {
-            m_pEvent->completed = true;
+        if (timed_action != 0 && m_lData2 > 0) {
+            timed_action->completed = true;
         }
         action_completed = true;
         break;
 
     case 0x23: {
-        wiz8::erase_first(m_pWorld->timed_events, m_pEvent.get());
+        // Action 0x23 is reconstructed with its 0.5-second period on reactivation.
+        if (timed_action) timed_action->completed = true;
         action_completed = true;
         break;
     }
 
     case 0x39:
-        if (m_pEvent != 0) {
-            m_pEvent->completed = true;
+        if (timed_action != 0) {
+            timed_action->completed = true;
         }
-        g_trigger_action_active = false;
+        g_camera_shake_active = false;
         action_completed = true;
         break;
     }
 
     if ((flags & W8_TRIGGER_KEEP_ON_FINISH) == 0 && action != 0) {
         if (action == 4) {
-            recipient = (recipients.empty() ? nullptr : recipients.c_str());
             action_completed = false;
-            while (recipient != 0) {
-                const auto recipient_name = NextTriggerRecipient(recipient);
+            for (const auto& recipient : recipients) {
+                const auto& recipient_name = recipient;
 
                 Light* light = FindLightByName(recipient_name.c_str());
                 if (light != 0) {
@@ -771,9 +763,8 @@ void Trigger::FinishAction()
 
 finish_linked_triggers:
     if ((flags & W8_TRIGGER_FIRE_LINKED) != 0) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 trigger->FinishAction();
             }
@@ -783,9 +774,8 @@ finish_linked_triggers:
 reactivate_linked_triggers:
     if (was_running && (flags & W8_TRIGGER_ON) != 0 &&
         (flags & W8_TRIGGER_REACTIVATE_LINKED) != 0) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 trigger->Run(-1);
             }
@@ -803,15 +793,13 @@ static int FindModifiedLocationVar(const char* name)
 
 void Trigger::CommitActionResult(bool apply_state_changes)
 {
-    const char* recipient;
 
     UpdateActionAnimation();
 
     if (!recipients.empty() && (flags & W8_TRIGGER_FIRE_LINKED) != 0 &&
         (flags & W8_TRIGGER_LINK_ON_DEACTIVATE) == 0) {
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            Trigger* trigger = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
                 bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
                 flags |= W8_TRIGGER_RUNNING;
@@ -924,7 +912,7 @@ void Trigger::RunDestination(std::string_view destination)
         destination_direction = target->direction;
     }
 
-    SetWorldScenePosition(GetWorld(), &destination_position);
+    placeParty(*GetWorld(), destination_position);
 
     rotation = glm::mat3(1);
     if (angle != 0.0f) {
@@ -1023,6 +1011,7 @@ void WakeMonsterGroup(int monster_id)
 
 void Trigger::Run(int source)
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     ActivationCallback callback = activation_callback;
     bool apply_state_changes = true;
     bool action_succeeded = false;
@@ -1043,7 +1032,7 @@ void Trigger::Run(int source)
             if (recipients.empty()) {
                 break;
             }
-            UpdateCameraPathStateByName(m_pWorld, recipients.c_str(), 1);
+            UpdateCameraPathStateByName(m_pWorld, recipient_name.c_str(), 1);
             FinishAction();
             goto commit_action;
 
@@ -1104,7 +1093,7 @@ void Trigger::Run(int source)
         }
 
         case 0x0e:
-            if (recipients.empty() || SDL_strcasecmp(recipients.c_str(), "party") != 0) {
+            if (recipients.empty() || SDL_strcasecmp(recipient_name.c_str(), "party") != 0) {
                 break;
             }
             ApplyItemEffectToRandomCharacter(
@@ -1129,27 +1118,24 @@ void Trigger::Run(int source)
         }
 
         case 0x23:
-            if (m_pEvent == 0) {
-                m_pEvent = std::make_unique<TriggerEvent>();
-                m_pEvent->trigger = this;
-                m_pEvent->action = static_cast<short>(action);
-                m_pEvent->timer.SetDuration(0.5f);
-            } else {
-                assert(!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()));
+            if (timed_action == 0) {
+                timed_action = &m_pWorld->addTimedAction(this);
+                timed_action->action = static_cast<short>(action);
+                timed_action->timer.SetDuration(0.5f);
             }
-            m_pEvent->timer.Restart();
-            if (m_pEvent->m_pCountdown.has_value()) {
-                m_pEvent->m_pCountdown->Restart();
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown.has_value()) {
+                timed_action->m_pCountdown->Restart();
             }
-            m_pWorld->timed_events.push_back(m_pEvent.get());
+
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
         case 0x34:
-            if (recipients.empty() || recipients[0] == '\0') {
+            if (recipients.empty()) {
                 break;
             }
-            RunDestination(recipients.c_str());
+            RunDestination(recipient_name.c_str());
             goto commit_action;
 
         default:
@@ -1184,22 +1170,20 @@ void Trigger::Run(int source)
             }
 
             if (m_lData1 != 0) {
-                if (m_pEvent != 0 &&
-                    std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
-                    m_pEvent->timer.Restart();
-                    if (m_pEvent->m_pCountdown.has_value()) {
-                        m_pEvent->m_pCountdown->Restart();
+                if (timed_action != nullptr) {
+                    timed_action->timer.Restart();
+                    if (timed_action->m_pCountdown.has_value()) {
+                        timed_action->m_pCountdown->Restart();
                     }
                     goto commit_action;
                 }
 
-                m_pEvent = std::make_unique<TriggerEvent>();
-                m_pEvent->trigger = this;
-                m_pEvent->action = 2;
-                m_pEvent->timer.SetDuration(m_lData1 < 0 ? 10.0f : static_cast<float>(m_lData1));
-                m_pEvent->timer.Restart();
-                m_pEvent->repeat = true;
-                m_pWorld->timed_events.push_back(m_pEvent.get());
+                timed_action = &m_pWorld->addTimedAction(this);
+                timed_action->action = 2;
+                timed_action->timer.SetDuration(m_lData1 < 0 ? 10.0f
+                                                             : static_cast<float>(m_lData1));
+                timed_action->timer.Restart();
+                timed_action->repeat = true;
             }
             goto commit_action;
         }
@@ -1323,10 +1307,9 @@ void Trigger::Run(int source)
     case 4:
     case 0x30:
     case 0x31: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        while (recipient != 0) {
-            Light* light = FindLightByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Light* light = FindLightByName(recipient.c_str());
             if (light != 0) {
                 light->m_save_marked = true;
                 if (action == 4) {
@@ -1361,13 +1344,12 @@ void Trigger::Run(int source)
     case 0x2d:
     case 0x2e:
     case 0x2f: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            Trigger* target = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* target = FindTriggerByName(recipient.c_str());
             if (target != 0) {
                 if (action == 0x2d) {
                     target->flags |= W8_TRIGGER_ON;
@@ -1500,13 +1482,12 @@ void Trigger::Run(int source)
         break;
 
     case 0x0f: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            Trigger* target = FindTriggerByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Trigger* target = FindTriggerByName(recipient.c_str());
             if (target != 0) {
                 bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
                 flags |= W8_TRIGGER_RUNNING;
@@ -1557,7 +1538,7 @@ void Trigger::Run(int source)
     }
 
     case 0x0b:
-        if (!recipients.empty()) WakeMonsterGroup(atoi(recipients.c_str()));
+        if (!recipients.empty()) WakeMonsterGroup(recipient_group);
         return;
 
     case 0x39: {
@@ -1565,9 +1546,9 @@ void Trigger::Run(int source)
         TriggerEvent* event;
 
         party_position = cameraLocation();
-        if (m_pEvent == 0) {
-            m_pEvent = std::make_unique<TriggerEvent>();
-            event = m_pEvent.get();
+        if (timed_action == 0) {
+            timed_action = &m_pWorld->addTimedAction(this);
+            event = timed_action;
             if (!event->shake) event->shake.emplace();
             event->trigger = this;
             event->action = static_cast<short>(action);
@@ -1584,7 +1565,7 @@ void Trigger::Run(int source)
                 }
             }
         } else {
-            event = m_pEvent.get();
+            event = timed_action;
             if (!event->shake) event->shake.emplace();
             event->timer.Restart();
             if (event->m_pCountdown.has_value()) {
@@ -1593,7 +1574,7 @@ void Trigger::Run(int source)
         }
 
         if ((flags & W8_TRIGGER_RUNNING) == 0) {
-            m_pWorld->timed_events.push_back(m_pEvent.get());
+
             if (trigger_kind == W8TriggerKind::prop) {
                 flags |= W8_TRIGGER_RUNNING;
             } else if (m_lData3 == -1) {
@@ -1653,7 +1634,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;
-                glm::dvec3 position = GetWorld()->camera->transform.getLocation();
+                const glm::vec3 position = cameraLocation();
 
                 if (action == 0x28) {
                     spell_id = W8_SPELL_HEX;
@@ -1664,7 +1645,7 @@ void Trigger::Run(int source)
                 } else {
                     spell_id = W8_SPELL_HEAL_ALL;
                 }
-                CurrentGame().castTriggerSpell(glm::vec3(position), spell_id,
+                CurrentGame().castTriggerSpell(position, spell_id,
                                                static_cast<unsigned int>(m_lData3));
             }
         }
@@ -1675,14 +1656,13 @@ void Trigger::Run(int source)
             }
         } else {
             --uses_remaining;
-            if (m_lData2 > 0 && m_pEvent == 0) {
-                m_pEvent = std::make_unique<TriggerEvent>();
-                m_pEvent->action = static_cast<short>(action);
-                m_pEvent->timer.SetDuration(m_lData2 * 720.0f);
-                m_pEvent->timer.Restart();
-                m_pEvent->trigger = this;
-                m_pEvent->timer.SetMode(W8_TIMER_CLOCK_GAME);
-                m_pWorld->timed_events.push_back(m_pEvent.get());
+            if (m_lData2 > 0 && timed_action == 0) {
+                timed_action = &m_pWorld->addTimedAction(this);
+                timed_action->action = static_cast<short>(action);
+                timed_action->timer.SetDuration(m_lData2 * 720.0f);
+                timed_action->timer.Restart();
+
+                timed_action->timer.SetMode(W8_TIMER_CLOCK_GAME);
             }
         }
         if (trigger_kind == W8TriggerKind::prop) {
@@ -1714,19 +1694,18 @@ void Trigger::Run(int source)
             transformed = rotation * target_position;
             FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
                         1, 50000.0f);
-        } else if (m_pEvent == 0) {
+        } else if (timed_action == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
             if (m_lData2 > 0 && trigger_kind != W8TriggerKind::prop)
                 throw std::runtime_error(
                     fmt::format("trigger {}: continuous missiles need an invisible trigger", name));
-            m_pEvent = std::make_unique<TriggerEvent>();
-            m_pEvent->action = static_cast<short>(action);
-            m_pEvent->timer.SetDuration(duration);
-            m_pEvent->timer.Restart();
-            m_pEvent->trigger = this;
+            timed_action = &m_pWorld->addTimedAction(this);
+            timed_action->action = static_cast<short>(action);
+            timed_action->timer.SetDuration(duration);
+            timed_action->timer.Restart();
+
             flags |= W8_TRIGGER_RUNNING;
-            m_pWorld->timed_events.push_back(m_pEvent.get());
         }
         break;
 
@@ -1745,21 +1724,20 @@ void Trigger::Run(int source)
         break;
 
     case 0x3f:
-        if (m_pEvent == 0) {
-            m_pEvent = std::make_unique<TriggerEvent>();
-            m_pEvent->action = static_cast<short>(action);
-            m_pEvent->timer.SetDuration(m_lData1 * 0.001f);
-            m_pEvent->timer.Restart();
-            m_pEvent->trigger = this;
-            m_pEvent->repeat = true;
+        if (timed_action == 0) {
+            timed_action = &m_pWorld->addTimedAction(this);
+            timed_action->action = static_cast<short>(action);
+            timed_action->timer.SetDuration(m_lData1 * 0.001f);
+            timed_action->timer.Restart();
+
+            timed_action->repeat = true;
         } else {
-            assert(!std::ranges::contains(m_pWorld->timed_events, m_pEvent.get()));
-            m_pEvent->timer.Restart();
-            if (m_pEvent->m_pCountdown.has_value()) {
-                m_pEvent->m_pCountdown->Restart();
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown.has_value()) {
+                timed_action->m_pCountdown->Restart();
             }
         }
-        m_pWorld->timed_events.push_back(m_pEvent.get());
+
         if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
@@ -1791,13 +1769,12 @@ void Trigger::Run(int source)
     case 0x41:
     case 0x42:
     case 0x43: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            const auto name = NextTriggerRecipient(recipient);
+        for (const auto& recipient : recipients) {
+            const auto& name = recipient;
             if (action == 0x41) {
                 PositionAmbientSoundByName(GetWorld(), name.c_str());
             } else if (action == 0x42) {
@@ -1813,13 +1790,12 @@ void Trigger::Run(int source)
     case 0x44:
     case 0x45:
     case 0x46: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0) {
+        if (recipients.empty()) {
             return;
         }
-        while (recipient != 0) {
-            ParticleSystem* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            ParticleSystem* particle = FindParticleByName(recipient.c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 if (action == 0x44) {
@@ -1839,14 +1815,13 @@ void Trigger::Run(int source)
     }
 
     case 0x47: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0 || m_pEvent != 0) {
+        if (recipients.empty() || timed_action != 0) {
             return;
         }
         action_succeeded = false;
-        while (recipient != 0) {
-            ParticleSystem* particle = FindParticleByName(NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            ParticleSystem* particle = FindParticleByName(recipient.c_str());
             if (particle != 0) {
                 particle->persisted = true;
                 particle->SetActive(true);
@@ -1857,14 +1832,12 @@ void Trigger::Run(int source)
             return;
         }
 
-        m_pEvent = std::make_unique<TriggerEvent>();
-        m_pWorld->timed_events.push_back(m_pEvent.get());
-        m_pEvent->trigger = this;
-        m_pEvent->action = static_cast<short>(action);
-        m_pEvent->m_pCountdown.emplace();
-        m_pEvent->m_pCountdown->SetDuration(m_lData1 == -1 ? 10.0f : m_lData1 * 0.001f);
-        m_pEvent->m_pCountdown->Restart();
-        m_pEvent->repeat = true;
+        timed_action = &m_pWorld->addTimedAction(this);
+        timed_action->action = static_cast<short>(action);
+        timed_action->m_pCountdown.emplace();
+        timed_action->m_pCountdown->SetDuration(m_lData1 == -1 ? 10.0f : m_lData1 * 0.001f);
+        timed_action->m_pCountdown->Restart();
+        timed_action->repeat = true;
         break;
     }
 
@@ -1890,13 +1863,12 @@ void Trigger::Run(int source)
         break;
 
     case 0x4a: {
-        const char* recipient = (recipients.empty() ? nullptr : recipients.c_str());
 
-        if (recipient == 0 || m_lData1 < 0) {
+        if (recipients.empty() || m_lData1 < 0) {
             return;
         }
-        while (recipient != 0) {
-            Prop* prop = FindPropByName(GetWorld(), NextTriggerRecipient(recipient).c_str());
+        for (const auto& recipient : recipients) {
+            Prop* prop = FindPropByName(GetWorld(), recipient.c_str());
             if (prop != 0) {
                 prop->SetAnimationSpeed(static_cast<float>(m_lData1));
             }
@@ -1905,30 +1877,9 @@ void Trigger::Run(int source)
     }
 
     case 0x4b: {
-        const char* recipient;
-        std::string destination;
-        unsigned char count = 0;
-        unsigned char selected;
-        unsigned char index = 0;
-
-        if (recipients.empty() || recipients[0] == '\0') {
-            return;
-        }
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        while (recipient != 0) {
-            NextTriggerRecipient(recipient);
-            ++count;
-        }
-        selected = static_cast<unsigned char>(MonotonicMilliseconds() % count);
-        recipient = (recipients.empty() ? nullptr : recipients.c_str());
-        do {
-            destination = NextTriggerRecipient(recipient);
-            if (index == selected) {
-                break;
-            }
-            ++index;
-        } while (recipient != 0);
-        RunDestination(destination.c_str());
+        if (recipients.empty()) return;
+        const auto selected = MonotonicMilliseconds() % recipients.size();
+        RunDestination(recipients[selected].c_str());
         break;
     }
 
@@ -1945,16 +1896,14 @@ commit_action:
 
 bool Trigger::CanRunLinkedTriggers()
 {
-    const char* recipient;
 
     if (m_pProp != 0 && m_pProp->animation_playing != 0) {
         return false;
     }
-    recipient = (recipients.empty() ? nullptr : recipients.c_str());
-    while (recipient != 0) {
+    for (const auto& recipient : recipients) {
         Trigger* trigger;
 
-        const auto recipient_name = NextTriggerRecipient(recipient);
+        const auto& recipient_name = recipient;
         trigger = FindTriggerByName(recipient_name.c_str());
         if (trigger != 0 && !trigger->CanRunLinkedTriggers()) {
             return false;
@@ -1965,6 +1914,7 @@ bool Trigger::CanRunLinkedTriggers()
 
 bool Trigger::SelectAction()
 {
+    auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     bool fallback_selected = false;
     bool result = true;
 
@@ -1979,9 +1929,7 @@ bool Trigger::SelectAction()
     }
 
     if (!required_states.empty()) {
-        const char* cursor = required_states.c_str();
-        while (cursor) {
-            const auto state_name = NextTriggerRecipient(cursor);
+        for (const auto& state_name : required_states) {
             const int state_id = FindModifiedLocationVar(state_name.c_str());
             if (CurrentGame().story.location_variables[state_id].value == 0) {
                 action = fallback_action;
@@ -2014,9 +1962,7 @@ bool Trigger::SelectAction()
         if (m_pProp != 0 && m_pProp->animation_playing != 0) {
             linked_trigger_blocked = true;
         } else {
-            const char* cursor = (recipients.empty() ? nullptr : recipients.c_str());
-            while (cursor) {
-                const auto name = NextTriggerRecipient(cursor);
+            for (const auto& name : recipients) {
                 Trigger* trigger = FindTriggerByName(name.c_str());
                 if (trigger != 0 && !trigger->CanRunLinkedTriggers()) {
                     linked_trigger_blocked = true;
@@ -2026,12 +1972,12 @@ bool Trigger::SelectAction()
         }
 
         if (linked_trigger_blocked) {
-            if (m_pEvent == 0 || !std::ranges::contains(m_pWorld->timed_events, m_pEvent.get())) {
+            if (timed_action == nullptr) {
                 return false;
             }
-            m_pEvent->timer.Restart();
-            if (m_pEvent->m_pCountdown.has_value()) {
-                m_pEvent->m_pCountdown->Restart();
+            timed_action->timer.Restart();
+            if (timed_action->m_pCountdown.has_value()) {
+                timed_action->m_pCountdown->Restart();
             }
             if (!running) {
                 g_trigger_feedback = true;
@@ -2099,11 +2045,6 @@ bool Trigger::SelectAction()
         return false;
     }
     return result;
-}
-
-Trigger::~Trigger()
-{
-    if (m_pEvent && m_pWorld) wiz8::erase_first(m_pWorld->timed_events, m_pEvent.get());
 }
 
 Light* FindLightByName(std::string_view name)

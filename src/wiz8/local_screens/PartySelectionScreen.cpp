@@ -57,6 +57,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
@@ -529,7 +530,7 @@ bool PartySelectionScreen::HandleNameInput(const InputEvent& input)
         name_input->HandleInput(input);
         OnToggle(name_input->Text(0).size() != 0);
     } else if (input.key == SDLK_ESCAPE || name_input->Text(0).size()) {
-        SetTargetCursor(W8_CURSOR_NONE);
+        ScreenPointer().showSlot(W8_CURSOR_NONE);
         AfterUiDispatch([this, cancelled = input.key == SDLK_ESCAPE] { OnDecision(cancelled); });
     }
     return true;
@@ -1243,7 +1244,7 @@ void PreparePartySelectionCanvas()
 {
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
-    ResetPointerCursor();
+    ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
 }
@@ -1280,9 +1281,6 @@ bool PartySelectionScreen::leave(ScreenDeparture)
 
 void PartySelectionScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     PartySelectionScreen* controller = this;
     if (controller->m_dialog) {
         controller->m_dialog->ProcessInput();

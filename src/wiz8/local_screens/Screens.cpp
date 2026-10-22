@@ -2,7 +2,6 @@
 
 #include <bitset>
 #include <cassert>
-#include <cstdint>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -12,7 +11,6 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/Font.h"
-#include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -25,7 +23,6 @@
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -43,6 +40,7 @@
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
@@ -56,7 +54,7 @@ static Game& GameOf(GameSession& games)
     throw std::logic_error("a game screen was requested with no game in progress");
 }
 
-std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games)
+std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer& pointer)
 {
     switch (id) {
     case W8_SCREEN_INTRO:
@@ -72,9 +70,9 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games)
     case W8_SCREEN_PARTY_SELECTION:
         return CreatePartySelectionScreen(games);
     case W8_SCREEN_CAMP:
-        return std::make_unique<CampScreen>(GameOf(games));
+        return std::make_unique<CampScreen>(GameOf(games), pointer);
     case W8_SCREEN_MAIN_GAME:
-        return std::make_unique<MainGameScreen>(GameOf(games));
+        return std::make_unique<MainGameScreen>(GameOf(games), pointer);
     case W8_SCREEN_AUTOMAP:
         return CreateAutomapScreen();
     case W8_SCREEN_CREDITS:
@@ -200,180 +198,12 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     }
 }
 
-namespace {
-// What the pointer shows: the arrow, a cursor-table slot, the held item under an overlay, or
-// an image a screen drew itself.
-struct PointerLook {
-    PointerRequest::Kind kind = PointerRequest::Kind::None;
-    int value = W8_CURSOR_NONE;
-    int item = -1;
-    bool operator==(const PointerLook&) const = default;
-};
-
-struct Pointer {
-    PointerRequest request;
-    PointerLook shown;
-    // A multi-frame slot's animation frame and when the next is due.
-    int frame = 0;
-    std::uint64_t next_frame = 0;
-};
-Pointer pointer;
-
-int HeldItemId()
-{
-    return GameInProgress() ? CurrentGame().party.held.item.iItemNo : -1;
-}
-
-/* The look the pointer should have. A request made while the hand held something else has
-   lapsed; without one, the main game and the camp show the held item. */
-PointerLook WantedLook()
-{
-    const int hand = HeldItemId();
-    if (pointer.request.hand != hand) pointer.request = {};
-    const auto& request = pointer.request;
-    using Kind = PointerRequest::Kind;
-    switch (request.kind) {
-    case Kind::Slot:
-    case Kind::Custom:
-        return {.kind = request.kind, .value = request.value};
-    case Kind::HeldItem:
-        if (hand != -1) return {.kind = Kind::HeldItem, .value = request.value, .item = hand};
-        return {};
-    case Kind::None:
-        break;
-    }
-    const auto screen = CurrentScreenState().id;
-    if (hand != -1 && (screen == W8_SCREEN_MAIN_GAME || screen == W8_SCREEN_CAMP))
-        return {.kind = Kind::HeldItem, .value = 0, .item = hand};
-    return {};
-}
-
-/* Install the shown slot from the main-game resource table: resize, install the slot's
-   texture, select the current frame and refresh the hotspot. A multi-frame cursor arms its
-   animation. */
-void ApplyShownSlot()
-{
-    auto& slot = g_main_game_resource_slots[pointer.shown.value];
-    if (slot.object != 0) {
-        ResizeMouseCursorSurface(slot.size_x, slot.size_y);
-        SetMouseCursorTexture(slot.object);
-        slot.object->SetFrame(pointer.frame);
-        SetMouseCursorHotspot(slot.hotspot_x, slot.hotspot_y);
-    }
-    if (slot.frame_count > 1) {
-        pointer.next_frame = MonotonicMilliseconds() + (0xfa);
-    }
-}
-
-void ShowLook(const PointerLook& look)
-{
-    pointer.shown = look;
-    pointer.frame = 0;
-    switch (look.kind) {
-    case PointerRequest::Kind::None: {
-        const auto cursor = CatalogArtwork::Load(0);
-        SetMouseCursorFromVideoObject(*cursor.spriteSheet(), cursor.imageOffset(), 0, 0);
-        RefreshMouseCursorTexture();
-        break;
-    }
-    case PointerRequest::Kind::Slot:
-        ApplyShownSlot();
-        break;
-    case PointerRequest::Kind::HeldItem: {
-        const auto sprites = ItemSprites(look.item);
-        SetMouseCursorFromVideoObject(*sprites, 0, 0, 0);
-        const auto overlay = CatalogArtwork::Load(look.value);
-        BlitToMouseCursor(*overlay.spriteSheet(), overlay.imageOffset(), 0, 0);
-        RefreshMouseCursorTexture();
-        break;
-    }
-    case PointerRequest::Kind::Custom:
-        // The screen drew the image itself.
-        break;
-    }
-}
-
-void Ask(PointerRequest request)
-{
-    request.hand = HeldItemId();
-    pointer.request = request;
-    PresentPointer();
-}
-} // namespace
-
-void PresentPointer()
-{
-    if (const auto look = WantedLook(); look != pointer.shown) ShowLook(look);
-}
-
-int ShownCursor()
-{
-    const auto look = WantedLook();
-    switch (look.kind) {
-    case PointerRequest::Kind::None:
-        return W8_CURSOR_NONE;
-    case PointerRequest::Kind::Slot:
-        return look.value;
-    case PointerRequest::Kind::HeldItem:
-    case PointerRequest::Kind::Custom:
-        break;
-    }
-    return W8_CURSOR_INVALID_TARGET;
-}
-
-PointerRequest CurrentPointerRequest()
-{
-    WantedLook();
-    return pointer.request;
-}
-
-void RestorePointerRequest(const PointerRequest& request)
-{
-    pointer.request = request;
-    PresentPointer();
-}
-
-void ShowCustomCursor()
-{
-    Ask({.kind = PointerRequest::Kind::Custom});
-}
-
-void ShowHeldItemCursor(int overlay)
-{
-    Ask({.kind = PointerRequest::Kind::HeldItem, .value = overlay});
-}
-
-void AnimateShownCursor()
-{
-    if (pointer.shown.kind != PointerRequest::Kind::Slot) return;
-    const auto frame_count =
-        static_cast<int>(g_main_game_resource_slots[pointer.shown.value].frame_count);
-    if (frame_count <= 1 || TimeUntilDeadline(pointer.next_frame)) return;
-    if (++pointer.frame == frame_count) pointer.frame = 0;
-    ApplyShownSlot();
-}
-
-void SetTargetCursor(int cursor)
-{
-    if (cursor == W8_CURSOR_NONE) {
-        ResetPointerCursor();
-        return;
-    }
-    Ask({.kind = PointerRequest::Kind::Slot, .value = cursor});
-}
-
-void ResetPointerCursor()
-{
-    pointer.request = {};
-    PresentPointer();
-}
-
 /* Empty the hand and drop whatever cursor a screen asked for. Inventory operations own the
    held item. */
 void ClearHeldItemDisplay(void)
 {
     CurrentGame().party.held.item = {};
-    ResetPointerCursor();
+    ScreenPointer().reset();
 }
 
 /* Dispatch one already-built notice line to the camp or main-game dialog. */
@@ -456,7 +286,7 @@ struct GameEventPresentation {
                 ReopenSubMenuPanel();
             }
         }
-        if (g_settings.continuous_combat == 0 && TargetingMode() != W8_TARGET_NEED_NONE)
+        if (g_settings.continuous_combat == 0 && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
             SetTargetingMode(W8_TARGET_NEED_NONE);
     }
     void operator()(const CombatCalledOff&) const
@@ -467,7 +297,7 @@ struct GameEventPresentation {
     }
     void operator()(const CombatBegan&) const
     {
-        ResetPointerCursor();
+        ScreenPointer().reset();
         auto* main_game = MainGame();
         if (main_game) main_game->party_movement_panel = false;
         DisablePortraitControls();
@@ -559,6 +389,7 @@ struct GameEventPresentation {
     {
         PresentWorldAdvancement(change.held, change.hold_changed);
     }
+    void operator()(const TargetingRequested& request) const { SetTargetingMode(request.need); }
 };
 } // namespace
 

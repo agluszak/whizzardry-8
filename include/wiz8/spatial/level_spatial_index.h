@@ -286,7 +286,8 @@ struct W8OctreeView {
     float far_clip{};
     std::array<glm::vec4, 6> frustum_planes{};
 
-    void captureCamera(const Camera3D& camera);
+    // The view from `location` facing along `rotation`, through `camera`'s field of view.
+    void captureView(const glm::vec3& location, const glm::mat3& rotation, const Camera3D& camera);
 };
 
 // Runtime registration and visibility are separate from immutable level geometry.
@@ -657,9 +658,7 @@ GroundProbe probeGround(const glm::vec3& position);
 
 void ClearLevelMovementState(void); /* 0x0041F0C0 */
 
-float GetCameraYawInDegrees();
 float GetCameraYawRadians();
-float GetCameraPitchInDegrees();
 struct CameraOrientation;
 CameraOrientation cameraOrientation();
 void BeginManualCameraControl();
@@ -676,12 +675,12 @@ int GetCameraYawAndRotation(glm::mat3* rotation);
 /* 0x00421440: project `vector` onto `onto` in place; fails on a degenerate
    target direction. */
 glm::vec3 ProjectVectorOntoVector(const glm::vec3& vector, const glm::vec3& onto);
+// The party's eye position (world.h has the per-world form).
 glm::vec3 cameraLocation();
 int GetCameraYawDegrees(void);
 /* 0x004215E0: point-visibility query through the world octree; false with no
    world, true for a loaded world without an octree. */
 bool hasCameraLineOfSight(const glm::vec3& position);
-void PlacePartyAtPoint(const glm::vec3* point);
 /* 0x00420E20: start/stop the sustained movement footstep loop. */
 void UpdateLevelMovementAudio(void);
 /* 0x004EF9A0: fall-impact override handler owned by GameplayCode.cpp;

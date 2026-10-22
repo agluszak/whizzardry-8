@@ -10,10 +10,10 @@
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
+#include <fmt/format.h>
 #include <vsg/app/RecordTraversal.h>
 #include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
@@ -31,7 +31,6 @@
 #include <vsg/nodes/Transform.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
-#include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/ImageInfo.h>
 #include <vsg/state/PipelineLayout.h>
 
@@ -54,7 +53,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vsg_material.h"
@@ -137,9 +135,10 @@ Texture* MeshInstance::FindMouthTexture()
 {
     Mesh* mesh = static_cast<Mesh*>(getModel());
     for (auto* mesh_part : meshParts(mesh)) {
-        MeshResources<Texture>* textures =
-            damage_stage == -1 ? mesh_part->getPolygonTextureTable(0, 0, false)
-                               : mesh_part->GetTextureTable(damage_stage_tables[damage_stage]);
+        const int table = skinTable(*mesh_part);
+        std::vector<std::shared_ptr<Texture>>* textures =
+            table == -1 ? mesh_part->getPolygonTextureTable(0, 0, false)
+                        : mesh_part->GetTextureTable(table);
         if (textures != nullptr) {
             for (int polygon = 0; polygon < mesh_part->polygon_count; ++polygon) {
                 auto* animation =
@@ -155,60 +154,10 @@ Texture* MeshInstance::FindMouthTexture()
     return nullptr;
 }
 
-int MeshInstance::FindDamageStage(std::string_view name)
+int MeshInstance::skinTable(Mesh& mesh) const
 {
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    return mesh->FindSkinTable(name);
-}
-
-/* Add a stage by cloning the first stage's table across the complete linked
-   mesh chain. The instance stores the table id shared by that chain. */
-int MeshInstance::AddDamageStage(std::string_view name)
-{
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-
-    if (mesh->FindSkinTable(name) != -1) {
-        return -1;
-    }
-
-    int stage = static_cast<int>(damage_stage_tables.size());
-    int base_table = stage > 0 ? damage_stage_tables[0] : -1;
-    damage_stage_tables.push_back(mesh->CreateSkinTable(name, base_table));
-    for (const auto& part : mesh->parts) {
-        part->CreateSkinTable(name, base_table);
-    }
-    return stage;
-}
-
-int MeshInstance::AddExistingDamageStage(std::string_view name)
-{
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    int table = mesh->FindSkinTable(name);
-
-    if (table == -1) {
-        return -1;
-    }
-
-    int stage = static_cast<int>(damage_stage_tables.size());
-    damage_stage_tables.push_back(table);
-    return stage;
-}
-
-unsigned char MeshInstance::ReplaceDamageStageTexture(int stage, std::string_view old_name,
-                                                      const std::shared_ptr<Texture>& replacement)
-{
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    bool replaced = false;
-
-    if (replacement && replacement->playback) {
-        replacement->Prepare();
-    }
-
-    for (auto* mesh_part : meshParts(mesh)) {
-        replaced |=
-            mesh_part->replaceSkinTexture(damage_stage_tables[stage], old_name, replacement);
-    }
-    return replaced;
+    if (damage_stage < 0 || skin.empty()) return -1;
+    return mesh.FindSkinTable(fmt::format("{}{}", skin, damage_stage));
 }
 
 MeshInstance::MeshInstance(WorldScene* scene)
@@ -256,8 +205,9 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     mesh_index = other.mesh_index;
     frame_index = other.frame_index;
 
-    damage_stage_tables = other.damage_stage_tables;
+    skin = other.skin;
     damage_stage = other.damage_stage;
+    baked_models = other.baked_models;
     highlight_pass_mode = other.highlight_pass_mode;
     highlight_material.reset();
     light_scale = other.light_scale;
@@ -348,18 +298,18 @@ void InstanceNode::accept(vsg::RecordTraversal& visitor) const
 }
 void InstanceNode::ensureParts()
 {
-    if (!instance || !instance->getModel()) {
-        parts.clear();
-        return;
+    parts.clear();
+    if (!instance || !instance->model_) return;
+    auto shown = std::ranges::find(drawn, instance->model_, &DrawnModel::model);
+    if (shown == drawn.end()) {
+        DrawnModel added{instance->model_, {}};
+        for (auto* mesh : meshParts(added.model.get()))
+            added.parts.push_back(std::make_unique<Part>(*mesh));
+        drawn.push_back(std::move(added));
+        shown = drawn.end() - 1;
     }
-    std::vector<Mesh*> models;
-    for (auto* mesh : meshParts(instance->getModel(), instance->draw_parts)) models.push_back(mesh);
-    if (parts.size() != models.size() ||
-        !std::equal(models.begin(), models.end(), parts.begin(),
-                    [](const auto* mesh, const auto& part) { return mesh == part->mesh; })) {
-        parts.clear();
-        for (auto* mesh : models) parts.push_back(std::make_unique<Part>(*mesh));
-    }
+    const std::size_t count = instance->draw_parts ? shown->parts.size() : 1;
+    for (std::size_t index = 0; index < count; ++index) parts.push_back(shown->parts[index].get());
 }
 
 void InstanceNode::advanceTextures(std::chrono::milliseconds now)
@@ -384,11 +334,8 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     ensureParts();
     for (const auto& part : parts)
         if (part->mesh == &mesh) {
-            const int skin = instance->damage_stage >= 0
-                                 ? instance->damage_stage_tables.at(instance->damage_stage)
-                                 : -1;
             part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
-                              skin);
+                              instance->skinTable(*part->mesh));
             if (index < part->pose.positions.size()) return part->pose.positions[index];
             break;
         }
@@ -401,8 +348,12 @@ std::pair<vsg::ref_ptr<vsg::Node>, vsg::ref_ptr<vsg::vec4Array>>
 extrusionShadow(RenderContext& context, const MeshInstance& instance, Mesh& mesh,
                 const ScenePass& pass)
 {
-    const auto bounds = mesh.getTriMesh();
-    const float height = bounds.bounds_maximum.y - bounds.bounds_minimum.y;
+    // An authored box (render control bit 4) does not size the shadow.
+    float height = 0;
+    if (!(mesh.render_control & (1u << Mesh::CONTROL_SKIP_AUTO_BOX))) {
+        const auto box = mesh.getBounds().box;
+        height = box.maximum.y - box.minimum.y;
+    }
     const auto material = std::make_shared<Material>();
     material->setAmbient(glm::vec4(1));
     material->setSpecular(glm::vec4(0));
@@ -459,13 +410,8 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         instance->highlight_material->setEmissive(instance->highlight_colour);
     }
     const bool highlight_body = highlighted && instance->highlight_pass_mode == 1;
-    const int skin =
-        instance->damage_stage >= 0 ? instance->damage_stage_tables.at(instance->damage_stage) : -1;
     const auto setPipeline = [&](DrawNode& node, std::uint32_t shader, FaceCull cull,
                                  Winding winding = Winding::Standard) {
-        std::erase_if(node.stateCommands, [](const auto& command) {
-            return command->template cast<vsg::BindGraphicsPipeline>() != nullptr;
-        });
         node.setPipeline(
             context.pipeline(shader, cull, winding),
             context.pipeline(shader, cull,
@@ -473,6 +419,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     };
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
+        const int skin = instance->skinTable(mesh);
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
         part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
@@ -494,8 +441,8 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
         } else {
             store(*part->instance_data, instance_block);
         }
-        const bool shadow = part.get() == parts.front().get() &&
-                            (instance->render_flags & MeshInstance::RENDER_SHADOW);
+        const bool shadow =
+            part == parts.front() && (instance->render_flags & MeshInstance::RENDER_SHADOW);
         if (shadow && !part->shadow_switch) {
             auto [node, data] = extrusionShadow(context, *instance, mesh, pass);
             part->shadow_switch = vsg::Switch::create();
@@ -511,11 +458,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
             auto& sampled = pose.passes[pass_index];
             auto& cached = part->passes[pass_index];
             auto materials = source.materials;
-            const bool front_material =
-                source.side == 0 ||
-                (!asset.animated &&
-                 (mesh.render_control & (1u << Mesh::CONTROL_REUSE_FRONT_MATERIAL)));
-            if (highlight_body && source.pass == 0 && front_material)
+            if (highlight_body && source.pass == 0 && source.material_side == 0)
                 std::ranges::fill(materials, instance->highlight_material);
             const auto pass_values =
                 packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time);
@@ -524,21 +467,21 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.data = makeArray(pass_values);
                 cached.bind = context.descriptor(2, cached.data);
                 cached.batches.resize(source.batches.size());
-                const auto bound = vsg::dsphere(asset.bounds_center.x, asset.bounds_center.y,
-                                                asset.bounds_center.z, asset.bounds_radius);
-                cached.cull = vsg::CullNode::create(bound, cached.body);
+                cached.cull = vsg::CullNode::create(vsg::dsphere(), cached.body);
                 part->graph->addChild(cached.cull);
             } else {
                 store(*cached.data, pass_values);
             }
             const bool shell_part =
-                part.get() == parts.front().get() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
+                part == parts.front() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
             const bool shell_texture =
                 !mesh.poly_textures[0][0].empty() ||
                 (mesh.textures[0][0] && !mesh.textures[0][0]->getName().starts_with("blank"));
             const bool show_shell =
                 highlighted && source.pass == 0 && source.side == 0 && shell_part && shell_texture;
-            cached.cull->bound.radius = asset.bounds_radius;
+            // Bounds can change in place; the shell below may widen them.
+            cached.cull->bound.set(asset.bounds_center.x, asset.bounds_center.y,
+                                   asset.bounds_center.z, asset.bounds_radius);
             if (show_shell) {
                 if (!cached.expanded) {
                     cached.expanded = vsg::vec3Array::create(sampled.positions->size());
@@ -577,20 +520,18 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 cached.expanded->dirty();
             }
             for (std::size_t batch_index = 0; batch_index < source.batches.size(); ++batch_index) {
-                const auto& batch = source.batches[batch_index];
                 auto& state = cached.batches[batch_index];
-                const auto shader = !highlight_body && instance->diffuse_scale_enabled &&
-                                            source.pass == 0 && batch.inherits_shader
-                                        ? fadingShader(batch.shader.value)
-                                        : batch.shader.value;
+                const auto shader =
+                    !highlight_body && instance->diffuse_scale_enabled && source.pass == 0
+                        ? fadingShader(source.shader.value)
+                        : source.shader.value;
                 const auto cull =
                     source.cull ? (source.side ? FaceCull::Front : FaceCull::Back) : FaceCull::None;
                 const auto sorted =
                     asset.sorted || (!highlight_body && instance->diffuse_scale_enabled);
                 if (!state.leaf) {
-                    state.leaf =
-                        DrawNode::create(sampled.draws[batch_index], sampled.positions, sorted,
-                                         asset.sort_bias, asset.offset_pass_keys ? source.pass : 0);
+                    state.leaf = DrawNode::create(sampled.draws[batch_index], sampled.positions,
+                                                  sorted, asset.offset_pass_keys ? source.pass : 0);
                     state.leaf->authored_normals = sampled.authored_normals;
                     state.leaf->cull = cull;
                     state.leaf->add(part->instance_bind);
@@ -622,7 +563,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     for (std::size_t binding = 1; binding < draw->arrays.size(); ++binding)
                         arrays.push_back(draw->arrays[binding]->data);
                     draw->assignArrays(arrays);
-                    state.shell = DrawNode::create(draw, cached.expanded, true, asset.sort_bias,
+                    state.shell = DrawNode::create(draw, cached.expanded, true,
                                                    asset.offset_pass_keys ? source.pass : 0);
                     state.shell->authored_normals = sampled.authored_normals;
                     state.shell->cull = cull;

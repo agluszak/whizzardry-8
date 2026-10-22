@@ -83,7 +83,6 @@ target_sources(wiz8_engine PRIVATE
     dialog_code/stMessageDialog.cpp
     dialog_code/DialogBase.cpp
     dialog_code/DialogFactoryDialogs.cpp
-    dialog_code/stListBox.cpp
     dialog_code/DialogTextEntry.cpp
     dialog_code/StatInfoDialogs.cpp
     dialog_code/CharacterSummaryDialog.cpp
@@ -94,7 +93,6 @@ target_sources(wiz8_engine PRIVATE
     ../world/level_session.cpp
     ../world/level_loader.cpp
     ../render/resources/mesh_loader.cpp
-    ../render/visibility_grid.cpp
     ../world/world.cpp
     ../render/effects/particle_system.cpp
     ../render/resources/compiled_mesh.cpp
@@ -122,7 +120,6 @@ target_sources(wiz8_engine PRIVATE
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
     ../entities/cycle_player.cpp
-    ../render/mesh_updates.cpp
     ../render/effects/ground_shadow.cpp
     "local_code/Gameplay Init.cpp"
     dialog_code/DialogInterface.cpp
@@ -212,6 +209,7 @@ target_sources(wiz8_engine PRIVATE
     dialog_code/DialogNumericInput.cpp
     ../world/encounters.cpp
     music_playlist.cpp
+    pointer.cpp
     targeting_presentation.cpp
     npc_items.cpp
     npc_script_file.cpp
@@ -219,7 +217,6 @@ target_sources(wiz8_engine PRIVATE
     ../native/key_bindings.cpp
     ../native/game_events.cpp
     ../native/movie.cpp
-    ../native/bink_video.cpp
 )
 target_link_libraries(wiz8_engine PRIVATE PkgConfig::FFMPEG)
 target_link_libraries(wiz8_engine PUBLIC wiz8_native_settings

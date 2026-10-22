@@ -31,6 +31,7 @@
 #include "wiz8/ui_layer.h"
 
 class Game;
+class Pointer;
 
 /* The UI orders Other before Accessory, and places the two non-group filters last. */
 enum W8CampItemFilterButton {
@@ -177,9 +178,9 @@ struct CampItemControls {
    callbacks. */
 class W8CampItemsPage {
 public:
-    W8CampItemsPage(CampDialogs& dialogs, W8CampCharacterInfo& character_info,
+    W8CampItemsPage(Pointer& pointer, CampDialogs& dialogs, W8CampCharacterInfo& character_info,
                     std::function<void(int)> select_character, std::function<void()> leave_camp)
-        : dialogs(dialogs), character_info(character_info),
+        : pointer(pointer), dialogs(dialogs), character_info(character_info),
           select_character(std::move(select_character)), leave_camp(std::move(leave_camp))
     {
     }
@@ -246,6 +247,7 @@ public:
     void CreateCampItemControls(UiLayer& scroll_input);
 
 private:
+    Pointer& pointer;
     CampDialogs& dialogs;
     W8CampCharacterInfo& character_info;
     std::function<void(int)> select_character;
@@ -253,6 +255,8 @@ private:
     // The character the page shows, given by the camp.
     W8Character* character = nullptr;
     int PartySlot() const { return CampPartySlot(*character); }
+    // The move cursor: the held item under the hand, or the empty hand.
+    void ShowHandCursor();
     CampItemControls item_controls;
     UiLayer action_input{UiLayerOrder::CampButtons};
     std::array<std::unique_ptr<W8ButtonWidget>, W8_CAMP_ACTION_BUTTON_COUNT> action_buttons;
@@ -479,7 +483,7 @@ public:
     static constexpr W8ScreenId id = W8_SCREEN_CAMP;
 
     // The camp is rebuilt on every visit, within one game.
-    explicit CampScreen(Game& game) : game_(game) {}
+    CampScreen(Game& game, Pointer& pointer) : pointer(pointer), game_(game) {}
 
     /* Build the pages for `request.character` (null when no character is
        selected); `request.parameter_4` names an identifying character. */
@@ -501,6 +505,8 @@ public:
     void SelectCampCharacter(int slot);
     int ReviewedPartySlot() const;
 
+    // The pointer the camp shares with a main game suspended under it.
+    Pointer& pointer;
     // Declared first: the open dialog is retired after the pages that opened it.
     CampDialogs dialogs;
     // The time since the camp last stepped the game; the camp is built on every visit.
@@ -511,7 +517,8 @@ public:
     UiLayer scroll_input;
     // Shared by the items and stats pages.
     W8CampCharacterInfo character_info;
-    W8CampItemsPage items{dialogs, character_info, [this](int slot) { SelectCampCharacter(slot); },
+    W8CampItemsPage items{pointer, dialogs, character_info,
+                          [this](int slot) { SelectCampCharacter(slot); },
                           [this] { DismissSelectedPartyCharacter(); }};
     W8CampStatsPage stats{character_info};
     W8CampSkillsPage skills{dialogs};

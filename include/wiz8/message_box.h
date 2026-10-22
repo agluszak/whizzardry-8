@@ -1,9 +1,17 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <variant>
 
 struct W8NpcState;
+struct W8NpcScriptFile;
+
+struct W8NpcScriptBinding {
+    std::shared_ptr<const W8NpcScriptFile> script;
+    std::string voice_stem;
+    bool npc_voice = false;
+};
 
 /* Notice payloads carried by queued portrait messages and the quote bubble.
    The experience appender at 0x004eef10 allocates 8 bytes; the skill appenders
@@ -90,15 +98,16 @@ enum class W8NpcCommand : unsigned char {
 
 /* Run `quote_index` of the queuing NPC's script. */
 struct W8NpcQueuedQuote {
+    W8NpcScriptBinding binding;
+    unsigned char subquote_index;
     int quote_index;
     bool mark_pending;     /* record quote_index as pending */
     bool suppress_entries; /* skip the price-check and pending-quote entry scans */
 };
 
-/* Deferred quote entry. It is addressed by index into the queuing NPC's
-   script and resolved at dispatch, so a script reload can only make it drop
-   out, never dangle. */
+/* Deferred entries retain the immutable script that supplied their indices. */
 struct W8NpcQueuedEntry {
+    W8NpcScriptBinding binding;
     int quote_index;
     int entry_index;
     int continuation_quote;

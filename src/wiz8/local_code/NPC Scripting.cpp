@@ -179,14 +179,14 @@ static int g_npc_region_quotes[15][0x12] = {
 /* Kind 0x0b consumes the item; kind 0x0f only mentions it. */
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 {
-    W8NpcScriptFile* script = CurrentGame().npc_dialogue.speaker()->script_file.get();
+    const W8NpcScriptFile* script = CurrentGame().npc_dialogue.binding().script.get();
     int entry_index;
     int quote_index;
 
     for (quote_index = 0; quote_index < static_cast<int>(script->quote_count); ++quote_index) {
-        W8NpcScriptQuote* quote = script->quotes.data() + quote_index;
+        const W8NpcScriptQuote* quote = script->quotes.data() + quote_index;
         for (entry_index = 0; entry_index < static_cast<int>(quote->entry_count); ++entry_index) {
-            W8NpcQuoteEntry* entry = quote->entries.data() + entry_index;
+            const W8NpcQuoteEntry* entry = quote->entries.data() + entry_index;
             if ((entry->kind == W8_NPC_ENTRY_ITEM_REQUEST ||
                  entry->kind == W8_NPC_ENTRY_ITEM_MENTION) &&
                 entry->operand0 == item_id) {
@@ -311,13 +311,11 @@ void StripNpcKeywordPunctuation(std::string& text)
 /* Alternates between the two string-list ids SpeakNpcSubquote substitutes for
    an "EMPTY"/"BLANK" quote on the closing quotes it allows. */
 
-static unsigned char g_npc_script_event_active;
-
-std::string FormatNpcVoiceSoundPath(W8NpcState* npc)
+std::string FormatNpcVoiceSoundPath(W8NpcState* npc, bool script_event)
 {
-    const auto prefix = npc->is_grouped && g_npc_script_event_active == 0 ? "RPC_"
-                        : npc->record->voice_script != 0                  ? "VOC_"
-                                                                          : "NPC_";
+    const auto prefix = npc->is_grouped && !script_event ? "RPC_"
+                        : npc->record->voice_script != 0 ? "VOC_"
+                                                         : "NPC_";
     return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
 }
 
@@ -365,7 +363,7 @@ void W8NpcDialogue::Advance(const ScriptContext& context)
     }
 }
 
-void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current)
+void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current, bool script_event)
 {
     if (suspend_current) {
         suspended_ = session_;
@@ -375,6 +373,13 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current)
     }
     session_.finished_quote_index = -1;
     session_.npc = npc->shared_from_this();
+    session_.binding = {npc->script_file, FormatNpcVoiceSoundPath(npc, script_event),
+                        script_event || !npc->is_grouped};
+    if (script_event) {
+        // Event resource selection does not change the monster's persistent .msf program.
+        session_.binding.script = LoadNpcScriptFile(
+            fmt::format("Data\\NPC Scripts\\{}.nsf", session_.binding.voice_stem));
+    }
 }
 
 bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
@@ -400,7 +405,7 @@ bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
    items or gold to the party with the notice bubble and chime, or open the
    modal dialog kinds. The party slot's pending portrait event clears once the
    entry has run. */
-void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry* entry,
+void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuoteEntry* entry,
                                   int continuation_quote)
 {
     W8NpcState* target;
@@ -461,7 +466,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, W8NpcQuoteEntry*
         [[fallthrough]];
     case W8_NPC_ENTRY_PRICE_CHECK:
     case W8_NPC_ENTRY_ALWAYS_PRICE_CHECK:
-        OpenNpcDialog(session_.npc->script_file, entry, continuation_quote);
+        OpenNpcDialog(session_.binding.script, entry, continuation_quote);
         break;
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(Data(), context.game.rng, entry->operand0, true, true, false);
@@ -518,19 +523,28 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         if (npc != 0 && npc != session_.npc.get()) {
             Begin(npc, true);
         }
+        if (session_.binding.script != quote_line->binding.script)
+            session_.finished_quote_index = -1;
+        session_.binding = quote_line->binding;
+        if (quote_line->suppress_entries) {
+            session_.subquote_index = quote_line->subquote_index;
+            session_.finished_quote_index = quote_line->quote_index;
+        }
         if (queue_idle_) {
             queue_idle_ = false;
             if (session_.npc->record->voice_script == 0) {
                 for (const W8MessageBoxLine& queued_line : queue_) {
                     const auto* queued = std::get_if<W8NpcQueuedQuote>(&queued_line.action);
-                    if (queued == 0 || queued->suppress_entries ||
+                    if (queued == 0 || !queued->binding.script || queued->quote_index < 0 ||
+                        queued->quote_index >= queued->binding.script->quote_count ||
+                        queued->suppress_entries ||
                         std::ranges::find(pending_quotes_, queued->quote_index) ==
                             pending_quotes_.end()) {
                         continue;
                     }
                     if (session_.npc->record->merchant == 0 && queued->quote_index != 0x76) {
                         const W8NpcScriptQuote& quote =
-                            session_.npc->script_file->quotes[queued->quote_index];
+                            queued->binding.script->quotes[queued->quote_index];
                         if (std::ranges::none_of(quote.entries, [](const W8NpcQuoteEntry& entry) {
                                 return entry.kind == W8_NPC_ENTRY_UNNAMED_29;
                             })) {
@@ -548,9 +562,10 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             pending_quotes_.push_back(quote_index);
         }
 
-        W8NpcScriptFile* script = session_.npc->script_file.get();
-        if (script != 0 && !quote_line->suppress_entries && quote_index < script->quote_count) {
-            W8NpcScriptQuote* quote = &script->quotes[quote_index];
+        const W8NpcScriptFile* script = session_.binding.script.get();
+        if (script != 0 && !quote_line->suppress_entries && quote_index >= 0 &&
+            quote_index < script->quote_count) {
+            const W8NpcScriptQuote* quote = &script->quotes[quote_index];
             for (index = 0; index < quote->entry_count; ++index) {
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;
                 if ((kind == W8_NPC_ENTRY_PRICE_CHECK || kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) &&
@@ -579,7 +594,13 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         void operator()(const W8NpcQueuedQuote&) const {}
         void operator()(const W8NpcQueuedEntry& queued) const
         {
-            W8NpcScriptFile* script = npc != 0 ? npc->script_file.get() : 0;
+            const auto& binding = queued.binding;
+            const W8NpcScriptFile* script = binding.script.get();
+            if (npc && npc != dialogue.speaker()) dialogue.Begin(npc, true);
+            if (dialogue.session_.binding.script != binding.script)
+                dialogue.session_.finished_quote_index = -1;
+            dialogue.session_.binding = binding;
+            dialogue.session_.current_quote_index = queued.quote_index;
             if (script != 0 && queued.quote_index >= 0 &&
                 queued.quote_index < static_cast<int>(script->quotes.size()) &&
                 queued.entry_index >= 0 &&
@@ -760,8 +781,8 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
    quote-audit mode disabled. */
 void AuditNpcScriptQuotes(GameStatus& status)
 {
-    W8NpcScriptFile* script;
-    W8NpcScriptQuote* quote;
+    const W8NpcScriptFile* script;
+    const W8NpcScriptQuote* quote;
     std::string date;
     std::string path;
     std::string display;
@@ -859,8 +880,4 @@ void ShowString(std::string_view text)
     if (!IsLevelMovementStopped()) {
         CurrentGame().npc_dialogue.Queue(W8NpcCommand::clear_level_movement_stopped);
     }
-}
-void SetNpcScriptEventActive(unsigned char value)
-{
-    g_npc_script_event_active = value;
 }

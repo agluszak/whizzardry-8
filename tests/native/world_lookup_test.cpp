@@ -280,19 +280,17 @@ TEST_CASE("Only published worlds schedule their trigger events", "[levels][event
     auto pending = std::make_unique<World>(3);
     const auto schedule = [](World& world) {
         auto trigger = std::make_unique<Trigger>(&world);
-        trigger->m_pEvent = std::make_unique<TriggerEvent>();
-        trigger->m_pEvent->trigger = trigger.get();
-        trigger->m_pEvent->completed = true;
+        auto& action = world.addTimedAction(trigger.get());
+        action.completed = true;
         auto* owner = trigger.get();
-        world.timed_events.push_back(trigger->m_pEvent.get());
         world.triggers.push_back(std::move(trigger));
         return owner;
     };
     auto* active_trigger = schedule(*GetWorld());
     auto* pending_trigger = schedule(*pending);
     UpdateTimedTriggerEvents();
-    REQUIRE_FALSE(active_trigger->m_pEvent);
-    REQUIRE(pending_trigger->m_pEvent);
+    REQUIRE_FALSE(GetWorld()->findTimedAction(active_trigger));
+    REQUIRE(pending->timed_events.front()->trigger == pending_trigger);
     REQUIRE(pending->timed_events.size() == 1);
     pending.reset();
     REQUIRE(GetLoadedLevelID() == 8);
@@ -354,4 +352,29 @@ TEST_CASE("An untimed camera trigger owns its shake until the event is removed",
         REQUIRE_FALSE(event.completed);
     }
     REQUIRE(CameraShakes().Update({0, 0, 0}) == 0.0f);
+}
+
+TEST_CASE("Trigger names retain empty tokens, duplicates and authored spacing",
+          "[levels][triggers]")
+{
+    REQUIRE(ParseTriggerNames("").empty());
+    const std::vector<std::string> expected{"A", "", "A", " b", ""};
+    REQUIRE(ParseTriggerNames("A,,A, b,") == expected);
+}
+
+TEST_CASE("Replacing a timed action keeps the executing action alive until the step ends",
+          "[levels][events]")
+{
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(8));
+    auto& world = *GetWorld();
+    auto* trigger = AddTrigger(world, "TIMER");
+    auto& previous = world.addTimedAction(trigger);
+    auto& replacement = world.addTimedAction(trigger);
+    REQUIRE(previous.completed);
+    REQUIRE(world.findTimedAction(trigger) == &replacement);
+    REQUIRE(world.timed_events.size() == 2);
+    replacement.completed = true;
+    UpdateTimedTriggerEvents();
+    REQUIRE(world.timed_events.empty());
 }

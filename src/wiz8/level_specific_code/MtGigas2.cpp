@@ -22,7 +22,6 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
@@ -323,7 +322,7 @@ bool MtGigas2Script::umpaniAlarm(int command)
         if (alarm_gate_ || alarm_sound_ != 0) {
             return false;
         }
-        position = glm::vec3(world().camera->transform.getLocation());
+        position = cameraLocation(world());
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

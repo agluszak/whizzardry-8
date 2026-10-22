@@ -99,11 +99,11 @@ glm::vec3 LevelSpatialIndex::pathSurfaceNormal(const glm::vec3& position) const
 
 static const float NAVIGATOR_MINIMUM_HORIZONTAL_DISTANCE = 50.0f;
 
-void W8OctreeView::captureCamera(const Camera3D& camera)
+void W8OctreeView::captureView(const glm::vec3& location, const glm::mat3& rotation,
+                               const Camera3D& camera)
 {
-    camera_location = glm::vec3(camera.transform.getLocation());
-    camera_dof = glm::vec3(camera.transform.forward());
-    const auto rotation = camera.transform.getRotation<glm::mat3>();
+    camera_location = location;
+    camera_dof = rotation[2];
     rotation_column0 = rotation[0];
     rotation_column1 = rotation[1];
     horizontal_fov = static_cast<float>(camera.getHorizontalFOV());
@@ -129,7 +129,7 @@ void LevelSpatialIndex::UpdateCameraVisibility()
     }
 
     registry.view.far_clip = static_cast<float>(WorldGetFarClip(world));
-    registry.view.captureCamera(*world->camera);
+    registry.view.captureView(cameraLocation(*world), cameraRotation(*world), *world->camera);
     std::ranges::fill(registry.projected_regions, false);
     UpdateVisibility();
 }
@@ -676,10 +676,10 @@ unsigned char LevelSpatialIndex::PrepareNavigatorTarget(NavigatorMovement* movem
                                                       movement->navigation_filter);
                 if (result != 0) {
                     NavigatorRoute* attachment = movement->attachment.get();
-                    attachment->path[attachment->path_position_index].position =
+                    attachment->path[attachment->lastWaypoint()].position =
                         movement->target_position;
                     attachment->path_destination =
-                        attachment->path[attachment->path_position_index].position;
+                        attachment->path[attachment->lastWaypoint()].position;
                     pathing->AdvanceAttachmentWaypoint(&movement->position, attachment);
                     movement->target_position = movement->attachment->GetNextPosition();
                     return result;
@@ -687,10 +687,10 @@ unsigned char LevelSpatialIndex::PrepareNavigatorTarget(NavigatorMovement* movem
                 result = pathing->ProbeAttachmentPath(path_search, movement->attachment.get());
                 if (result != 0) {
                     NavigatorRoute* attachment = movement->attachment.get();
-                    attachment->path[attachment->path_position_index].position =
+                    attachment->path[attachment->lastWaypoint()].position =
                         movement->target_position;
                     attachment->path_destination =
-                        attachment->path[attachment->path_position_index].position;
+                        attachment->path[attachment->lastWaypoint()].position;
                     return result;
                 }
             } else {
@@ -726,7 +726,7 @@ bool IsNavigatorAtTarget(NavigatorMovement* movement)
     glm::vec3 target;
     if (movement->attachment != 0) {
         NavigatorRoute* attachment = movement->attachment.get();
-        if (attachment->path_cursor < attachment->path_position_index ||
+        if (attachment->path_cursor < attachment->lastWaypoint() ||
             (attachment->flags & W8_NAV_ATTACHMENT_START_WAYPOINT) != 0) {
             return false;
         }
@@ -2041,9 +2041,8 @@ unsigned int LevelSpatialIndex::AdvanceNavigator(NavigatorMovement* movement, fl
     vecPos = vecDir + movement->position;
     movement->position = vecPos;
     attachment = movement->attachment.get();
-    attachment->path[0].position = vecPos;
-    attachment->path_length_origin = attachment->path[0].position;
-    attachment->segment_start = attachment->path[0].position;
+    attachment->path_length_origin = vecPos;
+    attachment->segment_start = vecPos;
     return reached;
 }
 

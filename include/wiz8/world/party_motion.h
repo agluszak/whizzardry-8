@@ -31,7 +31,7 @@ struct PartyMotion {
     float footstep_accumulator; /* 0x10 */
     float camera_scale;         /* 0x14 */
     /* 0x18/0x1c: residual segment length and facing metric from the nearest
-       contact during UpdateWorldCameraAndPaths. */
+       contact during updatePartyMovement. */
     float residual_contact_length; /* 0x18 */
     float contact_facing;          /* 0x1c */
     float speed;                   /* 0x20 */

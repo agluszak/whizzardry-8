@@ -4,7 +4,6 @@
 #include <array>
 #include <cassert>
 #include <chrono>
-#include <cstdint>
 #include <memory>
 #include <ranges>
 #include <span>
@@ -20,7 +19,6 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/matrix_float4x4.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "wiz8/entities/missile.h"
@@ -55,9 +53,7 @@ void UpdateWorldMonsters(World* world)
 {
     assert(world != 0);
 
-    glm::dvec3 camera_location = world->camera->transform.getLocation();
-    glm::vec3 position;
-    position = glm::vec3(camera_location);
+    const glm::vec3 position = cameraLocation(*world);
 
     auto count = world->active_monsters.size();
     UpdateNearestMonsterGroupMembers();
@@ -123,12 +119,11 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
         auto* base_material = mesh->getMaterial(0, Mesh::SIDE_FRONT);
         const glm::vec3 base_color =
             base_material ? glm::vec3(base_material->parms.diffuse) : glm::vec3(1);
-        const auto* vertices = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
-                                   ? mesh->GetVertexLocations(0, true, 0.0f)
-                                   : mesh->getVertexLoc();
-        const auto* normals = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE)
-                                  ? mesh->GetVertexNormals(0, true)
-                                  : mesh->getVertexNormal();
+        const bool animated = (mesh->flags & W8_MESH_HAS_FRAME_STORAGE) != 0;
+        const auto frame_vertices = mesh->decodeFrame(0, W8_MESH_FRAME_LOCATIONS);
+        const auto frame_normals = mesh->decodeFrame(0, W8_MESH_FRAME_VERTEX_NORMALS);
+        const auto* vertices = animated ? frame_vertices.data() : mesh->getVertexLoc();
+        const auto* normals = animated ? frame_normals.data() : mesh->getVertexNormal();
         world_vertices.resize(count);
         world_normals.resize(count);
         material_colors.resize(count);
@@ -174,12 +169,13 @@ void FinalizeWorldScenes(WorldScene& scene)
         BakeInstanceVertexLightingIfNeeded(instance, &scene);
 }
 
-/* Bake dynamic-scene lights into one not-yet-lit model instance. render_flags
-   bit 1 is the lit marker. */
+/* Bake dynamic-scene lights into the model an instance shows, the first time it
+   shows it. */
 bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scene)
 {
-    if (!(instance->render_flags & MeshInstance::RENDER_LIGHTING_BAKED)) {
-        instance->render_flags |= MeshInstance::RENDER_LIGHTING_BAKED;
+    const Mesh* model = instance->getModel();
+    if (!std::ranges::contains(instance->baked_models, model)) {
+        instance->baked_models.push_back(model);
         instance->setExclusionMask(1);
         std::vector<Light*> lights;
         for (auto* light : scene->lights)
@@ -226,14 +222,6 @@ std::unique_ptr<MeshInstance> CreateModelInstance(std::shared_ptr<Mesh> model)
     instance->setName("ST_CreateInstance");
     instance->setModel(model);
     return instance;
-}
-
-std::unique_ptr<MeshInstance> DuplicateModelInstance(const MeshInstance& instance)
-{
-    auto copy = std::make_unique<MeshInstance>(nullptr);
-    *copy = instance;
-    copy->setName("ST_CreateInstance");
-    return copy;
 }
 
 static void ConfigureLightDefaults(Light& light, std::string_view name)
@@ -363,27 +351,14 @@ void SetSceneMeshShaderBit3(WorldScene* scene, int argument)
     for (auto* instance : instances) {
         {
             for (Mesh* mesh : meshParts(static_cast<Mesh*>(instance->getModel()))) {
-                DrawShader* polygon_shader = mesh->getPolyShader(0, 0);
-                bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
-
-                if (polygon_shader == 0) {
-                    shader = mesh->getShader(0);
-                    if (clear) {
-                        shader.value &= ~DrawShader::MASK_DEPTH_WRITE;
-                    } else {
-                        shader.value |= DrawShader::MASK_DEPTH_WRITE;
-                    }
-                    mesh->setShader(shader, 0);
-                } else if (clear) {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value &= ~DrawShader::MASK_DEPTH_WRITE;
-                    }
+                const bool clear = argument == 0 || (mesh->flags & W8_MESH_SORTED_RENDERING) != 0;
+                shader = mesh->getShader(0);
+                if (clear) {
+                    shader.value &= ~DrawShader::MASK_DEPTH_WRITE;
                 } else {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value |= DrawShader::MASK_DEPTH_WRITE;
-                    }
+                    shader.value |= DrawShader::MASK_DEPTH_WRITE;
                 }
-                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
+                mesh->setShader(shader, 0);
             }
         }
     }
@@ -402,26 +377,13 @@ void SetSceneMeshShaderLowBits(WorldScene* scene, int argument)
                 if ((mesh->flags & W8_MESH_SORTED_RENDERING) != 0) {
                     continue;
                 }
-                DrawShader* polygon_shader = mesh->getPolyShader(0, 0);
-                if (polygon_shader == 0) {
-                    shader = mesh->getShader(0);
-                    if (argument == 0) {
-                        shader.value |= DrawShader::PASS_ALWAYS;
-                    } else {
-                        shader.value = (shader.value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
-                    }
-                    mesh->setShader(shader, 0);
-                } else if (argument == 0) {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value |= DrawShader::PASS_ALWAYS;
-                    }
+                shader = mesh->getShader(0);
+                if (argument == 0) {
+                    shader.value |= DrawShader::PASS_ALWAYS;
                 } else {
-                    for (std::int32_t index = 0; index < mesh->polygon_count; ++index) {
-                        polygon_shader[index].value =
-                            (polygon_shader[index].value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
-                    }
+                    shader.value = (shader.value & 0xfffffffb) | DrawShader::PASS_LEQUAL;
                 }
-                if (polygon_shader) mesh->setDirty(Mesh::DIRTY_TRI_MESH);
+                mesh->setShader(shader, 0);
             }
         }
     }

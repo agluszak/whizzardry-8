@@ -8,10 +8,7 @@ class File;
 }
 
 namespace imageIO {
-// Stream overloads borrow the stream. Loading starts at zero.
-SDLSurfaceOwner load(const char* path, SDL_IOStream* stream);
-SDLSurfaceOwner load(const char* path, wiz8::File& file);
-SDLSurfaceOwner load(const char* path);
+// Stream overloads borrow the stream.
 void save(const char* path, SDL_IOStream* stream, SDL_Surface& surface, int quality = 100);
 void save(const char* path, wiz8::File& file, SDL_Surface& surface, int quality = 100);
 void save(const char* path, SDL_Surface& surface, int quality = 100);

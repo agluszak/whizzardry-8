@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <initializer_list>
 #include <span>
-#include <stdexcept>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -13,21 +12,6 @@
 #include "wiz8/render/plane_math.h"
 
 namespace meshMath {
-// UV tables may keep indices outside the geometry permutation. Other callers
-// require every corner to have a corresponding entry in the map.
-inline glm::ivec3 remapTriangle(glm::ivec3 triangle, std::span<const std::uint32_t> indices,
-                                bool retain_external = false)
-{
-    for (int corner = 0; corner < 3; ++corner) {
-        const auto index = static_cast<std::uint32_t>(triangle[corner]);
-        if (index < indices.size())
-            triangle[corner] = indices[index];
-        else if (!retain_external)
-            throw std::out_of_range("Mesh corner index out of range");
-    }
-    return triangle;
-}
-
 inline glm::vec3 polygonNormal(std::span<const glm::vec3> positions, const glm::ivec3& triangle)
 {
     return planeMath::triangleNormal(positions[triangle.x], positions[triangle.y],

@@ -32,10 +32,11 @@ glm::mat4 toGlm(const vsg::dmat4& matrix);
 class DrawNode : public vsg::Inherit<vsg::StateGroup, DrawNode> {
 public:
     DrawNode(vsg::ref_ptr<vsg::VertexIndexDraw> geometry, vsg::ref_ptr<vsg::vec3Array> positions,
-             bool sorted = false, float sort_bias = 0, std::uint32_t pass_key = 0);
+             bool sorted = false, std::uint32_t pass_key = 0);
     void accept(vsg::RecordTraversal& traversal) const override;
     void traverse(vsg::Visitor& visitor) override;
     void traverse(vsg::ConstVisitor& visitor) const override;
+    // Replaces any pipeline set before.
     void setPipeline(vsg::ref_ptr<vsg::BindGraphicsPipeline> pipeline,
                      vsg::ref_ptr<vsg::BindGraphicsPipeline> reflected);
     void recordSorted(vsg::RecordTraversal&, const vsg::BindIndexBuffer&, std::uint32_t first,
@@ -45,7 +46,6 @@ public:
     vsg::ref_ptr<vsg::vec3Array> positions;
     vsg::ref_ptr<vsg::vec3Array> authored_normals;
     bool sorted;
-    float sort_bias;
     std::uint64_t sort_order = ~std::uint64_t{0};
     std::uint32_t pass_key;
     FaceCull cull = FaceCull::Back;
@@ -80,7 +80,15 @@ public:
 private:
     void ensureParts();
     struct Part;
-    std::vector<std::unique_ptr<Part>> parts;
+    // Every model the instance has drawn keeps its parts, so an animation that switches
+    // between frame models reuses their draw graphs instead of rebuilding them.
+    struct DrawnModel {
+        std::shared_ptr<Mesh> model;
+        std::vector<std::unique_ptr<Part>> parts;
+    };
+    std::vector<DrawnModel> drawn;
+    // The current model's parts: its head, and the rest of its chain when drawn.
+    std::vector<Part*> parts;
     vsg::ref_ptr<vsg::Switch> geometry;
     vsg::ref_ptr<vsg::PipelineLayout> prepared_layout;
     std::uint64_t prepared_frame = ~std::uint64_t{0};

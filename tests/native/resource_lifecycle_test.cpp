@@ -38,6 +38,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -54,6 +55,7 @@
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/surface_storage.h"
@@ -61,6 +63,8 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -71,7 +75,7 @@ static void source_resource_owners()
 {
     auto model = std::make_shared<Mesh>(0, 1);
     model->InitializeVertexFrames(1);
-    model->GetVertexLocations(0, true, 0.0f);
+    const std::weak_ptr<Mesh> lifetime = model;
     // The model remains alive while an interrupted scene releases its adopted instance.
     auto survivor = model;
     std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(256),
@@ -99,7 +103,7 @@ static void source_resource_owners()
     survivor.reset();
     g_mouse_surface.reset();
     palette.reset();
-    REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
+    REQUIRE(lifetime.expired());
 }
 
 static void npc_script_teardown()
@@ -313,28 +317,33 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[re
 
 // Valid retail animation header and light; optionally truncate after the light
 // to exercise cleanup after resources have actually been acquired.
+static void WriteEmitterRecord(wiz8::File& file, unsigned char cycle, bool truncate)
+{
+    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
+    file.write(header, sizeof(header));
+    const float speed = 15, chance = 1;
+    file.write(&speed, sizeof(speed));
+    const unsigned char frames[] = {0, 0, 0};
+    file.write(frames, sizeof(frames));
+    file.write(&chance, sizeof(chance));
+    const unsigned char reserved[50]{};
+    file.write(reserved, sizeof(reserved));
+    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
+    file.write(counts, sizeof(counts));
+    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
+    file.write(light, sizeof(light));
+    const unsigned char zero = 0;
+    file.write(&zero, 1); // No definition.
+    if (!truncate) {
+        file.write(&zero, 1); // No standalone path.
+        file.write(&zero, 1); // Reserved byte.
+    }
+}
+
 static void WriteEmitterFixture(unsigned char cycle, bool truncate)
 {
     auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"), wiz8::OpenMode::replace);
-    const unsigned char header[] = {11, 0, 1, 0, 0, cycle, 0};
-    file->write(header, sizeof(header));
-    const float speed = 15, chance = 1;
-    file->write(&speed, sizeof(speed));
-    const unsigned char frames[] = {0, 0, 0};
-    file->write(frames, sizeof(frames));
-    file->write(&chance, sizeof(chance));
-    const unsigned char reserved[50]{};
-    file->write(reserved, sizeof(reserved));
-    const unsigned char counts[] = {0, 1, 3}; // bounds, lights, light version
-    file->write(counts, sizeof(counts));
-    const float light[] = {0, 0, 0, 1, 1, 1, 1, 10}; // position, color, intensity, range
-    file->write(light, sizeof(light));
-    const unsigned char zero = 0;
-    file->write(&zero, 1); // No definition.
-    if (!truncate) {
-        file->write(&zero, 1); // No standalone path.
-        file->write(&zero, 1); // Reserved byte.
-    }
+    WriteEmitterRecord(*file, cycle, truncate);
 }
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
@@ -367,6 +376,56 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         REQUIRE(visual.visual.m_plsLights == host.resources.cycles[2].lightView());
         REQUIRE(visual.visual.m_plsLights->size() == 1);
     }
+}
+
+// Each .mls row loads into the cycle it names, so a visual offers the rows it has.
+TEST_CASE_METHOD(SpellVisualFixture, "Spell visual rows load into their named cycles",
+                 "[resources][spell]")
+{
+    std::filesystem::create_directories(directory.path / "assets" / "data" / "spells");
+    {
+        auto file =
+            wiz8::open_file(wiz8::asset_path("data/spells/Boom.mls"), wiz8::OpenMode::replace);
+        const std::string text = "EXPLOSION3 BoomCycle\n";
+        file->write(text.data(), text.size());
+    }
+    {
+        auto file =
+            wiz8::open_file(wiz8::asset_path("data/spells/BoomCycle.mon"), wiz8::OpenMode::replace);
+        const unsigned char prefix[] = {1, 0, 0}; // Version, no path, no particles.
+        file->write(prefix, sizeof(prefix));
+        WriteEmitterRecord(*file, 0, false);
+    }
+    const glm::vec3 position{1, 2, 3};
+    auto* visual = SpawnSpellEffect(&position, "Boom", 5, 0, 0);
+    REQUIRE(visual);
+    REQUIRE(visual->asset_name == "Boom");
+    REQUIRE(visual->visual.pending_cycle == W8_SPELL_VISUAL_EXPLOSION * 7 + 2); // EXPLOSION3
+}
+
+// Animations hold shared frame meshes; each player shows every frame on a model of
+// its own, so copies of one source animate independently.
+TEST_CASE("A cycle player shows every frame on its own model", "[resources][animation]")
+{
+    Animation animation;
+    auto frames = std::make_unique<AnimationMesh>();
+    frames->frame_count = 2;
+    frames->frames = {{std::make_shared<Mesh>(), {}}, {std::make_shared<Mesh>(), {}}};
+    animation.entries[2] = std::move(frames);
+    const auto* first_frame = animation.entries[2]->frames[0].mesh.get();
+    const auto* second_frame = animation.entries[2]->frames[1].mesh.get();
+
+    CyclePlayer first;
+    first.active_animation = &animation;
+    CyclePlayer second(first);
+    second.active_animation = &animation;
+    auto* shown = first.SelectCycleFrameLod(0, 2);
+    REQUIRE(first.SelectCycleFrameLod(1, 2) == shown);
+    REQUIRE(shown->getModel() == second_frame);
+    auto* other = second.SelectCycleFrameLod(0, 2);
+    REQUIRE(other != shown);
+    REQUIRE(other->getModel() == first_frame);
+    REQUIRE(shown->getModel() == second_frame);
 }
 
 TEST_CASE("Shake instances retire before reentrant completion and can restart",
@@ -482,9 +541,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
     prepared_pose.orientation = {0.5f, 0.2f};
     prepared_pose.retail.yaw.fill(std::byte{0x7b});
     prepared_pose.retail.pitch.fill(std::byte{0x45});
-    SetWorldCameraState(&replacement, &prepared_pose);
+    restorePartyPose(replacement, prepared_pose);
     REQUIRE(replacement.party_camera.m_position == prepared_pose.position);
-    const auto snapshot = cameraState(replacement);
+    const auto snapshot = partyPose(replacement);
     REQUIRE(snapshot.orientation.yaw == 0.5f);
     REQUIRE(snapshot.retail.yaw == prepared_pose.retail.yaw);
     REQUIRE(snapshot.retail.pitch == prepared_pose.retail.pitch);
@@ -666,26 +725,79 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
     }
 }
 
-TEST_CASE("Collecting monster models preserves the selected playback cycle",
-          "[resources][animation]")
+TEST_CASE("Rendering derives the views from the party and changes nothing it reads",
+          "[resources][camera]")
 {
-    World world;
-    Monster monster(&world);
-    for (int cycle = 0; cycle < 2; ++cycle) {
-        auto animation = std::make_unique<Animation>();
-        animation->path_lists = true;
-        animation->frame_count = cycle == 0 ? 4 : 2;
-        monster.cycles[cycle].emplace_back(EmitterLights{}, std::move(animation), 1.0f);
+    ScopedGame game;
+    World& world = PublishEmptyWorld(game.game);
+    world.camera = &world.scene->camera;
+    Light light(nullptr);
+    world.camera_light = &light;
+    World sky;
+    sky.camera = &sky.scene->camera;
+    placeParty(world, {10, 20, 30});
+    world.party_camera.SetOrientation(.5f, -.25f);
+    world.camera->setViewPlane(1.0, 0.75);
+    const auto pose = partyPose(world);
+    const glm::vec3 shake{1, 2, 3};
+    // Two shaken frames, as an extra render or a second view would place.
+    for (int frame = 0; frame < 2; ++frame) {
+        placeWorldCameras(world, &sky, shake);
+        REQUIRE(world.camera->transform.getLocation() == glm::dvec3(11, 22, 33));
+        REQUIRE(light.transform.getLocation() == glm::dvec3(11, 22, 33));
+        REQUIRE(world.camera->transform.getRotation<glm::mat3>() ==
+                world.party_camera.rotationMatrix());
+        REQUIRE(sky.camera->transform.getLocation() == glm::dvec3(0));
+        REQUIRE(sky.camera->transform.getRotation<glm::mat3>() ==
+                world.party_camera.rotationMatrix());
+        REQUIRE(sky.camera->getViewPlane().rectangle.right ==
+                world.camera->getViewPlane().rectangle.right);
+        REQUIRE(sky.camera->getViewPlane().rectangle.top ==
+                world.camera->getViewPlane().rectangle.top);
+        REQUIRE(partyPose(world) == pose);
+        REQUIRE(cameraLocation() == glm::vec3(10, 20, 30));
     }
-    monster.visual.current_cycle = 0;
-    monster.visual.current_subcycle = 0;
-    monster.visual.active_animation = monster.cycles[0][0].animation.get();
-    monster.visual.animation_playing = true;
-    std::vector<MeshInstance*> instances;
-    monster.CollectModelInstances(instances);
-    // A lighting/skin walk must not replace the current four-frame animation
-    // with the unrelated two-frame cycle visited last.
-    monster.visual.SetSubCycle(3);
-    REQUIRE(monster.visual.subcycle == 3);
-    REQUIRE(monster.visual.frameCount() == 4);
+    placeWorldCameras(world, nullptr, {});
+    REQUIRE(world.camera->transform.getLocation() == glm::dvec3(10, 20, 30));
+    world.camera_light = nullptr;
+}
+
+TEST_CASE("The party navigator stands the world height below the eye",
+          "[resources][camera][navigation]")
+{
+    PartyCamera camera;
+    camera.m_position = {100, 200, 300};
+    camera.SetOrientation(.5f, -.25f);
+    Navigator navigator;
+    mirrorPartyNavigator(navigator, camera);
+    REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
+    REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));
+    REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
+}
+
+TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", "[npc][lifetime]")
+{
+    ScopedGame scope;
+    W8NpcDatabaseRecord record{};
+    record.display_name = "Test";
+    auto npc = std::make_shared<W8NpcState>();
+    npc->record = &record;
+    npc->has_monster = true;
+    auto script = std::make_shared<W8NpcScriptFile>();
+    script->quote_count = 1;
+    script->quotes.resize(1);
+    script->quotes[0].subquote_count = 1;
+    script->quotes[0].subquotes.emplace_back("");
+    npc->script_file = script;
+    auto& dialogue = scope.game.npc_dialogue;
+    dialogue.Begin(npc.get(), false);
+    dialogue.QueueQuote(0, false, false, false);
+    npc->script_file = std::make_shared<W8NpcScriptFile>();
+    npc->is_grouped = true;
+    dialogue.Begin(npc.get(), false);
+    dialogue.Advance(MakeScriptContext(scope.game));
+    REQUIRE(dialogue.binding().script == script);
+    REQUIRE(dialogue.binding().voice_stem == "NPC_Test");
+    REQUIRE(dialogue.binding().npc_voice);
+    REQUIRE_FALSE(dialogue.has_queued_actions());
 }

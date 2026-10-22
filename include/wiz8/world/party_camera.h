@@ -52,11 +52,13 @@ public:
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
-    glm::mat3 saved_render_rotation{1};
     glm::vec3 last_automap_refresh_position{0};
-    CameraRotation cameraRotation(unsigned int flags, const glm::mat3& rotation);
-    CameraMotion cameraMotion(LevelSpatialIndex& collision, unsigned int flags,
-                              const glm::vec3& position, const glm::mat3& movement_basis);
+    /* One frame of movement. `turn` applies the frame's turn and look input and returns the
+       basis the movement input is taken in; `move` advances the party under that input
+       against the collision index and reports the displacement. */
+    glm::mat3 turn(unsigned int flags);
+    CameraMotion move(LevelSpatialIndex& collision, unsigned int flags,
+                      const glm::mat3& movement_basis);
     PartyCamera(); /* 0x00476140 */
 
     void ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context); /* 0x00476610 */
@@ -75,29 +77,37 @@ public:
     {
         m_pitch = glm::clamp(pitch, g_camera_pitch_lower, g_camera_pitch_upper);
         m_pitch_rotation = glm::mat3(glm::eulerAngleX(m_pitch));
+        m_rotation = m_yaw_rotation * m_pitch_rotation;
     }
     void SetYaw(float angle)
     {
         m_yaw = glm::mod(angle, g_camera_angle_period0);
         m_yaw_rotation = glm::mat3(glm::eulerAngleY(m_yaw));
+        m_rotation = m_yaw_rotation * m_pitch_rotation;
     }
     void SetOrientation(float angle, float pitch); /* 0x004788E0 */
-    glm::mat3 rotationMatrix(); /* 0x00478BD0 */
+    // The orientation as a rotation: yaw about Y, then pitch about X.
+    glm::mat3 rotationMatrix() const { return m_rotation; }
     void BeginLeveling(); /* 0x00478CC0 */
     void GetForwardPoint(float distance, glm::vec3* output); /* 0x00478CE0 */
     void SetManualControlActive(bool enabled); /* 0x00478E00 */
 
     std::uint32_t m_orientation_flags;
-    float m_yaw; /* 0x004 */
-    float m_pitch; /* 0x008 */
-    glm::mat3 m_pitch_rotation; /* 0x00c */
-    glm::mat3 m_yaw_rotation; /* 0x030 */
-    glm::mat3 m_rotation; /* 0x054 */
-    glm::vec3 m_direction; /* 0x078 */
-    float m_frame_elapsed; /* 0x084 */
-    bool m_transition_active; /* 0x088 */
-    bool m_forced_transition; /* 0x089 */
-    glm::vec3 m_position; /* 0x08c */
+    /* The party's orientation, kept by SetYaw and SetPitch with its rotation. */
+    float m_yaw;
+    float m_pitch;
+    glm::mat3 m_pitch_rotation{1};
+    glm::mat3 m_yaw_rotation{1};
+    glm::mat3 m_rotation{1};
+    glm::vec3 m_direction{0};
+    float m_frame_elapsed;
+    bool m_transition_active;
+    bool m_forced_transition;
+    /* The party's eye position: the one position gameplay, saves and the rendered views
+       read. Movement writes it here; everything else places the party through
+       `placeParty` and `restorePartyPose` (world.h), which keep the party navigator in
+       step. */
+    glm::vec3 m_position;
     float m_target_yaw; /* 0x098 */
     float m_target_pitch; /* 0x09c */
     float m_start_yaw; /* 0x0a0 */
@@ -115,6 +125,11 @@ private:
 
 // Active world controller, or startup state while no world is published.
 PartyCamera& partyCamera();
+
+/* Where the party navigator stands for an eye at `eye`: the default world height below it.
+   The eye is what the party sees from and what the views draw from; the navigator is the
+   party's collision and pathing proxy at ground level. */
+glm::vec3 navigationPosition(const glm::vec3& eye);
 
 void GetCameraForwardPoint(float distance, glm::vec3* output);
 /* 0x00421170: accumulate `distance` along +Z, rotated by yaw and pitch, into

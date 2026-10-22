@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -11,10 +12,12 @@
 
 // Shared animation playback and navigation for monsters, missiles, and spell visuals.
 
+#include <string>
 #include <vector>
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float4.hpp"
+#include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/particle_system.h"
@@ -98,7 +101,12 @@ public:
     void SelectLOD(const glm::vec3* position); /* 0x004A7BE0 */
     void UpdateLights();
     MeshInstance* SelectCycleFrameLod(signed char frame, signed char lod);
-    MeshInstance* frameModel(signed char frame, signed char lod) const;
+    AnimationFrame frameModel(signed char frame, signed char lod) const;
+    // The instance that draws part `index` of the animation. The player owns one per part it
+    // has shown and changes its model as the frame and LOD change.
+    MeshInstance& model(std::size_t index = 0);
+    // Take the models from `first` on out of the scene.
+    void hideModelsFrom(std::size_t first);
     signed char frameCount() const;
     Animation* active_animation = nullptr;
     MeshInstance* GetCurrentModelInstance();
@@ -113,8 +121,13 @@ public:
     glm::mat3 rotation{1.0f};
     glm::vec4 highlight_colour{0.0f};
     // The actor's appearance, applied to whichever model instance is active.
+    std::string skin;
     int damage_stage = -1;
     float light_scale = 1.0f;
+    std::optional<float> emissive_override;
+    // Set by actors whose model is scaled (monsters, with mirroring); others leave the
+    // instance's scale to their own logic.
+    std::optional<glm::vec3> model_scale;
     float instance_scale = 1.0f;
     bool apply_instance_scale = false;
     unsigned char subcycle = 0;
@@ -137,7 +150,9 @@ public:
     signed char pending_cycle = -1;
     float animation_radius = 0.0f;
 
+    // The model in the scene; for a path-list animation, its last part.
     MeshInstance* current_model_instance;
+    std::vector<std::unique_ptr<MeshInstance>> models;
     std::vector<std::unique_ptr<Light>>* m_plsLights; /* 0x1ac */
     std::deque<ShakeDefinition> shake_events;
     /* 0x1b5: the subcycle the last update pass left on the representation. */
@@ -160,7 +175,7 @@ public:
     float frame_fraction;
 }; /* 0x1d8 */
 
-bool loadAnimationCycle(std::string_view name, CyclePlayer& player, int cycle_index, int value,
+bool loadAnimationCycle(std::string_view name, CyclePlayer& player, int cycle_index,
                         std::string_view directory,
-                        const std::function<bool(LevelLoadContext&, int, int)>& read_payload,
+                        const std::function<bool(LevelLoadContext&, int)>& read_payload,
                         std::string_view bitmap_directory = {});

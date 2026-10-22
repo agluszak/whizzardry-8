@@ -3,6 +3,8 @@
 #include "wiz8/audio/soundman.h"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -38,6 +40,7 @@ struct AudioClip {
 };
 
 struct AudioPlayback {
+    std::string resource;
     std::shared_ptr<MIX_Mixer> owner;
     // Track destruction synchronizes with mixing before closing its input.
     Clip clip;
@@ -45,6 +48,10 @@ struct AudioPlayback {
     w8_native::Track track;
     std::function<void()> on_finished;
     Group group = Group::effects;
+    VolumeChannel channel = VolumeChannel::effects;
+    std::uint32_t source_volume = 127;
+    float gain_scale = 1.0f;
+    VolumeRounding rounding = VolumeRounding::before_attenuation;
     std::uint64_t started_at = 0;
     Sint64 duration = -1;
     bool positional = false;
@@ -55,7 +62,7 @@ constexpr std::uint32_t kCacheBudgetBytes = 8048 * 1024;
 
 struct Service {
     bool enabled = false;
-    std::uint32_t default_volume = 127;
+    std::array<std::uint32_t, 5> channel_volume{127, 127, 127, 127, 127};
     std::uint32_t cached_bytes = 0;
     std::vector<Clip> cache;
     // Retains fire-and-forget playback until completion; callers may share the same objects.
@@ -138,9 +145,12 @@ Playback start(Playback playback, Clip clip, PlayOptions options)
                 1, UINT32_MAX));
     }
     playback->positional = options.position.has_value();
+    playback->channel = options.channel;
+    playback->source_volume = options.volume.value_or(127);
+    playback->gain_scale = options.gain_scale;
     const auto properties = SDL_CreateProperties();
     bool ok = properties && rate > 0 &&
-              set_gain(&track, options.volume.value_or(service_state.default_volume)) &&
+              set_volume(playback, playback->source_volume, playback->gain_scale) &&
               MIX_SetTrackFrequencyRatio(
                   &track, std::clamp(float(rate) / float(natural_rate), 0.01f, 100.0f)) &&
               (!options.position || apply_spatial(&track, *options.position)) &&
@@ -201,6 +211,7 @@ Playback stream_resolved(const std::string& filename, PlayOptions options)
 {
     auto playback = create_playback(options.group);
     if (!playback) return {};
+    playback->resource = filename;
     playback->input = w8_native::open_audio_input(filename.c_str());
     if (!playback->input) return {};
     std::unique_ptr<MIX_AudioDecoder, decltype(&MIX_DestroyAudioDecoder)> decoder(
@@ -282,6 +293,7 @@ Playback play(const Clip& clip, PlayOptions options)
     if (!service_state.enabled || !clip || !clip->audio) return {};
     auto playback = create_playback(options.group);
     if (!playback || !MIX_SetTrackAudio(playback->track.get(), clip->audio.get())) return {};
+    playback->resource = clip->name;
     playback->duration = MIX_GetAudioDuration(clip->audio.get());
     return start(std::move(playback), clip, std::move(options));
 }
@@ -308,10 +320,9 @@ bool is_playing(const Playback& playback)
 
 bool is_file_playing(std::string_view path)
 {
+    const auto resource = resolve_path(path);
     return std::ranges::any_of(service_state.active, [&](const Playback& playback) {
-        const auto& clip = playback->clip;
-        return clip && is_playing(playback) && clip->name.size() == path.size() &&
-               SDL_strncasecmp(clip->name.c_str(), path.data(), path.size()) == 0;
+        return is_playing(playback) && playback->resource == resource;
     });
 }
 
@@ -337,14 +348,28 @@ bool stop_group(Group group)
     return playing;
 }
 
-void set_default_volume(std::uint32_t volume)
+void set_channel_volume(VolumeChannel channel, std::uint32_t volume)
 {
-    service_state.default_volume = std::min(volume, 127u);
+    if (channel == VolumeChannel::unscaled) return;
+    service_state.channel_volume[static_cast<std::size_t>(channel)] = volume;
+    for (const auto& playback : service_state.active)
+        if (playback->channel == channel)
+            set_volume(playback, playback->source_volume, playback->gain_scale, playback->rounding);
 }
 
-bool set_volume(const Playback& playback, std::uint32_t volume)
+bool set_volume(const Playback& playback, std::uint32_t volume, float gain_scale,
+                VolumeRounding rounding)
 {
-    return live(playback) && set_gain(playback->track.get(), volume);
+    if (!live(playback)) return false;
+    playback->source_volume = volume;
+    playback->gain_scale = gain_scale;
+    playback->rounding = rounding;
+    const auto setting = service_state.channel_volume[static_cast<std::size_t>(playback->channel)];
+    if (rounding == VolumeRounding::after_attenuation)
+        return set_gain(playback->track.get(),
+                        static_cast<std::uint32_t>(gain_scale * volume * setting / 127.0f));
+    const auto scaled = static_cast<std::uint32_t>((std::uint64_t(volume) * setting) / 127);
+    return set_gain(playback->track.get(), static_cast<std::uint32_t>(scaled * gain_scale));
 }
 
 std::optional<std::uint32_t> volume(const Playback& playback)

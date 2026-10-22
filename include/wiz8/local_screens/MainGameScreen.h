@@ -10,6 +10,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
@@ -18,6 +19,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class Pointer;
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
@@ -29,7 +31,7 @@ struct W8LevelRuntimeBlock;
 struct MainGameScreen final : Screen {
     static constexpr W8ScreenId id = W8_SCREEN_MAIN_GAME;
 
-    explicit MainGameScreen(Game& game);
+    MainGameScreen(Game& game, Pointer& pointer);
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
@@ -37,6 +39,8 @@ struct MainGameScreen final : Screen {
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    // The pointer the main game aims with, shared with a camp opened over it.
+    Pointer& pointer;
     // The time since the screen last stepped the game.
     LapTimer step_timer;
     std::unique_ptr<W8LockInteraction> lock_interaction;
@@ -67,6 +71,8 @@ struct MainGameScreen final : Screen {
     std::unique_ptr<W8LevelRuntimeBlock> hud;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
+    // The NPC dialogue's interface: its layouts, trade table and quote bubble.
+    W8NpcDialoguePanel dialogue;
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
         radar{UiLayerOrder::Radar}, formation{UiLayerOrder::FormationBase},
         world{UiLayerOrder::GameplayOverlays};
@@ -558,10 +564,6 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index);
-/* Destroy callback on the NPC trade split dialog; commits the
-   chosen count to the editor slot and refreshes the trade selection. */
-void NpcTradeSplitDialogResult(int count);
 void RefreshFormationPanel(bool show_portraits);
 void EndLockInteractMode(signed char suspend);
 void UpdateTrapInteraction(void);

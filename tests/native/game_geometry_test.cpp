@@ -84,11 +84,10 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
-#include "wiz8/render/mesh_resources.h"
-#include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
+#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/triangle_projection.h"
@@ -266,27 +265,29 @@ static void camera_and_throw()
     camera.m_position = glm::vec3(3, 4, 5);
     camera.m_yaw = .25f;
     camera.m_pitch = -.5f;
+    // A world's pose is its party's, with or without a render camera; the render camera
+    // never contributes to it.
     World world{};
+    placeParty(world, {1.25f, -2.5f, 3.75f});
     world.party_camera.SetOrientation(.25f, -.5f);
-    const auto empty_location = cameraLocationOrZero(world);
-    const auto empty_state = cameraState(world);
+    const auto location = cameraLocation(world);
+    const auto state = partyPose(world);
+    const auto rotation = cameraRotation(world);
     Camera3D node;
-    node.transform.setLocation(1.25, -2.5, 3.75);
+    node.transform.setLocation(7, 8, 9);
     world.camera = &node;
     const auto live_location = cameraLocation();
-    const auto node_location = cameraLocation(world);
-    const auto state = cameraState(world);
-    const auto rotation = cameraRotation(world);
+    const auto with_node = partyPose(world);
     partyCamera() = previous_camera;
-    REQUIRE(empty_location == glm::vec3(0));
-    REQUIRE(empty_state.position == glm::vec3(0, 0, 0));
     REQUIRE(live_location == glm::vec3(3, 4, 5));
-    REQUIRE(node_location == glm::vec3(1.25f, -2.5f, 3.75f));
-    REQUIRE(state.position == node_location);
+    REQUIRE(location == glm::vec3(1.25f, -2.5f, 3.75f));
+    REQUIRE(state.position == location);
+    REQUIRE(with_node == state);
     REQUIRE((state.orientation.yaw == .25f && state.orientation.pitch == -.5f));
     REQUIRE(state.retail.yaw == wiz8::retail::CameraPoseOpaque{}.yaw);
     REQUIRE(state.retail.pitch == wiz8::retail::CameraPoseOpaque{}.pitch);
-    REQUIRE(rotation == glm::mat3(1));
+    REQUIRE(rotation == world.party_camera.rotationMatrix());
+    REQUIRE(rotation != glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     glm::vec3 forward;
     camera.GetForwardPoint(10, &forward);
@@ -351,12 +352,6 @@ static void linked_mesh_bounds()
     mesh.calculateCompoundBounds();
     REQUIRE(mesh.bounds_minimum == glm::vec3(-8, -9, -10));
     REQUIRE(mesh.bounds_maximum == glm::vec3(-2, -3, -4));
-    REQUIRE(mesh.findClosestVertex({-3, -4, -5}) == 0); // Equal distances choose the first vertex.
-    Mesh zero(0, 2);
-    zero.scaleToMaxRadius(10);
-    zero.scaleToAverageRadius(10);
-    REQUIRE(zero.getVertexLoc()[0] == glm::vec3(0, 0, 0));
-    REQUIRE(zero.getMaxRadius() == 0);
 }
 
 static void baked_lighting()
@@ -504,9 +499,6 @@ TEST_CASE("Model bounds are independent values", "[geometry]")
     box.minimum = glm::vec3(99);
     REQUIRE(model.getBounds().box.minimum == glm::vec3(-4, -3, -2));
 
-    auto draw = mesh->getTriMesh();
-    draw.bounds_radius = 99;
-    REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
     mesh->getVertexLoc()[1] = glm::vec3(4, 5, 6);
     mesh->setDirtyAll();
     REQUIRE(model.getBounds().box.maximum == glm::vec3(4, 5, 6));
@@ -533,12 +525,12 @@ TEST_CASE("navigator route growth, copying and movement")
     NavigatorRoute route(&origin, &end);
     REQUIRE((route.MeasurePathLength() == 5));
     route.InitializeSegment(&origin, &end);
-    route.path_position_index = 1;
+    route.path.resize(2);
     for (unsigned short i = 1; i <= 35; ++i) {
         const glm::vec3 position(i, 0, 0);
         route.AppendPathPosition(&position, i);
     }
-    REQUIRE((route.path_position_index == 36 && route.path.size() > 36));
+    REQUIRE((route.path.size() == 37));
     for (unsigned short i = 1; i <= 35; ++i) {
         REQUIRE((route.path[i].position == glm::vec3(i, 0, 0)));
         REQUIRE((route.path[i].value == i));
@@ -546,9 +538,9 @@ TEST_CASE("navigator route growth, copying and movement")
     route.path[36] = {glm::vec3(36, 0, 0), 0};
     NavigatorRoute copied;
     copied.path[0].position = glm::vec3(-1, 0, 0);
-    copied.CopyPathFrom(&route);
-    REQUIRE((copied.path[0].position == glm::vec3(-1, 0, 0)));
-    REQUIRE((copied.path_position_index == route.path_position_index));
+    copied = route;
+    REQUIRE((copied.path[0].position == route.path[0].position));
+    REQUIRE((copied.path.size() == route.path.size()));
     for (unsigned i = 1; i <= 36; ++i) {
         REQUIRE((copied.path[i].position == route.path[i].position));
         REQUIRE((copied.path[i].value == route.path[i].value));
@@ -566,7 +558,7 @@ TEST_CASE("navigator route growth, copying and movement")
 
     // An append may borrow a position from the same storage being grown.
     NavigatorRoute aliased(&origin, &end);
-    aliased.path_position_index = 9;
+    aliased.path.resize(10);
     aliased.AppendPathPosition(&aliased.path[1].position, 7);
     REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
 }
@@ -578,9 +570,9 @@ TEST_CASE("Route hop heights use supplied surfaces with independent waypoint ind
     for (auto& surface : low_surfaces) surface.flags = 1 << 12;
     for (auto& surface : high_surfaces) surface.flags = 2 << 12;
     NavigatorRoute route;
+    route.path.resize(3);
     route.path[1] = {{0, 0, 0}, 1};
     route.path[2] = {{1000, 0, 0}, 2};
-    route.path_position_index = 2;
     route.path_cursor = 2;
     const glm::vec3 position{500, 0, 750};
     REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, position));
@@ -590,8 +582,7 @@ TEST_CASE("Route hop heights use supplied surfaces with independent waypoint ind
     REQUIRE(route.checkPredictedHopHeight(high_surfaces, position));
 
     // Prediction still chooses the nearer following segment when available.
-    route.path[3] = {{1000, 0, 1000}, 3};
-    route.path_position_index = 3;
+    route.path.push_back({{1000, 0, 1000}, 3});
     const glm::vec3 following{1000, 0, 750};
     REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, following));
     REQUIRE(route.checkPredictedHopHeight(low_surfaces, following));
@@ -751,8 +742,8 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     } before;
     shadow.renderNode()->accept(before);
     REQUIRE(before.bounds.size() == 1);
-    const auto source = mesh->getTriMesh();
-    REQUIRE(before.bounds.front() == glm::vec4(source.bounds_center, source.bounds_radius));
+    const auto source = mesh->getBounds().sphere;
+    REQUIRE(before.bounds.front() == glm::vec4(source.center, source.radius));
     REQUIRE(before.bounds.front().w > shadow.width);
 
     mesh->setBounds({-20, -30, -40}, {20, 30, 40}, {5, 6, 7}, 80);
@@ -1120,13 +1111,13 @@ TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry]
     REQUIRE(start == route.start_waypoint);
     route.flags = 0;
     route.path_cursor = 0;
-    route.path_position_index = 1;
+    route.path.resize(2);
     route.path[0].position = {4, 5, 6};
     const auto waypoint = route.GetNextPosition();
     REQUIRE(waypoint == glm::vec3(4, 5, 6));
     route.path[0].position = {10, 11, 12};
     REQUIRE(waypoint == glm::vec3(4, 5, 6));
-    route.path_cursor = route.path_position_index;
+    route.path_cursor = route.lastWaypoint();
     REQUIRE(route.GetNextPosition() == route.path_destination);
     REQUIRE(start == glm::vec3(1, 2, 3));
 }
@@ -1175,12 +1166,9 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     REQUIRE_FALSE(animation.frame_bounds[1].known);
     for (int index = 0; index < 2; ++index) {
         auto mesh = std::make_unique<AnimationMesh>();
-        mesh->flags.loaded = true;
-        mesh->flags.radius_loaded = true;
         mesh->frame_count = 1;
-        mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
-        mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(std::make_unique<MeshInstance>(nullptr));
+        mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
+                                  : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
         animation.meshes[0].push_back(std::move(mesh));
         auto path = std::optional<KeyframeTrack>(std::in_place);
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
@@ -1196,13 +1184,11 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     REQUIRE(animation.frame_bounds[1].known);
     for (auto& path : animation.paths[0])
         REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
-    const auto stamp = g_animesh_cache_stamp;
-    animation.meshes[0][0]->bounds_minimum = {-10, -20, -30};
+    animation.meshes[0][0]->bounds.minimum = {-10, -20, -30};
     const auto cached = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(cached);
     REQUIRE(cached.value().minimum == bounds.value().minimum);
     REQUIRE(cached.value().maximum == bounds.value().maximum);
-    REQUIRE(g_animesh_cache_stamp == stamp);
     animation.frame_bounds[1].known = false;
     const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(refreshed);
@@ -1267,35 +1253,6 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
     REQUIRE_FALSE(monster.GetWorldAnimationBounds());
     REQUIRE(bounds.value().minimum == glm::vec3(-2, -4, -6));
     REQUIRE(animation.frame_bounds[0].minimum == glm::vec3(-1, -2, -3));
-}
-
-TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geometry]")
-{
-    const auto cells = rasterizeQuadTriangle({256, 256}, {{{0, 0}, {255, 0}, {128, 255}}});
-    REQUIRE(cells.size() > 20000);
-    for (std::size_t index = 0; index < cells.size(); ++index) {
-        REQUIRE(cells[index].x >= 0);
-        REQUIRE(cells[index].x < 256);
-        REQUIRE(cells[index].y >= 0);
-        REQUIRE(cells[index].y < 256);
-        if (index) {
-            REQUIRE(cells[index].y >= cells[index - 1].y);
-            if (cells[index].y == cells[index - 1].y)
-                REQUIRE(cells[index].x == cells[index - 1].x + 1);
-        }
-    }
-    REQUIRE(rasterizeQuadTriangle({256, 256}, {{{128, 255}, {255, 0}, {0, 0}}}) == cells);
-    const auto clipped = rasterizeQuadTriangle({8, 8}, {{{-10, -10}, {15, 2}, {3, 20}}});
-    REQUIRE_FALSE(clipped.empty());
-    for (const auto& cell : clipped) {
-        REQUIRE(cell.x >= 0);
-        REQUIRE(cell.x < 8);
-        REQUIRE(cell.y >= 0);
-        REQUIRE(cell.y < 8);
-    }
-    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {2, 1}, {3, 1}}}).empty());
-    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {1, 2}, {1, 3}}}).empty());
-    REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
 }
 
 TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",
@@ -1610,12 +1567,15 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
 TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry]")
 {
     const glm::vec3 environment{0.25f, 0.5f, 0.75f};
-    Mesh mesh(0, 4);
+    Mesh mesh(2, 4);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    mesh.getPolyVertex()[1] = {0, 2, 3};
     auto material = std::make_shared<Material>();
     material->setAmbient(glm::vec4(0.5f, 0.25f, 1, 1));
     auto zero_material = std::make_shared<Material>();
     zero_material->setAmbient(glm::vec4(0));
     mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    const auto asset = mesh.renderAsset();
     mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
     const auto lights = mesh.GetVertexLights(true);
@@ -1623,27 +1583,41 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
     }
-    const auto base = mesh.getTriMesh();
+    // The bake writes the shared asset's colours; read them back per source vertex.
+    const auto baked = [&] {
+        mesh.applyPendingLighting();
+        const auto& pass = mesh.renderAsset()->passes.at(0);
+        REQUIRE((pass.draw_flags & render::HasColors) != 0);
+        std::array<glm::vec3, 4> colors{};
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto& color = pass.attributes[1]->at(vertex);
+            colors.at(pass.source_vertices[vertex]) = {color.x, color.y, color.z};
+        }
+        return colors;
+    };
+    const auto base = baked();
+    // The first bake fills the existing asset's colours.
+    REQUIRE(mesh.renderAsset() == asset);
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(base.dig[0][vertex],
+        REQUIRE(close(base[vertex],
                       (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment) *
                           2.0f));
 
     auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
-    materials->set(0, material);
-    materials->set(1, zero_material);
-    materials->set(2, nullptr);
-    materials->set(3, material);
+    (*materials)[0] = material;
+    (*materials)[1] = zero_material;
+    (*materials)[2] = nullptr;
+    (*materials)[3] = material;
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto mixed = mesh.getTriMesh();
+    const auto mixed = baked();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(mixed.dig[0][vertex],
+        REQUIRE(close(mixed[vertex],
                       (ambient[vertex] * sunlight[vertex] + lights[vertex] + environment) * 2.0f));
 
     mesh.SetAmbientColor({2, 3, 4}, environment, 0);
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    REQUIRE(mesh.getTriMesh().dig[0][0] == glm::vec3(0));
+    REQUIRE(baked()[0] == glm::vec3(0));
 }
 
 TEST_CASE("Static and frame normals share area weighting across shade seams", "[geometry][mesh]")
@@ -1676,10 +1650,8 @@ TEST_CASE("Static and frame normals share area weighting across shade seams", "[
     REQUIRE(sampled.normals.size() == positions.size());
     REQUIRE(sampled.polygon_normals.size() == triangles.size());
     REQUIRE(sampled.positions[1] == positions[1]);
-    REQUIRE(sampled.normals.data() == mesh.GetVertexNormals(0, true));
-    REQUIRE(sampled.polygon_normals.data() == mesh.GetPolygonNormals(0, true));
     REQUIRE_THROWS_AS(mesh.frameGeometry(1, 0.0f), std::out_of_range);
-    const auto* frame_normals = mesh.GetVertexNormals(0, true);
+    const auto& frame_normals = sampled.normals;
     REQUIRE(frame_normals[4] == frame_normals[0]);
     for (std::size_t vertex = 0; vertex < positions.size(); ++vertex)
         REQUIRE(glm::length(frame_normals[vertex] - normals[vertex]) < 0.012f);
@@ -1810,69 +1782,6 @@ TEST_CASE(
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
 }
 
-TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygons aligned",
-          "[geometry][rendering]")
-{
-    Mesh mesh(2, 3);
-    mesh.setPassCount(2);
-    const std::array<glm::vec3, 3> positions{{{1, 0, 0}, {0, 2, 0}, {0, 0, 3}}};
-    std::ranges::copy(positions, mesh.getVertexLoc());
-    auto* triangles = mesh.getPolyVertex();
-    triangles[0] = {0, 1, 2};
-    triangles[1] = {2, 0, 1};
-    auto* shades = mesh.getVertexShadeIndex(1);
-    shades[0] = shades[1] = 0;
-    shades[2] = 2;
-    mesh.setActivePolygonCount(1);
-    mesh.getActivePolygonTable(1)[0] = 0;
-    for (int pass = 0; pass < 2; ++pass) {
-        auto* uv = mesh.getPolyUVIndex(pass, 1);
-        uv[0] = {0, 7, 2}; // Separate UV indices outside the vertex range remain intact.
-        uv[1] = {1, 2, 0};
-        for (int i = 0; i < 3; ++i) {
-            mesh.getVertexDIG(pass, 1)[i] = glm::vec3(10 * pass + i);
-            mesh.getVertexDCG(pass, 1)[i] = glm::vec4(20 * pass + i);
-            mesh.getVertexSCG(pass, 1)[i] = glm::vec4(30 * pass + i);
-            for (int layer = 0; layer < 2; ++layer)
-                mesh.getVertexTexCoords(pass, layer, 1)[i] = glm::vec2(40 * pass + 5 * layer + i);
-        }
-    }
-    const std::array<std::uint32_t, 2> polygon_order{1, 0};
-    const std::array<std::uint32_t, 3> vertex_order{2, 0, 1};
-    mesh.reindexPolygons(polygon_order);
-    mesh.reindexVertices(vertex_order);
-    REQUIRE(mesh.getActivePolygonTable(0)[0] == 1);
-    REQUIRE(triangles[0].x == 0);
-    REQUIRE(triangles[0].y == 1);
-    REQUIRE(triangles[0].z == 2);
-    REQUIRE(triangles[1].x == 1);
-    REQUIRE(triangles[1].y == 2);
-    REQUIRE(triangles[1].z == 0);
-    REQUIRE(shades[0] == 0);
-    REQUIRE(shades[1] == 1);
-    REQUIRE(shades[2] == 1);
-    for (int pass = 0; pass < 2; ++pass) {
-        const auto* uv = mesh.getPolyUVIndex(pass, 0);
-        REQUIRE(uv[1].x == 1);
-        REQUIRE(uv[1].y == 7);
-        REQUIRE(uv[1].z == 0);
-        for (int i = 0; i < 3; ++i) {
-            REQUIRE(mesh.getVertexLoc()[i] == positions[vertex_order[i]]);
-            REQUIRE(mesh.getVertexDIG(pass, 0)[i] == glm::vec3(10 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexDCG(pass, 0)[i] == glm::vec4(20 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexSCG(pass, 0)[i] == glm::vec4(30 * pass + vertex_order[i]));
-            for (int layer = 0; layer < 2; ++layer)
-                REQUIRE(mesh.getVertexTexCoords(pass, layer, 0)[i] ==
-                        glm::vec2(40 * pass + 5 * layer + vertex_order[i]));
-        }
-    }
-    const std::array<std::uint32_t, 3> duplicate{0, 0, 2};
-    REQUIRE_THROWS_AS(mesh.reindexVertices(duplicate), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
-    REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
-}
-
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",
           "[geometry]")
 {
@@ -1916,17 +1825,15 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
 TEST_CASE("octree camera snapshots use native basis columns and plane coefficients", "[geometry]")
 {
     Camera3D camera;
-    camera.transform.setLocation(glm::dvec3(3, -7, 11));
     const auto rotation = glm::mat3(glm::rotate(glm::mat4(1), .6f, glm::vec3(0, 1, 0)));
-    camera.transform.setRotation(rotation);
     camera.setFOV(1.2, 1.5);
     W8OctreeView view;
     view.far_clip = 123;
-    view.captureCamera(camera);
+    view.captureView({3, -7, 11}, rotation, camera);
     REQUIRE(view.camera_location == glm::vec3(3, -7, 11));
     REQUIRE(view.rotation_column0 == rotation[0]);
     REQUIRE(view.rotation_column1 == rotation[1]);
-    REQUIRE(view.camera_dof == glm::vec3(camera.transform.forward()));
+    REQUIRE(view.camera_dof == rotation[2]);
     REQUIRE(view.horizontal_fov == static_cast<float>(camera.getHorizontalFOV()));
     REQUIRE(view.vertical_fov == static_cast<float>(camera.getVerticalFOV()));
     REQUIRE(view.horizontal_fov_cosine == static_cast<float>(std::cos(view.horizontal_fov)));
@@ -2133,19 +2040,22 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     GameTimeAccumulator().m_flags.paused = true;
     PartyCamera controller;
     controller.motion_started = true;
+    controller.SetOrientation(.4f, .1f);
+    controller.m_position = {1, 2, 3};
+    const auto before = controller.rotationMatrix();
     g_level_motion_resume_pending = false;
-    const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
-    const auto orientation = controller.cameraRotation(W8_CAMERA_MOTION_TURN_LEFT, basis);
-    REQUIRE(orientation.rotation == basis);
-    REQUIRE(orientation.movement_basis == basis);
-    const auto motion = controller.cameraMotion(data, W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis);
+    // Held time leaves the orientation alone and hands movement the whole rotation.
+    const auto basis = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    REQUIRE(basis == before);
+    REQUIRE(controller.rotationMatrix() == before);
+    const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
+    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
     g_level_motion_resume_pending = true;
     GameTimeAccumulator().m_flags.raw_time = true;
-    REQUIRE(
-        controller.cameraMotion(data, W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
-        glm::vec3(0));
+    REQUIRE(controller.move(data, W8_CAMERA_MOTION_FORWARD, basis).displacement == glm::vec3(0));
+    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
 }
 
 TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",
@@ -2367,4 +2277,23 @@ TEST_CASE("Recycled particles restart texture playback at their new birth", "[ge
     particles.AdvanceSimulation(game.game.time);
     REQUIRE(particles.active_particle_count == 1);
     REQUIRE(particles.texture_frames.front()->playback->frame == 1);
+}
+
+TEST_CASE("Route advancement keeps waypoint metadata and never reads past the endpoint",
+          "[geometry][navigation]")
+{
+    const glm::vec3 origin(0), end(30, 0, 0), first(10, 0, 0), second(20, 0, 0);
+    NavigatorRoute route(&origin, &end);
+    route.AppendPathPosition(&first, 7);
+    route.AppendPathPosition(&second, 2);
+    auto position = origin;
+    REQUIRE(route.AdvanceAlongPathPositions(15, &position));
+    REQUIRE(position == glm::vec3(15, 0, 0));
+    REQUIRE(route.path_cursor == 2);
+    REQUIRE(route.path.size() == 4);
+    REQUIRE(route.path[1].value == 7);
+    REQUIRE(route.path[2].value == 2);
+    REQUIRE_FALSE(route.AdvanceAlongPathPositions(100, &position));
+    REQUIRE(position == end);
+    REQUIRE(route.path_cursor == route.lastWaypoint());
 }

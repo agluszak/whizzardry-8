@@ -7,15 +7,16 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
 #include "asset_paths.h"
-#include "wiz8/bink_video.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/movie.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
@@ -57,9 +58,10 @@ public:
         if (!IntroVideoExists(path)) return true;
         StopMusicPlaylist(true);
         DisableCursorScene();
-        player_ = std::make_unique<W8BinkVideo>();
-        player_->SetTarget(BeginVideoPresentation());
-        if (!player_->Open(path.c_str(), 0)) {
+        target_ = BeginVideoPresentation();
+        if (target_) SDL_FillSurfaceRect(target_, nullptr, 0);
+        player_ = std::make_unique<W8NativeVideo>();
+        if (!target_ || !player_->play(path.c_str(), *target_)) {
             player_.reset();
             /* Hand presentation back, or a failed race intro leaves rendering off
                for the rest of the game. */
@@ -85,7 +87,7 @@ public:
                 break;
             }
         }
-        if (!player_ || player_->UpdateFrame()) advance();
+        if (!player_ || player_->advance()) advance();
     }
 
     bool leave(ScreenDeparture) override
@@ -107,7 +109,7 @@ private:
             video_ = W8_INTRO_VIDEO_WIZARDRY;
             const std::string path = IntroVideoPath(video_);
             first_video_available = IntroVideoExists(path);
-            if (first_video_available && player_ && player_->Open(path.c_str(), 0)) return;
+            if (first_video_available && player_ && player_->play(path.c_str(), *target_)) return;
         }
         /* A valid first-video path also closes the presentation when no video is open. */
         if (player_ || first_video_available) FinishVideoPresentation();
@@ -140,7 +142,8 @@ private:
     }
 
     W8IntroVideo video_ = W8_INTRO_VIDEO_SIRTECH;
-    std::unique_ptr<W8BinkVideo> player_;
+    std::unique_ptr<W8NativeVideo> player_;
+    SDL_Surface* target_ = nullptr; // Owned by the video presentation.
 };
 } // namespace
 

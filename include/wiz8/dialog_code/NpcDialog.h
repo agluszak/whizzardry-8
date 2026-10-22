@@ -27,7 +27,7 @@ class W8NpcDialog final : public ModalContent {
 
 public:
     /* `message` is an entry of `script`, which the dialog keeps alive while it is open. */
-    W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* message,
+    W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuoteEntry* message,
                 int aux_data, std::function<void(W8NpcDialog&)> closed);
     virtual ~W8NpcDialog() override;
     void DrawModal(SDL_Surface& target) override;
@@ -48,7 +48,7 @@ private:
     signed char m_selected_option = -1;
     bool m_cancelled = false;
     std::shared_ptr<const W8NpcScriptFile> m_script;
-    W8NpcQuoteEntry* m_message;
+    const W8NpcQuoteEntry* m_message;
     bool m_compact_options = false; /* option list may size under 200 wide */
     unsigned short m_text_width; /* widest option text + 6 */
     int m_input_field = -1;

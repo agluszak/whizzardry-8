@@ -1,7 +1,6 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>
@@ -52,6 +51,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
@@ -1064,9 +1064,12 @@ void W8OptionsAudioPanel::ChangeVolume(int index, float value)
         return;
     case 2:
         g_settings.footstep_volume = static_cast<unsigned char>(value);
+        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::footsteps,
+                                        g_settings.footstep_volume);
         return;
     case 3:
         g_settings.voice_volume = static_cast<unsigned char>(value);
+        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::voice, g_settings.voice_volume);
         return;
     }
 }
@@ -1083,7 +1086,7 @@ void W8OptionsAudioPanel::PreviewVolume(int index)
         break;
     case 3: {
         wiz8::sound::play("Data\\Sound\\Misc\\Interface Vox 01.wav",
-                          {.volume = std::uint32_t(g_settings.voice_volume)});
+                          {.channel = wiz8::sound::VolumeChannel::voice});
         break;
     }
     }
@@ -1310,7 +1313,7 @@ unsigned char OptionsScreen::ProcessInput(const InputEvent* input)
                 editor->m_fields.HandleInput(*input);
                 return 0;
             }
-            SetTargetCursor(W8_CURSOR_NONE);
+            ScreenPointer().showSlot(W8_CURSOR_NONE);
             editor->owner->OnTextEditComplete(editor, input->key == SDLK_ESCAPE);
             m_text_editor.reset();
             return 1;
@@ -1725,7 +1728,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
 
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
-    ResetPointerCursor();
+    ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
     values.TransferSettings();
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
@@ -1765,9 +1768,6 @@ bool OptionsScreen::enter(const ScreenRequest& request)
    dispatch; only an unhandled Escape requests the screen transition. */
 void OptionsScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     RepositionAmbientSounds();
     UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();

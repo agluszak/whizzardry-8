@@ -19,7 +19,6 @@
 #include "wiz8/math.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -55,17 +54,12 @@ public:
     using PolygonSelection = std::optional<std::span<const std::uint32_t>>;
     /* Front/back table indices, corresponding to CONTROL_FRONT/BACK. */
     enum e_side : int { SIDE_FRONT = 0, SIDE_BACK = 1 };
-    /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals,
-       calculateVertexNormals and updateTriMesh clear bits 0, 1, 2 and 3. */
-    enum e_flags {
-        DIRTY_BOUNDS = 0,
-        DIRTY_POLYGON_NORMALS = 1,
-        DIRTY_VERTEX_NORMALS = 2,
-        DIRTY_TRI_MESH = 3
-    };
+    /* Bit indices into dirty_flags. calculateBounds, calculatePolygonNormals
+       and calculateVertexNormals clear bits 0, 1 and 2. */
+    enum e_flags { DIRTY_BOUNDS = 0, DIRTY_POLYGON_NORMALS = 1, DIRTY_VERTEX_NORMALS = 2 };
     /* Bit indices into render_control. Rendering tests bits 0/1 as
-       front/back sides. updateTriMesh skips auto box when bit 4 is set and
-       auto sphere when bit 5 is set. */
+       front/back sides. Bits 4 and 5 mark the box and sphere as authored
+       rather than derived from the vertices (the sky sets both). */
     enum e_control {
         CONTROL_FRONT = 0,
         CONTROL_BACK = 1,
@@ -76,67 +70,29 @@ public:
         CONTROL_SORTED_RENDERING = 6
     };
     enum { MAX_PASSES = 4 };
-    /* Borrowed triangle-mesh view: updateTriMesh fills it from the live tables. Keep the model
-       and its table storage unchanged until submitMesh finishes submission. */
-    struct TriMesh {
-        std::int32_t vertex_count = 0;
-        std::int32_t polygon_count = 0;
-        std::int32_t pass_count = 0;
-        std::uint32_t control_flags = 0;
-        const glm::ivec3* poly_vertices = nullptr;
-        const glm::vec4* poly_equations = nullptr;
-        const glm::vec2* texcoords[4][2]{};
-        const glm::vec3* positions = nullptr;
-        const glm::vec3* normals = nullptr;
-        const glm::vec3* dig[4]{};
-        const glm::vec4* dcg[4]{};
-        const glm::vec4* scg[4]{};
-        std::shared_ptr<Material> materials[4][2];
-        std::shared_ptr<Texture> textures[4][2];
-        DrawShader shaders[4];
-        MeshResources<Material>* vertex_materials[4][2]{};
-        MeshResources<Texture>* poly_textures[4][2]{};
-        DrawShader* poly_shaders[4]{};
-        const glm::ivec3* poly_uv[4]{};
-        glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
-        glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
-        glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
-        float bounds_radius = 0.0f;
-        float sort_bias = 0.0f;
-        std::optional<float> diffuse_scale;
-        std::optional<float> emissive_override;
-        PolygonSelection active_polygons;
-        std::span<const float> vertex_alpha;
-    };
-
     Mesh(std::int32_t polygons = 0, std::int32_t vertices = 0);
     Mesh(const Mesh&) = delete;
 
     void reset(std::int32_t polygons, std::int32_t vertices);
     void scale(const glm::vec3& scale);
     void relocateVertices(const glm::vec3& offset);
-    double getAverageRadius();
-    double getMaxRadius();
-    void scaleToAverageRadius(double radius);
-    void scaleToMaxRadius(double radius);
-    std::int32_t findClosestVertex(const glm::vec3& point);
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    void reindexPolygons(std::span<const std::uint32_t> indices);
-    void reindexVertices(std::span<const std::uint32_t> indices);
-    TriMesh getTriMesh();
+    /* Bakes pending vertex lighting into the render asset's first-pass colours.
+       Rendering calls this before it draws the asset. */
+    void applyPendingLighting();
     std::shared_ptr<render::MeshAsset> renderAsset();
-    MeshResources<Texture>* getPolygonTextureTable(std::int32_t pass, std::int32_t layer,
-                                                   bool create);
+    std::vector<std::shared_ptr<Texture>>* getPolygonTextureTable(std::int32_t pass,
+                                                                  std::int32_t layer, bool create);
     glm::ivec3* getPolyVertex();
     glm::ivec3* getPolyUVIndex(std::int32_t layer, int table);
     glm::vec2* getVertexTexCoords(std::int32_t vertex, std::int32_t layer, int table);
-    MeshResources<Material>* getVertexMaterialTable(std::int32_t pass, e_side side, bool create);
+    std::vector<std::shared_ptr<Material>>* getVertexMaterialTable(std::int32_t pass, e_side side,
+                                                                   bool create);
     std::uint32_t* getVertexShadeIndex(int table);
     glm::vec3* getVertexNormal();
     glm::vec4* getPolyEq();
-    glm::vec3* getVertexDIG(std::int32_t vertex, int table);
     glm::vec4* getVertexSCG(std::int32_t vertex, int table);
     glm::vec4* getVertexDCG(std::int32_t vertex, int table);
     Material* getMaterial(std::int32_t polygon, e_side side) const;
@@ -144,47 +100,25 @@ public:
     void setMaterial(std::shared_ptr<Material> material, std::int32_t polygon, e_side side);
     void setTexture(std::shared_ptr<Texture> texture, std::int32_t polygon, std::int32_t layer);
     // RECOMP: ?setDirty@Mesh@@QAEXW4e_flags@1@@Z
-    void setDirty(e_flags flag)
-    {
-        render_asset_.reset();
-        std::uint32_t mask = 1 << flag;
-        if ((dirty_flags & mask) == 0) {
-            dirty_flags |= mask | (1u << DIRTY_TRI_MESH);
-        }
-    }
+    void setDirty(e_flags flag) { dirty_flags |= 1u << flag; }
+    /* Drops the cached render asset after a change to the mesh's topology or
+       to the positions and normals a static asset copies. */
+    void invalidateRenderAsset() { render_asset_.reset(); }
     // RECOMP: ?clearDirty@Mesh@@QAEXW4e_flags@1@@Z
     void clearDirty(e_flags flag) { dirty_flags &= ~(1u << flag); }
-    DrawShader* getPolyShader(std::int32_t polygon, int layer);
     DrawShader getShader(std::int32_t polygon) const;
     void setShader(DrawShader shader, std::int32_t pass);
     void setUVCount(std::int32_t count);
     std::int32_t getUVCount() const;
-    void setActivePolygonCount(std::int32_t count);
-    std::int32_t getActivePolygonCount();
-    std::int32_t getPassCount() const;
     std::int32_t getPolygonCount() const;
     std::int32_t getVertexCount() const;
-    void setPassCount(std::int32_t count);
-    void setSortBias(float bias)
-    {
-        sort_bias = bias;
-        setDirty(DIRTY_TRI_MESH);
-    }
-    float getSortBias() const;
-    void disable(e_control control);
-    void enable(e_control control)
-    {
-        render_control |= 1u << control;
-        setDirty(DIRTY_TRI_MESH);
-    }
+    void enable(e_control control);
     void setDirtyAll()
     {
         setDirty(DIRTY_BOUNDS);
         setDirty(DIRTY_POLYGON_NORMALS);
         setDirty(DIRTY_VERTEX_NORMALS);
-        setDirty(DIRTY_TRI_MESH);
     }
-    std::uint32_t* getActivePolygonTable(int table);
     glm::vec3* getVertexLoc();
     /* Fills the cached AABB/sphere (bounds_minimum..bounds_radius)
        from the supplied box and center/radius. */
@@ -192,7 +126,6 @@ public:
                    float radius);
 
 protected:
-    void updateTriMesh();
     void calculateBounds();
     void calculatePolygonNormals();
     void calculateVertexNormals();
@@ -202,23 +135,18 @@ public:
     std::array<std::array<std::shared_ptr<Material>, 2>, MAX_PASSES> materials;
     std::array<std::array<std::shared_ptr<Texture>, 2>, MAX_PASSES> textures;
     std::array<DrawShader, MAX_PASSES> shaders;
-    // Assignment tables are created on demand. Their resource pools own each
-    // distinct material/texture once; vertices and polygons hold only indices.
-    std::array<std::array<MeshResources<Texture>, 2>, MAX_PASSES> poly_textures;
-    std::array<std::vector<DrawShader>, MAX_PASSES> poly_shaders;
-    std::array<std::array<MeshResources<Material>, 2>, MAX_PASSES> vertex_materials;
+    // Per-polygon texture and per-vertex material tables are created on demand.
+    std::array<std::array<std::vector<std::shared_ptr<Texture>>, 2>, MAX_PASSES> poly_textures;
+    std::array<std::array<std::vector<std::shared_ptr<Material>>, 2>, MAX_PASSES> vertex_materials;
     std::vector<glm::ivec3> poly_vertices;
     std::array<std::vector<glm::ivec3>, MAX_PASSES> poly_uv_indices;
     std::vector<glm::vec4> poly_equations;
     std::array<std::array<std::vector<glm::vec2>, 2>, MAX_PASSES> texcoords;
-    std::array<std::vector<glm::vec3>, MAX_PASSES> dig;
     std::array<std::vector<glm::vec4>, MAX_PASSES> dcg;
     std::array<std::vector<glm::vec4>, MAX_PASSES> scg;
     std::vector<glm::vec3> vertex_locations;
     std::vector<glm::vec3> vertex_normals;
     std::vector<std::uint32_t> vertex_shade_indices;
-    std::vector<std::uint32_t> active_polygons;
-    std::int32_t active_polygon_count = 0;
     glm::vec3 bounds_minimum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_maximum{0.0f, 0.0f, 0.0f};
     glm::vec3 bounds_center{0.0f, 0.0f, 0.0f};
@@ -227,13 +155,10 @@ public:
     std::int32_t vertex_location_count = 0;
     std::int32_t polygon_count = 0;
     std::int32_t uv_count = 0;
-    float sort_bias = 0.0f;
-    TriMesh tri_mesh;
     std::uint32_t dirty_flags = 0;
     std::uint32_t render_control = 0;
 
 public:
-    ~Mesh();
     /* Recomputes the union bounds over the head and its parts and pushes them
        to each mesh via Mesh::setBounds. */
     void calculateCompoundBounds();                 /* 0x00471e10 */
@@ -241,40 +166,37 @@ public:
     int FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
     void AddPart(std::unique_ptr<Mesh> part);
-    /* The mesh submitted after this one in its model, or null. */
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
     int FindSkinTable(std::string_view name);
     int CreateSkinTable(std::string_view name, int base_table);
     bool replaceSkinTexture(int table, std::string_view old_name,
                             const std::shared_ptr<Texture>& replacement);
-    MeshResources<Texture>* GetTextureTable(int table); /* 0x00473720 */
+    std::vector<std::shared_ptr<Texture>>* GetTextureTable(int table); /* 0x00473720 */
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin is changed. */
     PolygonSelection GetActivePolygons(int table, bool check_blanking);
-    void RemoveSkinTable(int index);
-    // Borrowed frame caches; interpolated positions reuse the model's lerp buffer.
+    /* One animation frame decoded from its compressed tables. Positions
+       interpolate toward the next frame; normals are this frame's own. */
     struct FrameGeometry {
-        std::span<glm::vec3> positions;
-        std::span<glm::vec3> normals;
-        std::span<const glm::vec3> polygon_normals;
+        std::vector<glm::vec3> positions;
+        std::vector<glm::vec3> normals;
+        std::vector<glm::vec3> polygon_normals;
     };
-    FrameGeometry frameGeometry(unsigned int frame, float interpolation);
-    glm::vec3* GetVertexLocations(unsigned int frame, bool load, float interpolation);
-    glm::vec3* GetVertexNormals(unsigned int frame, bool load); /* 0x00471CA0 */
-    glm::vec3* GetPolygonNormals(unsigned int frame, bool load);
+    FrameGeometry frameGeometry(unsigned int frame, float interpolation) const;
+    /* One decoded table (a W8MeshFrameData kind) of `frame`; empty when there is no such frame. */
+    std::vector<glm::vec3> decodeFrame(unsigned int frame, unsigned char kind) const;
+    /* One vertex's position in `frame`, for attachments that follow a source frame. */
+    std::optional<glm::vec3> framePosition(unsigned int frame, int vertex) const;
     void SetAmbientColor(const glm::vec3& color, const glm::vec3& environment = glm::vec3(0),
                          float brightness = 1.0f);
-    bool AllocateFrameBuffers(unsigned int uiFrame, unsigned char flags); /* 0x00471720 */
     std::span<glm::vec3> GetVertexLights(bool initialize); /* 0x00472100 */
     std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
-    int ReleaseDecompressedFrames(); /* 0x004739E0 */
     void FinalizeVertexFrame(int frame);
-    /* Return `frame`'s vertex bounds, decompressing a scratch copy when the frame
-       is not resident. Invalid frames and empty meshes return zero bounds. */
-    BoundingBox GetFrameBounds(int frame);
+    /* Return `frame`'s vertex bounds. Invalid frames and empty meshes return zero bounds. */
+    BoundingBox GetFrameBounds(int frame) const;
     bool DecompressFrame(int frame, unsigned char flags,
-                         std::span<glm::vec3> destination); /* 0x00471930 */
+                         std::span<glm::vec3> destination) const; /* 0x00471930 */
     void ComputeFrameNormals(int frame); /* 0x004729F0 */
 
     // Further material submeshes are owned values; parts carry no parent links.
@@ -286,18 +208,12 @@ public:
         std::vector<short> compressed_locations;
         std::vector<unsigned char> compressed_vertex_normals;
         std::vector<unsigned char> compressed_polygon_normals;
-        // m_pVertexLoc / m_pVertexNormal / m_pPolyNormal. Disengaged means
-        // absent, even on a zero-vertex model. Engaged storage counts toward
-        // g_decompressed_mesh_bytes and is dropped only by explicit eviction.
-        std::optional<std::vector<glm::vec3>> locations;
-        std::optional<std::vector<glm::vec3>> vertex_normals;
-        std::optional<std::vector<glm::vec3>> polygon_normals;
     };
 
     struct Skin {
         int id;
         std::string name{"anonymous"};
-        MeshResources<Texture> textures;
+        std::vector<std::shared_ptr<Texture>> textures;
         // An absent selection draws all polygons; an engaged empty selection
         // draws none. The checked bit distinguishes that from a pending scan.
         std::optional<std::vector<std::uint32_t>> active_polygons;
@@ -316,10 +232,7 @@ public:
     std::vector<Frame> frames; // Empty for a static base-class mesh.
     std::list<Skin> skins;
     std::unordered_map<short, int> mapped_vertices; // wire marker key -> runtime vertex index
-    std::uint64_t last_decompress_release_tick;
     float vertex_compression_scale;
-    // m_pLerpBuffer: stable interpolation scratch, outside the cache budget.
-    std::vector<glm::vec3> lerp_buffer;
     // The base texture table's selection once its blank-texture scan has run.
     std::optional<std::vector<std::uint32_t>> base_polygons;
     bool base_blanking_checked = false;
@@ -327,7 +240,6 @@ public:
 private:
     std::shared_ptr<render::MeshAsset> render_asset_;
     void updateBakedLighting();
-    glm::vec3* frameTable(unsigned int frame, bool load, unsigned char kind);
 };
 
 // Iterate concrete owned submeshes without a linked-list compatibility API.
@@ -344,14 +256,3 @@ struct MappedVertex {
     int index;
 };
 std::optional<MappedVertex> findMappedVertex(Mesh* model, int key);
-
-/* Every mesh model whose frame storage has been initialized. */
-extern std::vector<Mesh*> g_mesh_models; /* 0x00659CB8 */
-/* Bytes currently held by decompressed per-frame float caches. */
-extern int g_decompressed_mesh_bytes; /* 0x0065A0E8 */
-
-/* True when all three components of the vector are zero. */
-/* Release least-recently-used decompressed frame caches until `needed` bytes
-   have been freed; 0 when the registry cannot supply them. A requesting model
-   is retained because its renderer may already hold borrowed frame pointers. */
-bool ReclaimDecompressedBytes(unsigned int needed, const Mesh* retained_model = nullptr);

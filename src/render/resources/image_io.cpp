@@ -78,51 +78,9 @@ void saveImage(OutputFormat output, SDL_IOStream* io, SDL_Surface& source, int q
                                              SDL_PROP_IOSTREAM_DYNAMIC_MEMORY_POINTER, nullptr),
                       static_cast<size_t>(size));
 }
-SDLSurfaceOwner loadImage(const char* path, SDL_IOStream* io)
-{
-    using namespace imageIO;
-    const char* type = extension(path);
-    try {
-        if (!io) return {nullptr, SDL_DestroySurface};
-        const auto size = SDL_GetIOSize(io);
-        if (size <= 0 || size > 256 * 1024 * 1024 || SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) < 0)
-            return {nullptr, SDL_DestroySurface};
-        if (SDL_strcasecmp(type, "tga") == 0) {
-            auto result = loadTga(io);
-            if (result && SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR)
-                return {nullptr, SDL_DestroySurface};
-            return result;
-        }
-        SDLSurfaceOwner decoded(IMG_LoadTyped_IO(io, false, type), SDL_DestroySurface);
-        if (!decoded || SDL_GetIOStatus(io) == SDL_IO_STATUS_ERROR || decoded->w <= 0 ||
-            decoded->h <= 0 || Uint64(decoded->w) * decoded->h > 64 * 1024 * 1024)
-            return {nullptr, SDL_DestroySurface};
-        if (decoded->format == SDL_PIXELFORMAT_BGRA32) return decoded;
-        SDLSurfaceOwner converted(SDL_ConvertSurface(decoded.get(), SDL_PIXELFORMAT_BGRA32),
-                                  SDL_DestroySurface);
-        if (!converted) return {nullptr, SDL_DestroySurface};
-        return converted;
-    } catch (...) {
-        return {nullptr, SDL_DestroySurface};
-    }
-}
 } // namespace
 
 namespace imageIO {
-SDLSurfaceOwner load(const char* path, SDL_IOStream* stream)
-{
-    return loadImage(path, stream);
-}
-
-SDLSurfaceOwner load(const char* path, wiz8::File& file)
-{
-    try {
-        return load(path, file.io());
-    } catch (...) {
-        return {nullptr, SDL_DestroySurface};
-    }
-}
-
 SDLSurfaceOwner loadTga(wiz8::File& file)
 {
     try {
@@ -130,15 +88,6 @@ SDLSurfaceOwner loadTga(wiz8::File& file)
     } catch (...) {
         return {nullptr, SDL_DestroySurface};
     }
-}
-
-SDLSurfaceOwner load(const char* path)
-{
-    extension(path);
-    auto file = wiz8::open_file(wiz8::asset_path(path));
-    auto surface = load(path, *file);
-    if (!surface) throw std::runtime_error("Image decoding failed");
-    return surface;
 }
 
 void save(const char* path, SDL_IOStream* stream, SDL_Surface& surface, int quality)

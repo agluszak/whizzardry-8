@@ -34,7 +34,6 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/visibility_grid.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
@@ -124,8 +123,8 @@ bool LoadAnimated(const std::filesystem::path& path)
     REQUIRE((first));
     auto* model = static_cast<Mesh*>(first->getModel());
     REQUIRE((model->frames.size() == 2));
-    REQUIRE((model->GetVertexLocations(0, true, 0)[1].x == 1.0f));
-    REQUIRE((model->GetVertexLocations(1, true, 0)[1].x == 3.0f));
+    REQUIRE(model->framePosition(0, 1)->x == 1.0f);
+    REQUIRE(model->framePosition(1, 1)->x == 3.0f);
     // A cache hit shares geometry but reads this record's own placement.
     {
         auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
@@ -145,7 +144,6 @@ bool LoadAnimated(const std::filesystem::path& path)
     REQUIRE(first->getModel() == model);
     first.reset();
     second.reset();
-    REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
     return true;
 }
 
@@ -177,7 +175,6 @@ bool LoadCycles(const std::filesystem::path& path)
             REQUIRE(world.psrMeshes[3] == nullptr);
             REQUIRE(world.psrMeshes.back() == nullptr);
         }
-        REQUIRE(g_mesh_models.empty());
     }
     return true;
 }
@@ -224,7 +221,6 @@ TEST_CASE("serialized_mesh_test")
             FileFaults fault(operation);
             REQUIRE(ReadMultipleLevelMeshes(*file, 4, {}).empty());
             REQUIRE(fault.fired);
-            REQUIRE(g_mesh_models.empty());
         }
     }
     {
@@ -247,12 +243,12 @@ TEST_CASE("serialized_mesh_test")
         const auto empty = directory / "empty.lvl";
         wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_file(empty);
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
         REQUIRE(world.psrMeshes.empty());
         REQUIRE(world.scene->static_meshes.empty());
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), false, ""));
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
         REQUIRE(destroyed == 3);
     }
     REQUIRE(ok);
@@ -277,37 +273,30 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
     std::unique_ptr<AnimationMesh> second;
     {
         auto input = wiz8::open_file(animation);
-        first = ReadAnimatedMesh(*input, {}, true);
+        first = ReadAnimatedMesh(*input, {});
         REQUIRE(first);
     }
     {
         auto input = wiz8::open_file(animation);
-        second = ReadAnimatedMesh(*input, {}, true);
+        second = ReadAnimatedMesh(*input, {});
         REQUIRE(second);
     }
-    REQUIRE(first->meshes.size() == 1);
-    REQUIRE(second->meshes.size() == 1);
-    REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
+    REQUIRE(first->frames.size() == 1);
+    REQUIRE(second->frames.size() == 1);
+    REQUIRE(first->frames[0].mesh == second->frames[0].mesh);
     REQUIRE(first->frame_count == 2);
     REQUIRE(second->frame_count == 2);
-    REQUIRE(first->meshes[0]->frame_index == 0);
-    REQUIRE(second->meshes[0]->frame_index == 0);
-    const auto bounds = GetAniMeshBounds(first.get());
-    REQUIRE(bounds);
-    REQUIRE(bounds.value().minimum == glm::vec3(0));
-    REQUIRE(bounds.value().maximum == glm::vec3(3, 1, 0));
+    REQUIRE(first->bounds.minimum == glm::vec3(0));
+    REQUIRE(first->bounds.maximum == glm::vec3(3, 1, 0));
     REQUIRE(first->radius == std::sqrt(10.0f) * 0.5f);
-    REQUIRE(first->meshes[0]->frame_index == 0);
-    auto* first_frame = GetAniMeshFrame(first.get(), 1);
-    REQUIRE(first_frame->frame_index == 1);
-    REQUIRE(second->meshes[0]->frame_index == 0);
-    REQUIRE(GetAniMeshFrame(second.get(), 0)->frame_index == 0);
-    REQUIRE(first_frame->frame_index == 1);
-    REQUIRE(GetAniMeshBounds(first.get()));
-    REQUIRE(first_frame->frame_index == 1);
-    REQUIRE(UnloadAniMesh(first.get(), true));
-    REQUIRE(GetAniMeshFrame(first.get(), 0)); // Reopen the same physical source/offset.
-    REQUIRE(first->meshes[0]->getModel() == second->meshes[0]->getModel());
+    // Playback belongs to the instance showing a frame, not to the shared mesh.
+    MeshInstance shown_first;
+    MeshInstance shown_second;
+    ShowFrame(shown_first, GetAniMeshFrame(*first, 1));
+    ShowFrame(shown_second, GetAniMeshFrame(*second, 0));
+    REQUIRE(shown_first.getModel() == shown_second.getModel());
+    REQUIRE(shown_first.frame_index == 1);
+    REQUIRE(shown_second.frame_index == 0);
 }
 
 TEST_CASE("Animated frame indices determine playback order before publication")
@@ -335,19 +324,19 @@ TEST_CASE("Animated frame indices determine playback order before publication")
         }
     }
     auto file = wiz8::open_file(path);
-    auto mesh = ReadAnimatedMesh(*file, {}, true);
+    auto mesh = ReadAnimatedMesh(*file, {});
     REQUIRE(mesh);
-    REQUIRE(mesh->meshes.size() == 2);
-    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
-    REQUIRE(GetAniMeshFrame(mesh.get(), 1)->getModel()->getBounds().box.minimum.x == 2000);
+    REQUIRE(mesh->frames.size() == 2);
+    REQUIRE(GetAniMeshFrame(*mesh, 0).mesh->getBounds().box.minimum.x == 0);
+    REQUIRE(GetAniMeshFrame(*mesh, 1).mesh->getBounds().box.minimum.x == 2000);
     {
         auto writer = wiz8::open_file(path, wiz8::OpenMode::update);
         writer->seek(second_index, wiz8::SeekOrigin::begin);
         Write(*writer, static_cast<unsigned char>(1)); // Duplicate frame, missing frame zero.
     }
     file->seek(0, wiz8::SeekOrigin::begin);
-    REQUIRE_FALSE(ReadAnimatedMesh(*file, {}, true));
-    REQUIRE(GetAniMeshFrame(mesh.get(), 0)->getModel()->getBounds().box.minimum.x == 0);
+    REQUIRE_FALSE(ReadAnimatedMesh(*file, {}));
+    REQUIRE(GetAniMeshFrame(*mesh, 0).mesh->getBounds().box.minimum.x == 0);
 }
 
 TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex markers")
@@ -430,7 +419,7 @@ TEST_CASE("Mesh construction finishes material partitions, UV seams and vertex m
     REQUIRE(seam);
     std::weak_ptr<Material> lifetime =
         (*head->getVertexMaterialTable(0, Mesh::SIDE_FRONT, false))[0];
-    auto duplicate = DuplicateModelInstance(*instance);
+    auto duplicate = std::make_unique<MeshInstance>(*instance);
     instance.reset();
     REQUIRE(duplicate->getModel() == head);
     REQUIRE_FALSE(lifetime.expired());
@@ -514,7 +503,7 @@ TEST_CASE("Mesh reuse distinguishes source files, record offsets and material di
     REQUIRE(second);
     REQUIRE(first->getModel() != second->getModel());
     auto* second_model = static_cast<Mesh*>(second->getModel());
-    REQUIRE(second_model->GetVertexLocations(0, true, 0)[0].x == 4);
+    REQUIRE(second_model->framePosition(0, 0)->x == 4);
     file->seek(second_offset, wiz8::SeekOrigin::begin);
     auto repeated = ReadSingleLevelMesh(*file, directory.path / "textures-a");
     REQUIRE(repeated);

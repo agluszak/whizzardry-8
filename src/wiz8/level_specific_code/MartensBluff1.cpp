@@ -30,7 +30,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
@@ -162,7 +161,7 @@ void MartensBluff1Script::setup()
         CreateLocationVar("DialState", 0x470111);
     }
     transporter(kMasterToggle);
-    position = glm::vec3(world().camera->transform.getLocation());
+    position = cameraLocation(world());
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
@@ -311,7 +310,7 @@ bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
         gas_sound1_ = CreateAndPlaySoundNode(
             world(), "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
     }
-    position = glm::vec3(world().camera->transform.getLocation());
+    position = cameraLocation(world());
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);
@@ -344,7 +343,7 @@ bool MartensBluff1Script::transportSpawn()
     }
     CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f,
                            30.0f, false);
-    group = SpawnMonsters(0x177, 1, &position_a, 0, true, false, false);
+    group = SpawnMonsters(0x177, 1, &position_a, 0, true, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = FindMonster(location_id);

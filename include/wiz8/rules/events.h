@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "wiz8/data/skills.h"
+#include "wiz8/rules/targeting.h"
 
 /* What happened in a game, in the order it happened. Rules append events to their
    game's log and know nothing about screens; the UI observes the log and presents
@@ -152,6 +153,10 @@ struct PartyMembershipChanged {};
 struct WorldItemRemoved {
     int runtime_id = -1;
 };
+// The player is asked to pick a target of `need`; W8_TARGET_NEED_NONE stops asking.
+struct TargetingRequested {
+    W8TargetNeed need = W8_TARGET_NEED_NONE;
+};
 
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
@@ -160,7 +165,7 @@ using Event =
                  WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
                  CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
                  MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
-                 PartyMembershipChanged, WorldItemRemoved>;
+                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

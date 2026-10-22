@@ -58,6 +58,7 @@
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/pointer.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
@@ -750,7 +751,7 @@ void StartGame(GameHarness& game)
 glm::vec3 PartyPosition()
 {
     CameraPose state{};
-    state = cameraState(*GetWorld());
+    state = partyPose(*GetWorld());
     return state.position;
 }
 
@@ -868,7 +869,7 @@ void FormationUiScenario()
         for (int frame = 0; frame < 5; ++frame) game.frame();
         REQUIRE(g_ui.captured != 0); // Below the 250 ms hold threshold.
         REQUIRE(game.within_frames(60, [] { return g_ui.captured == 0; }));
-        REQUIRE(ShownCursor() == W8_CURSOR_INVALID_TARGET);
+        REQUIRE(ScreenPointer().shownSlot() == W8_CURSOR_INVALID_TARGET);
     };
     const auto drop_at = [&](SDL_Point point) {
         game.release_at(point.x - g_cursor_hotspot_x, point.y - g_cursor_hotspot_y);
@@ -977,14 +978,14 @@ void GameStartScenario()
     GameHarness game(false);
     StartGame(game);
     CameraPose start{};
-    start = cameraState(*GetWorld());
+    start = partyPose(*GetWorld());
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     CameraPose now{};
     game.wait(
         "walk",
         [&] {
-            now = cameraState(*GetWorld());
+            now = partyPose(*GetWorld());
             const float dx = now.position.x - start.position.x,
                         dz = now.position.z - start.position.z;
             return std::sqrt(dx * dx + dz * dz) > 1.0f;
@@ -1169,8 +1170,9 @@ void InventoryChestScenario()
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), TargetingMode(), (CurrentGame().party.held.item.iItemNo != -1),
-            potion.stack_count, CurrentGame().party.rows[slot].executing.kind);
+    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(),
+            (CurrentGame().party.held.item.iItemNo != -1), potion.stack_count,
+            CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
@@ -1184,12 +1186,12 @@ void InventoryChestScenario()
         20);
     game.hold_key(SDLK_DOWN, false);
     CameraPose before{}, after{};
-    before = cameraState(*GetWorld());
+    before = partyPose(*GetWorld());
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
-            after = cameraState(*GetWorld());
+            after = partyPose(*GetWorld());
             return std::abs(after.orientation.yaw - before.orientation.yaw) > 0.1f;
         },
         20);
@@ -2091,7 +2093,7 @@ void Approach(GameHarness& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.has_value(); ++frame) {
-        const CameraPose camera = cameraState(*GetWorld());
+        const CameraPose camera = partyPose(*GetWorld());
         const glm::vec3 target = monster->entity->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
@@ -2292,7 +2294,7 @@ void PrintState(GameHarness& game)
     if (const auto* camp = FindScreen<CampScreen>())
         std::printf(" camp_pc=%d page=%d item_action=%d camp_dialog=%d targeting=%d",
                     camp->ReviewedPartySlot(), int(camp->page), int(camp->items.action()),
-                    camp->dialogs.open() != nullptr, int(TargetingMode()));
+                    camp->dialogs.open() != nullptr, int(ScreenPointer().targeting()));
     std::printf("\n");
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.members[slot].has_value()) {
@@ -2301,7 +2303,7 @@ void PrintState(GameHarness& game)
                         character.hp_current, character.experience, character.kill_count);
         }
     if (GetWorld()) {
-        const CameraPose camera = cameraState(*GetWorld());
+        const CameraPose camera = partyPose(*GetWorld());
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.orientation.yaw);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;

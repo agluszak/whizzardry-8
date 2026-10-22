@@ -46,7 +46,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 
@@ -323,17 +322,6 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
         if (!RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn)) return false;
     }
     return true;
-}
-
-/* Brings every member of a group into the world. Front to back, and the list
-   length is re-read each time because activation can add to it. */
-void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode)
-{
-    unsigned int index;
-
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        ActivateMonster(FindMonster(monster_group->MemberLocationId(index)), mode);
-    }
 }
 
 void RefreshMonsterGroup(W8MonsterGroup* monster_group)
@@ -703,7 +691,7 @@ bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group)
 /* Allocate one live monster group, create its members, activate them, and
    register it on the species or encounter list. */
 W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name, bool announce_spawn, bool place_on_ground)
+                            bool use_alternate_name, bool place_on_ground)
 {
     W8MonsterGroup* group;
     const W8MonsterRecord* record;
@@ -789,12 +777,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
     RefreshMonsterGroup(group);
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
-
-    if (announce_spawn && g_dev_mode) {
-        const char* verb = count == 1 ? "appears" : "appear";
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::format("{:d} {} {} nearby!", count, GetMonsterGroupName(group), verb));
-    }
 
     return group;
 }
@@ -1174,7 +1156,7 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
     glm::vec3 spawn;
     unsigned int index;
 
-    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false, false, false);
+    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false, false);
     if (new_group == 0 || new_group->MemberCount() != group->MemberCount()) {
         return 0;
     }

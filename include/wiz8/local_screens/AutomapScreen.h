@@ -59,7 +59,7 @@ struct W8SavedAutomapNotes {
     std::vector<bool> visited;
     std::vector<std::unique_ptr<W8AutomapNote>> notes;
 };
-W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file, std::size_t cells);
+W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file);
 void ApplyAutomapNotes(World& world, W8SavedAutomapNotes notes);
 bool GetAutomapPositionUnderCursor(glm::vec3* position);
 void SetAutomapToolCursor(W8AutomapTool tool);

@@ -21,7 +21,6 @@
 #include "wiz8/combat/fight.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/range.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -62,7 +61,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -386,6 +384,7 @@ void AimAtPlace(int actor)
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     GetWorldCursorTargetPosition(&position);
+    target.point = position;
     AimAtTarget(actor, &target, GetEditedActionContext(actor));
 }
 
@@ -641,8 +640,7 @@ static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 }
 
 /* The location id of the nearest live monster whose current model instance is
-   under the cursor, or -1. Born monsters come first; the unborn list joins the
-   scan only while g_dev_mode is set. The cursor coordinates are carried but
+   under the cursor, or -1. The cursor coordinates are carried but
    unused - the hover test is MonsterUsesCurrentModelInstance. */
 int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 {
@@ -663,21 +661,6 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
         if (distance < best_distance) {
             result = monster_info->location_id;
             best_distance = distance;
-        }
-    }
-    if (g_dev_mode) {
-        for (index = 0; index < CurrentLevelPopulation().monster_roster.unborn().size(); ++index) {
-            W8MonsterInfo* monster_info = GetUnbornMonsterEntry(index);
-            float distance;
-
-            if (!IsMonsterHoverSelectable(monster_info)) {
-                continue;
-            }
-            distance = MonsterDistanceToCamera(monster_info->entity.find());
-            if (distance < best_distance) {
-                result = monster_info->location_id;
-                best_distance = distance;
-            }
         }
     }
     return result;
@@ -917,29 +900,6 @@ bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id)
     return TargetMatchesNeeded(&monster_info->Target, GetTargetNeededForSpellHostile(spell_id));
 }
 
-/* Map TargetingMode() to a cursor-table index for SetTargetCursor.
-   Returned values are cursor slots (including 10..12), not W8TargetingContext. */
-// FUNCTION: WIZ8 0x0053A3D0
-int GetTargetingCursorForState(bool alternate)
-{
-    switch (TargetingMode()) {
-    case W8_TARGET_NEED_ALLY:
-    case W8_TARGET_NEED_ITEM:
-    case W8_TARGET_NEED_CHARACTER_INDIRECT:
-        return alternate + 3;
-    case W8_TARGET_NEED_ENEMY:
-        return alternate;
-    case W8_TARGET_NEED_GROUP:
-        return alternate ? 10 : 11;
-    case W8_TARGET_NEED_PLACE:
-        return 2;
-    case W8_TARGET_NEED_CONE:
-        return 12;
-    default:
-        return W8_CURSOR_NONE;
-    }
-}
-
 /* Whether this spell choice needs an explicit target in the interaction. */
 bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside)
 {
@@ -992,7 +952,7 @@ void RevalidateSelectedTarget(int party_slot)
     }
     const auto context = GetEditedActionContext(party_slot);
     if (!CharacterCanSwitchTo(party_slot, context, true, false)) {
-        SetTargetingMode(W8_TARGET_NEED_NONE);
+        CurrentGame().events.push(TargetingRequested{});
         return;
     }
     const auto selected = SelectCombatAction(party_slot, context);
@@ -1000,11 +960,8 @@ void RevalidateSelectedTarget(int party_slot)
     if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
         needed = GetTargetNeededForAction(CurrentGame().party, selected, MainGameHud() == nullptr);
     }
-    if (TargetMatchesNeeded(&selected.target, needed)) {
-        SetTargetingMode(W8_TARGET_NEED_NONE);
-    } else {
-        SetTargetingMode(needed);
-    }
+    CurrentGame().events.push(TargetingRequested{
+        TargetMatchesNeeded(&selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
 }
 
 /* Whether anything in `group` is close enough to `source` for the source's

@@ -139,13 +139,12 @@ W8MonsterGroup* FindFirstMonsterByID(int monster_id);
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
 bool GiveBirthToMonster(W8MonsterGroup* monster_group);
 W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name, bool announce_spawn, bool place_on_ground);
+                            bool use_alternate_name, bool place_on_ground);
 
 void ResetMonsterGroupTurnState(void);
 void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
-void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode);
 std::string GetMonsterGroupName(W8MonsterGroup* monster_group);
 void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 

@@ -54,7 +54,6 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -82,6 +81,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/activity.h"
@@ -697,9 +697,6 @@ std::optional<ScreenRequest> CampScreen::rebuildRequest(const ScreenRequest& ent
 
 void CampScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     ServiceMusicPlaylist();
     if (dialogs.ProcessInput()) InvalidateAll();
     if (game_.level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
@@ -1102,7 +1099,7 @@ void BeginEndgameSequence(void)
     bool endgame_variant = false;
 
     CurrentGame().status.endgame_started = true;
-    ResetPointerCursor();
+    ScreenPointer().reset();
     if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         fade_to_black = 1;
     } else if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
@@ -1203,7 +1200,7 @@ void BeginPartyDeath(void)
     if (CurrentGame().surprise_possible) {
         RestoreSurpriseView();
     }
-    ResetPointerCursor();
+    ScreenPointer().reset();
     wiz8::sound::play("Data\\Sound\\Misc\\PartyDead.wav");
     StartMusicResource("CombatLose.MPL", 0, 1);
     SelectUiInputOwner(W8_SCREEN_NONE); // No screen takes input during the fade.
@@ -1361,7 +1358,7 @@ void ShowEndingScreen(void)
     }
     if (*sound != 0) {
         g_ending_sound = wiz8::sound::stream(
-            sound, {.volume = std::uint32_t(g_settings.voice_volume * 0x7f / 0xff)});
+            sound, {.channel = wiz8::sound::VolumeChannel::voice, .gain_scale = 127.0f / 255.0f});
     }
     if (schedule_fade) {
         BeginScreenFade(fade_to_black, 1, 0x4b0, 0, true, 1);

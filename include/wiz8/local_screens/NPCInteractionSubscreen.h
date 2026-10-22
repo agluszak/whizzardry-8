@@ -116,9 +116,9 @@ void SyncDialogueNpcState(void);
    place-name table. While the transcript shows the notebook the new line
    appears there too, marked and with the keyword chime when `chime` is set. */
 void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bool chime);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
+void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette, W8QuoteNotice notice,
                               int npc_kind);
 void DrawNpcQuoteBubble(void);
@@ -149,7 +149,7 @@ void DrainNpcDialogueDeferralInput(void);
 void FlushInputWhileWorldCursorGate(void);
 void HandleNpcDialogueInput(void);
 /* Open the reply dialog for `request`, an entry of `script`. */
-void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, W8NpcQuoteEntry* request,
+void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuoteEntry* request,
                    int aux_data);
 void CloseNpcDialogueForCamp(void);
 void UpdateNpcDialogueSubMode(void);

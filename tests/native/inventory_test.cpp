@@ -11,7 +11,6 @@
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 
 namespace {

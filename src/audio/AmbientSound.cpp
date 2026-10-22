@@ -27,7 +27,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/chunk.h"
-#include "wiz8/containers.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -62,11 +61,13 @@ std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t m
 {
     return minimum + (maximum > minimum ? PresentationRng().below(maximum - minimum) : 0);
 }
-wiz8::sound::Playback W8AmbientTrack::Fire(std::uint32_t volume, std::optional<glm::vec3> position)
+wiz8::sound::Playback W8AmbientTrack::Fire(std::uint32_t volume, std::optional<glm::vec3> position,
+                                           float gain_scale)
 {
     auto playback = wiz8::sound::play(
         clip,
         {.volume = volume,
+         .gain_scale = gain_scale,
          .loops = loops.value_or(1),
          .rate = speed ? std::optional(RandomRange(speed->first, speed->second)) : std::nullopt,
          .group = wiz8::sound::Group::ambient,
@@ -117,9 +118,9 @@ void StartAmbientSoundList(World& world)
 }
 
 W8AmbientSound::W8AmbientSound()
-    : volume_min(0), volume_max(0), target_volume(0), current_volume(0), speed_min(0), speed_max(0),
-      time_min(0), time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(),
-      shared(0), bounded(0), region_angle(0)
+    : volume_min(0), volume_max(0), current_volume(0), speed_min(0), speed_max(0), time_min(0),
+      time_max(0), radius(0), in_range(0), looping(0), sound_handle(), random(), bounded(0),
+      region_angle(0)
 {
     config.wave_name[0] = 0;
     position = glm::vec3(0);
@@ -168,8 +169,6 @@ bool W8AmbientSound::IsInsideRegion(const glm::vec3* listener)
    fade at the bus-scaled maximum. */
 void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
 {
-    bool handed_off = false;
-
     if (stopped != 0) {
         return;
     }
@@ -181,49 +180,8 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
         if (radius <= distance || (bounded != 0 && inside == 0)) {
             if (in_range != 0) {
                 in_range = 0;
-                if (shared != 0) {
-                    W8AmbientSound* match = FindNextMatching(config.wave_name, 0);
-                    while (match != 0) {
-                        if (handed_off) {
-                            return;
-                        }
-                        {
-                            glm::vec3 to_match = *listener - match->position;
-                            unsigned char match_inside = match->IsInsideRegion(listener);
-                            if (glm::length(to_match) < match->radius &&
-                                (match->bounded == 0 || match_inside != 0) &&
-                                match->sound_handle == nullptr) {
-                                match->in_range = 1;
-                                match->sound_handle = sound_handle;
-                                match->target_volume =
-                                    (match->volume_max * g_settings.sound_effects_volume) / 0x7f;
-                                match->current_volume =
-                                    wiz8::sound::volume(sound_handle).value_or(0);
-                                match->fade_timer.SetDuration(1.5f / match->target_volume);
-                                match->fade_timer.Restart();
-                                match->fade_timer.m_flags.paused = false;
-                                match->fade_timer.m_start =
-                                    match->fade_timer.GetTime() - match->fade_timer.m_start;
-                                match->fade_timer.SetDuration(-1.0f);
-                                sound_handle = nullptr;
-                                handed_off = true;
-                            }
-                        }
-                        match = FindNextMatching(config.wave_name, match);
-                    }
-                    if (handed_off) {
-                        return;
-                    }
-                    target_volume = 0;
-                    {
-                        unsigned int full_volume =
-                            (volume_max * g_settings.sound_effects_volume) / 0x7f;
-                        fade_timer.SetDuration(1.5f / full_volume);
-                        fade_timer.Restart();
-                        fade_timer.m_flags.paused = false;
-                        fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-                        fade_timer.SetDuration(-1.0f);
-                    }
+                if (group) {
+                    group->updatePosition(*this, *listener);
                     return;
                 }
                 if (sound_handle != nullptr) {
@@ -237,12 +195,12 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
             in_range = 1;
             Service(true);
         }
-        if (shared == 0) {
+        if (!group) {
             if (sound_handle != nullptr) {
                 float angle = -GetCameraYawRadians();
                 glm::mat3 rotation;
                 glm::vec3 transformed;
-                unsigned int volume;
+                float gain_scale;
 
                 rotation = glm::mat3(1);
                 rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -250,28 +208,16 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
                 transformed = rotation * offset;
                 wiz8::sound::set_position(sound_handle, transformed);
                 if (radius * kNavigatorMode3Scale <= distance) {
-                    volume = current_volume;
+                    gain_scale = 1.0f;
                 } else {
-                    volume = static_cast<unsigned int>(
-                        (1.0f - (distance - radius * kNavigatorMode3Scale) /
-                                    (radius * g_ambient_sound_inner_radius_scale)) *
-                        current_volume);
+                    gain_scale = 1.0f - (distance - radius * kNavigatorMode3Scale) /
+                                            (radius * g_ambient_sound_inner_radius_scale);
                 }
-                wiz8::sound::set_volume(sound_handle, volume);
+                wiz8::sound::set_volume(sound_handle, current_volume, gain_scale);
             }
             return;
         }
-        {
-            unsigned int full_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
-            if (target_volume != full_volume) {
-                target_volume = full_volume;
-                fade_timer.SetDuration(1.5f / full_volume);
-                fade_timer.Restart();
-                fade_timer.m_flags.paused = false;
-                fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-                fade_timer.SetDuration(-1.0f);
-            }
-        }
+        group->updatePosition(*this, *listener);
     }
 }
 
@@ -288,8 +234,7 @@ void W8AmbientSound::Service(bool entered)
     if (looping == 0) {
         if (!random) {
             random = ReadRandomAmbient(config.wave_name, time_min, time_max, speed_min, speed_max,
-                                       (volume_min * g_settings.sound_effects_volume) / 0x7f,
-                                       (volume_max * g_settings.sound_effects_volume) / 0x7f);
+                                       volume_min, volume_max);
             if (random) random->Reschedule();
         }
         if (random != nullptr) {
@@ -310,7 +255,7 @@ void W8AmbientSound::Service(bool entered)
                 glm::vec3 to_listener;
                 float distance;
                 unsigned int volume;
-                unsigned int heard_volume;
+                float gain_scale;
 
                 camera = cameraLocation();
                 rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
@@ -319,19 +264,15 @@ void W8AmbientSound::Service(bool entered)
                 to_listener = camera - position;
                 distance = glm::length(to_listener);
                 volume = static_cast<unsigned int>(
-                    ((PresentationRng().below(volume_max - volume_min) + volume_min) *
-                     g_settings.sound_effects_volume) /
-                    0x7f);
+                    (PresentationRng().below(volume_max - volume_min) + volume_min));
                 current_volume = volume;
                 if (distance < radius * kNavigatorMode3Scale) {
-                    heard_volume = current_volume;
+                    gain_scale = 1.0f;
                 } else {
-                    heard_volume = static_cast<unsigned int>(
-                        (1.0f - (distance - radius * kNavigatorMode3Scale) /
-                                    (radius * g_ambient_sound_inner_radius_scale)) *
-                        current_volume);
+                    gain_scale = 1.0f - (distance - radius * kNavigatorMode3Scale) /
+                                            (radius * g_ambient_sound_inner_radius_scale);
                 }
-                sound_handle = random->Fire(heard_volume, transformed);
+                sound_handle = random->Fire(current_volume, transformed, gain_scale);
             }
         }
         return;
@@ -339,7 +280,7 @@ void W8AmbientSound::Service(bool entered)
     if (sound_handle != nullptr) {
         return;
     }
-    if (shared == 0) {
+    if (!group) {
         float angle = -GetCameraYawRadians();
         glm::vec3 camera;
         glm::mat3 rotation;
@@ -347,7 +288,7 @@ void W8AmbientSound::Service(bool entered)
         glm::vec3 transformed;
 
         camera = cameraLocation();
-        current_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
+        current_volume = volume_max;
         rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
         offset = position - camera;
         transformed = rotation * offset;
@@ -358,76 +299,91 @@ void W8AmbientSound::Service(bool entered)
         }
         return;
     }
-    if (wiz8::sound::is_file_playing(config.wave_name)) {
+    if (group) group->service(*this);
+}
+
+SharedAmbientGroup::~SharedAmbientGroup()
+{
+    wiz8::sound::stop(playback);
+}
+
+void SharedAmbientGroup::retarget(unsigned volume, unsigned full_volume)
+{
+    if (target_volume == volume) return;
+    target_volume = volume;
+    fade_timer.SetDuration(1.5f / std::max(full_volume, 1u));
+    fade_timer.Restart();
+    fade_timer.m_flags.paused = false;
+    fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
+    fade_timer.SetDuration(-1.0f);
+}
+
+void SharedAmbientGroup::service(W8AmbientSound& emitter)
+{
+    if (!emitter.in_range || emitter.stopped) return;
+    if (playback) {
+        if (!selected) {
+            selected = &emitter;
+            const auto full = emitter.volume_max;
+            retarget(full, full);
+        }
         return;
     }
-    {
-        current_volume = 0;
-        target_volume = (volume_max * g_settings.sound_effects_volume) / 0x7f;
-        sound_handle = wiz8::sound::play(config.wave_name, {.volume = 0, .loops = 0});
-        fade_timer.SetDuration(1.5f / target_volume);
-        fade_timer.Restart();
-        fade_timer.m_flags.paused = false;
-        fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-        fade_timer.SetDuration(-1.0f);
-    }
+    // Keep the existing interaction with unrelated playback of the same resolved file.
+    if (wiz8::sound::is_file_playing(resource)) return;
+    selected = &emitter;
+    current_volume = 0;
+    target_volume = 0;
+    playback = wiz8::sound::play(resource, {.volume = 0, .loops = 0});
+    retarget(emitter.volume_max, emitter.volume_max);
 }
 
-/* The contiguous class lifecycle and shared world-list accesses identify these
-   pre-assertion bodies as the same AmbientSound.cpp unit. */
-W8AmbientSound* W8AmbientSound::FindNextMatching(std::string_view match_name,
-                                                 W8AmbientSound* previous)
+void SharedAmbientGroup::updatePosition(W8AmbientSound& emitter, const glm::vec3& listener)
 {
-    int count;
-    int index;
-
-    if (GetWorld() == 0) {
-        return 0;
-    }
-    count = static_cast<int>(GetWorld()->audio.emitters.size());
-    if (previous == 0) {
-        index = 0;
-    } else {
-        index = wiz8::index_of(GetWorld()->audio.emitters, previous,
-                               [](const auto& owner) { return owner.get(); }) +
-                1;
-        if (index < 0 || index > count) {
-            return 0;
-        }
-    }
-    for (; index < count; ++index) {
-        W8AmbientSound* candidate = GetWorldAmbientSound(GetWorld(), index);
-        if (candidate != 0 && candidate != this && candidate->shared != 0 &&
-            CompareTextIgnoreAsciiCase(candidate->config.wave_name, match_name) == 0) {
-            return candidate;
-        }
-    }
-    return 0;
-}
-
-void W8AmbientSound::UpdateFade()
-{
-    if (shared != 0) {
-        if (sound_handle != nullptr) {
-            W8GameTimer* timer = &fade_timer;
-
-            if (timer->GetProgress() >= 1.0f) {
-                if (target_volume > current_volume) {
-                    ++current_volume;
-                } else if (target_volume < current_volume) {
-                    --current_volume;
-                } else if (!timer->m_flags.paused) {
-                    timer->m_flags.paused = true;
-                    timer->m_start = timer->GetTime() - timer->m_start;
-                }
-                wiz8::sound::set_volume(sound_handle, current_volume);
+    if (selected != &emitter) return;
+    if (!emitter.in_range) {
+        // Preserve first matching emitter priority, rather than choosing the loudest.
+        selected = nullptr;
+        for (auto* candidate : emitters) {
+            if (candidate == &emitter || candidate->stopped) continue;
+            if (glm::length(listener - candidate->position) < candidate->radius &&
+                (!candidate->bounded || candidate->IsInsideRegion(&listener))) {
+                selected = candidate;
+                candidate->in_range = 1;
+                break;
             }
         }
-        if (in_range == 0 && target_volume == current_volume && sound_handle != nullptr) {
-            wiz8::sound::stop(sound_handle);
-            sound_handle = nullptr;
-        }
     }
+    const auto full = (selected ? selected->volume_max : emitter.volume_max);
+    retarget(selected ? full : 0, full);
+}
+
+void SharedAmbientGroup::updateFade()
+{
+    if (!playback) return;
+    if (fade_timer.GetProgress() >= 1.0f) {
+        if (current_volume < target_volume)
+            ++current_volume;
+        else if (current_volume > target_volume)
+            --current_volume;
+        else if (!fade_timer.m_flags.paused) {
+            fade_timer.m_flags.paused = true;
+            fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
+        }
+        wiz8::sound::set_volume(playback, current_volume);
+    }
+    if (!selected && current_volume == target_volume) {
+        wiz8::sound::stop(playback);
+        playback = nullptr;
+    }
+}
+
+void SharedAmbientGroup::stop(W8AmbientSound& emitter)
+{
+    if (selected != &emitter) return;
+    wiz8::sound::stop(playback);
+    playback = nullptr;
+    selected = nullptr;
 }
 
 void UpdateAmbientSounds(World* world)
@@ -442,11 +398,10 @@ void UpdateAmbientSounds(World* world)
             W8AmbientSound* sound = GetWorldAmbientSound(world, index);
             if (sound != 0) {
                 sound->Service(false);
-                sound->UpdateFade();
             }
         }
-        world->audio.update(cameraLocation(), GetCameraYawRadians(),
-                            g_settings.sound_effects_volume);
+        for (auto& group : world->audio.shared_groups) group->updateFade();
+        world->audio.update(cameraLocation(), GetCameraYawRadians());
     }
 }
 
@@ -505,7 +460,7 @@ wiz8::sound::Playback PlayFootstep(W8FootstepSurface surface, W8FootstepMaterial
         BuildFootstepPath(path, selected_surface, selected_material, kind, variant);
         g_previous_ambient_footstep_variant = variant;
     }
-    return wiz8::sound::play(path, {.volume = std::uint32_t(g_settings.footstep_volume)});
+    return wiz8::sound::play(path, {.channel = wiz8::sound::VolumeChannel::footsteps});
 }
 
 // FUNCTION: WIZ8 0x0047a540
@@ -582,7 +537,19 @@ bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundCo
     sound->radius = radius;
     sound->looping = looping;
     sound->bounded = bounded;
-    sound->shared = shared;
+    if (shared) {
+        auto found = std::ranges::find_if(world->audio.shared_groups, [&](const auto& group) {
+            return CompareTextIgnoreAsciiCase(group->resource, config->wave_name) == 0;
+        });
+        if (found == world->audio.shared_groups.end()) {
+            auto group = std::make_unique<SharedAmbientGroup>();
+            group->resource = config->wave_name;
+            world->audio.shared_groups.push_back(std::move(group));
+            sound->group = world->audio.shared_groups.back().get();
+        } else
+            sound->group = found->get();
+        sound->group->emitters.push_back(sound.get());
+    }
     world->audio.emitters.push_back(std::move(sound));
     return true;
 }
@@ -612,6 +579,7 @@ static void StartAmbientSoundAtCamera(W8AmbientSound* sound)
 
 static void StopAmbientSound(W8AmbientSound* sound)
 {
+    if (sound->group) sound->group->stop(*sound);
     wiz8::sound::stop(sound->sound_handle);
     sound->in_range = 0;
     sound->stopped = 1;
@@ -664,8 +632,7 @@ try {
         const auto path = fmt::format("{}\\{}", directory, name);
         if (direct_selector == -1) {
             const auto volume = [](int value) {
-                return value == -1 ? std::uint32_t(g_settings.sound_effects_volume)
-                                   : std::uint32_t(value);
+                return value == -1 ? std::uint32_t(127) : std::uint32_t(value);
             };
             auto track =
                 ReadRandomAmbient(path.c_str(), configured[0], configured[1], configured[2],
@@ -675,8 +642,7 @@ try {
             auto track = std::make_unique<W8AmbientTrack>();
             track->clip = wiz8::sound::load(path);
             if (!track->clip) continue;
-            track->volume_min = track->volume_max =
-                std::uint32_t((g_settings.sound_effects_volume * configured[5]) / 0x7f);
+            track->volume_min = track->volume_max = std::uint32_t(configured[5]);
             track->loops = std::uint32_t(direct_selector);
             world.audio.tracks.push_back(std::move(track));
         }
@@ -686,49 +652,10 @@ try {
     return false;
 }
 
-/* The volume/mute helpers operate on the whole sound-effects bus, not just the
-   ambient list: each writes the configured effects volume through the SGP
-   default, then re-drives every live ambient voice and 3D instance so the new
-   level is heard immediately. */
 void SetSoundEffectsVolume(unsigned char volume)
 {
-    World* world;
-    int count;
-    int index;
-
     g_settings.sound_effects_volume = volume;
-    wiz8::sound::set_default_volume(volume);
-    if (GetWorld() != 0) {
-        count = static_cast<int>(GetWorld()->audio.emitters.size());
-        for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
-            if (sound != 0) {
-                if (sound->sound_handle != nullptr) {
-                    unsigned int adjusted =
-                        (sound->volume_max * g_settings.sound_effects_volume) / 0x7f;
-                    sound->target_volume = adjusted;
-                    sound->current_volume = adjusted;
-                    wiz8::sound::set_volume(sound->sound_handle, adjusted);
-                }
-                sound->in_range = 0;
-            }
-        }
-        GetWorld()->audio.update(cameraLocation(), GetCameraYawRadians(),
-                                 g_settings.sound_effects_volume);
-    }
-    world = GetWorld();
-    if (world != 0) {
-        ServiceRandomAmbients(*world);
-        count = static_cast<int>(world->audio.emitters.size());
-        for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(world, index);
-            if (sound != 0) {
-                glm::vec3 position = cameraLocation();
-                sound->UpdatePosition(&position);
-            }
-        }
-        UpdateAmbientSounds(world);
-    }
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, volume);
 }
 
 bool IsSoundEffectsMuted(void)
@@ -790,10 +717,10 @@ void ApplyAmbientSoundStates(World& world, std::span<const W8AmbientSoundState> 
             if (sound->name == name) sound->stopped = stopped;
 }
 
-void AmbientAudioSystem::update(const glm::vec3& listener, float yaw, unsigned effects_volume)
+void AmbientAudioSystem::update(const glm::vec3& listener, float yaw)
 {
-    for (auto& sound : script_sounds) sound->Update(listener, yaw, effects_volume);
-    for (auto& sound : one_shots) sound->Update(listener, yaw, effects_volume);
+    for (auto& sound : script_sounds) sound->Update(listener, yaw);
+    for (auto& sound : one_shots) sound->Update(listener, yaw);
     std::erase_if(one_shots, [](const auto& sound) { return !sound->IsPlaying(); });
 }
 

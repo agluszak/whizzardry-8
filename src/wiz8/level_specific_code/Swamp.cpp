@@ -22,7 +22,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -122,7 +121,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
         gasFireSpawn(pTrigger);
         return false;
     }
-    position = glm::vec3(world().camera->transform.getLocation());
+    position = cameraLocation(world());
     PointCastSpell(position, spell_id, 4);
     return true;
 }
@@ -161,7 +160,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
                    pTrigger->representation_vectors[2].z + pTrigger->representation_vectors[3].z) *
                       0.25);
     position = center;
-    group = SpawnMonsters(0x1b5, 1, &position, 0, true, false, false);
+    group = SpawnMonsters(0x1b5, 1, &position, 0, true, false);
     index = group->MemberLocationId(0);
     if (index != 0) {
         monster_info = FindMonster(index);

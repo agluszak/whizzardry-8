@@ -5,7 +5,6 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <variant>
 
@@ -72,6 +71,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -102,7 +102,6 @@ constexpr unsigned int kFleeChance = 15;
 
 /* The per-character combat rows live at +0x18 of the combat state and run
    0xd4 bytes apart; the state's leading 0x18 bytes are its own header. */
-static bool g_combat_log_enabled;
 /* A hostile NPC's combat-start script notice is queued and not yet shown. */
 static bool g_npc_combat_notice_pending;
 
@@ -644,14 +643,6 @@ void RecordCharacterDeath(int party_slot)
     }
 }
 
-/* Post one line to the combat log, if the log is on. The whole line is
-   formatted whether or not it will be shown. */
-void CombatLog(std::string_view text)
-{
-    if (g_combat_log_enabled)
-        CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BROWN, std::string(text)});
-}
-
 /* Start a fresh round: lift the one action that does not survive it and clear
    the two round flags. */
 void BeginCombatRound(void)
@@ -977,7 +968,7 @@ void Game::endCombat(bool forced_cleanup)
     }
     CurrentGame().events.push(PartyEffectsChanged{});
 
-    SetTargetingMode(W8_TARGET_NEED_NONE);
+    CurrentGame().events.push(TargetingRequested{});
     RemoveConditionFromEveryone(W8_CONDITION_SLOWED);
     LiftConditionFromParty(*this, W8_CONDITION_TURNCOAT);
     RemoveAllEnchantments();
@@ -1126,11 +1117,11 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     }
     if (!PartyMovementPanelShown()) {
         CreatePartyMovementPanel();
-        SetTargetingMode(W8_TARGET_NEED_NONE);
+        CurrentGame().events.push(TargetingRequested{});
         return;
     }
     InvalidatePartyMovementPanel();
-    SetTargetingMode(W8_TARGET_NEED_NONE);
+    CurrentGame().events.push(TargetingRequested{});
 }
 
 /* Record the chosen in-combat action on the slot row, copy its detail block,
@@ -1214,7 +1205,7 @@ enum class SwitchGate : std::uint8_t { Allow, Refuse, CheckAction };
    slot has to be able to act. */
 SwitchGate GateActionSwitch(int party_slot)
 {
-    if (TargetingMode() == W8_TARGET_NEED_NONE && IsScreenIdle()) {
+    if (ScreenPointer().targeting() == W8_TARGET_NEED_NONE && IsScreenIdle()) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
             if (IsPartySlotEligible(slot)) {
                 return SwitchGate::Allow;
@@ -1390,8 +1381,8 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 void AutoAdvanceSelectedCharacter(void)
 {
     if (g_settings.auto_advance_character == 0 || CurrentGame().combat->target_picked ||
-        !CurrentGame().combat->round_active || TargetingMode() != W8_TARGET_NEED_NONE || gpSCSV ||
-        ItemUseDraft()) {
+        !CurrentGame().combat->round_active || ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
+        gpSCSV || ItemUseDraft()) {
         return;
     }
     int selected = CurrentGame().status.selected_character;

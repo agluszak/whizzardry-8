@@ -209,8 +209,8 @@ TEST_CASE("The map view draws explored static geometry without changing gameplay
     floor->setMaterial(material, 0, Mesh::SIDE_FRONT);
     auto hidden = solidTexture(0xffffffff);
     hidden->setName("Hidden");
-    floor->getPolygonTextureTable(0, 0, true)->set(2, hidden);
-    floor->getPolygonTextureTable(0, 0, true)->set(3, hidden);
+    (*floor->getPolygonTextureTable(0, 0, true))[2] = hidden;
+    (*floor->getPolygonTextureTable(0, 0, true))[3] = hidden;
     floor->GetVertexSunlight(true);
     std::ranges::fill(floor->GetVertexLights(true), glm::vec3(0, .25f, 0));
     auto owned_floor = std::make_unique<MeshInstance>();

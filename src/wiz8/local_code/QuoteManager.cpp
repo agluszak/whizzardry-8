@@ -322,6 +322,7 @@ void SetVoiceMuted(unsigned char muted)
         g_settings.voice_volume = g_settings.muted_voice_volume;
         g_settings.muted_voice_volume = 0xff;
     }
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::voice, g_settings.voice_volume);
 }
 
 static void CharacterEventSoundEndCallback(W8CharacterEvent* entry)
@@ -627,7 +628,8 @@ bool W8CharacterEvent::PlayEventSound(std::string_view quote)
     }
     wiz8::sound::stop(voice_playback);
     voice_playback = wiz8::sound::play(
-        sound_path, {.volume = std::uint32_t((volume * (g_settings.voice_volume & 0xff)) / 0x7f),
+        sound_path, {.volume = std::uint32_t(volume),
+                     .channel = wiz8::sound::VolumeChannel::voice,
                      .on_finished = [this] { CharacterEventSoundEndCallback(this); }});
     BeginPortraitVoice(party_slot, voice_playback, sound_path,
                        ComputePortraitMessageDuration(
@@ -697,17 +699,9 @@ bool W8CharacterEvent::Dispatch()
                 GetLoadedLevelID() != 0) {
                 return false;
             }
-            if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
-                SetNpcScriptEventActive(1);
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
-            }
-            CurrentGame().npc_dialogue.Begin(npc, true);
+            CurrentGame().npc_dialogue.Begin(npc, true, (flags & W8_EVENT_NPC_SCRIPT) != 0);
             CurrentGame().npc_dialogue.Speak(MakeScriptContext(CurrentGame()), event_type,
                                              (flags & W8_EVENT_NPC_SCRIPT) != 0);
-            if ((flags & W8_EVENT_NPC_SCRIPT) != 0) {
-                SetNpcScriptEventActive(0);
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
-            }
             slot->active_character_event = this;
             CurrentGame().speech.RecordDispatchedEvent(event_type, party_slot);
             return true;

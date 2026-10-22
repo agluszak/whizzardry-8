@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <cassert>
 
-#include <fmt/format.h>
-
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
@@ -221,8 +219,6 @@ prepare_attack:
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
     if (static_cast<unsigned int>(missile_type) >= Data().missiles.size()) {
-        DebugMessage(0, fmt::format("WARNING: {} has invalid missile type {:d} for attack {:d}",
-                                    record->name0, missile_type, attack_index));
         missile_type = 0;
     }
 
@@ -237,7 +233,6 @@ prepare_attack:
     if (selected_attack) {
         accuracy = GetMonsterAttackScore(monster_info, attack,
                                          static_cast<W8AttackMode>(monster_info->action_detail), 0);
-        CombatLog(fmt::format("TO HIT (MISSILE ACCURACY): Chance {:d}", accuracy));
     } else {
         accuracy = 50;
     }
