@@ -490,26 +490,25 @@ Unlayered code may use the layers.
   compare against it and swings read its damage bonuses (retail scores swings with
   the bonus its previous calculation left), so a second pass, as after a fatigue-band
   change, cannot change the result. Every change a statistic depends on settles the
-  party (`SettleParty`). The creation editor, which edits effective
+  party (`SettleActiveParty`). The creation editor, which edits effective
   attributes and skill levels itself, recalculates without re-evaluating them
   (`RecalculateEditedCharacterStats`), and learning a spell rebuilds the realm
   ceilings for every profession, as retail does, and lets the pools follow.
-- **Conditions.** `party_conditions.h` holds a member's conditions and enchantments,
-  death and the party's settlement as rules over a `RuleContext` and a `PartyHost`.
-  The rules change the party, draw from the game's stream and push notices, display
-  changes and `CharacterDied`; the host supplies what they read from the game (the
-  statistic rules, the world's suspension, the level band, a swallowing monster's level,
-  whether a fight still owes a full cheat-death revival) and applies what they owe it
-  (unequipping through the inventory, combat's hand and death bookkeeping, formation
-  seats and the portrait pose, sight refreshes, targeting, the NPC's state and the
-  members' spoken reactions), each at the point the rules reach it so the order of
-  consequences and draws is kept. Inflicting, lifting, aging and enchanting rebuild
-  the member's condition block and settle the party once; settling kills a member whose
-  pool ran out, and death's own bookkeeping happens only when the death condition
-  takes hold. `live_party.h` applies the rules to the game's party with the game as
-  host (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …), and the
-  presenter plays the death sound. Monster conditions stay with the world's monster
-  records (`ConditionsAndEnchantments.cpp`).
+- **Conditions.** `live_party.h` holds a member's conditions and enchantments, death
+  and the party's settlement as game operations on an explicit `Game&`
+  (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …). Each reads
+  as one sequence: it changes the party, draws from the game's stream, pushes notices,
+  display changes and `CharacterDied`, and applies its consequences for inventory,
+  combat bookkeeping, formation seats and the portrait pose, sight, targeting, the
+  NPC's state and the members' spoken reactions in place, so the order of
+  consequences and draws is kept. The self-contained calculations they need live in
+  `rules/party_conditions.h` over explicit inputs: durations, trait resistance, what
+  holds a hex or insanity, the highest condition, poison aging, cheat-death turns and
+  hit points, enchantment strength and the condition block. Inflicting, lifting, aging
+  and enchanting rebuild the member's condition block and settle the party once;
+  settling kills a member whose pool ran out, and death's own bookkeeping happens only
+  when the death condition takes hold. The presenter plays the death sound. Monster
+  conditions stay with the world's monster records (`ConditionsAndEnchantments.cpp`).
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,
   and cancelling it prevents late completions from restarting idle dialogue.
