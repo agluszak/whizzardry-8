@@ -14,7 +14,6 @@
 #include <fmt/format.h>
 
 #include "layouts/main_game_screen.h"
-#include "layouts/npc_dialogue.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/MonsterManager.h"
 #include "wiz8/audio/soundman.h"
@@ -50,7 +49,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"

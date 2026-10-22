@@ -22,7 +22,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/AutomapScreen.h"

@@ -27,7 +27,6 @@ enum W8TextBoxArrowState : unsigned char {
 static_assert(sizeof(W8TextBoxArrowState) == sizeof(unsigned char));
 
 #include <memory>
-#include <optional>
 
 #include "wiz8/render/compositor.h"
 

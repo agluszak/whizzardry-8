@@ -64,7 +64,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Magic.h"
