@@ -847,11 +847,11 @@ UiResult W8CampSkillsPage::HandleCampSkillList(const UiPointerEvent& event,
    the CGSSpellsPage anchor; their retail span 0x005C6460..0x005C7D60 matches
    demo 0x005CFAD0..0x005D0FE0 inside the same hull. */
 
-void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
-                                              W8CharacterCreationState* creation_state,
-                                              W8CharacterScreenMode mode)
+W8CharacterPersonalityPage::W8CharacterPersonalityPage(CharacterScreen& owner)
+    : W8CharacterPage(owner, CatalogArtwork::Load(0x105)),
+      anim_timer(0.4f, TimerClock::Presentation), m_animation_active(false)
 {
-    W8CharacterPage::SetCharacter(character, creation_state, mode);
+    auto* character = &screen.draft.character;
     constexpr SDL_Point positions[] = {
         {100, 0x19}, {0x144, 0x19}, {100, 0x67}, {0x144, 0x67}, {0x16d, 0x155}};
     for (int button_index = 0; button_index < 5; ++button_index) {
@@ -888,11 +888,11 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
                                event.button == UiPointerButton::Left && event.captured_buttons) {
                                AfterUiDispatch([this, index, voice] {
                                    if (voice)
-                                       m_character->voice = index - 9;
+                                       screen.draft.character.voice = index - 9;
                                    else
-                                       m_character->personality = index;
+                                       screen.draft.character.personality = index;
                                    m_description_dirty = true;
-                                   m_screen->UpdateNavigation(this);
+                                   screen.UpdateNavigation(this);
                                });
                            }
                            return UiResult::Handled;
@@ -903,13 +903,13 @@ void W8CharacterPersonalityPage::SetCharacter(W8Character* character,
 void W8CharacterPersonalityPage::Activate()
 {
     input.setEnabled(true);
-    m_prepared = true;
+    m_instructions_dirty = true;
     auto& fields = m_text_fields.emplace(input, g_wiz_text_mono_font);
     fields.UseGameStyle();
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xab, 0x106, 0x10,
-               0x7f, m_character->name_part_2, 0x27, 0xf, true);
+               0x7f, screen.draft.character.name_part_2, 0x27, 0xf, true);
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xc7, 0x106, 0x10,
-               0x7f, m_character->name, 9, 0xf, true);
+               0x7f, screen.draft.character.name, 9, 0xf, true);
     if (fields.Text(0).empty())
         fields.Focus(0);
     else if (fields.Text(1).empty())
@@ -925,33 +925,34 @@ void W8CharacterPersonalityPage::Deactivate()
 
 void W8CharacterPersonalityPage::Accept()
 {
-    if (m_mode == W8_CHARACTER_CREATE) {
-        InvalidateAndRecalculateCharacterClassData(m_character);
+    if (screen.m_mode == W8_CHARACTER_CREATE) {
+        InvalidateAndRecalculateCharacterClassData((&screen.draft.character));
     } else {
-        W8Character* original = m_screen->GetOriginalCharacter();
-        m_character->personality = original->personality;
-        m_character->portrait_index = original->portrait_index;
-        m_character->voice = original->voice;
-        m_character->name_part_2 = original->name_part_2;
-        m_character->name = original->name;
+        W8Character* original = screen.GetOriginalCharacter();
+        screen.draft.character.personality = original->personality;
+        screen.draft.character.portrait_index = original->portrait_index;
+        screen.draft.character.voice = original->voice;
+        screen.draft.character.name_part_2 = original->name_part_2;
+        screen.draft.character.name = original->name;
     }
     Refresh();
     InvalidateAll();
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
 }
 
 void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled =
         m_text_fields && m_text_fields->Text(0).size() != 0 && m_text_fields->Text(1).size() != 0;
-    if (m_mode != W8_CHARACTER_CREATE) {
-        W8Character* original = m_screen->GetOriginalCharacter();
+    if (screen.m_mode != W8_CHARACTER_CREATE) {
+        W8Character* original = screen.GetOriginalCharacter();
         *exit_enabled = false;
-        if (m_character->personality == original->personality &&
-            m_character->portrait_index == original->portrait_index &&
-            m_character->voice == original->voice &&
-            strcmp(m_character->name_part_2.c_str(), original->name_part_2.c_str()) == 0 &&
-            strcmp(m_character->name.c_str(), original->name.c_str()) == 0) {
+        if (screen.draft.character.personality == original->personality &&
+            screen.draft.character.portrait_index == original->portrait_index &&
+            screen.draft.character.voice == original->voice &&
+            strcmp(screen.draft.character.name_part_2.c_str(), original->name_part_2.c_str()) ==
+                0 &&
+            strcmp(screen.draft.character.name.c_str(), original->name.c_str()) == 0) {
             return;
         }
         *exit_enabled = true;
@@ -962,7 +963,7 @@ void W8CharacterPersonalityPage::GetNavigationState(bool* next_enabled, bool* ex
 
 void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
 {
-    if (m_screen->HasDialog()) return;
+    if (screen.HasDialog()) return;
     if (!IsTypingEvent(*input)) {
         return;
     }
@@ -980,18 +981,18 @@ void W8CharacterPersonalityPage::HandleInput(const InputEvent* input)
 
     const int field = m_text_fields->FocusedId();
     if (field == 0) {
-        m_character->name_part_2 = m_text_fields->Text(0);
+        screen.draft.character.name_part_2 = m_text_fields->Text(0);
     } else if (field == 1) {
-        m_character->name = m_text_fields->Text(1);
+        screen.draft.character.name = m_text_fields->Text(1);
     }
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
 }
 
 void W8CharacterPersonalityPage::Refresh()
 {
     if (m_text_fields) {
-        m_text_fields->SetText(0, m_character->name_part_2);
-        m_text_fields->SetText(1, m_character->name);
+        m_text_fields->SetText(0, screen.draft.character.name_part_2);
+        m_text_fields->SetText(1, screen.draft.character.name);
     }
     m_choices_dirty = true;
 }
@@ -1020,7 +1021,8 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (redraw || full_redraw || m_choices_dirty) {
         for (int index = 0; index < 11; ++index) {
             const bool voice = index >= 9;
-            const int selected = voice ? m_character->voice + 9 : m_character->personality;
+            const int selected =
+                voice ? screen.draft.character.voice + 9 : screen.draft.character.personality;
             const int frame = 5 + (selected == index ? 2 : 0) + m_choices[index]->hovered();
             const int x = 0xc3 + (voice ? 0x21 : (index % 3) * 0x80 + 0x24);
             const int y = 0x2b + (voice ? (index == 9 ? 0x140 : 0x15d) : (index / 3) * 14 + 0x107);
@@ -1028,7 +1030,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         }
         m_choices_dirty = false;
     }
-    if (!m_screen->HasDialog() && m_text_fields) {
+    if (!screen.HasDialog() && m_text_fields) {
         m_text_fields->RenderAll(GetFrameBufferSurface());
     }
 
@@ -1100,7 +1102,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 
     if (m_portrait_dirty) {
-        CatalogArtwork::Load(0x11, m_character->portrait_index)
+        CatalogArtwork::Load(0x11, screen.draft.character.portrait_index)
             .drawAndInvalidate(target, 0, W8CharacterPage::bounds.x + 0x86,
                                W8CharacterPage::bounds.y + 5, {}, BitmapKey::Opaque);
         m_portrait_dirty = false;
@@ -1116,32 +1118,32 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = W8CharacterPage::bounds.x + 0x150;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.SetText(GetPartyQuoteText(*m_character, 0), g_wiz_text_font_secondary);
+        text.SetText(GetPartyQuoteText(screen.draft.character, 0), g_wiz_text_font_secondary);
         text.FillBounds(target, 0x8000);
         text.RenderToTarget(0, true, target);
         m_description_dirty = false;
     }
 
-    if (m_prepared) {
+    if (m_instructions_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {9, 0xec, 0xbd, 0x184};
         text.RenderString(&bounds, Data().strings[0xe9], g_wiz_text_font_secondary, true, target);
-        m_prepared = false;
+        m_instructions_dirty = false;
     }
 }
 
 void W8CharacterPersonalityPage::ChangePortrait(W8CharacterPortraitAction action)
 {
-    int portrait = m_character->portrait_index;
+    int portrait = screen.draft.character.portrait_index;
     if (action == W8CharacterPortraitAction::next_group) {
         int group = g_portrait_descriptors[portrait].group + 1;
         if (group > 11) group = 0;
-        m_character->portrait_index = g_portrait_groups[group].portraits[0];
+        screen.draft.character.portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
     } else if (action == W8CharacterPortraitAction::previous_group) {
         int group = g_portrait_descriptors[portrait].group - 1;
         if (group < 0) group = 11;
-        m_character->portrait_index = g_portrait_groups[group].portraits[0];
+        screen.draft.character.portrait_index = g_portrait_groups[group].portraits[0];
         m_portrait_dirty = true;
     } else if (action == W8CharacterPortraitAction::next_portrait ||
                action == W8CharacterPortraitAction::previous_portrait) {
@@ -1158,7 +1160,7 @@ void W8CharacterPersonalityPage::ChangePortrait(W8CharacterPortraitAction action
             --index;
             if (index < 0) index = portraits->count - 1;
         }
-        m_character->portrait_index = portraits->portraits[index];
+        screen.draft.character.portrait_index = portraits->portraits[index];
         m_portrait_dirty = true;
     } else if (action == W8CharacterPortraitAction::show_summary) {
         m_animation_active = true;
@@ -1166,24 +1168,17 @@ void W8CharacterPersonalityPage::ChangePortrait(W8CharacterPortraitAction action
         anim_timer.Restart();
         ShadowRect(GetFrameBufferSurface(), {0, 0, 0x281, 0x1e1});
         ResetTransientRenderScenes();
-        m_screen->ShowCharacterSummary();
+        screen.ShowCharacterSummary();
     }
 
     if (action != W8CharacterPortraitAction::show_summary) {
-        m_screen->UpdateNavigation(this);
+        screen.UpdateNavigation(this);
     }
 }
 
-std::unique_ptr<W8CharacterPage> CreateCharacterPersonalityPage()
+W8CharacterSkillsPage::W8CharacterSkillsPage(CharacterScreen& owner)
+    : W8CharacterPage(owner, CatalogArtwork::Load(0x108))
 {
-    return std::make_unique<W8CharacterPersonalityPage>();
-}
-
-void W8CharacterSkillsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state,
-                                         W8CharacterScreenMode mode)
-{
-    W8CharacterPage::SetCharacter(character, creation_state, mode);
     int category_count[5] = {0, 0, 0, 0, 0};
     for (auto& skill_attribute : g_skill_attributes) {
         const auto category = skill_attribute.category;
@@ -1197,7 +1192,6 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         ++category_count[category_index];
     }
-    nav_next_state = false;
 }
 
 void W8CharacterSkillsPage::Activate()
@@ -1205,7 +1199,7 @@ void W8CharacterSkillsPage::Activate()
     input.setEnabled(true);
     Refresh();
     m_contentDirty = true;
-    m_prepared = true;
+    m_instructions_dirty = true;
 }
 
 void W8CharacterSkillsPage::Deactivate()
@@ -1215,10 +1209,10 @@ void W8CharacterSkillsPage::Deactivate()
 
 void W8CharacterSkillsPage::Accept()
 {
-    RefundAllSkillPoints(m_character, m_creation_state);
+    screen.draft.refundAllSkillPoints();
     InvalidateAll();
     m_contentDirty = true;
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
     for (const auto& entry : m_entries) {
         entry->UpdateButtons();
     }
@@ -1226,27 +1220,24 @@ void W8CharacterSkillsPage::Accept()
 
 void W8CharacterSkillsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
-    *next_enabled = m_creation_state->skills_complete;
-    *exit_enabled = m_creation_state->skill_points_remaining < m_creation_state->skill_points_total;
-    if (*next_enabled != nav_next_state) {
-        for (const auto& entry : m_entries) {
-            entry->SetIncrementAllowed(!*next_enabled);
-        }
-        nav_next_state = *next_enabled;
-    }
+    *next_enabled = screen.draft.skillsComplete();
+    *exit_enabled =
+        screen.draft.allocation.skill_points_remaining < screen.draft.allocation.skill_points_total;
+    for (const auto& entry : m_entries) entry->SetIncrementAllowed(!*next_enabled);
 }
 
 void W8CharacterSkillsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
     m_contentDirty = true;
-    InitializeLevelUpAttributePool(m_character, m_creation_state, entry->m_id, delta);
-    m_screen->UpdateNavigation(this);
+    screen.draft.adjustSkill(entry->m_id, delta);
+    Refresh();
+    screen.UpdateNavigation(this);
 }
 
 void W8CharacterSkillsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 {
-    m_screen->ShowSkillInfo(static_cast<W8Skill>(entry->m_id));
+    screen.ShowSkillInfo(static_cast<W8Skill>(entry->m_id));
 }
 
 void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
@@ -1277,7 +1268,7 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
         }
     }
 
-    if (m_prepared) {
+    if (m_instructions_dirty) {
         W8TextBuffer text;
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
         text.RenderString(&bounds, Data().strings[0xe8], g_wiz_text_font_secondary, true, target);
@@ -1295,9 +1286,9 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x162);
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.RenderString(fmt::format("{:d}", m_creation_state->skill_step_limit),
+        text.RenderString(fmt::format("{:d}", screen.draft.allocation.skill_step_limit),
                           g_options_detail_font, true, target);
-        m_prepared = false;
+        m_instructions_dirty = false;
     }
 
     if (m_contentDirty) {
@@ -1306,8 +1297,8 @@ void W8CharacterSkillsPage::Redraw(SDL_Surface& target, bool full_redraw)
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x184);
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->skill_points_remaining,
-                                      m_creation_state->skill_points_total),
+        text.RenderString(fmt::format("{:d}/{:d}", screen.draft.allocation.skill_points_remaining,
+                                      screen.draft.allocation.skill_points_total),
                           g_options_detail_font, true, target);
         m_contentDirty = false;
     }
@@ -1323,7 +1314,7 @@ void W8CharacterSkillsPage::UpdateEntries()
     int category_count[5] = {0, 0, 0, 0, 0};
     m_show_fifth_category = false;
     for (int skill = 0; skill < 0x29; ++skill) {
-        W8CharacterSkill* value = &m_character->skills[skill];
+        W8CharacterSkill* value = &screen.draft.character.skills[skill];
         if (value->active || value->points != 0) {
             const auto category = g_skill_attributes[skill].category;
             const int category_index = static_cast<int>(category);
@@ -1339,17 +1330,12 @@ void W8CharacterSkillsPage::UpdateEntries()
             ++category_count[category_index];
             if (category == W8_SKILL_CATEGORY_EXPERT) m_show_fifth_category = true;
             entry->SetContent(skill, Data().strings[g_character_skill_name_ids[skill]],
-                              &value->points, &m_creation_state->skill_points_spent[skill],
-                              &m_creation_state->skill_limits[skill], 0x101);
+                              &value->points, &screen.draft.allocation.skill_points_spent[skill],
+                              &screen.draft.allocation.skill_limits[skill], 0x101);
             entry->SetLabelFontState(
-                skill == g_profession_bonus_skills[m_character->iProfession] ? 3 : -1);
+                skill == g_profession_bonus_skills[screen.draft.character.iProfession] ? 3 : -1);
         }
     }
-}
-
-std::unique_ptr<W8CharacterPage> CreateCharacterSkillsPage()
-{
-    return std::make_unique<W8CharacterSkillsPage>();
 }
 
 void W8CharacterSkillsPage::Refresh()
