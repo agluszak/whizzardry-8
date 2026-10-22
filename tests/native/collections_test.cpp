@@ -931,7 +931,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
         auto& monster = representations[index];
-        monster = std::make_unique<Monster>(GetWorld());
+        monster = std::make_unique<Monster>(*GetWorld());
         monster->location_id = index + 1;
         monster->nav.movement.leadership_rank = 0;
         record->entity.attach(*monster);

@@ -1056,7 +1056,8 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
 TEST_CASE("Representation transform queries preserve local and parent coordinates",
           "[geometry][transform]")
 {
-    Monster rep;
+    World owner;
+    Monster rep(owner);
     rep.visual.parent_location = {10, 20, 30};
     const glm::vec3 local(1, 2, 3);
     rep.visual.SetLocation(&local);
@@ -1079,7 +1080,8 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
 
 TEST_CASE("Navigator owns its replaceable path", "[geometry][navigation]")
 {
-    Navigator navigator;
+    World owner;
+    Navigator navigator(owner);
     auto first = std::optional<KeyframeTrack>(std::in_place);
     navigator.SetPathAI(std::move(first));
     REQUIRE(navigator.GetPathAI() != nullptr);
@@ -1123,7 +1125,8 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
-    Navigator navigator;
+    World owner;
+    Navigator navigator(owner);
     navigator.movement.velocity = {1, 2, 3};
     const auto velocity = navigator.GetVelocity();
     navigator.movement.velocity = {4, 5, 6};
@@ -1257,7 +1260,8 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
 {
     Animation animation;
     animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
-    Monster monster;
+    World owner;
+    Monster monster(owner);
     monster.visual.active_animation = &animation;
     monster.visual.m_bLOD = 2;
     monster.visual.subcycle = 0;
@@ -1392,7 +1396,8 @@ TEST_CASE("Attached particle orientation follows rotations independently of mode
     model.attachTo(parent);
     parent.transform.setRotation(.2, -.3, .4);
     model.transform.setRotation(-.4, .1, -.2);
-    CyclePlayer cycle;
+    World owner;
+    CyclePlayer cycle(owner);
     cycle.current_model_instance = &model;
     auto& attachment = cycle.particles.emplace_back();
     attachment.position = {1, 2, 3};

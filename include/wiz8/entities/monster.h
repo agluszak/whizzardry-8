@@ -82,17 +82,17 @@ struct W8MonsterSpellIcon {
    primary vtable 0x005ED22C and the Navigator secondary-base table at +0x18. */
 class Monster {
 public:
-    World* const owner_world;
+    World& owner_world;
     Navigator nav;
     CyclePlayer visual;
     std::string asset_name;
     typedef void (*CycleCallback)(Monster* monster);
 
-    explicit Monster(World* owner = nullptr);
+    explicit Monster(World& owner);
     /* A new monster of a species: its own copies of the definition's animations,
        lights, emitters and light, a registered navigator, and appearance still
        to be rolled. */
-    Monster(const MonsterDefinition& definition, World* owner);
+    Monster(const MonsterDefinition& definition, World& owner);
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);

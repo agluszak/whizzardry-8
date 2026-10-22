@@ -4174,7 +4174,8 @@ bool SteeringStep::PredictNavigatorCollision()
         if (approach * approach > glm::dot(delta, delta)) {
             approach = glm::dot(delta, direction);
             if (approach > 0.0f) {
-                relative = movement->velocity - LevelMotion()->camera_motion_velocity;
+                relative = movement->velocity - navigation.owner_octree->owner_world->party_camera
+                                                    .motion.camera_motion_velocity;
                 relative = normalizedOrZero(relative);
                 approach = glm::dot(delta, relative);
                 approach = approach - (combined * approach) / glm::length(delta);

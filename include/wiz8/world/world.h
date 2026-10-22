@@ -100,7 +100,7 @@ struct World {
     std::vector<Navigator*> navigators;
     /* The party's collision and pathing proxy in this world, at navigation height below
        `party_camera`. It registers in `navigators` and goes before the spatial index. */
-    Navigator party_navigator{this};
+    Navigator party_navigator{*this};
     std::vector<Monster*> active_monsters;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;

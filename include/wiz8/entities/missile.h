@@ -71,16 +71,16 @@ struct MissileDefinition {
 /* The source assertion for its AI names the object `pMissile`. */
 class Missile {
 public:
-    World* const owner_world;
+    World& owner_world;
     Navigator nav;
     CyclePlayer visual;
     std::string asset_name;
-    explicit Missile(World* owner = nullptr);
+    explicit Missile(World& owner);
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
     // A new missile of a kind, with its own cycles and nothing of a flight yet.
-    Missile(const MissileDefinition& definition, World* owner); /* 0x004A3E50 */
+    Missile(const MissileDefinition& definition, World& owner); /* 0x004A3E50 */
     Missile(const Missile&) = delete;
     Missile& operator=(const Missile&) = delete;
     ~Missile();

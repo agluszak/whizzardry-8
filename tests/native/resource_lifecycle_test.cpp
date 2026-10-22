@@ -298,7 +298,8 @@ static void CheckEmitterCloneLifetime()
     light->transform.setLocation(11, 22, 33);
     light->m_position = {11, 22, 33};
     source->resources.cycles[cycle].lights.lights.push_back(std::move(owned_light));
-    auto copy = std::make_unique<Host>(*source, nullptr);
+    World owner;
+    auto copy = std::make_unique<Host>(*source, owner);
     REQUIRE(copy->resources.cycles[cycle].animation != source->resources.cycles[cycle].animation);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front().get() != light);
     source.reset();
@@ -409,9 +410,10 @@ TEST_CASE("A cycle player shows every frame on its own model", "[resources][anim
     const auto* first_frame = animation.entries[2]->frames[0].mesh.get();
     const auto* second_frame = animation.entries[2]->frames[1].mesh.get();
 
-    CyclePlayer first;
+    World owner;
+    CyclePlayer first(owner);
     first.active_animation = &animation;
-    CyclePlayer second;
+    CyclePlayer second(owner);
     second.active_animation = &animation;
     auto* shown = first.SelectCycleFrameLod(0, 2);
     REQUIRE(first.SelectCycleFrameLod(1, 2) == shown);
@@ -461,7 +463,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
                  "[resources][particles]")
 {
     {
-        SpellVisual cycle(&world);
+        SpellVisual cycle(world);
         auto particle = std::make_unique<ParticleSystem>((world.scene.get()), 1);
         particle->active_particle_count = 1;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
@@ -478,7 +480,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
 {
     auto previous = game.game.level.replacePrimary(std::make_unique<World>());
     auto* retiring = GetWorld();
-    auto visual = std::make_unique<SpellVisual>(retiring);
+    auto visual = std::make_unique<SpellVisual>(*retiring);
     auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
     particle->active_particle_count = 1;
     auto texture = std::make_shared<Texture>();
@@ -507,9 +509,9 @@ TEST_CASE("A destroyed navigator leaves no mover targeting or following it",
           "[resources][navigation]")
 {
     World world;
-    Navigator follower(&world);
+    Navigator follower(world);
     {
-        Navigator leader(&world);
+        Navigator leader(world);
         follower.target_navigator = &leader;
         follower.linked_navigator = &leader;
     }
@@ -522,7 +524,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "[resources][levels][navigation]")
 {
     world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
-    Navigator published(&world);
+    Navigator published(world);
     world.party_camera.SetOrientation(0.25f, 0.1f);
     world.party_camera.motion.movement_override = true;
     published.movement.location_id = 7;
@@ -551,7 +553,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     replacement.spatial = std::make_unique<LevelSpatialIndex>("", &replacement);
     replacement.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     {
-        Navigator prepared(&replacement);
+        Navigator prepared(replacement);
         prepared.movement.location_id = 7;
         replacement.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
                                                                         {0, 0, 0});
@@ -605,7 +607,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     record->within_viewing_distance = true;
     record->party_threat.visible_to_player = false;
     replacement.population->monster_roster.add(std::move(record), false);
-    Monster prepared(&replacement);
+    Monster prepared(replacement);
     prepared.location_id = 7;
     REQUIRE(prepared.IsRenderable(false));
     REQUIRE_FALSE(prepared.IsRenderable(true));
@@ -682,7 +684,8 @@ TEST_CASE("Cycle frame callbacks observe advances and can stop queued steps",
     Animation animation;
     animation.path_lists = true;
     animation.frame_count = 4;
-    CyclePlayer player;
+    World owner;
+    CyclePlayer player(owner);
     player.active_animation = &animation;
     player.animation_playing = true;
     player.frame_direction = W8_ANIMATION_FORWARD;
@@ -768,7 +771,8 @@ TEST_CASE("The party navigator stands the world height below the eye",
     PartyCamera camera;
     camera.m_position = {100, 200, 300};
     camera.SetOrientation(.5f, -.25f);
-    Navigator navigator;
+    World world;
+    Navigator& navigator = world.party_navigator;
     mirrorPartyNavigator(navigator, camera);
     REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
     REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));

@@ -47,8 +47,7 @@ bool g_navigator_position_changed;
 namespace {
 bool NavigationCombatActive(const Navigator& navigator)
 {
-    return CurrentGame().combat.has_value() &&
-           (!navigator.owner_world || navigator.owner_world == GetWorld());
+    return CurrentGame().combat.has_value() && &navigator.owner_world == GetWorld();
 }
 
 // A copy of the active world's registry, party included, to walk while it changes.
@@ -59,7 +58,7 @@ std::vector<Navigator*> activeNavigators()
 
 bool isPartyNavigator(const Navigator* navigator)
 {
-    return navigator->owner_world && navigator == &navigator->owner_world->party_navigator;
+    return navigator == &navigator->owner_world.party_navigator;
 }
 
 } // namespace
@@ -113,7 +112,7 @@ float NavigatorRoute::MeasurePathLength() const
     return length;
 }
 
-Navigator::Navigator(World* owner) : owner_world(owner), reactivated(0)
+Navigator::Navigator(World& owner) : owner_world(owner), reactivated(0)
 {
     navigation_mode = W8_NAVIGATOR_MODE_DEFAULT;
     flags = 0;
@@ -154,7 +153,7 @@ Navigator::Navigator(World* owner) : owner_world(owner), reactivated(0)
     linked_update_time = 0;
     movement.Reset();
     tracked_position = glm::vec3(0);
-    if (owner_world) owner_world->navigators.push_back(this);
+    owner_world.navigators.push_back(this);
     movement_target = glm::vec3(0);
     collision_margin = 0.0;
     target_navigator = 0;
@@ -356,59 +355,15 @@ void NavigatorMovement::CopySettingsFrom(const NavigatorMovement& other)
 /* Owning members release the route attachment. */
 NavigatorMovement::~NavigatorMovement() = default;
 
-/* A copy shares nothing that ties it to the original's navigation. The path is
-   DISCARDED rather than cloned or shared, both navigator links are cleared, and
-   the owned object is not carried over. The movement tail is default
-   constructed, then six trailing radius/height/offset/scale fields are copied
-   directly and CopySettingsFrom transfers its separate eleven-field settings
-   subset. The outer navigator also carries across its height band, bounding
-   corners, radius and callback. The copy allocates its own scene node and
-   registers itself, so it is a live navigator from birth. */
-Navigator::Navigator(const Navigator& other, World* owner)
-    : owner_world(owner), flags(0), collision_margin(0.0), movement_target(0.0f, 0.0f, 0.0f),
-      movement_stopped(true), halted(false), movement_complete(true), unknown_027(0),
-      minimum_height(other.minimum_height), maximum_height(other.maximum_height),
-      patrol_home(other.patrol_home), unknown_048(0), target_navigator(0),
-      target_last_position(0.0f, 0.0f, 0.0f), linked_navigator(0), unknown_060(0), unknown_064(0),
-      path_ai(std::nullopt), radius(other.radius), active(true),
-      movement_callback(other.movement_callback), trace_mask(other.trace_mask),
-      unknown_094(other.unknown_094), unknown_098(0), reactivated(other.reactivated),
-      tracked_distance(other.tracked_distance), group_linked(other.group_linked)
-{
-    movement.collision_radius = other.movement.collision_radius;
-    movement.alternate_radius = other.movement.alternate_radius;
-    configureStartupDepth(other.movement.height_offset, other.movement.secondary_height_offset);
-    movement.vertical_offset = other.movement.vertical_offset;
-    movement.scale = other.movement.scale;
-    minimum = other.minimum;
-    maximum = other.maximum;
-    if (auto* octree = NavigationOctree())
-        octree->registry.maximum_navigation_radius =
-            std::max({octree->registry.maximum_navigation_radius, movement.collision_radius,
-                      movement.alternate_radius, radius});
-    movement.CopySettingsFrom(other.movement);
-    movement.height_offset -= other.movement.vertical_base;
-    movement.secondary_height_offset -= other.movement.vertical_base;
-    SetNavigationMode(other.navigation_mode);
-    position_dirty = false;
-    movement.position_adjusted = false;
-    tracked_dirty = false;
-    linked_update_time = 0;
-    tracked_position = glm::vec3(0);
-    if (owner_world) owner_world->navigators.push_back(this);
-}
-
 /* Navigators in the same world target and follow each other by address, so a departing
    navigator drops every link to itself: a mover whose target or leader is gone stops
    following it instead of reading freed memory. */
 Navigator::~Navigator()
 {
-    if (owner_world) {
-        wiz8::erase_first(owner_world->navigators, this);
-        for (Navigator* other : owner_world->navigators) {
-            if (other->target_navigator == this) other->target_navigator = nullptr;
-            if (other->linked_navigator == this) other->linked_navigator = nullptr;
-        }
+    wiz8::erase_first(owner_world.navigators, this);
+    for (Navigator* other : owner_world.navigators) {
+        if (other->target_navigator == this) other->target_navigator = nullptr;
+        if (other->linked_navigator == this) other->linked_navigator = nullptr;
     }
     if (auto* octree = NavigationOctree(); octree && movement.location_id != 0)
         octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
@@ -722,7 +677,7 @@ void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
         return;
     }
     linked_update_time = tick;
-    glm::vec3 camera = cameraLocation();
+    glm::vec3 camera = cameraLocation(owner_world);
     if (linked_navigator->monster_owner &&
         linked_navigator->monster_owner->IsWithinWorldRange() != 0) {
         const auto bounds = linked_navigator->monster_owner->GetWorldAnimationBounds();
@@ -914,10 +869,10 @@ Navigator* Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::vec3*
         *to = hit->position;
         hit_location = hit->location_id;
         if (hit_location == 0) {
-            return &owner_world->party_navigator;
+            return &owner_world.party_navigator;
         }
         if (hit_location > 0) {
-            W8MonsterInfo* monster_info = owner_world->population->findMonster(hit_location);
+            W8MonsterInfo* monster_info = owner_world.population->findMonster(hit_location);
             if (monster_info->entity) {
                 return &monster_info->entity->nav;
             }
@@ -954,7 +909,7 @@ double Navigator::MeasurePathDistance(const glm::vec3* target, float max_range, 
 int Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
 {
     double distance =
-        MeasurePathDistance(&owner_world->party_navigator.movement.position, max_range, 0);
+        MeasurePathDistance(&owner_world.party_navigator.movement.position, max_range, 0);
 
     *out_distance = static_cast<float>(distance);
     if (distance != g_negative_one) {
@@ -1452,8 +1407,7 @@ void Navigator::SetFacingToward(const glm::vec3* target)
             UpdateFacing(true);
         }
         if (movement.location_id != 0) {
-            W8MonsterInfo* monster_info =
-                owner_world->population->findMonster(movement.location_id);
+            W8MonsterInfo* monster_info = owner_world.population->findMonster(movement.location_id);
             if (monster_info->pCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
@@ -1472,7 +1426,7 @@ void Navigator::SetPositionInternal(const glm::vec3* position)
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {
         movement.position = *position;
-        if ((movement.location_id != 0 || isPartyNavigator(this)) && owner_world == GetWorld()) {
+        if ((movement.location_id != 0 || isPartyNavigator(this)) && &owner_world == GetWorld()) {
             g_navigator_position_changed = true;
         }
         UpdateFacing(true);
@@ -1581,8 +1535,7 @@ void Navigator::AimAtPosition(const glm::vec3* target)
         }
 
         if (movement.location_id != 0) {
-            W8MonsterInfo* monster_info =
-                owner_world->population->findMonster(movement.location_id);
+            W8MonsterInfo* monster_info = owner_world.population->findMonster(movement.location_id);
             if (monster_info->pCombat) {
                 monster_info->pCombat->sight_refresh_pending = true;
             }
@@ -1603,8 +1556,7 @@ std::vector<Navigator*> Navigator::CollectGroupNavigators() const
         return navigators;
     }
 
-    if (!owner_world) return navigators;
-    const auto& population = *owner_world->population;
+    const auto& population = *owner_world.population;
     monster_info = population.findMonster(movement.location_id);
     if (!monster_info) return navigators;
     group = population.findGroup(monster_info->monster_group_id);
@@ -1939,5 +1891,5 @@ void Navigator::SetMonsterTurnSpeed(float speed)
 
 LevelSpatialIndex* Navigator::NavigationOctree() const
 {
-    return owner_world ? owner_world->compiledIndex() : nullptr;
+    return owner_world.compiledIndex();
 }

@@ -33,6 +33,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
@@ -124,7 +125,7 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
         glm::vec3 party_position;
         glm::vec3 monster_position;
 
-        party_position = cameraLocation();
+        party_position = cameraLocation(owner_world);
         if (!parameter)
             throw std::runtime_error(
                 fmt::format("monster script {} line {}: PARTYNEAR needs a value", script->getName(),
@@ -134,7 +135,8 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
         monster_position = current_position;
         if (!CurrentGame().status.world_suspended &&
             glm::length((party_position - monster_position)) < *parameter * kWorldScale &&
-            FindMonster(location_id)->player_visibility.line_of_sight != 0) {
+            owner_world.population->findMonster(location_id)->player_visibility.line_of_sight !=
+                0) {
             return true;
         }
     } else if (CompareTextIgnoreAsciiCase(name.substr(0, 6), "RANDOM") == 0) {
@@ -216,7 +218,7 @@ void Monster::ProcessScript()
         return;
     }
 
-    monster_info = FindMonster(location_id);
+    monster_info = owner_world.population->findMonster(location_id);
     if (orders_finished) {
         if (monster_info == 0 || (monster_info->ai_mode & W8_MONSTER_AI_RESTORE_SCRIPT) == 0) {
             return;
@@ -296,7 +298,7 @@ void Monster::ProcessScript()
                     break;
                 }
                 if (SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
-                    nav.SetMovementTargetToNavigator(&owner_world->party_navigator, 5.0);
+                    nav.SetMovementTargetToNavigator(&owner_world.party_navigator, 5.0);
                 } else {
                     nav.ConfigureMovementToPosition(&position);
                 }
@@ -338,8 +340,9 @@ void Monster::ProcessScript()
                         suppress = true;
                     }
                 }
-                ForwardNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0,
-                                       line_number, command == MONSCR_SAY ? 1 : suppress);
+                ForwardNpcScriptNotice(
+                    FindNpcBindingForMonster(owner_world.population->findMonster(location_id)), 0,
+                    line_number, command == MONSCR_SAY ? 1 : suppress);
                 if (command == MONSCR_NPCINTERACTION) {
                     script_wait = MONSCR_NPCINTERACTION;
                 } else if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
@@ -485,7 +488,7 @@ void Monster::ProcessScript()
                 runtime_flags |= W8_MONSTER_PARKED;
                 break;
             case MONSCR_LOOKHERE:
-                PointCameraAtMonster(FindMonster(location_id), true, true);
+                PointCameraAtMonster(owner_world.population->findMonster(location_id), true, true);
                 tokens >> token;
                 if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_LOOKHERE;
@@ -559,7 +562,7 @@ void Monster::ProcessScript()
                         W8TargetSource source;
                         ClearMainGameTargetState();
                         SetScript("ClosePatrol.msf", true);
-                        monster_info = FindMonster(location_id);
+                        monster_info = owner_world.population->findMonster(location_id);
                         ResetTargetSource(&source);
                         SetMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP, 6, 0,
                                             &source, true);
@@ -569,9 +572,9 @@ void Monster::ProcessScript()
                     } else if (SDL_strcasecmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = GetNpcStateByKind(0x8d);
                         if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
-                        monster_info = FindMonster(location_id);
+                        monster_info = owner_world.population->findMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-                            glm::vec3 party = cameraLocation();
+                            glm::vec3 party = cameraLocation(owner_world);
                             nav.AimAtPosition(&party);
                         }
                     }

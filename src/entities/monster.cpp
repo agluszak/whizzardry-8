@@ -232,7 +232,7 @@ void Monster::CopyCycle(signed char cycle, signed char other_cycle)
     for (const auto& source : cycles[other_cycle]) cycles[cycle].emplace_back(source);
 }
 
-Monster::Monster(World* owner)
+Monster::Monster(World& owner)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
       missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
       mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
@@ -264,7 +264,7 @@ Monster::Monster(World* owner)
     order_mode = W8_MONSTER_ORDER_NONE;
 }
 
-Monster::Monster(const MonsterDefinition& definition, World* owner)
+Monster::Monster(const MonsterDefinition& definition, World& owner)
     : owner_world(owner), nav(owner), visual(definition.events, owner),
       asset_name(definition.asset_name), cycles(definition.cycles),
       damage_stage_count(definition.damage_stage_count), name(definition.asset_name),
@@ -291,10 +291,10 @@ Monster::Monster(const MonsterDefinition& definition, World* owner)
         nav.active = false;
         nav.movement.boundary_enabled = false;
     }
-    if (owner && owner->compiledIndex())
-        owner->compiledIndex()->registry.maximum_navigation_radius =
-            std::max({owner->compiledIndex()->registry.maximum_navigation_radius,
-                      nav.movement.collision_radius, nav.movement.alternate_radius, nav.radius});
+    if (auto* octree = owner.compiledIndex())
+        octree->registry.maximum_navigation_radius =
+            std::max({octree->registry.maximum_navigation_radius, nav.movement.collision_radius,
+                      nav.movement.alternate_radius, nav.radius});
 
     visual.skin = definition.skin;
     visual.damage_stage = definition.damage_stage;
@@ -320,7 +320,7 @@ Monster::Monster(const MonsterDefinition& definition, World* owner)
     visual.m_bLOD = 2;
     if (definition.light) {
         monster_light = std::make_unique<Light>(*definition.light);
-        monster_light->setScene(owner ? owner->scene.get() : nullptr);
+        monster_light->setScene(owner.scene.get());
     }
 
     formation = glm::vec3(0);
@@ -377,7 +377,7 @@ void Monster::Update()
     float distance;
     int cycle;
 
-    party_position = cameraLocation(*owner_world);
+    party_position = cameraLocation(owner_world);
     {
         glm::vec3 position = nav.GetPosition();
         monster_position = position;
@@ -396,7 +396,7 @@ void Monster::Update()
 
     if (g_monster_shadow_updates_enabled != 0 && (move_dirty || nav.UpdateTrackedPosition())) {
         move_dirty = false;
-        if (distance < owner_world->render_range) {
+        if (distance < owner_world.render_range) {
             Light* sun = FindWorldLight("SUN");
             if (sun != 0) {
                 glm::vec3 mapped_position;
@@ -405,7 +405,7 @@ void Monster::Update()
 
                 GetMappedPosition(&mapped_position);
                 sun_position = glm::vec3(sun_location);
-                if (owner_world->compiledIndex()->hasLineOfSight(mapped_position, sun_position)) {
+                if (owner_world.compiledIndex()->hasLineOfSight(mapped_position, sun_position)) {
                     if (sunlit_state == W8_MONSTER_SUNLIGHT_SHADOWED) {
                         target_scale = 0.75f;
                         light_scale_timer.SetDuration(0.025f);
@@ -478,7 +478,7 @@ void Monster::Update()
         cycle != W8_MONSTER_CYCLE_BIRTH && cycle != W8_MONSTER_CYCLE_DIE &&
         fade_state == W8_MONSTER_FADE_IDLE && (runtime_flags & W8_MONSTER_FADED_OUT) == 0);
 
-    if (W8MonsterInfo* found = owner_world->population->findMonster(location_id)) {
+    if (W8MonsterInfo* found = owner_world.population->findMonster(location_id)) {
         monster_info = found;
     }
 
@@ -487,7 +487,7 @@ void Monster::Update()
         nav.flags |= 0x100000;
     }
 
-    const auto player = partyCollisionSphere(*owner_world);
+    const auto player = partyCollisionSphere(owner_world);
     if (monster_info == 0) {
         nav.UpdateNavigation(0, false, player);
     } else {
@@ -647,7 +647,7 @@ void Monster::Update()
 
     if (sound != 0) {
         sound->position = nav.GetPosition();
-        sound->Update(cameraLocation(*owner_world), owner_world->party_camera.m_yaw);
+        sound->Update(cameraLocation(owner_world), owner_world.party_camera.m_yaw);
     }
 }
 
@@ -753,9 +753,9 @@ bool Monster::IsWithinWorldRange()
     if (sector_mesh != 0) {
         return (!sector_mesh->visible) == 0;
     } else {
-        double far_clip = WorldGetFarClip(owner_world);
+        double far_clip = WorldGetFarClip(&owner_world);
         glm::vec3 position = nav.GetPosition();
-        glm::vec3 reference = owner_world->party_navigator.GetPosition();
+        glm::vec3 reference = owner_world.party_navigator.GetPosition();
         glm::vec3 delta = reference - position;
 
         return glm::dot(delta, delta) <=
@@ -772,8 +772,8 @@ bool Monster::CheckLineOfSightToPlayer()
 
     monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    player_position = cameraLocation(*owner_world);
-    return owner_world->compiledIndex()->hasLineOfSight(monster_position, player_position);
+    player_position = cameraLocation(owner_world);
+    return owner_world.compiledIndex()->hasLineOfSight(monster_position, player_position);
 }
 
 /* The sight code keeps a sight trace's three outcomes as two flags: a clear
@@ -790,8 +790,8 @@ void Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
     glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
     const auto hit =
-        owner_world->compiledIndex()->traceSight(monster_position, cameraLocation(*owner_world),
-                                                 {.locations = SightLocations{location_id, -1}});
+        owner_world.compiledIndex()->traceSight(monster_position, cameraLocation(owner_world),
+                                                {.locations = SightLocations{location_id, -1}});
     applySightFlags(hit, *primary, *secondary);
 }
 
@@ -800,23 +800,24 @@ void Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
    corners. */
 bool Monster::IsVisibleToPlayer(bool use_bounds)
 {
-    glm::vec3 player_position = cameraLocation(*owner_world);
+    glm::vec3 player_position = cameraLocation(owner_world);
     if (use_bounds) {
         const auto bounds = this->GetWorldAnimationBounds();
-        return bounds && hasLineOfSightToBounds(player_position, *bounds);
+        return bounds &&
+               hasLineOfSightToBounds(*owner_world.compiledIndex(), player_position, *bounds);
     }
 
     glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    return owner_world->compiledIndex()->hasLineOfSight(player_position, monster_position);
+    return owner_world.compiledIndex()->hasLineOfSight(player_position, monster_position);
 }
 
 void Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const glm::vec3* source)
 {
     glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    const glm::vec3 player_position = source == 0 ? cameraLocation(*owner_world) : *source;
-    const auto hit = owner_world->compiledIndex()->traceSight(
+    const glm::vec3 player_position = source == 0 ? cameraLocation(owner_world) : *source;
+    const auto hit = owner_world.compiledIndex()->traceSight(
         player_position, monster_position, {.locations = SightLocations{-1, location_id}});
     applySightFlags(hit, *primary, *secondary);
 }
@@ -830,7 +831,7 @@ bool Monster::HasLineOfSightToMonster(Monster* monster)
     from.y += nav.movement.height_offset;
     to = monster->nav.movement.position;
     to.y += monster->nav.movement.height_offset;
-    return owner_world->compiledIndex()->hasLineOfSight(from, to);
+    return owner_world.compiledIndex()->hasLineOfSight(from, to);
 }
 
 void Monster::GetMonsterSightFlags(Monster* monster, bool* primary, bool* secondary)
@@ -839,7 +840,7 @@ void Monster::GetMonsterSightFlags(Monster* monster, bool* primary, bool* second
     from.y += nav.movement.height_offset;
     glm::vec3 to = monster->nav.movement.position;
     to.y += monster->nav.movement.height_offset;
-    const auto hit = owner_world->compiledIndex()->traceSight(
+    const auto hit = owner_world.compiledIndex()->traceSight(
         from, to, {.locations = SightLocations{location_id, monster->location_id}});
     applySightFlags(hit, *primary, *secondary);
 }
@@ -850,7 +851,7 @@ bool Monster::HasLineOfSightFromPoint(glm::vec3 point)
 
     monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    return !owner_world->compiledIndex()->traceSight(point, monster_position);
+    return !owner_world.compiledIndex()->traceSight(point, monster_position);
 }
 
 bool Monster::IsFacingMonster(Monster* monster)
@@ -875,7 +876,7 @@ bool Monster::IsFacingPlayer()
     glm::vec3 from;
     glm::vec3 to;
 
-    to = owner_world->party_navigator.GetPosition();
+    to = owner_world.party_navigator.GetPosition();
     from = nav.GetPosition();
     bearing = NormalizeAngle(GetHeadingAngle(&from, &to));
     facing = NormalizeAngle(nav.GetYaw());
@@ -908,7 +909,7 @@ void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on)
                 "Data\\Monsters\\Bitmaps\\{}",
                 g_party_target_marker_bitmaps[CurrentGame().party.orderIndexOf(party_slot)]);
             rep->objects[party_slot] =
-                CreateMonsterIconItem(*info->entity->owner_world, path.c_str());
+                CreateMonsterIconItem(info->entity->owner_world, path.c_str());
             ++rep->icon_count;
         }
     }
@@ -962,7 +963,7 @@ void Monster::BeginFadeOutAndRemove(W8MonsterRemovalState state)
         }
         fade_state = W8_MONSTER_FADE_OUT;
     }
-    RemoveMonster(owner_world->population->findMonster(location_id), W8MonsterRemoval::Deactivate);
+    RemoveMonster(owner_world.population->findMonster(location_id), W8MonsterRemoval::Deactivate);
     removal_state = state;
 }
 
@@ -1119,10 +1120,10 @@ float Monster::GetPointDistanceToPlayer(glm::vec3 point)
     glm::vec3 player_position;
     float distance;
 
-    player_position = cameraLocation(*owner_world);
+    player_position = cameraLocation(owner_world);
     player_position.y -= g_default_world_height;
     distance = glm::length((point - player_position)) - nav.movement.alternate_radius -
-               owner_world->party_navigator.movement.alternate_radius;
+               owner_world.party_navigator.movement.alternate_radius;
     if (distance < 0.0f) {
         distance = 0.0f;
     }
@@ -1159,9 +1160,9 @@ float Monster::GetPointDistanceToMonster(Monster* monster, glm::vec3 point)
    Navigator's distinct slot 3 remains inherited in the secondary table. */
 bool Monster::CanEnterCycle(signed char cycle)
 {
-    W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
+    W8MonsterInfo* monster_info = owner_world.population->findMonster(location_id);
 
-    if (CurrentGame().combat.has_value() && partyCamera().m_transition_active) {
+    if (CurrentGame().combat.has_value() && owner_world.party_camera.m_transition_active) {
         return false;
     }
     if (visual.animation_playing == 0) {
@@ -1316,8 +1317,8 @@ void Monster::UpdateRepresentation()
     }
 
     if (nav.position_dirty || nav.movement.position_adjusted) {
-        owner_world->compiledIndex()->UpdateMonsterLocation(
-            static_cast<unsigned short>(location_id), position);
+        owner_world.compiledIndex()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
+                                                           position);
     }
 
     /* Only a monster whose current world sector mesh is enabled (or that has
@@ -1493,7 +1494,7 @@ void Monster::SetCycle(signed char cycle)
     visual.frame_method = animation->frame_method;
 
     {
-        const glm::vec3 listener = cameraLocation(*owner_world);
+        const glm::vec3 listener = cameraLocation(owner_world);
         visual.SelectLOD(&listener);
     }
 
@@ -1511,7 +1512,7 @@ void Monster::SetCycle(signed char cycle)
         for (index = 0; index < count; ++index) {
             Light* light = (*lights)[index].get();
 
-            light->setScene((owner_world->scene.get()));
+            light->setScene((owner_world.scene.get()));
             light->Reset();
         }
     }
@@ -1623,11 +1624,11 @@ void Monster::UpdateAttachedObjects(bool hovered)
     }
 
     elapsed = GameClockMilliseconds() - representation->visual.timer;
-    camera_rotation = cameraRotation(*owner_world);
+    camera_rotation = cameraRotation(owner_world);
     base_position = nav.movement.position;
     base_position.y += nav.movement.vertical_base + nav.movement.vertical_amplitude;
 
-    party_position = cameraLocation(*owner_world);
+    party_position = cameraLocation(owner_world);
     party_position -= base_position;
     distance_scale = glm::length(party_position) * g_monster_attachment_distance_scale;
     if (!hovered && distance_scale > 1.0f) {
@@ -1828,7 +1829,7 @@ void Monster::dispatchAnimationFrame(unsigned char previous_frame)
         ((missile_frame > 0 && previous_frame < missile_frame &&
           missile_frame <= visual.subcycle) ||
          (missile_frame == 0 && visual.subcycle == 1))) {
-        if (owner_world && owner_world->simulation) owner_world->simulation->missileReleased(*this);
+        if (owner_world.simulation) owner_world.simulation->missileReleased(*this);
     }
     HandleAnimationFrame(previous_frame);
     if (!visual.particles.empty()) {
@@ -1854,7 +1855,7 @@ void Monster::HandleAnimationFrame(unsigned char previous_frame)
             return;
         }
 
-        if (owner_world && owner_world->simulation) owner_world->simulation->spellReleased(*this);
+        if (owner_world.simulation) owner_world.simulation->spellReleased(*this);
     }
 }
 
@@ -2108,7 +2109,7 @@ void Monster::SetAdjustedPosition(const glm::vec3* position)
 
     current = *position;
     adjusted_position =
-        nav.AdjustPosition(&adjusted, &current, &current, *owner_world->compiledIndex());
+        nav.AdjustPosition(&adjusted, &current, &current, *owner_world.compiledIndex());
     result = *adjusted_position;
     nav.SetPositionInternal(&result);
 }
@@ -2116,7 +2117,7 @@ void Monster::SetAdjustedPosition(const glm::vec3* position)
 unsigned short Monster::ApproachStartupNavigator(double separation)
 {
     unsigned short result =
-        nav.SetMovementTargetToNavigator(&owner_world->party_navigator, separation);
+        nav.SetMovementTargetToNavigator(&owner_world.party_navigator, separation);
     if (result != 0) {
         nav.movement.boundary_enabled = false;
     }
@@ -2125,16 +2126,16 @@ unsigned short Monster::ApproachStartupNavigator(double separation)
 
 unsigned char Monster::LinkToStartupNavigator()
 {
-    Navigator* target = &owner_world->party_navigator;
+    Navigator* target = &owner_world.party_navigator;
 
-    return nav.LinkToNavigator(target, WorldGetFarClip(owner_world) * 2.0);
+    return nav.LinkToNavigator(target, WorldGetFarClip(&owner_world) * 2.0);
 }
 
 unsigned short Monster::ConfigureMovementToPlayer(float separation, float maximum_distance,
                                                   glm::vec3 position, int trace_mode,
                                                   unsigned char* probe_result)
 {
-    Navigator* target = &owner_world->party_navigator;
+    Navigator* target = &owner_world.party_navigator;
 
     return nav.ConfigureMovementToNavigator(target, separation, maximum_distance, position,
                                             trace_mode, nav.GetYaw(), probe_result);
@@ -2166,9 +2167,9 @@ void Monster::ForwardReferencePosition(signed char alternate)
     W8MonsterInfo* monster_info;
     glm::vec3 position;
 
-    monster_info = owner_world->population->findMonster(location_id);
+    monster_info = owner_world.population->findMonster(location_id);
     if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-        position = cameraLocation(*owner_world);
+        position = cameraLocation(owner_world);
         if (alternate != 0) {
             nav.SetFacingToward(&position);
         } else {
@@ -2187,7 +2188,7 @@ void Monster::AimAtMonster(Monster* target, bool alternate)
     glm::vec3 position;
 
     if (target != 0) {
-        monster_info = owner_world->population->findMonster(location_id);
+        monster_info = owner_world.population->findMonster(location_id);
         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
             target_position = target->nav.GetPosition();
             position = target_position;
@@ -2250,7 +2251,7 @@ void Monster::SpawnDamageNumber(unsigned int amount)
         facing = nav.GetPosition();
         yaw = HeadingToTargetCPP(&facing);
         OffsetPositionByYawPitch(500.0f, &position, yaw, pitch);
-        camera_position = cameraLocation(*owner_world);
+        camera_position = cameraLocation(owner_world);
         distance = glm::length((position - camera_position));
         if (distance > 5e+04f) {
             distance = 5e+04f;
@@ -2261,10 +2262,10 @@ void Monster::SpawnDamageNumber(unsigned int amount)
             poster->alignment_flags |= 1u;
             location = glm::dvec3(position);
             poster->transform.setLocation(location);
-            poster->setScene(owner_world->scene.get());
+            poster->setScene(owner_world.scene.get());
             linked_runtime_objects.push_back(std::move(poster));
 
-            auto owned_particle = std::make_unique<ParticleSystem>(owner_world->scene.get(), 0xa);
+            auto owned_particle = std::make_unique<ParticleSystem>(owner_world.scene.get(), 0xa);
             particle = owned_particle.get();
             auto material = std::make_shared<Material>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -2299,7 +2300,7 @@ void Monster::SpawnDamageNumber(unsigned int amount)
 
             world = glm::dmat3(rotation);
             particle->transform.rotate(world);
-            RetireParticle(*owner_world, std::move(owned_particle));
+            RetireParticle(owner_world, std::move(owned_particle));
         }
     }
 }
@@ -2330,7 +2331,7 @@ bool Monster::IsRenderable(bool alternate)
         return true;
     }
 
-    monster_info = owner_world->population->findMonster(location_id);
+    monster_info = owner_world.population->findMonster(location_id);
     record = GetMonsterDataForInfo(monster_info);
     if (record->camouflage0 > 0) {
         return monster_info->party_threat.party_detected;
@@ -2377,7 +2378,7 @@ void Monster::RefreshStandingHeight()
     signed char previous_cycle = representation->visual.current_cycle;
     SetCycle(1);
     visual.SetSubCycle(0);
-    const glm::vec3 camera_location = cameraLocation(*owner_world);
+    const glm::vec3 camera_location = cameraLocation(owner_world);
     visual.SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;
@@ -2457,7 +2458,7 @@ void DestroyWorldMonster(Monster* monster)
 {
     if (!monster) return;
     monster->visual.DetachRepresentation();
-    auto& world = *monster->owner_world;
+    auto& world = monster->owner_world;
     std::erase(world.active_monsters, monster);
     std::erase_if(world.monsters, [monster](const auto& owner) { return owner.get() == monster; });
 }

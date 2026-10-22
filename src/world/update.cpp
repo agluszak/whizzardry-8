@@ -203,11 +203,12 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds
     });
 }
 
-bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
+bool hasLineOfSightToBounds(const LevelSpatialIndex& index, const glm::vec3& origin,
+                            const BoundingBox& bounds)
 {
     const glm::vec3 from(origin);
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return GetWorldSpatialIndex()->hasLineOfSight(from, glm::vec3(sample));
+        return index.hasLineOfSight(from, glm::vec3(sample));
     });
 }
 

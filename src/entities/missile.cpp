@@ -166,7 +166,7 @@ float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps
     position = record->missile->nav.GetPosition();
     (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
                        position.z + direction.z * advance);
-    World& world = *record->missile->owner_world;
+    World& world = record->missile->owner_world;
     if (world.compiledIndex() != 0) {
         if (const auto hit = world.compiledIndex()->traceProps(position, (*out), {})) {
             *out = hit->position;
@@ -450,7 +450,7 @@ std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
-    auto missile = std::make_unique<Missile>(**definition, world);
+    auto missile = std::make_unique<Missile>(**definition, *world);
     missile->asset_name = name;
     return missile;
 }
@@ -491,7 +491,7 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
         missile->visual.SetRotation(&aim);
         missile->nav.SetAngles(heading);
         missile->nav.SetPitch(pitch);
-        octree = missile->owner_world->compiledIndex();
+        octree = missile->owner_world.compiledIndex();
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
@@ -534,7 +534,7 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
    complete +0x280..+0x321 tail after allocating the representation.  That
    overwrites the vector and leaks its initial five-pointer allocation; the
    ordering is preserved because it is present explicitly in the product. */
-Missile::Missile(World* owner)
+Missile::Missile(World& owner)
     : owner_world(owner), nav(owner), visual(owner), missile_table_index(-1), flight_done(0),
       impacting(0), block_released(1), gravity(0), align_camera(0), explode_ground(0),
       align_explosion(0), flag(1), lifetime(15000.0f), flags0(0), retargeted(false)
@@ -548,7 +548,7 @@ Missile::Missile(World* owner)
     ResetCombatSlot(&combat_slot);
 }
 
-Missile::Missile(const MissileDefinition& definition, World* owner)
+Missile::Missile(const MissileDefinition& definition, World& owner)
     : owner_world(owner), nav(owner), visual(definition.events, owner),
       asset_name(definition.asset_name), missile_table_index(-1), resources(definition.resources),
       flight_done(0), impacting(0), block_released(1), gravity(definition.gravity),
@@ -724,7 +724,7 @@ void Missile::AnnounceCollisionTarget()
     text = fmt::format("{} ", Data().strings[0x1bf]);
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* monster_info = owner_world->population->findMonster(combat_slot.iMonsterID);
+        W8MonsterInfo* monster_info = owner_world.population->findMonster(combat_slot.iMonsterID);
         text += GetMonsterName(monster_info, 0, 0);
     } else {
         text += CurrentGame().party.characters[combat_slot.iChar].name;
@@ -760,13 +760,12 @@ void Missile::EnterImpactCycle()
 void Missile::Land()
 {
     flight_done = true;
-    if (owner_world && owner_world->simulation) owner_world->simulation->missileLanded(*this);
+    if (owner_world.simulation) owner_world.simulation->missileLanded(*this);
 }
 
 bool Missile::OnCollision(Navigator* other)
 {
-    if (!owner_world || !owner_world->simulation ||
-        !owner_world->simulation->missileReached(*this, *other)) {
+    if (!owner_world.simulation || !owner_world.simulation->missileReached(*this, *other)) {
         return false;
     }
     EnterImpactCycle();

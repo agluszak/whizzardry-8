@@ -63,11 +63,11 @@ struct CycleDefinition {
 
 class CyclePlayer {
 public:
-    World* const owner_world;
-    explicit CyclePlayer(World* owner = nullptr);
+    World& owner_world;
+    explicit CyclePlayer(World& owner);
     // A player of a kind's authored events with its own path, emitters in the
     // owner's scene and playback that has not started.
-    CyclePlayer(const CycleDefinition& definition, World* owner);
+    CyclePlayer(const CycleDefinition& definition, World& owner);
     CyclePlayer(const CyclePlayer&) = delete;
     CyclePlayer& operator=(const CyclePlayer&) = delete;
     ~CyclePlayer();
