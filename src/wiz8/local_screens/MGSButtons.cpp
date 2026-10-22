@@ -538,8 +538,8 @@ void SyncRoofButtonPressedState(void)
 
 static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->radar_map_visible != 0) {
-        if (!MainGameHud()->formation_board_visible && MainGameHud()->action_panel_visible == 0) {
+    if (MainGameHud()->layout.radar_map) {
+        if (!MainGameHud()->layout.formation_board && !MainGameHud()->layout.bottom_panel) {
             SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -559,9 +559,9 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->action_panel_visible != 0) {
+    if (MainGameHud()->layout.bottom_panel) {
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
-            if (MainGameHud()->radar_map_visible == 0 && !MainGameHud()->formation_board_visible) {
+            if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.formation_board) {
                 SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
@@ -592,8 +592,8 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->formation_board_visible) {
-        if (MainGameHud()->radar_map_visible == 0 && MainGameHud()->action_panel_visible == 0) {
+    if (MainGameHud()->layout.formation_board) {
+        if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.bottom_panel) {
             SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -623,23 +623,20 @@ void RedrawLayoutArrowButtons(void)
 void UpdateLayoutArrowButtons(void)
 {
     auto& arrows = MainGame()->hud_buttons.layout_arrows;
-    if (CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
-        IsLockInteractionActive() || IsTrapInteractionActive()) {
+    const auto& layout = MainGameHud()->layout;
+    if (CurrentGame().activity.conversation || layout.interaction) {
         for (auto& button : arrows) button.SetVisible(false);
         return;
     }
-    const bool enabled = GetEffectiveMainUiMode() != 0;
+    const bool enabled = layout.mode != W8_MAIN_UI_MODE_PORTRAITS;
     arrows[0].SetEnabled(enabled);
     arrows[2].SetEnabled(enabled);
-    const bool radar = MainGameHud()->radar_map_visible != 0;
-    arrows[0].SetVisible(radar);
-    arrows[3].SetVisible(!radar);
-    const bool action_panel = MainGameHud()->action_panel_visible != 0;
-    arrows[1].SetVisible(action_panel);
-    arrows[4].SetVisible(!action_panel);
-    const bool formation = MainGameHud()->formation_board_visible;
-    arrows[2].SetVisible(formation);
-    arrows[5].SetVisible(!formation);
+    arrows[0].SetVisible(layout.radar_map);
+    arrows[3].SetVisible(!layout.radar_map);
+    arrows[1].SetVisible(layout.bottom_panel);
+    arrows[4].SetVisible(!layout.bottom_panel);
+    arrows[2].SetVisible(layout.formation_board);
+    arrows[5].SetVisible(!layout.formation_board);
 }
 
 static void CreateLayoutArrowButtons()

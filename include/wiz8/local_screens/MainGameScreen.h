@@ -24,6 +24,7 @@ class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
 struct W8LevelRuntimeBlock;
+struct W8GameSettings;
 
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the
@@ -444,7 +445,6 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 bool IsScreenInputBlocked(void);
-void DisableCombatRegions(void);
 
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
@@ -461,12 +461,14 @@ extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);
-void SetViewportMode(W8ViewportMode mode);
-/* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
-   panels, optionally re-raise them from settings prefs, refresh tooltip and
-   region state, and sync both settings and the level-block mode field. */
+/* The layout for the player's preferences while a spell or item picker, lock or
+   trap (`picker`) or an NPC dialogue is open or not. An interaction overrides the
+   preferred layout without changing the preference. */
+MainGameLayout DecideMainGameLayout(const W8GameSettings& settings, bool picker, bool npc_dialogue);
+// The mode the applied layout shows, or the preferred one without a main game.
 W8MainUiMode GetEffectiveMainUiMode();
 void SetMainUiPreference(W8MainUiMode mode);
+/* Decide the main game's layout and apply it to the panels, viewport and input. */
 void RefreshMainGameLayout();
 bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
@@ -474,9 +476,6 @@ void TickAmbientFollowUpIdle(unsigned char input_handled);
    regions with occupancy, the monster-entry flag and the display mode; the
    party add/remove entries and the keyboard menu's close run it. */
 void RefreshPartySlotRegions(void);
-/* Re-sync mouse hotspot, region enables and viewport after a
-   main-game mode change. */
-void SyncMainGameModeInput(void);
 /* Forget the shown plate and, while the overlay mode is up, have the next draw
    erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
@@ -513,7 +512,6 @@ UiResult WorldViewInput(const UiPointerEvent& event);
 /* Help 36: combat monster-list hit rows beside the radar map. */
 UiResult MonsterListInput(const UiPointerEvent& event);
 void SetMainGameMode(W8MainGameMode mode);
-void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
 /* The numbered action-key space IsMGSActionKeyEnabled, RunMGSActionKey and
    TryMGSActionKey share: the interface commands map to views and recorded
@@ -544,10 +542,9 @@ void TryMGSActionKey(W8MGSAction command);
 bool IsMGSActionKeyEnabled(unsigned short command);
 void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
-W8ViewportMode GetMainGameViewportMode(void);
+/* Drop the formation board, radar map and bottom panel while the main game is
+   covered; the next RefreshMainGameLayout raises them again. */
 void CloseMainGameOverlays(void);
-void SetRadarMapVisible(bool visible);
-void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
 /* The trade-stock index behind a visible NPC item row. */

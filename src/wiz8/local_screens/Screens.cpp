@@ -370,7 +370,7 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     int slot;
 
     hud.repaint.everything = true;
-    hud.camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
+    hud.layout.viewport = W8_VIEWPORT_MODE_UNINITIALIZED;
     hud.highlight = {};
     hud.combat_action_hover_party_slot = -1;
     hud.portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;

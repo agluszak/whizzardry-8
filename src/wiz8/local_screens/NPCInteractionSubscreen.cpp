@@ -688,7 +688,6 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
 
     UpdateScreenOverlays(0);
     CurrentGame().activity.conversation = true;
-    CloseMainGameOverlays();
     if (npc->record->owns_stock != 0) {
         RestockNpcInventory(npc);
     }
@@ -718,7 +717,6 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     MainGameHud()->text_box_visible = false;
     EnableDialogueTextBoxRegions();
     SetTextBoxScrollInput(true);
-    MainGameHud()->action_panel_visible = 1;
     CurrentGame().activity.conversation_aside = false;
     greet = !force;
     if (item != 0) {
@@ -1023,7 +1021,6 @@ void ServiceNpcDialogue(void)
         MainGameHud()->text_box_visible = false;
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
-        MainGameHud()->action_panel_visible = 1;
         W8NpcDialogueLayout layout = MainGame()->dialogue.pending_layout;
         SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
         OpenNpcDialogueLayout(layout);
@@ -1122,7 +1119,6 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         npc->dismissed_timer = 0;
     }
     CurrentGame().activity.conversation = false;
-    MainGameHud()->action_panel_visible = 0;
     DisableDialogueTextBoxRegions();
     SetTextBoxScrollInput(false);
     CloseActiveNpcDialogueLayout();
@@ -3619,7 +3615,6 @@ static void SetNpcDialogueHidden(signed char value)
         SetNpcDialogueInputEnabled(2, true);
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
-        MainGameHud()->action_panel_visible = 1;
         SetNpcPanelActive(2, true);
         SetNpcPanelActive(3, true);
         MainGame()->dialogue.ui->transcript->Expand();

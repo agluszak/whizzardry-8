@@ -559,8 +559,10 @@ widget tree.
   owner's layer explicitly.
 - Screens own their layers and keep them while suspended, so the game loop
   disables all input before entering a screen and the entering screen enables its
-  own. In the main game, a mode change does the same and `SyncMainGameModeInput`
-  re-enables the layers that mode uses.
+  own. In the main game, `RefreshMainGameLayout` decides one `MainGameLayout` (the
+  shown mode, panels and world viewport) from the open interaction and the player's
+  preferences, raises or releases only the panels that changed, and re-enables the
+  layers that layout uses. An interaction overrides the layout, never the preference.
 - A `UiTransaction` spans one input step: a pointer dispatch, a `PumpUiInput`
   drain, or a modal's `ProcessInput()`. Transactions nest. When the outermost ends,
   actions queued with `AfterUiDispatch` run, then objects retired with

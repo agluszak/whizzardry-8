@@ -134,7 +134,7 @@ void RefreshFormationBoard(void)
     if (CurrentGame().status.selected_character != -1) {
         FaceCameraToSelection(CurrentGame().status.selected_character);
     }
-    if (!MainGameHud()->formation_board_visible) {
+    if (!MainGameHud()->layout.formation_board) {
         return;
     }
     ReleaseFormationBoard();

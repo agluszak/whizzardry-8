@@ -43,9 +43,8 @@ struct W8MainGameResourceSlot {
     unsigned short hotspot_y;
 };
 
-/* Main-game chrome mode RefreshMainGameLayout writes into both the HUD state
-   and g_settings. NONE is settings-only: Screens parks it at -1 while
-   RefreshMainGameLayout re-raises panels during main-game enter. */
+/* The main game's chrome mode: the player's preference in g_settings, and the mode
+   the applied MainGameLayout shows. */
 enum W8MainUiMode {
     W8_MAIN_UI_MODE_NONE = -1,
     W8_MAIN_UI_MODE_PORTRAITS = 0,
@@ -62,6 +61,27 @@ enum W8ViewportMode : unsigned char {
     W8_VIEWPORT_MODE_CENTERED_TALL = 5,
     W8_VIEWPORT_MODE_FULL_WIDTH_TALL = 6,
     W8_VIEWPORT_MODE_UNINITIALIZED = 7
+};
+
+/* The main game's panel layout, decided at once from the open interaction and the
+   player's preferences, and applied by RefreshMainGameLayout. */
+struct MainGameLayout {
+    // The mode shown: the preferred one unless an interaction overrides it.
+    W8MainUiMode mode = W8_MAIN_UI_MODE_FORMATION;
+    /* A spell or item picker, a lock or trap, or an NPC dialogue owns the bottom panel
+       and hides the formation board and radar map. */
+    bool interaction = false;
+    bool formation_board = false;
+    bool radar_map = false;
+    // The bottom panel is up: the action bar, or the interaction's own panel.
+    bool bottom_panel = false;
+    W8ViewportMode viewport = W8_VIEWPORT_MODE_UNINITIALIZED;
+
+    bool operator==(const MainGameLayout&) const = default;
+    // The x origin the portrait hover panel anchors the slot's portrait column against.
+    int PortraitHoverXOrigin() const { return mode == W8_MAIN_UI_MODE_PORTRAITS ? 0 : 0x69; }
+    // The portrait hover panel drops by this much while the bottom panel is down.
+    int PortraitYShift() const { return bottom_panel ? 0 : 0x76; }
 };
 
 /* What the main game's next draw repaints, part by part, as the camp's header and pages
@@ -179,20 +199,11 @@ struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     MainGameRepaint repaint;
-    W8ViewportMode camera_mode;
+    // The layout the panels, viewport and input currently follow.
+    MainGameLayout layout;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];
-    unsigned char action_panel_visible;
-    bool formation_board_visible;
-    unsigned char radar_map_visible;
-    /* Portraits UI mode selected; picks the portrait-hover layout. */
     unsigned char text_scroll_drag_idle;
-    /* The x origin the mode-6 hover panel anchors the slot's portrait
-       column position against. */
-    int portrait_hover_x_origin;
-    /* Portrait hover-panel y offset RefreshMainGameLayout sets to 0x76 while the
-       action panel is down and clears while it is up. */
-    int portrait_y_shift;
     /* The applied highlight, and the hover waiting out the tooltip delay. */
     W8PortraitHighlight highlight;
     W8PortraitHighlight pending_highlight;

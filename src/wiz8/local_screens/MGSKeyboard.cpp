@@ -469,7 +469,6 @@ void DispatchMGSCommand(W8MGSCommand command)
             request.mode = W8_PLEASE_WAIT_LOAD_GAME;
             request.name = *slot_name;
             request.parameter = GetSaveGameLevel(request.name);
-            CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
             request.id = W8_SCREEN_PLEASE_WAIT;
             RequestScreen(std::move(request));
@@ -479,7 +478,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (MainGameHud()->radar_map_visible != 0) {
+        if (MainGameHud()->layout.radar_map) {
             ToggleRadarMapZoom();
         }
         break;
