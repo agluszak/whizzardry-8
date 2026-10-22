@@ -59,9 +59,10 @@ GameSession::GameSession() : next_stream_(static_cast<std::uint32_t>(std::time(n
     current_session = this;
 }
 
+// Destruction discards the game without departure bookkeeping; callers end it explicitly.
 GameSession::~GameSession()
 {
-    end();
+    discard();
     current_session = nullptr;
 }
 
@@ -81,7 +82,16 @@ void GameSession::end()
     // Finish character voices while their game and world are still current.
     game_->speech.DestroyAllEvents();
     LeaveLevel();
+    discard();
+}
+
+void GameSession::discard()
+{
+    if (!game_) return;
     next_stream_ = game_->rng;
+    // Voice events complete into the queue and the characters they name, which they find
+    // through the current game.
+    game_->speech.DestroyAllEvents();
     game_.reset();
 }
 
