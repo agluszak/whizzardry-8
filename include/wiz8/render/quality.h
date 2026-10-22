@@ -9,8 +9,7 @@ class File;
    the live user-visible entries: mip mapping calls the SR mipmap setter,
    missile lights gate spell/missile lights, mesh sky gates the separate sky
    world, video sync sets swap interval,
-   additional animations selects the richer monster-cycle values, and blurred
-   text applies the half-pixel 2D correction. */
+   additional animations selects the richer monster-cycle values. */
 enum W8RenderOption {
     W8_RENDER_OPTION_TEXTURE_MAG_FILTER = 2,
     W8_RENDER_OPTION_TEXTURE_MIN_FILTER = 3,
@@ -26,7 +25,8 @@ enum W8RenderOption {
     W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS = 14,
     /* PlayFootstep (0x0047a440) and the audio panel mute button agree on 15. */
     W8_RENDER_OPTION_FOOTSTEP_SOUND = 15,
-    W8_RENDER_OPTION_CORRECT_BLURRED_TEXT = 16,
+    // Reserved QLTY byte: Vulkan full-image UVs need no legacy half-texel switch.
+    W8_RENDER_OPTION_RESERVED_16 = 16,
     W8_RENDER_OPTION_COUNT = 17
 };
 

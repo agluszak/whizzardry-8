@@ -448,6 +448,7 @@ void ResolveSurpriseWake(void)
         }
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
         SetPortraitTargetPose(entry, 1);
+        // Portraits belong to the UI: their next idle pose uses presentation time.
         if (CurrentGame().rng.below(2) != 0) {
             entry->portrait.idle_clock =
                 MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);

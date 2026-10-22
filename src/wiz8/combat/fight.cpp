@@ -290,7 +290,8 @@ bool CombatMayAdvanceContinuously(void)
         W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
         if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
-            CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
+            CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                 false, false) &&
             CharacterActionTargetsEnemies(CurrentGame().party, character, row->committed.kind,
                                           row->committed.detail, &row->committed.detail_block)) {
             return true;
@@ -542,7 +543,8 @@ void BeginCombatExecution(void)
         for (slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* party = &CurrentGame().party.rows[slot];
             if (!IsPartySlotEligible(slot) ||
-                !CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+                !CharacterCanSwitchTo(
+                    slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT), false, false)) {
                 continue;
             }
             if (party->committed.kind == W8_ACTION_DEFEND) {
@@ -909,7 +911,9 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
         if (action != W8_ACTION_DEFEND) {
             return false;
         }
-        if (CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+        if (CharacterCanSwitchTo(party_slot,
+                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                 false, false)) {
             return false;
         }
     }
@@ -1133,8 +1137,12 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     W8Character* character = &CurrentGame().party.characters[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
         action_kind != W8_ACTION_NONE) {
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, notify)) {
-            AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (!CharacterCanSwitchTo(party_slot,
+                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                  true, notify)) {
+            W8CombatSlot none;
+            ResetCombatSlot(&none);
+            AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
         } else {
             if (!TargetIsInPlay(party_slot, 2,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT)) &&
@@ -1173,8 +1181,12 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
     if (!game.combat.has_value()) return;
     const W8ActionKind action = game.party.rows[party_slot].committed.kind;
     if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
-            AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (!CharacterCanSwitchTo(party_slot,
+                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                  true, false)) {
+            W8CombatSlot none;
+            ResetCombatSlot(&none);
+            AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
         } else if (!TargetIsInPlay(
                        party_slot, 2,
                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
@@ -1284,16 +1296,15 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
 }
 } // namespace
 
-/* Whether a slot may switch to the action held in the given context,
+/* Whether a slot may switch to the given action,
    optionally repairing the aim state first when the caller allows it. */
-bool CharacterCanSwitchTo(int party_slot, W8EditedAction context, bool allow_missing_target,
+bool CharacterCanSwitchTo(int party_slot, const W8Action& action, bool allow_missing_target,
                           bool allow_equipment_changes)
 {
     if (const auto gate = GateActionSwitch(party_slot); gate != SwitchGate::CheckAction) {
         return gate == SwitchGate::Allow;
     }
-    return CanPerformAction(party_slot, SelectCombatAction(party_slot, context),
-                            allow_missing_target, allow_equipment_changes);
+    return CanPerformAction(party_slot, action, allow_missing_target, allow_equipment_changes);
 }
 
 bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
@@ -1375,7 +1386,8 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     int selected = CurrentGame().status.selected_character;
-    if (!CharacterCanSwitchTo(selected, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
+    if (!CharacterCanSwitchTo(
+            selected, SelectCombatAction(selected, W8_TARGETING_CONTEXT_IN_COMBAT), false, false) &&
         IsPartySlotEligible(selected)) {
         return;
     }
@@ -1388,7 +1400,9 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     do {
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
+        if (!CharacterCanSwitchTo(party_slot,
+                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                  false, false) &&
             IsPartySlotEligible(party_slot)) {
             if (CurrentGame().status.selected_character == party_slot) {
                 return;
