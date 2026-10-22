@@ -49,7 +49,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
@@ -147,17 +146,17 @@ void CharacterScreen::BuildControls()
 
 void CharacterScreen::UpdateDialog()
 {
-    if (m_dialog != 0) {
+    if (m_dialog) {
         if (!m_dialog->ProcessInput()) {
             m_navigation_dirty = true;
             m_pages[m_page_index]->Prepare();
             m_header_dirty = true;
             bool accepted = false;
             if (m_capture_dialog_result) {
-                accepted = static_cast<W8MessageDialogBase*>(m_dialog)->accepted;
+                accepted = static_cast<W8MessageDialogBase&>(*m_dialog).accepted;
                 m_capture_dialog_result = false;
             }
-            RetireModal(std::unique_ptr<ModalContent>(std::exchange(m_dialog, nullptr)), false);
+            RetireModal(std::move(m_dialog), false);
             HandleDialogResult(m_dialog_response, accepted);
         }
     }
@@ -184,7 +183,7 @@ void CharacterScreen::UpdateNavigation(W8CharacterPage* page)
 void CharacterScreen::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
-    m_dialog = new W8SpellInfoDialog(value);
+    m_dialog = std::make_unique<W8SpellInfoDialog>(value);
     m_dialog->SetText("");
     m_dialog->InputLayer().setModal(true);
 }
@@ -192,7 +191,7 @@ void CharacterScreen::ShowSpellInfo(int value)
 void CharacterScreen::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
-    m_dialog = new W8ProfessionInfoDialog(profession);
+    m_dialog = std::make_unique<W8ProfessionInfoDialog>(profession);
     m_dialog->SetText("");
     m_dialog->InputLayer().setModal(true);
 }
@@ -200,7 +199,7 @@ void CharacterScreen::ShowProfessionInfo(W8Profession profession)
 void CharacterScreen::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
-    m_dialog = new W8RaceInfoDialog(race);
+    m_dialog = std::make_unique<W8RaceInfoDialog>(race);
     m_dialog->SetText("");
     m_dialog->InputLayer().setModal(true);
 }
@@ -208,7 +207,7 @@ void CharacterScreen::ShowRaceInfo(W8Race race)
 void CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
-    m_dialog = new W8AttributeInfoDialog(attribute);
+    m_dialog = std::make_unique<W8AttributeInfoDialog>(attribute);
     m_dialog->SetText("");
     m_dialog->InputLayer().setModal(true);
 }
@@ -216,7 +215,7 @@ void CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 void CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
-    m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
+    m_dialog = std::make_unique<W8SecondaryAttributeInfoDialog>(attribute);
     m_dialog->SetText("");
     m_dialog->InputLayer().setModal(true);
 }
@@ -225,9 +224,9 @@ void CharacterScreen::ShowSkillInfo(W8Skill value)
 {
     m_dialog_response = 0;
     if (value == g_profession_bonus_skills[m_character.iProfession]) {
-        m_dialog = new W8SkillInfoDialog(value, false, false, true);
+        m_dialog = std::make_unique<W8SkillInfoDialog>(value, false, false, true);
     } else {
-        m_dialog = new W8SkillInfoDialog(value, false, false, false);
+        m_dialog = std::make_unique<W8SkillInfoDialog>(value, false, false, false);
     }
     m_dialog->SetText("");
     m_dialog->InputLayer().setModal(true);
@@ -322,7 +321,7 @@ void CharacterScreen::SelectPage(int index)
     }
     SyncCharacterForPage(index);
     if (!m_pages[index]) {
-        W8CharacterPage* page = 0;
+        std::unique_ptr<W8CharacterPage> page;
         switch (index) {
         case 0:
             page = CreateCharacterStatsPage();
@@ -339,7 +338,7 @@ void CharacterScreen::SelectPage(int index)
         }
         page->m_screen = this;
         page->SetCharacter(&m_character, &m_creation_state, m_mode);
-        m_pages[index].reset(page);
+        m_pages[index] = std::move(page);
     }
     m_page_index = index;
     W8CharacterPage* page = m_pages[index].get();
@@ -480,17 +479,15 @@ void CharacterScreen::SkillAvailabilityChanged(W8Skill skill, bool available)
 void CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
 {
     m_dialog_response = response;
-    m_dialog = new W8MessageDialogBase;
-    if (m_dialog != 0) {
-        m_dialog->SetExtent(0xf0, 0xbe);
-        m_dialog->SetOrigin(0xa0, 100);
-        m_dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
-        static_cast<W8MessageDialogBase*>(m_dialog)->SetClientExtent(0xfa, 200);
-        static_cast<W8MessageDialogBase*>(m_dialog)->SetMessage(text, 1, 0x32, true, confirmation,
-                                                                true, true, 0, 0x15e);
-        m_dialog->InputLayer().setModal(true);
-        m_capture_dialog_result = true;
-    }
+    auto dialog = std::make_unique<W8MessageDialogBase>();
+    dialog->SetExtent(0xf0, 0xbe);
+    dialog->SetOrigin(0xa0, 100);
+    dialog->SetBackground("Data\\Dialogs\\DialogBackground.sti", 0);
+    dialog->SetClientExtent(0xfa, 200);
+    dialog->SetMessage(text, 1, 0x32, true, confirmation, true, true, 0, 0x15e);
+    dialog->InputLayer().setModal(true);
+    m_dialog = std::move(dialog);
+    m_capture_dialog_result = true;
 }
 
 void CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
@@ -568,7 +565,7 @@ bool CharacterScreen::ValidateName()
 
 bool CharacterScreen::HasDialog()
 {
-    return m_dialog != 0;
+    return m_dialog != nullptr;
 }
 
 W8Character* CharacterScreen::GetOriginalCharacter()
@@ -605,6 +602,10 @@ bool CharacterScreen::enter(const ScreenRequest& request)
     }
     return true;
 }
+
+CharacterScreen::CharacterScreen(Game& game) : m_game(game) {}
+
+CharacterScreen::~CharacterScreen() = default;
 
 bool CharacterScreen::leave(ScreenDeparture)
 {
@@ -647,6 +648,6 @@ void CharacterScreen::frame()
     if (m_header_dirty) DrawHeader();
     m_pages[m_page_index]->Redraw(GetFrameBufferSurface(), false);
     DrawNavigation(GetFrameBufferSurface());
-    if (m_dialog != 0) m_dialog->RefreshModal();
+    if (m_dialog) m_dialog->RefreshModal();
     RenderFrame();
 }

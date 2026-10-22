@@ -76,20 +76,20 @@ const char* g_monster_spell_icon_names[40] = {
     "Element_Shield",  "Soul_Shield",  "Ring_Of_Fire",   "Charmed",        "Summoned",
 };
 
-void AddMonsterSpellIcon(World& world, Monster* monster, W8MonsterSpellIconId icon)
+void AddMonsterSpellIcon(World& world, Monster& monster, W8MonsterSpellIconId icon)
 {
-    assert(monster && icon >= 0 && icon < SPELL_NUM_ICONS);
-    auto& icons = monster->spell_icons;
+    assert(icon >= 0 && icon < SPELL_NUM_ICONS);
+    auto& icons = monster.spell_icons;
     icons.reserve(icons.size() + 1);
     const auto path =
         fmt::format("data/icons/monsterspells/{}_A.TGA", g_monster_spell_icon_names[icon]);
     icons.push_back({icon, CreateMonsterIconItem(world, path.c_str())});
 }
 
-void SetMonsterSpellIcon(Monster* monster, W8MonsterSpellIconId icon, bool add)
+void SetMonsterSpellIcon(Monster& monster, W8MonsterSpellIconId icon, bool add)
 {
-    assert(monster && icon >= 0 && icon < SPELL_NUM_ICONS);
-    auto& icons = monster->spell_icons;
+    assert(icon >= 0 && icon < SPELL_NUM_ICONS);
+    auto& icons = monster.spell_icons;
     if (add) {
         AddMonsterSpellIcon(*GetWorld(), monster, icon);
     } else {
@@ -104,13 +104,12 @@ void SetMonsterSpellIcon(Monster* monster, W8MonsterSpellIconId icon, bool add)
     }
 }
 
-void ClearMonsterSpellIcons(Monster* monster)
+void ClearMonsterSpellIcons(Monster& monster)
 {
-    assert(monster);
-    for (const auto& entry : monster->spell_icons) {
+    for (const auto& entry : monster.spell_icons) {
         entry.item->DetachMesh();
     }
-    monster->spell_icons.clear();
+    monster.spell_icons.clear();
 }
 
 bool CanSpellBackfire(int spell_id)

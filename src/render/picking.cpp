@@ -48,14 +48,14 @@ float HeadingToTargetCPP(const glm::vec3* target)
 /* The monster twin of WorldItemEntity::DistanceToCamera - animation bounds for the Z
    offset and the monster's GrCycle-tail rep for the centre. Used by the
    monster-list scans in Targeting.cpp. */
-float MonsterDistanceToCamera(Monster* monster)
+float MonsterDistanceToCamera(Monster& monster)
 {
-    const auto bounds = monster->GetAnimationBounds();
+    const auto bounds = monster.GetAnimationBounds();
     if (!bounds) {
         return -1.0f;
     }
     const glm::vec3 camera_location = cameraLocation();
-    glm::vec3 center = monster->visual.location;
+    glm::vec3 center = monster.visual.location;
     center.z += (bounds->maximum.z - bounds->minimum.z) * 0.5f;
     return glm::length((camera_location - center));
 }
@@ -63,11 +63,11 @@ float MonsterDistanceToCamera(Monster* monster)
 /* The free-function twin of WorldItemEntity::DistanceToCamera - same bounds lookup and
    Z-offset centre, taking the item pointer explicitly for the item-list
    scans in ItemManager.cpp. */
-float ItemDistanceToCamera(WorldItemEntity* item)
+float ItemDistanceToCamera(const WorldItemEntity& item)
 {
-    const auto bounds = item->GetCachedLocalBounds();
+    const auto bounds = item.GetCachedLocalBounds();
     const glm::vec3 camera_location = cameraLocation();
-    glm::vec3 center = item->location;
+    glm::vec3 center = item.location;
     center.z += (bounds.maximum.z - bounds.minimum.z) * 0.5f;
     return glm::length((camera_location - center));
 }
