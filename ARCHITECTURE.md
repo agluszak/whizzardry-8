@@ -670,6 +670,26 @@ widget tree.
   also refreshes the party panel and the aiming cone, and game code asks for it with a
   `TargetingRequested` event.
 
+## Character editing
+
+`CharacterDraft` owns the edited character, allocation history and game binding. Creation
+and level-up operations act on that owner, not an independently supplied character/state
+pair. Skill availability returns changed rows; the draft settles its own allocations
+without publishing an untargeted event to whichever screen is current. Its pages borrow
+their screen from construction. Choice rows derive selection and eligibility from the
+draft; repainting them does not reapply character rules or modify shared choice tables.
+
+## Camp interactions
+
+The camp owns its reviewed-character selection, shared character-info panel and dialogs.
+Its pages borrow that owner, rather than synchronizing separate character pointers or
+rediscovering it through global UI helpers. Controls are built with their owners; the
+visit's animation clock and random phase still start at the original entry boundary.
+`RefreshControls` projects the active page, item action, filters and weapon-lock preference
+into enabled/selected controls before painting. A captured pointer press remains transient
+feedback; it is not overwritten by that projection. Buttons change the model, not each
+other's flags, and painting the bottom panel no longer updates interaction state.
+
 ## Tests
 
 CTest contains asset-independent fixtures and licensed runtime scenarios (label
@@ -692,3 +712,51 @@ party portrait are derived from it. Roster entries own saved candidates or name 
 slot in the selector's session; gameplay membership flags never decide ownership.
 Before replacing an imported game, the original roster retains its saved candidates
 without removing members one by one from a game that is about to be replaced.
+
+## World selection
+
+The world publishes one resolved selection per rendered pick: the actual VSG
+intersection and one eligible subject (model, prop, native object, or none).
+Rejected props keep their intersection and mask what is behind them. Prop
+eligibility is sampled at that boundary, including the closed-door exception in
+combat; native-object reach still follows the current party position when queried.
+UI and targeting read this value instead of coordinating renderer and prop latches.
+
+## Animation parts
+
+An animation owns one sequence of parts per authored LOD. Each part contains its
+mesh frame sequence and optional placement track as a value, so mesh/path indices
+cannot diverge. The authored distinction between a frame sequence and simultaneous
+positioned parts remains explicit; rendering resolves both through the same frame
+operation. The record's group count is decoder state, not mutable runtime state.
+Copies share mesh resources but retain independent placement and path playback.
+
+## Authored keyframes and playback
+
+Keyframe tracks share immutable geometry: one point sequence pairs positions with
+optional orientations and scales, and its length is calculated once on creation.
+Each player retains its own cursor, interpolation, mode and clock. Loading builds
+the complete geometry before publishing it; there is no incremental parallel-array
+mutation API. Navigation transitions discard geometry without resetting unrelated
+playback configuration. Normalized, distance-based and discrete sampling remain
+separate authored behaviors, not competing storage representations.
+
+## Portrait action menus
+
+The main screen owns its optional keyboard-action menu. The menu owns its slot,
+rows and input layer; presence and slot determine whether portraits are obscured.
+There are no separate HUD/per-character open flags or ambient selected slot.
+Deferred actions capture the screen, slot and selected action, not the menu being
+closed, so picker handoff does not read a destroyed menu. Input is constructed
+ready to use and disappears with the menu; no build/enable protocol is required.
+
+## Radar presentation
+
+The main screen owns an optional RadarMap; its presence is visibility. Radar owns
+its artwork, deferred backdrop capture, zoom/hover state and one reusable blip
+sequence. Each update consumes slots in traversal order and reattaches active
+quads in that order, so categories, elevation shades and overlap ordering stay
+unchanged. Highlight phase remains tied to the presentation clock. Zoom captures
+the party radius once; ordinary redraws derive ranges from that snapshot rather
+than resampling it. A growing blip sequence cannot reuse the newly allocated slot
+for a second marker in the same pass, unlike the former eighteen cursor pools.

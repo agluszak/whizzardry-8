@@ -62,10 +62,6 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
     }
 }
 
-/* Right-click on a camp portrait while holding an item: refuse with a notice
-   for dead/insane/stoned, else try AddItemToCharacter. */
-void TryGiveHeldItemToCampPortrait(int slot);
-
 void DrawRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
 void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
 void DrawTallRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
