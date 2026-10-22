@@ -151,9 +151,9 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         if (table->entries[entry_index].selector != 0) {
             item_record = &Data().items[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items.push_back(
-                    SpawnItem(Data().item_tables[table_id].entries[entry_index].item_id, &position,
-                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                output_items.push_back(SpawnItem(
+                    *GetWorld(), Data().item_tables[table_id].entries[entry_index].item_id,
+                    &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -197,8 +197,8 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         entry = &table->entries[entry_index];
         random_value = CurrentGame().rng.below(total_weight);
         if (random_value <= entry->weight) {
-            output_items.push_back(
-                SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            output_items.push_back(SpawnItem(*GetWorld(), entry->item_id, &position,
+                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
@@ -424,7 +424,7 @@ static char g_item_model_fallback_names[145][0x1e] = {"Dagger",
 /* Put one spawned item into the world: load its 3D model from
    Data\Items3D\Bitmaps, drop it at the item's position with a random yaw,
    attach and register it, then scale it by whether the sun reaches it. */
-void ActivateItem(W8WorldItem* item)
+void ActivateItem(World& world, W8WorldItem* item)
 {
     glm::vec3 position;
     glm::vec3 sun_position;
@@ -466,17 +466,17 @@ void ActivateItem(W8WorldItem* item)
     item->entity->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
                                             kInverseFullTurnDegrees));
     item->entity->flags |= item->entity_flags;
-    item->entity->AttachMesh(GetWorld());
-    GetWorld()->plsItems.push_back(std::move(entity));
+    item->entity->AttachMesh(&world);
+    world.plsItems.push_back(std::move(entity));
     item->fActive = true;
     ++CurrentGame().item_manager_pending;
 
-    sun = FindWorldLight("SUN");
-    if (sun != 0) {
+    sun = FindWorldLight(world, "SUN");
+    if (sun != nullptr && world.compiledIndex()) {
         sun_position = glm::vec3(sun->transform.getLocation());
         mesh = static_cast<MeshInstance*>(item->entity->GetMesh());
         if (mesh != 0) {
-            if (GetWorldSpatialIndex()->hasLineOfSight(position, sun_position)) {
+            if (world.compiledIndex()->hasLineOfSight(position, sun_position)) {
                 mesh->light_scale = glm::vec3(1);
             } else {
                 mesh->light_scale = glm::vec3(0);
@@ -559,7 +559,7 @@ void UpdateNearbyWorldItems(void)
 
         if (item->sector_id < -1) {
             item->sector_id = -1;
-            SettleWorldItem(item);
+            SettleWorldItem(*GetWorld(), item);
         }
         if (ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
             AdvanceFallingWorldItem(item);
@@ -571,7 +571,7 @@ void UpdateNearbyWorldItems(void)
                         goto next_item;
                     }
                 }
-                ActivateItem(item);
+                ActivateItem(*GetWorld(), item);
             }
         } else {
             glm::vec3 location;
@@ -628,7 +628,8 @@ std::optional<glm::vec3> FindItemDropPosition()
 void DropHeldItem(int)
 {
     if (const auto position = FindItemDropPosition()) {
-        AddWorldItem(CreateWorldItem(&CurrentGame().party.held.item, &*position,
+        AddWorldItem(*GetWorld(),
+                     CreateWorldItem(*GetWorld(), &CurrentGame().party.held.item, &*position,
                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     } else
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
@@ -647,9 +648,9 @@ static void OnItemPickerClosed(W8WorldItem* group)
         item = group->contents.front().get();
         item->position = group->position;
         if (!item->entity) {
-            ActivateItem(item);
+            ActivateItem(*GetWorld(), item);
         }
-        AddWorldItem(std::move(group->contents.front()));
+        AddWorldItem(*GetWorld(), std::move(group->contents.front()));
         group->contents.clear();
     } else if (!group->contents.empty()) {
         return;
@@ -657,7 +658,7 @@ static void OnItemPickerClosed(W8WorldItem* group)
     index = ItemIndex(group->runtime_id);
     item = ItemInfo(index);
     if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
+        RemoveItemFromSector(*GetWorld(), item->sector_id, item);
     }
     if (item->fActive) {
         DeactivateWorldItem(item);
@@ -699,7 +700,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
     if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
+        RemoveItemFromSector(*GetWorld(), item->sector_id, item);
     }
     if (item->fActive) {
         DeactivateWorldItem(item);
@@ -714,7 +715,7 @@ void ReleaseItemLists()
 {
     for (const auto& owned : CurrentLevelPopulation().world_items) {
         auto* item = owned.get();
-        if (item->sector_id >= 0) RemoveItemFromSector(item->sector_id, item);
+        if (item->sector_id >= 0) RemoveItemFromSector(*GetWorld(), item->sector_id, item);
         if (item->fActive) DeactivateWorldItem(item);
     }
     CurrentLevelPopulation().world_items.clear();
@@ -804,10 +805,10 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
     sector = ground_probe.prop().value_or(-1);
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
+            RemoveItemFromSector(*GetWorld(), item->sector_id, item);
         }
         if (sector >= 0) {
-            AddItemToSector(sector, item);
+            AddItemToSector(*GetWorld(), sector, item);
         }
         item->sector_id = sector;
     }
@@ -833,7 +834,7 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
 /* Drop one item onto the ground below where it is. The search starts one world
    unit up so an item already resting does not settle into the floor; landing
    moves it between sectors and clears its saved-marker flag. */
-bool SettleWorldItem(W8WorldItem* item)
+bool SettleWorldItem(World& world, W8WorldItem* item)
 {
     glm::vec3 start;
     int sector;
@@ -843,7 +844,8 @@ bool SettleWorldItem(W8WorldItem* item)
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
+    if (!world.compiledIndex()) return false;
+    const auto ground_probe = world.compiledIndex()->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
     if (!ground_probe.contact) {
         return false;
@@ -852,10 +854,10 @@ bool SettleWorldItem(W8WorldItem* item)
     sector = ground_probe.prop().value_or(-1);
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
+            RemoveItemFromSector(world, item->sector_id, item);
         }
         if (sector >= 0) {
-            AddItemToSector(sector, item);
+            AddItemToSector(world, sector, item);
         }
         item->sector_id = sector;
     }
@@ -879,28 +881,29 @@ void RebuildAllWorldItemInstances(void)
     }
 }
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
-                                             int entity_flags)
+std::unique_ptr<W8WorldItem> CreateWorldItem(World& world, W8ItemInstance* item,
+                                             const glm::vec3* position, int entity_flags)
 {
     auto result = std::make_unique<W8WorldItem>();
     *(&result->item) = W8ItemInstance{.iItemNo = -1};
     result->runtime_id = CurrentGame().status.next_world_item_id++;
     result->position = *position;
     result->sector_id = -1;
-    SettleWorldItem(result.get());
+    SettleWorldItem(world, result.get());
     result->entity_flags = entity_flags;
     if (item) *(&result->item) = std::exchange(*(item), W8ItemInstance{.iItemNo = -1});
     return result;
 }
 
-W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item)
+W8WorldItem* AddWorldItem(World& world, std::unique_ptr<W8WorldItem> item)
 {
     auto* result = item.get();
-    if (item) CurrentLevelPopulation().world_items.push_back(std::move(item));
+    if (item) world.population->world_items.push_back(std::move(item));
     return result;
 }
 
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags)
+std::unique_ptr<W8WorldItem> SpawnItem(World& world, int item_id, const glm::vec3* position,
+                                       int entity_flags)
 {
     W8ItemInstance local_item;
     W8ItemInstance* item;
@@ -913,7 +916,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
         item = &local_item;
     }
 
-    result = CreateWorldItem(item, position, entity_flags);
+    result = CreateWorldItem(world, item, position, entity_flags);
     assert(result != 0);
     return result;
 }
@@ -950,7 +953,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
-                            item = SpawnItem(entry->item_id, &position,
+                            item = SpawnItem(*GetWorld(), entry->item_id, &position,
                                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                             if (item != 0) {
                                 items.push_back(std::move(item));
@@ -969,7 +972,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     fmt::format("NPC monster {} has no NPC state", monster_info->monster_species));
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
-                    item = SpawnItem(npc->item_ids[index], &position,
+                    item = SpawnItem(*GetWorld(), npc->item_ids[index], &position,
                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                     if (item != 0) {
                         items.push_back(std::move(item));
@@ -1000,7 +1003,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     if (npc->item_ids[pick] != -1 &&
                         static_cast<short>(CurrentGame().rng.below(total_weight)) <=
                             static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
-                        item = SpawnItem(npc->item_ids[pick], &position,
+                        item = SpawnItem(*GetWorld(), npc->item_ids[pick], &position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                         if (item != 0) {
                             items.push_back(std::move(item));
@@ -1016,15 +1019,17 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             AddPartyGold(CurrentGame(), gold, true);
         }
         if (items.size() == 1) {
-            auto* dropped = AddWorldItem(std::move(items[0]));
+            auto* dropped = AddWorldItem(*GetWorld(), std::move(items[0]));
             dropped->position = position;
         } else if (items.size() > 1) {
             W8WorldItem* container;
             if (value == -1) {
-                container = AddWorldItem(SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE));
-            } else {
                 container = AddWorldItem(
-                    SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                    *GetWorld(), SpawnItem(*GetWorld(), 0x23c, &position, W8_ITEM_ENTITY_ROTATE));
+            } else {
+                container = AddWorldItem(*GetWorld(),
+                                         SpawnItem(*GetWorld(), value, &position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             }
             container->contents = std::move(items);
         }

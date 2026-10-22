@@ -755,7 +755,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "World item sections spawn nothing from incomplete records",
+TEST_CASE_METHOD(LoaderFixture,
+                 "World item records reject incomplete data without touching the active world",
                  "[loader][records]")
 {
     World world{};
@@ -774,7 +775,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections spawn nothing from incomple
         REQUIRE_FALSE(ReadWorldItems(&info, &world));
     }
 
-    // Spawning goes through the current game's world.
+    // The loader owns a separate candidate, never the active world.
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>());
     World& current = *game.game.level.primary;
@@ -793,7 +794,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections spawn nothing from incomple
         }
         return bytes;
     };
-    // A complete first record must not spawn when a later one is rejected.
+    // Unknown named items are skipped, but later records must still decode exactly.
     std::string second;
     SECTION("Short tail")
     {
@@ -817,13 +818,44 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections spawn nothing from incomple
     }
     std::string bytes;
     append(bytes, 2);
-    bytes += record("0") + second;
+    bytes += record("unknown-item") + second;
     store("items.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    LevelLoadContext info{&current, file.get(), {}};
-    REQUIRE_FALSE(ReadWorldItems(&info, &current));
+    LevelLoadContext info{&world, file.get(), {}};
+    REQUIRE_FALSE(ReadWorldItems(&info, &world));
+    REQUIRE(world.population->world_items.empty());
     REQUIRE(current.population->world_items.empty());
     REQUIRE(current.triggers.empty());
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candidate world",
+                 "[loader][items]")
+{
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& active = *game.game.level.primary;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].internal_name = "missing-model";
+    const ScopedGameData installed(std::move(data));
+    {
+        World candidate;
+        std::string bytes;
+        append(bytes, 1);
+        bytes += std::string("0") + std::string(19, '\0');
+        append(bytes, glm::vec3(1, 2, 3));
+        bytes.append(36, '\0'); // Unknown fields, no trigger, and the record tail.
+        store("candidate-items.bin", bytes);
+        auto file = wiz8::open_file(wiz8::asset_path("candidate-items.bin"));
+        LevelLoadContext info{&candidate, file.get(), {}};
+        REQUIRE_FALSE(ReadWorldItems(&info, &candidate)); // The model is deliberately absent.
+        REQUIRE(candidate.population->world_items.size() == 1);
+        REQUIRE(candidate.population->world_items.front()->item.iItemNo == 0);
+        REQUIRE(active.population->world_items.empty());
+        REQUIRE(active.plsItems.empty());
+    }
+    REQUIRE(active.population->world_items.empty());
+    REQUIRE(active.plsItems.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",

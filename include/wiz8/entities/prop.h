@@ -204,5 +204,5 @@ int GetSelectedPropIndex(void);
 bool ActivateSelectedProp(void);
 void UpdateWorldProps(World* world);
 
-void AddItemToSector(int sector, W8WorldItem* item);
-void RemoveItemFromSector(int sector, W8WorldItem* item);
+void AddItemToSector(World& world, int sector, W8WorldItem* item);
+void RemoveItemFromSector(World& world, int sector, W8WorldItem* item);

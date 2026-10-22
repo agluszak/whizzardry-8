@@ -475,13 +475,6 @@ try {
     int count;
     if (!ReadRecordCount(file, count)) return false;
 
-    struct PendingItem {
-        int item_id;
-        glm::vec3 position;
-        Trigger* trigger;
-    };
-    // Spawn nothing until every record in the section has decoded.
-    std::vector<PendingItem> pending;
     for (int index = 0; index < count; ++index) {
         std::array<char, 20> name;
         glm::vec3 position;
@@ -495,22 +488,19 @@ try {
         file.read_exact(unknown_fields.data(), sizeof(unknown_fields));
         file.read_exact(&has_trigger, sizeof(has_trigger));
         Trigger* trigger =
-            has_trigger != 0 ? Trigger::CreateAndLoadLevelTrigger(&file, info->world) : nullptr;
+            has_trigger != 0 ? Trigger::CreateAndLoadLevelTrigger(&file, world) : nullptr;
         std::array<unsigned char, 3> unknown_bytes;
         std::array<std::int32_t, 4> unknown_tail;
         file.read_exact(unknown_bytes.data(), unknown_bytes.size());
         file.read_exact(unknown_tail.data(), sizeof(unknown_tail));
-        pending.push_back({*item_id, position * kWorldScale, trigger});
-    }
-
-    for (const auto& item : pending) {
-        if (item.item_id < 0) continue;
-        auto* world_item = AddWorldItem(
-            SpawnItem(item.item_id, &item.position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        ActivateItem(world_item);
-        if (item.trigger != nullptr) {
-            item.trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-            world_item->trigger = item.trigger;
+        if (*item_id < 0) continue;
+        position *= kWorldScale;
+        auto* item = AddWorldItem(*world, SpawnItem(*world, *item_id, &position,
+                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        ActivateItem(*world, item);
+        if (trigger != nullptr) {
+            trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
+            item->trigger = trigger;
         }
     }
     return true;

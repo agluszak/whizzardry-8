@@ -118,10 +118,10 @@ bool MeatMaker(Trigger* pTrigger)
 
     if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
         position = entity_position;
-        item =
-            AddWorldItem(SpawnItem(0x1b4, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        item = AddWorldItem(*GetWorld(), SpawnItem(*GetWorld(), 0x1b4, &position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         if (item != 0) {
-            ActivateItem(item);
+            ActivateItem(*GetWorld(), item);
         }
     }
     return true;

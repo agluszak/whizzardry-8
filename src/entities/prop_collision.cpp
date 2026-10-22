@@ -262,13 +262,13 @@ bool Prop::RegisterPathVertex(unsigned int index, const glm::ivec2& point, const
 
 /* Register the item on the collidable prop's sector list, building the path
    representation and the list itself on first use. */
-void AddItemToSector(int sector, W8WorldItem* item)
+void AddItemToSector(World& world, int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        Prop* prop = GetWorld()->collidable_props[sector];
+        Prop* prop = world.collidable_props[sector];
         Prop* gd = (prop->collision_ready ? prop : nullptr);
         if (gd == 0) {
-            prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
+            prop->BuildOrRefreshPathingRepresentation(WorldPathing(world));
             gd = (prop->collision_ready ? prop : nullptr);
             if (gd == 0) {
                 return;
@@ -281,10 +281,10 @@ void AddItemToSector(int sector, W8WorldItem* item)
 }
 
 /* Drop the item from the collidable prop's sector list when both exist. */
-void RemoveItemFromSector(int sector, W8WorldItem* item)
+void RemoveItemFromSector(World& world, int sector, W8WorldItem* item)
 {
     if (item != 0 && sector >= 0) {
-        Prop* prop = GetWorld()->collidable_props[sector];
+        Prop* prop = world.collidable_props[sector];
         if (prop != 0 && prop->collision_ready) {
             wiz8::erase_first(prop->m_supported_items, item);
         }

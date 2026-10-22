@@ -10,6 +10,7 @@
 #include "wiz8/rules/item_instance.h"
 
 class Trigger;
+struct World;
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {
@@ -43,15 +44,16 @@ struct W8WorldItem {
     unsigned char unknown_3d[0x70];
 };
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
-                                             int entity_flags);
-W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item);
-bool SettleWorldItem(W8WorldItem* item);
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags);
+std::unique_ptr<W8WorldItem> CreateWorldItem(World& world, W8ItemInstance* item,
+                                             const glm::vec3* position, int entity_flags);
+W8WorldItem* AddWorldItem(World& world, std::unique_ptr<W8WorldItem> item);
+bool SettleWorldItem(World& world, W8WorldItem* item);
+std::unique_ptr<W8WorldItem> SpawnItem(World& world, int item_id, const glm::vec3* position,
+                                       int entity_flags);
 
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
-void ActivateItem(W8WorldItem* item);
+void ActivateItem(World& world, W8WorldItem* item);
 int FindItemRecordByName(const char* name);

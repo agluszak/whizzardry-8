@@ -61,6 +61,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
 
@@ -179,7 +180,8 @@ static bool DropUnstoredItem(Game& game, ItemSource source)
 {
     if ((Data().items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
-            AddWorldItem(CreateWorldItem(&source.item, &*position,
+            AddWorldItem(*GetWorld(),
+                         CreateWorldItem(*GetWorld(), &source.item, &*position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }

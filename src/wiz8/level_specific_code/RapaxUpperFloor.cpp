@@ -53,10 +53,11 @@ bool DoorDone(Trigger* pTrigger)
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
                     if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                         position = entity_position;
-                        world_item = AddWorldItem(SpawnItem(
-                            item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                        world_item = AddWorldItem(
+                            *GetWorld(), SpawnItem(*GetWorld(), item_id, &position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                         if (world_item != 0) {
-                            ActivateItem(world_item);
+                            ActivateItem(*GetWorld(), world_item);
                         }
                     }
                     RunTreasureDoor();
@@ -112,10 +113,11 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
-                    world_item = AddWorldItem(SpawnItem(
-                        item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                    world_item = AddWorldItem(
+                        *GetWorld(), SpawnItem(*GetWorld(), item_id, &position,
+                                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                     if (world_item != 0) {
-                        ActivateItem(world_item);
+                        ActivateItem(*GetWorld(), world_item);
                     }
                 }
                 RunTreasureDoor();

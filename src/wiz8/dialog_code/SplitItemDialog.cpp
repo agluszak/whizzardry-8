@@ -61,7 +61,7 @@ static int g_split_text_string_ids[14] = {
 
 static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 
-W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count,
+W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, const W8ItemInstance* item, int count,
                                      SDL_Point origin)
 {
     SetOrigin(origin.x, origin.y);
@@ -87,7 +87,7 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
         split_count = count;
         m_remaining = item->stack_count - count;
     }
-    m_item = item;
+    m_item = *item;
     split_result = W8_SPLIT_RESULT_PENDING;
 
     split_result = W8_SPLIT_RESULT_PENDING;
@@ -198,11 +198,11 @@ void W8SplitItemDialog::CreateTextBuffers()
         }
         m_texts[0]->SetText(header, g_wiz_text_font_secondary);
     }
-    m_texts[3]->SetText(FormatItemDisplayName(Data(), m_item, false), g_wiz_text_font_secondary);
+    m_texts[3]->SetText(FormatItemDisplayName(Data(), &m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
         fmt::format(
-            "{} ({})", Data().strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
-            Data().strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
+            "{} ({})", Data().strings[g_equip_class_name_ids[GetItemEquipClass(&m_item)]],
+            Data().strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(&m_item)]]),
         g_wiz_text_font_secondary);
 }
 
@@ -226,7 +226,7 @@ void W8SplitItemDialog::CreateNumericInput()
 void W8SplitItemDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
-    DrawSprite(target, *ItemSprites(m_item->iItemNo), 0, m_x + 0x18, m_y + 0xe);
+    DrawSprite(target, *ItemSprites(m_item.iItemNo), 0, m_x + 0x18, m_y + 0xe);
     for (auto& button : m_buttons) button.Draw(target);
     for (auto& text : m_texts)
         if (text) text->Paint(target);
@@ -240,7 +240,7 @@ void W8SplitItemDialog::UpdateCostLabels()
     int remaining_price;
     int split_price;
 
-    stack = *m_item;
+    stack = m_item;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         return;
     }
@@ -277,7 +277,7 @@ void W8SplitItemDialog::UpdateCostLabels()
                                          W8_TRADE_PRICE_PARTY_BUYS);
         }
     } else {
-        remaining_price = GetItemStackValue(m_item);
+        remaining_price = GetItemStackValue(&m_item);
         split_price = remaining_price;
     }
     text = fmt::format("{:d}", remaining_price);
@@ -301,7 +301,7 @@ void W8SplitItemDialog::UpdateAcceptButton()
     W8ItemInstance stack;
     bool can_accept;
 
-    stack = *m_item;
+    stack = m_item;
     stack.stack_count = static_cast<unsigned char>(split_count);
     can_accept = split_count != 0;
     switch (m_mode) {
@@ -344,12 +344,12 @@ void W8SplitItemDialog::UpdateTotals()
     m_count_input->SetValue(split_count);
     m_buttons[3].m_dirty = true;
     m_count_input->m_dirty = true;
-    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
+    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(&m_item) * m_remaining) *
                                      kItemWeightDisplayScale);
     m_texts[7]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[4].m_dirty = true;
     m_texts[7]->SetGeometryDirty();
-    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
+    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(&m_item) * split_count) *
                                      kItemWeightDisplayScale);
     m_texts[9]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[5].m_dirty = true;

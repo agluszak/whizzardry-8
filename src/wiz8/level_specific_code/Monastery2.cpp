@@ -36,9 +36,10 @@ bool MicroDoor2(Trigger* pTrigger)
     W8WorldItem* item;
 
     position = glm::vec3(13085.0f, -80.0f, -49440.0f);
-    item = AddWorldItem(SpawnItem(0x2d7, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    item = AddWorldItem(*GetWorld(), SpawnItem(*GetWorld(), 0x2d7, &position,
+                                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     if (item != 0) {
-        ActivateItem(item);
+        ActivateItem(*GetWorld(), item);
     }
     return true;
 }

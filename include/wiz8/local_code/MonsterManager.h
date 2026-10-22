@@ -75,13 +75,12 @@ struct W8MonsterManagerEntry {
     int damage_splat_frame;
     int damage_splat_end_frame;
     unsigned char damage_splat_catalog;
-    /* The last-drawn portrait vitals, so the dirty flag is raised only when
-       the computed bars or the numeric hit-point display actually changed. */
+    /* The last-sampled portrait vitals; the screen invalidates their panel
+       when a computed bar or the numeric hit-point display changes. */
     int cached_hp_bar;
     int cached_stamina_bar;
     int cached_spell_bar;
     int cached_hp;
-    bool portrait_stats_dirty;
     /* The spell/condition effect-icon flash over the portrait.
        The setup derives the icon's catalog base from the spell's
        realm and takes the frame count from the same record, shares the
