@@ -175,6 +175,7 @@ void GameHarness::frame()
         FailStep("audio", "offline mixer did not advance");
     ++frames_;
     g_runtime_test_hooks.clock_us += frame_us;
+    check_modal_visible();
     if (frames_ % 120 == 0)
         std::fprintf(stderr, "runtime: %lu frames, screen %s, %.1fs elapsed\n", frames_,
                      ScreenName(CurrentScreenState().id),
@@ -435,6 +436,49 @@ void GameHarness::click_control(const char* step, SDL_Rect bounds,
     frame();
     mouse_button(at.x, at.y, false, which);
     frame();
+}
+
+void GameHarness::check_modal_visible()
+{
+    // While a modal scope is active only its targets are live, so probing the
+    // screen finds the area it takes input from.
+    std::vector<const HitTarget*> targets;
+    if (UiModalActive())
+        for (int y = 0; y < SCREEN_HEIGHT; y += 8)
+            for (int x = 0; x < SCREEN_WIDTH; x += 8)
+                if (const HitTarget* target = UiTargetAt({x, y});
+                    target && !std::ranges::contains(targets, target))
+                    targets.push_back(target);
+    if (targets.empty()) {
+        appearing_modal_.reset();
+    } else if (std::ranges::none_of(targets, [&](const HitTarget* target) {
+                   return std::ranges::contains(modal_targets_, target);
+               })) {
+        // A new scope, not one that gained or lost a control.
+        SDL_Rect area = targets.front()->bounds();
+        for (const HitTarget* target : targets) {
+            const SDL_Rect bounds = target->bounds();
+            SDL_GetRectUnion(&area, &bounds, &area);
+        }
+        appearing_modal_ = AppearingModal{OnScreen(area)};
+    }
+    modal_targets_ = std::move(targets);
+    if (!appearing_modal_) return;
+
+    // Most of the area must be painted (a dialog is opaque), and shown.
+    const SDL_Rect area = appearing_modal_->area;
+    const UiCoverage coverage = PresentedUi(GetFrameBufferSurface(), area);
+    if (coverage.visible() && coverage.painted * 2 >= area.w * area.h) {
+        appearing_modal_.reset();
+    } else if (++appearing_modal_->frames >= 4) {
+        appearing_modal_.reset();
+        FailStep("interactive-means-visible",
+                 "a modal input scope over " + Describe(area) +
+                     " has taken input for 4 frames on " + ScreenName(CurrentScreenState().id) +
+                     ", but the presented frame shows " + coverage.describe() + " in its " +
+                     std::to_string(area.w * area.h) +
+                     " pixels: the player cannot see what is asked");
+    }
 }
 
 void GameHarness::mouse_button(int x, int y, bool down, Uint8 which)

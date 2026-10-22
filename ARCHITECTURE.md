@@ -640,4 +640,6 @@ does not establish behavioral parity.
 
 Scenarios click controls as objects (`GameHarness::click`), which first checks that a
 player could: the control is shown and enabled, the pointer over it reaches it, and
-the presented frame shows what the UI painted there.
+the presented frame shows what the UI painted there. On every frame the harness also
+requires a newly active modal input scope to be shown within four frames, so input
+can never be captured by a prompt the player cannot see.
