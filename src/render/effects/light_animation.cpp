@@ -260,15 +260,6 @@ void Light::Reset()
     m_path_time = m_level_time = -1;
 }
 
-std::vector<W8LightState> CaptureLightStates()
-{
-    std::vector<W8LightState> states;
-    ForEachWorldLight([&](Light* light) {
-        if (light->m_save_marked) states.push_back({light->getName(), light->visible});
-    });
-    return states;
-}
-
 /* A version byte and count followed by each light's 0x80-byte name and its enable flag. */
 void WriteLightStates(wiz8::File& handle, std::span<const W8LightState> states)
 {

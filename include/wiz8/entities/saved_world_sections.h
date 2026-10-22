@@ -102,11 +102,8 @@ std::vector<SavedProp> DecodeSavedProps(W8Chunk& chunk);
 SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& chunk);
 std::vector<SavedTriggerAction> DecodeSavedTriggerActions(W8Chunk& chunk);
 
-/* What a save keeps of the world's triggers (TRIG), props (APST) and locks (LCKS), and the
-   writers of each section, which reproduce the records they were decoded from. */
-std::vector<SavedTrigger> CaptureSavedTriggers(const World& world);
-std::vector<SavedProp> CaptureSavedProps(const World& world);
-SavedTriggerLocks CaptureSavedTriggerLocks(const World& world);
+/* The writers of each section, which reproduce the records they were decoded from (a save
+   captures them with Trigger::Capture, Trigger::CaptureLock and Prop::CaptureAnimationState). */
 void WriteSavedTriggers(wiz8::File& file, std::span<const SavedTrigger> section);
 void WriteSavedProps(wiz8::File& file, std::span<const SavedProp> section);
 void WriteSavedTriggerLocks(wiz8::File& file, const SavedTriggerLocks& section);

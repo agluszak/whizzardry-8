@@ -166,7 +166,6 @@ struct W8ParticleState {
     unsigned char active;
 };
 // The persisted particle systems' emitting flags.
-std::vector<W8ParticleState> CaptureParticleStates(const World& world);
 void WriteParticleStates(wiz8::File& handle, std::span<const W8ParticleState> states);
 std::vector<W8ParticleState> ReadParticleStates(W8Chunk& file);
 void ApplyParticleStates(World& world, std::span<const W8ParticleState> states);

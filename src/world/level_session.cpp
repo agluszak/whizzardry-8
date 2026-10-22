@@ -30,6 +30,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/level_state.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -510,11 +511,12 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    if (GetWorld() && !StoreLeftLevel(CurrentGame())) return false;
-    auto state = DecodeLeftLevelState(CurrentGame(), level);
+    auto& game = CurrentGame();
+    if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
+    auto state = game.left_levels.decode(level);
     if (!state)
-        state = DecodeLevelState(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
-    auto status = state ? BuildLevel(*replacement, std::move(*state)) : nullptr;
+        state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
+    auto status = state ? std::move(*state).build(*replacement) : nullptr;
     if (GetWorld()) LeaveLevel();
     current.replacePrimary(std::move(replacement));
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));

@@ -201,7 +201,6 @@ struct W8LightState {
     unsigned char enabled;
 };
 // The trigger-toggled lights of the loaded worlds.
-std::vector<W8LightState> CaptureLightStates();
 void WriteLightStates(wiz8::File& handle, std::span<const W8LightState> states);
 std::vector<W8LightState> ReadLightStates(W8Chunk& file);
 void ApplyLightStates(World& world, std::span<const W8LightState> states);

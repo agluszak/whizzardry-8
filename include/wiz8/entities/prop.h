@@ -124,6 +124,7 @@ public:
         W8AnimationDirection frame_direction;
         unsigned char animation_playing, unused;
     };
+    SavedAnimationState CaptureAnimationState() const;
     void ApplyAnimationState(const SavedAnimationState& state, NavigationMesh* pathing);
     int BuildOrRefreshPathingRepresentation(NavigationMesh* pathing);
     glm::vec3 GetDelta() const;

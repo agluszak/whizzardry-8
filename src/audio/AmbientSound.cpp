@@ -639,11 +639,10 @@ void SetSoundEffectsMuted(unsigned char muted)
     }
 }
 
-std::vector<W8AmbientSoundState> CaptureAmbientSoundStates(const World& world)
+std::vector<W8AmbientSoundState> AmbientAudioSystem::savedStates() const
 {
     std::vector<W8AmbientSoundState> states;
-    for (const auto& sound : world.audio.emitters)
-        states.push_back({sound->name, sound->stopped != 0});
+    for (const auto& sound : emitters) states.push_back({sound->name, sound->stopped != 0});
     return states;
 }
 

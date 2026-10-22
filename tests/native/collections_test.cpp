@@ -929,7 +929,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     generator.timer.setScale(0.5f);
     generator.timer.advance(std::chrono::milliseconds{500});
     chunk.WriteChunk(W8ChunkId("MGNS"), [&] {
-        WriteMonsterGeneratorStates(chunk.WriteStream(), CaptureMonsterGeneratorStates(live));
+        WriteMonsterGeneratorStates(chunk.WriteStream(), live.savedGeneratorStates());
     });
     chunk.Close();
     REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
@@ -938,10 +938,10 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     std::optional<W8EncounterState> loaded_state;
     chunk.ForEachChunk([&](unsigned id) {
         if (id == W8ChunkId("MGNS")) {
-            ApplyMonsterGeneratorStates(*loaded_state, ReadMonsterGeneratorStates(chunk));
+            loaded_state->applyGeneratorStates(ReadMonsterGeneratorStates(chunk));
             // Decoding draws nothing; building the world draws each generator's jitter once.
             REQUIRE(draws.empty());
-            RearmDecodedGenerators(*loaded_state);
+            loaded_state->rearmDecodedGenerators();
             REQUIRE(draws.size() == 1);
             REQUIRE(draws[0].range == 41);
             const auto& timer = loaded_state->generators.front()->timer;
