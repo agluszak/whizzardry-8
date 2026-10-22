@@ -2024,22 +2024,26 @@ TEST_CASE("Vitals panels publish their complete bounds without changing sampled 
             auto& entry = game.game.monster_manager_entries[slot];
             game.game.party.characters[slot].hp_current = 20;
             entry.cached_hp_bar = 20;
-            entry.cached_stamina_bar = 45;
+            entry.cached_stamina_bar = 0;
             const auto portrait = PartyPortraitBounds(slot);
             const int x = portrait.left + ((slot & 1) ? 0 : 105);
-            const int y = portrait.top + (numeric ? 17 : 23);
+            const int y = portrait.top + (numeric ? 16 : 23);
             REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234));
             TakeUiUpload();
             RedrawPartyPortraitBars(slot, false);
             const auto upload = TakeUiUpload();
             REQUIRE((upload.x == x && upload.y == y && upload.w == 24 &&
-                     upload.h == (numeric ? 53 : 45)));
+                     upload.h == (numeric ? 54 : 46)));
             REQUIRE(surface_pixel(framebuffer, x + (numeric ? 3 : 6), y) != 0x1234);
             REQUIRE(surface_pixel(framebuffer, x - 1, y) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 3, y - 1) == 0x1234);
             REQUIRE(surface_pixel(framebuffer, x + 24, y + upload.h - 1) == 0x1234);
-            if (numeric) REQUIRE(surface_pixel(framebuffer, x + 2, portrait.top + 63) == 0x8000);
+            if (numeric)
+                REQUIRE(surface_pixel(framebuffer, x + 2, portrait.top + 63) == 0x8000);
+            else
+                REQUIRE(surface_pixel(framebuffer, x + 10, y + 45) == 0x8000);
             REQUIRE(entry.cached_hp_bar == 20);
-            REQUIRE(entry.cached_stamina_bar == 45);
+            REQUIRE(entry.cached_stamina_bar == 0);
             REQUIRE(game.game.party.characters[slot].hp_current == 20);
         }
     }

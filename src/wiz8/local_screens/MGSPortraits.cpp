@@ -565,8 +565,9 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &background, 0x8000);
             text.Paint(GetFrameBufferSurface());
         }
-        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
-                         menu_y + (numeric_hp_mode ? 0x46 : bar_y + 0x2d));
+        InvalidateRegion(band_portrait_edge, bar_y - numeric_hp_mode + menu_y,
+                         band_portrait_edge + 0x18,
+                         menu_y + (numeric_hp_mode ? 0x46 : bar_y + 0x2e));
     }
 }
 
