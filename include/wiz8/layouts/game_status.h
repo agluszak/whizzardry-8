@@ -71,8 +71,8 @@ struct GameStatus {
     std::array<unsigned char, 0x20> flags{};
     unsigned int game_time_ms = 0;
     unsigned int aging_accumulator = 0;
-    /* Search mode toggle. Mirrors the submenu search button, slows party movement, and
-       scales the monster-sight threshold while set. */
+    /* The player's search-mode choice, kept through fights; `Game::searching` says
+       whether the party is searching now. */
     bool search_mode = false;
     /* Cleared by the main-game frame; HP/SP and condition updates skip work while it is
        set, and encounter culling treats it as the force-despawn gate. */

@@ -152,7 +152,7 @@ void RunSearchPulse(void)
     if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
         !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
         !LockInteractionSuspended() && !IsTrapInteractionActive() && !TrapInteractionSuspended()) {
-        if (IsLevelFastMovement() && CurrentGame().status.search_mode) {
+        if (IsLevelFastMovement() && CurrentGame().searching()) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
         }
         auto candidates = CollectSearchablesInView(*GetWorld());
@@ -206,7 +206,7 @@ void RunSearchPulse(void)
                 }
             }
         }
-        if (!CurrentGame().status.search_mode || IsLevelFastMovement()) {
+        if (!CurrentGame().searching() || IsLevelFastMovement()) {
             /* Retail scans the party for a live member carrying the
                Scouting skill and then discards the result. */
             for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -218,7 +218,7 @@ void RunSearchPulse(void)
                 }
             }
         }
-        if (CurrentGame().status.search_mode && !IsLevelFastMovement() && !found &&
+        if (CurrentGame().searching() && !IsLevelFastMovement() && !found &&
             CurrentGame().rng.below(100) == 0) {
             ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
         }
@@ -241,14 +241,14 @@ int W8Searchable::PickBestSearcher()
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || CurrentGame().status.search_mode) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || CurrentGame().searching()) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (CurrentGame().status.search_mode && !IsLevelFastMovement())) {
+            if (base != 0 || (CurrentGame().searching() && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -297,24 +297,27 @@ int W8Searchable::PickBestSearcher()
     return -1;
 }
 
-/* Toggle the party's search mode: leaving it posts the off notice, entering it
-   posts the on notice and arms the 500ms pulse that sweeps the searchable
-   registry; combat blocks the toggle outright. */
+void ResumeSearching(void)
+{
+    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
+    CurrentGame().search_sweep_due = std::chrono::milliseconds{500};
+    if (World* world = GetWorld(); world != nullptr && world->script) {
+        world->script->clearActiveCursorNode();
+    }
+}
+
+/* Toggle the player's search mode: turning it off posts the off notice, turning
+   it on starts searching; combat blocks the toggle outright. */
 void ToggleSearchMode(void)
 {
-    if (CurrentGame().status.search_mode) {
-        CurrentGame().status.search_mode = false;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
-        return;
-    }
-    if (!CurrentGame().combat.has_value()) {
-        CurrentGame().status.search_mode = true;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
-        CurrentGame().search_sweep_due = std::chrono::milliseconds{500};
-        if (World* world = GetWorld(); world != nullptr && world->script) {
-            world->script->clearActiveCursorNode();
-        }
-    } else {
+    Game& game = CurrentGame();
+    if (game.combat.has_value()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
+    } else if (game.status.search_mode) {
+        game.status.search_mode = false;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
+    } else {
+        game.status.search_mode = true;
+        ResumeSearching();
     }
 }

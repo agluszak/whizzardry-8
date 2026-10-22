@@ -96,6 +96,9 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    /* The party searches while the player's search mode is on and no fight is in
+       progress; a fight suspends searching without changing the player's choice. */
+    bool searching() const { return status.search_mode && !combat; }
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.

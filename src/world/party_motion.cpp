@@ -227,7 +227,7 @@ bool PartyMotion::UpdateFootstepFromMotion()
     distance = glm::length(movement) + footstep_accumulator;
     footstep_accumulator = distance;
     if (2e+03f < distance) {
-        if (!CurrentGame().status.search_mode && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
+        if (!CurrentGame().searching() && (flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0) {
             large_radius = false;
         } else {
             large_radius = true;
