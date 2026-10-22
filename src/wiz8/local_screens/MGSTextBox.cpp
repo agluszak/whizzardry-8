@@ -868,7 +868,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         rows = 7;
     }
 
-    if (!MainGameHud()->layout.bottom_panel) {
+    if (!MainGame()->layout().bottom_panel) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
@@ -928,7 +928,7 @@ void RedrawTextBoxScrollChrome(void)
     clip.h = (0x1db) - clip.y;
     ScopedClipRect clipped(framebuffer, clip);
 
-    if (MainGameHud()->layout.bottom_panel) {
+    if (MainGame()->layout().bottom_panel) {
         text_box = CurrentGame().status.text_line_cursor;
         scroll = MainGameHud()->text_lines[text_box];
         if (scroll == 0) {

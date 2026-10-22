@@ -2197,6 +2197,8 @@ bool MainGameScreen::enter(const ScreenRequest&)
     CreateLevelButtons();
     CreateConditionButtons();
     InitializeMainGameLevelBlock(*hud);
+    // The renderer starts each entry without a viewport.
+    applied_layout.viewport = W8_VIEWPORT_MODE_UNINITIALIZED;
     refreshLayout();
     ScrollTextBoxToCursor();
     g_world_render_enabled = 1;
@@ -2621,9 +2623,10 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
                                  RepaintedPortraitBands& bands)
 {
     const auto& repaint = hud.repaint;
-    const auto publish_chrome = [&hud](int left, int top, int right, int bottom) {
-        InvalidateRegion(left, top + hud.layout.PortraitYShift(), right,
-                         bottom + hud.layout.PortraitYShift());
+    const auto& layout = MainGame()->layout();
+    const auto publish_chrome = [&layout](int left, int top, int right, int bottom) {
+        InvalidateRegion(left, top + layout.PortraitYShift(), right,
+                         bottom + layout.PortraitYShift());
     };
     int party_slot;
     int text_box_variant;
@@ -2673,7 +2676,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
                                           party_slot == hud.held_item_display,
                                       true, hud.portrait_refresh_pending[party_slot] == 0));
             auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                            hud.layout.PortraitHoverXOrigin());
+                                                            layout.PortraitHoverXOrigin());
             if (hud.portrait_refresh_pending[party_slot]) {
                 auto backing = PartyPortraitBounds(party_slot);
                 --backing.right;
@@ -2710,7 +2713,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
         if (IsTrapInteractionActive()) {
             goto finish_mode_overlays;
         }
-        if (!repaint.radar || !hud.layout.radar_map) {
+        if (!repaint.radar || !layout.radar_map) {
             if (repaint.radar) {
                 ClearSurfaceRect(0x17, 0x166, 0x80, 0x1c2);
             }
@@ -2718,7 +2721,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
             CatalogArtwork::Load(0x84, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x17,
                                                             0x166);
         }
-        if (!repaint.text_box || !hud.layout.bottom_panel) {
+        if (!repaint.text_box || !layout.bottom_panel) {
             if (repaint.text_box) {
                 ClearSurfaceRect(0x80, 0x166, 0x200, 0x1c2);
             }
@@ -2738,7 +2741,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
                                                             text_box_variant, 0x8a, 0x168);
         }
     draw_formation_panel:
-        if (!repaint.formation || !hud.layout.formation_board) {
+        if (!repaint.formation || !layout.formation_board) {
             if (repaint.formation) {
                 ClearSurfaceRect(0x200, 0x166, 0x268, 0x1c2);
             }
@@ -2786,7 +2789,7 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
     ApplyTargetingPresentation(presentation);
     UpdateRadarBlips(presentation);
     // Interactions hold the bottom panel up, so this is the plain text box.
-    if (!hud.layout.bottom_panel && !CurrentGame().activity.conversation) {
+    if (!MainGame()->layout().bottom_panel && !CurrentGame().activity.conversation) {
         const int stopped_line = FindStoppedTextLine();
         if (stopped_line != -1 && hud.text_lines[4 + CurrentGame().status.text_line_cursor] !=
                                       static_cast<unsigned int>(stopped_line)) {
@@ -2897,10 +2900,10 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
         if (repaint.video_inspector) DrawVideoInspector(0xdc, 0x32);
-        if (MainGameHud()->layout.formation_board) {
+        if (MainGame()->layout().formation_board) {
             CreateFormationBoardOverlay();
         }
-        if (MainGameHud()->layout.radar_map) {
+        if (MainGame()->layout().radar_map) {
             EnsureRadarMapOverlay();
         }
         RenderFrame();
@@ -3090,7 +3093,7 @@ void SelectPartyCharacter(int party_slot)
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
 {
-    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS ||
         MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
@@ -3306,6 +3309,7 @@ static PortraitPlateContent MeasurePortraitPlate(PortraitPlate kind, int party_s
 static void LayOutPortraitPlate(W8LevelRuntimeBlock& hud, PortraitPlate kind, int party_slot)
 {
     const auto content = MeasurePortraitPlate(kind, party_slot);
+    const auto& layout = MainGame()->layout();
     DismissHighlightOverlay();
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
@@ -3321,17 +3325,17 @@ static void LayOutPortraitPlate(W8LevelRuntimeBlock& hud, PortraitPlate kind, in
     const bool shifted = pending == 0 && (hud.condition_highlight_party_slot != -1 ||
                                           hud.portrait_overlay_party_slot != -1);
     if ((party_slot & 1) == 0) {
-        left = hud.portrait_refresh_image[party_slot] - hud.layout.PortraitHoverXOrigin() + 0x80;
+        left = hud.portrait_refresh_image[party_slot] - layout.PortraitHoverXOrigin() + 0x80;
         if (shifted) left += 0x18;
     } else {
-        left = hud.layout.PortraitHoverXOrigin() - hud.portrait_refresh_image[party_slot] -
+        left = layout.PortraitHoverXOrigin() - hud.portrait_refresh_image[party_slot] -
                static_cast<int>(panel_width) + 0x200;
         if (shifted) left -= 0x18;
     }
 
     const unsigned int content_height = content.rows * 9 + 0x12;
     const int row_y = (party_slot >> 1) * 0x55;
-    int top = g_viewport_modes[static_cast<unsigned int>(hud.layout.viewport)].top;
+    int top = g_viewport_modes[static_cast<unsigned int>(layout.viewport)].top;
     const int candidate = row_y - static_cast<int>(content_height) + 0x3c;
     if (candidate >= top) {
         if (candidate + content_height * 2 > 0x166) {
@@ -3544,7 +3548,7 @@ void UpdatePortraitPlate(W8LevelRuntimeBlock& hud)
     const auto tracked = TrackedPortraitPlate(hud);
     if (!tracked) return;
     bool lay_out = repaint.portrait_panel && !PartyMovementPanelShown();
-    const bool portraits_mode = MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS;
+    const bool portraits_mode = MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS;
     for (int slot = 0; slot < 8 && !lay_out; ++slot) {
         const bool band = repaint.portraits.test(slot) ||
                           (repaint.portrait_frames.test(slot) &&
@@ -3734,8 +3738,9 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
 {
     const auto& hud = *MainGameHud();
-    const auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                          hud.layout.PortraitHoverXOrigin());
+    const auto rect =
+        PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
+                                            MainGame()->layout().PortraitHoverXOrigin());
     return rect.right > 0 &&
            IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right - 1, rect.bottom - 1);
 }
@@ -4054,7 +4059,7 @@ void MainGameScreen::refreshLayout()
 {
     const bool picker = gpSCSV || ItemUseDraft() || lock_active || trap_active;
     const auto layout = MainGameLayout::Decide(g_settings, picker, NpcDialogueOpen(game));
-    const auto previous = std::exchange(hud->layout, layout);
+    const auto previous = std::exchange(applied_layout, layout);
     if (layout != previous) {
         const bool portraits = layout.mode == W8_MAIN_UI_MODE_PORTRAITS;
         SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, -1);
@@ -4116,7 +4121,7 @@ void MainGameScreen::refreshPartySlotRegions()
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         const bool available = game.party.members[slot].has_value() &&
                                !game.monster_manager_entries[slot].keyboard_menu_open;
-        const bool full = hud->layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
+        const bool full = applied_layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
                           hud->portrait_refresh_pending[slot] != 0;
         portraits[slot]->setEnabled(available && full);
         edge_targets[slot]->setEnabled(available && !full);
@@ -5814,7 +5819,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
 
 void MainGameScreen::closeOverlays()
 {
-    auto& layout = hud->layout;
+    auto& layout = applied_layout;
     if (std::exchange(layout.formation_board, false)) showFormationBoard(false);
     if (std::exchange(layout.radar_map, false)) showRadarMap(false);
     if (std::exchange(layout.bottom_panel, false)) SetActionPanelRegions(false);
@@ -5830,8 +5835,9 @@ void ClearHighlightOverlayRegion(void)
                            static_cast<int>(hud.dialogue_y + hud.dialogue_height)};
     hud.repaint.plate_erase =
         hud.repaint.plate_erase ? UnionScreenRects(*hud.repaint.plate_erase, plate) : plate;
-    if (hud.dialogue_y < static_cast<unsigned int>(
-                             g_viewport_modes[static_cast<unsigned int>(hud.layout.viewport)].top))
+    if (hud.dialogue_y <
+        static_cast<unsigned int>(
+            g_viewport_modes[static_cast<unsigned int>(MainGame()->layout().viewport)].top))
         hud.repaint.roof_and_spell_icons = true;
     if (hud.dialogue_y + hud.dialogue_height > 0x166) hud.repaint.text_box = true;
 }

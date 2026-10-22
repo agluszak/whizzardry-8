@@ -50,6 +50,8 @@ struct MainGameScreen final : Screen {
     /* Re-sync the party slots' portrait and edge hit regions with occupancy, the
        keyboard menu and the shown mode. */
     void refreshPartySlotRegions();
+    // The layout the panels, viewport and input currently follow.
+    const MainGameLayout& layout() const { return applied_layout; }
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
@@ -96,6 +98,8 @@ struct MainGameScreen final : Screen {
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 
 private:
+    MainGameLayout applied_layout;
+
     void showRadarMap(bool visible);
     void showFormationBoard(bool visible);
     void syncInput(const MainGameLayout& layout);

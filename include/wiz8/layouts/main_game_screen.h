@@ -206,8 +206,6 @@ struct W8LevelRuntimeBlock {
     /* Owned notice/list paint scratch, reused by the monster-list formatter. */
     std::string text_paint_scratch;
     MainGameRepaint repaint;
-    // The layout the panels, viewport and input currently follow.
-    MainGameLayout layout;
     unsigned char portrait_refresh_pending[8];
     int portrait_refresh_image[8];
     unsigned char text_scroll_drag_idle;

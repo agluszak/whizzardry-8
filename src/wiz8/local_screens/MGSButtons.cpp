@@ -452,11 +452,11 @@ static void CreateRoofButtons()
         {.on_click = MainGameRoofButton2,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x3a});
-    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
         MainGame()->hud_buttons.roof[0].SetPressed(true);
-    } else if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_FORMATION) {
+    } else if (MainGame()->layout().mode == W8_MAIN_UI_MODE_FORMATION) {
         MainGame()->hud_buttons.roof[1].SetPressed(true);
-    } else if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
+    } else if (MainGame()->layout().mode == W8_MAIN_UI_MODE_RADAR) {
         MainGame()->hud_buttons.roof[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
@@ -503,7 +503,7 @@ void UpdateRoofButtons(void)
    state (portraits / formation / radar). */
 void SyncRoofButtonPressedState(void)
 {
-    if (MainGameHud()->layout.mode == 0) {
+    if (MainGame()->layout().mode == 0) {
         if (MainGame()->hud_buttons.roof[0].IsPressed() == 0) {
             MainGame()->hud_buttons.roof[0].SetPressed(true);
         }
@@ -513,7 +513,7 @@ void SyncRoofButtonPressedState(void)
         if (MainGame()->hud_buttons.roof[2].IsPressed()) {
             MainGame()->hud_buttons.roof[2].SetPressed(false);
         }
-    } else if (MainGameHud()->layout.mode == 1) {
+    } else if (MainGame()->layout().mode == 1) {
         if (MainGame()->hud_buttons.roof[1].IsPressed() == 0) {
             MainGame()->hud_buttons.roof[1].SetPressed(true);
         }
@@ -523,7 +523,7 @@ void SyncRoofButtonPressedState(void)
         if (MainGame()->hud_buttons.roof[2].IsPressed()) {
             MainGame()->hud_buttons.roof[2].SetPressed(false);
         }
-    } else if (MainGameHud()->layout.mode == 2) {
+    } else if (MainGame()->layout().mode == 2) {
         if (MainGame()->hud_buttons.roof[2].IsPressed() == 0) {
             MainGame()->hud_buttons.roof[2].SetPressed(true);
         }
@@ -538,8 +538,8 @@ void SyncRoofButtonPressedState(void)
 
 static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->layout.radar_map) {
-        if (!MainGameHud()->layout.formation_board && !MainGameHud()->layout.bottom_panel) {
+    if (MainGame()->layout().radar_map) {
+        if (!MainGame()->layout().formation_board && !MainGame()->layout().bottom_panel) {
             MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -548,7 +548,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
         return;
     }
     g_settings.formation_radar_map_preference = 1;
-    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_action_panel_preference = 0;
         g_settings.formation_board_preference = 0;
         MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
@@ -559,29 +559,29 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->layout.bottom_panel) {
-        if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_FORMATION) {
-            if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.formation_board) {
+    if (MainGame()->layout().bottom_panel) {
+        if (MainGame()->layout().mode == W8_MAIN_UI_MODE_FORMATION) {
+            if (!MainGame()->layout().radar_map && !MainGame()->layout().formation_board) {
                 MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
             MainGame()->refreshLayout();
             return;
         }
-        if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
             g_settings.portraits_action_panel_preference = 0;
         }
         MainGame()->refreshLayout();
         return;
     }
-    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 1;
         g_settings.formation_board_preference = 0;
         MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_settings.portraits_action_panel_preference = 1;
         MainGame()->refreshLayout();
         return;
@@ -592,8 +592,8 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->layout.formation_board) {
-        if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.bottom_panel) {
+    if (MainGame()->layout().formation_board) {
+        if (!MainGame()->layout().radar_map && !MainGame()->layout().bottom_panel) {
             MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -602,7 +602,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
         return;
     }
     g_settings.formation_board_preference = 1;
-    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 0;
         MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
@@ -623,7 +623,7 @@ void RedrawLayoutArrowButtons(void)
 void UpdateLayoutArrowButtons(void)
 {
     auto& arrows = MainGame()->hud_buttons.layout_arrows;
-    const auto& layout = MainGameHud()->layout;
+    const auto& layout = MainGame()->layout();
     if (CurrentGame().activity.conversation || layout.interaction) {
         for (auto& button : arrows) button.SetVisible(false);
         return;

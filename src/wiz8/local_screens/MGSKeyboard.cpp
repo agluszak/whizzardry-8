@@ -364,19 +364,19 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         if (IsScreenInputBlocked() != 0) {
             MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGameHud()->layout.mode - 1) & 1));
+                static_cast<W8MainUiMode>((MainGame()->layout().mode - 1) & 1));
         } else {
             MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGameHud()->layout.mode + 1) % 3));
+                static_cast<W8MainUiMode>((MainGame()->layout().mode + 1) % 3));
         }
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
         if (IsScreenInputBlocked() != 0) {
             MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGameHud()->layout.mode - 1) & 1));
+                static_cast<W8MainUiMode>((MainGame()->layout().mode - 1) & 1));
         } else {
             MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGameHud()->layout.mode + 2) % 3));
+                static_cast<W8MainUiMode>((MainGame()->layout().mode + 2) % 3));
         }
         break;
     case W8_MGS_COMMAND_AUTOMAP:
@@ -482,7 +482,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (MainGameHud()->layout.radar_map) {
+        if (MainGame()->layout().radar_map) {
             ToggleRadarMapZoom();
         }
         break;
@@ -515,7 +515,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             SelectPartyCharacter(slot);
             break;
         }
-        if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
         if (MainGameHud()->portrait_refresh_pending[slot] != 0) {

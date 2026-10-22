@@ -213,8 +213,8 @@ unsigned char PartyCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
 bool PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle, float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
-    if (MainGameHud()->layout.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
-        MainGameHud()->layout.viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL) {
+    if (MainGame()->layout().viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
+        MainGame()->layout().viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL) {
         lower_margin = -g_camera_vertical_margin * 0.5f;
     }
 
