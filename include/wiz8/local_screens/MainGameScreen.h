@@ -564,9 +564,6 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-/* Destroy callback on the NPC trade split dialog; commits the
-   chosen count to the editor slot and refreshes the trade selection. */
-void NpcTradeSplitDialogResult(int count);
 void RefreshFormationPanel(bool show_portraits);
 void EndLockInteractMode(signed char suspend);
 void UpdateTrapInteraction(void);
