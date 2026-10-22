@@ -1134,6 +1134,25 @@ std::string CopyNoticeWordText(const W8NoticeWord* word, int text_box, int line)
                                                                  word->end - word->start + 1);
 }
 
+// Camp confirms the complete notice it just presented, independently of the rules.
+void ShowLastNoticeDialog()
+{
+    const short box = ResolveNoticeTextBox(W8_NOTICE_TEXT_BOX_AUTOMATIC);
+    const auto used = CurrentGame().status.text_box_lines_used[box];
+    if (used == 0) return;
+    const auto last = used - 1;
+    const auto& lines = CurrentGame().message_log[box];
+    const auto first =
+        last - std::min(last, static_cast<unsigned int>(std::max(0, lines[last].link)));
+    std::string text = lines[first].text;
+    for (auto i = first + 1; i <= last; ++i) {
+        if (text.size() + 1 + lines[i].text.size() > 499) break;
+        text += " ";
+        text += lines[i].text;
+    }
+    ShowNoticeLine(text, 0, true, false);
+}
+
 /* Shared row hover for the NPC and use-item lists in text box two. */
 void HighlightNoticeRow(int line)
 {

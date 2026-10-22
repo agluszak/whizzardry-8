@@ -3324,12 +3324,8 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         }
     }
     FinishSpellEffectTargets(effect);
-    if (spell_id != W8_SPELL_IDENTIFY_ITEM && CurrentScreenState().id == W8_SCREEN_CAMP &&
-        !effect->notice.text.empty()) {
-        auto text = effect->notice.text;
-        effect->PublishNotice();
-        CurrentGame().events.push(NoticeDialog{std::move(text)});
-    }
+    effect->PublishNotice();
+    CurrentGame().events.push(SpellEffectResolved{static_cast<W8SpellId>(spell_id)});
 }
 
 static void QueueCombatDamageReports(W8SpellEffectResult* result)

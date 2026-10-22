@@ -741,7 +741,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
                 {static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
         }
         if (g_settings.verbose_combat_messages != 0)
-            CurrentGame().events.push(std::exchange(notice, {}));
+            CurrentGame().events.push(std::exchange(notice, {.palette = W8_FONT_PALETTE_BEIGE}));
         target.point = position;
         CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
                             effect->definition.duration_scale, effect->definition.percent, 0, false,
@@ -1812,8 +1812,9 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
 
     SetTargetSourceToMonster(monster_info, &source);
 
-    TextNotice notice{.palette = W8_FONT_PALETTE_RUST};
+    TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
     if (g_settings.verbose_combat_messages == 0) {
+        notice.palette = W8_FONT_PALETTE_RUST;
         notice.text = fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
                                    GetMonsterName(monster_info, record, 0),
                                    Data().spells[spell_id].display_name,
@@ -2426,7 +2427,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     }
-    TextNotice notice{.palette = W8_FONT_PALETTE_WHITE};
+    TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
     if (g_settings.verbose_combat_messages == 0) {
         notice = FormatCharacterNotice(
             CurrentGame().party,

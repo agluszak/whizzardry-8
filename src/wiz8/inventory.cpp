@@ -835,7 +835,8 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         }
 
         if (g_settings.verbose_combat_messages != 0 || record->spell_id == W8_SPELL_NONE)
-            if (!notice.text.empty()) game.events.push(std::exchange(notice, {}));
+            if (!notice.text.empty())
+                game.events.push(std::exchange(notice, {.palette = W8_FONT_PALETTE_BEIGE}));
         // A usable item without a spell does nothing.
         if (record->spell_id == W8_SPELL_NONE) {
             used = 0;

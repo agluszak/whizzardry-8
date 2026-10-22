@@ -57,6 +57,7 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 /* Copy a word's text span out of its source line. */
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
 void ScrollTextBoxToCursor(void);
+void ShowLastNoticeDialog();
 /* The lock-interaction call convention - its caller passes the
    same (level, flag, backfire) triple CastSpellAtLockInteraction
    takes; the body reads the target only. */

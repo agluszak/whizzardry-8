@@ -239,6 +239,11 @@ struct GameEventPresentation {
     {
         PostCharacterNotice(static_cast<int>(notice.party_slot), notice.text, notice.context);
     }
+    void operator()(const SpellEffectResolved& resolved) const
+    {
+        if (resolved.spell != W8_SPELL_IDENTIFY_ITEM && CurrentScreenState().id == W8_SCREEN_CAMP)
+            ShowLastNoticeDialog();
+    }
     void operator()(const NoticeDialog& dialog) const
     {
         ShowNoticeLine(dialog.text, dialog.on_closed, dialog.confirmation, dialog.cancel);

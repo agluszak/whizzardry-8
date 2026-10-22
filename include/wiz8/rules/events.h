@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/targeting.h"
 
 /* What happened in a game, in the order it happened. Rules append events to their
@@ -84,6 +85,10 @@ struct CharacterSpeech {
     int event_type = 0;
 };
 
+// A spell's immediate targets and notices have finished resolving.
+struct SpellEffectResolved {
+    W8SpellId spell;
+};
 // A member died.
 struct CharacterDied {
     unsigned int party_slot = 0;
@@ -158,13 +163,13 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, CharacterSpeech, CharacterDied,
-                 PartySlotChanged, PartyLoadChanged, CombatPanelChanged, CharacterActionChanged,
-                 EquipmentSettled, SkillAvailabilityChanged, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
-                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
-                 TargetingRequested>;
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, CharacterSpeech, SpellEffectResolved,
+                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
+                 CharacterActionChanged, EquipmentSettled, SkillAvailabilityChanged, SkillImproved,
+                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
+                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
+                 MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
+                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events
