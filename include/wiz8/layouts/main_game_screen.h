@@ -69,9 +69,11 @@ struct MainGameRepaint {
     // Clear the screen and repaint every part.
     bool everything = false;
     /* Run the repaint pass even with no part recorded, for the panels that track their own
-       state: the spell page, the portrait bars and the keyboard menu. */
+       state: the spell page and the keyboard menu. */
     bool panels = false;
     std::bitset<8> portraits;
+    // Complete vitals panels; a requested portrait redraw includes its panel.
+    std::bitset<8> portrait_bars;
     bool roof_and_spell_icons = false;
     // The chrome's layout changed: the bottom panels and the buttons around them repaint.
     bool layout = false;
@@ -100,10 +102,10 @@ struct MainGameRepaint {
     }
     bool any() const
     {
-        return everything || panels || portraits.any() || roof_and_spell_icons || layout || radar ||
-               text_box || submenu_buttons || submenu_panel || formation || portrait_panel ||
-               monster_list || options_button || combat_stance || combat_progress ||
-               character_action || combat_effects;
+        return everything || panels || portraits.any() || portrait_bars.any() ||
+               roof_and_spell_icons || layout || radar || text_box || submenu_buttons ||
+               submenu_panel || formation || portrait_panel || monster_list || options_button ||
+               combat_stance || combat_progress || character_action || combat_effects;
     }
 };
 

@@ -233,8 +233,6 @@ void UpdateKeyboardMenu(void);
 void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRepaint& requested);
 void InvalidatePortraitPanel(void);
 
-void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
-
 static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
 void RedrawTextBoxComplete(void);
@@ -2079,20 +2077,16 @@ void RefreshFlaggedMainGameState(void)
     }
 }
 
-/* The rectangle each repainted part invalidates, in InvalidateRepaintedRegions' order. The
-   first eight entries are the portrait-slot columns (zero base rects, scaled
-   by portrait_hover_x_origin and shifted by portrait_refresh_image). */
+/* Bottom-panel publication; portraits publish directly from their layout. */
 struct W8MainGameInvalidateRect {
     int left;
     int top;
     int right;
     int bottom;
-    int x_scale;
-    int apply_y_offset;
-    unsigned int refresh_image_index;
+    bool apply_y_offset;
 };
 
-extern W8MainGameInvalidateRect g_main_game_invalidate_rects[23];
+extern W8MainGameInvalidateRect g_main_game_invalidate_rects[14];
 
 W8LevelRuntimeBlock* MainGameHud()
 {
@@ -2618,41 +2612,18 @@ MainGameRepaint RepaintOfEverything()
 
 /* Repaint what the HUD's record holds: clear the primary surface for a full repaint,
    refresh the chrome panels the current UI mode owns, and repaint the recorded party
-   slots. Painting a part may record more parts, which this draw paints too. */
+   slots. Dependencies have already been resolved by the presentation update. */
 void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
 {
-    auto& repaint = hud.repaint;
-    bool keyboard_menu_invalidate;
+    const auto& repaint = hud.repaint;
     int party_slot;
     bool show_portraits;
     SDL_Rect combat_clip;
     short health_percent;
-    W8MainGameInvalidateRect* portrait_rect;
 
-    if (repaint.everything) {
-        ClearPrimarySurface();
-        repaint = RepaintOfEverything();
-    } else if (repaint.layout) {
-        repaint.radar = repaint.text_box = repaint.submenu_buttons = repaint.submenu_panel =
-            repaint.formation = repaint.options_button = repaint.combat_stance =
-                repaint.character_action = true;
-    }
-    if (repaint.portrait_panel) {
-        if (CurrentGame().combat.has_value()) {
-            repaint.combat_effects = true;
-        } else {
-            InvalidatePortraitPanel();
-        }
-    }
-    if (repaint.combat_effects) {
-        RefreshCombatEffectHud();
-        repaint.portrait_panel = true;
-        for (party_slot = 0; party_slot < 8; ++party_slot) {
-            if (hud.portrait_refresh_pending[party_slot] != 0) {
-                repaint.portraits.set(party_slot);
-            }
-        }
-    }
+    if (repaint.everything) ClearPrimarySurface();
+    if (repaint.portrait_panel && !CurrentGame().combat) InvalidatePortraitPanel();
+    if (repaint.combat_effects) RefreshCombatEffectHud();
     if (repaint.portrait_panel) {
         if (!CurrentGame().advancement.held) {
             if (PartyMovementPanelShown()) {
@@ -2672,7 +2643,6 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
         RedrawCombatMonsterList(presentation.subject_valid);
     }
     if (repaint.roof_and_spell_icons) {
-        repaint.combat_progress = true;
         RedrawRoofButtons();
         RefreshSpellIconHudRows();
     }
@@ -2693,29 +2663,26 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
         RefreshFormationPanel(show_portraits);
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        portrait_rect = &g_main_game_invalidate_rects[party_slot];
-        if (!repaint.portraits.test(party_slot)) {
-            if (CurrentGame().monster_manager_entries[party_slot].portrait_stats_dirty) {
-                RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
+        const bool dirty = repaint.portraits.test(party_slot);
+        if (dirty) {
+            RedrawPartyPortraitOverlay(party_slot,
+                                       hud.highlight.LightsPortrait(party_slot) ||
+                                           party_slot == hud.held_item_display,
+                                       true, hud.portrait_refresh_pending[party_slot] == 0);
+            auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
+                                                            hud.portrait_hover_x_origin);
+            if (hud.portrait_refresh_pending[party_slot]) {
+                auto backing = PartyPortraitBounds(party_slot);
+                --backing.right;
+                --backing.bottom;
+                rect = UnionScreenRects(rect, backing);
             }
-            if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open) {
-                RedrawKeyboardMenuPanel(false);
-            }
-        } else {
-            keyboard_menu_invalidate = false;
-            if (hud.highlight.LightsPortrait(party_slot) || party_slot == hud.held_item_display) {
-                keyboard_menu_invalidate = true;
-            }
-            RedrawPartyPortraitOverlay(party_slot, keyboard_menu_invalidate, true,
-                                       hud.portrait_refresh_pending[party_slot] == 0);
-            if (hud.portrait_refresh_pending[party_slot] != 0) {
-                InvalidateRegion(portrait_rect->left, portrait_rect->top, portrait_rect->right,
-                                 portrait_rect->bottom);
-            }
-            if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open) {
-                RedrawKeyboardMenuPanel(true);
-            }
+            InvalidateRegion(rect.left, rect.top, rect.right, rect.bottom);
+        } else if (repaint.portrait_bars.test(party_slot)) {
+            RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
         }
+        if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open)
+            RedrawKeyboardMenuPanel(dirty);
     }
     if (repaint.layout) {
         RedrawLayoutArrowButtons();
@@ -2831,6 +2798,21 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
             hud.repaint.text_box = true;
         }
     }
+    auto& repaint = hud.repaint;
+    if (repaint.everything) {
+        repaint = RepaintOfEverything();
+    } else if (repaint.layout) {
+        repaint.radar = repaint.text_box = repaint.submenu_buttons = repaint.submenu_panel =
+            repaint.formation = repaint.options_button = repaint.combat_stance =
+                repaint.character_action = true;
+    }
+    if (repaint.portrait_panel && CurrentGame().combat) repaint.combat_effects = true;
+    if (repaint.combat_effects) {
+        repaint.portrait_panel = true;
+        for (int slot = 0; slot < 8; ++slot)
+            if (hud.portrait_refresh_pending[slot]) repaint.portraits.set(slot);
+    }
+    if (repaint.roof_and_spell_icons) repaint.combat_progress = true;
     return presentation;
 }
 
@@ -3013,8 +2995,8 @@ void RedrawCombatMonsterList(bool subject_valid)
     }
     if (live_row_count != static_cast<unsigned int>(MainGameHud()->group_list_rows) ||
         max_text_width != static_cast<unsigned int>(MainGameHud()->group_list_width)) {
-        g_main_game_invalidate_rects[17].right = max_text_width + 0xfa;
-        g_main_game_invalidate_rects[17].bottom = row_y;
+        g_main_game_invalidate_rects[9].right = max_text_width + 0xfa;
+        g_main_game_invalidate_rects[9].bottom = row_y;
         if (live_row_count == 0) {
             MainGame()->monster_list->setEnabled(false);
         } else {
@@ -3719,19 +3701,12 @@ DesignRect g_viewport_modes[7] = {
     {128, 18, 512, 450}, {128, 18, 512, 416}, {23, 18, 617, 416},
 };
 
-W8MainGameInvalidateRect g_main_game_invalidate_rects[23] = {
-    {0, 18, 127, 103, -1, 0, 0},     {512, 18, 639, 103, 1, 0, 1},
-    {0, 103, 127, 188, -1, 0, 2},    {512, 103, 639, 188, 1, 0, 3},
-    {0, 188, 127, 273, -1, 0, 4},    {512, 188, 639, 273, 1, 0, 5},
-    {0, 273, 127, 358, -1, 0, 6},    {512, 273, 639, 358, 1, 0, 7},
-    {0, 0, 639, 16, 0, 0, ~0u},      {0, 358, 639, 449, 0, 1, ~0u},
-    {23, 360, 127, 449, 0, 1, ~0u},  {129, 358, 510, 449, 0, 1, ~0u},
-    {31, 450, 606, 476, 0, 1, ~0u},  {469, 382, 500, 461, 0, 1, ~0u},
-    {512, 358, 616, 449, 0, 1, ~0u}, {0, 0, 0, 0, 0, 0, ~0u},
-    {127, 260, 513, 356, 0, 0, ~0u}, {250, 25, 0, 0, 0, 0, ~0u},
-    {1, 450, 29, 476, 0, 1, ~0u},    {293, 450, 524, 476, 0, 1, ~0u},
-    {612, 452, 636, 473, 0, 1, ~0u}, {0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0},
+W8MainGameInvalidateRect g_main_game_invalidate_rects[14] = {
+    {0, 0, 639, 16, false},     {0, 358, 639, 449, true},  {23, 360, 127, 449, true},
+    {129, 358, 510, 449, true}, {31, 450, 606, 476, true}, {469, 382, 500, 461, true},
+    {512, 358, 616, 449, true}, {0, 0, 0, 0, false},       {127, 260, 513, 356, false},
+    {250, 25, 0, 0, false},     {1, 450, 29, 476, true},   {293, 450, 524, 476, true},
+    {612, 452, 636, 473, true}, {0, 0, 0, 0, false},
 };
 
 /* Invalidate the rectangle of each part a draw was asked to repaint, placed by the
@@ -3743,23 +3718,13 @@ void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRe
     int top;
     int right;
     int bottom;
-    int delta;
-
     if (requested.everything) {
         ClearVideoDirtyBlocks();
         return;
     }
     const bool chrome = !requested.layout;
     // Indexed as g_main_game_invalidate_rects.
-    const std::array<bool, 22> parts{
-        requested.portraits[0],
-        requested.portraits[1],
-        requested.portraits[2],
-        requested.portraits[3],
-        requested.portraits[4],
-        requested.portraits[5],
-        requested.portraits[6],
-        requested.portraits[7],
+    const std::array<bool, 14> parts{
         requested.roof_and_spell_icons,
         requested.layout,
         chrome && requested.radar,
@@ -3784,24 +3749,9 @@ void InvalidateRepaintedRegions(const W8LevelRuntimeBlock& hud, const MainGameRe
         top = entry->top;
         right = entry->right;
         bottom = entry->bottom;
-        if (entry->x_scale != 0) {
-            delta = hud.portrait_hover_x_origin * entry->x_scale;
-            left += delta;
-            right += delta;
-        }
         if (entry->apply_y_offset != 0) {
             top += hud.portrait_y_shift;
             bottom += hud.portrait_y_shift;
-        }
-        if (entry->refresh_image_index != ~0u) {
-            delta = hud.portrait_refresh_image[entry->refresh_image_index];
-            if ((entry->refresh_image_index & 1) == 0) {
-                left += delta;
-                right += delta;
-            } else {
-                left -= delta;
-                right -= delta;
-            }
         }
         InvalidateRegion(left, top, right + 1, bottom + 1);
     }
@@ -3860,7 +3810,7 @@ void SetViewportMode(W8ViewportMode mode)
     rect = &g_viewport_modes[static_cast<unsigned int>(mode)];
     MainGame()->world_view->setShape(
         SDL_Rect{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
-    W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[15];
+    W8MainGameInvalidateRect& viewport = g_main_game_invalidate_rects[7];
     viewport.left = rect->left;
     viewport.top = rect->top;
     viewport.right = rect->right;
@@ -3874,25 +3824,11 @@ void SetViewportMode(W8ViewportMode mode)
    mirrored even/odd layout. */
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
 {
-    W8MainGameInvalidateRect& row = g_main_game_invalidate_rects[party_slot];
-    int image = MainGameHud()->portrait_refresh_image[party_slot];
-    int left;
-    int right;
-
-    if ((party_slot & 1) == 0) {
-        left = (row.left - MainGameHud()->portrait_hover_x_origin) + image;
-        right = (row.right - MainGameHud()->portrait_hover_x_origin) + image;
-    } else {
-        left = (row.left - image) + MainGameHud()->portrait_hover_x_origin;
-        right = (row.right - image) + MainGameHud()->portrait_hover_x_origin;
-    }
-    if (right < 0) {
-        return false;
-    }
-    if (left < 0) {
-        left = 0;
-    }
-    return IsCursorInRectangle(left, row.top, right, row.bottom);
+    const auto& hud = *MainGameHud();
+    const auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
+                                                          hud.portrait_hover_x_origin);
+    return rect.right > 0 &&
+           IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right - 1, rect.bottom - 1);
 }
 
 /* The per-frame combat-strip update: while combat mode is on, recompute each
@@ -4040,15 +3976,13 @@ void UpdateFormationPortraitRefresh(void)
    the slot's region set. */
 void ClearPortraitRefreshSlot(int slot)
 {
-    W8MainGameInvalidateRect* row;
-
     if (g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
         MainGameHud()->portrait_refresh_pending[slot] != 0) {
         MainGameHud()->portrait_refresh_pending[slot] = 0;
         CurrentGame().monster_manager_entries[slot].portrait_refresh_pinned = false;
         MainGameHud()->portrait_refresh_image[slot] = 0;
-        row = &g_main_game_invalidate_rects[slot];
-        EraseRegion(row->left - 1, row->top, row->right + 1, row->bottom);
+        const auto rect = PartyPortraitBounds(slot);
+        EraseRegion(rect.left - 1, rect.top, rect.right, rect.bottom - 1);
         if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
         MainGame()->edge_targets[slot]->setEnabled(true);
         DisableMainGamePortraitSlot(slot);

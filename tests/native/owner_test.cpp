@@ -67,6 +67,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
@@ -559,6 +560,11 @@ public:
         button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
                              3);
         bitmap_image_fixture(assets, "data/portraits/large/lhummf.sti");
+        for (const auto* name : {"HealthBar", "StaminaBar", "MagicBar", "HealthBarWide",
+                                 "StaminaBarWide", "MagicBarWide"})
+            button_image_fixture(assets, fmt::format("data/main interface/{}.sti", name), 1, false,
+                                 3, 45);
+        button_image_fixture(assets, "data/fonts/vitals.sti", 256, false, 3, 5);
         g_image_assets.clear();
         w8_native::configure_paths({assets.string(), (directory_.path / "user").string()});
     }
@@ -1994,6 +2000,54 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(bitmap_reloaded != bitmap);
     REQUIRE(original->frames.size() == 1);
     REQUIRE(bitmap->w == 1);
+}
+
+TEST_CASE("Vitals panels publish their complete bounds without changing sampled state",
+          "[owner][portrait]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    ScopedGame game;
+    struct Settings {
+        unsigned char numeric = g_settings.numeric_hit_points;
+        Font font = std::move(g_smfnt_font);
+        ~Settings()
+        {
+            g_settings.numeric_hit_points = numeric;
+            g_smfnt_font = std::move(font);
+        }
+    } settings;
+    REQUIRE(g_smfnt_font.load("data/fonts/vitals.sti"));
+    auto& framebuffer = GetFrameBufferSurface();
+    for (bool numeric : {false, true}) {
+        g_settings.numeric_hit_points = numeric;
+        for (unsigned slot : {0u, 7u}) {
+            auto& entry = game.game.monster_manager_entries[slot];
+            game.game.party.characters[slot].hp_current = 20;
+            entry.cached_hp_bar = 20;
+            entry.cached_stamina_bar = 0;
+            const auto portrait = PartyPortraitBounds(slot);
+            const int x = portrait.left + ((slot & 1) ? 0 : 105);
+            const int y = portrait.top + (numeric ? 16 : 23);
+            REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234));
+            TakeUiUpload();
+            RedrawPartyPortraitBars(slot, false);
+            const auto upload = TakeUiUpload();
+            REQUIRE((upload.x == x && upload.y == y && upload.w == 24 &&
+                     upload.h == (numeric ? 54 : 46)));
+            REQUIRE(surface_pixel(framebuffer, x + (numeric ? 3 : 6), y) != 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x - 1, y) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 3, y - 1) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 24, y + upload.h - 1) == 0x1234);
+            if (numeric)
+                REQUIRE(surface_pixel(framebuffer, x + 2, portrait.top + 63) == 0x8000);
+            else
+                REQUIRE(surface_pixel(framebuffer, x + 10, y + 45) == 0x8001);
+            REQUIRE(entry.cached_hp_bar == 20);
+            REQUIRE(entry.cached_stamina_bar == 0);
+            REQUIRE(game.game.party.characters[slot].hp_current == 20);
+        }
+    }
 }
 
 TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
