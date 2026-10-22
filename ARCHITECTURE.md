@@ -124,7 +124,13 @@ Unlayered code may use the layers.
   the resulting geometry and never advances gameplay.
 - **Presentation and lifetime.** SDL creates the Vulkan-capable window; `Renderer`
   supplies its surface to VSG. VSG owns the device, views, command graphs and
-  swapchain. `endFrame` waits for submitted work before returning. That is the
+  swapchain. Before recording, one persistent VSG compile traversal visits the
+  frame: compiled objects return immediately, so only new geometry, descriptor
+  sets, pipelines and views do work, and anything attached to the graph is
+  compiled before it is drawn. A view's resources are collected once, when it is
+  first drawn; descriptor pools are reserved for the whole frame only when they
+  had to grow. Both targets share one transfer task for dynamic data.
+  `endFrame` waits for submitted work before returning. That is the
   single resource-retirement boundary: game-thread graph mutations and object
   destruction occur between completed frames. Readback is requested before
   presentation and copies the completed image into an SDL surface. Window and
