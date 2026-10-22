@@ -525,20 +525,9 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
 {
     float pitch_input;
     float yaw_input;
-    W8GameTimer::Flags timer_flags;
 
     // Held time leaves the orientation alone, and movement takes the whole rotation.
-    timer_flags = GameTimeAccumulator().m_flags;
-    if (timer_flags.paused) {
-        return m_rotation;
-    }
-    if (g_shared_timer_paused && !timer_flags.raw_time) {
-        return m_rotation;
-    }
-    if (g_shared_timer_flag0) {
-        return m_rotation;
-    }
-    if (timer_flags.slow_scale) {
+    if (g_shared_timer_paused || GameTimeAccumulator().m_flags.slow_scale) {
         return m_rotation;
     }
 
@@ -596,7 +585,6 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
     auto* environ = &environment.value;
     CameraMotion result;
     auto& delta = result.displacement;
-    W8GameTimer::Flags timer_flags;
     unsigned int level_flags;
     PartyMotion* level;
     float forward_scale;
@@ -610,19 +598,12 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
         fast_move_state = 0;
     }
 
-    timer_flags = GameTimeAccumulator().m_flags;
-    if (timer_flags.paused || (g_shared_timer_paused && !timer_flags.raw_time) ||
-        g_shared_timer_flag0) {
+    if (g_shared_timer_paused) {
         if (!g_level_motion_resume_pending) {
             return result;
         }
-        if (timer_flags.raw_time) {
-            return result;
-        }
         g_level_motion_resume_pending = false;
-        if (!g_shared_timer_flag0) {
-            ResumeSharedGameTimers();
-        }
+        ResumeSharedGameTimers();
     }
 
     level = &motion;
@@ -829,7 +810,6 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
     glm::vec3 position;
     float pitch;
     float angle;
-    Monster* monster;
     bool track;
 
     if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
@@ -842,18 +822,18 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
             return;
         }
     }
-    monster = monster_info->entity.find();
-    if (!monster->IsRenderable(true)) {
+    Monster& monster = *monster_info->entity;
+    if (!monster.IsRenderable(true)) {
         return;
     }
-    if (monster->nav.movement.height_offset - monster->nav.movement.secondary_height_offset <
+    if (monster.nav.movement.height_offset - monster.nav.movement.secondary_height_offset <
             1e+03f ||
-        monster->GetDistanceToPlayer() > 2e+03f) {
-        position = monster->nav.movement.position;
-        position.y += monster->nav.movement.secondary_height_offset;
+        monster.GetDistanceToPlayer() > 2e+03f) {
+        position = monster.nav.movement.position;
+        position.y += monster.nav.movement.secondary_height_offset;
     } else {
-        position = monster->nav.movement.position;
-        position.y += monster->nav.movement.height_offset;
+        position = monster.nav.movement.position;
+        position.y += monster.nav.movement.height_offset;
     }
     if (track) {
         if (!animate) {

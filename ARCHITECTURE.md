@@ -22,6 +22,17 @@ disk records still keep it until they get records of their own (ROADMAP.md,
 retail UTF-16LE fields are decoded and encoded explicitly by utf8proc-based
 codecs, including malformed-input replacement and fixed field limits.
 
+Retail records also hold four-byte words that were process addresses when retail wrote
+them. No reader trusts one as an address. Each is one of these:
+- a presence word (`pointer_slot`, `presence_slot`): the writer stores whether the live
+  object exists, and a reader that needs the answer reads it from the disk image (an
+  NPC's character, a monster group's members, an NPC record's stock rules);
+- a framing word set by the section's writer: the world item marker, and its `next`
+  word, which says whether another record follows;
+- a dead address, written as a constant and ignored on read: the combat target's item
+  marker, a party slot's item address and the message list word are written as zero,
+  and the status block's two buffer words as one.
+
 The game only reads compiled OCT/WPT/PVL geometry; there is no level compiler or
 editor. Shipped `.rlk` region links remain readable.
 
@@ -127,7 +138,13 @@ Unlayered code may use the layers.
   the resulting geometry and never advances gameplay.
 - **Presentation and lifetime.** SDL creates the Vulkan-capable window; `Renderer`
   supplies its surface to VSG. VSG owns the device, views, command graphs and
-  swapchain. `endFrame` waits for submitted work before returning. That is the
+  swapchain. Before recording, one persistent VSG compile traversal visits the
+  frame: compiled objects return immediately, so only new geometry, descriptor
+  sets, pipelines and views do work, and anything attached to the graph is
+  compiled before it is drawn. A view's resources are collected once, when it is
+  first drawn; descriptor pools are reserved for the whole frame only when they
+  had to grow. Both targets share one transfer task for dynamic data.
+  `endFrame` waits for submitted work before returning. That is the
   single resource-retirement boundary: game-thread graph mutations and object
   destruction occur between completed frames. Readback is requested before
   presentation and copies the completed image into an SDL surface. Window and
@@ -144,16 +161,34 @@ Unlayered code may use the layers.
   coordinates and primitive data. Existing-game callers resolve `MeshInstance`
   only when needed. `loadGameContent` reads static indexed VSG position/normal/UV
   geometry and adapts it to game lighting, ambient and fog without a retail mesh.
-  Ordinary subgraphs can continue using standard VSG materials.
+  Ordinary subgraphs can continue using standard VSG materials. `World::picked`
+  carries the intersection into gameplay; world-owned `NativeObject`s resolve their
+  graph identity there and issue normal game events when activated. Placement and
+  reach use the authoritative party pose, independently of render-view offsets. `/NATIVEOBJECT`
+  imports optional session content at level entry, with a shipped prism example;
+  ordinary world hover/click gates apply. These cosmetic sample objects are rebuilt
+  on entry rather than changing retail save records.
+- **Image alignment.** Overlay and poster UVs span the complete image. Vulkan samples
+  texel centers, with clamp-to-edge for posters and UI; no half-texel offset is applied.
+  An omitted poster dimension follows the decoded image's aspect ratio. The retired
+  blurred-text QLTY byte remains reserved in the retail settings record.
 - **Visual clocks.** `Game::visual_time` stops with world and shared-timer holds.
   World texture playback, UV scrolling and light animation use it. Texture lookup
   and extra views never advance animation or draw random values. UI texture
   playback and glow use presentation time. Particles retain their game-step clock
   and activity gates; keyframed lights follow their actor's sampled cycle time.
-  Legacy gameplay timers retain their save-progress contracts until their owners
-  migrate to step countdowns.
+  Inherited timers choose `TimerClock::World`, `Game`, `Presentation`, or `Calendar`.
+  World gates, monster script/light/fade delays, triggers, camera holds, shake,
+  ambient fades/replay, keyframes, environment transitions and item radar deadlines
+  use held world time. Spell practice attempts explicitly restart cooldowns using game step
+  time, including failed attempts; target eligibility queries never restart them. UI delays and portrait
+  idle poses use presentation time. Calendar-trigger delays use the saved game-day
+  clock. Timer saves still store retail progress/scale, rebased on load even at zero;
+  pause controls hold simulation clocks without a wall-clock offset accumulator.
 - **Window events.** Focus controls pause and input release. Minimize/restore
-  controls presentation. Pixel-size changes follow the high-density drawable;
+  controls presentation. Focus restoration resets the current screen's simulation
+  lap, so time spent away never reaches game or world time. Pixel-size changes follow
+  the high-density drawable;
   reopening presentation never reapplies startup window dimensions.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
@@ -193,7 +228,9 @@ Unlayered code may use the layers.
   Activation attaches it, and removal or deactivation detaches it before the entity is
   destroyed. An active record always has an entity, but an inactive one may not, so a
   caller says which it needs: `entity.find()` may find none, and `entity->` and
-  `*entity` require one (asserted). Anything that keeps an actor
+  `*entity` require one (asserted). An operation that needs the entity takes
+  `Monster&` or `WorldItemEntity&`, so its caller resolves the link once; one meaningful
+  for an inactive record takes the record and handles absence itself. Anything that keeps an actor
   past the current call keeps its id: a monster's location id or a world item's runtime
   id. It looks the actor up again when it is used and does nothing when the actor is
   gone. Navigators target and follow each other by address, so a destroyed navigator
@@ -345,8 +382,9 @@ Unlayered code may use the layers.
   and, through `GameClockMilliseconds`, the world's animation clock (cycles, monsters,
   missiles, particles). Props, monster generators (`GeneratorInterval`) and the autosave
   countdown take the elapsed time itself, and stand still while the shared timers are
-  held (`SharedGameTimersHeld`), as their retail timers did. Some world code still reads
-  the monotonic clock or the shared timers (ROADMAP.md, "One step"). Two screens step the game and measure the time between their steps
+  held (`SharedGameTimersHeld`), as their retail timers did. Inherited world timers
+  use the held world clock; interface timers explicitly use presentation time. Two
+  screens step the game and measure the time between their steps
   (`LapTimer`): the main game, which each frame reads input and moves the camera, steps
   unless a screen transition is pending (passing its hold and whether a picker holds the
   combat turn), animates the portraits (`AnimatePartyPortraits`), then commits pickers,
@@ -479,26 +517,25 @@ Unlayered code may use the layers.
   compare against it and swings read its damage bonuses (retail scores swings with
   the bonus its previous calculation left), so a second pass, as after a fatigue-band
   change, cannot change the result. Every change a statistic depends on settles the
-  party (`SettleParty`). The creation editor, which edits effective
+  party (`SettleActiveParty`). The creation editor, which edits effective
   attributes and skill levels itself, recalculates without re-evaluating them
   (`RecalculateEditedCharacterStats`), and learning a spell rebuilds the realm
   ceilings for every profession, as retail does, and lets the pools follow.
-- **Conditions.** `party_conditions.h` holds a member's conditions and enchantments,
-  death and the party's settlement as rules over a `RuleContext` and a `PartyHost`.
-  The rules change the party, draw from the game's stream and push notices, display
-  changes and `CharacterDied`; the host supplies what they read from the game (the
-  statistic rules, the world's suspension, the level band, a swallowing monster's level,
-  whether a fight still owes a full cheat-death revival) and applies what they owe it
-  (unequipping through the inventory, combat's hand and death bookkeeping, formation
-  seats and the portrait pose, sight refreshes, targeting, the NPC's state and the
-  members' spoken reactions), each at the point the rules reach it so the order of
-  consequences and draws is kept. Inflicting, lifting, aging and enchanting rebuild
-  the member's condition block and settle the party once; settling kills a member whose
-  pool ran out, and death's own bookkeeping happens only when the death condition
-  takes hold. `live_party.h` applies the rules to the game's party with the game as
-  host (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …), and the
-  presenter plays the death sound. Monster conditions stay with the world's monster
-  records (`ConditionsAndEnchantments.cpp`).
+- **Conditions.** `live_party.h` holds a member's conditions and enchantments, death
+  and the party's settlement as game operations on an explicit `Game&`
+  (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …). Each reads
+  as one sequence: it changes the party, draws from the game's stream, pushes notices,
+  display changes and `CharacterDied`, and applies its consequences for inventory,
+  combat bookkeeping, formation seats and the portrait pose, sight, targeting, the
+  NPC's state and the members' spoken reactions in place, so the order of
+  consequences and draws is kept. The self-contained calculations they need live in
+  `rules/party_conditions.h` over explicit inputs: durations, trait resistance, what
+  holds a hex or insanity, the highest condition, poison aging, cheat-death turns and
+  hit points, enchantment strength and the condition block. Inflicting, lifting, aging
+  and enchanting rebuild the member's condition block and settle the party once;
+  settling kills a member whose pool ran out, and death's own bookkeeping happens only
+  when the death condition takes hold. The presenter plays the death sound. Monster
+  conditions stay with the world's monster records (`ConditionsAndEnchantments.cpp`).
 - **Character events.** Quote resolution returns text directly; voice timing and
   subtitles use the same value. Ambient exchanges hold one next-speaker schedule,
   and cancelling it prevents late completions from restarting idle dialogue.
@@ -644,3 +681,9 @@ CTest contains asset-independent fixtures and licensed runtime scenarios (label
 save-fixture creation and loading). Runtime scenarios need `WIZ8_ASSET_ROOT` and a
 usable Vulkan backend; CI provisions the licensed assets. A skipped licensed test
 does not establish behavioral parity.
+
+Scenarios click controls as objects (`GameHarness::click`), which first checks that a
+player could: the control is shown and enabled, the pointer over it reaches it, and
+the presented frame shows what the UI painted there. On every frame the harness also
+requires a newly active modal input scope to be shown within four frames, so input
+can never be captured by a prompt the player cannot see.

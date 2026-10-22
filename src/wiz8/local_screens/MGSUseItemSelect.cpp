@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_mouse.h>
@@ -44,7 +45,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
@@ -485,17 +485,15 @@ void RefreshUseItemSelection(void)
    on the clicked row. Cleanup restores the saved target cursor. */
 void OpenUseItemAssayDialog(W8ItemInstance* item)
 {
-    W8AssayDialog* dialog;
-
-    dialog = new W8AssayDialog(*item, &CurrentGame().party.characters[use_item->owner],
-                               {kInfoDialogX, 0x48});
+    auto dialog = std::make_unique<W8AssayDialog>(
+        *item, &CurrentGame().party.characters[use_item->owner], SDL_Point{kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->cleanup = [pointer = ScreenPointer().request()] {
         ScreenPointer().restore(pointer);
         if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 void CloseUseItemSelection(void)

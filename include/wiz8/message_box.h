@@ -3,6 +3,9 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include <vector>
+
+#include "wiz8/data/skills.h"
 
 struct W8NpcState;
 struct W8NpcScriptFile;
@@ -13,18 +16,18 @@ struct W8NpcScriptBinding {
     bool npc_voice = false;
 };
 
-/* Notice payloads carried by queued portrait messages and the quote bubble.
-   The experience appender at 0x004eef10 allocates 8 bytes; the skill appenders
-   at 0x00553f10/0x005542e0 allocate 0x11 bytes with count/slot/skill columns. */
+/* Deferred notices carry their complete values until the quote is dismissed. */
 struct W8ExperienceNoticePayload {
     unsigned int amount;
     bool alternate_message;
 };
 
 struct W8SkillNoticePayload {
-    signed char count;
-    signed char party_slots[8];
-    signed char skills[8];
+    struct Entry {
+        unsigned int party_slot;
+        W8Skill skill;
+    };
+    std::vector<Entry> entries;
 };
 
 struct W8LevelUpNotice {

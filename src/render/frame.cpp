@@ -107,7 +107,6 @@ SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
 
 Compositor g_compositor;
 std::unique_ptr<UiCanvasTexture> g_ui_canvas;
-float g_texture_inset_pixels;
 std::shared_ptr<SDL_Surface> g_mouse_surface;
 
 DesignRect g_viewport;
@@ -460,6 +459,8 @@ void RenderFrame(void)
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
                     false);
     }
+    g_current_model_instance = nullptr;
+    if (GetWorld()) GetWorld()->picked = {};
     if (GetWorld() != 0 && g_world_render_enabled) {
         if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
@@ -477,6 +478,7 @@ void RenderFrame(void)
                               half_height;
             RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
                         std::span{&pick, 1});
+            GetWorld()->picked = pick;
             g_current_model_instance = render::gameOwner(pick);
             ResolvePickedProp();
         }
@@ -572,6 +574,7 @@ void SetWorldModelPickingEnabled(bool enabled)
     g_world_pick_enabled = enabled;
     if (!enabled) {
         g_current_model_instance = 0;
+        if (GetWorld()) GetWorld()->picked = {};
     }
 }
 
@@ -1134,11 +1137,6 @@ bool HasScreenTransitionObjects(void)
     return !g_tooltip_nodes.empty();
 }
 
-void SetTextureInset(float scale)
-{
-    g_texture_inset_pixels = scale;
-}
-
 void SetFullscreenSceneLast(unsigned char value)
 {
     g_fullscreen_scene_last = value;
@@ -1197,14 +1195,14 @@ void VideoToolTip(std::string_view text)
     bounds.top = 0;
     bounds.right = 0xfa;
     bounds.bottom = 0xfa;
-    auto buffer = std::make_unique<W8TextBuffer>(
-        &bounds, text, g_font10arial, g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
-    g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
+    W8TextBuffer buffer(&bounds, text, g_font10arial,
+                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    g_help_box_width = static_cast<int>(buffer.m_maxLineWidth) + 4;
+    g_help_box_height = g_font10arial.height() * buffer.m_lineCount + 2;
     SDL_FillSurfaceRect(surface.get(), nullptr, 0);
     SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
     SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
-    buffer->RenderText(*surface, 2, 1, true);
+    buffer.RenderText(*surface, 2, 1, true);
     std::uint32_t border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
@@ -1289,16 +1287,14 @@ std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, f
                                              float height, bool additive)
 {
     DrawShader shader;
-    Texture::Dimensions dimensions;
-    dimensions.width = 64;
-    dimensions.height = 64;
-
+    const auto dimensions = texture->getDimensions();
+    if (width == 0 && dimensions.height > 0) width = height * dimensions.width / dimensions.height;
+    if (height == 0 && dimensions.width > 0) height = width * dimensions.height / dimensions.width;
     auto model = std::make_shared<Mesh>(0, 0);
-    float extent_w = 1.0f / dimensions.width * g_texture_inset_pixels;
-    float extent_h = 1.0f / dimensions.height * g_texture_inset_pixels;
     model->setName("VideoMakePoster");
-    texture->getDimensions();
-    SetSpriteQuad(*model, width, height, {1.0f - extent_w, 1.0f - extent_h}, {extent_w, extent_h});
+    // Vulkan samples texel centers inside this full-image rectangle. Clamp-to-edge
+    // handles the border; shrinking UVs crops artwork and changes its scale.
+    SetSpriteQuad(*model, width, height, {1, 1});
 
     shader.value = 0x100a013;
     if (additive) {

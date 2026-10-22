@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <memory>
@@ -34,6 +35,7 @@
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
+class NativeObject;
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
@@ -79,8 +81,8 @@ public:
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
     /* The step time this game has run: the sum of the elapsed times its steps were given.
-       Code below the step stamps and measures its deadlines on it. Some world code still
-       reads the monotonic clock or the shared timers (ROADMAP.md, "One step"). */
+       Game-step deadlines use this clock; world holds use visual_time, while UI
+       presentation and the saved game-day calendar are explicit timer domains. */
     std::chrono::milliseconds time{};
     // World visual time stops with world advancement and shared timer holds.
     // UI/cursor presentation continues on its own monotonic clock.
@@ -107,6 +109,12 @@ public:
 
     // The context the rules act on: the game's data, party, random stream and events.
     RuleContext rules();
+    // The picked imported object, while the party is free to interact with the world.
+    NativeObject* interactiveNativeObject();
+    // Inspect that object; the cursor shows the same object as interactive.
+    bool activateSelectedNativeObject();
+    // Optional session content, rebuilt at level entry; never written into retail saves.
+    std::filesystem::path native_object_file;
 
     W8Party party{};
     GameStatus status{};
@@ -138,7 +146,7 @@ public:
     W8NpcPresentation npc_presentation = W8NpcPresentation::none;
     W8NpcSpeech npc_speech;
     W8SedexusScene sedexus_scene;
-    // The deadline of each shared three-minute spell cooldown (`g_cooldown_gated_spells`).
+    // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};
     /* The step time left until the timed autosave announces itself, counted in the world
        while the shared timers run (`SharedGameTimersHeld`). */
@@ -204,6 +212,7 @@ public:
 
     // The game in progress, or null.
     Game* game() { return game_ ? &*game_ : nullptr; }
+    std::filesystem::path native_object_file;
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();

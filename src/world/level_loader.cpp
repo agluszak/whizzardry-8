@@ -66,7 +66,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/draw_shader.h"
@@ -581,18 +580,18 @@ try {
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info);
-        auto* monster = monster_info->entity.find();
+        Monster& monster = *monster_info->entity;
         const glm::vec3 camera_position = cameraLocation(*world);
-        monster->visual.SelectLOD(&camera_position);
-        monster->nav.SetPathAI(std::move(path));
+        monster.visual.SelectLOD(&camera_position);
+        monster.nav.SetPathAI(std::move(path));
         if (has_options) {
             if (options[1] == '0' || options[1] == '\0') {
                 group->members_active = false;
-                monster->visual.rep_active = false;
+                monster.visual.rep_active = false;
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }
-        monster->UpdateRepresentation(world);
+        monster.UpdateRepresentation(world);
     }
     return true;
 } catch (const std::exception&) {
@@ -909,7 +908,6 @@ try {
     info.world = world;
     info.hFile = handle;
     info.bitmap_folder = texture_directory;
-    MonotonicMilliseconds();
 
     if (world->psrMeshes.empty() || world->compiledIndex() == 0) {
         level_mesh = ReadSingleLevelMesh(*handle, texture_directory);
