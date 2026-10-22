@@ -64,7 +64,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/draw_shader.h"
@@ -906,7 +905,6 @@ try {
     info.world = world;
     info.hFile = handle;
     info.bitmap_folder = texture_directory;
-    MonotonicMilliseconds();
 
     if (world->psrMeshes.empty() || world->compiledIndex() == 0) {
         level_mesh = ReadSingleLevelMesh(*handle, texture_directory);

@@ -3,6 +3,7 @@
 #include "wiz8/application.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 
 // GLOBAL: WIZ8 0x006f0630
@@ -33,6 +34,7 @@ void HandleGameEvent(const SDL_Event& event)
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         if (restore_pending) {
+            if (auto* screen = CurrentScreen()) screen->resetStepClock();
             MoveTimer(W8_MOVE_TIMER_RESUME_MAIN_GAME);
             restore_pending = false;
         }

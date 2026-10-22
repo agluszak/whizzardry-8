@@ -23,6 +23,11 @@ fi
 # The session proxy serves git but not GitHub source archives.
 WIZ8_SYSTEM_GLSLANG=1 WIZ8_GIT_SOURCES=1 tools/setup-linux.sh
 
+# Compile through the shared ccache; Clang's PCH timestamp would defeat it.
+tools/cloud-ccache.sh restore
+cmake -B build/linux -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+    -DCMAKE_CXX_FLAGS="-Xclang -fno-pch-timestamp" >/dev/null
+
 if [[ ! -f $archive && -d $(dirname -- "$archive_dir") ]]; then
     mkdir -p "$archive_dir"
     conan cache clean '*' >/dev/null
