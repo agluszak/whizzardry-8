@@ -3,7 +3,6 @@
 #include <cassert>
 #include <exception>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -196,23 +195,15 @@ void WorldItemEntity::SetHighlight(bool enabled, bool hovered)
     highlight_colour = glm::vec4(0.0f, green, blue, alpha);
 }
 
-bool WorldItemEntity::IsSelected()
-{
-    return g_current_model_instance == m_psrMesh.get();
-}
-
 void WorldItemEntity::LightRadarBlip()
 {
     countdown = WorldClockMilliseconds() + 10000;
 }
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item)
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item)
 {
-    if (!item) {
-        return std::nullopt;
-    }
-    auto bounds = item->GetCachedLocalBounds();
-    bounds.minimum += item->location;
-    bounds.maximum += item->location;
+    auto bounds = item.GetCachedLocalBounds();
+    bounds.minimum += item.location;
+    bounds.maximum += item.location;
     return bounds;
 }

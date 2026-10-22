@@ -1,10 +1,10 @@
 #pragma once
-
+#include <bitset>
 #include <string>
 
 #include "wiz8/data/skills.h"
 
-class Events;
+struct GameData;
 class Game;
 struct W8Character;
 struct W8Party;
@@ -16,7 +16,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                             bool suppress_notification);
 
 unsigned int GetCharacterSkillNoticeValue(const W8Character* character, W8Skill skill_id);
-void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload* notices);
+void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices);
 
 /* 0x00554170: append one "race-icon Name's skill +level" clause to a notice
    buffer; when continue_line is set, insert a line break first. */
@@ -51,5 +51,7 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
 /* 0x00553C10: propagate a changed skill investment - availability rescan,
    the level rebuild, equipment and derived state. */
 void ApplySkillChange(Game& game, W8Character* character, W8Skill skill_id);
-void RefreshCharacterSkillAvailability(Events& events, W8Character* character);
+// Update native availability and return the skill rows that changed.
+std::bitset<W8_SKILL_COUNT> RefreshCharacterSkillAvailability(const GameData& data,
+                                                              W8Character* character);
 unsigned int GetSkillQuarterValue(W8Character* character, W8Skill skill_id);

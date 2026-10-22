@@ -75,6 +75,9 @@ public:
     bool IsEnabled() const { return m_target && m_enabled; }
     void SetPressed(bool pressed);
     bool IsPressed() const { return m_interaction.pressed; }
+    // Whether the pointer currently rests on this button rather than on
+    // anything above it.
+    bool IsHovered() const { return m_target && m_target->hovered(); }
     void SetVisible(bool visible);
     bool IsVisible() const { return m_visible; }
     void SetImage(ButtonImage image);
