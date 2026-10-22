@@ -262,13 +262,15 @@ set(WIZ8_DOWNLOAD_CACHE "${wiz8_download_cache}" CACHE PATH
 # Scenario inputs reach the executable through the environment (see RuntimeInput).
 set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy"
     "WIZ8_RUNTIME_FIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
+    "WIZ8_RUNTIME_GOLDENS=${CMAKE_CURRENT_SOURCE_DIR}/runtime/goldens"
     "WIZ8_RUNTIME_SAVE_FIXTURE=${WIZ8_RUNTIME_SAVE_FIXTURE}"
     "WIZ8_RUNTIME_DOWNLOADS=${WIZ8_DOWNLOAD_CACHE}")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game retail-save import-vitalia import-no-vitalia import-umpani import-trang random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
-        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT}"
+        # Snapshots, failure frames and golden mismatches; CI uploads them on failure.
+        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT};WIZ8_RUNTIME_ARTIFACT_DIR=${CMAKE_CURRENT_BINARY_DIR}/runtime-artifacts/${scenario}"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
         LABELS runtime
         FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")

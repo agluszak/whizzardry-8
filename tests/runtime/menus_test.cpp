@@ -33,6 +33,7 @@ void MainMenuUiScenario()
 {
     GameHarness game(false);
     ReachMainMenu(game);
+    ExpectScreen(game, "main-menu");
     const auto verify_controls = [] {
         for (short item = 0; item < 6; ++item) REQUIRE(UiTargetAt(MainMenuRegion(item)) != nullptr);
     };
@@ -121,7 +122,7 @@ std::string CreateCharacter(GameHarness& game)
         return CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                UiTargetAt(kCreateCharacterButton) != nullptr;
     });
-    Snapshot("party-selection", game.read_frame());
+    ExpectScreen(game, "party-selection");
     ExpectPartyActionLabels("party-selection labels", game, 2);
     game.click("create-character", kCreateCharacterButton);
     game.wait("character-screen", [&] {
@@ -130,7 +131,7 @@ std::string CreateCharacter(GameHarness& game)
     });
 
     W8CharacterStatsPage* stats = StatsPage();
-    Snapshot("character-screen", game.read_frame());
+    ExpectScreen(game, "character-screen");
     REQUIRE((stats->m_profession_row && stats->m_race_row && stats->m_gender_row));
     {
         const auto bounds = stats->m_profession_row->m_increment->Bounds();

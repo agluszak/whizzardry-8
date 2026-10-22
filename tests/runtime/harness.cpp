@@ -7,18 +7,22 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
@@ -30,7 +34,12 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_get_random_seed.hpp>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_test_run_info.hpp>
+#include <catch2/interfaces/catch_interfaces_reporter.hpp>
+#include <catch2/reporters/catch_reporter_event_listener.hpp>
+#include <catch2/reporters/catch_reporter_registrars.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
 
@@ -68,7 +77,72 @@ fs::path RuntimeVariable(const char* variable)
     if (!value || !*value) FailStep(variable, "environment variable is not set");
     return value;
 }
+
+/* Where CTest collects a scenario's images; empty when unset. */
+fs::path ArtifactDirectory()
+{
+    const char* directory = SDL_getenv("WIZ8_RUNTIME_ARTIFACT_DIR");
+    return directory ? directory : "";
+}
+
+/* Writes XRGB pixels `width` wide as a PNG and prints where. */
+void SaveImage(const fs::path& path, const std::vector<unsigned>& pixels, int width)
+{
+    if (pixels.empty()) return;
+    std::error_code ignored;
+    fs::create_directories(path.parent_path(), ignored);
+    SDL_Surface* surface =
+        SDL_CreateSurfaceFrom(width, int(pixels.size()) / width, SDL_PIXELFORMAT_XRGB8888,
+                              const_cast<unsigned*>(pixels.data()), width * 4);
+    if (surface && SDL_SavePNG(surface, path.string().c_str()))
+        std::fprintf(stderr, "runtime: wrote %s\n", path.string().c_str());
+    else
+        std::fprintf(stderr, "runtime: could not write %s: %s\n", path.string().c_str(),
+                     SDL_GetError());
+    SDL_DestroySurface(surface);
+}
+
+/* XRGB pixels of a PNG with the given size; empty if it is missing or differs. */
+std::vector<unsigned> LoadImage(const fs::path& path, int width, int height)
+{
+    std::vector<unsigned> pixels;
+    SDL_Surface* image = SDL_LoadPNG(path.string().c_str());
+    if (image && image->w == width && image->h == height) {
+        pixels.resize(std::size_t(width) * height);
+        if (!SDL_ConvertPixels(width, height, image->format, image->pixels, image->pitch,
+                               SDL_PIXELFORMAT_XRGB8888, pixels.data(), width * 4))
+            pixels.clear();
+    }
+    SDL_DestroySurface(image);
+    return pixels;
+}
+
+/* The harness whose frame a failed assertion shows. */
+GameHarness* g_live_game = nullptr;
+
+/* Saves the game's frame when an assertion fails while a game runs. Thrown
+   failures (FailStep, REQUIRE, unexpected exceptions) unwind the harness
+   before Catch reports them, so its destructor saves those. */
+class FailureFrames : public Catch::EventListenerBase {
+public:
+    using EventListenerBase::EventListenerBase;
+
+    void testRunStarting(const Catch::TestRunInfo&) override
+    {
+        // Leave only this run's images.
+        std::error_code ignored;
+        for (const auto& entry : fs::directory_iterator(ArtifactDirectory(), ignored))
+            if (entry.path().extension() == ".png") fs::remove(entry.path(), ignored);
+    }
+
+    void assertionEnded(const Catch::AssertionStats& stats) override
+    {
+        if (!stats.assertionResult.isOk() && g_live_game) g_live_game->save_failure_frames();
+    }
+};
 } // namespace
+
+CATCH_REGISTER_LISTENER(FailureFrames)
 
 [[noreturn]] void FailStep(const std::string& step, const std::string& detail)
 {
@@ -123,10 +197,13 @@ GameHarness::GameHarness(bool play_movies)
     focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
     focus.window.windowID = SDL_GetWindowID(window_);
     HandleGameEvent(focus);
+    g_live_game = this;
 }
 
 GameHarness::~GameHarness()
 {
+    if (std::uncaught_exceptions() > 0) save_failure_frames();
+    g_live_game = nullptr;
     application_.reset();
     w8_native::audio_offline_for_test(false);
     SDL_SetLogOutputFunction(g_default_log, g_default_log_data);
@@ -296,19 +373,28 @@ void GameHarness::command(W8MGSCommand command)
     frame();
 }
 
-std::vector<unsigned> GameHarness::read_frame()
+std::vector<unsigned> FrameBufferPixels()
 {
-    if (!g_renderer) {
-        // Camp renders through SGP's CPU surface, without a world renderer.
-        const auto& surface = GetFrameBufferSurface();
-        std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
-        REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
-                                  surface.pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
-                                  SCREEN_WIDTH * sizeof(unsigned)));
-        return pixels;
+    const auto& surface = GetFrameBufferSurface();
+    std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+    if (!SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
+                           surface.pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
+                           SCREEN_WIDTH * sizeof(unsigned)))
+        pixels.clear();
+    return pixels;
+}
+
+std::vector<unsigned> GameHarness::presented_frame() const
+{
+    // Camp renders through SGP's CPU surface, without a world renderer.
+    if (!g_renderer) return FrameBufferPixels();
+    // Also runs while a failure unwinds the harness, so it must not throw.
+    SDL_Surface* surface = nullptr;
+    try {
+        surface = g_renderer->captureLastFrame();
+    } catch (const std::exception&) {
     }
-    auto* surface = g_renderer->captureLastFrame();
-    REQUIRE(surface);
+    if (!surface) return {};
     // The target matches the window's pixel size; sample it in screen coordinates.
     std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
@@ -317,6 +403,26 @@ std::vector<unsigned> GameHarness::read_frame()
                 ReadARGB(*surface, x * surface->w / SCREEN_WIDTH, y * surface->h / SCREEN_HEIGHT) &
                 0xffffff;
     return pixels;
+}
+
+std::vector<unsigned> GameHarness::read_frame()
+{
+    auto pixels = presented_frame();
+    REQUIRE(!pixels.empty());
+    return pixels;
+}
+
+void GameHarness::save_failure_frames()
+{
+    if (failure_frame_ == frames_) return;
+    failure_frame_ = frames_;
+    const fs::path directory = ArtifactDirectory();
+    if (directory.empty()) return;
+    const std::string stem = "failure-frame" + std::to_string(frames_);
+    std::fprintf(stderr, "runtime: the game's frame at the failure:\n");
+    SaveImage(directory / (stem + ".png"), presented_frame(), SCREEN_WIDTH);
+    // With a renderer, the CPU frame buffer holds the 2D interface on its own.
+    if (g_renderer) SaveImage(directory / (stem + "-ui.png"), FrameBufferPixels(), SCREEN_WIDTH);
 }
 
 void GameHarness::mouse_button(int x, int y, bool down, Uint8 which)
@@ -367,15 +473,120 @@ SDL_Point MainMenuRegion(short item)
 
 void Snapshot(const char* name, const std::vector<unsigned>& pixels)
 {
-    const char* directory = SDL_getenv("WIZ8_RUNTIME_SNAPSHOT_DIR");
-    if (!directory) return;
-    SDL_Surface* surface =
-        SDL_CreateSurfaceFrom(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_PIXELFORMAT_XRGB8888,
-                              const_cast<unsigned*>(pixels.data()), SCREEN_WIDTH * 4);
-    if (!surface) return;
-    const std::string path = (fs::path(directory) / (std::string(name) + ".bmp")).string();
-    SDL_SaveBMP(surface, path.c_str());
-    SDL_DestroySurface(surface);
+    const fs::path directory = ArtifactDirectory();
+    if (!directory.empty())
+        SaveImage(directory / (std::string(name) + ".png"), pixels, SCREEN_WIDTH);
+}
+
+namespace {
+/* A golden is the frame box-averaged over 8x8 cells: 80x60 RGB. */
+constexpr int kCell = 8, kSignatureWidth = SCREEN_WIDTH / kCell,
+              kSignatureHeight = SCREEN_HEIGHT / kCell;
+/* A cell differs when a channel moved by more than this... */
+constexpr int kCellTolerance = 4;
+/* ...and a frame differs when more cells than this do. */
+constexpr int kMaxDifferingCells = 4;
+
+int Channel(unsigned pixel, int shift)
+{
+    return int(pixel >> shift & 255);
+}
+
+std::vector<unsigned> Signature(const std::vector<unsigned>& frame)
+{
+    std::vector<unsigned> signature(kSignatureWidth * kSignatureHeight);
+    for (int cy = 0; cy < kSignatureHeight; ++cy)
+        for (int cx = 0; cx < kSignatureWidth; ++cx) {
+            unsigned cell = 0;
+            for (int shift : {0, 8, 16}) {
+                int sum = 0;
+                for (int y = cy * kCell; y < (cy + 1) * kCell; ++y)
+                    for (int x = cx * kCell; x < (cx + 1) * kCell; ++x)
+                        sum += Channel(frame[y * SCREEN_WIDTH + x], shift);
+                cell |= unsigned((sum + kCell * kCell / 2) / (kCell * kCell)) << shift;
+            }
+            signature[cy * kSignatureWidth + cx] = cell;
+        }
+    return signature;
+}
+
+int CellDifference(unsigned a, unsigned b)
+{
+    int worst = 0;
+    for (int shift : {0, 8, 16})
+        worst = std::max(worst, std::abs(Channel(a, shift) - Channel(b, shift)));
+    return worst;
+}
+
+/* A signature at screen size, for viewing next to the frame. */
+std::vector<unsigned> Enlarged(const std::vector<unsigned>& signature)
+{
+    std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+    for (int y = 0; y < SCREEN_HEIGHT; ++y)
+        for (int x = 0; x < SCREEN_WIDTH; ++x)
+            pixels[y * SCREEN_WIDTH + x] = signature[y / kCell * kSignatureWidth + x / kCell];
+    return pixels;
+}
+
+/* Goldens come from Mesa's software Vulkan driver, which CTest selects. */
+bool RendersWithLavapipe()
+{
+    const char* drivers = SDL_getenv("VK_DRIVER_FILES");
+    return drivers && std::string_view(drivers).contains("lvp_icd");
+}
+} // namespace
+
+void ExpectScreen(GameHarness& game, const char* name)
+{
+    const auto frame = game.read_frame();
+    Snapshot(name, frame);
+    if (g_renderer && !RendersWithLavapipe()) {
+        std::printf("%s: golden comparison skipped: not rendering with lavapipe\n", name);
+        return;
+    }
+    const char* goldens = SDL_getenv("WIZ8_RUNTIME_GOLDENS");
+    if (!goldens) {
+        std::printf("%s: golden comparison skipped: WIZ8_RUNTIME_GOLDENS is not set\n", name);
+        return;
+    }
+    const auto actual = Signature(frame);
+    const fs::path golden = fs::path(goldens) / (std::string(name) + ".png");
+    if (SDL_getenv("WIZ8_RUNTIME_UPDATE_GOLDENS")) {
+        SaveImage(golden, actual, kSignatureWidth);
+        return;
+    }
+    const auto expected = LoadImage(golden, kSignatureWidth, kSignatureHeight);
+    INFO(name << ": golden " << golden.string());
+    REQUIRE(!expected.empty());
+    std::vector<int> differences(actual.size()), differing;
+    std::vector<unsigned> diff(actual.size());
+    for (std::size_t i = 0; i < actual.size(); ++i) {
+        differences[i] = CellDifference(actual[i], expected[i]);
+        // Differing cells are red, the others grey by how far they moved.
+        diff[i] = differences[i] > kCellTolerance
+                      ? 0xff0000
+                      : unsigned(std::min(differences[i] * 16, 255)) * 0x010101;
+        if (differences[i] > kCellTolerance) differing.push_back(int(i));
+    }
+    std::ranges::sort(differing, std::greater{}, [&](int i) { return differences[i]; });
+    std::string worst;
+    for (int i : differing | std::views::take(5))
+        worst += " (" + std::to_string(i % kSignatureWidth * kCell) + "," +
+                 std::to_string(i / kSignatureWidth * kCell) +
+                 ")=" + std::to_string(differences[i]);
+    std::printf("%s: %zu of %zu cells differ by more than %d (largest difference %d)%s\n", name,
+                differing.size(), actual.size(), kCellTolerance, std::ranges::max(differences),
+                worst.c_str());
+    if (differing.size() > kMaxDifferingCells) {
+        const fs::path directory = ArtifactDirectory();
+        if (!directory.empty())
+            for (const auto& [suffix, image] :
+                 {std::pair{"expected", &expected}, {"actual", &actual}, {"diff", &diff}})
+                SaveImage(directory / (std::string(name) + "-golden-" + suffix + ".png"),
+                          Enlarged(*image), SCREEN_WIDTH);
+    }
+    INFO("worst cells (x,y)=difference:" << worst);
+    CHECK(differing.size() <= kMaxDifferingCells);
 }
 
 void ReachMainMenu(GameHarness& game)

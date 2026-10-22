@@ -47,7 +47,7 @@ namespace {
      key NAME | hold NAME | release NAME | text WORDS | command ID
      combat | approach MONSTER DISTANCE | trace MONSTER FRAMES | snap NAME
      state
-   Snapshots go to WIZ8_RUNTIME_SNAPSHOT_DIR.                                */
+   Snapshots go to WIZ8_RUNTIME_ARTIFACT_DIR.                                */
 void PrintState(GameHarness& game)
 {
     std::printf("[%lu] screen=%s pending=%s modal=%d combat=%d ui=%d", game.frames(),

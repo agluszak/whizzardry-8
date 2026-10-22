@@ -136,7 +136,7 @@ void RetailSaveScenario()
     ExpectAt("loaded", {29237.4f, 404.094f, -3452.46f});
     const std::vector<SavedMember> party{{"TBell", 23, 21210115}, {"Peter", 23, 21134738}};
     REQUIRE(PartyMembers() == party);
-    Snapshot("retail-save", game.read_frame());
+    ExpectScreen(game, "retail-save");
 
     const glm::vec3 anchor = Walk(game, "walk", 2.0f);
     QuickSave(game);
