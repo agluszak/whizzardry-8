@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <span>
 #include <vector>
 
 #include <fmt/format.h>
@@ -44,7 +43,6 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
@@ -156,26 +154,6 @@ void NormalizeItemQuantityKind(W8ItemInstance* item)
     if (item->stack_count == 0) {
         item->stack_count = 1;
     }
-}
-
-/* The load tail: drop equipment the loaded character can no longer wear, then
-   normalize the quantity byte on every worn and packed item and on the shared
-   party pool. */
-void SanitizeLoadedItems(Game& game)
-{
-    SettleActiveParty(game);
-    auto& party = game.party;
-    const auto normalize = [](std::span<W8ItemInstance> items) {
-        for (auto& item : items)
-            if (item.iItemNo != -1) NormalizeItemQuantityKind(&item);
-    };
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.members[slot].has_value()) continue;
-        auto& character = party.characters[slot];
-        normalize(character.EquippedItem);
-        normalize(character.backpack);
-    }
-    normalize(std::span(party.item_pool).first(party.item_count));
 }
 
 /* Condition immunity sets by monster kind, from the retail table at

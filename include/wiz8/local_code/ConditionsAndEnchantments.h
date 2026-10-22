@@ -57,6 +57,3 @@ void RemoveConditionFromEveryone(W8Condition condition);
 void RemoveAllEnchantments(void);
 
 void NormalizeItemQuantityKind(W8ItemInstance* item);
-/* The post-load repair a load runs on the game it began - unequip unusable items on
-   every character and normalize quantity kinds on carried and pooled items. */
-void SanitizeLoadedItems(Game& game);
