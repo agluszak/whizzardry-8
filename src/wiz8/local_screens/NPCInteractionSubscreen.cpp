@@ -106,7 +106,6 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 
@@ -1150,7 +1149,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         W8NpcState* npc = CurrentGame().npc_interaction.dialogue_npc.get();
         if (!CurrentGame().npc_interaction.suppress_parting_reaction &&
             npc->record->merchant == 0 && !npc->is_grouped && GetNpcMonsterInfo(npc) != 0) {
-            int slot = GetRandomCharacter(CurrentGame(), 1, 1, -1, -1);
+            int slot = CurrentGame().randomPartySlot(1, 1, -1, -1);
             if (slot != -1) {
                 W8CharacterEvent* event =
                     QueueCharacterEvent(&CurrentGame().party.characters[slot], g_special_event8,
@@ -2956,7 +2955,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
 {
     W8MGSCommand command;
 
-    if (ShouldDeferCharacterEventForNpcScript(CurrentGame(), false)) {
+    if (CurrentGame().npc_dialogue.DefersCharacterEvents(false)) {
         return;
     }
     if (CurrentGame().npc_interaction.modal_dialog_open && event->key != SDLK_ESCAPE) {
@@ -3325,7 +3324,7 @@ void DrainNpcDialogueDeferralInput(void)
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
 
-    if (!ShouldDeferCharacterEventForNpcScript(CurrentGame(), true) ||
+    if (!CurrentGame().npc_dialogue.DefersCharacterEvents(true) ||
         !CurrentGame().activity.conversation) {
         return;
     }

@@ -174,7 +174,7 @@ TEST_CASE("A dead character's events leave every queue of their own game", "[res
     const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
     for (auto* events : queues) {
         for (auto* character : {&party[0], &party[1]})
-            events->push_back(std::make_unique<W8CharacterEvent>(character, 51, 0, 0));
+            events->push_back(std::make_unique<W8CharacterEvent>(queue, character, 51, 0, 0));
     }
     owner.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
 
@@ -195,7 +195,7 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
     W8Character character{};
     ScopedGame game;
     CurrentGame().speech.pending_events.push_back(
-        std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
+        std::make_unique<W8CharacterEvent>(CurrentGame().speech, &character, 0, 0, 0));
     CurrentGame().autosave_due = std::chrono::seconds{1};
     CurrentGame().level.replacePrimary(std::make_unique<World>());
 

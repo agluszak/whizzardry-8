@@ -41,7 +41,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
@@ -942,7 +941,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterReco
         W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
-        int party_slot = GetRandomCharacter(CurrentGame(), 1, 1, -1, -1);
+        int party_slot = CurrentGame().randomPartySlot(1, 1, -1, -1);
         range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
         if (range == W8_RANGE_NONE) {
             return false;

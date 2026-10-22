@@ -191,12 +191,13 @@ void RunSearchPulse(void)
                         if (CurrentGame().rng.below(2) != 0) {
                             event_type = kSearchFoundItemEventAlt;
                         }
-                        auto event = std::make_unique<W8CharacterEvent>(character, event_type, 0,
-                                                                        kCharacterEventFullVolume);
+                        auto& speech = CurrentGame().speech;
+                        auto event = std::make_unique<W8CharacterEvent>(
+                            speech, character, event_type, 0, kCharacterEventFullVolume);
                         if (searchable->world_item != 0) {
                             event->item = searchable->world_item->item;
                         }
-                        CurrentGame().speech.QueueEntry(std::move(event));
+                        speech.QueueEntry(std::move(event));
                     }
                     glm::vec3 position;
                     searchable->GetPosition(&position);

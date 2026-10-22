@@ -1553,7 +1553,7 @@ void W8TrapInteraction::Update()
     float progress;
 
     if (m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP && m_timer.GetProgress() >= 1.0f &&
-        PartyPortraitEventsIdle(CurrentGame())) {
+        CurrentGame().speech.PortraitsIdle()) {
         m_owner->Run(-1);
         m_disarm_state = W8_TRAP_DISARM_EXIT;
     }
@@ -2415,8 +2415,7 @@ void MainGameScreen::frame()
     point = CursorPosition();
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
-            if ((!ShouldDeferCharacterEventForNpcScript(game, true) ||
-                 !game.activity.conversation) &&
+            if ((!game.npc_dialogue.DefersCharacterEvents(true) || !game.activity.conversation) &&
                 !game.status.world_cursor_gate)
                 UpdateUiPointer(point.x, point.y);
         } else {

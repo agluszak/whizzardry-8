@@ -765,7 +765,8 @@ TEST_CASE_METHOD(AudioFixture,
                  "[audio][ownership]")
 {
     startOfflineAudio();
-    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 127);
+    Game game;
+    auto event = std::make_unique<W8CharacterEvent>(game.speech, nullptr, 0, 0, 127);
     unsigned calls = 0;
     event->voice_playback = wiz8::sound::stream("tone.wav", {.on_finished = [&] { ++calls; }});
     REQUIRE(event->voice_playback);

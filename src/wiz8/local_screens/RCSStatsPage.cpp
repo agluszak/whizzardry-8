@@ -1116,7 +1116,7 @@ void W8CharacterPersonalityPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = W8CharacterPage::bounds.x + 0x150;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.SetText(GetPartyQuoteText(CurrentGame(), *m_character, 0), g_wiz_text_font_secondary);
+        text.SetText(CurrentGame().speech.QuoteText(*m_character, 0), g_wiz_text_font_secondary);
         text.FillBounds(target, 0x8000);
         text.RenderToTarget(0, true, target);
         m_description_dirty = false;

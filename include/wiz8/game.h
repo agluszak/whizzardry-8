@@ -108,6 +108,12 @@ public:
 
     // The context the rules act on: the game's data, party, random stream and events.
     RuleContext rules();
+    /* A random party slot other than `excluded_slot` whose member is not of
+       `excluded_gender` (-1 for any), alive unless `require_primary` is 2 and awake unless
+       `require_secondary` is 2. A requirement of 1 is waived when nobody meets it; -1 when
+       nobody qualifies. */
+    int randomPartySlot(int require_primary, int require_secondary, int excluded_slot,
+                        signed char excluded_gender);
     // The picked imported object, while the party is free to interact with the world.
     NativeObject* interactiveNativeObject();
     // Inspect that object; the cursor shows the same object as interactive.
