@@ -53,6 +53,7 @@
 #include "wiz8/render/fog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
+#include "wiz8/render/native_content.h" // IWYU pragma: keep - completes the VSG node inheritance for picking.
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/render/vsg_scene.h"
