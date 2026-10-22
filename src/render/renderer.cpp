@@ -27,6 +27,7 @@
 #include <vsg/app/ProjectionMatrix.h>
 #include <vsg/app/RecordAndSubmitTask.h>
 #include <vsg/app/RenderGraph.h>
+#include <vsg/app/TransferTask.h>
 #include <vsg/app/View.h>
 #include <vsg/app/ViewMatrix.h>
 #include <vsg/app/Viewer.h>
@@ -331,8 +332,12 @@ void Renderer::Impl::createOffscreen()
     offscreen_viewer->assignRecordAndSubmitTaskAndPresentation({commands});
     // Both targets draw the same graph, so they share the transfer task that
     // compilation registered its buffers and images with.
-    offscreen_viewer->recordAndSubmitTasks.front()->transferTask =
-        viewer->recordAndSubmitTasks.front()->transferTask;
+    auto& transfer = viewer->recordAndSubmitTasks.front()->transferTask;
+    offscreen_viewer->recordAndSubmitTasks.front()->transferTask = transfer;
+    // The next transfer would wait on a semaphore the replaced task signalled
+    // and release it during that submission. Every frame ends idle, so there
+    // is nothing left to wait for.
+    transfer->assignTransferConsumedCompletedSemaphore(vsg::TransferTask::TRANSFER_ALL, {});
 }
 
 void Renderer::Impl::syncTargets()

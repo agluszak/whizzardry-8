@@ -625,7 +625,7 @@ void ResourceLifecycleScenario()
     {
         auto& world = *GetWorld();
         REQUIRE(world.native_objects.empty());
-        REQUIRE(CurrentGame().native_object_file == RuntimeInput("WIZ8_NATIVE_DEMO_FILE"));
+        REQUIRE(CurrentGame().native_object_file == NativeDemoFile());
         // Re-anchor after the preceding camera/UI exercises, using the entry path.
         LoadNativeLevelObject(CurrentGame());
         REQUIRE(world.native_objects.size() == 1);

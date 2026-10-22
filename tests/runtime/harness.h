@@ -278,6 +278,9 @@ void Approach(GameHarness& game, int location_id, float stop);
    Fails the test when it is unset or not an existing directory. */
 fs::path RuntimeInput(const char* variable);
 
+/* The shipped native VSG example that scenarios import with /NATIVEOBJECT. */
+fs::path NativeDemoFile();
+
 /* Directory a scenario writes to, named by an environment variable; it need not
    exist yet. Fails the test when the variable is unset. */
 fs::path RuntimeOutput(const char* variable);

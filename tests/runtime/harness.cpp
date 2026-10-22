@@ -173,6 +173,11 @@ fs::path RuntimeInput(const char* variable)
     return path;
 }
 
+fs::path NativeDemoFile()
+{
+    return RuntimeInput("WIZ8_NATIVE_EXAMPLES") / "prism.vsgt";
+}
+
 fs::path RuntimeOutput(const char* variable)
 {
     return RuntimeVariable(variable);
@@ -201,10 +206,12 @@ GameHarness::GameHarness(bool play_movies, bool native_object)
 
     SDL_GetLogOutputFunction(&g_default_log, &g_default_log_data);
     SDL_SetLogOutputFunction(CaptureLog, nullptr);
-    const std::string native_option =
-        "/NATIVEOBJECT=" + RuntimeInput("WIZ8_NATIVE_DEMO_FILE").string();
+    std::string native_option;
     std::vector<std::string_view> arguments{"/WINDOW"};
-    if (native_object) arguments.push_back(native_option);
+    if (native_object) {
+        native_option = "/NATIVEOBJECT=" + NativeDemoFile().string();
+        arguments.push_back(native_option);
+    }
     w8_native::audio_offline_for_test(true);
     application_.emplace(arguments);
     REQUIRE(g_renderer);
