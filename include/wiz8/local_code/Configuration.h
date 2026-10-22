@@ -24,31 +24,31 @@ void SetMusicMuted(unsigned char muted);
 // User options applied together when the options screen closes. The editor and
 // running game use this same value type; live audio/tooltip previews are separate.
 struct GameOptions {
-    unsigned char mouselook_toggle;
-    unsigned char mouselook_smoothing;
-    unsigned char invert_mouse_y;
-    unsigned char ctrl_right_click_info;
+    bool mouselook_toggle;
+    bool mouselook_smoothing;
+    bool invert_mouse_y;
+    bool ctrl_right_click_info;
     W8Difficulty difficulty;
     W8CameraRotationMode camera_rotation_mode;
     W8CameraRotationStyle camera_rotation_style;
-    unsigned char continuous_combat;
-    unsigned char numeric_hit_points;
-    unsigned char autoscroll_combat_messages;
-    unsigned char simplified_npc_interaction;
-    unsigned char verbose_combat_messages;
-    unsigned char autoswap_weapons;
-    unsigned char auto_advance_character;
-    unsigned char autotarget_spells;
-    unsigned char skill_increase_messages;
+    bool continuous_combat;
+    bool numeric_hit_points;
+    bool autoscroll_combat_messages;
+    bool simplified_npc_interaction;
+    bool verbose_combat_messages;
+    bool autoswap_weapons;
+    bool auto_advance_character;
+    bool autotarget_spells;
+    bool skill_increase_messages;
     int combat_delay_ms;
     float monster_movement_speed;
     unsigned int text_display_delay_ms;
-    unsigned char auto_save;
-    unsigned char monster_shadows;           /* options string 0x818 */
-    unsigned char smooth_monster_animations; /* options string 0x819 */
-    unsigned char smooth_world_animations;   /* options string 0x81a */
-    unsigned char pc_confirmations; /* options string 0x823 */
-    unsigned char pc_subtitles; /* options string 0x824 */
+    bool auto_save;
+    bool monster_shadows;           /* options string 0x818 */
+    bool smooth_monster_animations; /* options string 0x819 */
+    bool smooth_world_animations;   /* options string 0x81a */
+    bool pc_confirmations; /* options string 0x823 */
+    bool pc_subtitles; /* options string 0x824 */
 };
 
 /* The persisted configuration. The configuration file's CNFG chunk stores it as a fixed

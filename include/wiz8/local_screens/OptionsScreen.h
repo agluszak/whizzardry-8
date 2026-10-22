@@ -121,7 +121,7 @@ public:
     virtual void InvalidateAll() { m_dirty = true; }
     const SDL_Rect& ScreenBounds() const { return m_bounds; }
     void AddCheckbox(int label, bool selected, std::function<void(bool)> changed = {});
-    template<typename T> void AddCheckbox(int label, T* value);
+    void AddCheckbox(int label, bool* value);
     W8ButtonWidget* AddChoiceButton(int label, W8ButtonCallback callback);
     W8OptionsSlider* AddSlider(int label, float value, float minimum, float maximum,
                                std::function<void(float)> changed = {}, bool alternate = false);

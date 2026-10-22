@@ -280,13 +280,13 @@ struct GameEventPresentation {
     {
         if (auto* main_game = MainGame();
             main_game && main_game->hud && main_game->hud->open_submenu) {
-            if (g_settings.options.continuous_combat == 0) {
+            if (!g_settings.options.continuous_combat) {
                 DestroySubMenuControls();
             } else {
                 ReopenSubMenuPanel();
             }
         }
-        if (g_settings.options.continuous_combat == 0 &&
+        if (!g_settings.options.continuous_combat &&
             ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
             SetTargetingMode(W8_TARGET_NEED_NONE);
     }

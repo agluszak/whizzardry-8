@@ -607,10 +607,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
-        g_settings.options.auto_advance_character ^= 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   Data().strings[g_settings.options.auto_advance_character != 0 ? 0x1f68 / 4
-                                                                                 : 0x1f6c / 4]);
+        g_settings.options.auto_advance_character = !g_settings.options.auto_advance_character;
+        ShowNotice(
+            W8_FONT_PALETTE_BEIGE,
+            Data().strings[g_settings.options.auto_advance_character ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);

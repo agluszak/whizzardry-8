@@ -1503,8 +1503,7 @@ void DeleteCurrentSaveFiles(void)
 bool AutoSaveIfAllowed(bool forced)
 {
     CurrentGame().save_notice_shown = false;
-    const bool wanted =
-        (g_settings.options.auto_save != 0 && !forced) || CurrentGame().status.iron_man;
+    const bool wanted = (g_settings.options.auto_save && !forced) || CurrentGame().status.iron_man;
     if (!wanted || !CanAutoSaveNow()) return true;
     return SaveGame(AutoSaveSlotName(), nullptr);
 }
@@ -1533,7 +1532,7 @@ void ReportSaveFailed(bool quiet)
    frame saves and reports the result. */
 void ProcessMainGameAutoSave(void)
 {
-    if ((g_settings.options.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow())
+    if ((!g_settings.options.auto_save && !CurrentGame().status.iron_man) || !CanAutoSaveNow())
         return;
     if (!CurrentGame().save_notice_shown) {
         if (CurrentGame().autosave_due >= std::chrono::milliseconds::zero()) return;

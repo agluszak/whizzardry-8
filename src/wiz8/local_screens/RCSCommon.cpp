@@ -621,7 +621,7 @@ void CampScreen::DrawCampVitals(void)
     W8TextBuffer text;
     std::string formatted;
 
-    if (g_settings.options.numeric_hit_points == 0) {
+    if (!g_settings.options.numeric_hit_points) {
         image = 1;
     } else {
         image = 3;
@@ -630,7 +630,7 @@ void CampScreen::DrawCampVitals(void)
     if (reviewed->hp_current == 0) {
         return;
     }
-    if (g_settings.options.numeric_hit_points == 0) {
+    if (!g_settings.options.numeric_hit_points) {
         frame_column = 0x17;
         numeric = 0;
         hp_row = 6;
@@ -698,7 +698,7 @@ void CampScreen::DrawCampVitals(void)
     }
     text.RenderString(Data().strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
                       g_smfnt_font, false, GetFrameBufferSurface());
-    if (g_settings.options.numeric_hit_points != 0) {
+    if (g_settings.options.numeric_hit_points) {
         bounds.left = 0x10e;
         bounds.right = 0x120;
         bounds.top = 0x49;

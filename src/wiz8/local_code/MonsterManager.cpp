@@ -973,11 +973,11 @@ void TogglePartyCombatStance(void)
     std::string message;
 
     if (!GameStarted()) {
-        g_settings.options.continuous_combat = (g_settings.options.continuous_combat == 0);
+        g_settings.options.continuous_combat = (!g_settings.options.continuous_combat);
         return;
     }
-    if (g_settings.options.continuous_combat != 0) {
-        g_settings.options.continuous_combat = 0;
+    if (g_settings.options.continuous_combat) {
+        g_settings.options.continuous_combat = false;
         if (CurrentGame().combat.has_value()) {
             CurrentGame().combat->round_active = (CurrentGame().combat->execution_active == 0);
             CurrentGame().combat->combat_ready = true;
@@ -987,7 +987,7 @@ void TogglePartyCombatStance(void)
         }
         message = Data().strings[W8_NOTICE_COMBAT_STANCE_RELAXED];
     } else {
-        g_settings.options.continuous_combat = 1;
+        g_settings.options.continuous_combat = true;
         if (CurrentGame().combat.has_value() && CurrentGame().combat->combat_ready) {
             CurrentGame().combat->round_active = true;
             CurrentGame().combat->combat_ready = false;

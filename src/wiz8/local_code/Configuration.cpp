@@ -26,7 +26,7 @@
 W8GameSettings g_settings;
 void ApplyGameOptions(const GameOptions& options)
 {
-    if ((options.continuous_combat != 0) != (g_settings.options.continuous_combat != 0)) {
+    if (options.continuous_combat != g_settings.options.continuous_combat) {
         TogglePartyCombatStance();
     }
     g_settings.options = options;
@@ -105,15 +105,16 @@ template<> struct Record<W8GameSettings> {
             return bytes.subspan(offset, size);
         };
         value(&runtime.field_000, at(offsetof(Disk, field_000), sizeof(Disk::field_000)));
-        value(&runtime.options.numeric_hit_points,
-              at(offsetof(Disk, numeric_hit_points), sizeof(Disk::numeric_hit_points)));
+        byte_boolean(&runtime.options.numeric_hit_points,
+                     at(offsetof(Disk, numeric_hit_points), sizeof(Disk::numeric_hit_points)));
         value(&runtime.unknown_002, at(offsetof(Disk, unknown_002), sizeof(Disk::unknown_002)));
         enum_value<std::int32_t>(&runtime.main_ui_mode,
                                  at(offsetof(Disk, main_ui_mode), sizeof(Disk::main_ui_mode)));
-        value(&runtime.options.continuous_combat,
-              at(offsetof(Disk, continuous_combat), sizeof(Disk::continuous_combat)));
-        value(&runtime.options.auto_advance_character,
-              at(offsetof(Disk, auto_advance_character), sizeof(Disk::auto_advance_character)));
+        byte_boolean(&runtime.options.continuous_combat,
+                     at(offsetof(Disk, continuous_combat), sizeof(Disk::continuous_combat)));
+        byte_boolean(
+            &runtime.options.auto_advance_character,
+            at(offsetof(Disk, auto_advance_character), sizeof(Disk::auto_advance_character)));
         byte_boolean(&runtime.tooltips_enabled,
                      at(offsetof(Disk, tooltips_enabled), sizeof(Disk::tooltips_enabled)));
         enum_value<std::int32_t>(&runtime.options.difficulty,
@@ -158,46 +159,51 @@ template<> struct Record<W8GameSettings> {
         value(&runtime.muted_voice_volume,
               at(offsetof(Disk, muted_voice_volume), sizeof(Disk::muted_voice_volume)));
         value(&runtime.field_035, at(offsetof(Disk, field_035), sizeof(Disk::field_035)));
-        value(&runtime.options.invert_mouse_y,
-              at(offsetof(Disk, invert_mouse_y), sizeof(Disk::invert_mouse_y)));
+        byte_boolean(&runtime.options.invert_mouse_y,
+                     at(offsetof(Disk, invert_mouse_y), sizeof(Disk::invert_mouse_y)));
         value(&runtime.options.monster_movement_speed,
               at(offsetof(Disk, monster_movement_speed), sizeof(Disk::monster_movement_speed)));
         value(&runtime.field_03b, at(offsetof(Disk, field_03b), sizeof(Disk::field_03b)));
         value(&runtime.legacy_gamma, at(offsetof(Disk, legacy_gamma), sizeof(Disk::legacy_gamma)));
-        value(&runtime.options.pc_confirmations,
-              at(offsetof(Disk, pc_confirmations), sizeof(Disk::pc_confirmations)));
-        value(&runtime.options.mouselook_toggle,
-              at(offsetof(Disk, mouselook_toggle), sizeof(Disk::mouselook_toggle)));
-        value(&runtime.options.pc_subtitles,
-              at(offsetof(Disk, pc_subtitles), sizeof(Disk::pc_subtitles)));
-        value(&runtime.options.mouselook_smoothing,
-              at(offsetof(Disk, mouselook_smoothing), sizeof(Disk::mouselook_smoothing)));
-        value(&runtime.options.verbose_combat_messages,
-              at(offsetof(Disk, verbose_combat_messages), sizeof(Disk::verbose_combat_messages)));
-        value(&runtime.options.auto_save, at(offsetof(Disk, auto_save), sizeof(Disk::auto_save)));
+        byte_boolean(&runtime.options.pc_confirmations,
+                     at(offsetof(Disk, pc_confirmations), sizeof(Disk::pc_confirmations)));
+        byte_boolean(&runtime.options.mouselook_toggle,
+                     at(offsetof(Disk, mouselook_toggle), sizeof(Disk::mouselook_toggle)));
+        byte_boolean(&runtime.options.pc_subtitles,
+                     at(offsetof(Disk, pc_subtitles), sizeof(Disk::pc_subtitles)));
+        byte_boolean(&runtime.options.mouselook_smoothing,
+                     at(offsetof(Disk, mouselook_smoothing), sizeof(Disk::mouselook_smoothing)));
+        byte_boolean(
+            &runtime.options.verbose_combat_messages,
+            at(offsetof(Disk, verbose_combat_messages), sizeof(Disk::verbose_combat_messages)));
+        byte_boolean(&runtime.options.auto_save,
+                     at(offsetof(Disk, auto_save), sizeof(Disk::auto_save)));
         byte_boolean(&runtime.intro_seen, at(offsetof(Disk, intro_seen), sizeof(Disk::intro_seen)));
         value(&runtime.field_047, at(offsetof(Disk, field_047), sizeof(Disk::field_047)));
-        value(&runtime.options.monster_shadows,
-              at(offsetof(Disk, monster_shadows), sizeof(Disk::monster_shadows)));
-        value(
+        byte_boolean(&runtime.options.monster_shadows,
+                     at(offsetof(Disk, monster_shadows), sizeof(Disk::monster_shadows)));
+        byte_boolean(
             &runtime.options.smooth_monster_animations,
             at(offsetof(Disk, smooth_monster_animations), sizeof(Disk::smooth_monster_animations)));
-        value(&runtime.options.smooth_world_animations,
-              at(offsetof(Disk, smooth_world_animations), sizeof(Disk::smooth_world_animations)));
-        value(&runtime.options.skill_increase_messages,
-              at(offsetof(Disk, skill_increase_messages), sizeof(Disk::skill_increase_messages)));
-        value(&runtime.options.ctrl_right_click_info,
-              at(offsetof(Disk, ctrl_right_click_info), sizeof(Disk::ctrl_right_click_info)));
-        value(&runtime.options.autoswap_weapons,
-              at(offsetof(Disk, autoswap_weapons), sizeof(Disk::autoswap_weapons)));
-        value(&runtime.options.autotarget_spells,
-              at(offsetof(Disk, autotarget_spells), sizeof(Disk::autotarget_spells)));
-        value(&runtime.options.autoscroll_combat_messages,
-              at(offsetof(Disk, autoscroll_combat_messages),
-                 sizeof(Disk::autoscroll_combat_messages)));
-        value(&runtime.options.simplified_npc_interaction,
-              at(offsetof(Disk, simplified_npc_interaction),
-                 sizeof(Disk::simplified_npc_interaction)));
+        byte_boolean(
+            &runtime.options.smooth_world_animations,
+            at(offsetof(Disk, smooth_world_animations), sizeof(Disk::smooth_world_animations)));
+        byte_boolean(
+            &runtime.options.skill_increase_messages,
+            at(offsetof(Disk, skill_increase_messages), sizeof(Disk::skill_increase_messages)));
+        byte_boolean(
+            &runtime.options.ctrl_right_click_info,
+            at(offsetof(Disk, ctrl_right_click_info), sizeof(Disk::ctrl_right_click_info)));
+        byte_boolean(&runtime.options.autoswap_weapons,
+                     at(offsetof(Disk, autoswap_weapons), sizeof(Disk::autoswap_weapons)));
+        byte_boolean(&runtime.options.autotarget_spells,
+                     at(offsetof(Disk, autotarget_spells), sizeof(Disk::autotarget_spells)));
+        byte_boolean(&runtime.options.autoscroll_combat_messages,
+                     at(offsetof(Disk, autoscroll_combat_messages),
+                        sizeof(Disk::autoscroll_combat_messages)));
+        byte_boolean(&runtime.options.simplified_npc_interaction,
+                     at(offsetof(Disk, simplified_npc_interaction),
+                        sizeof(Disk::simplified_npc_interaction)));
         value(&runtime.unknown_051, at(offsetof(Disk, unknown_051), sizeof(Disk::unknown_051)));
     }
 };

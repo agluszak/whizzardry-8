@@ -832,7 +832,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
                                GetItemDisplayName(Data(), item))});
         }
 
-        if (g_settings.options.verbose_combat_messages == 0) {
+        if (!g_settings.options.verbose_combat_messages) {
             game.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         // A usable item without a spell does nothing.

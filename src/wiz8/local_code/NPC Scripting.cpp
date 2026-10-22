@@ -116,7 +116,7 @@ void ApplyScriptedDialogueKeyword(const ScriptContext& context, W8NpcQuoteEntryK
         category = W8_DIALOGUE_CATEGORY_MISC;
         break;
     }
-    if (g_settings.options.simplified_npc_interaction != 0) {
+    if (g_settings.options.simplified_npc_interaction) {
         std::string keyword_text;
         keyword_text = text;
         if (!context.activity.conversation || !CurrentGame().npc_interaction.scripted_dialogue) {
@@ -614,14 +614,14 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         void operator()(const W8NpcQueuedNotice& message) const
         {
             if (const auto* skills = std::get_if<W8SkillNoticePayload>(&message.notice)) {
-                if (g_settings.options.skill_increase_messages == 0) {
+                if (!g_settings.options.skill_increase_messages) {
                     PostSkillIncreaseNotices(context.game, skills);
                     return;
                 }
             } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&message.notice)) {
                 if (auto& member = context.party.members[level_up->party_slot])
                     member->level_up_announced = true;
-                if (g_settings.options.skill_increase_messages == 0) {
+                if (!g_settings.options.skill_increase_messages) {
                     wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
                     return;
                 }

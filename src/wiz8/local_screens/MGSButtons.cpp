@@ -335,7 +335,7 @@ void UpdateCombatStanceButtons(void)
         return;
     }
 
-    if (g_settings.options.continuous_combat == 0) {
+    if (!g_settings.options.continuous_combat) {
         stance = CurrentGame().combat->execution_active != 0 ? 3U : 0U;
     } else if ((CurrentGame().combat->continuous_start_delay == std::chrono::milliseconds::zero() &&
                 CombatMayAdvanceContinuously()) ||
@@ -377,7 +377,7 @@ static void MainGameCombatConfirmButton(W8ButtonWidget* button)
         return;
     }
     BeginCombatExecution();
-    if (g_settings.options.continuous_combat == 0) {
+    if (!g_settings.options.continuous_combat) {
         return;
     }
     CurrentGame().combat->continuous_start_delay = std::chrono::milliseconds::zero();

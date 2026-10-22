@@ -1114,12 +1114,12 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     }
 
     if (effect == 1) {
-        if (g_settings.options.verbose_combat_messages != 0 || !item->identified) {
+        if (g_settings.options.verbose_combat_messages || !item->identified) {
             ShowNotice(W8_FONT_PALETTE_WHITE,
                        fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
                                     Data().spells[spell_id].display_name, power),
                        -1);
-            if (g_settings.options.verbose_combat_messages == 0) {
+            if (!g_settings.options.verbose_combat_messages) {
                 SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
             }
         }

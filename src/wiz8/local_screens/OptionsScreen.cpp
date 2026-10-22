@@ -77,9 +77,9 @@ constexpr std::array kEditableRenderOptions{W8_RENDER_OPTION_MIP_MAPPING,
 
 static void AddOptionsLabel(W8OptionsPanel& panel, int label);
 
-template<typename T> void W8OptionsPanel::AddCheckbox(int label, T* value)
+void W8OptionsPanel::AddCheckbox(int label, bool* value)
 {
-    AddCheckbox(label, *value != 0, [value](bool selected) { *value = selected; });
+    AddCheckbox(label, *value, [value](bool selected) { *value = selected; });
 }
 
 template<typename T>

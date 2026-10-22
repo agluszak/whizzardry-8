@@ -1312,6 +1312,13 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     REQUIRE((decoded.options.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
              decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
     REQUIRE(EncodeGameSettings(decoded) == record);
+    // Retail flag bytes are truth values, not native bool object representations.
+    auto noncanonical = record;
+    noncanonical[0x01] = std::byte{0x80};
+    const auto normalized = DecodeGameSettings(noncanonical);
+    REQUIRE(normalized.options.numeric_hit_points);
+    noncanonical[0x01] = std::byte{1};
+    REQUIRE(EncodeGameSettings(normalized) == noncanonical);
     REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));
 }
 
