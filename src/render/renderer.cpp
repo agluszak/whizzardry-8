@@ -8,6 +8,7 @@
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -178,10 +179,13 @@ public:
     void apply(vsg::StateCommand& command) override
     {
         slots.state = std::max(slots.state, command.slot);
-        CompileTraversal::apply(command);
+        // Leaves share pipelines and descriptor sets. Within a view, compiling
+        // one again only repeats the traversal of its layouts and descriptors.
+        if (compiled_state.insert(&command).second) CompileTraversal::apply(command);
     }
     void apply(vsg::View& view) override
     {
+        compiled_state.clear();
         std::erase_if(collected, [](const auto& seen) { return !seen.valid(); });
         if (std::ranges::none_of(collected, [&](const auto& seen) { return seen == &view; })) {
             collected.emplace_back(&view);
@@ -199,6 +203,7 @@ private:
     vsg::Slots slots;
     vsg::CompileResult result;
     std::vector<vsg::observer_ptr<vsg::View>> collected;
+    std::unordered_set<const vsg::StateCommand*> compiled_state;
 };
 }
 

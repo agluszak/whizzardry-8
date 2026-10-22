@@ -658,9 +658,8 @@ TEST_CASE("A scene refreshes scoped material bindings when its render context is
     positions[1] = {0, 1, 5};
     positions[2] = {1, -1, 5};
     ParticleSystem particle(&scene, 1);
-    particle.particle_active[0] = true;
-    particle.active_particle_count = 1;
-    particle.particle_positions[0] = {0, 0, 5};
+    particle.particles[0].active = true;
+    particle.particles[0].position = {0, 0, 5};
     auto original = std::make_unique<render::RenderContext>(VkExtent2D{640, 480});
     const auto viewport = vsg::ViewportState::create(0, 0, 640, 480);
     scene.createView(*original, &scene.camera, {}, viewport, 1);
