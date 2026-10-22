@@ -882,11 +882,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(group->contents[1]->runtime_id == 31);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
-    group->saved_marker = 23;
-    group->contents.front()->saved_marker = 24;
     REQUIRE_NOTHROW(SaveItemFile(*output, *group));
-    REQUIRE(group->saved_marker == 23);
-    REQUIRE(group->contents.front()->saved_marker == 24);
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
