@@ -10,7 +10,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 struct NpcDialogueUi;
 

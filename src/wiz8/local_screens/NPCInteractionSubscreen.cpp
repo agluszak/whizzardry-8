@@ -87,6 +87,7 @@
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/pointer.h"

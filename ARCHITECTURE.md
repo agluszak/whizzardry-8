@@ -260,7 +260,8 @@ Unlayered code may use the layers.
   begins in party creation (`BeginNewGame`: party selection's entry, reset and import) or
   when a save is loaded (`LoadGame`); either replaces any game in progress. It ends when
   the main menu is entered and at shutdown. Nothing is reset field by field: a new game
-  starts every member afresh, and the destructor stops the Al-Sedexus ambience. Destroying a game does no departure bookkeeping, so the level is left by the
+  starts every member afresh, and the destructor stops the Al-Sedexus ambience.
+  Destroying a game does no departure bookkeeping, so the level is left by the
   main game, which belongs to one game: it is discarded before its game ends (quitting
   returns to the menu) or is replaced (a load first discards the suspended screens above
   the menu, `DiscardSuspendedScreensAbove`), and a fresh one is built for the next.

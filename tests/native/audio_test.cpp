@@ -47,6 +47,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
