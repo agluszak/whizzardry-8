@@ -637,3 +637,7 @@ CTest contains asset-independent fixtures and licensed runtime scenarios (label
 save-fixture creation and loading). Runtime scenarios need `WIZ8_ASSET_ROOT` and a
 usable Vulkan backend; CI provisions the licensed assets. A skipped licensed test
 does not establish behavioral parity.
+
+Scenarios click controls as objects (`GameHarness::click`), which first checks that a
+player could: the control is shown and enabled, the pointer over it reaches it, and
+the presented frame shows what the UI painted there.

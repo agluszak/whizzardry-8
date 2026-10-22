@@ -157,10 +157,7 @@ void MenuSaveScenario()
     const auto anchor = Settle(game, "menu-save-settle");
     const int slot = PremadeSlot();
     CurrentGame().party.characters[slot].experience = 123;
-    const auto click = [&](const W8ButtonWidget& button) {
-        const auto bounds = button.Bounds();
-        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
-    };
+    const auto click = [&](const W8ButtonWidget& button) { game.click("menu-save", button); };
     const auto open = [&](bool save) -> W8OptionsSaveLoadPanel& {
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
             game.command(W8_MGS_COMMAND_OPTIONS);

@@ -49,6 +49,7 @@ namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
 struct W8MonsterInfo;
+class W8ButtonWidget;
 
 [[noreturn]] void FailStep(const std::string& step, const std::string& detail);
 
@@ -92,11 +93,15 @@ public:
         wait(step, [&] { return CurrentScreenState().id == screen && settled(); }, seconds);
     }
 
-    void click(const char* step, SDL_Point point)
-    {
-        if (!UiTargetAt(point)) FailStep(step, "target is not live");
-        click_at(point.x, point.y);
-    }
+    /* Clicks a control the way a player would, after checking that a player
+       could: it is shown and enabled, the pointer over its centre reaches it
+       rather than anything above it, and the presented frame shows what the
+       UI painted there. */
+    void click(const char* step, const W8ButtonWidget& button, Uint8 which = SDL_BUTTON_LEFT);
+    void click(const char* step, const HitTarget& target, Uint8 which = SDL_BUTTON_LEFT);
+    /* For controls the scenario cannot reach as objects: clicks `point` with
+       the same checks for the control found there. */
+    void click(const char* step, SDL_Point point, Uint8 which = SDL_BUTTON_LEFT);
 
     void click_at(int x, int y)
     {
@@ -175,6 +180,8 @@ public:
 
 private:
     void mouse_button(int x, int y, bool down, Uint8 which = SDL_BUTTON_LEFT);
+    void click_control(const char* step, SDL_Rect bounds, const std::function<bool()>& hovered,
+                       Uint8 which, std::optional<SDL_Point> pointer = {});
 
     ScopedTemporaryDirectory user_{"wiz8-runtime"};
     Clock::time_point started_ = Clock::now();
@@ -187,6 +194,11 @@ private:
 const char* ScreenName(int id);
 
 SDL_Point MainMenuRegion(short item);
+
+/* The formation panel's buttons; MGSFormation keeps them file-local. */
+constexpr SDL_Point kFormationReset{242, 278};
+constexpr SDL_Point kFormationAccept{360, 276};
+constexpr SDL_Point kFormationCancel{394, 276};
 
 /* With WIZ8_RUNTIME_SNAPSHOT_DIR set, frames the scenario checks are also
    saved there as BMPs for inspection. */

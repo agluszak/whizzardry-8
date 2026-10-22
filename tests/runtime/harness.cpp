@@ -41,10 +41,12 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
+#include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/world/level_session.h"
@@ -297,27 +299,142 @@ void GameHarness::command(W8MGSCommand command)
     frame();
 }
 
-std::vector<unsigned> GameHarness::read_frame()
+namespace {
+/* The frame the player sees in 640x480 screen coordinates: the last rendered
+   image, or the CPU frame without a renderer. Empty before the first capture. */
+std::vector<unsigned> PresentedFrame()
 {
-    if (!g_renderer) {
-        // Camp renders through SGP's CPU surface, without a world renderer.
-        const auto& surface = GetFrameBufferSurface();
-        std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
-        REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
-                                  surface.pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
+    // Camp renders through SGP's CPU surface, without a world renderer.
+    SDL_Surface* surface = g_renderer ? g_renderer->readback() : &GetFrameBufferSurface();
+    if (!surface) return {};
+    std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+    if (surface->w == SCREEN_WIDTH && surface->h == SCREEN_HEIGHT) {
+        REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface->format, surface->pixels,
+                                  surface->pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
                                   SCREEN_WIDTH * sizeof(unsigned)));
+        for (unsigned& pixel : pixels) pixel &= 0xffffff;
         return pixels;
     }
-    auto* surface = g_renderer->readback();
-    REQUIRE(surface);
     // The swapchain matches the window's pixel size; sample it in screen coordinates.
-    std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)
             pixels[y * SCREEN_WIDTH + x] =
                 ReadARGB(*surface, x * surface->w / SCREEN_WIDTH, y * surface->h / SCREEN_HEIGHT) &
                 0xffffff;
     return pixels;
+}
+
+SDL_Rect OnScreen(SDL_Rect area)
+{
+    constexpr SDL_Rect screen{0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    SDL_Rect clipped{};
+    SDL_GetRectIntersection(&area, &screen, &clipped);
+    return clipped;
+}
+
+std::string Describe(SDL_Rect area)
+{
+    return "{" + std::to_string(area.x) + ", " + std::to_string(area.y) + ", " +
+           std::to_string(area.w) + ", " + std::to_string(area.h) + "}";
+}
+
+/* What the presented frame shows of the UI painted into `area` of `ui`, a CPU
+   frame: how many pixels are opaque there, and how many of those the
+   presented frame shows. Transparent pixels let the world show through; the
+   cursor is drawn over everything. */
+struct UiCoverage {
+    int painted = 0, shown = 0;
+    bool visible() const { return painted > 0 && shown * 10 >= painted * 9; }
+    std::string describe() const
+    {
+        return std::to_string(shown) + " of the " + std::to_string(painted) +
+               " opaque pixels the UI painted";
+    }
+};
+UiCoverage PresentedUi(SDL_Surface& ui, SDL_Rect area)
+{
+    UiCoverage coverage;
+    const auto presented = PresentedFrame();
+    if (presented.empty()) return coverage;
+    SDL_Rect cursor{};
+    if (g_cursor_scene_enabled && g_mouse_surface)
+        cursor = {g_cursor_width, g_cursor_height, g_mouse_surface->w, g_mouse_surface->h};
+    area = OnScreen(area);
+    for (int y = area.y; y < area.y + area.h; ++y)
+        for (int x = area.x; x < area.x + area.w; ++x) {
+            const SDL_Point point{x, y};
+            Uint8 r, g, b, a;
+            if (SDL_PointInRect(&point, &cursor) ||
+                !SDL_ReadSurfacePixel(&ui, x, y, &r, &g, &b, &a) || !a)
+                continue;
+            const unsigned pixel = presented[y * SCREEN_WIDTH + x];
+            const auto near = [](int painted, unsigned shown) {
+                return std::abs(painted - int(shown & 255)) <= 2;
+            };
+            ++coverage.painted;
+            coverage.shown += near(r, pixel >> 16) && near(g, pixel >> 8) && near(b, pixel);
+        }
+    return coverage;
+}
+} // namespace
+
+std::vector<unsigned> GameHarness::read_frame()
+{
+    auto pixels = PresentedFrame();
+    REQUIRE(!pixels.empty());
+    return pixels;
+}
+
+void GameHarness::click(const char* step, const W8ButtonWidget& button, Uint8 which)
+{
+    const SDL_Rect bounds = button.Bounds();
+    if (!button.IsConfigured() || !button.IsVisible())
+        FailStep(step, "the button at " + Describe(bounds) + " is not shown");
+    if (!button.IsEnabled()) FailStep(step, "the button at " + Describe(bounds) + " is disabled");
+    click_control(step, bounds, [&] { return button.IsHovered(); }, which);
+}
+
+void GameHarness::click(const char* step, const HitTarget& target, Uint8 which)
+{
+    // Compare addresses only: the pointer's arrival may retire the target.
+    click_control(
+        step, target.bounds(), [target = &target] { return g_ui.hover == target; }, which);
+}
+
+void GameHarness::click(const char* step, SDL_Point point, Uint8 which)
+{
+    const HitTarget* target = UiTargetAt(point);
+    if (!target)
+        FailStep(step, "no live control at (" + std::to_string(point.x) + ", " +
+                           std::to_string(point.y) + ")");
+    click_control(step, target->bounds(), [target] { return g_ui.hover == target; }, which, point);
+}
+
+void GameHarness::click_control(const char* step, SDL_Rect bounds,
+                                const std::function<bool()>& hovered, Uint8 which,
+                                std::optional<SDL_Point> pointer)
+{
+    // Painting and the next presented frame may be a frame apart.
+    UiCoverage coverage;
+    if (!within_frames(
+            2, [&] { return (coverage = PresentedUi(GetFrameBufferSurface(), bounds)).visible(); }))
+        FailStep(step, "the control at " + Describe(bounds) +
+                           " is not visible: the presented frame shows " + coverage.describe() +
+                           " there");
+    // The cursor's tip, not its corner, picks the target.
+    const SDL_Point at = pointer.value_or(SDL_Point{bounds.x + bounds.w / 2 - g_cursor_hotspot_x,
+                                                    bounds.y + bounds.h / 2 - g_cursor_hotspot_y});
+    move_pointer(at.x, at.y);
+    if (!hovered()) {
+        const HitTarget* top = UiTargetAt(at);
+        FailStep(step, "the pointer over the control at " + Describe(bounds) + " reaches " +
+                           (top ? "the control at " + Describe(top->bounds()) + " instead"
+                                : "no live control"));
+    }
+    mouse_button(at.x, at.y, true, which);
+    frame();
+    mouse_button(at.x, at.y, false, which);
+    frame();
 }
 
 void GameHarness::mouse_button(int x, int y, bool down, Uint8 which)
@@ -527,9 +644,9 @@ void LoadFromMenu(GameHarness& game, const fs::path& save)
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
-    game.click_at(300, 40);
+    game.click("select-save", panel->m_rows[0]->button);
     REQUIRE(panel->m_selected == 0);
-    game.click_at(540, 445);
+    game.click("load-save", *panel->m_action_button);
     WaitMainGame(game, "loaded");
     Settle(game, "loaded");
 }

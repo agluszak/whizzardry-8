@@ -63,6 +63,31 @@
 
 namespace {
 
+/* Controls whose owners keep them private, by layout position. The camp's
+   items page: its first pool cell (a 2x4 grid of 49x57 cells), the first two
+   backpack cells, the wielded weapon and the action strip's buttons. */
+constexpr SDL_Point kCampPoolCell{535, 219};
+constexpr SDL_Point kCampBackpackCells[] = {{34, 219}, {83, 219}};
+constexpr SDL_Point kCampPrimaryWeapon{175, 360};
+constexpr SDL_Point kCampUseItem{145, 466};
+constexpr SDL_Point kCampCastOnItem{240, 466}; // Not the artifacts-skill button beside it.
+constexpr SDL_Point kCampCastOnCharacter{286, 466};
+/* The camp header's party portraits. */
+SDL_Point CampPortrait(int slot)
+{
+    return {(slot & 1) * 48 + 28, (slot / 2) * 39 + 23};
+}
+/* The main game's level-up button on a party portrait. */
+SDL_Point PortraitAdvanceButton(int slot)
+{
+    return {((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f};
+}
+/* The first row of the spell list in the main game's text box. */
+constexpr SDL_Point kSpellListFirstRow{250, 372};
+/* The journal's page toggle and close buttons. */
+constexpr SDL_Point kJournalToggle{540, 450};
+constexpr SDL_Point kJournalClose{600, 450};
+
 void InventoryChestScenario()
 {
     const float motion_clamp = g_camera_motion_clamp;
@@ -96,19 +121,13 @@ void InventoryChestScenario()
     REQUIRE(CurrentGame().advancement.held);
     auto* picker = static_cast<W8TriggerItemPickerDialog*>(g_modal_owner.get());
     REQUIRE_FALSE(picker->entries.empty());
-    const auto& item_button = *picker->m_buttons[5];
-    game.right_click_at(item_button.Bounds().x + item_button.Bounds().w / 2,
-                        item_button.Bounds().y + item_button.Bounds().h / 2);
+    game.click("assay-picked-item", *picker->m_buttons[5], SDL_BUTTON_RIGHT);
     REQUIRE(game.within_frames(
         4, [] { return dynamic_cast<W8AssayDialog*>(g_modal_owner.get()) != nullptr; }));
     game.key(SDLK_ESCAPE);
     REQUIRE(game.within_frames(4, [&] { return g_modal_owner.get() == picker; }));
     REQUIRE_FALSE(picker->entries.empty());
-    const auto click_button = [&](int index) {
-        auto& button = *picker->m_buttons[index];
-        game.click_at(button.Bounds().x + button.Bounds().w / 2,
-                      button.Bounds().y + button.Bounds().h / 2);
-    };
+    const auto click_button = [&](int index) { game.click("picker", *picker->m_buttons[index]); };
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
     const auto pool = std::vector<W8ItemInstance>(std::begin(CurrentGame().party.item_pool),
@@ -181,9 +200,10 @@ void InventoryChestScenario()
     for (unsigned i = 0; i < std::min<std::size_t>(8, listed.size()); ++i)
         if (listed[i] == potion_slot) potion_cell = i;
     REQUIRE(potion_cell >= 0);
-    game.click_at(535 + (potion_cell & 1) * 49, 219 + (potion_cell >> 1) * 57);
+    game.click("pick-up-potion", {kCampPoolCell.x + (potion_cell & 1) * 49,
+                                  kCampPoolCell.y + (potion_cell >> 1) * 57});
     REQUIRE((CurrentGame().party.held.item.iItemNo != -1));
-    game.click_at(34, 219);
+    game.click("drop-potion", kCampBackpackCells[0]);
     REQUIRE_FALSE((CurrentGame().party.held.item.iItemNo != -1));
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
     const auto rendered = game.read_frame();
@@ -204,7 +224,7 @@ void InventoryChestScenario()
     REQUIRE(mismatches == 0);
     Snapshot("inventory", rendered);
     // Right-clicking the wielded longsword opens its item information dialog.
-    game.right_click_at(175, 360);
+    game.click("assay-sword", kCampPrimaryWeapon, SDL_BUTTON_RIGHT);
     REQUIRE(game.within_frames(4, [] {
         return dynamic_cast<W8AssayDialog*>(FindScreen<CampScreen>()->dialogs.open()) != nullptr;
     }));
@@ -232,9 +252,9 @@ void InventoryChestScenario()
     caster.hp_current = 1;
     FindScreen<CampScreen>()->InvalidateAll();
     game.frame();
-    game.click_at(145, 466);
+    game.click("use-item", kCampUseItem);
     REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE);
-    game.click_at(83, 219);
+    game.click("use-potion", kCampBackpackCells[1]);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
     CAPTURE(ItemUseDraft(), ScreenPointer().targeting(),
@@ -287,9 +307,9 @@ void CampSpellsScenario()
     sword.identified = false;
     FindScreen<CampScreen>()->InvalidateAll();
     game.frame();
-    game.click_at(240, 466); // Identify spell, not the artifacts-skill button.
+    game.click("identify-spell", kCampCastOnItem);
     REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_ITEM);
-    game.click_at(175, 360);
+    game.click("identify-sword", kCampPrimaryWeapon);
     CAPTURE(caster.profession_levels[W8_PROFESSION_BISHOP],
             caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level,
             caster.skills[W8_SKILL_MENTAL_MAGIC].level,
@@ -315,10 +335,10 @@ void CampSpellsScenario()
     game.frame();
     // Fix the roll sequence so successful but insufficient attempts repeat.
     CurrentGame().rng.seed(1);
-    game.click_at(286, 466);
+    game.click("remove-curse-spell", kCampCastOnCharacter);
     REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER);
     const auto slot = PremadeSlot();
-    game.click_at((slot & 1) * 48 + 28, (slot / 2) * 39 + 23);
+    game.click("remove-curse-target", CampPortrait(slot));
     REQUIRE(caster.iSPLeft[curse_realm] < 100);
     REQUIRE(caster.iSPLeft[curse_realm] >= 0);
     REQUIRE(FindScreen<CampScreen>()->items.action() == W8_CAMP_ITEM_ACTION_NONE);
@@ -447,7 +467,7 @@ void CheckGameplayUi(GameHarness& game)
     game.drag({214 + cells[source].x, 60 + cells[source].y, 32, 32},
               {214 + cells[destination].x, 60 + cells[destination].y, 32, 32});
     REQUIRE(CurrentGame().planned_formation.rowOf(slot) == destination / 3);
-    game.click_at(360, 276);
+    game.click("formation-accept", kFormationAccept);
     REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination / 3);
     CurrentGame().party.formation = original_formation;
@@ -471,15 +491,15 @@ void CheckGameplayUi(GameHarness& game)
     game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
     ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
-    game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
+    game.click("realm", *gpSCSV->realm_buttons[realm]);
     REQUIRE(gpSCSV->iSpellRealm == realm);
     REQUIRE(gpSCSV->spells.size() == 1);
-    game.click_at(250, 372); // First spell in the ordinary text-box list.
+    game.click("choose-spell", kSpellListFirstRow);
     REQUIRE(gpSCSV->draft.detail == W8_SPELL_LIGHT);
-    game.click_at(0x1f4, 0x172);
+    game.click("power-pip", *gpSCSV->power_controls[1]);
     if (gpSCSV) {
         REQUIRE(gpSCSV->draft.detail_block.spell.power_level == 2);
-        game.click_at(0x247, 0x179);
+        game.click("cancel-cast", *gpSCSV->cancel);
         REQUIRE(!gpSCSV);
     } else {
         // Target-free spells may commit in the same frame as power selection.
@@ -514,7 +534,7 @@ void CheckGameplayUi(GameHarness& game)
     CurrentGame().party.members[slot]->level_up_announced = true;
     EnablePortraitAdvanceRegions();
     UpdatePortraitAdvanceButtons();
-    game.click_at(((slot & 1) ? 0x23b : 0) + 0x22, (slot / 2) * 0x55 + 0x4f);
+    game.click("level-up", PortraitAdvanceButton(slot));
     game.wait_screen("level-up-character", W8_SCREEN_CHARACTER);
     REQUIRE(FindScreen<CharacterScreen>()->m_mode == W8_CHARACTER_LEVEL_UP);
     REQUIRE(FindScreen<CharacterScreen>()->m_original == &CurrentGame().party.characters[slot]);
@@ -637,16 +657,17 @@ void ResourceLifecycleScenario()
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
-    game.click_at(30, 250);
+    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[2]);
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
-    game.click_at(580, 430);
+    game.click("options-next", *FindScreen<OptionsScreen>()->m_navigation[1]);
     REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 1);
-    game.click_at(290, 430);
+    game.click("options-previous", *FindScreen<OptionsScreen>()->m_navigation[0]);
     REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 0);
     game.press_at(30, 60);
     game.release_at(200, 190);
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
-    game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
+    // The artwork hotspot selects the same panel as its button.
+    game.click("options-artwork", {30, 60});
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 0);
     const float combat_speed = FindScreen<OptionsScreen>()->values.combat_speed;
     game.click_at(480, 50);
@@ -659,11 +680,12 @@ void ResourceLifecycleScenario()
     const float released_speed = FindScreen<OptionsScreen>()->values.combat_speed;
     game.move_pointer(490, 50);
     REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
-    game.click_at(30, 250); // An inactive panel must not retain slider input.
+    // An inactive panel must not retain slider input.
+    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[2]);
     game.click_at(480, 50);
     REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
     FindScreen<OptionsScreen>()->values.combat_speed = combat_speed;
-    game.click_at(20, 445);
+    game.click("options-return", *FindScreen<OptionsScreen>()->m_menu_buttons[7]);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
     const std::size_t return_depth = SuspendedScreenCount();
@@ -677,9 +699,9 @@ void ResourceLifecycleScenario()
     REQUIRE(SuspendedScreenCount() == return_depth + 1);
     REQUIRE(PendingScreen() == W8_SCREEN_MAIN_GAME);
     // Exercise the ordinary toggle and close buttons.
-    game.click_at(540, 450);
-    game.click_at(540, 450);
-    game.click_at(600, 450);
+    game.click("journal-toggle", kJournalToggle);
+    game.click("journal-toggle", kJournalToggle);
+    game.click("journal-close", kJournalClose);
     game.wait_screen("journal-return", W8_SCREEN_MAIN_GAME);
     REQUIRE(SuspendedScreenCount() == return_depth);
     REQUIRE(CurrentGame().story.journal.size() == journal_size + 1);
@@ -687,8 +709,7 @@ void ResourceLifecycleScenario()
     CurrentGame().story.journal.pop_back();
     // Returning re-arms the interface buttons; the roof buttons switch views.
     const auto click_roof = [&](int index) {
-        const auto& bounds = MainGame()->hud_buttons.roof[index].Bounds();
-        game.click("roof-button", {bounds.x + bounds.w / 2, bounds.y + bounds.h / 2});
+        game.click("roof-button", MainGame()->hud_buttons.roof[index]);
     };
     click_roof(2);
     REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);

@@ -46,7 +46,7 @@ void MainMenuUiScenario()
     REQUIRE(game.settled());
     game.click("credits", MainMenuRegion(3));
     game.wait_screen("credits", W8_SCREEN_CREDITS);
-    game.click_at(320, 240);
+    game.click_at(320, 240); // The credits register no control; any click leaves.
     game.wait_screen("main-menu-return", W8_SCREEN_MAIN_MENU);
     verify_controls();
 }
@@ -73,9 +73,7 @@ void SpendPool(GameHarness& game, const char* step, int page_index, const bool& 
             continue;
         while (!complete && *entry->m_second < *entry->m_third) {
             const int before = *entry->m_second;
-            INFO(step);
-            const auto bounds = entry->m_increment->Bounds();
-            game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+            game.click(step, *entry->m_increment);
             if (!game.within_frames(2, [&] { return complete || *entry->m_second != before; }))
                 break; // The entry is capped by something else (race maximum).
         }
@@ -132,20 +130,11 @@ std::string CreateCharacter(GameHarness& game)
     W8CharacterStatsPage* stats = StatsPage();
     Snapshot("character-screen", game.read_frame());
     REQUIRE((stats->m_profession_row && stats->m_race_row && stats->m_gender_row));
-    {
-        const auto bounds = stats->m_profession_row->m_increment->Bounds();
-        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
-    }
+    game.click("profession", *stats->m_profession_row->m_increment);
     REQUIRE(game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
-    {
-        const auto bounds = stats->m_race_row->m_increment->Bounds();
-        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
-    }
+    game.click("race", *stats->m_race_row->m_increment);
     REQUIRE(game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
-    {
-        const auto bounds = stats->m_gender_row->m_increment->Bounds();
-        game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
-    }
+    game.click("gender", *stats->m_gender_row->m_increment);
     REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
     REQUIRE((game.within_frames(
         2, [&] { return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled; })));
@@ -153,14 +142,14 @@ std::string CreateCharacter(GameHarness& game)
               FindScreen<CharacterScreen>()->m_creation_state.attributes_complete);
 
     // The first profession is a non-caster, so Next skips the spell page.
-    game.click_at(616, 464);
+    game.click("next-to-skills", *FindScreen<CharacterScreen>()->m_next);
     game.wait("skills", [&] {
         W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[2].get();
         return FindScreen<CharacterScreen>()->m_page_index == 2 && page && !page->m_entries.empty();
     });
     SpendPool(game, "skills", 2, FindScreen<CharacterScreen>()->m_creation_state.skills_complete);
 
-    game.click_at(616, 464);
+    game.click("next-to-personality", *FindScreen<CharacterScreen>()->m_next);
     game.wait("personality", [&] {
         W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[3].get();
         return FindScreen<CharacterScreen>()->m_page_index == 3 && page && !page->m_prepared;
@@ -173,7 +162,7 @@ std::string CreateCharacter(GameHarness& game)
     const std::string name = typed.name;
     REQUIRE(!name.empty());
 
-    game.click_at(616, 464);
+    game.click("finish-character", *FindScreen<CharacterScreen>()->m_next);
     game.wait_screen("committed", W8_SCREEN_PARTY_SELECTION);
     const auto saved = game.user_root() / "saves" / "characters" / (name + ".CHR");
     if (!fs::is_regular_file(saved)) FailStep("saved", "missing " + saved.string());
@@ -181,10 +170,10 @@ std::string CreateCharacter(GameHarness& game)
     return name;
 }
 
-/* Party selection's Confirm button, and the party-size prompt it opens for a
-   party of fewer than six with that prompt's accept button. */
+/* Party selection's Confirm button, and the accept button of the party-size
+   prompt it opens for a party of fewer than six. The screen and its prompt
+   keep their controls private. */
 constexpr SDL_Point kPartyConfirmButton{430, 447};
-constexpr SDL_Rect kPartySizePrompt{170, 160, 300, 110};
 constexpr SDL_Point kPartySizePromptAccept{293, 306};
 
 void FormationUiScenario()
@@ -239,7 +228,7 @@ void FormationUiScenario()
     REQUIRE(CurrentGame().party.formation.rowOf(slot) == original_row);
 
     // Reset preserves the live formation; dropping on the panel edge cancels.
-    game.click_at(242, 278);
+    game.click("formation-reset", kFormationReset);
     REQUIRE(CurrentGame().planned_formation.rowOf(slot) == original_row);
     begin_drag();
     drop_at({220, 70});
@@ -247,7 +236,8 @@ void FormationUiScenario()
 
     begin_drag();
     drop_at(destination);
-    game.click_at(360, 276); // Accept, with teardown deferred past button dispatch.
+    // Accept, with teardown deferred past button dispatch.
+    game.click("formation-accept", kFormationAccept);
     REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination_row);
     REQUIRE(g_ui.captured == 0);
@@ -256,7 +246,7 @@ void FormationUiScenario()
     game.frame();
     REQUIRE(FormationPanelOpen());
     REQUIRE(OverlayPixel({320, 180}));
-    game.click_at(394, 276); // Cancel after re-entry.
+    game.click("formation-cancel", kFormationCancel); // After re-entry.
     REQUIRE_FALSE(FormationPanelOpen());
     REQUIRE(!OverlayPixel({320, 180})); // Closing erases the panel.
     REQUIRE(CurrentGame().party.formation.rowOf(slot) == destination_row);
@@ -331,22 +321,11 @@ void StartGame(GameHarness& game)
     ExpectPartyActionLabels("party-with-member labels", game, 4);
 
     /* Confirm walks the screen's own steps by mouse: a party of fewer than six
-       asks for confirmation, then the options page's Confirm runs the opening.
-       The prompt is modal, so it must also be visible. */
-    const auto before_prompt = game.read_frame();
+       asks for confirmation, then the options page's Confirm runs the opening. */
     game.click("confirm-party", kPartyConfirmButton);
     REQUIRE(game.within_frames(2, [] { return UiModalActive(); }));
     game.frame();
-    const auto prompt = game.read_frame();
-    Snapshot("party-size-prompt", prompt);
-    {
-        int changed = 0;
-        for (int y = kPartySizePrompt.y; y < kPartySizePrompt.y + kPartySizePrompt.h; ++y)
-            for (int x = kPartySizePrompt.x; x < kPartySizePrompt.x + kPartySizePrompt.w; ++x)
-                changed += prompt[y * SCREEN_WIDTH + x] != before_prompt[y * SCREEN_WIDTH + x];
-        INFO("party-size prompt: " << changed << " changed pixels");
-        REQUIRE(changed > kPartySizePrompt.w * kPartySizePrompt.h / 2);
-    }
+    Snapshot("party-size-prompt", game.read_frame());
     game.click("accept-party-size", kPartySizePromptAccept);
     REQUIRE(game.within_frames(2, [] { return !UiModalActive(); }));
     game.click("start-game", kPartyConfirmButton);
