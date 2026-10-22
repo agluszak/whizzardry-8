@@ -99,8 +99,9 @@ void FinalizeStaticScene(World& world)
    model chain. Each mesh gets a world-space vertex set (translated or fully
    transformed, or aliased when the transform is identity) and a direction
    array of vertex-minus-light vectors per overlapping light; a vertex that
-   faces the light accumulates diffuse attenuated by range into its vertex
-   light. "Sun"-prefixed lights bake into the sunlight array instead and are
+   faces the light accumulates diffuse attenuated by range into the
+   instance's own light for that vertex (meshes are shared between
+   placements, so the result stays with the instance). "Sun"-prefixed lights bake into the sunlight array instead and are
    skipped here. `walk_chain` limits the light walk to the first sibling. */
 bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> lights)
 {
@@ -111,9 +112,9 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
     for (auto* mesh : meshParts(static_cast<Mesh*>(instance->getModel()))) {
         const auto count = mesh->vertex_location_count;
         if (count <= 0) continue;
-        const auto vertex_lights = mesh->GetVertexLights(true);
+        // A baked placement makes its mesh vertex-lit for every placement.
+        if (mesh->GetVertexLights(true).empty()) return false;
         mesh->GetVertexSunlight(true);
-        if (vertex_lights.empty()) return false;
         if (lights.empty()) continue;
         auto* vertex_materials = mesh->getVertexMaterialTable(0, Mesh::SIDE_FRONT, false);
         auto* base_material = mesh->getMaterial(0, Mesh::SIDE_FRONT);
@@ -141,7 +142,8 @@ bool BakeInstanceVertexLighting(MeshInstance* instance, std::span<Light* const> 
                 (light->opengl_attenuation.y * kLightRangeAttenuationDenominator));
             const auto position = glm::vec3(light->worldMatrix()[3]);
             if (!box.overlaps({position - range, position + range})) continue;
-            mesh->flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
+            auto& vertex_lights = instance->baked_lights[mesh];
+            vertex_lights.resize(static_cast<std::size_t>(count), glm::vec3(0));
             for (int i = 0; i < count; ++i) {
                 const auto direction = world_vertices[i] - position;
                 const float distance = glm::length(direction);

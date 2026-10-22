@@ -72,7 +72,25 @@ struct MeshAsset {
     float bounds_radius = 0;
     bool sorted = false;
     bool animated = false;
+    // Built for a mesh with vertex lighting: poses own first-pass colours.
+    bool lit = false;
     bool offset_pass_keys = true;
+};
+
+// The scene terms one placement bakes into its vertex colours, with the
+// lights baked for that placement alone.
+struct VertexLighting {
+    glm::vec3 ambient{0};
+    glm::vec3 environment{0};
+    float brightness = 1;
+    std::span<const glm::vec3> placement_lights;
+    bool operator==(const VertexLighting& other) const
+    {
+        return ambient == other.ambient && environment == other.environment &&
+               brightness == other.brightness &&
+               placement_lights.data() == other.placement_lights.data() &&
+               placement_lights.size() == other.placement_lights.size();
+    }
 };
 
 // One CPU-evaluated pose, reused by every view, picking, sorting and vertex
@@ -86,6 +104,8 @@ public:
         // selected index buffer's triangle slots. CPU view filtering uses
         // these directly; they are not a shader input.
         vsg::ref_ptr<vsg::vec3Array> authored_normals;
+        // This placement's baked first-pass colours, when the asset is lit.
+        vsg::ref_ptr<vsg::vec4Array> colors;
         std::vector<std::uint32_t> source_polygons;
         std::vector<vsg::ref_ptr<vsg::VertexIndexDraw>> draws;
     };
@@ -93,6 +113,8 @@ public:
     explicit MeshPose(Mesh& mesh);
     void update(Mesh& mesh, unsigned frame, float interpolation, int skin = -1,
                 bool check_blanking = true);
+    // Rebakes the colours when the scene terms or placement lights change.
+    void light(const Mesh& mesh, const VertexLighting& lighting);
     std::shared_ptr<Texture> texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
                                      int skin, unsigned layer = 0) const;
 
@@ -101,6 +123,8 @@ public:
     std::vector<glm::vec3> positions;
     std::vector<glm::vec3> normals;
     std::vector<glm::vec3> polygon_normals;
+    // Baked colours per mesh vertex; empty unless the asset is lit.
+    std::vector<glm::vec3> colors;
 
 private:
     void makeDraws();
@@ -110,6 +134,7 @@ private:
     std::vector<std::uint32_t> selected_polygons_;
     bool selection_initialized_ = false;
     std::vector<vsg::ref_ptr<vsg::uintArray>> selected_indices_;
+    std::optional<VertexLighting> lighting_;
 };
 
 std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh);

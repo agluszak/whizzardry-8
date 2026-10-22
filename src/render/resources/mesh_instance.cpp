@@ -208,6 +208,7 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     skin = other.skin;
     damage_stage = other.damage_stage;
     baked_models = other.baked_models;
+    baked_lights = other.baked_lights;
     highlight_pass_mode = other.highlight_pass_mode;
     highlight_material.reset();
     light_scale = other.light_scale;
@@ -232,6 +233,11 @@ void MeshInstance::setModel(std::shared_ptr<Mesh> model)
 std::optional<glm::vec3> MeshInstance::sampledPosition(const Mesh& mesh, std::size_t index) const
 {
     return node_->sampledPosition(mesh, index);
+}
+
+std::span<const glm::vec3> MeshInstance::bakedColors(const Mesh& mesh) const
+{
+    return node_->bakedColors(mesh);
 }
 
 namespace render {
@@ -342,6 +348,14 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     return {};
 }
 
+std::span<const glm::vec3> InstanceNode::bakedColors(const Mesh& mesh)
+{
+    ensureParts();
+    for (const auto& part : parts)
+        if (part->mesh == &mesh) return part->pose.colors;
+    return {};
+}
+
 namespace {
 
 std::pair<vsg::ref_ptr<vsg::Node>, vsg::ref_ptr<vsg::vec4Array>>
@@ -420,11 +434,16 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
         const int skin = instance->skinTable(mesh);
-        mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
-                             pass.frame.brightness);
         part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
                           !static_geometry);
         auto& pose = part->pose;
+        const auto lights = instance->baked_lights.find(&mesh);
+        pose.light(mesh, {.ambient = glm::vec3(pass.ambient_light),
+                          .environment = pass.frame.environment_offset,
+                          .brightness = pass.frame.brightness,
+                          .placement_lights = lights == instance->baked_lights.end()
+                                                  ? std::span<const glm::vec3>{}
+                                                  : std::span<const glm::vec3>(lights->second)});
         const auto& asset = *pose.asset;
         auto instance_block = packInstance(*instance, mesh, pass);
         if (highlight_body) instance_block.overrides = glm::vec4(0);

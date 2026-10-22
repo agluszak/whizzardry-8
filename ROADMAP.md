@@ -360,10 +360,7 @@ Substantial but contained work.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
-- **Mesh asset leftovers.** (#481.) Baked vertex lighting still accumulates into the
-  shared `Mesh::vertex_lights`, and the last instance prepared sets the shared
-  ambient in the asset's colours; move ambient into the instance block so
-  instances of one mesh light independently. `Mesh` keeps unused multi-pass and
+- **Mesh asset leftovers.** (#481.) `Mesh` keeps unused multi-pass and
   back-side generality (`MAX_PASSES`, `pass_count`, `dcg`/`scg`, `CONTROL_BACK`,
   `CONTROL_REUSE_FRONT_MATERIAL`, `CONTROL_NO_FRONT_CULL`) that only tests
   exercise. `W8_MESH_SORTED_RENDERING` duplicates `CONTROL_SORTED_RENDERING`,

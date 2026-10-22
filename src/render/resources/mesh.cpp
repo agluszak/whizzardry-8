@@ -57,8 +57,6 @@ void Mesh::setMaterial(std::shared_ptr<Material> material, std::int32_t pass, e_
 {
     if (pass >= 0 && pass < 4 && (int)side >= 0 && (int)side < 2) {
         materials[pass][side] = std::move(material);
-        // The bake reads the pass material's ambient.
-        flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
         if (render_asset_) render_asset_->setMaterial(pass, side, materials[pass][side]);
     }
 }
@@ -252,8 +250,7 @@ Mesh::Mesh(std::int32_t polygons, std::int32_t vertices)
 {
     reset(polygons, vertices);
     vertex_lighting_ready = false;
-    flags = W8_MESH_VERTEX_LIGHTING_DIRTY;
-    ambient_color = glm::vec3(-1);
+    flags = 0;
     vertex_compression_scale = 1.0f;
     render_control &= ~(1u << CONTROL_SKIP_AUTO_BOX);
 }
@@ -359,15 +356,6 @@ void Mesh::relocateVertices(const glm::vec3& offset)
     }
     setDirtyAll();
     invalidateRenderAsset();
-}
-
-void Mesh::applyPendingLighting()
-{
-    // Without an asset there is nothing to update; building one bakes it.
-    if ((flags & W8_MESH_VERTEX_LIGHTING_DIRTY) != 0) {
-        updateBakedLighting();
-        flags &= ~static_cast<unsigned int>(W8_MESH_VERTEX_LIGHTING_DIRTY);
-    }
 }
 
 void Mesh::setBounds(const glm::vec3& minimum, const glm::vec3& maximum, const glm::vec3& center,

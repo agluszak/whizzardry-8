@@ -380,10 +380,12 @@ static void baked_lighting()
     REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
     const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
-    const auto colors = mesh.GetVertexLights(false);
+    // The light stays with this placement; the shared mesh keeps its authored lights.
+    auto& colors = instance.baked_lights.at(&mesh);
     REQUIRE(close(colors[0], glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
     REQUIRE(close(colors[1], glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
-    REQUIRE((mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY)));
+    REQUIRE(mesh.hasVertexLighting());
+    REQUIRE(mesh.GetVertexLights(false)[0] == glm::vec3(0));
 
     mesh.setMaterial(nullptr, 0, Mesh::SIDE_FRONT);
     colors[0] = glm::vec3(0);
@@ -1575,49 +1577,60 @@ TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry
     auto zero_material = std::make_shared<Material>();
     zero_material->setAmbient(glm::vec4(0));
     mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
-    const auto asset = mesh.renderAsset();
-    mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
     const auto lights = mesh.GetVertexLights(true);
     for (unsigned vertex = 0; vertex < 4; ++vertex) {
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
     }
-    // The bake writes the shared asset's colours; read them back per source vertex.
-    const auto baked = [&] {
-        mesh.applyPendingLighting();
-        const auto& pass = mesh.renderAsset()->passes.at(0);
-        REQUIRE((pass.draw_flags & render::HasColors) != 0);
-        std::array<glm::vec3, 4> colors{};
-        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
-            const auto& color = pass.attributes[1]->at(vertex);
-            colors.at(pass.source_vertices[vertex]) = {color.x, color.y, color.z};
+    const std::vector<glm::vec3> placement(4, glm::vec3(0.5f));
+    const render::VertexLighting scene{
+        .ambient = {2, 3, 4}, .environment = environment, .brightness = 2};
+    auto lit = scene;
+    lit.placement_lights = placement;
+
+    // Two placements of one shared mesh bake independently, in either order.
+    render::MeshPose first(mesh), second(mesh);
+    REQUIRE(first.asset == second.asset);
+    REQUIRE((first.asset->passes.at(0).draw_flags & render::HasColors) != 0);
+    const auto colors = [&](const render::MeshPose& pose) {
+        const auto& source = pose.asset->passes.at(0);
+        std::array<glm::vec3, 4> result{};
+        for (std::size_t vertex = 0; vertex < source.source_vertices.size(); ++vertex) {
+            const auto& color = pose.passes.at(0).colors->at(vertex);
+            result.at(source.source_vertices[vertex]) = {color.x, color.y, color.z};
         }
-        return colors;
+        return result;
     };
-    const auto base = baked();
-    // The first bake fills the existing asset's colours.
-    REQUIRE(mesh.renderAsset() == asset);
-    for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(base[vertex],
-                      (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment) *
-                          2.0f));
+    first.light(mesh, lit);
+    second.light(mesh, scene);
+    const auto lit_colors = colors(first);
+    const auto base = colors(second);
+    REQUIRE(first.passes.at(0).colors != second.passes.at(0).colors);
+    for (unsigned vertex = 0; vertex < 4; ++vertex) {
+        const auto expected =
+            glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment;
+        REQUIRE(close(base[vertex], expected * 2.0f));
+        REQUIRE(close(lit_colors[vertex], (expected + placement[vertex]) * 2.0f));
+        REQUIRE(close(first.colors[vertex], lit_colors[vertex]));
+    }
+    second.light(mesh, lit);
+    first.light(mesh, scene);
+    REQUIRE(colors(second) == lit_colors);
+    REQUIRE(colors(first) == base);
 
     auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
     (*materials)[0] = material;
     (*materials)[1] = zero_material;
     (*materials)[2] = nullptr;
     (*materials)[3] = material;
-    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto mixed = baked();
+    const auto mixed = mesh.bakedLighting(scene.ambient, environment, 2, {});
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
         REQUIRE(close(mixed[vertex],
                       (ambient[vertex] * sunlight[vertex] + lights[vertex] + environment) * 2.0f));
 
-    mesh.SetAmbientColor({2, 3, 4}, environment, 0);
-    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    REQUIRE(baked()[0] == glm::vec3(0));
+    REQUIRE(mesh.bakedLighting(scene.ambient, environment, 0, {})[0] == glm::vec3(0));
 }
 
 TEST_CASE("Static and frame normals share area weighting across shade seams", "[geometry][mesh]")
