@@ -525,8 +525,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
 {
     world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     Navigator published(world);
-    world.party_camera.SetOrientation(0.25f, 0.1f);
-    world.party_camera.motion.movement_override = true;
+    world.party.camera.SetOrientation(0.25f, 0.1f);
+    world.party.camera.motion.movement_override = true;
     published.movement.location_id = 7;
     world.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
                                                               {0, 0, 0});
@@ -537,19 +537,18 @@ TEST_CASE_METHOD(SpellVisualFixture,
     prepared_pose.orientation = {0.5f, 0.2f};
     prepared_pose.retail.yaw.fill(std::byte{0x7b});
     prepared_pose.retail.pitch.fill(std::byte{0x45});
-    restorePartyPose(replacement, prepared_pose);
-    REQUIRE(replacement.party_camera.m_position == prepared_pose.position);
+    replacement.party.restore(prepared_pose);
+    REQUIRE(replacement.party.camera.m_position == prepared_pose.position);
     // The prepared world's party proxy follows its own pose; the active one stays put.
-    REQUIRE(replacement.party_navigator.GetPosition() ==
-            navigationPosition(prepared_pose.position));
-    REQUIRE(world.party_navigator.GetPosition() == glm::vec3(0));
-    const auto snapshot = partyPose(replacement);
+    REQUIRE(replacement.party.position() == navigationPosition(prepared_pose.position));
+    REQUIRE(world.party.position() == glm::vec3(0));
+    const auto snapshot = replacement.party.pose();
     REQUIRE(snapshot.orientation.yaw == 0.5f);
     REQUIRE(snapshot.retail.yaw == prepared_pose.retail.yaw);
     REQUIRE(snapshot.retail.pitch == prepared_pose.retail.pitch);
-    REQUIRE(world.party_camera.m_yaw == 0.25f);
-    REQUIRE(world.party_camera.motion.movement_override);
-    REQUIRE_FALSE(replacement.party_camera.motion.movement_override);
+    REQUIRE(world.party.camera.m_yaw == 0.25f);
+    REQUIRE(world.party.camera.motion.movement_override);
+    REQUIRE_FALSE(replacement.party.camera.motion.movement_override);
     replacement.spatial = std::make_unique<LevelSpatialIndex>("", &replacement);
     replacement.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     {
@@ -562,9 +561,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
         REQUIRE(world.compiledIndex()->registry.maximum_navigation_radius == 500.0f);
         StopAllNavigators();
         REQUIRE(published.halted);
-        REQUIRE(world.party_navigator.halted);
+        REQUIRE(world.party.navigator.halted);
         REQUIRE_FALSE(prepared.halted);
-        REQUIRE_FALSE(replacement.party_navigator.halted);
+        REQUIRE_FALSE(replacement.party.navigator.halted);
         prepared.halted = true;
         ResumeAllNavigators();
         REQUIRE_FALSE(published.halted);
@@ -738,10 +737,10 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
     world.camera_light = &light;
     World sky;
     sky.camera = &sky.scene->camera;
-    placeParty(world, {10, 20, 30});
-    world.party_camera.SetOrientation(.5f, -.25f);
+    world.party.place({10, 20, 30});
+    world.party.camera.SetOrientation(.5f, -.25f);
     world.camera->setViewPlane(1.0, 0.75);
-    const auto pose = partyPose(world);
+    const auto pose = world.party.pose();
     const glm::vec3 shake{1, 2, 3};
     // Two shaken frames, as an extra render or a second view would place.
     for (int frame = 0; frame < 2; ++frame) {
@@ -749,15 +748,15 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
         REQUIRE(world.camera->transform.getLocation() == glm::dvec3(11, 22, 33));
         REQUIRE(light.transform.getLocation() == glm::dvec3(11, 22, 33));
         REQUIRE(world.camera->transform.getRotation<glm::mat3>() ==
-                world.party_camera.rotationMatrix());
+                world.party.camera.rotationMatrix());
         REQUIRE(sky.camera->transform.getLocation() == glm::dvec3(0));
         REQUIRE(sky.camera->transform.getRotation<glm::mat3>() ==
-                world.party_camera.rotationMatrix());
+                world.party.camera.rotationMatrix());
         REQUIRE(sky.camera->getViewPlane().rectangle.right ==
                 world.camera->getViewPlane().rectangle.right);
         REQUIRE(sky.camera->getViewPlane().rectangle.top ==
                 world.camera->getViewPlane().rectangle.top);
-        REQUIRE(partyPose(world) == pose);
+        REQUIRE(world.party.pose() == pose);
         REQUIRE(cameraLocation() == glm::vec3(10, 20, 30));
     }
     placeWorldCameras(world, nullptr, {});
@@ -768,14 +767,12 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
 TEST_CASE("The party navigator stands the world height below the eye",
           "[resources][camera][navigation]")
 {
-    PartyCamera camera;
-    camera.m_position = {100, 200, 300};
-    camera.SetOrientation(.5f, -.25f);
     World world;
-    Navigator& navigator = world.party_navigator;
-    mirrorPartyNavigator(navigator, camera);
+    world.party.camera.SetOrientation(.5f, -.25f);
+    world.party.place({100, 200, 300});
+    const auto& navigator = world.party.navigator;
     REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
-    REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));
+    REQUIRE(navigator.GetPosition() == navigationPosition(world.party.eye()));
     REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
 }
 

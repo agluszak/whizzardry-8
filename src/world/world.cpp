@@ -158,17 +158,20 @@ World::World(int level_id, std::string path)
       scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
 {
     SetSceneAmbientLightWhite(scene.get());
-    party_navigator.configureStartupRange(500.0f);
-    party_navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),
-                                          g_default_world_height);
 }
 
 World::~World() = default;
 
-/* The party navigator is the party's collision and pathing proxy: it mirrors the party's
-   pose at navigation height. Retail handed it the camera's angles in degrees, and nothing
-   reads them back as radians. */
-void mirrorPartyNavigator(Navigator& navigator, const PartyCamera& camera)
+WorldParty::WorldParty(World& world) : navigator(world)
+{
+    navigator.configureStartupRange(500.0f);
+    navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),
+                                    g_default_world_height);
+}
+
+/* Retail handed the proxy the camera's angles in degrees, and nothing reads them back as
+   radians. */
+void WorldParty::followCamera()
 {
     navigator.SetAngles(glm::degrees(camera.m_yaw));
     navigator.SetPitch(glm::degrees(camera.m_pitch));
@@ -176,9 +179,29 @@ void mirrorPartyNavigator(Navigator& navigator, const PartyCamera& camera)
     navigator.SetPositionInternal(&position);
 }
 
-static void syncPartyNavigator(World& world)
+CameraPose WorldParty::pose() const
 {
-    mirrorPartyNavigator(world.party_navigator, world.party_camera);
+    return {camera.m_position, {camera.m_yaw, camera.m_pitch}, camera.saved_pose_bytes};
+}
+
+BoundingSphere WorldParty::collisionSphere() const
+{
+    return {navigator.movement.position, navigator.movement.alternate_radius};
+}
+
+void WorldParty::place(const glm::vec3& position)
+{
+    camera.m_position = position;
+    followCamera();
+}
+
+void WorldParty::restore(const CameraPose& pose)
+{
+    camera.m_position = pose.position;
+    camera.SetYaw(pose.orientation.yaw);
+    camera.SetPitch(pose.orientation.pitch);
+    camera.saved_pose_bytes = pose.retail;
+    followCamera();
 }
 
 /* One frame of party movement in the primary world: the turn and look input, the motion
@@ -186,7 +209,7 @@ static void syncPartyNavigator(World& world)
    rendered views derive from the result (`placeWorldCameras`); nothing here writes them. */
 void updatePartyMovement(World& world, unsigned int flags)
 {
-    auto& party = world.party_camera;
+    auto& party = world.party.camera;
 
     RefreshDirtyAutomap();
     if (auto* collision = world.collisionIndex()) {
@@ -194,7 +217,7 @@ void updatePartyMovement(World& world, unsigned int flags)
         const glm::mat3 movement_basis = party.turn(flags);
         const auto motion = party.move(*collision, flags, movement_basis);
         // A camera path flies the eye without moving the party.
-        if (!g_camera_path_active) syncPartyNavigator(world);
+        if (!g_camera_path_active) world.party.followCamera();
         if (motion.moved) {
             const auto refresh_offset = party.m_position - party.last_automap_refresh_position;
             if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
@@ -230,7 +253,7 @@ void updatePartyMovement(World& world, unsigned int flags)
 void placeWorldCameras(World& world, World* sky, const glm::vec3& view_offset)
 {
     if (!world.camera) return;
-    const auto& party = world.party_camera;
+    const auto& party = world.party.camera;
     const glm::dvec3 eye(party.m_position + view_offset);
     const glm::mat3 rotation = party.rotationMatrix();
     world.camera->transform.setLocation(eye);
@@ -271,44 +294,6 @@ void RefreshWorldView()
     if (world->compiledIndex()) world->compiledIndex()->UpdateCameraVisibility();
     RepositionAmbientSounds(world);
     RequestRefreshPartyState();
-}
-
-glm::mat3 cameraRotation(const World& world)
-{
-    return world.party_camera.rotationMatrix();
-}
-
-glm::vec3 cameraLocation(const World& world)
-{
-    return world.party_camera.m_position;
-}
-
-CameraPose partyPose(const World& world)
-{
-    const auto& camera = world.party_camera;
-    return {camera.m_position, {camera.m_yaw, camera.m_pitch}, camera.saved_pose_bytes};
-}
-
-BoundingSphere partyCollisionSphere(const World& world)
-{
-    const auto& movement = world.party_navigator.movement;
-    return {movement.position, movement.alternate_radius};
-}
-
-void placeParty(World& world, const glm::vec3& position)
-{
-    world.party_camera.m_position = position;
-    syncPartyNavigator(world);
-}
-
-void restorePartyPose(World& world, const CameraPose& pose)
-{
-    auto& camera = world.party_camera;
-    camera.m_position = pose.position;
-    camera.SetYaw(pose.orientation.yaw);
-    camera.SetPitch(pose.orientation.pitch);
-    camera.saved_pose_bytes = pose.retail;
-    syncPartyNavigator(world);
 }
 
 /* Runtime/debug adjustment dispatcher for the active world's clipping and

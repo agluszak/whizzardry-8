@@ -961,7 +961,7 @@ void SetViewport(const DesignRect& bounds)
             GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
         }
         if (g_camera_sway_active) {
-            GetWorld()->party_camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
+            GetWorld()->party.camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
         }
     }
 }

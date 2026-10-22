@@ -305,7 +305,7 @@ try {
         success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
                               static_cast<std::size_t>(sizeof(stored_position)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->party_camera.m_position = position;
+        pWorld->party.camera.m_position = position;
     } else if (camera_mode == 2) {
         success = success &&
                   (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
@@ -319,7 +319,7 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->party_camera.m_position = position;
+        pWorld->party.camera.m_position = position;
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
@@ -580,7 +580,7 @@ try {
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info);
         auto* monster = monster_info->entity.find();
-        const glm::vec3 camera_position = cameraLocation(*world);
+        const glm::vec3 camera_position = world->party.eye();
         monster->visual.SelectLOD(&camera_position);
         monster->nav.SetPathAI(std::move(path));
         if (has_options) {
@@ -1672,8 +1672,8 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     }
 
     if (auto* spatial = world->collisionIndex(); spatial && !spatial->environments.empty()) {
-        world->party_camera.environment.value = spatial->environments.front();
-        world->party_camera.environment.index = 0;
+        world->party.camera.environment.value = spatial->environments.front();
+        world->party.camera.environment.index = 0;
     }
     world->camera = &world->scene->camera;
     world->camera->setName("Sirtech Camera");

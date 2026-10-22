@@ -233,14 +233,15 @@ Unlayered code may use the layers.
   when a fight ends, and its monster group), so no cursor state outlives its world.
 - A level's script is part of the level ("Scripts"). Its masters return completion
   directly; masters armed during a dispatch wait for the next frame.
-- The party's pose is the primary world's `party_camera`: the eye position and the
-  orientation (`partyPose`). Movement writes it (`updatePartyMovement`); level entry,
-  portals, reloads and recall place it through `placeParty` and `restorePartyPose`,
-  which also stand the world's party navigator (`World::party_navigator`, the party's
-  collision and pathing proxy in that world) `g_default_world_height` below the eye
-  (`navigationPosition`). A prepared world moves only its own navigator. Actors and
-  spatial queries use their owning world's party navigator, geometry and population,
-  never the active world's. Gameplay queries, saves and the automap read it. The render
+- Each world has a `WorldParty` (`World::party`): the party's pose there (`camera`, the
+  eye position and orientation, `pose()`) and its collision and pathing proxy
+  (`navigator`, registered with the world's other movers) `g_default_world_height`
+  below the eye (`navigationPosition`). Movement writes the pose
+  (`updatePartyMovement`); level entry, portals, reloads and recall go through
+  `place` and `restore`, which move the proxy with it, so a prepared world moves only
+  its own party. Characters and inventory stay with the game. Actors are constructed
+  with their `World&` and use that world's party, geometry and population, never the
+  active world's. Gameplay queries, saves and the automap read the pose. The render
   cameras derive from it each frame (`placeWorldCameras`): the primary camera and its
   light at the eye plus the frame's shake, and the sky camera turning and swaying with
   it. Rendering writes no gameplay state, so extra renders and views leave the party

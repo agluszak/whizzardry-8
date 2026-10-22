@@ -53,7 +53,7 @@ void UpdateWorldMonsters(World* world)
 {
     assert(world != 0);
 
-    const glm::vec3 position = cameraLocation(*world);
+    const glm::vec3 position = world->party.eye();
 
     auto count = world->active_monsters.size();
     UpdateNearestMonsterGroupMembers();
@@ -200,15 +200,6 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds
     const glm::vec3 from(origin);
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
         return !GetWorldSpatialIndex()->traceSight(from, glm::vec3(sample));
-    });
-}
-
-bool hasLineOfSightToBounds(const LevelSpatialIndex& index, const glm::vec3& origin,
-                            const BoundingBox& bounds)
-{
-    const glm::vec3 from(origin);
-    return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return index.hasLineOfSight(from, glm::vec3(sample));
     });
 }
 

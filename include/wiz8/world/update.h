@@ -60,8 +60,6 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
    planes or a volume corner lands inside the bounds. */
 bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const BoundingBox& bounds);
 bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds);
-bool hasLineOfSightToBounds(const LevelSpatialIndex& index, const glm::vec3& origin,
-                            const BoundingBox& bounds);
 bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(World* world);

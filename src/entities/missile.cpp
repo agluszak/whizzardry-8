@@ -277,7 +277,7 @@ void UpdateWorldMissiles(World* world)
             if (!missile->flight_done || missile->block_released == 0) {
                 missile->StartIfHostActive();
                 missile->visual.UpdateRepresentation(missile->nav);
-                missile->nav.UpdateNavigation(0, false, partyCollisionSphere(*world));
+                missile->nav.UpdateNavigation(0, false, world->party.collisionSphere());
             } else {
                 missile->visual.RetireParticles();
                 world->missiles.erase(world->missiles.begin() + index);

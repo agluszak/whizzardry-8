@@ -3734,7 +3734,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             question = fmt::format("Enter test level {:c} ?", normalized + 2);
         }
         if (QueueNpcDepartureEvents(normalized)) {
-            placeParty(*GetWorld(), g_trigger_camera);
+            GetWorld()->party.place(g_trigger_camera);
             return;
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
@@ -3745,7 +3745,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             if (accepted) {
                 BeginLevelTransition(level_id, entry);
             } else {
-                placeParty(*GetWorld(), g_trigger_camera);
+                GetWorld()->party.place(g_trigger_camera);
             }
         };
         OpenModal(std::unique_ptr<ModalContent>(dialog));

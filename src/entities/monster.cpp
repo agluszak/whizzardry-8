@@ -377,7 +377,7 @@ void Monster::Update()
     float distance;
     int cycle;
 
-    party_position = cameraLocation(owner_world);
+    party_position = owner_world.party.eye();
     {
         glm::vec3 position = nav.GetPosition();
         monster_position = position;
@@ -487,7 +487,7 @@ void Monster::Update()
         nav.flags |= 0x100000;
     }
 
-    const auto player = partyCollisionSphere(owner_world);
+    const auto player = owner_world.party.collisionSphere();
     if (monster_info == 0) {
         nav.UpdateNavigation(0, false, player);
     } else {
@@ -647,7 +647,7 @@ void Monster::Update()
 
     if (sound != 0) {
         sound->position = nav.GetPosition();
-        sound->Update(cameraLocation(owner_world), owner_world.party_camera.m_yaw);
+        sound->Update(owner_world.party.eye(), owner_world.party.camera.m_yaw);
     }
 }
 
@@ -755,7 +755,7 @@ bool Monster::IsWithinWorldRange()
     } else {
         double far_clip = WorldGetFarClip(&owner_world);
         glm::vec3 position = nav.GetPosition();
-        glm::vec3 reference = owner_world.party_navigator.GetPosition();
+        glm::vec3 reference = owner_world.party.position();
         glm::vec3 delta = reference - position;
 
         return glm::dot(delta, delta) <=
@@ -772,7 +772,7 @@ bool Monster::CheckLineOfSightToPlayer()
 
     monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    player_position = cameraLocation(owner_world);
+    player_position = owner_world.party.eye();
     return owner_world.compiledIndex()->hasLineOfSight(monster_position, player_position);
 }
 
@@ -789,9 +789,8 @@ void Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
 {
     glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    const auto hit =
-        owner_world.compiledIndex()->traceSight(monster_position, cameraLocation(owner_world),
-                                                {.locations = SightLocations{location_id, -1}});
+    const auto hit = owner_world.compiledIndex()->traceSight(
+        monster_position, owner_world.party.eye(), {.locations = SightLocations{location_id, -1}});
     applySightFlags(hit, *primary, *secondary);
 }
 
@@ -800,11 +799,10 @@ void Monster::GetPlayerSightFlags(bool* primary, bool* secondary)
    corners. */
 bool Monster::IsVisibleToPlayer(bool use_bounds)
 {
-    glm::vec3 player_position = cameraLocation(owner_world);
+    glm::vec3 player_position = owner_world.party.eye();
     if (use_bounds) {
         const auto bounds = this->GetWorldAnimationBounds();
-        return bounds &&
-               hasLineOfSightToBounds(*owner_world.compiledIndex(), player_position, *bounds);
+        return bounds && owner_world.compiledIndex()->hasLineOfSight(player_position, *bounds);
     }
 
     glm::vec3 monster_position = nav.movement.position;
@@ -816,7 +814,7 @@ void Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const
 {
     glm::vec3 monster_position = nav.movement.position;
     monster_position.y += nav.movement.height_offset;
-    const glm::vec3 player_position = source == 0 ? cameraLocation(owner_world) : *source;
+    const glm::vec3 player_position = source == 0 ? owner_world.party.eye() : *source;
     const auto hit = owner_world.compiledIndex()->traceSight(
         player_position, monster_position, {.locations = SightLocations{-1, location_id}});
     applySightFlags(hit, *primary, *secondary);
@@ -876,7 +874,7 @@ bool Monster::IsFacingPlayer()
     glm::vec3 from;
     glm::vec3 to;
 
-    to = owner_world.party_navigator.GetPosition();
+    to = owner_world.party.position();
     from = nav.GetPosition();
     bearing = NormalizeAngle(GetHeadingAngle(&from, &to));
     facing = NormalizeAngle(nav.GetYaw());
@@ -1120,10 +1118,10 @@ float Monster::GetPointDistanceToPlayer(glm::vec3 point)
     glm::vec3 player_position;
     float distance;
 
-    player_position = cameraLocation(owner_world);
+    player_position = owner_world.party.eye();
     player_position.y -= g_default_world_height;
     distance = glm::length((point - player_position)) - nav.movement.alternate_radius -
-               owner_world.party_navigator.movement.alternate_radius;
+               owner_world.party.collisionSphere().radius;
     if (distance < 0.0f) {
         distance = 0.0f;
     }
@@ -1162,7 +1160,7 @@ bool Monster::CanEnterCycle(signed char cycle)
 {
     W8MonsterInfo* monster_info = owner_world.population->findMonster(location_id);
 
-    if (CurrentGame().combat.has_value() && owner_world.party_camera.m_transition_active) {
+    if (CurrentGame().combat.has_value() && owner_world.party.camera.m_transition_active) {
         return false;
     }
     if (visual.animation_playing == 0) {
@@ -1494,7 +1492,7 @@ void Monster::SetCycle(signed char cycle)
     visual.frame_method = animation->frame_method;
 
     {
-        const glm::vec3 listener = cameraLocation(owner_world);
+        const glm::vec3 listener = owner_world.party.eye();
         visual.SelectLOD(&listener);
     }
 
@@ -1624,11 +1622,11 @@ void Monster::UpdateAttachedObjects(bool hovered)
     }
 
     elapsed = GameClockMilliseconds() - representation->visual.timer;
-    camera_rotation = cameraRotation(owner_world);
+    camera_rotation = owner_world.party.rotation();
     base_position = nav.movement.position;
     base_position.y += nav.movement.vertical_base + nav.movement.vertical_amplitude;
 
-    party_position = cameraLocation(owner_world);
+    party_position = owner_world.party.eye();
     party_position -= base_position;
     distance_scale = glm::length(party_position) * g_monster_attachment_distance_scale;
     if (!hovered && distance_scale > 1.0f) {
@@ -2117,7 +2115,7 @@ void Monster::SetAdjustedPosition(const glm::vec3* position)
 unsigned short Monster::ApproachStartupNavigator(double separation)
 {
     unsigned short result =
-        nav.SetMovementTargetToNavigator(&owner_world.party_navigator, separation);
+        nav.SetMovementTargetToNavigator(&owner_world.party.navigator, separation);
     if (result != 0) {
         nav.movement.boundary_enabled = false;
     }
@@ -2126,7 +2124,7 @@ unsigned short Monster::ApproachStartupNavigator(double separation)
 
 unsigned char Monster::LinkToStartupNavigator()
 {
-    Navigator* target = &owner_world.party_navigator;
+    Navigator* target = &owner_world.party.navigator;
 
     return nav.LinkToNavigator(target, WorldGetFarClip(&owner_world) * 2.0);
 }
@@ -2135,7 +2133,7 @@ unsigned short Monster::ConfigureMovementToPlayer(float separation, float maximu
                                                   glm::vec3 position, int trace_mode,
                                                   unsigned char* probe_result)
 {
-    Navigator* target = &owner_world.party_navigator;
+    Navigator* target = &owner_world.party.navigator;
 
     return nav.ConfigureMovementToNavigator(target, separation, maximum_distance, position,
                                             trace_mode, nav.GetYaw(), probe_result);
@@ -2169,7 +2167,7 @@ void Monster::ForwardReferencePosition(signed char alternate)
 
     monster_info = owner_world.population->findMonster(location_id);
     if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-        position = cameraLocation(owner_world);
+        position = owner_world.party.eye();
         if (alternate != 0) {
             nav.SetFacingToward(&position);
         } else {
@@ -2251,7 +2249,7 @@ void Monster::SpawnDamageNumber(unsigned int amount)
         facing = nav.GetPosition();
         yaw = HeadingToTargetCPP(&facing);
         OffsetPositionByYawPitch(500.0f, &position, yaw, pitch);
-        camera_position = cameraLocation(owner_world);
+        camera_position = owner_world.party.eye();
         distance = glm::length((position - camera_position));
         if (distance > 5e+04f) {
             distance = 5e+04f;
@@ -2378,7 +2376,7 @@ void Monster::RefreshStandingHeight()
     signed char previous_cycle = representation->visual.current_cycle;
     SetCycle(1);
     visual.SetSubCycle(0);
-    const glm::vec3 camera_location = cameraLocation(owner_world);
+    const glm::vec3 camera_location = owner_world.party.eye();
     visual.SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;
@@ -2454,13 +2452,11 @@ void ApplyMonsterRepresentationScale(Monster* target)
     target->ApplyRepresentationScale();
 }
 
-void DestroyWorldMonster(Monster* monster)
+void World::destroyMonster(Monster& monster)
 {
-    if (!monster) return;
-    monster->visual.DetachRepresentation();
-    auto& world = monster->owner_world;
-    std::erase(world.active_monsters, monster);
-    std::erase_if(world.monsters, [monster](const auto& owner) { return owner.get() == monster; });
+    monster.visual.DetachRepresentation();
+    std::erase(active_monsters, &monster);
+    std::erase_if(monsters, [&monster](const auto& owner) { return owner.get() == &monster; });
 }
 
 void RefreshMonsterStandingHeight(Monster* monster)

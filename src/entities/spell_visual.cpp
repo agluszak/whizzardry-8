@@ -128,13 +128,6 @@ void SpellVisual::SetCycle(signed char cycle)
 
 /* Position and orient each live spell visual according to its attachment
    mode, then let the common GrCycle update submit the resulting state. */
-// The live monster at `location_id` in `world`, if any.
-static Monster* worldMonster(const World& world, int location_id)
-{
-    const auto* info = world.population->findMonster(location_id);
-    return info ? info->entity.find() : nullptr;
-}
-
 void SpellVisual::UpdateRepresentation()
 {
     glm::mat3 rotation;
@@ -146,16 +139,16 @@ void SpellVisual::UpdateRepresentation()
         float angle;
         float pitch;
 
-        position = cameraLocation(owner_world);
+        position = owner_world.party.eye();
         SetCyclePosition(&position);
         rotation = glm::mat3(1);
-        angle = owner_world.party_camera.m_yaw - g_monster_rotation_offset;
+        angle = owner_world.party.camera.m_yaw - g_monster_rotation_offset;
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-        pitch = -owner_world.party_camera.m_pitch;
+        pitch = -owner_world.party.camera.m_pitch;
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         apply_rotation = true;
     } else if (mode == W8_SPELL_VISUAL_TARGET) {
-        Monster* monster = worldMonster(owner_world, location_id);
+        Monster* monster = owner_world.population->findEntity(location_id);
 
         if (monster != 0) {
             MeshInstance* instance = visual.GetCurrentModelInstance();
@@ -172,13 +165,13 @@ void SpellVisual::UpdateRepresentation()
     } else if (mode == W8_SPELL_VISUAL_CONE) {
         visual.GetCurrentModelInstance();
         if (!fixed_transform) {
-            camera_position = cameraLocation(owner_world);
+            camera_position = owner_world.party.eye();
             if (location_id == 0) {
                 SetCyclePosition(&camera_position);
-                rotation = owner_world.party_camera.rotationMatrix();
+                rotation = owner_world.party.camera.rotationMatrix();
                 apply_rotation = true;
             } else {
-                Monster* monster = worldMonster(owner_world, location_id);
+                Monster* monster = owner_world.population->findEntity(location_id);
 
                 if (monster != 0) {
                     if (monster->Query(W8_MONSTER_QUERY_CYCLE) == W8_MONSTER_CYCLE_SPELL &&
@@ -207,7 +200,7 @@ void SpellVisual::UpdateRepresentation()
         float angle;
 
         billboard = glm::mat3(1);
-        camera_position = cameraLocation(owner_world);
+        camera_position = owner_world.party.eye();
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
         billboard *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -247,7 +240,7 @@ void UpdateWorldSpellVisuals(World* world)
             if (!visual->finished || !visual->auto_release) {
                 visual->StartIfHostActive();
                 visual->UpdateRepresentation();
-                visual->nav.UpdateNavigation(0, false, partyCollisionSphere(*world));
+                visual->nav.UpdateNavigation(0, false, world->party.collisionSphere());
             } else {
                 DestroySpellVisual(world, visual);
                 --index;

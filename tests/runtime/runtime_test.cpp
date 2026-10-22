@@ -747,7 +747,7 @@ void StartGame(GameHarness& game)
 glm::vec3 PartyPosition()
 {
     CameraPose state{};
-    state = partyPose(*GetWorld());
+    state = GetWorld()->party.pose();
     return state.position;
 }
 
@@ -974,14 +974,14 @@ void GameStartScenario()
     GameHarness game(false);
     StartGame(game);
     CameraPose start{};
-    start = partyPose(*GetWorld());
+    start = GetWorld()->party.pose();
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     CameraPose now{};
     game.wait(
         "walk",
         [&] {
-            now = partyPose(*GetWorld());
+            now = GetWorld()->party.pose();
             const float dx = now.position.x - start.position.x,
                         dz = now.position.z - start.position.z;
             return std::sqrt(dx * dx + dz * dz) > 1.0f;
@@ -1182,12 +1182,12 @@ void InventoryChestScenario()
         20);
     game.hold_key(SDLK_DOWN, false);
     CameraPose before{}, after{};
-    before = partyPose(*GetWorld());
+    before = GetWorld()->party.pose();
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
-            after = partyPose(*GetWorld());
+            after = GetWorld()->party.pose();
             return std::abs(after.orientation.yaw - before.orientation.yaw) > 0.1f;
         },
         20);
@@ -2088,7 +2088,7 @@ void Approach(GameHarness& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.has_value(); ++frame) {
-        const CameraPose camera = partyPose(*GetWorld());
+        const CameraPose camera = GetWorld()->party.pose();
         const glm::vec3 target = monster->entity->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
@@ -2224,7 +2224,7 @@ void CombatScenario()
 
     // Placement consumes the supplied player exclusion, including its absence.
     auto& octree = *GetWorld()->spatial;
-    const auto origin = GetWorld()->party_navigator.movement.position;
+    const auto origin = GetWorld()->party.position();
     const auto available =
         octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, std::nullopt);
     REQUIRE_FALSE(available.positions.empty());
@@ -2298,7 +2298,7 @@ void PrintState(GameHarness& game)
                         character.hp_current, character.experience, character.kill_count);
         }
     if (GetWorld()) {
-        const CameraPose camera = partyPose(*GetWorld());
+        const CameraPose camera = GetWorld()->party.pose();
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.orientation.yaw);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;

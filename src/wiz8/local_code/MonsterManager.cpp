@@ -215,7 +215,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
-    camera_position = cameraLocation(world);
+    camera_position = world.party.eye();
     monster_info->entity->visual.SelectLOD(&camera_position);
     UpdateMonsterDamageAppearance(monster_info);
     monster_info->entity->UpdateRepresentation();
@@ -868,7 +868,8 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->entity.find()) {
         if (removal == W8MonsterRemoval::Despawn) monster_info->entity->visual.RetireParticles();
-        DestroyWorldMonster(monster_info->entity.find());
+        auto& monster = *monster_info->entity;
+        monster.owner_world.destroyMonster(monster);
         monster_info->entity.detach();
     }
     // Inactive and unborn records also own visibility/NPC relationships.

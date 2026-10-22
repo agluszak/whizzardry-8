@@ -125,7 +125,7 @@ bool Monster::EvaluateScriptCondition(std::string_view expression)
         glm::vec3 party_position;
         glm::vec3 monster_position;
 
-        party_position = cameraLocation(owner_world);
+        party_position = owner_world.party.eye();
         if (!parameter)
             throw std::runtime_error(
                 fmt::format("monster script {} line {}: PARTYNEAR needs a value", script->getName(),
@@ -298,7 +298,7 @@ void Monster::ProcessScript()
                     break;
                 }
                 if (SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
-                    nav.SetMovementTargetToNavigator(&owner_world.party_navigator, 5.0);
+                    nav.SetMovementTargetToNavigator(&owner_world.party.navigator, 5.0);
                 } else {
                     nav.ConfigureMovementToPosition(&position);
                 }
@@ -574,7 +574,7 @@ void Monster::ProcessScript()
                         if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = owner_world.population->findMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-                            glm::vec3 party = cameraLocation(owner_world);
+                            glm::vec3 party = owner_world.party.eye();
                             nav.AimAtPosition(&party);
                         }
                     }

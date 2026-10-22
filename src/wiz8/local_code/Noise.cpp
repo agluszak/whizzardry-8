@@ -89,7 +89,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 
 void AlertWorldNoise(void)
 {
-    glm::vec3 position = GetWorld()->party_navigator.GetPosition();
+    glm::vec3 position = GetWorld()->party.position();
     AlertMonsterGroupsToNoise(&position, 50000, 1);
 }
 
@@ -98,6 +98,6 @@ void AlertCombatNoise(bool large_radius)
     if (CurrentGame().status.world_suspended) {
         return;
     }
-    glm::vec3 position = GetWorld()->party_navigator.GetPosition();
+    glm::vec3 position = GetWorld()->party.position();
     AlertMonsterGroupsToNoise(&position, large_radius ? 0x927c : 25000, 0);
 }

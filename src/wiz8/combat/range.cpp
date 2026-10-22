@@ -172,7 +172,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         float dz = point.z - camera.z;
         if (distance + 1.0f <
             sqrtf(dx * dx + (point.y - camera.y) * (point.y - camera.y) + dz * dz) -
-                GetWorld()->party_navigator.radius) {
+                GetWorld()->party.radius()) {
             return false;
         }
         if (trace) {
@@ -643,7 +643,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 {
     float distance = CalcRangeDistance(range_category);
     if (TargetSourceIsCharacter(source, 0)) {
-        return GetWorld()->party_navigator.movement.alternate_radius + distance;
+        return GetWorld()->party.collisionSphere().radius + distance;
     }
     if (TargetSourceIsMonster(source, 0)) {
         assert(source->iMonsterID != -1);
@@ -658,7 +658,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 {
     return CalcRangeDistance(range_category) +
-           GetWorld()->party_navigator.movement.collision_radius;
+           GetWorld()->party.navigator.movement.collision_radius;
 }
 
 /* Shrink a short-range category by the formation rows CountRowsBetween says

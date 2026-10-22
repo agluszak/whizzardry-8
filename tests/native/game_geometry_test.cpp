@@ -274,16 +274,16 @@ static void camera_and_throw()
     // A world's pose is its party's, with or without a render camera; the render camera
     // never contributes to it.
     World world{};
-    placeParty(world, {1.25f, -2.5f, 3.75f});
-    world.party_camera.SetOrientation(.25f, -.5f);
-    const auto location = cameraLocation(world);
-    const auto state = partyPose(world);
-    const auto rotation = cameraRotation(world);
+    world.party.place({1.25f, -2.5f, 3.75f});
+    world.party.camera.SetOrientation(.25f, -.5f);
+    const auto location = world.party.eye();
+    const auto state = world.party.pose();
+    const auto rotation = world.party.rotation();
     Camera3D node;
     node.transform.setLocation(7, 8, 9);
     world.camera = &node;
     const auto live_location = cameraLocation();
-    const auto with_node = partyPose(world);
+    const auto with_node = world.party.pose();
     partyCamera() = previous_camera;
     REQUIRE(live_location == glm::vec3(3, 4, 5));
     REQUIRE(location == glm::vec3(1.25f, -2.5f, 3.75f));
@@ -292,7 +292,7 @@ static void camera_and_throw()
     REQUIRE((state.orientation.yaw == .25f && state.orientation.pitch == -.5f));
     REQUIRE(state.retail.yaw == wiz8::retail::CameraPoseOpaque{}.yaw);
     REQUIRE(state.retail.pitch == wiz8::retail::CameraPoseOpaque{}.pitch);
-    REQUIRE(rotation == world.party_camera.rotationMatrix());
+    REQUIRE(rotation == world.party.camera.rotationMatrix());
     REQUIRE(rotation != glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     glm::vec3 forward;
@@ -2347,7 +2347,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     auto& world = *game.level.primary;
     world.camera = &world.scene->camera;
     world.camera->setClipRange(1, 10);
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
     LoadNativeLevelObject(game);
     REQUIRE(world.native_objects.size() == 1);
@@ -2375,9 +2375,9 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     // The render view may move independently; gameplay reach follows the party.
     world.camera->transform.setLocation(0, 0, -6000);
     REQUIRE(SelectedNativeObject(world) == &object);
-    placeParty(world, {0, 0, -6000});
+    world.party.place({0, 0, -6000});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     REQUIRE(game.activateSelectedNativeObject());
     REQUIRE_FALSE(object.illuminated);
     REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");

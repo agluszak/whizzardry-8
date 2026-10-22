@@ -1763,7 +1763,7 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
     for (const int mode : {10, 20, 30}) {
         const auto placement = GetWorldSpatialIndex()->navigatorPositions(
             party_position, yaw, 1000.0f, 1, true, false, true, mode, false,
-            partyCollisionSphere(*GetWorld()));
+            GetWorld()->party.collisionSphere());
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();

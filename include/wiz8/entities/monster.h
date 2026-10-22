@@ -413,8 +413,6 @@ struct W8MonsterShakeCallback {
     W8AnimationFrameMethod saved_frame_method{};
 };
 
-// Detach the monster from its scene and destroy it in its own world.
-void DestroyWorldMonster(Monster* monster);
 void RefreshMonsterStandingHeight(Monster* monster);
 /* The shared forwarder four call sites use to advance a cycle's
    representation; it stays free because its callers pass the object on the

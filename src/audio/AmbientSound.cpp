@@ -368,8 +368,8 @@ void UpdateAmbientSounds(World* world)
 {
     if (!world) return;
     ServiceRandomAmbients(*world);
-    const auto listener = cameraLocation(*world);
-    const float yaw = world->party_camera.m_yaw;
+    const auto listener = world->party.eye();
+    const float yaw = world->party.camera.m_yaw;
     for (const auto& sound : world->audio.emitters)
         if (sound) sound->Service(listener, yaw, false);
     for (auto& group : world->audio.shared_groups) group->updateFade();
@@ -459,8 +459,8 @@ void RepositionAmbientSounds(World* world)
 {
     if (!world) return;
     ServiceRandomAmbients(*world);
-    const auto listener = cameraLocation(*world);
-    const float yaw = world->party_camera.m_yaw;
+    const auto listener = world->party.eye();
+    const float yaw = world->party.camera.m_yaw;
     for (const auto& sound : world->audio.emitters)
         if (sound) sound->UpdatePosition(listener, yaw);
 }
@@ -531,7 +531,7 @@ static W8AmbientSound* FindAmbientSoundByName(World& world, std::string_view nam
 static void StartAmbientSoundAtCamera(World& world, W8AmbientSound* sound)
 {
     sound->stopped = 0;
-    sound->UpdatePosition(cameraLocation(world), world.party_camera.m_yaw);
+    sound->UpdatePosition(world.party.eye(), world.party.camera.m_yaw);
 }
 
 static void StopAmbientSound(W8AmbientSound* sound)

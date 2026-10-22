@@ -58,7 +58,7 @@ std::vector<Navigator*> activeNavigators()
 
 bool isPartyNavigator(const Navigator* navigator)
 {
-    return navigator == &navigator->owner_world.party_navigator;
+    return navigator == &navigator->owner_world.party.navigator;
 }
 
 } // namespace
@@ -677,7 +677,7 @@ void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
         return;
     }
     linked_update_time = tick;
-    glm::vec3 camera = cameraLocation(owner_world);
+    glm::vec3 camera = owner_world.party.eye();
     if (linked_navigator->monster_owner &&
         linked_navigator->monster_owner->IsWithinWorldRange() != 0) {
         const auto bounds = linked_navigator->monster_owner->GetWorldAnimationBounds();
@@ -869,7 +869,7 @@ Navigator* Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::vec3*
         *to = hit->position;
         hit_location = hit->location_id;
         if (hit_location == 0) {
-            return &owner_world.party_navigator;
+            return &owner_world.party.navigator;
         }
         if (hit_location > 0) {
             W8MonsterInfo* monster_info = owner_world.population->findMonster(hit_location);
@@ -908,8 +908,8 @@ double Navigator::MeasurePathDistance(const glm::vec3* target, float max_range, 
 
 int Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
 {
-    double distance =
-        MeasurePathDistance(&owner_world.party_navigator.movement.position, max_range, 0);
+    const glm::vec3 party = owner_world.party.position();
+    double distance = MeasurePathDistance(&party, max_range, 0);
 
     *out_distance = static_cast<float>(distance);
     if (distance != g_negative_one) {

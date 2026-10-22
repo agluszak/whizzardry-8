@@ -79,20 +79,6 @@ unsigned int pathCellKey(int x, int z)
     return static_cast<unsigned int>(z) * 0x10000u + static_cast<unsigned int>(x);
 }
 
-Monster* navigationMonster(const NavigationMesh& navigation, int location)
-{
-    const auto* world = navigation.owner_octree ? navigation.owner_octree->owner_world : nullptr;
-    if (!world || !world->population) return nullptr;
-    auto* info = world->population->findMonster(location);
-    return info ? info->entity.find() : nullptr;
-}
-
-// The party proxy of the world that owns the navigation, if it has one.
-Navigator* navigationParty(const NavigationMesh& navigation)
-{
-    auto* world = navigation.owner_octree ? navigation.owner_octree->owner_world : nullptr;
-    return world ? &world->party_navigator : nullptr;
-}
 class SteeringStep {
 public:
     explicit SteeringStep(const NavigationMesh& navigation)
@@ -406,6 +392,19 @@ try {
 }
 
 // Convert X/Z once; truncation toward zero also applies below the bounds.
+Monster* NavigationMesh::findMonster(int location) const
+{
+    return owner_octree && owner_octree->owner_world
+               ? owner_octree->owner_world->population->findEntity(location)
+               : nullptr;
+}
+
+Navigator* NavigationMesh::partyNavigator() const
+{
+    return owner_octree && owner_octree->owner_world ? &owner_octree->owner_world->party.navigator
+                                                     : nullptr;
+}
+
 PathCellCoordinates NavigationMesh::pathCell(const glm::vec3& position) const
 {
     const glm::ivec2 cell((glm::vec2(position.x, position.z) -
@@ -1459,9 +1458,9 @@ void NavigationMesh::AdjustFinalPathEndpoint(NavigatorMovement* movement, float 
 
     /* Retail read an unset target radius and position when the monster info
        or model is absent; without a target there is no shell to pull onto. */
-    Navigator* target = navigationParty(*this);
+    Navigator* target = partyNavigator();
     if (target_location > 0) {
-        Monster* monster = navigationMonster(*this, target_location);
+        Monster* monster = findMonster(target_location);
         target = monster ? &monster->nav : nullptr;
     }
     if (!target) return;
@@ -1576,7 +1575,7 @@ unsigned int NavigationMesh::CollectPathProbes(PathSearchScratch& path_search,
 
     path_search.candidates = owner_octree->locationsInBox({lower, upper}, movement->location_id);
 
-    if (const Navigator* party = navigationParty(*this)) {
+    if (const Navigator* party = partyNavigator()) {
         const glm::vec3 player_position = party->GetPosition();
         const float distance = glm::length(player_position - movement->position);
         const float player_radius = party->movement.alternate_radius;
@@ -1593,7 +1592,7 @@ unsigned int NavigationMesh::CollectPathProbes(PathSearchScratch& path_search,
     for (unsigned int index = 0;
          index < path_search.candidates.size() && path_search.probe_count < 5; ++index) {
         int location_id = path_search.candidates[index];
-        Monster* monster = navigationMonster(*this, location_id);
+        Monster* monster = findMonster(location_id);
         if (monster && monster->nav.active) {
             const float distance = glm::length(monster->nav.GetPosition() - movement->position);
             const float monster_radius = monster->nav.movement.alternate_radius;
@@ -1913,8 +1912,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
         attachment->path[attachment->lastWaypoint()].position = movement->position;
         attachment->path_destination = attachment->path[attachment->lastWaypoint()].position;
         owner_octree->RegisterNavigatorCell(movement->location_id, movement->position);
-        if (Navigator* party = navigationParty(*this))
-            party->radius = party->movement.alternate_radius;
+        if (Navigator* party = partyNavigator()) party->radius = party->movement.alternate_radius;
         attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
         return 0;
     }
@@ -2017,7 +2015,7 @@ unsigned short NavigationMesh::PlanMovement(PathSearchScratch& path_search,
     }
     attachment->flags &= ~W8_NAV_ATTACHMENT_RESULT_MASK;
     attachment->flags |= result;
-    if (Navigator* party = navigationParty(*this)) party->radius = party->movement.alternate_radius;
+    if (Navigator* party = partyNavigator()) party->radius = party->movement.alternate_radius;
     return result;
 }
 
@@ -2091,7 +2089,7 @@ unsigned short NavigationMesh::ResolveSearchNodeCollisions(PathSearchScratch& pa
 
     W8PathSearchNode* node = &nodes[node_index];
     glm::vec3 blocking_direction;
-    if (const Navigator* party = navigationParty(*this)) {
+    if (const Navigator* party = partyNavigator()) {
         const glm::vec3 player_delta = party->GetPosition() - node->position;
         float threshold = party->movement.alternate_radius + radius;
         if (movement->target_location_id == 0) {
@@ -2191,12 +2189,12 @@ bool NavigationMesh::TestSearchPositionVisibility(const glm::vec3* position,
                                                   NavigatorMovement* movement,
                                                   const W8MovementTrace& trace) const
 {
-    Monster* monster = navigationMonster(*this, static_cast<unsigned int>(movement->location_id));
+    Monster* monster = findMonster(static_cast<unsigned int>(movement->location_id));
     float distance;
     if (trace.target_location == -1) {
         distance = monster->GetPointDistanceToPlayer(*position);
     } else {
-        Monster* target = navigationMonster(*this, trace.target_location);
+        Monster* target = findMonster(trace.target_location);
         distance = monster->GetPointDistanceToMonster(target, *position);
     }
     if (trace.maximum_distance < distance) {
@@ -2248,9 +2246,9 @@ unsigned short NavigationMesh::ConfigureMovementSearch(PathSearchScratch& path_s
         float horizontal_clearance = glm::length(((glm::vec2(delta.x, delta.z)))) - radius;
         float target_radius;
         if (trace.target_location == -1) {
-            target_radius = navigationParty(*this)->movement.alternate_radius;
+            target_radius = partyNavigator()->movement.alternate_radius;
         } else {
-            Monster* target = navigationMonster(*this, trace.target_location);
+            Monster* target = findMonster(trace.target_location);
             target_radius = target->nav.movement.alternate_radius;
         }
 
@@ -2556,7 +2554,7 @@ NavigatorRoute* NavigationMesh::findLinkedAttachment(NavigatorMovement* movement
                                                      bool enabled) const
 {
     if (!enabled) return nullptr;
-    Monster* monster = navigationMonster(*this, static_cast<unsigned>(movement->location_id));
+    Monster* monster = findMonster(static_cast<unsigned>(movement->location_id));
     if (!monster || !monster->nav.linked_navigator) return nullptr;
     return monster->nav.linked_navigator->movement.attachment.get();
 }
@@ -3948,7 +3946,7 @@ bool SteeringStep::InitializeSteeringContext(NavigatorMovement* movement)
     Navigator* linked;
 
     this->movement = movement;
-    monster = navigationMonster(navigation, movement->location_id);
+    monster = navigation.findMonster(movement->location_id);
     if (!monster) return false;
     radius = monster->nav.radius;
     velocity_length = glm::length(movement->velocity);
@@ -4139,7 +4137,7 @@ bool SteeringStep::PredictNavigatorCollision()
     nearest = lookahead + kCameraSnapEpsilon;
     if (QueryNearbyNavigators()) {
         for (index = 0; index < nearby_locations.size(); ++index) {
-            monster = navigationMonster(navigation, nearby_locations[index]);
+            monster = navigation.findMonster(nearby_locations[index]);
             if (!monster) continue;
             navigator = &monster->nav;
             if (this->monster->nav.IsLinkedToNavigator(navigator)) {
@@ -4167,14 +4165,14 @@ bool SteeringStep::PredictNavigatorCollision()
         }
     }
     if (movement->boundary_enabled) {
-        position = navigationParty(navigation)->GetPosition();
+        position = navigation.partyNavigator()->GetPosition();
         delta = position - movement->position;
         combined = settings.party_boundary_radius * kWorldScale;
         approach = radius * 5.0f + combined;
         if (approach * approach > glm::dot(delta, delta)) {
             approach = glm::dot(delta, direction);
             if (approach > 0.0f) {
-                relative = movement->velocity - navigation.owner_octree->owner_world->party_camera
+                relative = movement->velocity - navigation.owner_octree->owner_world->party.camera
                                                     .motion.camera_motion_velocity;
                 relative = normalizedOrZero(relative);
                 approach = glm::dot(delta, relative);
@@ -4352,7 +4350,7 @@ void SteeringStep::AccumulateGroupRepulsion()
 
     if (QueryNearbyNavigators()) {
         for (index = 0; index < nearby_locations.size(); ++index) {
-            monster = navigationMonster(navigation, nearby_locations[index]);
+            monster = navigation.findMonster(nearby_locations[index]);
             if (!monster) continue;
             navigator = &monster->nav;
             if (!this->monster->nav.IsLinkedToNavigator(navigator)) {

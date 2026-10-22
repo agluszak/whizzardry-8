@@ -48,7 +48,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
     W8MissileHitResult hit_result;
     unsigned char deflect_chance;
 
-    if (&missile.owner_world.party_navigator == &struck) {
+    if (&missile.owner_world.party.navigator == &struck) {
         if (TargetSourceIsCharacter(&missile.m_Source, 0)) {
             return false;
         }

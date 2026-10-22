@@ -360,7 +360,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     UpdateGameDataRuntime();
     if (GetWorld()->environment.fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
-    GetWorld()->party_camera.applySway(*GetWorld()->camera, GetWorld()->initial_camera_sway
+    GetWorld()->party.camera.applySway(*GetWorld()->camera, GetWorld()->initial_camera_sway
                                                                 ? CameraSwayMode::Start
                                                                 : CameraSwayMode::Stop);
     SetSkyNodeVisible(false);
@@ -385,7 +385,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
-            placeParty(*GetWorld(), position);
+            GetWorld()->party.place(position);
 
             if (trigger->trigger_kind == W8TriggerKind::prop) {
                 glm::vec3 axis;
@@ -404,10 +404,10 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             glm::vec3 position;
 
             position = glm::vec3(0.0f, g_default_world_height, 0.0f);
-            placeParty(*GetWorld(), position);
+            GetWorld()->party.place(position);
         }
     } else {
-        restorePartyPose(*GetWorld(), CurrentGame().status.pending_move_location);
+        GetWorld()->party.restore(CurrentGame().status.pending_move_location);
     }
 
     if (level < W8_LEVEL_COUNT && !CurrentGame().status.level_progress[level].visited) {
@@ -563,10 +563,10 @@ void LeaveLevel()
 bool ReloadLevelPreservingCamera(int level, int entrance)
 {
     std::optional<CameraPose> saved;
-    if (entrance == -1 && level == GetLoadedLevelID()) saved = partyPose(*GetWorld());
+    if (entrance == -1 && level == GetLoadedLevelID()) saved = GetWorld()->party.pose();
     if (LoadLevel(level, entrance, false) == 0) {
         return false;
     }
-    if (saved) restorePartyPose(*GetWorld(), *saved);
+    if (saved) GetWorld()->party.restore(*saved);
     return true;
 }

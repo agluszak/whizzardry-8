@@ -104,13 +104,12 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
         positions =
             GetWorldSpatialIndex()
                 ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
-                                     flatten_y, false, 5, true, partyCollisionSphere(*GetWorld()))
+                                     flatten_y, false, 5, true, GetWorld()->party.collisionSphere())
                 .positions;
     } else {
         positions = GetWorldSpatialIndex()->scatterPositions(
             target, yaw, radius + radius, count, proximity_check, flatten_y,
-            BoundingSphere{GetWorld()->party_navigator.movement.position,
-                           GetWorld()->party_navigator.radius});
+            BoundingSphere{GetWorld()->party.position(), GetWorld()->party.radius()});
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -944,7 +943,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             }
             ++index;
         }
-        if (GetWorld()->party_navigator.position_dirty) {
+        if (GetWorld()->party.navigator.position_dirty) {
             return;
         }
         assert(monster_group != 0);
@@ -1038,7 +1037,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
     float angle;
     unsigned int index;
 
-    camera = GetWorld()->party_navigator.GetPosition();
+    camera = GetWorld()->party.position();
     if (!flag) {
         target = camera;
         return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
@@ -1058,7 +1057,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
         }
     }
     if (distance <= 0.0f) {
-        distance = GetWorld()->party_navigator.radius + radius + 1.0f;
+        distance = GetWorld()->party.radius() + radius + 1.0f;
     }
     target.y = camera.y;
     target.x = camera.x + distance * sin(angle);

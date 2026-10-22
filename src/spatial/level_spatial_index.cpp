@@ -128,7 +128,7 @@ void LevelSpatialIndex::UpdateCameraVisibility()
     }
 
     registry.view.far_clip = static_cast<float>(WorldGetFarClip(world));
-    registry.view.captureView(cameraLocation(*world), cameraRotation(*world), *world->camera);
+    registry.view.captureView(world->party.eye(), world->party.rotation(), *world->camera);
     std::ranges::fill(registry.projected_regions, false);
     UpdateVisibility();
 }
@@ -904,6 +904,13 @@ GroundProbe LevelSpatialIndex::settleToGround(const glm::vec3& input, bool test_
     return {position, std::nullopt};
 }
 
+bool LevelSpatialIndex::hasLineOfSight(const glm::vec3& from, const BoundingBox& bounds) const
+{
+    return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
+        return hasLineOfSight(from, glm::vec3(sample));
+    });
+}
+
 bool LevelSpatialIndex::hasLineOfSight(const glm::vec3& from, const glm::vec3& to) const
 {
     OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
@@ -996,7 +1003,7 @@ LevelSpatialIndex::traceSphereHit(const glm::vec3& from, const glm::vec3& to, in
     const glm::vec3 low(glm::mix(from, to, reversed) - inflate);
     const glm::vec3 high(glm::mix(to, from, reversed) + inflate);
     if (target == -1) {
-        navigator = &owner_world->party_navigator;
+        navigator = &owner_world->party.navigator;
         radius = navigator->movement.alternate_radius;
     } else {
         if (target < 1) {
@@ -1062,9 +1069,8 @@ no_probes:;
         }
     }
     if (excluded != -1 && excluded_location != -1) {
-        const float distance = sphereDistance(cameraLocation(*owner_world));
-        const float camera_radius =
-            owner_world->party_navigator.radius * g_camera_sphere_radius_scale;
+        const float distance = sphereDistance(owner_world->party.eye());
+        const float camera_radius = owner_world->party.radius() * g_camera_sphere_radius_scale;
         if (distance < camera_radius)
             return SphereTraceHit{sphereOffset(camera_radius, distance) + from, 0};
     }

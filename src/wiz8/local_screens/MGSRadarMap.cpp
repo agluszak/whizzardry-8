@@ -268,7 +268,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                 const auto bounds = item->GetCachedLocalBounds();
                 center = bounds.center();
                 position += center;
-                party = GetWorld()->party_navigator.GetPosition();
+                party = GetWorld()->party.position();
                 delta = position - party;
                 if ((detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
                      hasCameraLineOfSight(position)) &&
@@ -306,7 +306,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                     }
                     center = bounds->center();
                     position = center + info->party_threat.own_position;
-                    party = GetWorld()->party_navigator.GetPosition();
+                    party = GetWorld()->party.position();
                     delta = position - party;
                     float distance = glm::length(delta);
                     if (distance - monster->nav.radius < g_radar_outer_radius) {
@@ -334,7 +334,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                 center = bounds->center();
                 party = monster->nav.GetPosition();
                 position = center + party;
-                party = GetWorld()->party_navigator.GetPosition();
+                party = GetWorld()->party.position();
                 delta = position - party;
                 float distance = glm::length(delta);
                 if (distance - monster->nav.radius < g_radar_outer_radius) {
@@ -368,7 +368,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
             center = bounds->center();
             party = missile->nav.GetPosition();
             position = center + party;
-            party = GetWorld()->party_navigator.GetPosition();
+            party = GetWorld()->party.position();
             delta = position - party;
             if (glm::length(delta) < g_radar_outer_radius) {
                 PlaceRadarBlip(&delta, 5, false);
@@ -428,7 +428,7 @@ static bool PlaceRadarBlip(glm::vec3* delta, int group, bool lit)
 void ToggleRadarMapZoom(void)
 {
     if (!g_radar_zoomed) {
-        float radius = GetWorld()->party_navigator.radius;
+        float radius = GetWorld()->party.radius();
 
         g_radar_zoomed = true;
         g_radar_map_scale = 13.0f;
@@ -444,14 +444,14 @@ void ZoomRadarMapIn(void)
 {
     g_radar_zoomed = true;
     g_radar_map_scale = 13.0f;
-    g_radar_inner_radius = CalcRangeDistance(W8_RANGE_TOUCH) + GetWorld()->party_navigator.radius;
-    g_radar_outer_radius = CalcRangeDistance(W8_RANGE_LONG) + GetWorld()->party_navigator.radius;
+    g_radar_inner_radius = CalcRangeDistance(W8_RANGE_TOUCH) + GetWorld()->party.radius();
+    g_radar_outer_radius = CalcRangeDistance(W8_RANGE_LONG) + GetWorld()->party.radius();
     RefreshRadarMap();
 }
 
 void ZoomRadarMapOut(void)
 {
-    float radius = GetWorld()->party_navigator.radius;
+    float radius = GetWorld()->party.radius();
 
     g_radar_zoomed = false;
     g_radar_map_scale = 2.0f;

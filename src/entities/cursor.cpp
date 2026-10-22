@@ -140,7 +140,7 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     GetWorld()->cursor_recall.projection_distance = glm::length(delta);
 
-    DestroyWorldMonster(cursor->monster);
+    if (cursor->monster) cursor->monster->owner_world.destroyMonster(*cursor->monster);
     if (cursor->light != 0) {
         WorldRemoveLight(GetWorld(), cursor->light);
         cursor->light = 0;
@@ -185,7 +185,7 @@ void ApplyWorldCursorInput(void)
                         ? delta
                         : glm::normalize(delta) * static_cast<float>(cursor.range);
         }
-        rotation = cameraRotation(*GetWorld());
+        rotation = GetWorld()->party.rotation();
         cursor.cam_rel_offset += delta;
         cursor.position = rotation * (cursor.cam_rel_offset);
         cursor.position += cameraLocation();
