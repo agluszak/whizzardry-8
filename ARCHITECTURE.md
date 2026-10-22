@@ -155,16 +155,34 @@ Unlayered code may use the layers.
   coordinates and primitive data. Existing-game callers resolve `MeshInstance`
   only when needed. `loadGameContent` reads static indexed VSG position/normal/UV
   geometry and adapts it to game lighting, ambient and fog without a retail mesh.
-  Ordinary subgraphs can continue using standard VSG materials.
+  Ordinary subgraphs can continue using standard VSG materials. `World::picked`
+  carries the intersection into gameplay; world-owned `NativeObject`s resolve their
+  graph identity there and issue normal game events when activated. Placement and
+  reach use the authoritative party pose, independently of render-view offsets. `/NATIVEOBJECT`
+  imports optional session content at level entry, with a shipped prism example;
+  ordinary world hover/click gates apply. These cosmetic sample objects are rebuilt
+  on entry rather than changing retail save records.
+- **Image alignment.** Overlay and poster UVs span the complete image. Vulkan samples
+  texel centers, with clamp-to-edge for posters and UI; no half-texel offset is applied.
+  An omitted poster dimension follows the decoded image's aspect ratio. The retired
+  blurred-text QLTY byte remains reserved in the retail settings record.
 - **Visual clocks.** `Game::visual_time` stops with world and shared-timer holds.
   World texture playback, UV scrolling and light animation use it. Texture lookup
   and extra views never advance animation or draw random values. UI texture
   playback and glow use presentation time. Particles retain their game-step clock
   and activity gates; keyframed lights follow their actor's sampled cycle time.
-  Legacy gameplay timers retain their save-progress contracts until their owners
-  migrate to step countdowns.
+  Inherited timers choose `TimerClock::World`, `Game`, `Presentation`, or `Calendar`.
+  World gates, monster script/light/fade delays, triggers, camera holds, shake,
+  ambient fades/replay, keyframes, environment transitions and item radar deadlines
+  use held world time. Spell practice attempts explicitly restart cooldowns using game step
+  time, including failed attempts; target eligibility queries never restart them. UI delays and portrait
+  idle poses use presentation time. Calendar-trigger delays use the saved game-day
+  clock. Timer saves still store retail progress/scale, rebased on load even at zero;
+  pause controls hold simulation clocks without a wall-clock offset accumulator.
 - **Window events.** Focus controls pause and input release. Minimize/restore
-  controls presentation. Pixel-size changes follow the high-density drawable;
+  controls presentation. Focus restoration resets the current screen's simulation
+  lap, so time spent away never reaches game or world time. Pixel-size changes follow
+  the high-density drawable;
   reopening presentation never reapplies startup window dimensions.
 - **Threads.** Scene updates, traversal and rendering run on the game thread;
   audio completion callbacks are dispatched there by the sound service.
@@ -356,8 +374,9 @@ Unlayered code may use the layers.
   and, through `GameClockMilliseconds`, the world's animation clock (cycles, monsters,
   missiles, particles). Props, monster generators (`GeneratorInterval`) and the autosave
   countdown take the elapsed time itself, and stand still while the shared timers are
-  held (`SharedGameTimersHeld`), as their retail timers did. Some world code still reads
-  the monotonic clock or the shared timers (ROADMAP.md, "One step"). Two screens step the game and measure the time between their steps
+  held (`SharedGameTimersHeld`), as their retail timers did. Inherited world timers
+  use the held world clock; interface timers explicitly use presentation time. Two
+  screens step the game and measure the time between their steps
   (`LapTimer`): the main game, which each frame reads input and moves the camera, steps
   unless a screen transition is pending (passing its hold and whether a picker holds the
   combat turn), animates the portraits (`AnimatePartyPortraits`), then commits pickers,

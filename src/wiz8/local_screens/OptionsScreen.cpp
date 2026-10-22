@@ -72,8 +72,7 @@ constexpr std::array kEditableRenderOptions{W8_RENDER_OPTION_MIP_MAPPING,
                                             W8_RENDER_OPTION_MESH_SKY,
                                             W8_RENDER_OPTION_VIDEO_SYNC,
                                             W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS,
-                                            W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL,
-                                            W8_RENDER_OPTION_CORRECT_BLURRED_TEXT};
+                                            W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL};
 
 static void AddOptionsLabel(W8OptionsPanel& panel, int label);
 
@@ -931,7 +930,7 @@ static std::unique_ptr<W8OptionsPanel> CreateMouseOptionsPanel(GameOptions& valu
 }
 
 static std::unique_ptr<W8OptionsPanel>
-CreateGraphicsOptionsPanel(GameOptions& values, std::array<bool, 7>& render_options)
+CreateGraphicsOptionsPanel(GameOptions& values, std::array<bool, 6>& render_options)
 {
     auto panel = std::make_unique<W8OptionsPanel>();
     panel->m_content_top += 22;
@@ -941,12 +940,11 @@ CreateGraphicsOptionsPanel(GameOptions& values, std::array<bool, 7>& render_opti
     panel->AddCheckbox(0x81b, &render_options[5]);
     panel->AddCheckbox(0x818, &values.monster_shadows);
     panel->AddCheckbox(0x817, &render_options[4]);
-    panel->AddCheckbox(0x81d, &render_options[6]);
     return panel;
 }
 
 static std::unique_ptr<W8OptionsPanel>
-CreateAdvancedGraphicsOptionsPanel(std::array<bool, 7>& render_options)
+CreateAdvancedGraphicsOptionsPanel(std::array<bool, 6>& render_options)
 {
     auto panel = std::make_unique<W8OptionsPanel>();
     panel->m_content_top += 22;
@@ -1707,7 +1705,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
    dispatch; only an unhandled Escape requests the screen transition. */
 void OptionsScreen::frame()
 {
-    RepositionAmbientSounds();
+    RepositionAmbientSounds(GetWorld());
     UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();
     auto& active_modal = m_active_modal;

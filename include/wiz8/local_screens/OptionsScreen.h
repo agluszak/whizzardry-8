@@ -257,7 +257,7 @@ public:
     void OnDialogClosed(bool accepted, int value);
 
     GameOptions options{};
-    std::array<bool, 7> render_options{};
+    std::array<bool, 6> render_options{};
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending = true;
     std::function<void(bool)> m_notification_closed;

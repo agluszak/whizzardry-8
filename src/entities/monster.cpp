@@ -2568,7 +2568,7 @@ void Monster::ApplyRepresentationScale()
 }
 
 /* Build a floating icon item from a bitmap path: clamp-wrapped texture, a
-   500-unit-wide poster quad relocated 250 units up the Y axis with alignment
+   500-unit-wide poster quad raised so its bottom edge rests on the origin, with alignment
    enabled, wrapped in a WorldItemEntity whose mesh attachment and bounds are refreshed
    for the world. */
 std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string_view path)
@@ -2579,8 +2579,10 @@ std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string
     texture->loadSurface();
     auto poster = MakePosterQuad(texture, 500.0f, 0.0f, true);
     auto* instance = poster.get();
-    const glm::vec3 offset(0.0f, 250.0f, 0.0f);
-    static_cast<Mesh*>(instance->getModel())->relocateVertices(offset);
+    auto* mesh = static_cast<Mesh*>(instance->getModel());
+    // The height follows the icon's aspect ratio; quad vertex 0 is its bottom-left corner.
+    if (!mesh->vertex_locations.empty())
+        mesh->relocateVertices(glm::vec3(0, -mesh->vertex_locations[0].y, 0));
     instance->setAlignment(1);
     auto item = std::make_unique<WorldItemEntity>();
     item->flags |= W8_ITEM_ENTITY_MESH_LOADED;

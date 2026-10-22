@@ -801,7 +801,8 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
                     SetTargetSourceToMonster(FindMonster(aimed->iMonsterID), &target);
                 }
             } else {
-                AimAtCharacter(party_slot, party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                AimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                CharacterTarget(party_slot));
             }
         }
         target.name_known = true;

@@ -200,8 +200,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             game.combat->characters[party_slot].action_changed = false;
             if ((slot->executing.kind == W8_ACTION_ATTACK ||
                  slot->executing.kind == W8_ACTION_BERSERK) &&
-                CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false,
-                                     false)) {
+                CharacterCanSwitchTo(
+                    party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                    false, false)) {
                 PrepareCharacterAttacks(party_slot);
             }
         } else if ((slot->executing.kind == W8_ACTION_ATTACK ||
@@ -222,7 +223,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
             CurrentGame().events.push(CombatProgressChanged{});
         }
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, false)) {
+        if (!CharacterCanSwitchTo(
+                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                false, false)) {
             slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
@@ -278,11 +281,14 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                     if (!saved_dead) {
                         PrepareCharacterAttacks(party_slot);
                     }
-                    AimAtCharacter(party_slot, target, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                    AimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                    CharacterTarget(target));
                 }
             }
         }
-        if (CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, false)) {
+        if (CharacterCanSwitchTo(party_slot,
+                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                                 false, false)) {
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
