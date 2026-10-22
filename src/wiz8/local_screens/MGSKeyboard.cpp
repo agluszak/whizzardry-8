@@ -48,7 +48,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -201,8 +200,8 @@ void ResetMGSKeyboardBindings()
 }
 
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
-   box consume key presses first; the record-mode console gates on its flag;
-   everything else resolves to a bound MGS command.
+   box consume key presses first; everything else resolves to a bound MGS
+   command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
 bool HandleMainGameInputEvent(const InputEvent* input)
 {
@@ -220,15 +219,7 @@ bool HandleMainGameInputEvent(const InputEvent* input)
         return true;
     }
 
-    if (IsRecordModeActive()) {
-        if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
-            HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
-            ApplyRecordModeLine();
-            return true;
-        }
-    } else {
-        DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
-    }
+    DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
     return true;
 }
 
@@ -446,17 +437,13 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (IsScreenInputBlocked() != 0 || !CanInterruptLevelMovement()) {
             break;
         }
-        if (CurrentGame().status.iron_man && !g_dev_mode) {
+        if (CurrentGame().status.iron_man) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }
         if (CurrentGame().combat.has_value()) {
-            if (g_dev_mode) {
-                CurrentGame().endCombat(false);
-            } else {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
-                break;
-            }
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
+            break;
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
         if (slot_name && SaveGame(*slot_name, nullptr)) {
@@ -471,7 +458,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (IsScreenInputBlocked() != 0) {
             break;
         }
-        if (CurrentGame().status.iron_man && !g_dev_mode) {
+        if (CurrentGame().status.iron_man) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }

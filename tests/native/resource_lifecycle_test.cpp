@@ -63,6 +63,8 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -73,7 +75,7 @@ static void source_resource_owners()
 {
     auto model = std::make_shared<Mesh>(0, 1);
     model->InitializeVertexFrames(1);
-    model->GetVertexLocations(0, true, 0.0f);
+    const std::weak_ptr<Mesh> lifetime = model;
     // The model remains alive while an interrupted scene releases its adopted instance.
     auto survivor = model;
     std::unique_ptr<SDL_Palette, decltype(&SDL_DestroyPalette)> palette(SDL_CreatePalette(256),
@@ -101,7 +103,7 @@ static void source_resource_owners()
     survivor.reset();
     g_mouse_surface.reset();
     palette.reset();
-    REQUIRE((g_mesh_models.empty() && g_decompressed_mesh_bytes == 0));
+    REQUIRE(lifetime.expired());
 }
 
 static void npc_script_teardown()
@@ -539,9 +541,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
     prepared_pose.orientation = {0.5f, 0.2f};
     prepared_pose.retail.yaw.fill(std::byte{0x7b});
     prepared_pose.retail.pitch.fill(std::byte{0x45});
-    SetWorldCameraState(&replacement, &prepared_pose);
+    restorePartyPose(replacement, prepared_pose);
     REQUIRE(replacement.party_camera.m_position == prepared_pose.position);
-    const auto snapshot = cameraState(replacement);
+    const auto snapshot = partyPose(replacement);
     REQUIRE(snapshot.orientation.yaw == 0.5f);
     REQUIRE(snapshot.retail.yaw == prepared_pose.retail.yaw);
     REQUIRE(snapshot.retail.pitch == prepared_pose.retail.pitch);
@@ -721,6 +723,56 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
         REQUIRE(world.spell_visuals.empty());
         SetTargetConeEnabled(false);
     }
+}
+
+TEST_CASE("Rendering derives the views from the party and changes nothing it reads",
+          "[resources][camera]")
+{
+    ScopedGame game;
+    World& world = PublishEmptyWorld(game.game);
+    world.camera = &world.scene->camera;
+    Light light(nullptr);
+    world.camera_light = &light;
+    World sky;
+    sky.camera = &sky.scene->camera;
+    placeParty(world, {10, 20, 30});
+    world.party_camera.SetOrientation(.5f, -.25f);
+    world.camera->setViewPlane(1.0, 0.75);
+    const auto pose = partyPose(world);
+    const glm::vec3 shake{1, 2, 3};
+    // Two shaken frames, as an extra render or a second view would place.
+    for (int frame = 0; frame < 2; ++frame) {
+        placeWorldCameras(world, &sky, shake);
+        REQUIRE(world.camera->transform.getLocation() == glm::dvec3(11, 22, 33));
+        REQUIRE(light.transform.getLocation() == glm::dvec3(11, 22, 33));
+        REQUIRE(world.camera->transform.getRotation<glm::mat3>() ==
+                world.party_camera.rotationMatrix());
+        REQUIRE(sky.camera->transform.getLocation() == glm::dvec3(0));
+        REQUIRE(sky.camera->transform.getRotation<glm::mat3>() ==
+                world.party_camera.rotationMatrix());
+        REQUIRE(sky.camera->getViewPlane().rectangle.right ==
+                world.camera->getViewPlane().rectangle.right);
+        REQUIRE(sky.camera->getViewPlane().rectangle.top ==
+                world.camera->getViewPlane().rectangle.top);
+        REQUIRE(partyPose(world) == pose);
+        REQUIRE(cameraLocation() == glm::vec3(10, 20, 30));
+    }
+    placeWorldCameras(world, nullptr, {});
+    REQUIRE(world.camera->transform.getLocation() == glm::dvec3(10, 20, 30));
+    world.camera_light = nullptr;
+}
+
+TEST_CASE("The party navigator stands the world height below the eye",
+          "[resources][camera][navigation]")
+{
+    PartyCamera camera;
+    camera.m_position = {100, 200, 300};
+    camera.SetOrientation(.5f, -.25f);
+    Navigator navigator;
+    mirrorPartyNavigator(navigator, camera);
+    REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
+    REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));
+    REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
 }
 
 TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", "[npc][lifetime]")

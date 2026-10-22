@@ -16,7 +16,6 @@
 
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
 #include "layouts/levels.h"
@@ -56,6 +55,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
+#include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -166,16 +166,6 @@ void UnloadSkyWorld(void)
     ResetEnvironment();
 }
 
-// The original bounds-checks only the upper end, so a negative level_id reads
-// before the table. Reproduced as-is; GetLevelFolderName checks both ends.
-std::optional<std::string> GetLevelLocationCode(int level_id)
-{
-    if (level_id >= W8_LEVEL_COUNT || level_id < 0) {
-        return std::nullopt;
-    }
-    return std::string(g_level_folders[level_id].location_code);
-}
-
 static int LevelFindIDByLocationCode(std::string_view location_code)
 {
     for (int level_id = 0; level_id < W8_LEVEL_COUNT; level_id++) {
@@ -229,12 +219,9 @@ std::string_view GetLevelFolderName(int level_id)
 static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path), false);
+    auto replacement = LoadWorld(-1, std::string(sky_path));
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
-
-    const glm::dvec3 position(0);
-    sky->camera->transform.setLocation(position);
 
     auto material = std::make_shared<Material>();
     material->setName("AnimatedCloudMaterial");
@@ -397,7 +384,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
-            SetWorldScenePosition(GetWorld(), &position);
+            placeParty(*GetWorld(), position);
 
             if (trigger->trigger_kind == W8TriggerKind::prop) {
                 glm::vec3 axis;
@@ -416,10 +403,10 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             glm::vec3 position;
 
             position = glm::vec3(0.0f, g_default_world_height, 0.0f);
-            SetWorldScenePosition(GetWorld(), &position);
+            placeParty(*GetWorld(), position);
         }
     } else {
-        RestoreWorldCameraState(&CurrentGame().status.pending_move_location);
+        restorePartyPose(*GetWorld(), CurrentGame().status.pending_move_location);
     }
 
     if (level < W8_LEVEL_COUNT && !CurrentGame().status.level_progress[level].visited) {
@@ -569,26 +556,15 @@ void LeaveLevel()
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request
-   re-enters the current level through the -1 entrance sentinel, the camera's
-   saved yaw/pitch records and position are put back after the load; every
-   other request is a plain unload+load. */
+   re-enters the current level through the -1 entrance sentinel, the party's pose
+   is put back after the load; every other request is a plain unload+load. */
 bool ReloadLevelPreservingCamera(int level, int entrance)
 {
-    CameraOrientation saved_orientation;
-    glm::vec3 saved_position;
-    bool restore = false;
-
-    if (entrance == -1 && level == GetLoadedLevelID()) {
-        saved_orientation = cameraOrientation();
-        saved_position = cameraLocationOrZero(*GetWorld());
-        restore = true;
-    }
+    std::optional<CameraPose> saved;
+    if (entrance == -1 && level == GetLoadedLevelID()) saved = partyPose(*GetWorld());
     if (LoadLevel(level, entrance, false) == 0) {
         return false;
     }
-    if (restore) {
-        setCameraOrientation(saved_orientation);
-        SetWorldScenePosition(GetWorld(), &saved_position);
-    }
+    if (saved) restorePartyPose(*GetWorld(), *saved);
     return true;
 }

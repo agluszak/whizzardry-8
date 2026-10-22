@@ -9,7 +9,6 @@
 
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
-#include <glm/geometric.hpp>
 
 #include "dialog_code/DialogBase.h"
 #include "dialog_code/DialogScrollBar.h"
@@ -23,9 +22,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/entities/script.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
@@ -34,15 +31,11 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 
 /* The background and scroll track the monster and statistic info dialogs
@@ -82,8 +75,6 @@ bool W8MonsterInfoDialog::PopulateText()
     std::string text;
     bool is_npc = false;
     unsigned int knowledge;
-    int leader_location_id;
-    int leader_group_id;
     int count;
     int index;
     int slot;
@@ -98,10 +89,6 @@ bool W8MonsterInfoDialog::PopulateText()
     int monster_level;
     int best_party_slot;
     int sight;
-    W8MonsterGroup* group;
-    W8MonsterInfo* leader_info;
-    Navigator* linked;
-    Script* script;
     W8NpcState* npc;
     const W8MonsterAttack* attack;
     W8ConditionImmunity* immunity;
@@ -138,26 +125,6 @@ bool W8MonsterInfoDialog::PopulateText()
     m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
     m_text_area.SetEntrySpacing(1);
 
-    if (g_dev_mode) {
-        group = FindMonsterGroup(monster_info->monster_group_id);
-        linked = monster_info->entity->nav.linked_navigator;
-        if (linked == 0) {
-            leader_location_id = m_location_id;
-        } else {
-            leader_location_id = linked->movement.location_id;
-        }
-        leader_group_id = group->leader_group_id;
-        if (leader_group_id == 0) {
-            leader_group_id = monster_info->monster_group_id;
-        }
-        m_text_area.AddEntry("ID/Group (Leader)",
-                             fmt::format("{:d}/{:d} ({:d}/{:d}) {}", m_location_id,
-                                         monster_info->monster_group_id, leader_location_id,
-                                         leader_group_id,
-                                         group->encounter_registered ? "random" : "placed"),
-                             5, 0xf, 0);
-    }
-
     if (is_npc) {
         prefix = Data().strings[0x13b];
         entry_text = Data().strings[0x13a];
@@ -189,10 +156,6 @@ bool W8MonsterInfoDialog::PopulateText()
         text += fmt::format("{:d}", monster_info->uiHPMax);
     }
     m_text_area.AddEntry(Data().strings[0x13d], text, 10, 0xf, 0);
-    if (g_dev_mode && knowledge < 10) {
-        text = fmt::format("{:d} / {:d}", monster_info->hp_current, monster_info->uiHPMax);
-        m_text_area.AddEntry(Data().strings[0x13d], text, 5, 0xf, 0);
-    }
 
     if (knowledge < 0x14 || is_npc) {
         text = Data().strings[0x13a];
@@ -206,10 +169,6 @@ bool W8MonsterInfoDialog::PopulateText()
         text += fmt::format("{:d}", monster_info->stamina_max);
     }
     m_text_area.AddEntry(Data().strings[0x13e], text, 10, 0xf, 0);
-    if (g_dev_mode && knowledge < 0x14) {
-        text = fmt::format("{:d} / {:d}", monster_info->stamina, monster_info->stamina_max);
-        m_text_area.AddEntry(Data().strings[0x13e], text, 5, 0xf, 0);
-    }
 
     text.clear();
     count = 0;
@@ -401,26 +360,6 @@ bool W8MonsterInfoDialog::PopulateText()
         }
     }
 
-    if (g_dev_mode) {
-        m_text_area.AddEntry("Range (Combat/Ground)",
-                             fmt::format("{:5.2f} / {:5.2f} M", combat_range * 0.002f,
-                                         glm::length((monster_info->entity->nav.GetPosition() -
-                                                      PartyNavigator()->GetPosition())) *
-                                             g_world_cursor_scale),
-                             5, 0xf, 0);
-        leader_info = FindMonster(leader_location_id);
-        script = leader_info->entity->script.get();
-        m_text_area.AddEntry("Leader's Current Script",
-                             fmt::format("<{}>", script != 0 ? script->getName().c_str() : ""), 5,
-                             0xf, 0);
-        m_text_area.AddEntry("Leader's AI Mode", fmt::format("{:d}", leader_info->ai_mode), 5, 0xf,
-                             0);
-        const char* strategy = "Close";
-        if (record->prefer_ranged_actions != 0) {
-            strategy = "Ranged";
-        }
-        m_text_area.AddEntry("Combat Strategy", strategy, 5, 0xf, 0);
-    }
     return true;
 }
 

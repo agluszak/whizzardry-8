@@ -16,7 +16,6 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
-#include <fmt/printf.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -68,7 +67,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/ground_shadow.h"
@@ -90,7 +88,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/surface_storage.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"
@@ -157,8 +154,6 @@ const float g_monster_poster_vertical_rate = 0.20000000298023224f;
 const double g_monster_poster_max_distance = 1000.0;
 const double g_monster_facing_tolerance = 0.78539815;
 const double g_monster_group_nearest_range = 12500.0;
-static char g_warning_missing_spell_vertex[] =
-    "WARNING: %s does not have a SPELL vertex marked! --> Lee";
 W8CycleNameRow g_cycle_names[W8_MONSTER_CYCLE_COUNT] = {
     {"BIRTH", 5},
     {"IDLE", 4},
@@ -320,9 +315,9 @@ Monster::Monster(World* owner)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
       missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
       mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
-      nearest_to_party(false), spell_vertex_warned(0), missile_point_warned(0), script(0),
-      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0),
-      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(false), sound(nullptr)
+      nearest_to_party(false), script(0), script_wait(MONSCR_NONE), trigger(0),
+      spell_effect_armed(0), sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE),
+      hostility_preserved(false), sound(nullptr)
 {
     nav.monster_owner = this;
     formation = glm::vec3(0);
@@ -355,9 +350,8 @@ Monster::Monster(const Monster& rhs, World* owner)
       animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0),
       inactive(rhs.inactive), pending_finalize(1), disabled(0), nearest_to_party(false),
       hover_base_min(rhs.hover_base_min), hover_base_max(rhs.hover_base_max),
-      bob_amplitude_min(rhs.bob_amplitude_min), bob_amplitude_max(rhs.bob_amplitude_max),
-      spell_vertex_warned(0), missile_point_warned(0), script(0), script_wait(MONSCR_NONE),
-      trigger(0), spell_effect_armed(0), sector_mesh(0), sound(nullptr)
+      bob_amplitude_min(rhs.bob_amplitude_min), bob_amplitude_max(rhs.bob_amplitude_max), script(0),
+      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0), sound(nullptr)
 {
     nav.monster_owner = this;
     formation = glm::vec3(0);
@@ -721,14 +715,13 @@ void Monster::Update()
 
     if (sound != 0) {
         sound->position = nav.GetPosition();
-        sound->Update(cameraLocation(), GetCameraYawRadians(), g_settings.sound_effects_volume);
+        sound->Update(cameraLocation(), GetCameraYawRadians());
     }
 }
 
 bool Monster::GetProjectilePosition(glm::vec3* position)
 {
     signed char cycle;
-    bool result;
 
     if (position == 0) {
         return false;
@@ -744,38 +737,17 @@ bool Monster::GetProjectilePosition(glm::vec3* position)
         return false;
     }
 
-    result = GetCycleMappedPosition(cycle, 5, position);
-    if (!result && !missile_point_warned) {
-        if (g_dev_mode) {
-            W8MonsterInfo* info = FindMonster(location_id);
-            DebugMessage(0,
-                         fmt::format("WARNING: {} does not have a MISSILE vertex marked --> Lee!",
-                                     GetMonsterDataForInfo(info)->name0));
-        }
-        missile_point_warned = true;
-    }
-    return result;
+    return GetCycleMappedPosition(cycle, 5, position);
 }
 
-/* Cycle 25 mapping six is the spell launch vertex. Missing mappings warn at
-   most once per Monster, while the result reports whether a launch position was found. */
+/* Cycle 25 mapping six is the spell launch vertex; the result reports whether
+   a launch position was found. */
 bool Monster::GetSpellPosition(glm::vec3* position)
 {
-    bool found;
-
     if (position == 0) {
         return false;
     }
-    found = GetCycleMappedPosition(0x19, 6, position);
-    if (!found && !spell_vertex_warned) {
-        if (g_dev_mode) {
-            W8MonsterInfo* monster_info = FindMonster(location_id);
-            const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-            DebugMessage(0, fmt::sprintf(g_warning_missing_spell_vertex, record->name0));
-        }
-        spell_vertex_warned = true;
-    }
-    return found;
+    return GetCycleMappedPosition(0x19, 6, position);
 }
 
 bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::vec3* position)
@@ -823,10 +795,10 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
         if (const auto mapped = findMappedVertex(mesh, mapped_index)) {
             mesh = mapped->mesh;
             const int vertex = mapped->index;
-            glm::vec3* vertices = mesh->GetVertexLocations(dispatch_value, true, 0.0f);
-            if (vertices != 0 && current_model != 0) {
+            const auto vertex_position = mesh->framePosition(dispatch_value, vertex);
+            if (vertex_position && current_model != 0) {
                 auto rotation = current_model->transform.orientation<glm::mat3>();
-                glm::vec3 local = vertices[vertex] * scale;
+                glm::vec3 local = *vertex_position * scale;
                 glm::vec3 rotated = rotation * local;
                 glm::vec3 owner_position = nav.GetPosition();
                 (*position) = glm::vec3(rotated.x + owner_position.x,
@@ -1283,31 +1255,7 @@ bool Monster::CanEnterCycle(signed char cycle)
    because it is the only source-level name available. */
 bool Monster::IsCycleInterruptable(signed char cycle)
 {
-    const char* pending_name;
-    const char* current_name;
-    const char* requested_name;
-
     if (visual.animation_playing == 0) {
-        signed char current = static_cast<signed char>(Query(W8_MONSTER_QUERY_CYCLE));
-        if (visual.pending_cycle != -1 && CanEnterCycle(visual.pending_cycle) != 0) {
-            pending_name = g_cycle_names[visual.pending_cycle].name;
-            if (current != -1) {
-                current_name = g_cycle_names[current].name;
-            } else {
-                current_name = "";
-            }
-            if (cycle != W8_MONSTER_CYCLE_NONE) {
-                requested_name = g_cycle_names[cycle].name;
-            } else {
-                requested_name = "";
-            }
-            DebugMessage(
-                1, fmt::format("Monster::CycleInterruptable (ID {:d}) - WARNING: Monster is not "
-                               "animating - Cycle {:d}({}), current {:d}({}), pending {:d}({})",
-                               location_id, static_cast<int>(cycle), requested_name,
-                               static_cast<int>(current), current_name,
-                               static_cast<int>(visual.pending_cycle), pending_name));
-        }
         return true;
     }
 
@@ -1566,9 +1514,6 @@ void Monster::SetCycle(signed char cycle)
             throw std::runtime_error(fmt::format("monster {} has no idle cycle", name));
         }
 
-        W8MonsterInfo* monster_info = owner_world->population->findMonster(location_id);
-        DebugMessage(0, fmt::format("WARNING: Monster {} is missing anim cycle {}",
-                                    GetMonsterName(monster_info, 0, 0), g_cycle_names[cycle].name));
         CopyCycle(cycle, this, 1);
         count = static_cast<int>(cycle_animations.size());
         if (count == 0) {
@@ -1616,9 +1561,7 @@ void Monster::SetCycle(signed char cycle)
     visual.frame_method = animation->frame_method;
 
     {
-        glm::dvec3 camera_location = owner_world->camera->transform.getLocation();
-        glm::vec3 listener;
-        listener = glm::vec3(camera_location);
+        const glm::vec3 listener = cameraLocation(*owner_world);
         visual.SelectLOD(&listener);
     }
 
@@ -2201,18 +2144,15 @@ void Monster::GetMappedPosition(glm::vec3* position)
             int index = mesh_part->FindMappedIndex(0);
 
             if (index >= 0) {
-                glm::vec3* vertices;
+                std::optional<glm::vec3> vertex;
                 if ((mesh_part->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
-                    vertices = mesh_part->getVertexLoc();
+                    if (const auto* vertices = mesh_part->getVertexLoc()) vertex = vertices[index];
                 } else {
-                    vertices = mesh_part->GetVertexLocations(0, true, 0.0f);
+                    vertex = mesh_part->framePosition(0, index);
                 }
-                if (vertices != 0) {
-                    glm::mat4 matrix;
-
-                    *position = vertices[index];
-                    matrix = instance->transform.matrix<glm::mat4>();
-                    *position = glm::vec3{glm::vec3(matrix * glm::vec4((*position), 1))};
+                if (vertex) {
+                    const auto matrix = instance->transform.matrix<glm::mat4>();
+                    *position = glm::vec3(matrix * glm::vec4(*vertex, 1));
                     return;
                 }
             }
@@ -2582,8 +2522,7 @@ void Monster::RefreshStandingHeight()
     signed char previous_cycle = representation->visual.current_cycle;
     SetCycle(1);
     visual.SetSubCycle(0);
-    glm::vec3 camera_location;
-    camera_location = glm::vec3(owner_world->camera->transform.getLocation());
+    const glm::vec3 camera_location = cameraLocation(*owner_world);
     visual.SelectLOD(&camera_location);
     if (const auto bounds = GetAnimationBounds())
         representation->standing_height = bounds->maximum.y;

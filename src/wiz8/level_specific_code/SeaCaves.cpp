@@ -24,7 +24,7 @@ bool SpawnSpiritAt(const char* entity)
     glm::vec3 position;
 
     if (FindEntityByName(entity, &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false, false);
+        SpawnMonsters(0x1f2, 1, &position, 1, false, false);
     }
     return true;
 }

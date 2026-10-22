@@ -34,7 +34,6 @@
 #include "application.h"
 #include "asset_paths.h"
 #include "geometry.h"
-#include "glm/ext/matrix_double3x3.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -79,11 +78,9 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
-#include "wiz8/render/mesh_updates.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/visibility_grid.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_geometry_types.h"
@@ -310,7 +307,7 @@ try {
         success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
                               static_cast<std::size_t>(sizeof(stored_position)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->camera->transform.setLocation(glm::dvec3(position));
+        pWorld->party_camera.m_position = position;
     } else if (camera_mode == 2) {
         success = success &&
                   (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
@@ -324,7 +321,7 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->camera->transform.setLocation(glm::dvec3(position));
+        pWorld->party_camera.m_position = position;
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
@@ -332,7 +329,6 @@ try {
                                                       normalizedOrZero(glm::vec3(axis))));
         }
         pWorld->initial_camera_rotation = rotation;
-        pWorld->camera->transform.setRotation(glm::dmat3(rotation));
     }
 
     // Absent tables keep the default ramps the world was constructed with.
@@ -581,12 +577,12 @@ try {
             path->looping = options[3] == '1';
         }
         const glm::vec3 origin(0);
-        auto* group = CreateGroup(monster_id, 1, &origin, true, false, true);
+        auto* group = CreateGroup(monster_id, 1, &origin, true, true);
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info);
         auto* monster = monster_info->entity.find();
-        const glm::vec3 camera_position(world->camera->transform.getLocation());
+        const glm::vec3 camera_position = cameraLocation(*world);
         monster->visual.SelectLOD(&camera_position);
         monster->nav.SetPathAI(std::move(path));
         if (has_options) {
@@ -884,7 +880,7 @@ try {
         ShutdownWithErrorBox(error_message);                                                       \
     }
 
-unsigned char ReadLevel(World* world, wiz8::File* handle, bool use_octree,
+unsigned char ReadLevel(World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory)
 try {
     LevelLoadContext info;
@@ -999,11 +995,6 @@ try {
     }
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
 
-    if (use_octree) {
-        Mesh* model = static_cast<Mesh*>(world->update_mesh_source->getModel());
-        const auto [minimum, maximum] = model->getBounds().box;
-        world->quads = BuildWorldQuad(world->update_mesh_source, minimum, maximum);
-    }
     FinalizeStaticScene(*world);
 
     if (!success || handle->read(&environment_offset, sizeof(environment_offset)).bytes !=
@@ -1650,7 +1641,7 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
     collision_available = source.collision_available;
 }
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use_octree)
+std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
 {
     auto owner = std::make_unique<World>(level_id, std::move(source_path));
     auto* world = owner.get();
@@ -1670,10 +1661,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use
 
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
         world->spatial = std::make_unique<LevelSpatialIndex>(oct_path.c_str(), world);
-        if (world->compiledIndex()->HasLoadError())
-            world->spatial.reset();
-        else
-            use_octree = false;
+        if (world->compiledIndex()->HasLoadError()) world->spatial.reset();
     }
 
     if (!world->collisionIndex()) {
@@ -1711,7 +1699,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use
     }
 
     auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-    if (!ReadLevel(world, handle.get(), use_octree, wiz8::asset_path(material_folder)))
+    if (!ReadLevel(world, handle.get(), wiz8::asset_path(material_folder)))
         throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }

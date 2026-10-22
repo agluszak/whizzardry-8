@@ -1,10 +1,12 @@
 #include "wiz8/music_playlist.h"
 
+#include <charconv>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <limits>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -22,9 +24,25 @@
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
-#include "wiz8/ui_input.h"
 
-/* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
+namespace {
+struct MusicPlaylist {
+    struct Track {
+        std::string resource;
+        int weight;
+    };
+    std::string resource;
+    std::vector<Track> tracks;
+    int weight_total = 0;
+    int pause_min_seconds = 0;
+    int pause_max_seconds = 0;
+    int pause_chance_percent = 0;
+
+    static MusicPlaylist Parse(std::string resource, std::string_view text);
+    const Track& Select(unsigned int draw) const;
+};
+
+} // namespace
 
 wiz8::sound::Playback g_music_sample_handle = nullptr;
 static MusicPlaylist g_music_playlist;
@@ -37,9 +55,7 @@ static bool g_music_force_next = true;
 void SetMusicVolume(unsigned char volume)
 {
     g_settings.music_volume = volume;
-    if (g_music_sample_handle != nullptr) {
-        wiz8::sound::set_volume(g_music_sample_handle, volume);
-    }
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::music, volume);
 }
 
 bool IsMusicMuted(void)
@@ -77,6 +93,17 @@ bool InitializeMusicPlaylist(void)
 // FUNCTION: WIZ8 0x0048FF50
 MusicPlaylist MusicPlaylist::Parse(std::string resource, std::string_view text)
 {
+    const auto number = [](std::string_view value) {
+        const auto start = value.find_first_not_of(" \t");
+        if (start == value.npos) throw std::runtime_error("missing playlist number");
+        value.remove_prefix(start);
+        value = value.substr(0, value.find_last_not_of(" \t") + 1);
+        int result;
+        const auto parsed = std::from_chars(value.data(), value.data() + value.size(), result);
+        if (parsed.ec != std::errc{} || parsed.ptr != value.data() + value.size() || result < 0)
+            throw std::runtime_error("invalid playlist number");
+        return result;
+    };
     MusicPlaylist parsed;
     parsed.resource = std::move(resource);
     bool found_unweighted = false;
@@ -91,23 +118,36 @@ MusicPlaylist MusicPlaylist::Parse(std::string resource, std::string_view text)
         const auto token =
             std::string_view(row).substr(start, stop == row.npos ? stop : stop - start);
         if (token.ends_with(':')) continue;
+        row.erase(0, start);
+        row.erase(row.find_last_not_of(" \t") + 1);
         const char* line = row.c_str();
         if (line[0] == '#') {
             if (SDL_strncasecmp(line + 1, "PAUSEMIN=", 9) == 0) {
-                parsed.pause_min_seconds = atoi(line + 10);
+                parsed.pause_min_seconds = number(line + 10);
             } else if (SDL_strncasecmp(line + 1, "PAUSEMAX=", 9) == 0) {
-                parsed.pause_max_seconds = atoi(line + 10);
+                parsed.pause_max_seconds = number(line + 10);
             } else if (SDL_strncasecmp(line + 1, "PAUSECHANCE=", 12) == 0) {
-                parsed.pause_chance_percent = atoi(line + 13);
+                parsed.pause_chance_percent = number(line + 13);
             }
             continue;
         }
         const auto weight_start = row.find('(');
-        const int weight = weight_start == row.npos ? 0 : atoi(line + weight_start + 1);
+        if (weight_start != row.npos && !row.ends_with(')'))
+            throw std::runtime_error("unterminated playlist weight");
+        const int weight = weight_start == row.npos
+                               ? 0
+                               : number(std::string_view(row).substr(
+                                     weight_start + 1, row.size() - weight_start - 2));
         found_unweighted |= weight_start == row.npos;
         parsed.tracks.push_back({row.substr(0, weight_start), weight});
-        if (!found_unweighted) parsed.weight_total += weight;
+        if (weight > std::numeric_limits<int>::max() - parsed.weight_total)
+            throw std::runtime_error("playlist weights overflow");
+        parsed.weight_total += weight;
     }
+    if (parsed.pause_min_seconds > parsed.pause_max_seconds ||
+        parsed.pause_max_seconds > std::numeric_limits<int>::max() / 1000 ||
+        parsed.pause_chance_percent > 100)
+        throw std::runtime_error("invalid playlist pause range");
     if (found_unweighted) parsed.weight_total = 0;
     return parsed;
 }
@@ -171,9 +211,6 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
     if (resource == 0) {
         return false;
     }
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
 
     path = fmt::format("Data\\Music\\{}", resource);
     SDL_strupr(path.data());
@@ -184,7 +221,7 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
         }
 
         const bool crossfade = g_music_fade != 0;
-        auto handle = wiz8::sound::stream(path, {.volume = std::uint32_t(g_settings.music_volume),
+        auto handle = wiz8::sound::stream(path, {.channel = wiz8::sound::VolumeChannel::music,
                                                  .group = wiz8::sound::Group::music,
                                                  .fade_in_ms = crossfade ? 5000u : 0u});
         if (handle == nullptr) {
@@ -197,7 +234,7 @@ bool StartMusicResource(const char* resource, int fade, unsigned char replace_cu
         return true;
     }
 
-    if (SDL_strcasecmp(resource, g_music_playlist.resource.c_str()) == 0) {
+    if (g_music_playlist_active && IsCurrentMusicPlaylist(resource)) {
         g_music_fade = static_cast<unsigned char>(fade);
         return true;
     }

@@ -48,7 +48,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/utility.h"
 
 /* Species 0x224 never counts: both directions answer zero before anything
    else is read. */
@@ -147,9 +146,6 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source)
     } else if (TargetSourceIsMonster(source, 0)) {
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID, false);
         if (monster_info == nullptr) {
-            DebugMessage(
-                1, fmt::format("GetOppositeDisposition - ERROR: checking obsolete Monster ID {:d}",
-                               source->iMonsterID));
             return W8_DISPOSITION_NEUTRAL;
         }
         if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) {

@@ -72,7 +72,7 @@ struct LevelLoadContext {
     std::filesystem::path bitmap_folder;
 };
 
-unsigned char ReadLevel(World* world, wiz8::File* handle, bool use_octree,
+unsigned char ReadLevel(World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory);
 unsigned char ReadWorldItems(LevelLoadContext* info, World* world);
 // The destination owns particles; scene attachment borrows them.

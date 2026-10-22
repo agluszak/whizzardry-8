@@ -321,7 +321,7 @@ static void ResolveSedexusCapture(void)
     ReleaseNpcMonsterByKind(0x40);
     SetTriggerVariableByName("LezboDemonAppeared", 0);
     if (FindEntityByName("np_al-adryian51", &position, 0, 0)) {
-        group = SpawnMonsters(0xd8, 1, &position, 2, true, false, false);
+        group = SpawnMonsters(0xd8, 1, &position, 2, true, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonsterByLocation(location_id);
@@ -347,7 +347,7 @@ static void NpcScriptHenchmanArrives(Monster* monster)
 
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
         PointCameraAtTarget(&position, false, true);
-        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false, false);
+        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false);
         int location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
@@ -574,7 +574,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::savant_appears: {
         glm::vec3 position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
+            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false);
             int location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
@@ -614,7 +614,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             }
             glm::vec3 position;
             if (FindEntityByName("NP_VI1", &position, 0, 0)) {
-                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false, false);
+                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false);
                 int location_id = group->MemberLocationId(0);
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);

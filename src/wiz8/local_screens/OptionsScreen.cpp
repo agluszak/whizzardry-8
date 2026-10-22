@@ -1,7 +1,6 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <cstring>
 #include <exception>
 #include <functional>
@@ -1065,9 +1064,12 @@ void W8OptionsAudioPanel::ChangeVolume(int index, float value)
         return;
     case 2:
         g_settings.footstep_volume = static_cast<unsigned char>(value);
+        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::footsteps,
+                                        g_settings.footstep_volume);
         return;
     case 3:
         g_settings.voice_volume = static_cast<unsigned char>(value);
+        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::voice, g_settings.voice_volume);
         return;
     }
 }
@@ -1084,7 +1086,7 @@ void W8OptionsAudioPanel::PreviewVolume(int index)
         break;
     case 3: {
         wiz8::sound::play("Data\\Sound\\Misc\\Interface Vox 01.wav",
-                          {.volume = std::uint32_t(g_settings.voice_volume)});
+                          {.channel = wiz8::sound::VolumeChannel::voice});
         break;
     }
     }
@@ -1766,9 +1768,6 @@ bool OptionsScreen::enter(const ScreenRequest& request)
    dispatch; only an unhandled Escape requests the screen transition. */
 void OptionsScreen::frame()
 {
-    if (g_dev_mode) {
-        RequestExitScreen();
-    }
     RepositionAmbientSounds();
     UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();

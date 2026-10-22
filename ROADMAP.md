@@ -145,12 +145,16 @@ the licensed runtime scenarios after every step.
      only the main menu, party selection and the Please Wait screen keep it; the other
      screens should take the game from it, and the code below them the game or a
      `RuleContext` (steps 3, 6 and 7).
-   - `Game` still holds interface state of the main game screen: `npc_interaction` (the
-     dialogue's layouts, trade tables, quote bubble and `NpcDialogueUi`; its staged
-     notice is game state), `npc_presentation` and `npc_speech`, and the portrait
-     animation in `monster_manager_entries`. The main game is discarded before its game
-     is replaced, so nothing forces them onto the game: move the widgets, quote layout and
-     portrait presentation to the screen with step 5.
+   - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
+     main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
+     (who speaks with whom, the offered item, the staged notice) and four interface facts
+     the conversation's progress waits on (the open layout, the hidden panel or dialogue,
+     a modal dialog), which `W8NpcDialogue::Advance` and the NPC script read every step.
+     Those go once the dialogue's progress hears from its interface instead of reading
+     it. `Game` still holds `npc_presentation` and `npc_speech` (the quote on screen and
+     the NPC voice, which scripts wait on), and the portrait animation in
+     `monster_manager_entries`, which combat and magic drive directly; move them to the
+     screen with step 5, behind events.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
      idle timers draw from `Game::rng`). Those belong to the game's own start once the
@@ -229,13 +233,15 @@ the licensed runtime scenarios after every step.
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
    - Painting still updates: the main game's frame now updates its facing, targeting
-     presentation, radar blips and text-box request before `DrawMainGameScreen`
-     (`UpdateMainGamePresentation`), but the draw still refreshes the portrait,
+     presentation, radar blips, text-box request and repaint dependencies before
+     `DrawMainGameScreen` (`UpdateMainGamePresentation`). Vitals panels have one
+     screen-owned invalidation and publish their complete bounds; portrait bounds
+     no longer have a second dispatch table. The draw still refreshes the portrait,
      condition, submenu and HUD buttons, which repaint as they change. Make the frame
      "update presentation state, paint the 640×480 canvas, commit it".
      Once painting is free of updates, try a full paint or coarse per-panel
-     invalidation, and keep `MainGameRepaint`'s finer propagation (one part requesting
-     others, a separate pass mapping parts to rectangles, per-panel shadow state) only
+     invalidation, and keep `MainGameRepaint`'s remaining finer invalidation
+     (a separate pass mapping bottom panels to rectangles, per-panel shadow state) only
      where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
@@ -298,31 +304,27 @@ the licensed runtime scenarios after every step.
    - The fade and monster-cycle completions are plain function pointers, so the NPC
      story callbacks they run read `CurrentGame()`.
    - The game owns the dialogue's progress (`Game::npc_dialogue`) and the Al-Sedexus
-     scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module
-     state and its interface state lives in `Game` (step 1). The presentation belongs to
-     the dialogue's screen.
+     scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module state
+     and keeps its state in `Game` (step 1). The presentation belongs to the dialogue's
+     screen.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
    ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) is still captured from its world: `SaveStatusHeader` writes the sections from
-     live objects. `ReadLevelStatus` decodes every section into `W8LoadedLevelStatus::Data`
-     before applying any (the trigger, prop, lock and action sections as
-     `SavedWorldSection`s), but `Data` also holds prepared resources (monster
-     representations, the default script, NPC bindings) and decoding still reads the
-     replacement world's trigger and automap counts. Turn the decoded part into a
-     `LevelState` value with `encode` and `decode`, and build the world from it.
-   - The game keeps the levels the party has left as undecoded LVLS group images
-     (`Game::left_levels`); a save copies them as bytes. Once level states are values,
-     the game holds those values instead (keeping the groups of levels it never decoded
-     intact) and a save encodes them.
-   - A load decodes every game section before replacing the current game, but a level
-     group is decoded only when the party enters its level, so a malformed group still
-     fails then rather than at load. In order: a `LevelState` that exists without a live
-     `World`; replacement worlds built from those values; then decoding the level groups
-     with the rest of the save.
+     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), but
+     decoding is not yet pure: an encounter generator draws its jittered interval from the
+     game's random stream as it is read (`MonGen::Reset`), so a load cannot decode the
+     groups before the game exists without changing the stream. Draw it when the level is
+     entered instead, then decode every group with the rest of the save. The other
+     direction remains too: `SaveStatusHeader` writes the sections from live objects. Capture a
+     `LevelState` from the world and encode it, so leaving a level and saving go through
+     the value; then the game can hold `LevelState`s for the levels it has left instead
+     of their bytes (`Game::left_levels`), keeping the groups of levels it never decoded
+     intact, and the world can be built from its level's assets and that value alone.
+     The encoder has to reproduce the retail records byte for byte, so it needs retail
+     saves to check against (see "Needs research").
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.
@@ -343,10 +345,8 @@ each.
   `uiCondition`. Verbatim codec copies check field widths, and items, formations and
   NPC stock entries have their own disk records, so those types may change shape. Retail
   disk records still embed other runtime types, which therefore keep their retail
-  layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
-  in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
-  `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
-  `ItemEffects`, and the runtime enums used as disk field types.
+  layout: `W8PartyThreatRecord`, `W8Dice`, `ItemProperties` and `ItemEffects`, and
+  the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;
@@ -360,6 +360,14 @@ Substantial but contained work.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
+- **Mesh asset leftovers.** (#481.) Baked vertex lighting still accumulates into the
+  shared `Mesh::vertex_lights`, and the last instance prepared sets the shared
+  ambient in the asset's colours; move ambient into the instance block so
+  instances of one mesh light independently. `Mesh` keeps unused multi-pass and
+  back-side generality (`MAX_PASSES`, `pass_count`, `dcg`/`scg`, `CONTROL_BACK`,
+  `CONTROL_REUSE_FRONT_MATERIAL`, `CONTROL_NO_FRONT_CULL`) that only tests
+  exercise. `W8_MESH_SORTED_RENDERING` duplicates `CONTROL_SORTED_RENDERING`,
+  except that posters set only the control bit; merging them changes behaviour.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

@@ -120,8 +120,7 @@ bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
         glm::vec3 transformed = rotation * offset;
         unsigned int event_volume =
             static_cast<unsigned int>((1.0f - glm::length(camera_offset) / falloff) * base_volume);
-        event_volume = (g_settings.sound_effects_volume * event_volume) / 0x7f;
-        if (event_volume != 0) {
+        if ((g_settings.sound_effects_volume * event_volume) / 127 != 0) {
 
             if (kind == W8_SOUND_EVENT_FOOTSTEP) {
                 int variant;

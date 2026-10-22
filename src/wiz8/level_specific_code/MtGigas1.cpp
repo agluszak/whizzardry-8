@@ -2,7 +2,6 @@
 
 #include <memory>
 
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/animation_types.h"
@@ -12,7 +11,6 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/render/camera.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
@@ -56,7 +54,7 @@ bool MudWall(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("NP_BadassMonster", &position, 0, 0)) {
-        SpawnMonsters(0x157, 1, &position, 1, true, false, false);
+        SpawnMonsters(0x157, 1, &position, 1, true, false);
     }
     return true;
 }
@@ -133,9 +131,9 @@ bool MtGigas1Script::pressurePlate(Trigger* pTrigger)
     if (plate_prop_ == 0) {
         return false;
     }
-    glm::dvec3 camera_position = world().camera->transform.getLocation();
-    position.x = static_cast<float>(camera_position.x);
-    position.z = static_cast<float>(camera_position.z);
+    const glm::vec3 camera_position = cameraLocation(world());
+    position.x = camera_position.x;
+    position.z = camera_position.z;
     const auto bounds = plate_prop_->computeBounds();
     if ((position.x >= bounds.minimum.x && position.x <= bounds.maximum.x &&
          position.z >= bounds.minimum.z && position.z <= bounds.maximum.z) ||

@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -34,15 +35,15 @@ enum MeshAttribute : std::uint32_t {
 struct MeshAsset {
     struct Batch {
         std::array<std::shared_ptr<Texture>, 2> textures;
-        DrawShader shader;
         std::uint32_t first_index = 0;
         std::uint32_t index_count = 0;
         std::uint32_t first_polygon = 0;
-        bool inherits_shader = true;
     };
     struct Pass {
         unsigned pass = 0;
         unsigned side = 0;
+        // The side whose materials this pass draws (the front when reused).
+        unsigned material_side = 0;
         bool reverse_normals = false;
         bool cull = true;
         // Shader locations 2..6: UVs, additive colour, diffuse/specular
@@ -57,14 +58,18 @@ struct MeshAsset {
         std::vector<std::uint32_t> polygons;
         std::vector<Batch> batches;
         std::vector<std::shared_ptr<Material>> materials;
+        DrawShader shader;
         std::uint32_t draw_flags = 0;
-        bool has_texcoord0 = false;
     };
+    // Pass-wide state changes that keep the topology. A pass that takes its
+    // materials or a texture layer from a per-element table ignores them.
+    void setMaterial(unsigned pass, unsigned side, const std::shared_ptr<Material>& material);
+    void setTexture(unsigned pass, unsigned layer, const std::shared_ptr<Texture>& texture);
+    void setShader(unsigned pass, DrawShader shader);
+
     std::vector<Pass> passes;
-    std::vector<glm::ivec3> triangles;
     glm::vec3 bounds_center{0};
     float bounds_radius = 0;
-    float sort_bias = 0;
     bool sorted = false;
     bool animated = false;
     bool offset_pass_keys = true;
@@ -88,8 +93,6 @@ public:
     explicit MeshPose(Mesh& mesh);
     void update(Mesh& mesh, unsigned frame, float interpolation, int skin = -1,
                 bool check_blanking = true);
-    // Refresh live baked colours without rebuilding topology or batch nodes.
-    void refreshColors(const Mesh& mesh);
     std::shared_ptr<Texture> texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
                                      int skin, unsigned layer = 0) const;
 

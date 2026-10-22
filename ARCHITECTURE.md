@@ -12,7 +12,10 @@ disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
 padding bytes that belong to a file live in `retail_opaque_records.h` and round-trip
 unchanged. A codec copies a field verbatim only when the runtime field is exactly as wide
 as its disk field, and throws otherwise; items, formations and NPC stock entries have
-codecs of their own, so their runtime types need not match a retail size.
+codecs of their own, so their runtime types need not match a retail size. Character
+attributes, resistances, enchantments, modifier blocks and HYPN effect definitions
+use explicit field offsets in byte images; the character codec is the sole declaration
+of its retail field layout.
 Runtime types are not meant to mirror retail memory layout, but types embedded in
 disk records still keep it until they get records of their own (ROADMAP.md,
 "Runtime types with semantic shape"). Runtime strings are UTF-8;
@@ -75,7 +78,7 @@ Unlayered code may use the layers.
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
 | `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. A monster species, missile kind or spell visual is loaded once into a never-live definition (`World::*_definitions`), which every live entity is copied from. Animations hold shared frame meshes (`AnimationMesh`) and never enter a scene; a `CyclePlayer` or `Prop` owns the model instance for each part it draws and shows the current frame on it. An actor's appearance (skin and damage stage, light scale, glow, model scale) is on its `CyclePlayer`, which applies it to that instance; a damage stage is the skin table named for the species and stage on whichever mesh is drawn. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
-| `native/` | Application loop, game events, key bindings, Bink/FFmpeg video. |
+| `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
 | `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` is the fight: starting, ending and pacing it (`fight`), attack resolution (`attack`), hostility, range, the party's move in a round, group attacks and combat sounds; it resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
 
 ## Runtime contracts
@@ -87,8 +90,12 @@ Unlayered code may use the layers.
   may use other SDL formats; palette, TGA and STI decoding is explicit.
 - **Render ownership.** `WorldScene::root` is the actual VSG graph. A visual
   instance owns its transform and drawable subgraph; its model owns shared render
-  topology, UVs and material batches. Ordinary VSG subgraphs can join the root
-  without a Wizardry material or submission adapter. Typed scene collections
+  topology, UVs, material batches and baked vertex colours. Only a topology
+  change rebuilds that asset; skins, bounds, pass-wide materials, textures and
+  shaders, and the lighting bake update it in place. The polygons a view leaves
+  visible are an input to the instance's pose, not state on the shared mesh.
+  Ordinary VSG subgraphs can join the root without a Wizardry material or
+  submission adapter. Typed scene collections
   remain where game activation, ownership and world queries need them; they do
   not define render parentage. Adopting or detaching a subtree updates those
   collections by traversing its graph. The spatial index retains collision, authored
@@ -197,6 +204,15 @@ Unlayered code may use the layers.
   when a fight ends, and its monster group), so no cursor state outlives its world.
 - A level's script is part of the level ("Scripts"). Its masters return completion
   directly; masters armed during a dispatch wait for the next frame.
+- The party's pose is the primary world's `party_camera`: the eye position and the
+  orientation (`partyPose`). Movement writes it (`updatePartyMovement`); level entry,
+  portals, reloads and recall place it through `placeParty` and `restorePartyPose`,
+  which also stand the party navigator `g_default_world_height` below the eye
+  (`navigationPosition`). Gameplay queries, saves and the automap read it. The render
+  cameras derive from it each frame (`placeWorldCameras`): the primary camera and its
+  light at the eye plus the frame's shake, and the sky camera turning and swaying with
+  it. Rendering writes no gameplay state, so extra renders and views leave the party
+  where it is.
 
 ## Scripts
 
@@ -229,10 +245,11 @@ Unlayered code may use the layers.
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
   - the speech queue;
-  - the NPC conversation: its progress (`npc_dialogue`), its interface state
-    (`npc_interaction`, which also stages the next script notice), the quote
-    or portrait message on screen and the NPC voice (`npc_presentation`, `npc_speech`)
-    and the Al-Sedexus scene;
+  - the NPC conversation: its progress (`npc_dialogue`), who speaks with whom, the
+    offered item and the staged script notice (`npc_interaction`; the dialogue's
+    interface itself is the main game's `W8NpcDialoguePanel`), the quote or portrait
+    message on screen and the NPC voice (`npc_presentation`, `npc_speech`) and the
+    Al-Sedexus scene;
   - the shared spell cooldowns;
   - the gameplay timer;
   - the monster-manager entries;
@@ -394,12 +411,13 @@ Unlayered code may use the layers.
   `GameStatus::retail` carries the serialized bytes that are not game state. A started
   game keeps character files in `Game::stored_characters`. The level groups are still
   written from live worlds by `LoadSaveGame.cpp`; reading one decodes the whole group
-  into values (`saved_world_sections.h` for the trigger, prop, lock and action sections)
-  before any of it reaches the replacement world, then applies the sections in the order
-  they were read. The game keeps the groups of levels the party has left, undecoded, in
-  `Game::left_levels` (each a RIFF image of its own, in memory): leaving a level stores
-  its group, entering one reads it back, a save writes them beside the current level's,
-  and a load brings every saved group in. No working file sits beside the saves.
+  into a `LevelState` without the level's world (`saved_world_sections.h` for the trigger,
+  prop, lock and action sections; the sections say themselves how many records follow),
+  then builds the replacement world's monsters from it and applies the sections in the
+  order they were read. The game keeps the groups of levels the party has left as bytes
+  in `Game::left_levels` (each a RIFF image of its own, in memory): leaving a level
+  stores its group, entering one decodes it, a save writes them beside the current
+  level's, and a load brings every saved group in. No working file sits beside the saves.
 - **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
   its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
   the bytes of its unnamed slots.

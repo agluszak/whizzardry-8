@@ -8,7 +8,6 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
-#include <functional>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -34,7 +33,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/mesh_resources.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/update.h"
@@ -91,86 +89,6 @@ static bool ReadMeshFaceNeedsSplit(const W8ReadMeshFace& face,
                                    const std::vector<W8MeshMaterial>& materials)
 {
     return (face.flags & 4) != 0 || materials[face.material_index].two_sided;
-}
-
-/* Reorder polygons so equal shader/texture keys are adjacent, then vertices so
-   equal materials are adjacent and, within them, follow first use. */
-static void OptimizeMeshOrder(Mesh& mesh)
-{
-    auto* model = &mesh;
-    const auto polygon_count = static_cast<std::size_t>(model->polygon_count);
-    const auto vertex_count = static_cast<std::size_t>(model->vertex_location_count);
-    if (polygon_count == 0 || vertex_count == 0) {
-        return;
-    }
-
-    std::vector<const DrawShader*> shader_tables;
-    std::vector<const MeshResources<Texture>*> texture_tables;
-    std::vector<const MeshResources<Material>*> material_tables;
-    for (std::int32_t pass = 0; pass < model->pass_count; ++pass) {
-        if (const DrawShader* shaders = model->getPolyShader(pass, 0)) {
-            shader_tables.push_back(shaders);
-        }
-        for (std::int32_t layer = 0; layer < 2; ++layer) {
-            if (const auto* textures = model->getPolygonTextureTable(pass, layer, false)) {
-                texture_tables.push_back(textures);
-            }
-        }
-        for (int side = 0; side < 2; ++side) {
-            if (const auto* materials =
-                    model->getVertexMaterialTable(pass, static_cast<Mesh::e_side>(side), false)) {
-                material_tables.push_back(materials);
-            }
-        }
-    }
-
-    std::vector<std::uint32_t> polygons(polygon_count);
-    std::iota(polygons.begin(), polygons.end(), 0);
-    std::stable_sort(
-        polygons.begin(), polygons.end(), [&](std::uint32_t left, std::uint32_t right) {
-            for (const DrawShader* shaders : shader_tables) {
-                if (shaders[left].value != shaders[right].value) {
-                    return shaders[left].value < shaders[right].value;
-                }
-            }
-            for (const auto* textures : texture_tables) {
-                if ((*textures)[left] != (*textures)[right]) {
-                    return std::less<>{}((*textures)[left].get(), (*textures)[right].get());
-                }
-            }
-            return false;
-        });
-
-    std::vector<std::uint32_t> first_use(vertex_count, 0);
-    std::uint32_t used = 0;
-    const glm::ivec3* polygon_vertices = model->getPolyVertex();
-    for (std::uint32_t polygon : polygons) {
-        for (int vertex : {polygon_vertices[polygon].x, polygon_vertices[polygon].y,
-                           polygon_vertices[polygon].z}) {
-            if (first_use[vertex] == 0) {
-                first_use[vertex] = ++used;
-            }
-        }
-    }
-
-    std::vector<std::uint32_t> vertices(vertex_count);
-    std::iota(vertices.begin(), vertices.end(), 0);
-    std::stable_sort(
-        vertices.begin(), vertices.end(), [&](std::uint32_t left, std::uint32_t right) {
-            for (const auto* materials : material_tables) {
-                if ((*materials)[left] != (*materials)[right]) {
-                    return std::less<>{}((*materials)[left].get(), (*materials)[right].get());
-                }
-            }
-            return first_use[left] < first_use[right];
-        });
-
-    model->reindexPolygons(polygons);
-    model->reindexVertices(vertices);
-    std::vector<std::uint32_t> inverse(vertex_count);
-    for (std::size_t vertex = 0; vertex < vertices.size(); ++vertex)
-        inverse[vertices[vertex]] = wiz8::checked_integer<std::uint32_t>(vertex);
-    for (auto& [key, vertex] : mesh.mapped_vertices) vertex = static_cast<int>(inverse[vertex]);
 }
 
 namespace {
@@ -237,13 +155,32 @@ std::unique_ptr<Mesh> BuildMeshPart(const SingleLevelMeshRecord& record,
         }
     }
     if (polygon_vertices.empty()) return {};
+    if (record.compressed_vertices.empty()) {
+        // Static parts draw polygons sharing a texture together, so the renderer
+        // can merge them into one batch. Textures keep their first-use order.
+        std::map<const Texture*, std::size_t> texture_rank;
+        for (const auto& texture : polygon_textures)
+            texture_rank.try_emplace(texture.get(), texture_rank.size());
+        std::vector<std::size_t> order(polygon_vertices.size());
+        std::iota(order.begin(), order.end(), std::size_t{0});
+        std::ranges::stable_sort(order, {}, [&](std::size_t polygon) {
+            return texture_rank[polygon_textures[polygon].get()];
+        });
+        const auto reorder = [&](auto& table) {
+            auto original = table;
+            for (std::size_t i = 0; i < order.size(); ++i) table[i] = std::move(original[order[i]]);
+        };
+        reorder(polygon_vertices);
+        reorder(polygon_uvs);
+        reorder(polygon_textures);
+    }
 
     const auto vertex_count = source_vertices.size();
     auto model = std::make_unique<Mesh>(polygon_vertices.size(), vertex_count);
     model->mapped_vertices.insert(mapped_vertices.begin(), mapped_vertices.end());
     auto* textures = model->getPolygonTextureTable(0, 0, true);
     for (std::size_t polygon = 0; polygon < polygon_textures.size(); ++polygon)
-        textures->set(polygon, polygon_textures[polygon]);
+        (*textures)[polygon] = polygon_textures[polygon];
 
     if (std::ranges::all_of(vertex_materials, [&](const auto& material) {
             return material == vertex_materials.front();
@@ -252,7 +189,7 @@ std::unique_ptr<Mesh> BuildMeshPart(const SingleLevelMeshRecord& record,
     } else {
         auto* table = model->getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
         for (std::size_t vertex = 0; vertex < vertex_count; ++vertex)
-            table->set(vertex, vertex_materials[vertex]);
+            (*table)[vertex] = vertex_materials[vertex];
     }
 
     std::ranges::copy(polygon_vertices, model->getPolyVertex());
@@ -271,7 +208,6 @@ std::unique_ptr<Mesh> BuildMeshPart(const SingleLevelMeshRecord& record,
         auto* vertices = model->getVertexLoc();
         for (std::size_t vertex = 0; vertex < vertex_count; ++vertex)
             vertices[vertex] = record.vertices[source_vertices[vertex]];
-        OptimizeMeshOrder(*model);
     } else {
         model->InitializeVertexFrames(
             wiz8::checked_integer<int>(record.compressed_vertices.size()));

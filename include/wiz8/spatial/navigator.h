@@ -5,6 +5,7 @@
 
 struct BoundingBox;
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <span>
@@ -44,8 +45,6 @@ enum W8NavigatorLinkMode : unsigned char {
      a search and store the result code there.
    - FOLLOW_PATH makes the mover advance along the recorded waypoint positions
      (AdvanceAlongPathPositions) instead of steering directly at the target.
-   - PATH_LENGTH_CACHED latches MeasurePathLength's cached path_length; any
-     waypoint edit clears it.
    - START_WAYPOINT marks start_waypoint as the next position to steer to;
      the planner sets both together and the mover clears the bit on arrival.
    - POSITION_RECORDED is raised whenever recorded_position is recorded. */
@@ -55,7 +54,6 @@ enum W8NavigatorAttachmentFlag {
     W8_NAV_ATTACHMENT_FOLLOW_PATH = 0x00010000,
     W8_NAV_ATTACHMENT_START_WAYPOINT = 0x00080000,
     W8_NAV_ATTACHMENT_COLLISION_PREDICTED = 0x00100000,
-    W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED = 0x00400000,
     W8_NAV_ATTACHMENT_IGNORE_LINKED_NAVIGATOR = 0x00800000,
     W8_NAV_ATTACHMENT_TELEPORT_PHASE = 0x01000000,
     W8_NAV_ATTACHMENT_POSITION_RECORDED = 0x02000000,
@@ -64,15 +62,12 @@ enum W8NavigatorAttachmentFlag {
 
 struct NavigatorRoute {
     unsigned int flags;
-    /* Live waypoint cursor. AdvanceAlongPathPositions compacts consumed
-       waypoints and returns this cursor to one. */
-    unsigned short path_cursor;
-    unsigned short position_cursor;
-    unsigned short path_position_index;
-    unsigned short follow_offset;
+    // Index of the next waypoint in the actual sequence. Consumed entries stay put.
+    std::size_t path_cursor = 0;
+    std::ptrdiff_t follow_offset = 0;
     glm::vec3 segment_start;
     glm::vec3 path_destination;
-    glm::vec3 start_waypoint; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
+    glm::vec3 start_waypoint{}; /* valid while W8_NAV_ATTACHMENT_START_WAYPOINT */
     glm::vec3 path_length_origin;
     struct PathEntry {
         glm::vec3 position{0.0f};
@@ -80,36 +75,26 @@ struct NavigatorRoute {
     };
     std::vector<PathEntry> path;
     float separation;
-    /* Direct segment length after initialization; MeasurePathLength later
-       replaces it with the eligible route length and latches flag 0x00400000. */
-    float path_length;
 
     NavigatorRoute(); /* 0x00456210 */
     /* The from/to form 0x004604B0 constructs on the stack: both endpoints of
-       the segment are seeded as recorded positions and path_length holds the
-       straight-line distance. */
+       the segment are seeded as recorded positions. */
     NavigatorRoute(const glm::vec3* from, const glm::vec3* to); /* 0x00456280 */
-    /* Lazily sums the stored segment lengths into path_length, skipping
+    /* Sum the remaining stored segment lengths, skipping
        entries whose preceding path value carries bit 0x2. */
-    float MeasurePathLength(); /* 0x00456B00 */
+    float MeasurePathLength() const; /* 0x00456B00 */
 
     /* Also expanded in OctPath.cpp at 0x00465F63, 0x0046400A and
        0x00464820: set the recorded flag before copying the three components. */
     void RecordPosition(const glm::vec3* position) { flags |= W8_NAV_ATTACHMENT_POSITION_RECORDED; }
-    void GrowPathStorage();
-    /* Append a waypoint and its value, reserving a spare endpoint slot. */
+    std::size_t lastWaypoint() const { return path.size() - 1; }
+    // Insert before the terminal endpoint. Copy first in case position aliases path.
     void AppendPathPosition(const glm::vec3* position, unsigned short value)
     {
-        const auto saved_position = *position;
-        if (path.size() <= static_cast<unsigned int>(path_position_index + 1)) {
-            GrowPathStorage();
-        }
-        path[path_position_index] = {saved_position, value};
-        ++path_position_index;
-        flags &= ~W8_NAV_ATTACHMENT_PATH_LENGTH_CACHED;
+        const PathEntry entry{*position, value};
+        path.insert(path.end() - 1, entry);
     }
 
-    void CopyPathFrom(const NavigatorRoute* other);
     glm::vec3 GetNextPosition() const;
     void InitializeSegment(const glm::vec3* source, const glm::vec3* destination);
     /* Step `position` forward along the recorded route by the 2-D `distance`,
@@ -142,7 +127,7 @@ struct NavigatorRoute {
 
 private:
     bool withinHopHeight(std::span<const W8PathSurface> surfaces, const glm::vec2& point,
-                         unsigned base, bool include_next) const;
+                         std::size_t base, bool include_next) const;
 };
 
 struct NavigatorMovement {
@@ -292,6 +277,7 @@ public:
     unsigned char ConfigureMovementToPosition(const glm::vec3* position); /* 0x00452630 */
     /* Point the movement target at another navigator's position and enter the
        moving mode; the result is nonzero once the target was accepted. */
+    unsigned short SetMovementTargetToAnchor(const glm::vec3& anchor, double separation);
     unsigned short SetMovementTargetToNavigator(Navigator* target,
                                                 double separation); /* 0x004526C0 */
     void LinkGroupNavigator(Navigator* target, bool combat_active);

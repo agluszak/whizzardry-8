@@ -29,6 +29,7 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
@@ -163,8 +164,7 @@ void SyncPartyPortraitVitalsBars(void)
                 spell_bar != static_cast<unsigned int>(entry->cached_spell_bar) ||
                 (g_settings.numeric_hit_points != 0 &&
                  static_cast<int>(character->hp_current) != entry->cached_hp)) {
-                entry->portrait_stats_dirty = true;
-                if (auto* hud = MainGameHud()) hud->repaint.panels = true;
+                if (auto* hud = MainGameHud()) hud->repaint.portrait_bars.set(slot);
             }
         }
 
@@ -445,6 +445,14 @@ void ToggleNumericHitPoints(void)
     }
 }
 
+// Offset follows the mirrored hover-slide direction.
+DesignRect PartyPortraitBounds(unsigned int slot, int offset)
+{
+    const int left = (slot & 1) ? 512 - offset : offset;
+    const int top = 18 + static_cast<int>(slot / 2) * 85;
+    return {left, top, left + 128, top + 86};
+}
+
 /* The slot's anchor positions for the keyboard menu and portrait band: the
    panel corner, the band's two x edges (their order swaps with the column),
    the grid row and the column pixel. 'adjust' applies the compact-display
@@ -452,74 +460,15 @@ void ToggleNumericHitPoints(void)
 void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
                             int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
 {
-    switch (party_slot) {
-    case 0:
-        *grid_row = 1;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0x12;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 1:
-        *grid_row = 2;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0x12;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    case 2:
-        *grid_row = 5;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0x67;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 3:
-        *grid_row = 6;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0x67;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    case 4:
-        *grid_row = 9;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0xbc;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 5:
-        *grid_row = 10;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0xbc;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    case 6:
-        *grid_row = 0xd;
-        *column_x = 0;
-        *menu_x = 0;
-        *menu_y = 0x111;
-        *band_menu_edge = *menu_x + 2;
-        *band_portrait_edge = *menu_x + 0x69;
-        break;
-    case 7:
-        *grid_row = 0xe;
-        *column_x = 0x200;
-        *menu_x = 0x200;
-        *menu_y = 0x111;
-        *band_menu_edge = *menu_x + 0x6b;
-        *band_portrait_edge = *menu_x;
-        break;
-    default:
+    if (party_slot < 0 || party_slot >= 8)
         throw std::logic_error("GetPartySlotMenuAnchor: party slot out of range");
-    }
+    const auto rect = PartyPortraitBounds(party_slot);
+    const bool right = (party_slot & 1) != 0;
+    *menu_x = *column_x = rect.left;
+    *menu_y = rect.top;
+    *grid_row = 1 + (party_slot / 2) * 4 + right;
+    *band_menu_edge = rect.left + (right ? 0x6b : 2);
+    *band_portrait_edge = rect.left + (right ? 0 : 0x69);
     if (adjust != 0 && GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
         static_cast<unsigned int>(GetEffectiveMainUiMode()) <=
             static_cast<unsigned int>(W8_MAIN_UI_MODE_RADAR)) {
@@ -599,8 +548,6 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
                               bar_y - numeric_hp_mode + menu_y);
         }
 
-        InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
-                         bar_y + menu_y + 0x2d);
         if (g_settings.numeric_hit_points != 0) {
             W8TextBuffer text;
             W8ControlsRect bounds;
@@ -614,15 +561,15 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             text.SetLayoutBounds(&bounds, true);
             g_smfnt_font.resetPalette();
             text.SetText(fmt::format("{:d}", character->hp_current), g_smfnt_font);
-            InvalidateRegion(bounds.left, bounds.top + 1, bounds.right, bounds.bottom);
             const SDL_Rect background{bounds.left, bounds.top + 1, bounds.right - bounds.left,
                                       bounds.bottom - bounds.top - 1};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &background, 0x8000);
-            text.RenderToTarget(0, false, GetFrameBufferSurface());
+            text.Paint(GetFrameBufferSurface());
         }
+        InvalidateRegion(band_portrait_edge, bar_y - numeric_hp_mode + menu_y,
+                         band_portrait_edge + 0x18,
+                         menu_y + (numeric_hp_mode ? 0x46 : bar_y + 0x2e));
     }
-
-    entry->portrait_stats_dirty = false;
 }
 
 void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alternate, int spell_id)

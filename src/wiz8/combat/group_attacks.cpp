@@ -488,7 +488,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     record = MonsterDBFromSpecies(special_attack_kind);
     count = RollDice(&record->group_size_dice);
     position = &pAttackerSlot->point;
-    group = CreateGroup(special_attack_kind, count, position, false, false, true);
+    group = CreateGroup(special_attack_kind, count, position, false, true);
     assert(group != 0);
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);

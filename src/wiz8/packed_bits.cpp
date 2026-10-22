@@ -22,7 +22,6 @@
 #include "wiz8/platform/sdl_io.h"
 
 namespace {
-constexpr Uint32 kMagic = 0xdeadd00d;
 constexpr std::size_t kBitsPerWord = 32;
 
 std::size_t WordCount(std::size_t bit_count)
@@ -205,7 +204,7 @@ template<class Read> static bool ReadPackedBits(Read read, std::int64_t remainin
 try {
     Uint32 magic, bit_count, packed_size;
     read(&magic, sizeof(magic));
-    if (magic != kMagic) return false;
+    if (magic != kPackedBitsMagic) return false;
     read(&bit_count, sizeof(bit_count));
     if (!bit_count) return false;
     read(&packed_size, sizeof(packed_size));
@@ -214,7 +213,7 @@ try {
     read(packed.data(), packed.size());
     auto decoded = DecodeBits(packed, bit_count);
     read(&magic, sizeof(magic));
-    if (magic != kMagic) return false;
+    if (magic != kPackedBitsMagic) return false;
     bits = std::move(decoded);
     return true;
 } catch (const std::exception&) {
@@ -240,12 +239,12 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
         words[bit / kBitsPerWord] |= static_cast<unsigned int>(bits[bit]) << (bit % kBitsPerWord);
     }
 
-    sdlIO::check(SDL_WriteU32LE(handle.io(), kMagic));
+    sdlIO::check(SDL_WriteU32LE(handle.io(), kPackedBitsMagic));
     sdlIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(bits.size())));
 
     const auto packed = EncodeWords(words);
     sdlIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(packed.size())));
     sdlIO::writeExact(handle.io(), packed.data(), packed.size());
-    sdlIO::check(SDL_WriteU32LE(handle.io(), kMagic));
+    sdlIO::check(SDL_WriteU32LE(handle.io(), kPackedBitsMagic));
     return true;
 }

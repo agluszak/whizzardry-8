@@ -12,7 +12,6 @@ inline constexpr int UI_PRIORITY_BASE = 31;
 inline constexpr int UI_PRIORITY_NORMAL = UI_PRIORITY_BASE;
 inline constexpr int UI_PRIORITY_HIGHEST = 127;
 
-extern bool g_dev_mode;
 struct UiRoutingState {
     HitTarget *hover = nullptr, *captured = nullptr;
     SDL_Point pointer{};

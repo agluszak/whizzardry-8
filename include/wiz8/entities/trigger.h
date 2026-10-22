@@ -28,7 +28,7 @@ namespace wiz8 {
 class File;
 }
 
-// Trigger events own both timers; the active queue borrows event pointers.
+// The world owns timed actions and their timers.
 class TriggerEvent {
 public:
     TriggerEvent();
@@ -255,7 +255,6 @@ public:
     int required_item_id;
     std::vector<std::string> required_states;
     std::string state_to_modify;
-    std::unique_ptr<TriggerEvent> m_pEvent;
     char inline_action_data[0x100];
     std::unique_ptr<W8WorldItem> world_item_group;
     unsigned char items_generated;
@@ -296,10 +295,6 @@ void SaveTriggerActionData(wiz8::File& handle);
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */
 extern glm::vec3 g_trigger_camera;
-/* Trigger's action camera offset, added to the world scene position while an
-   action is active, and the flag that says one is. */
-extern bool g_trigger_action_active;
-extern glm::vec3 g_trigger_action_scene_offset;
 extern int g_container_event_alt;
 extern int g_trap_notice_event;
 extern int g_lock_notice_event;

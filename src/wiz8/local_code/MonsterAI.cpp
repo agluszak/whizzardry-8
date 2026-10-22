@@ -7,7 +7,6 @@
 #include <span>
 #include <vector>
 
-#include <fmt/format.h>
 #include <glm/geometric.hpp>
 
 #include "glm/ext/vector_float3.hpp"
@@ -27,7 +26,6 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/entities/spell_visual.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
@@ -53,8 +51,6 @@
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -143,10 +139,6 @@ const int g_combat_effect_slot_spells_and_cast_success[23] = {
 
 /* The per-slot weights ChooseMonsterSpell rolls against. */
 static int g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
-
-/* Reported once, so a monster missing its special-attack cycle does not flood
-   the log. */
-static bool g_special_attack_cycle_error_reported;
 
 /* The timed sight service. The dirty flag is raised by the condition and
    enchantment writers whenever what monsters can see of the party may have
@@ -590,18 +582,8 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
 {
     W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
     if (monster_group->encounter_registered) {
-        if (g_dev_mode) {
-            DebugMessage(
-                0, fmt::format(
-                       "Monster {:d} and associated monsters killed because it couldn't patrol",
-                       monster_info->location_id));
-        }
         MarkMonsterGroupForRemoval(monster_info->monster_group_id);
     } else {
-        if (g_dev_mode) {
-            DebugMessage(0, fmt::format("{} {:d} can't path!", GetMonsterName(monster_info, 0, 0),
-                                        monster_info->location_id));
-        }
         monster_info->pathing_cooldown = 0x14;
         if (monster_info->movement_stall_ticks < 2) {
             monster_info->movement_stall_ticks = 2;
@@ -620,7 +602,6 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     const W8MonsterRecord* record;
     W8MonsterInfo* member;
     W8SpellEffectEntry* effect;
-    SpellVisual* visual;
     glm::vec3 position;
     glm::vec3 patrol_point;
     unsigned char best_range;
@@ -713,11 +694,9 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         break;
     case W8_RT_AI_FOLLOW_LURE:
         effect = FindMonsterControlSpellEffect();
-        if (effect == 0 || (visual = effect->spell_visuals[0]) == 0) {
-            break;
-        }
-        if (monster->nav.SetMovementTargetToNavigator(&(visual)->nav, 2500.0) == 0) {
-            position = visual->nav.GetPosition();
+        if (!effect) break;
+        if (monster->nav.SetMovementTargetToAnchor(effect->target.point, 2500.0) == 0) {
+            position = effect->target.point;
             monster->nav.AimAtPosition(&position);
         }
         break;
@@ -748,7 +727,8 @@ void UpdateAllMonsterAI(void)
 
 /* The cycle a monster must have to cast at all. */
 
-/* Reported once, so a monster missing its spell cycle does not flood the log. */
+/* Retail's once-only missing-spell-cycle report. Only MonsterSpellTargetOK still
+   reads it: the first such target it meets is refused, later ones are not. */
 static bool g_spell_cycle_error_reported;
 
 /* Decide what one monster does this round. A monster taken out of the fight
@@ -838,11 +818,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
             }
             if (record->spell_chance != 0) {
                 if (!monster_info->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
-                    if (!g_spell_cycle_error_reported) {
-                        DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                    record->name0));
-                        g_spell_cycle_error_reported = true;
-                    }
+                    g_spell_cycle_error_reported = true;
                 } else {
                     for (spell = 0; spell < 10; ++spell) {
                         if (IsSpellUsableByMonster(monster_info, record->spells[spell], true)) {
@@ -930,11 +906,7 @@ members:
         }
         if (record->spell_chance != 0) {
             if (!member->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
-                if (!g_spell_cycle_error_reported) {
-                    DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                record->name0));
-                    g_spell_cycle_error_reported = true;
-                }
+                g_spell_cycle_error_reported = true;
             } else {
                 for (spell = 0; spell < 10; ++spell) {
                     if (MonsterCanAimSpell(record->spells[spell]) &&
@@ -1532,9 +1504,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                 if (record->spell_chance != 0) {
                     if (!target->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
                         if (!g_spell_cycle_error_reported) {
-                            DebugMessage(0,
-                                         fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                     record->name0));
                             g_spell_cycle_error_reported = true;
                             return false;
                         }
@@ -1705,8 +1674,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_ROUT:
     case W8_SPELL_BOILING_BLOOD_EXPLOSION:
     default:
-        DebugMessage(0, fmt::format("WARNING: MonsterSpellTargetOK - unlisted spell {:d}({})",
-                                    spell_id, Data().spells[spell_id].display_name));
         break;
     }
     return true;
@@ -2199,11 +2166,6 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
         return false;
     }
     if (!monster_info->entity->IsCycleSupported(0x12)) {
-        if (!g_special_attack_cycle_error_reported) {
-            DebugMessage(0, fmt::format("ERROR: {} is missing a SPECIAL ATTACK animation cycle",
-                                        record->name0));
-            g_special_attack_cycle_error_reported = true;
-        }
         return false;
     }
     if (CurrentGame().combat.has_value() && monster_info->pCombat->special_cooldown != 0) {
@@ -2315,33 +2277,15 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     return furthest;
 }
 
-/* Whether the point the monster-control effect is anchored to is still within
-   reach. spell_visuals.data sits at W8SpellEffectEntry + 0x10c; the first visual is
-   a SpellVisual whose Navigator secondary base is the ordinary GrCycle
-   conversion at +0x18. With no effect running, or nothing anchored, there is
-   nothing to be in range of; failing the test falls back on where the party
-   is standing. */
+/* Follow the saved gameplay anchor even when no lure visual could be created. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
-    W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
-    SpellVisual* visual;
-    Navigator* anchor_navigator;
-    short in_range;
-    glm::vec3 party;
-
-    if (effect == 0) {
-        return 0;
-    }
-    visual = effect->spell_visuals[0];
-    if (visual == 0) {
-        return 0;
-    }
-    anchor_navigator = &(visual)->nav;
-    in_range = monster_info->entity->nav.SetMovementTargetToNavigator(anchor_navigator, 2500.0);
-    if (in_range == 0) {
-        party = anchor_navigator->GetPosition();
-        monster_info->entity->nav.AimAtPosition(&party);
-    }
+    const auto* effect = FindMonsterControlSpellEffect();
+    if (!effect) return 0;
+    const auto& anchor = effect->target.point;
+    auto& nav = monster_info->entity->nav;
+    const auto in_range = nav.SetMovementTargetToAnchor(anchor, 2500.0);
+    if (!in_range) nav.AimAtPosition(&anchor);
     return in_range;
 }
 
@@ -2580,8 +2524,6 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
     }
     if (monster_group->leader_location_id == -0x32323233 ||
         (leader = FindMonster(monster_group->leader_location_id)) == 0 || !leader->entity) {
-        DebugMessage(1, fmt::format("ERROR: Group {:d} is without an active leader",
-                                    monster_group->group_id));
         return false;
     }
     if (!CurrentGame().combat.has_value()) {

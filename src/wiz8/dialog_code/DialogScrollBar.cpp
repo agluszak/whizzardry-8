@@ -17,8 +17,7 @@
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
-   0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). It is not
-   stListBox.cpp. */
+   0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). */
 
 W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
     : m_up_button(layer), m_down_button(layer), m_thumb_button(layer), m_track_button(layer)

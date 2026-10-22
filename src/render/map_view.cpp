@@ -43,6 +43,7 @@ struct MapView::Surface {
         vsg::ref_ptr<vsg::BindDescriptorSet> images;
         vsg::ref_ptr<vsg::ImageInfo> texture;
         vsg::ref_ptr<vsg::ImageInfo> detail;
+        std::uint32_t shader = ~0u;
         std::size_t source = 0;
     };
     struct Pass {
@@ -156,17 +157,13 @@ void MapView::Surface::build(render::RenderContext& context, const MeshInstance&
             draw->firstIndex = ranges[batch].first;
             draw->indexCount = ranges[batch].second;
             draw->instanceCount = 1;
-            auto leaf =
-                render::DrawNode::create(draw, source.positions, asset->sorted, asset->sort_bias,
-                                         asset->offset_pass_keys ? source.pass : 0);
+            auto leaf = render::DrawNode::create(draw, source.positions, asset->sorted,
+                                                 asset->offset_pass_keys ? source.pass : 0);
             leaf->cull = cull;
             leaf->pickable = false;
             leaf->sort_order = sort_order;
             leaf->add(instance_bind);
             leaf->add(pass_bind);
-            const auto shader = source.batches[batch].shader.value;
-            leaf->setPipeline(context.pipeline(shader, cull, Winding::Standard),
-                              context.pipeline(shader, cull, Winding::Reversed));
             body->addChild(leaf);
             state.batches.push_back({.leaf = leaf, .source = batch});
         }
@@ -187,13 +184,22 @@ void MapView::Surface::update(render::RenderContext& context, const MeshInstance
         if (explored_changed) fillColors(*state.colors, source, explored);
         render::store(*state.data,
                       render::packPass(source.materials, source.draw_flags, true, pass.frame.time));
+        const auto shader = source.shader.value;
         for (auto& batch : state.batches) {
             const auto& draw = source.batches[batch.source];
             auto texture = context.texture(draw.textures[0].get(), pass.frame.texture_reduction);
             auto detail = context.texture(draw.textures[1].get(), pass.frame.texture_reduction);
-            if (batch.images && batch.texture == texture && batch.detail == detail) continue;
+            if (batch.images && batch.shader == shader && batch.texture == texture &&
+                batch.detail == detail)
+                continue;
+            if (batch.shader != shader) {
+                const auto cull = batch.leaf->cull;
+                batch.leaf->setPipeline(context.pipeline(shader, cull, Winding::Standard),
+                                        context.pipeline(shader, cull, Winding::Reversed));
+                batch.shader = shader;
+            }
             if (batch.images) batch.leaf->remove(batch.images);
-            batch.images = context.batchSet(draw.shader.value, texture, detail);
+            batch.images = context.batchSet(shader, texture, detail);
             batch.leaf->add(batch.images);
             batch.texture = texture;
             batch.detail = detail;
@@ -258,8 +264,6 @@ vsg::ref_ptr<vsg::Group> MapView::prepare(render::RenderContext& context,
         for (auto* mesh : meshParts(instance.getModel())) {
             // Level geometry has no animation frames, so its asset owns positions.
             if (!mesh->frames.empty()) continue;
-            // Baking may replace the shared asset; finish it before comparing.
-            mesh->getTriMesh();
             const auto asset = mesh->renderAsset();
             auto& surface = this->surface(*mesh);
             if (surface.asset != asset || surface.layout != context.layout ||

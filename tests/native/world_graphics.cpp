@@ -202,7 +202,7 @@ TEST_CASE("world graphics")
     }
 
     CameraPose state{};
-    state = cameraState(*world);
+    state = partyPose(*world);
     fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
             state.position.y, state.position.z, state.orientation.yaw, state.orientation.pitch);
     unsigned enabled = 0;
@@ -283,14 +283,11 @@ TEST_CASE("world graphics")
     if (mode && strcmp(mode, "angles") == 0) {
         auto previous = restored;
         for (int angle = 0; angle < 4; ++angle) {
-            // This diagnostic controls the actual render cameras. Scripted
+            // The frame derives the render cameras from this orientation. Scripted
             // tracking can reject SetOrientationImmediate, yielding identical
             // captures that never exercise the requested angles.
             partyCamera().SetOrientation(state.orientation.yaw + angle * 1.5707963f,
                                          angle < 2 ? -0.7f : 0.5f);
-            const auto rotation = partyCamera().rotationMatrix();
-            world->camera->transform.setRotation(rotation);
-            if (GetSecondaryWorld()) GetSecondaryWorld()->camera->transform.setRotation(rotation);
             RenderFrame();
             auto pixels = ReadFrame();
             REQUIRE(pixels != previous);

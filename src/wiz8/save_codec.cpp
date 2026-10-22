@@ -115,7 +115,7 @@ struct GlobalStatus {
     /* 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold
        pass reads. */
-    W8GameplayModifierBlock party_modifiers;
+    std::array<std::byte, 0x67> party_modifiers;
     int next_group_id;
     int next_monster_location_id;
     int next_world_item_id;
@@ -239,8 +239,8 @@ struct GlobalStatus {
     /* 0x49c0: set when the endgame transition starts; saves carrying either
        this or flag are filtered from the load list. */
     bool endgame_started;
-    /* 0x49c1: latched while g_dev_mode is set at teardown; persisted into
-       the save slot as dev_flagged. */
+    /* 0x49c1: retail's developer-mode latch. Never set here; kept so saves
+       round-trip the byte. */
     bool dev_flagged;
 };
 static_assert(std::is_trivially_copyable_v<GlobalStatus>);
@@ -464,8 +464,9 @@ template<> struct Record<save::GameState> {
                bytes.subspan(offsetof(Disk, pending_move_location),
                              sizeof(Disk::pending_move_location)),
                value, text);
-        value(&runtime.party.modifiers,
-              bytes.subspan(offsetof(Disk, party_modifiers), sizeof(Disk::party_modifiers)));
+        nested(runtime.party.modifiers,
+               bytes.subspan(offsetof(Disk, party_modifiers), sizeof(Disk::party_modifiers)), value,
+               text);
         value(&runtime.status.next_group_id,
               bytes.subspan(offsetof(Disk, next_group_id), sizeof(Disk::next_group_id)));
         value(&runtime.status.next_monster_location_id,
@@ -1162,8 +1163,6 @@ std::vector<W8JournalEntry> decode_journal(std::span<const std::byte> payload)
 
 /* The HYPN record lists the effect's spell, its turns left, its working source and target,
    the cast's original source and target, four flags and the effect definition. */
-static_assert(std::is_trivially_copyable_v<W8SpellEffectDefinition> &&
-              sizeof(W8SpellEffectDefinition) == 0x30);
 
 std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
 {
@@ -1175,10 +1174,10 @@ std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
     out.record(monster_control.OrigSource);
     out.record(monster_control.OrigTarget);
     out.flag(monster_control.recast);
-    out.flag(monster_control.sustained);
+    out.flag(true); // Retail HYPN sustained flag.
     out.flag(monster_control.missiles_pending);
     out.flag(monster_control.targets_resolved);
-    out.value(monster_control.definition);
+    out.record(monster_control.definition);
     return out.take();
 }
 
@@ -1193,10 +1192,10 @@ W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
     in.record(effect.OrigSource);
     in.record(effect.OrigTarget);
     effect.recast = in.flag();
-    effect.sustained = in.flag();
+    in.flag(); // Retail flag: HYPN is always sustained.
     effect.missiles_pending = in.flag();
     effect.targets_resolved = in.flag();
-    effect.definition = in.value<W8SpellEffectDefinition>();
+    in.record(effect.definition);
     return effect;
 }
 

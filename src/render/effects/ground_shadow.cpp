@@ -57,33 +57,53 @@ struct GroundShadowAsset {
     }
 };
 
+// The first-pass colours a model's lighting bakes into, if it has any yet.
+static vsg::ref_ptr<vsg::vec4Array> bakedColors(const render::MeshAsset& asset)
+{
+    for (const auto& pass : asset.passes)
+        if (pass.pass == 0 && (pass.draw_flags & render::HasColors)) return pass.attributes[1];
+    return {};
+}
+
 struct ShadowRenderData {
     struct Part {
         Mesh* mesh;
         std::shared_ptr<render::MeshAsset> source_asset;
         std::uint32_t control;
+        vsg::ref_ptr<vsg::vec4Array> colors;
+        // The asset vertex that carries each source vertex's baked colour.
+        std::vector<std::uint32_t> color_vertices;
         render::EffectGeometry geometry;
         vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
         std::array<vsg::ref_ptr<render::DrawNode>, 2> draws;
         std::array<vsg::ref_ptr<vsg::vec4Array>, 2> instances;
         vsg::ref_ptr<vsg::BindDescriptorSet> batch;
 
-        static std::uint32_t flags(const Mesh::TriMesh& source)
+        static std::uint32_t flags(const Mesh& source, bool colors)
         {
             std::uint32_t flags = render::HasTexcoord0;
-            if (source.dig[0]) flags |= render::HasColors;
-            if (source.dcg[0]) flags |= render::HasDiffuseMultipliers;
-            if (source.scg[0]) flags |= render::HasSpecularMultipliers;
+            if (colors) flags |= render::HasColors;
+            if (!source.dcg[0].empty()) flags |= render::HasDiffuseMultipliers;
+            if (!source.scg[0].empty()) flags |= render::HasSpecularMultipliers;
             return flags;
         }
-        Part(render::RenderContext& context, Mesh& mesh, const Mesh::TriMesh& source,
-             const GroundShadowAsset& asset, std::uint32_t capacity,
-             vsg::ref_ptr<vsg::BindDescriptorSet> batch)
-            : mesh(&mesh), source_asset(mesh.renderAsset()), control(source.control_flags),
-              geometry(context, capacity, asset.material, flags(source), source.normals != nullptr,
-                       0),
+        Part(render::RenderContext& context, Mesh& mesh, const GroundShadowAsset& asset,
+             std::uint32_t capacity, vsg::ref_ptr<vsg::BindDescriptorSet> batch)
+            : mesh(&mesh), source_asset(mesh.renderAsset()), control(mesh.render_control),
+              colors(bakedColors(*source_asset)),
+              geometry(context, capacity, asset.material, flags(mesh, colors != nullptr),
+                       mesh.vertex_location_count != 0, 0),
               batch(batch)
         {
+            if (colors) {
+                color_vertices.resize(static_cast<std::size_t>(mesh.vertex_location_count));
+                const auto& pass =
+                    *std::ranges::find_if(source_asset->passes, [&](const auto& pass) {
+                        return pass.attributes[1] == colors;
+                    });
+                for (std::uint32_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex)
+                    color_vertices[pass.source_vertices[vertex]] = vertex;
+            }
             geometry.normals->properties.dataVariance = vsg::DYNAMIC_DATA;
             auto indices = vsg::uintArray::create(capacity);
             for (std::uint32_t vertex = 0; vertex < capacity; ++vertex)
@@ -200,36 +220,49 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         std::size_t end = first + 1;
         while (end < polygons.size() && (polygons[end] >> 16) == mesh_index) ++end;
         auto& model = *world->psrMeshes[mesh_index]->getModel();
-        const auto mesh = model.getTriMesh();
+        model.applyPendingLighting();
+        const auto control = model.render_control;
         const auto count = static_cast<std::uint32_t>((end - first) * 3);
         if (part_index == data.parts.size()) {
-            data.parts.push_back(std::make_unique<ShadowRenderData::Part>(
-                context, model, mesh, *asset, count, data.batch));
+            data.parts.push_back(std::make_unique<ShadowRenderData::Part>(context, model, *asset,
+                                                                          count, data.batch));
             graph_changed = true;
         } else {
             auto& part = data.parts[part_index];
             if (part->mesh != &model || part->source_asset != model.renderAsset() ||
-                part->control != mesh.control_flags || count > part->geometry.positions->size()) {
+                part->colors != bakedColors(*part->source_asset) || part->control != control ||
+                count > part->geometry.positions->size()) {
                 const auto previous_capacity =
                     static_cast<std::uint32_t>(part->geometry.positions->size());
                 const auto capacity = count > previous_capacity
                                           ? std::max(count, previous_capacity * 2)
                                           : previous_capacity;
-                part = std::make_unique<ShadowRenderData::Part>(context, model, mesh, *asset,
-                                                                capacity, data.batch);
+                part = std::make_unique<ShadowRenderData::Part>(context, model, *asset, capacity,
+                                                                data.batch);
                 graph_changed = true;
             }
         }
         auto& part = *data.parts[part_index];
         auto& geometry = part.geometry;
-        auto center = mesh.bounds_center;
-        auto shading_radius = mesh.bounds_radius;
-        if (mesh.control_flags & (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE)) {
-            auto bounds = BoundingBox{mesh.bounds_minimum, mesh.bounds_maximum};
-            if (mesh.control_flags & (1u << Mesh::CONTROL_SKIP_AUTO_BOX))
-                bounds = boundingBox(std::span(mesh.positions, mesh.vertex_count));
+        const auto* triangles = model.getPolyVertex();
+        const auto* positions = model.getVertexLoc();
+        const auto* normals = model.getVertexNormal();
+        const auto* dcg = model.dcg[0].empty() ? nullptr : model.dcg[0].data();
+        const auto* scg = model.scg[0].empty() ? nullptr : model.scg[0].data();
+        glm::vec3 center;
+        float shading_radius;
+        if (control & (1u << Mesh::CONTROL_SKIP_AUTO_SPHERE)) {
+            // An authored sphere is not a usable bound; fall back to the box, and
+            // to the vertices themselves when the box is authored too.
+            const auto bounds = (control & (1u << Mesh::CONTROL_SKIP_AUTO_BOX))
+                                    ? boundingBox(std::span(positions, model.vertex_location_count))
+                                    : model.getBounds().box;
             center = bounds.center();
             shading_radius = glm::length(bounds.minimum - center) * 1.001f;
+        } else {
+            const auto sphere = model.getBounds().sphere;
+            center = sphere.center;
+            shading_radius = sphere.radius;
         }
         // Native shading rejects lights and fog against the source terrain's
         // complete bound, even when the shadow selects only a few of its faces.
@@ -244,32 +277,30 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         };
         std::uint32_t written = 0;
         for (; first < end; ++first) {
-            const auto triangle = mesh.poly_vertices[polygons[first] & 0xffff];
+            const auto triangle = triangles[polygons[first] & 0xffff];
             for (unsigned corner = 0; corner < 3; ++corner) {
                 const auto vertex = triangle[corner];
-                const auto p = mesh.positions[vertex];
+                const auto p = positions[vertex];
                 const auto uv = projection.coordinates(p);
                 update(geometry.positions->at(written), vsg::vec3(p.x, p.y, p.z),
                        positions_changed);
-                if (mesh.normals) {
-                    const auto normal = mesh.normals[vertex];
+                if (normals) {
+                    const auto normal = normals[vertex];
                     update(geometry.normals->at(written), vsg::vec3(normal.x, normal.y, normal.z),
                            normals_changed);
                 }
                 update(geometry.attributes[0]->at(written), vsg::vec4(uv.x, uv.y, 0, 0),
                        attributes_changed[0]);
-                if (mesh.dig[0]) {
-                    const auto color = mesh.dig[0][vertex];
+                if (part.colors)
                     update(geometry.attributes[1]->at(written),
-                           vsg::vec4(color.x, color.y, color.z, 0), attributes_changed[1]);
-                }
-                if (mesh.dcg[0]) {
-                    const auto color = mesh.dcg[0][vertex];
+                           part.colors->at(part.color_vertices[vertex]), attributes_changed[1]);
+                if (dcg) {
+                    const auto color = dcg[vertex];
                     update(geometry.attributes[2]->at(written),
                            vsg::vec4(color.x, color.y, color.z, color.w), attributes_changed[2]);
                 }
-                if (mesh.scg[0]) {
-                    const auto color = mesh.scg[0][vertex];
+                if (scg) {
+                    const auto color = scg[vertex];
                     update(geometry.attributes[3]->at(written),
                            vsg::vec4(color.x, color.y, color.z, color.w), attributes_changed[3]);
                 }

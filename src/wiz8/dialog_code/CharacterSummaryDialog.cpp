@@ -12,7 +12,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/npc_speech.h"
@@ -106,7 +105,7 @@ bool W8CharacterSummaryDialog::ProcessInput()
     if (!m_voice_started && m_portrait_clock + 750 < MonotonicMilliseconds()) {
         m_voice_started = true;
         const auto path = GetCharacterVoicePath(*m_character, 0);
-        m_voice = wiz8::sound::play(path, {.volume = g_settings.voice_volume & 0xffu});
+        m_voice = wiz8::sound::play(path, {.channel = wiz8::sound::VolumeChannel::voice});
         m_mouth_gap = LoadMouthGapTrack(path);
         m_portrait.voice_remaining_ms =
             wiz8::sound::playback_time(m_voice)

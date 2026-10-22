@@ -48,6 +48,7 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/world.h"
@@ -299,6 +300,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(!wiz8::sound::is_playing(sound));
     sound = wiz8::sound::stream(path, {.volume = 127, .loops = 0, .group = Group::music});
     REQUIRE(sound != nullptr);
+    REQUIRE(wiz8::sound::is_file_playing(path));
     mix(12000);
     REQUIRE(wiz8::sound::is_playing(sound));
     REQUIRE(wiz8::sound::stop_group(Group::music));
@@ -386,11 +388,11 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     samples = mix(2048);
     REQUIRE(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
     REQUIRE(wiz8::sound::stop(sound));
-    wiz8::sound::set_default_volume(64);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, 64);
     sound = wiz8::sound::play(path);
     REQUIRE(wiz8::sound::volume(sound) == 64u);
     REQUIRE(wiz8::sound::stop(sound));
-    wiz8::sound::set_default_volume(127);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, 127);
     sound = wiz8::sound::play(path, {.volume = 127, .fade_in_ms = 1000});
     REQUIRE(sound != nullptr);
     samples = mix(2048);
@@ -439,6 +441,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     }
     REQUIRE(wiz8::sound::play(wiz8::sound::Clip{}) == nullptr);
     sound = wiz8::sound::stream(fallback, {.volume = 127});
+    REQUIRE(wiz8::sound::is_file_playing(fallback));
     REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
@@ -815,22 +818,139 @@ TEST_CASE_METHOD(AudioFixture,
     REQUIRE(wiz8::sound::is_playing(previous_voice));
 }
 
-TEST_CASE("Playlist directives do not occupy selectable track indices", "[audio][playlist]")
+TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across region changes",
+                 "[audio][ambient]")
 {
-    const auto playlist = MusicPlaylist::Parse("test.mpl", "#PAUSEMIN=5\na.wav\nb.wav\n");
-    REQUIRE(playlist.tracks.size() == 2);
-    REQUIRE(playlist.pause_min_seconds == 5);
-    REQUIRE(playlist.Select(0).resource == "a.wav");
-    REQUIRE(playlist.Select(1).resource == "b.wav");
+    startOfflineAudio();
+    SetSoundEffectsVolume(127);
+    SharedAmbientGroup group;
+    group.resource = "tone.wav";
+    W8AmbientSound first, second, third;
+    for (auto* emitter : {&first, &second, &third}) {
+        emitter->radius = 100;
+        emitter->volume_max = 80;
+        emitter->bounded = 0;
+        emitter->region_scale = glm::vec3(1);
+        emitter->in_range = 1;
+        group.emitters.push_back(emitter);
+    }
+    group.service(first);
+    const auto playback = group.playback;
+    REQUIRE(playback);
+    group.current_volume = 37;
+    first.in_range = 0;
+    group.updatePosition(first, glm::vec3(0));
+    REQUIRE(group.selected == &second);
+    REQUIRE(group.playback == playback);
+    REQUIRE(group.current_volume == 37);
+    group.service(third);
+    REQUIRE(group.selected == &second);
+    REQUIRE(group.playback == playback);
+
+    group.fade_timer.m_flags.paused = true;
+    group.stop(second);
+    group.service(third);
+    REQUIRE(group.selected == &third);
+    REQUIRE(group.playback);
+    REQUIRE_FALSE(group.fade_timer.m_flags.paused);
+    REQUIRE(group.target_volume == third.volume_max);
 }
 
-TEST_CASE("Playlist weights apply only when every track has one", "[audio][playlist]")
+TEST_CASE_METHOD(AudioFixture, "Volume settings preserve source gain and ambient scheduling",
+                 "[audio][volume]")
 {
-    const auto weighted = MusicPlaylist::Parse("test.mpl", "a.wav(2)\nb.wav(3)\n");
-    REQUIRE(weighted.weight_total == 5);
-    REQUIRE(weighted.Select(1).resource == "a.wav");
-    REQUIRE(weighted.Select(2).resource == "b.wav");
-    const auto mixed = MusicPlaylist::Parse("test.mpl", "a.wav(2)\nb.wav\n");
-    REQUIRE(mixed.weight_total == 0);
-    REQUIRE(mixed.Select(1).resource == "b.wav");
+    startOfflineAudio();
+    using wiz8::sound::VolumeChannel;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto emitter = std::make_unique<W8AmbientSound>();
+    emitter->in_range = 1;
+    emitter->current_volume = 73;
+    emitter->random = std::make_unique<W8AmbientTrack>();
+    emitter->random->next_at = 12345;
+    auto* observed = emitter.get();
+    GetWorld()->audio.emitters.push_back(std::move(emitter));
+    auto effect = wiz8::sound::play("tone.wav", {.volume = 100, .loops = 0});
+    auto voice =
+        wiz8::sound::play("tone.wav", {.volume = 90, .channel = VolumeChannel::voice, .loops = 0});
+    auto positional = wiz8::sound::play("tone.wav", {.volume = 3, .loops = 0});
+    wiz8::sound::set_volume(positional, 3, 0.9f, wiz8::sound::VolumeRounding::after_attenuation);
+    auto expected_rng = PresentationRng();
+    SetSoundEffectsVolume(0);
+    REQUIRE(wiz8::sound::volume(effect) == 0);
+    REQUIRE(wiz8::sound::volume(voice) == 90);
+    SetSoundEffectsVolume(64);
+    REQUIRE(wiz8::sound::volume(effect) == 50);
+    REQUIRE(wiz8::sound::volume(positional) == 1);
+    REQUIRE(observed->in_range == 1);
+    REQUIRE(observed->current_volume == 73);
+    REQUIRE(observed->random->next_at == 12345);
+    REQUIRE(PresentationRng().next() == expected_rng.next());
+    SetSoundEffectsVolume(127);
+    REQUIRE(wiz8::sound::volume(effect) == 100);
+    REQUIRE(wiz8::sound::volume(positional) == 2);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Playlist parsing drives only playable tracks", "[audio][playlist]")
+{
+    startOfflineAudio();
+    const auto music = asset / "data" / "music";
+    std::filesystem::create_directories(music);
+    write(music / "a.wav", wave);
+    write(music / "b.wav", wave);
+    std::string playlist;
+    unsigned int range;
+    SECTION("Weighted tracks after indented directives")
+    {
+        playlist = "  #PAUSEMIN=5\r\n\t#PAUSEMAX=8\r\n * comment\nlabel:\na.wav(2)\nb.wav(3)\n";
+        range = 5;
+    }
+    SECTION("An unweighted track makes selection uniform")
+    {
+        playlist = "a.wav(2)\nb.wav\n";
+        range = 2;
+    }
+    std::ofstream(music / "test.mpl") << playlist;
+    InitializeMusicPlaylist();
+    StopMusicPlaylist(false);
+    auto expected = PresentationRng();
+    const auto draw = expected.below(range);
+    REQUIRE(StartMusicResource("test.mpl", 0, true));
+    ServiceMusicPlaylist();
+    REQUIRE(wiz8::sound::is_file_playing(
+        range == 5 ? (draw < 2 ? "Data/Music/a.wav" : "Data/Music/b.wav")
+                   : (draw == 0 ? "Data/Music/a.wav" : "Data/Music/b.wav")));
+    REQUIRE(PresentationRng().next() == expected.next());
+    StopMusicPlaylist(false);
+}
+
+TEST_CASE_METHOD(AudioFixture,
+                 "Stopped playlists restart and invalid replacements preserve playback",
+                 "[audio][playlist]")
+{
+    startOfflineAudio();
+    const auto music = asset / "data" / "music";
+    std::filesystem::create_directories(music);
+    write(music / "a.wav", wave);
+    std::ofstream(music / "good.mpl") << "a.wav\n";
+    InitializeMusicPlaylist();
+    StopMusicPlaylist(false);
+    REQUIRE(StartMusicResource("good.mpl", 0, true));
+    ServiceMusicPlaylist();
+    REQUIRE(wiz8::sound::is_playing(g_music_sample_handle));
+    StopMusicPlaylist(false);
+    REQUIRE(StartMusicResource("good.mpl", 0, true));
+    REQUIRE(g_music_playlist_active);
+    ServiceMusicPlaylist();
+    const auto playback = g_music_sample_handle;
+    REQUIRE(wiz8::sound::is_playing(playback));
+    for (const auto* invalid :
+         {"a.wav(-1)\n", "a.wav(2147483648)\n", "a.wav(1\n", "#PAUSEMIN=8\n#PAUSEMAX=5\na.wav\n",
+          "#PAUSECHANCE=101\na.wav\n", "#PAUSEMAX=2147483647\na.wav\n", ""}) {
+        std::ofstream(music / "bad.mpl") << invalid;
+        REQUIRE_FALSE(StartMusicResource("bad.mpl", 1, true));
+        REQUIRE(IsCurrentMusicPlaylist("good.mpl"));
+        REQUIRE(g_music_sample_handle == playback);
+        REQUIRE(wiz8::sound::is_playing(playback));
+    }
+    StopMusicPlaylist(false);
 }

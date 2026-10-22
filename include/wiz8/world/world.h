@@ -18,7 +18,6 @@
 #include "wiz8/named_position.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
-#include "wiz8/render/visibility_grid.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/world/camera_paths.h"
@@ -84,7 +83,6 @@ struct World {
     PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
     W8AutomapCells automap;
-    std::unique_ptr<MeshVisibilityGrid> quads;
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
     Light* camera_light{};
@@ -105,10 +103,11 @@ struct World {
     std::vector<std::unique_ptr<ParticleSystem>> particles;
     std::vector<std::unique_ptr<ParticleSystem>> retired_particles;
     std::vector<std::unique_ptr<W8CameraPath>> plsCameras;
-    // Trigger destruction unregisters its owned event from this schedule.
-    std::vector<TriggerEvent*> timed_events;
-    std::vector<std::unique_ptr<TriggerEvent>> standalone_trigger_events;
     std::vector<std::unique_ptr<Trigger>> triggers;
+    // Destroy actions before the triggers they borrow. Only the update loop erases actions.
+    std::vector<std::unique_ptr<TriggerEvent>> timed_events;
+    TriggerEvent* findTimedAction(const Trigger* trigger) const;
+    TriggerEvent& addTimedAction(Trigger* trigger);
     std::vector<std::unique_ptr<Prop>> plsProps;
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
@@ -165,18 +164,23 @@ class Prop;
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, bool use_octree = true);
+std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
 void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
-CameraPose cameraState(const World& world);
-void SetWorldCameraState(World* world, CameraPose* state);
-void RestoreWorldCameraState(CameraPose* state);
+/* The party's pose is `World::party_camera`: the eye position and the orientation,
+   with the retail pose bytes the save keeps. Gameplay queries, saves and the rendered
+   views all read it; rendering never writes it. */
+CameraPose partyPose(const World& world);
 glm::mat3 cameraRotation(const World& world);
+// The party's eye position.
 glm::vec3 cameraLocation(const World& world);
-glm::vec3 cameraLocationOrZero(const World& world);
-void SetWorldScenePosition(World* world, const glm::vec3* position);
+/* Place the party's eye at `position`, as a level entrance, a portal or a reload does. The
+   party navigator follows when the world is the active one. */
+void placeParty(World& world, const glm::vec3& position);
+// Restore a saved pose: the position, the orientation and the retail pose bytes.
+void restorePartyPose(World& world, const CameraPose& pose);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
                       glm::vec3* direction);

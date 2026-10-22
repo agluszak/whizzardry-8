@@ -45,7 +45,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);
             if (monster_info == 0 && FindEntityByName("Sexspawn", &position, 0, 0)) {
-                SpawnMonsters(0x22b, 1, &position, 0, true, false, false);
+                SpawnMonsters(0x22b, 1, &position, 0, true, false);
             }
             return true;
         }
@@ -64,7 +64,7 @@ bool Rift1Hotstuff(Trigger* pTrigger)
 
     if (GetFact(W8_FACT_LAVALORD_DIE) == 0) {
         if (FindEntityByName("Hotstuff", &position, 0, 0)) {
-            group = SpawnMonsters(0x175, 1, &position, 0, true, false, false);
+            group = SpawnMonsters(0x175, 1, &position, 0, true, false);
             if (group != 0) {
                 monster = GetMonsterByLocationID(group->MemberLocationId(0));
                 if (monster != 0 && monster->SetScript("MoveLavalord.MSF", true)) {
@@ -83,7 +83,7 @@ bool Rift1Fireantspawn(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("Fireantspawn", &position, 0, 0)) {
-        SpawnMonsters(0x12b, 6, &position, 1, false, false, false);
+        SpawnMonsters(0x12b, 6, &position, 1, false, false);
     }
     return true;
 }
@@ -101,7 +101,7 @@ bool Rift1AshLock(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("NP_Hotstuff3", &position, 0, 0)) {
-        SpawnMonsters(0x222, 1, &position, 1, true, false, false);
+        SpawnMonsters(0x222, 1, &position, 1, true, false);
     }
     return true;
 }

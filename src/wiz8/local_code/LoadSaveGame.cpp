@@ -24,6 +24,7 @@
 
 #include <SDL3/SDL_error.h>
 #include <SDL3/SDL_filesystem.h>
+#include <SDL3/SDL_log.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_time.h>
@@ -686,7 +687,12 @@ SavedMonster ReadMonster(W8Chunk& chunk)
 
 } // namespace
 
-struct W8LoadedLevelStatus::Data {
+namespace {
+/* One level's saved state as its LVLS group holds it, decoded without the level's world:
+   the status header, the monster groups and monsters, the world items, cursor nodes,
+   encounters and automap, the trigger, prop, lock and action sections, and the ambient
+   sounds, particles and lights. */
+struct LevelState {
     std::optional<wiz8::save::LevelStatusHeader> header;
     std::vector<SavedMonsterGroup> groups;
     std::vector<SavedMonster> monsters;
@@ -699,6 +705,11 @@ struct W8LoadedLevelStatus::Data {
     std::vector<W8LightState> lights;
     // The trigger, prop, lock and action sections, in the order they were read.
     std::vector<SavedWorldSection> world_sections;
+};
+} // namespace
+
+// A level's decoded state with what building its world prepared from it.
+struct W8LoadedLevelStatus::Data : LevelState {
     std::shared_ptr<Script> default_script;
     W8PreparedNpcBindings npc_bindings;
     std::vector<int> pending_deaths;
@@ -708,10 +719,9 @@ W8LoadedLevelStatus::W8LoadedLevelStatus() : data(std::make_unique<Data>()) {}
 W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 
 namespace {
-/* Decode one section of a level group into the group's values. The replacement world is
-   only read, for how many triggers and automap keys its level has. */
-void ReadLevelSection(const World& world, W8LoadedLevelStatus::Data& data, W8Chunk& chunk,
-                      unsigned int chunk_id, bool from_assets, bool baseline = false)
+// Decode one section of a level group into the group's values.
+void ReadLevelSection(LevelState& data, W8Chunk& chunk, unsigned int chunk_id, bool from_assets,
+                      bool baseline = false)
 {
     switch (chunk_id) {
     case W8_CHUNK_STATUS_HEADER:
@@ -759,11 +769,10 @@ void ReadLevelSection(const World& world, W8LoadedLevelStatus::Data& data, W8Chu
         data.world_sections.emplace_back(DecodeSavedTriggerActions(chunk));
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
-        data.automap = ReadAutomapNotes(chunk, world.automap.keys.size());
+        data.automap = ReadAutomapNotes(chunk);
         break;
     case W8_CHUNK_TRIGGERS:
-        data.world_sections.emplace_back(
-            DecodeSavedTriggers(chunk, world.triggers.size(), from_assets));
+        data.world_sections.emplace_back(DecodeSavedTriggers(chunk, from_assets));
         break;
     case W8_CHUNK_PROPS:
         data.world_sections.emplace_back(DecodeSavedProps(chunk));
@@ -914,7 +923,6 @@ static std::unique_ptr<W8SaveSlot> ReadSaveSlot(const std::string& name,
         case W8_CHUNK_GAME_STATUS:
             saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks)).status;
             has_status = true;
-            slot->dev_flagged = saved.dev_flagged;
             break;
         case W8_CHUNK_GAME_VERSION:
             chunks.ReadValue(slot->version_major);
@@ -994,7 +1002,7 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
 {
     wiz8::save::GameState snapshot{game.status, game.party};
     auto& status = snapshot.status;
-    status.pending_move_location = cameraState(*GetWorld());
+    status.pending_move_location = partyPose(*GetWorld());
     status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {
@@ -1167,11 +1175,12 @@ try {
 }
 
 namespace {
-std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chunk, int level,
-                                                     bool from_assets)
+/* Decode level `level`'s group from `chunk`, or nothing when the file has none. A saved
+   group takes the sections a save does not repeat (locks, cursor nodes, encounters and
+   trigger actions) from the level's asset status first. */
+std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_assets)
 {
-    auto status = std::make_unique<W8LoadedLevelStatus>();
-    auto& data = *status->data;
+    LevelState state;
     const bool found = WithLevelGroup(chunk, level, [&] {
         if (!from_assets) {
             W8Chunk baseline;
@@ -1180,16 +1189,26 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
                     baseline.ForEachChunk([&](unsigned int section) {
                         if (section == W8_CHUNK_TRIGGER_LOCKS || section == W8_CHUNK_CURSOR_NODES ||
                             section == W8_CHUNK_ENCOUNTERS || section == W8_CHUNK_TRIGGER_ACTIONS)
-                            ReadLevelSection(world, data, baseline, section, true, true);
+                            ReadLevelSection(state, baseline, section, true, true);
                     });
                 });
             }
         }
-        chunk.ForEachChunk([&](unsigned int section) {
-            ReadLevelSection(world, data, chunk, section, from_assets);
-        });
+        chunk.ForEachChunk(
+            [&](unsigned int section) { ReadLevelSection(state, chunk, section, from_assets); });
     });
-    if (!found) return nullptr;
+    if (!found) return std::nullopt;
+    return state;
+}
+
+std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chunk, int level,
+                                                     bool from_assets)
+{
+    auto state = DecodeLevelState(chunk, level, from_assets);
+    if (!state) return nullptr;
+    auto status = std::make_unique<W8LoadedLevelStatus>();
+    auto& data = *status->data;
+    static_cast<LevelState&>(data) = std::move(*state);
     for (auto& section : data.world_sections) ApplySavedSection(world, section);
     std::unordered_set<int> group_ids, monster_ids;
     for (const auto& group : data.groups) {
@@ -1603,11 +1622,11 @@ try {
     return {};
 }
 
-/* Load a save slot. Every section is decoded first, so a malformed one fails the load
+/* Load a save slot. Every game section is decoded first, so a malformed one fails the load
    before the game in progress is replaced; then a new game begins and the sections are
-   installed in the order the file holds them (keeping each level's group undecoded until
-   the party enters the level). The message countdowns, the gameplay timer and the held
-   item are re-armed and the loaded items normalized last. */
+   installed in the order the file holds them. The game keeps each level's group as bytes,
+   which a save copies and entering the level decodes. The message countdowns, the gameplay
+   timer and the held item are re-armed and the loaded items normalized last. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
     W8Chunk chunks;
@@ -1702,6 +1721,8 @@ try {
     game.autosave_due = Game::kAutosaveInterval;
     SanitizeLoadedItems();
     return true;
-} catch (const std::exception&) {
+} catch (const std::exception& error) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot load save %.*s: %s",
+                 static_cast<int>(slot_name.size()), slot_name.data(), error.what());
     return false;
 }

@@ -169,8 +169,7 @@ struct GameStatus {
     /* Set when the endgame transition starts; saves carrying either this or flag are
        filtered from the load list. */
     bool endgame_started = false;
-    /* Latched while g_dev_mode is set at teardown; persisted into the save slot as
-       dev_flagged. */
+    /* Retail's developer-mode latch. Never set here; kept so saves round-trip the byte. */
     bool dev_flagged = false;
     wiz8::retail::GlobalStatusOpaque retail;
 

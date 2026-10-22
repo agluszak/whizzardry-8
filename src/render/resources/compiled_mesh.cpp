@@ -19,10 +19,8 @@
 #include "wiz8/binary_reader.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/render/draw_shader.h"
-#include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
-#include "wiz8/render/mesh_resources.h"
 
 class Texture;
 
@@ -121,8 +119,7 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
     int selected_material = m_material_index;
     int index;
     if (m_material_index < 0) {
-        MeshResources<Material>* vertex_materials =
-            model->getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
+        auto* vertex_materials = model->getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
         if (vertex_materials == 0) {
             ShutdownWithErrorBox("CompiledMesh::Read -- Could not get vertex material array.\n");
         }
@@ -136,7 +133,7 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
             if (material_index < 0 || material_index >= material_count) {
                 throw std::runtime_error("Invalid mesh vertex material index");
             }
-            vertex_materials->set(index, materials[material_index].material);
+            (*vertex_materials)[index] = materials[material_index].material;
         }
     } else {
         model->setMaterial(materials[m_material_index].material, 0, Mesh::SIDE_FRONT);
@@ -152,7 +149,7 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
                   "CompiledMesh::Read -- Could not get poly-vertex array.\n",
                   "CompiledMesh::Read -- Could not read m_psrPolyVertex.\n");
 
-    MeshResources<Texture>* polygon_textures = model->getPolygonTextureTable(0, 0, true);
+    auto* polygon_textures = model->getPolygonTextureTable(0, 0, true);
     if (polygon_textures == 0) {
         ShutdownWithErrorBox("CompiledMesh::Read -- Could not get poly texture array.\n");
     }
@@ -165,7 +162,7 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
         if (texture_index < 0 || texture_index >= material_count) {
             throw std::runtime_error("Invalid mesh polygon texture index");
         }
-        polygon_textures->set(index, materials[texture_index].texture);
+        (*polygon_textures)[index] = materials[texture_index].texture;
     }
 
     vertex_normals = model->getVertexNormal();

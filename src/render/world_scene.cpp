@@ -244,7 +244,6 @@ public:
                     const auto& p = item.node->positions->at(source->at(first + corner));
                     depth += (matrix * glm::vec4(p.x, p.y, p.z, 1)).z;
                 }
-                depth += item.node->sort_bias * 3;
                 const auto bits = std::bit_cast<std::uint32_t>(-depth);
                 auto key = (bits & 0x80000000u) == 0 ? bits | 0x80000000u
                                                      : 0x7fffffffu - (bits & 0x7fffffffu);
@@ -419,10 +418,9 @@ void updateMembership(vsg::Node& root, WorldScene* target)
 } // namespace
 
 DrawNode::DrawNode(vsg::ref_ptr<vsg::VertexIndexDraw> geometry,
-                   vsg::ref_ptr<vsg::vec3Array> positions, bool sorted, float sort_bias,
-                   std::uint32_t pass_key)
+                   vsg::ref_ptr<vsg::vec3Array> positions, bool sorted, std::uint32_t pass_key)
     : draw(std::move(geometry)), positions(std::move(positions)), sorted(sorted),
-      sort_bias(sort_bias), pass_key(pass_key), vertices(vsg::BindVertexBuffers::create())
+      pass_key(pass_key), vertices(vsg::BindVertexBuffers::create())
 {
     vertices->firstBinding = draw->firstBinding;
     vertices->arrays = draw->arrays;
@@ -451,6 +449,9 @@ void DrawNode::accept(vsg::RecordTraversal& traversal) const
 void DrawNode::setPipeline(vsg::ref_ptr<vsg::BindGraphicsPipeline> pipeline,
                            vsg::ref_ptr<vsg::BindGraphicsPipeline> reflected)
 {
+    std::erase_if(stateCommands, [](const auto& command) {
+        return command->template cast<vsg::BindGraphicsPipeline>() != nullptr;
+    });
     add(pipeline);
     reflected_pipeline = reflected;
 }
