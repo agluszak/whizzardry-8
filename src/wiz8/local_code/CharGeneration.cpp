@@ -852,24 +852,19 @@ void CharacterDraft::setProfession(W8Profession profession)
                 allocation.skill_baselines[index] = 0;
             }
         }
-        W8Skill bonus_skill = g_profession_bonus_skills[character.iProfession];
-        int base = character.skills[bonus_skill].points;
-        int missing = (allocation.skill_points_spent[bonus_skill] - base) + 5;
-        if (missing > 0) {
-            character.skills[bonus_skill].points = base + missing;
-            character.skills[bonus_skill].level += missing;
-            allocation.skill_baselines[bonus_skill] += missing;
-        }
-        for (index = 0; index < 4; ++index) {
-            W8Skill skill = g_profession_skills[character.iProfession][index];
-            int value = character.skills[skill].points;
-            int missing = (allocation.skill_points_spent[skill] - value) + 5;
+        const auto grant = [this](W8Skill skill) {
+            // Profession tables can leave some of their four skill slots empty.
+            if (skill == W8_SKILL_NONE) return;
+            auto& value = character.skills[skill];
+            const int missing = allocation.skill_points_spent[skill] - value.points + 5;
             if (missing > 0) {
-                character.skills[skill].points = value + missing;
-                character.skills[skill].level += missing;
+                value.points += missing;
+                value.level += missing;
                 allocation.skill_baselines[skill] += missing;
             }
-        }
+        };
+        grant(g_profession_bonus_skills[character.iProfession]);
+        for (const auto skill : g_profession_skills[character.iProfession]) grant(skill);
     }
     applyRaceProfessionTables();
 }
