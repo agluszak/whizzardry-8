@@ -42,7 +42,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSPortraits.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/rules/character.h"
@@ -74,14 +73,17 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         return 0;
     }
     if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x253], amount));
+        CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                                  fmt::sprintf(Data().strings[0x253], amount)});
         return 0;
     }
 
     if (character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
         absorbed = character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
         if (amount <= absorbed) {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], amount));
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot),
+                                fmt::sprintf(Data().strings[0x193 - (quiet)], amount)});
             character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
                 static_cast<unsigned short>(absorbed - amount);
             if (result_stats != 0) {
@@ -90,10 +92,13 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             return 0;
         }
 
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], absorbed));
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
+                            fmt::sprintf(Data().strings[0x193 - (quiet)], absorbed)});
         amount -= absorbed;
         Disenchant(CurrentGame(), party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
-        PostCharacterNotice(party_slot, Data().strings[0x194]);
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x194]});
     }
 
     FatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
@@ -104,12 +109,15 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
 
     if (announce) {
         if (detailed) {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x268], amount));
+            CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                                      fmt::sprintf(Data().strings[0x268], amount)});
         } else if (short_notice) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x254], amount));
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x254], amount)});
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x255], amount,
-                                                         quiet ? Data().strings[0x257] : ""));
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(party_slot),
+                fmt::sprintf(Data().strings[0x255], amount, quiet ? Data().strings[0x257] : "")});
         }
     }
 
@@ -341,14 +349,17 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             if (in_combat != 0) {
                 if (c) {
-                    ShowNotice(category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                                     Data().strings[0x268]));
+                    CurrentGame().events.push(TextNotice{
+                        category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
+                                              Data().strings[0x268])});
                 } else if (a != 0) {
-                    ShowNotice(category, fmt::sprintf(Data().strings[0x254], amount));
+                    CurrentGame().events.push(
+                        TextNotice{category, fmt::sprintf(Data().strings[0x254], amount)});
                 } else {
-                    ShowNotice(category, fmt::sprintf(Data().strings[0x256],
-                                                      GetMonsterName(monster_info, 0, 0), amount,
-                                                      quiet ? g_poison_suffix : ""));
+                    CurrentGame().events.push(
+                        TextNotice{category, fmt::sprintf(Data().strings[0x256],
+                                                          GetMonsterName(monster_info, 0, 0),
+                                                          amount, quiet ? g_poison_suffix : "")});
                 }
             }
         }
@@ -402,12 +413,13 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 
     if (announce) {
         if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x259], GetMonsterName(monster_info, 0, 0)));
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x259],
+                                                              GetMonsterName(monster_info, 0, 0))});
         } else {
-            ShowNotice(
+            CurrentGame().events.push(TextNotice{
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x25b], GetMonsterName(monster_info, 0, 0), amount));
+                fmt::sprintf(Data().strings[0x25b], GetMonsterName(monster_info, 0, 0), amount)});
         }
     }
 }
@@ -495,9 +507,11 @@ void HealCharacter(int party_slot, int amount, bool announce)
     }
     if (announce) {
         if (character->hp_current == hp_max) {
-            PostCharacterNotice(party_slot, Data().strings[0x258]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x258]});
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x25a], amount));
+            CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                                      fmt::sprintf(Data().strings[0x25a], amount)});
         }
     }
 
@@ -541,9 +555,11 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce)
     }
     if (announce) {
         if (character->stamina == stamina_max) {
-            PostCharacterNotice(party_slot, Data().strings[0x25c]);
+            CurrentGame().events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x25c]});
         } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x25e], amount));
+            CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                                      fmt::sprintf(Data().strings[0x25e], amount)});
         }
     }
 
@@ -575,7 +591,8 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
         return;
     }
     if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x260], amount));
+        CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                                  fmt::sprintf(Data().strings[0x260], amount)});
         return;
     }
 
@@ -588,9 +605,10 @@ void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announc
             }
             SpendCharacterSpellPoints(party_slot, realm, taken);
             if (announce) {
-                ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::sprintf(Data().strings[0x263], amount,
-                                        Data().strings[g_realm_message_offsets[realm]]));
+                CurrentGame().events.push(
+                    TextNotice{W8_FONT_PALETTE_WHITE,
+                               fmt::sprintf(Data().strings[0x263], amount,
+                                            Data().strings[g_realm_message_offsets[realm]])});
             }
             remaining = amount - taken;
             amount = remaining;
@@ -629,7 +647,9 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
             if (order[index].deficit == 0 || (index != W8_SPELL_REALM_COUNT - 1 &&
                                               order[index].deficit < order[index + 1].deficit)) {
                 if (index == W8_SPELL_REALM_COUNT - 1) {
-                    PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a3], granted));
+                    CurrentGame().events.push(
+                        CharacterNotice{static_cast<unsigned int>(party_slot),
+                                        fmt::sprintf(Data().strings[0x1a3], granted)});
                     return;
                 }
                 continue;
@@ -643,12 +663,15 @@ void RestoreCharacterSpellPointsEvenly(int party_slot, int amount)
                 break;
             }
             if (amount == 0) {
-                PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a3], granted));
+                CurrentGame().events.push(
+                    CharacterNotice{static_cast<unsigned int>(party_slot),
+                                    fmt::sprintf(Data().strings[0x1a3], granted)});
                 return;
             }
         }
     }
-    PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a3], granted));
+    CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                              fmt::sprintf(Data().strings[0x1a3], granted)});
 }
 
 /* Wound one character. Two thirds of the damage also tires them, the damage
@@ -664,7 +687,8 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
     if (character->uiHPMax != 0 && character->hp_current != 0) {
         FatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
         if (announce) {
-            ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x1c4], damage));
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x1c4], damage)});
         }
         character->hp_adjustment -= damage;
         SettleActiveParty(CurrentGame());
@@ -744,12 +768,13 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
     }
     if (announce) {
         if (static_cast<unsigned int>(monster_info->stamina) == stamina_max) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x25d], GetMonsterName(monster_info, 0, 0)));
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x25d],
+                                                              GetMonsterName(monster_info, 0, 0))});
         } else {
-            ShowNotice(
+            CurrentGame().events.push(TextNotice{
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x25f], GetMonsterName(monster_info, 0, 0), amount));
+                fmt::sprintf(Data().strings[0x25f], GetMonsterName(monster_info, 0, 0), amount)});
         }
     }
 
@@ -968,9 +993,10 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
 
     if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot,
+        CurrentGame().events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
                             fmt::sprintf(Data().strings[0x262], amount,
-                                         Data().strings[g_realm_message_offsets[realm]]));
+                                         Data().strings[g_realm_message_offsets[realm]])});
         return;
     }
 
@@ -985,9 +1011,9 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
     }
     SpendCharacterSpellPoints(party_slot, realm, amount);
     if (announce) {
-        ShowNotice(W8_FONT_PALETTE_WHITE,
-                   fmt::sprintf(Data().strings[0x263], amount,
-                                Data().strings[g_realm_message_offsets[realm]]));
+        CurrentGame().events.push(TextNotice{
+            W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x263], amount,
+                                                Data().strings[g_realm_message_offsets[realm]])});
     }
 }
 

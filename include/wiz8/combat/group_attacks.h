@@ -12,7 +12,7 @@ struct W8CombatSlot;
 
 /* Resolve one special-attack entry against every character and monster target.
    Its two effect slots each roll against a per-target miss chance and dispatch
-   on the effect style; the hit/damage tallies are summarized to the text box
+   on the effect style; the hit/damage tallies return as a complete summary
    unless combat announcements are verbose. */
 std::string ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                                       W8CombatSlot* pAttackerSlot, std::vector<int> char_targets,

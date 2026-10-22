@@ -1116,15 +1116,17 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     if (effect == 1) {
         if (g_settings.verbose_combat_messages != 0 || !item->identified) {
-            ShowNotice(W8_FONT_PALETTE_WHITE,
-                       fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
-                                    Data().spells[spell_id].display_name, power),
-                       -1);
+            CurrentGame().events.push(
+                TextNotice{W8_FONT_PALETTE_WHITE,
+                           fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
+                                        Data().spells[spell_id].display_name, power),
+                           -1});
         }
         item->spell_hint = true;
     } else if (effect == 3) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a9],
-                                                     FormatItemDisplayName(Data(), item, false)));
+        CurrentGame().events.push(CharacterNotice{
+            static_cast<unsigned int>(party_slot),
+            fmt::sprintf(Data().strings[0x1a9], FormatItemDisplayName(Data(), item, false))});
     }
 
     if (skill != W8_SKILL_NONE) {

@@ -709,9 +709,8 @@ bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id)
 /* The 0x4f spell's finalizer. Once its target is gone, the impact spell 0x76
    is cast at the target's last position and the matching notice is posted:
    the monster's own notice for a monster that has died, or the targeted
-   character's notice for a character whose row is empty. A text box is only
-   opened when the detailed combat messages are off, matching the ordinary
-   damage path. */
+   character's notice for a character whose row is empty. Short notices
+   travel with the follow-up effect; detailed notices publish separately. */
 void FinishSpellEffect(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info = 0;
@@ -1795,9 +1794,8 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 enum { W8_MESSAGE_MONSTER_CAST_VERBOSE = 0x638, W8_MESSAGE_MONSTER_CAST = 0x63c };
 
 /* A monster casts. The line it is announced with names the caster, the spell
-   and what it is aimed at; the quiet form leaves the power level out and puts
-   the text box into its message mode, and the verbose form keeps the power
-   level and does not.
+   and what it is aimed at. The short form omits the power level and stays
+   with the effect until its result is complete.
 
    Its failure chance is the same rule the party's is, with the monster's
    spell-point budget standing in for a caster's spellbook skill, which is what
@@ -1875,16 +1873,8 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* tar
     }
 }
 
-/* Queued report records use the exhausted-condition notice. */
-
-/* Post what an effect accumulated. The opening separator only appears once
-   the text box already has something in it; the total is reported as
-   "<count> <unit>" or, for a single hit, "<amount> points", and each nonzero
-   condition appends its own affected-target count and condition name. Records still queued on
-   the result are then drained: a character-slot record posts the named
-   character's notice, a text record formats its own "%s %s" line, and the box
-   is reset around each. With nothing reported at all the effect reports that
-   its target took no damage. */
+/* Complete the effect's damage and condition summary, then publish it before
+   separate death reports. An effect that reported nothing describes no damage. */
 void ReportSpellResult(W8SpellEffectEntry* effect)
 {
 

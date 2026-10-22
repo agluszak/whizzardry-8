@@ -2264,7 +2264,7 @@ TEST_CASE("Notice emphasis follows UTF-8 spans across wrapped rows and newlines"
     REQUIRE(rows[0].highlight_stop == 4);
     REQUIRE(rows[1].text == "CD");
     REQUIRE(rows[2].text == "EFG");
-    for (unsigned int i = 1; i <= 2; ++i) {
+    for (int i = 1; i <= 2; ++i) {
         REQUIRE(rows[i].highlight_color == W8_FONT_PALETTE_BLUE);
         REQUIRE(rows[i].highlight_start == 0);
         REQUIRE(rows[i].highlight_stop == rows[i].text.size());

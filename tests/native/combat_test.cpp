@@ -20,6 +20,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/monster_roster.h"
@@ -269,4 +270,19 @@ TEST_CASE_METHOD(CombatFixture, "Spell summaries belong to their effect and prec
     const auto& completed = std::get<TextNotice>(game.events.pending()[2]);
     REQUIRE(completed.text == "First casts -- 7 damage");
     REQUIRE(completed.highlight.stop == 5);
+}
+
+TEST_CASE_METHOD(CombatFixture, "Detailed healing reports without a screen observer")
+{
+    GameData data;
+    data.strings.resize(0x25b);
+    data.strings[0x25a] = "%d hit points restored";
+    const ScopedGameData installed(std::move(data));
+    game.party.characters[0].uiHPMax = 20;
+    HealCharacter(0, 5, true);
+    REQUIRE(game.party.characters[0].hp_current == 15);
+    REQUIRE(game.events.pending().size() == 1);
+    const auto& notice = std::get<CharacterNotice>(game.events.pending()[0]);
+    REQUIRE(notice.party_slot == 0);
+    REQUIRE(notice.text == "5 hit points restored");
 }
