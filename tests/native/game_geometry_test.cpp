@@ -38,6 +38,7 @@
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/PipelineLayout.h>
 #include <vsg/state/ViewportState.h>
+#include <vsg/utils/LineSegmentIntersector.h>
 #include <vulkan/vulkan_core.h>
 
 #include "geometry.h"
@@ -69,6 +70,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -1098,16 +1100,16 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
     auto& keys = source.animator.emplace<KeyframedLightAnim>();
     keys.key_frames = {1, 2};
     keys.time = 1.5f;
-    source.path_ai = std::optional<KeyframeTrack>(std::in_place);
-    source.path_ai->nodes.emplace_back(1, 2, 3);
+    source.path_ai.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
     source.path_ai->timed = true;
     Light copy(source);
     auto& copied = std::get<KeyframedLightAnim>(copy.animator);
     REQUIRE(copied.time == 1.5f);
     copied.key_frames.front() = 99;
-    copy.path_ai->nodes.front().x = 99;
+    copy.path_ai->position = 99;
     REQUIRE(keys.key_frames.front() == 1);
-    REQUIRE(source.path_ai->nodes.front().x == 1);
+    REQUIRE(source.path_ai->position == 0);
+    REQUIRE(source.path_ai->geometry == copy.path_ai->geometry);
     REQUIRE_FALSE(copy.path_ai->timed);
     // A fade starts at its game event, even if the light is sampled later.
     Light fading;
@@ -1158,7 +1160,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();
     REQUIRE(static_position == glm::vec3(10, 20, 30));
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     REQUIRE(prop.GetPosition() == prop.animation_position);
     REQUIRE(static_position == glm::vec3(10, 20, 30));
     prop.animation_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1184,7 +1186,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
 TEST_CASE("Animation bounds retain composite caching and path values", "[geometry][animation]")
 {
     Animation animation;
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     animation.frame_count = 2;
     REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 2));
     REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 1));
@@ -1195,22 +1197,19 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
         mesh->frame_count = 1;
         mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
                                   : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
-        animation.meshes[0].push_back(std::move(mesh));
-        auto path = std::optional<KeyframeTrack>(std::in_place);
-        PathAIAddPoint(*path, glm::vec3(100, 200, 300));
-        PathAIAddPoint(*path, glm::vec3(400, 500, 600));
-        path->rotations.resize(path->nodes.size(), glm::mat3(1));
+        auto path = std::optional<KeyframeTrack>(
+            std::in_place, std::vector<KeyframePoint>{{{100, 200, 300}, glm::mat3(1), {}},
+                                                      {{400, 500, 600}, glm::mat3(1), {}}});
         PathAISetValue((path ? &*path : nullptr), 0.75f);
-        animation.paths[0].push_back(std::move(path));
+        animation.parts[0].push_back({std::move(*mesh), std::move(path)});
     }
     const auto bounds = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(bounds);
     REQUIRE(bounds.value().minimum == glm::vec3(-4, -2, -3));
     REQUIRE(bounds.value().maximum == glm::vec3(4, 8, 6));
     REQUIRE(animation.frame_bounds[1].known);
-    for (auto& path : animation.paths[0])
-        REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
-    animation.meshes[0][0]->bounds.minimum = {-10, -20, -30};
+    for (auto& part : animation.parts[0]) REQUIRE(PathAIGetValue(&*part.path) == 0.75f);
+    animation.parts[0][0].mesh.bounds.minimum = {-10, -20, -30};
     const auto cached = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(cached);
     REQUIRE(cached.value().minimum == bounds.value().minimum);
@@ -1219,8 +1218,7 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(refreshed);
     REQUIRE(refreshed->minimum == glm::vec3(-10, -20, -30));
-    for (auto& path : animation.paths[0])
-        REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
+    for (auto& part : animation.parts[0]) REQUIRE(PathAIGetValue(&*part.path) == 0.75f);
 }
 
 TEST_CASE("Prop bounds aggregate frames without changing the current frame",
@@ -1229,7 +1227,7 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
     Prop prop;
     prop.animation.emplace();
     auto& animation = prop.animation.value();
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     animation.frame_count = 3;
     animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
                               {true, {-1, -9, -3}, {12, 2, 5}},
@@ -2371,9 +2369,11 @@ TEST_CASE("Native world objects activate through graph identity and game activit
         vsg::Perspective::create(60, 1, 1, 10),
         vsg::LookAt::create(vsg::dvec3(0, 0, 0), vsg::dvec3(0, 0, 1), vsg::dvec3(0, 1, 0)),
         vsg::ViewportState::create(0, 0, 64, 64));
-    world.picked.position = {.1f, .1f, 1};
-    world.scene->pick(*camera, std::span{&world.picked, 1});
-    REQUIRE(SelectedNativeObject(world) == &object);
+    Pick pick;
+    pick.position = {.1f, .1f, 1};
+    world.scene->pick(*camera, std::span{&pick, 1});
+    world.acceptPick(std::move(pick), false);
+    REQUIRE(world.selectedNativeObject() == &object);
     game.advancement.held = false;
     REQUIRE(game.activateSelectedNativeObject());
     REQUIRE(object.illuminated);
@@ -2389,7 +2389,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     game.activity.place = Activity::Place::World;
     // The render view may move independently; gameplay reach follows the party.
     world.camera->transform.setLocation(0, 0, -6000);
-    REQUIRE(SelectedNativeObject(world) == &object);
+    REQUIRE(world.selectedNativeObject() == &object);
     placeParty(world, {0, 0, -6000});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     placeParty(world, {0, 0, 0});
@@ -2397,6 +2397,47 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     REQUIRE_FALSE(object.illuminated);
     REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
     world.native_objects.clear();
-    REQUIRE_FALSE(world.picked.hit);
+    REQUIRE_FALSE(world.picked.intersection.hit);
     REQUIRE_FALSE(game.activateSelectedNativeObject());
+}
+
+TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat exception",
+          "[geometry][picking]")
+{
+    ScopedGame game;
+    World world;
+    placeParty(world, {0, 0, 0});
+    Trigger trigger(&world);
+    trigger.flags = W8_TRIGGER_ENABLED;
+    trigger.range_minimum = trigger.range_maximum = 100;
+    auto& prop = *world.plsProps.emplace_back(std::make_unique<Prop>());
+    prop.active = true;
+    prop.trigger = &trigger;
+    auto& animation = prop.animation.emplace();
+    animation.positioned_parts = true;
+    animation.frame_count = 1;
+    animation.parts[2].emplace_back();
+    animation.frame_bounds = {{true, {100, 0, 0}, {100, 0, 0}}};
+    auto& model = prop.model(0);
+    Pick intersection;
+    intersection.hit = vsg::LineSegmentIntersector::Intersection::create();
+    intersection.hit->nodePath.push_back(model.renderNode().get());
+    world.acceptPick(intersection, false);
+    REQUIRE(world.selectedProp() == &prop); // Both distance boundaries are inclusive.
+    REQUIRE_FALSE(world.selectedModel());
+    world.acceptPick(intersection, true);
+    REQUIRE_FALSE(world.selectedProp());
+    REQUIRE(world.picked.intersection.hit == intersection.hit); // Still occludes behind it.
+    auto& door = trigger.action_payload.emplace<W8DoorTriggerActionData>();
+    world.acceptPick(intersection, true);
+    REQUIRE(world.selectedProp() == &prop);
+    door.open = true;
+    world.acceptPick(intersection, true);
+    REQUIRE_FALSE(world.selectedProp());
+    trigger.flags |= W8_TRIGGER_ONCE | W8_TRIGGER_FIRED;
+    world.acceptPick(intersection, false);
+    REQUIRE_FALSE(world.selectedProp());
+    world.acceptPick({}, false);
+    REQUIRE_FALSE(world.picked.intersection.hit);
+    REQUIRE_FALSE(world.selectedProp());
 }

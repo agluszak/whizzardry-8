@@ -79,7 +79,7 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
                 const auto spell = m_spells[entry];
                 if (event.button == UiPointerButton::Right)
                     AfterUiDispatch([this, spell] { m_owner.ShowSpellInfo(spell); });
-                else if (m_owner.m_character->spell_learned[spell] != 1) {
+                else if (m_owner.screen.draft.character.spell_learned[spell] != 1) {
                     m_dirty = true;
                     AfterUiDispatch([this, spell] { m_owner.SelectSpell(spell); });
                 }
@@ -88,10 +88,6 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
         });
 }
 
-W8CharacterSpellsPage::W8CharacterSpellsPage()
-    : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, TimerClock::Presentation)
-{
-}
 W8CharacterSpellsPage::~W8CharacterSpellsPage() = default;
 
 void W8CharacterSpellList::UpdateRange()
@@ -116,9 +112,9 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
         for (int index = m_range.m_value;
              index < m_range.m_value + 7 && index < static_cast<int>(m_spells.size()); ++index) {
             const auto spell = m_spells[index];
-            if (m_owner.m_character->spell_learned[spell] == 1) {
+            if (m_owner.screen.draft.character.spell_learned[spell] == 1) {
                 g_wiz_text_font_secondary.setShade(6);
-            } else if (m_owner.m_character->spell_learned[spell] == 2) {
+            } else if (m_owner.screen.draft.character.spell_learned[spell] == 2) {
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
             } else if (index == m_hovered_entry) {
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
@@ -138,11 +134,10 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
     }
 }
 
-void W8CharacterSpellsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state,
-                                         W8CharacterScreenMode mode)
+W8CharacterSpellsPage::W8CharacterSpellsPage(CharacterScreen& owner)
+    : W8CharacterPage(owner, CatalogArtwork::Load(0x109)),
+      anim_timer(0.05f, TimerClock::Presentation)
 {
-    W8CharacterPage::SetCharacter(character, creation_state, mode);
     m_last_selected.reset();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_realms[realm] = std::make_unique<W8CharacterSpellList>(*this, (realm % 2) * 215 + 13,
@@ -158,7 +153,7 @@ void W8CharacterSpellsPage::Activate()
         m_realms[realm]->m_range.SetActive(true);
     }
     m_contentDirty = true;
-    m_prepared = true;
+    m_instructions_dirty = true;
 }
 
 void W8CharacterSpellsPage::Deactivate()
@@ -173,10 +168,10 @@ void W8CharacterSpellsPage::Deactivate()
 void W8CharacterSpellsPage::Accept()
 {
     m_last_selected.reset();
-    ResetSpellSelections(m_character, m_creation_state);
+    screen.draft.resetSpellSelections();
     InvalidateAll();
     m_contentDirty = true;
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
 }
 
 /* Rebuilds each realm's list from the character's spell_learned states: pass
@@ -192,20 +187,20 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
 
     W8CharacterPage::Redraw(target, full_redraw);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    if (m_prepared) {
+    if (m_instructions_dirty) {
         bounds.left = 4;
         bounds.top = 0xec;
         bounds.right = 0xc2;
         bounds.bottom = 0x173;
-        text.RenderString(&bounds,
-                          Data().strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
-                          g_wiz_text_font_secondary, true, target);
+        text.RenderString(
+            &bounds, Data().strings[screen.draft.allocation.spell_points_total == 0 ? 0xeb : 0xea],
+            g_wiz_text_font_secondary, true, target);
 
         bounds.top = 0x173;
         bounds.bottom = 0x18a;
         bounds.right = 0x8f;
         text.RenderString(&bounds, Data().strings[0xf4], g_wiz_text_font_secondary, true, target);
-        m_prepared = false;
+        m_instructions_dirty = false;
     }
 
     if (m_contentDirty) {
@@ -216,8 +211,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x173);
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.RenderString(fmt::format("{:d}/{:d}", m_creation_state->spell_points_remaining,
-                                      m_creation_state->spell_points_total),
+        text.RenderString(fmt::format("{:d}/{:d}", screen.draft.allocation.spell_points_remaining,
+                                      screen.draft.allocation.spell_points_total),
                           g_options_detail_font, true, target);
         m_contentDirty = false;
     }
@@ -240,7 +235,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
-                fmt::format("{:d}", m_character->skills[W8_SKILL_FIRE_MAGIC + realm].points),
+                fmt::format("{:d}",
+                            screen.draft.character.skills[W8_SKILL_FIRE_MAGIC + realm].points),
                 g_wiz_text_font_secondary, false, target);
 
             text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -253,11 +249,12 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
                               false, target);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(fmt::format("{:d}/{:d}",
-                                          GetCharacterRealmSpellPoints(
-                                              m_character, static_cast<W8SpellRealm>(realm)),
-                                          m_character->sp_max[realm]),
-                              g_wiz_text_font_secondary, false, target);
+            text.RenderString(
+                fmt::format("{:d}/{:d}",
+                            GetCharacterRealmSpellPoints((&screen.draft.character),
+                                                         static_cast<W8SpellRealm>(realm)),
+                            screen.draft.character.sp_max[realm]),
+                g_wiz_text_font_secondary, false, target);
         }
     }
 
@@ -269,7 +266,7 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
                 m_animation_frames[realm] =
                     (m_animation_frames[realm] + elapsed) % animation.frame_count;
             }
-            if (!m_screen->HasDialog() || realm < 2) {
+            if (!screen.HasDialog() || realm < 2) {
                 CatalogArtwork::Load(animation.image, 0)
                     .drawAndInvalidate(target, m_animation_frames[realm],
                                        W8CharacterPage::bounds.x + 0x0f + (realm % 2) * 0xd7,
@@ -296,7 +293,7 @@ void W8CharacterSpellsPage::UpdateSpellLists()
         list.m_spells.clear();
         for (int pass = 0; pass < 2; ++pass) {
             for (unsigned int spell = 0; spell < 0x72; ++spell) {
-                const auto learned = m_character->spell_learned[spell];
+                const auto learned = screen.draft.character.spell_learned[spell];
                 if (Data().spells[spell].realm == realm &&
                     (pass == 0 ? learned == -1 || learned == 2 : learned == 1)) {
                     list.m_spells.push_back(spell);
@@ -310,42 +307,40 @@ void W8CharacterSpellsPage::UpdateSpellLists()
 void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled = 1;
-    *exit_enabled = m_creation_state->spell_points_remaining < m_creation_state->spell_points_total;
+    *exit_enabled =
+        screen.draft.allocation.spell_points_remaining < screen.draft.allocation.spell_points_total;
 }
 
 void W8CharacterSpellsPage::SelectSpell(unsigned int spell)
 {
-    assert(m_character->spell_learned[spell] == -1 || m_character->spell_learned[spell] == 2);
-    if (m_character->spell_learned[spell] == 2) {
-        DeselectCreationSpell(m_character, m_creation_state, spell);
+    assert(screen.draft.character.spell_learned[spell] == -1 ||
+           screen.draft.character.spell_learned[spell] == 2);
+    if (screen.draft.character.spell_learned[spell] == 2) {
+        screen.draft.deselectCreationSpell(spell);
     } else {
-        if (m_creation_state->spell_points_remaining == 0) {
+        if (screen.draft.allocation.spell_points_remaining == 0) {
             for (const auto& realm : m_realms) {
                 const auto previous = std::ranges::find_if(realm->m_spells, [&](unsigned int id) {
-                    return m_character->spell_learned[id] == 2 &&
-                           (m_last_selected != id || m_creation_state->spell_points_total == 1);
+                    return screen.draft.character.spell_learned[id] == 2 &&
+                           (m_last_selected != id ||
+                            screen.draft.allocation.spell_points_total == 1);
                 });
                 if (previous != realm->m_spells.end()) {
-                    DeselectCreationSpell(m_character, m_creation_state, *previous);
+                    screen.draft.deselectCreationSpell(*previous);
                     break;
                 }
             }
         }
-        SelectCreationSpell(m_character, m_creation_state, spell);
+        screen.draft.selectCreationSpell(spell);
         m_last_selected = spell;
     }
     UpdateSpellLists();
     m_contentDirty = true;
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
     InvalidateAll();
 }
 
 void W8CharacterSpellsPage::ShowSpellInfo(unsigned int spell)
 {
-    m_screen->ShowSpellInfo(spell);
-}
-
-std::unique_ptr<W8CharacterPage> CreateCharacterSpellsPage()
-{
-    return std::make_unique<W8CharacterSpellsPage>();
+    screen.ShowSpellInfo(spell);
 }
