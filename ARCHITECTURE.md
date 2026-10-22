@@ -711,7 +711,6 @@ the complete geometry before publishing it; there is no incremental parallel-arr
 mutation API. Navigation transitions discard geometry without resetting unrelated
 playback configuration. Normalized, distance-based and discrete sampling remain
 separate authored behaviors, not competing storage representations.
-<<<<<<< HEAD
 
 ## Portrait action menus
 
@@ -721,5 +720,3 @@ There are no separate HUD/per-character open flags or ambient selected slot.
 Deferred actions capture the screen, slot and selected action, not the menu being
 closed, so picker handoff does not read a destroyed menu. Input is constructed
 ready to use and disappears with the menu; no build/enable protocol is required.
-=======
->>>>>>> origin/simplify/keyframe-geometry
