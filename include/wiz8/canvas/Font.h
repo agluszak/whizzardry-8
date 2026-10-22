@@ -33,13 +33,12 @@ struct SpriteSheet;
 struct Font {
     static constexpr std::uint32_t kNormalShade = 4;
 
+    // Glyphs are shared; palette and shading choices belong to each font value.
     std::shared_ptr<const SpriteSheet> glyphs;
     std::optional<Palette16> customPalette;
     std::vector<std::optional<Palette16>> shades;
     std::uint32_t currentShade = kNormalShade;
     Font() = default;
-    Font(Font&& other) noexcept;
-    Font& operator=(Font&& other) noexcept;
     // Failed loads preserve the resource.
     bool load(std::string_view filename);
     void clear();
@@ -54,7 +53,6 @@ struct Font {
     std::int16_t textWidth(std::string_view text) const;
     std::int16_t prefixWidth(std::string_view text, std::size_t byte_end) const;
     std::int16_t codepointPrefixWidth(std::string_view text, std::uint32_t count) const;
-    ~Font();
 };
 
 struct TextColors {
