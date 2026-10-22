@@ -131,7 +131,6 @@ void ResetGameplaySlot(unsigned int slot)
     record->effect_icon_frame = -1;
     record->effect_icon_end_frame = 0;
     record->active_character_event = 0;
-    record->portrait_stats_dirty = false;
     record->cached_hp_bar = 0;
     record->cached_stamina_bar = 0;
     record->cached_hp = 0;
@@ -219,5 +218,4 @@ void ResetGameplaySettings(void)
     g_settings.autoscroll_combat_messages = 0;
     g_settings.simplified_npc_interaction = 1;
     EnableAllRenderOptions();
-    DisableRenderOption(W8_RENDER_OPTION_CORRECT_BLURRED_TEXT);
 }

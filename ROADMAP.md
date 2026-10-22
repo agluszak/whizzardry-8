@@ -39,8 +39,6 @@ of it:
   functions still find their owner through these accessors. The remaining steps migrate
   whole operations and their consumers, so the accessors disappear with their last
   callers rather than in a sweep of their own.
-- **The step still reads the clock in places.** `Game::advance(elapsed)` is the one step
-  and most of what it runs keeps time on the step's time, but some world entities still keep deadlines on the monotonic clock or the shared timers.
 - **Rules drive presentation directly.** Inventory and party report events, but other
   rules still call presentation (notices, targeting, the combat panel, screen ids), and 33 of the 57
   `local_code` files include screen headers.
@@ -187,22 +185,6 @@ the licensed runtime scenarios after every step.
    - Presentation is synchronous: the observer shows each event as it is pushed, to keep
      its order among the direct screen calls of unmigrated code. When those are gone,
      the UI drains the log after each command and step instead.
-4. **One step.** `Game::advance(elapsed)` is the game's step and `Game::time` its
-   accumulated time (ARCHITECTURE.md, "Stepping"); a test steps an empty level with
-   explicit times (`game_timer_test.cpp`). What the step calls still keeps its own time
-   in these places:
-   - World entities on the shared timers (`W8GameTimer`/`W8IntervalGate`, real time less
-     pauses): monsters' script delay, light and fade timers, triggers and their
-     countdowns, the level scripts' gates, the party camera's manual-input hold, ambient
-     sound fades and camera shake. Their saves store progress, so each can move to
-     step-time countdowns as `GeneratorInterval` did; then `GameClockTicks` serves only
-     presentation.
-   - World code on the monotonic clock: world items' settle countdown
-     (`world_item.cpp`), keyframe tracks, the environment's lighting transition, random
-     ambient sounds' next play, trigger item-group seeds and random subcycles, spell
-     cooldowns (`Magic.cpp`), and the portrait idle clock the rest sequence arms
-     (`GameplayTime.cpp`). Visual light/texture animation now has explicit held-world
-     or presentation clock ownership (ARCHITECTURE.md, "Visual clocks").
 5. **Presentation owned by screens.** The main game repaints what its HUD's record
    (`MainGameRepaint`) holds, game code reports changes as events, the draw path
    receives the HUD, and the pointer derives the held-item cursor every frame
@@ -233,13 +215,15 @@ the licensed runtime scenarios after every step.
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
    - Painting still updates: the main game's frame now updates its facing, targeting
-     presentation, radar blips and text-box request before `DrawMainGameScreen`
-     (`UpdateMainGamePresentation`), but the draw still refreshes the portrait,
+     presentation, radar blips, text-box request and repaint dependencies before
+     `DrawMainGameScreen` (`UpdateMainGamePresentation`). Vitals panels have one
+     screen-owned invalidation and publish their complete bounds; portrait bounds
+     no longer have a second dispatch table. The draw still refreshes the portrait,
      condition, submenu and HUD buttons, which repaint as they change. Make the frame
      "update presentation state, paint the 640×480 canvas, commit it".
      Once painting is free of updates, try a full paint or coarse per-panel
-     invalidation, and keep `MainGameRepaint`'s finer propagation (one part requesting
-     others, a separate pass mapping parts to rectangles, per-panel shadow state) only
+     invalidation, and keep `MainGameRepaint`'s remaining finer invalidation
+     (a separate pass mapping bottom panels to rectangles, per-panel shadow state) only
      where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
@@ -338,10 +322,8 @@ each.
   `uiCondition`. Verbatim codec copies check field widths, and items, formations and
   NPC stock entries have their own disk records, so those types may change shape. Retail
   disk records still embed other runtime types, which therefore keep their retail
-  layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
-  in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
-  `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
-  `ItemEffects`, and the runtime enums used as disk field types.
+  layout: `W8PartyThreatRecord`, `W8Dice`, `ItemProperties` and `ItemEffects`, and
+  the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;
@@ -363,6 +345,12 @@ Substantial but contained work.
   `CONTROL_REUSE_FRONT_MATERIAL`, `CONTROL_NO_FRONT_CULL`) that only tests
   exercise. `W8_MESH_SORTED_RENDERING` duplicates `CONTROL_SORTED_RENDERING`,
   except that posters set only the control bit; merging them changes behaviour.
+- **One world pick.** `RenderFrame` stores the intersection in `World::picked` and
+  its mesh owner in `g_current_model_instance`; `ResolvePickedProp` then latches
+  `g_selected_prop_trigger`/`g_selected_prop_index` and clears the instance when the
+  prop refuses. Native objects, props, monsters and world items each match against
+  one of these. Resolve the pick once into a world-owned selection (owner, prop,
+  native object, distance) that the cursor and activation read, and delete the globals.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

@@ -682,13 +682,12 @@ struct SavedMonster {
         if (saved.version >= 2 && chunk.ReadValue<unsigned char>())
             saved.movement = SavedMonsterMovement::Read(chunk);
         if (saved.version >= 3) saved.orders = SavedMonsterOrders::Read(chunk, saved.version);
-        const auto info = saved.Build();
-        for (const auto& effect : info->effect_slots) {
+        for (const auto& effect : saved.image.effect_slots) {
             if (effect.duration &&
                 static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
                 throw std::runtime_error("invalid monster status species or effect");
         }
-        if (info->monster_species >= kMaxMonsterSpecies)
+        if (saved.image.monster_species >= kMaxMonsterSpecies)
             throw std::runtime_error("invalid monster status species or effect");
         return saved;
     }
@@ -1456,7 +1455,7 @@ std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState level)
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.entity.find());
-        if (!info.entity->script && !scripts.default_script && group->Build()->encounter_registered)
+        if (!info.entity->script && !scripts.default_script && group->image.encounter_registered)
             scripts.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')
             scripts.saved[index] = LoadMonsterScript(saved.script->name);

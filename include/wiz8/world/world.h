@@ -26,6 +26,7 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world_cursor.h"
 
+class NativeObject;
 class LevelScript;
 class W8AmbientSound;
 struct W8AmbientTrack;
@@ -75,6 +76,9 @@ struct World {
     const int level_id;
     const std::string source_path;
     std::unique_ptr<WorldScene> scene;
+    // The actual intersection is shared with gameplay, including native content.
+    Pick picked;
+    std::vector<std::unique_ptr<NativeObject>> native_objects;
     EnvironmentState environment;
     std::unique_ptr<LevelSpatialIndex> spatial;
     LevelSpatialIndex* compiledIndex() const;

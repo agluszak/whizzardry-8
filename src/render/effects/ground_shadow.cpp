@@ -7,7 +7,6 @@
 #include <memory>
 #include <span>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
@@ -130,7 +129,6 @@ struct ShadowRenderData {
     };
 
     vsg::ref_ptr<vsg::PipelineLayout> layout;
-    vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     std::vector<std::unique_ptr<Part>> parts;
     vsg::ref_ptr<vsg::ImageInfo> image;
     vsg::ref_ptr<vsg::BindDescriptorSet> batch;
@@ -149,10 +147,7 @@ static std::shared_ptr<GroundShadowAsset> shadowAsset()
     return asset;
 }
 
-GroundShadow::GroundShadow(WorldScene* scene) : asset(shadowAsset())
-{
-    setScene(scene);
-}
+GroundShadow::GroundShadow() : asset(shadowAsset()) {}
 
 GroundShadow::GroundShadow(const GroundShadow& other) : asset(other.asset)
 {
@@ -164,29 +159,19 @@ GroundShadow::GroundShadow(const GroundShadow& other) : asset(other.asset)
     width = other.width;
 }
 
-vsg::ref_ptr<vsg::Node> GroundShadow::renderNode(render::RenderContext& context)
-{
-    if (!render_data || render_data->layout != context.layout) {
-        auto replacement = std::make_unique<ShadowRenderData>(context);
-        if (render_data) {
-            render_data->root->children = std::move(replacement->root->children);
-            replacement->root = render_data->root;
-        }
-        render_data = std::move(replacement);
-    }
-    return render_data->root;
-}
-
 vsg::ref_ptr<vsg::Node> GroundShadow::renderNode() const
 {
-    if (!render_data) return {};
-    return render_data->root;
+    return root;
 }
 
 void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
                                     std::uint64_t frame_number)
 {
-    renderNode(context);
+    // A new context rebuilds the resources under the same scene member.
+    if (!render_data || render_data->layout != context.layout) {
+        render_data = std::make_unique<ShadowRenderData>(context);
+        root->children.clear();
+    }
     auto& data = *render_data;
     if (data.frame_number == frame_number) return;
     data.frame_number = frame_number;
@@ -195,9 +180,8 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
             for (auto& draw : part->draws)
                 if (draw) draw->draw->indexCount = 0;
     };
-    auto* world = GetWorld();
-    auto* spatial = GetWorldSpatialIndex();
-    if (!visible || !g_settings.monster_shadows || !world || !spatial || width <= 0 || depth <= 0) {
+    auto* spatial = world ? world->compiledIndex() : nullptr;
+    if (!visible || !g_settings.monster_shadows || !spatial || width <= 0 || depth <= 0) {
         hide();
         return;
     }
@@ -327,12 +311,22 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
         graph_changed = true;
     }
     if (graph_changed) {
-        data.root->children.clear();
-        for (auto& part : data.parts) data.root->addChild(part->root);
+        root->children.clear();
+        for (auto& part : data.parts) root->addChild(part->root);
     }
+}
+
+void GroundShadow::setWorld(const World* value)
+{
+    auto* target = value ? value->scene.get() : nullptr;
+    if (scene != target) {
+        if (scene) scene->detach(*this);
+        if (target) target->attach(*this);
+    }
+    world = value;
 }
 
 GroundShadow::~GroundShadow()
 {
-    setScene(nullptr);
+    setWorld(nullptr);
 }

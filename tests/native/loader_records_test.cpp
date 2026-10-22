@@ -930,7 +930,7 @@ TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loa
     // bitmap first. The reader tells them apart without the level's world.
     const auto section = [](const std::vector<bool>* visited) {
         auto writer = wiz8::open_memory_writer();
-        if (visited) REQUIRE(SavePackedBits(*writer, *visited));
+        if (visited) SavePackedBits(*writer, *visited);
         const std::uint32_t signature = 0xf00df00d, count = 0;
         writer->write(&signature, sizeof(signature));
         writer->write(&count, sizeof(count));

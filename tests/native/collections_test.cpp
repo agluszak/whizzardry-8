@@ -697,8 +697,8 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     draft.detail = 9;
     draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
-    CommitActionTarget(0, W8EditedAction{draft}, target, false);
-    const auto assessed = SelectCombatAction(0, W8EditedAction{draft});
+    AimDraft(0, draft, target);
+    const auto assessed = ParticipatingAction(0, draft);
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
     draft.target.iType = W8_TARGET_KIND_NONE;
@@ -718,18 +718,40 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
     auto& item = characters[0].backpack[3];
     item = {.iItemNo = 17, .stack_count = 4};
     const W8TradeSelection selected{W8TradeSource::Backpack, 0, 3, item};
-    REQUIRE(ResolveTradeSelection(nullptr, selected) == &item);
+    REQUIRE(ResolveTradeSelection(CurrentGame(), nullptr, selected) == &item);
     item.uses_or_charges = 2;
-    REQUIRE_FALSE(ResolveTradeSelection(nullptr, selected));
+    REQUIRE_FALSE(ResolveTradeSelection(CurrentGame(), nullptr, selected));
     W8NpcState npc{};
     npc.items = {{0, {.iItemNo = 17, .stack_count = 4}, 1},
                  {0, {.iItemNo = 18, .stack_count = 3}, 1}};
     const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
-    REQUIRE(ResolveTradeSelection(&npc, stock) == &npc.items[0].item);
+    REQUIRE(ResolveTradeSelection(CurrentGame(), &npc, stock) == &npc.items[0].item);
     std::swap(npc.items[0], npc.items[1]);
-    REQUIRE_FALSE(ResolveTradeSelection(&npc, stock));
-    REQUIRE(CompleteNpcTrade(&npc, stock, 1).outcome == W8TradeOutcome::InvalidSelection);
+    REQUIRE_FALSE(ResolveTradeSelection(CurrentGame(), &npc, stock));
+    REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Exchange).outcome ==
+            W8TradeOutcome::InvalidSelection);
     REQUIRE(npc.items[0].item.stack_count == 3);
+    // A rejected attempt must not reseed the gameplay RNG or practice pickpocketing.
+    CurrentGame().rng.seed(1);
+    REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Steal).outcome ==
+            W8TradeOutcome::InvalidSelection);
+    const W8TradeSelection current{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    for (int amount : {0, -1, 256})
+        REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, current, amount, W8TradeAction::Steal)
+                    .outcome == W8TradeOutcome::InvalidSelection);
+    REQUIRE(npc.suspicion == 0);
+    REQUIRE(CurrentGame().rng.next() == 41);
+    W8NpcDatabaseRecord owner_record{};
+    owner_record.character.wanted_item_ids[0] = 18;
+    auto owner = std::make_shared<W8NpcState>();
+    owner->record = &owner_record;
+    CurrentGame().story.npcs.push_back(owner);
+    CurrentGame().party.members[0]->npc_index = 0;
+    item = selected.expected;
+    for (auto action : {W8TradeAction::Exchange, W8TradeAction::Offer})
+        REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, selected, 1, action).outcome ==
+                W8TradeOutcome::WantedByOwner);
+    REQUIRE(item == selected.expected);
 }
 
 TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
@@ -777,7 +799,8 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     CurrentGame().rng.seed(1);
     REQUIRE(CalculateNpcTradeStackPrice(&npc, 0, W8_TRADE_PRICE_PARTY_BUYS, 1, true) == 10);
     REQUIRE(CurrentGame().rng.next() == 41); // Drawing a price must not roll an item quantity.
-    const auto result = CompleteNpcItemPurchase(&npc, 0, 1, false);
+    const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    const auto result = CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Exchange);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
     REQUIRE(CurrentGame().party.gold == 100);
     REQUIRE(CurrentGame().party.item_count == 500);
@@ -785,6 +808,16 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     REQUIRE(CurrentGame().party.held.item.iItemNo == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
+    CurrentGame().party.item_count = 1;
+    CurrentGame().party.item_pool[0] = {.iItemNo = 0, .stack_count = 8, .identified = true};
+    npc.items[0].item.stack_count = 2;
+    const W8TradeSelection stack{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stack, 2, W8TradeAction::Exchange).outcome ==
+            W8TradeOutcome::Complete);
+    REQUIRE(CurrentGame().party.gold == 80);
+    REQUIRE(CurrentGame().party.item_count == 1);
+    REQUIRE(CurrentGame().party.item_pool[0].stack_count == 10);
+    REQUIRE(npc.items.empty());
 }
 
 TEST_CASE("Encounter retirement spends one budget unit per formation, without registration",

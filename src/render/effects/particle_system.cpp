@@ -69,7 +69,6 @@ struct ParticleRenderData {
         std::uint32_t shader = ~std::uint32_t{0};
     };
     vsg::ref_ptr<vsg::PipelineLayout> layout;
-    vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     vsg::ref_ptr<vsg::Group> particles = vsg::Group::create();
     vsg::ref_ptr<vsg::CullNode> cull;
     render::EffectGeometry geometry;
@@ -82,7 +81,6 @@ struct ParticleRenderData {
                    render::HasAlpha | render::HasTexcoord0 | render::ParticleBillboard, false, 0)
     {
         cull = vsg::CullNode::create(vsg::dsphere(), particles);
-        root->addChild(cull);
         static constexpr std::array<glm::vec2, 4> uv{{{0, 0}, {1, 0}, {1, 1}, {0, 1}}};
         for (std::uint32_t particle = 0; particle < source.particle_count; ++particle) {
             const auto first = particle * 4;
@@ -571,29 +569,20 @@ void ParticleSystem::AdvanceSimulation(std::chrono::milliseconds game_time)
     }
 }
 
-vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode(render::RenderContext& context)
-{
-    if (!render_data || render_data->layout != context.layout) {
-        auto replacement = std::make_unique<ParticleRenderData>(context, *this);
-        if (render_data) {
-            render_data->root->children = std::move(replacement->root->children);
-            replacement->root = render_data->root;
-        }
-        render_data = std::move(replacement);
-    }
-    return render_data->root;
-}
-
 vsg::ref_ptr<vsg::Node> ParticleSystem::renderNode() const
 {
-    if (!render_data) return {};
-    return render_data->root;
+    return root;
 }
 
 void ParticleSystem::updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
                                       std::uint64_t frame_number)
 {
-    renderNode(context);
+    // A new context rebuilds the resources under the same scene member.
+    if (!render_data || render_data->layout != context.layout) {
+        render_data = std::make_unique<ParticleRenderData>(context, *this);
+        root->children.clear();
+        root->addChild(render_data->cull);
+    }
     auto& data = *render_data;
     if (data.frame_number == frame_number) return;
     data.frame_number = frame_number;

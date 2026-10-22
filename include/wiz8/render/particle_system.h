@@ -10,6 +10,7 @@ struct W8Chunk;
 #include <vector>
 
 #include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
 #include <vsg/nodes/Node.h>
 
 #include "glm/ext/matrix_float4x4.hpp"
@@ -52,7 +53,7 @@ public:
     void SetParticleScale(float scale);
     // Called once by the game update, independent of the number of views.
     void AdvanceSimulation(std::chrono::milliseconds game_time);
-    vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
+    // The effect's scene member; the scene inserts it on attach and removes it on detach.
     vsg::ref_ptr<vsg::Node> renderNode() const;
     void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
                           std::uint64_t frame_number);
@@ -138,6 +139,7 @@ public:
 private:
     void AllocateParticles(unsigned int count);
     void Update(); /* 0x00499FA0 */
+    vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     std::unique_ptr<ParticleRenderData> render_data;
 
 public:

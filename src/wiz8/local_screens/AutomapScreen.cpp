@@ -1103,23 +1103,23 @@ W8SavedAutomapNotes CaptureAutomapNotes(const World& world)
    and text between two 0xF00DF00D signatures. */
 void WriteAutomapNotes(wiz8::File& handle, const W8SavedAutomapNotes& records)
 {
-    const int signature = 0xf00df00d;
+    const std::uint32_t signature = 0xf00df00d;
     if (!records.visited.empty()) SavePackedBits(handle, records.visited);
-    handle.write(&signature, 4);
+    handle.write(&signature, sizeof(signature));
     const auto count = wiz8::checked_integer<std::uint32_t>(records.notes.size());
-    handle.write(&count, 4);
+    handle.write(&count, sizeof(count));
     for (const auto& note : records.notes) {
-        handle.write(&note->position.x, 4);
-        handle.write(&note->position.y, 4);
-        handle.write(&note->layer, 4);
+        handle.write(&note->position.x, sizeof(note->position.x));
+        handle.write(&note->position.y, sizeof(note->position.y));
+        handle.write(&note->layer, sizeof(note->layer));
         const auto length =
             wiz8::checked_integer<std::uint32_t>(wiz8::text::to_utf16(note->text).size() + 1);
         std::vector<std::byte> bytes(length * 2);
         wiz8::text::to_utf16le(note->text, bytes);
-        handle.write(&length, 4);
+        handle.write(&length, sizeof(length));
         handle.write(bytes.data(), bytes.size());
     }
-    handle.write(&signature, 4);
+    handle.write(&signature, sizeof(signature));
 }
 
 /* The visited-cell bitmap, present when the level's automap had cells, then the notes. */
