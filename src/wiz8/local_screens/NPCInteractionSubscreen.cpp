@@ -43,7 +43,6 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/AssayDialog.h"
-#include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"

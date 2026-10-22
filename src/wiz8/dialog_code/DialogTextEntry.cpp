@@ -9,7 +9,6 @@
 #include <fmt/format.h>
 
 #include "wiz8/canvas/Font.h"
-#include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/fonts.h"

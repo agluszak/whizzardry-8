@@ -112,10 +112,8 @@ extern DesignRect g_viewport_modes[];
 /* String-list ids naming each trap row; Traps.cpp indexes it with the
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
-#include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
