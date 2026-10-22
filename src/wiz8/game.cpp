@@ -10,7 +10,6 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
@@ -52,7 +51,8 @@ Game::~Game()
     wiz8::sound::stop(sedexus_scene.moaning);
 }
 
-GameSession::GameSession() : next_stream_(static_cast<std::uint32_t>(std::time(nullptr)))
+GameSession::GameSession(const GameData& data)
+    : data_(data), next_stream_(static_cast<std::uint32_t>(std::time(nullptr)))
 {
     if (current_session) throw std::logic_error("A game session already exists");
     current_session = this;
@@ -67,7 +67,7 @@ GameSession::~GameSession()
 Game& GameSession::begin()
 {
     end();
-    auto& game = game_.emplace();
+    auto& game = game_.emplace(data_);
     game.rng = next_stream_;
     game.native_object_file = native_object_file;
     game.events.observe(observer_);
@@ -114,7 +114,7 @@ bool GameStarted()
 
 RuleContext Game::rules()
 {
-    return {.data = Data(),
+    return {.data = data,
             .party = party,
             .rng = rng,
             .events = events,

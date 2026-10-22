@@ -20,6 +20,7 @@
 #include "wiz8/combat/fight.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -35,7 +36,6 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -114,7 +114,7 @@ static void FinishCharacterInventoryEdit(Game& game, ItemRecipient recipient,
                                          std::initializer_list<W8ItemLocation> replaced)
 {
     FinishInventoryEdit(game, replaced);
-    if (!recipient.slot) UpdateStandaloneCharacterStats(Data(), recipient.character, {});
+    if (!recipient.slot) UpdateStandaloneCharacterStats(game.data, recipient.character, {});
 }
 
 // ---- Acquiring items
@@ -122,11 +122,12 @@ static void FinishCharacterInventoryEdit(Game& game, ItemRecipient recipient,
 /* What acquiring an item sets off: a handful of plot items update their facts, and an
    exceptional one draws a remark, from the receiver or from a random member when the pool
    took it. A placement into equipment acquires nothing. */
-static void Acquire(const std::optional<ItemPlacement>& placement, W8Character* receiver)
+static void Acquire(Game& game, const std::optional<ItemPlacement>& placement,
+                    W8Character* receiver)
 {
     if (!placement || !placement->received) return;
     UpdateFactsAfterAcquiringItem(placement->received);
-    DeliverExceptionalItemReaction(placement->received, receiver == nullptr, receiver);
+    DeliverExceptionalItemReaction(game, placement->received, receiver == nullptr, receiver);
 }
 
 static std::optional<ItemPlacement> StoreWithCharacter(Game& game, ItemRecipient recipient,
@@ -135,7 +136,7 @@ static std::optional<ItemPlacement> StoreWithCharacter(Game& game, ItemRecipient
 {
     const auto placement = PlaceWithCharacter(game.rules(), recipient, source, equip_if_possible,
                                               announce, skip_stacking);
-    Acquire(placement, &recipient.character);
+    Acquire(game, placement, &recipient.character);
     return placement;
 }
 
@@ -143,7 +144,7 @@ static std::optional<ItemPlacement> StoreInPool(Game& game, ItemSource source, b
                                                 bool skip_stacking)
 {
     const auto placement = PlaceInPool(game.rules(), source, announce, skip_stacking);
-    Acquire(placement, nullptr);
+    Acquire(game, placement, nullptr);
     return placement;
 }
 
@@ -177,7 +178,7 @@ static W8ItemLocation To(const std::optional<ItemPlacement>& placement)
    otherwise goes into an empty hand. Failure leaves the source intact. */
 static bool DropUnstoredItem(Game& game, ItemSource source)
 {
-    if ((Data().items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
+    if ((game.data.items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
             AddWorldItem(CreateWorldItem(&source.item, &*position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -283,7 +284,7 @@ GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_f
 
     FinishInventoryEdit(game, {});
     const bool slot_closed = !eligible && !party_first;
-    return std::unexpected(InventoryRefusal{Data().strings[slot_closed ? 0x1f5 : 0x90c]});
+    return std::unexpected(InventoryRefusal{game.data.strings[slot_closed ? 0x1f5 : 0x90c]});
 }
 
 /* Equipment that is bound to its slot stays with the body unless the binding was announced,
@@ -298,13 +299,13 @@ void StashDepartingCharacterItems(Game& game, unsigned int party_slot)
         if (StoreInPool(game, source, false, false)) return;
         if (!DropUnstoredItem(game, source)) return;
         game.events.push(
-            TextNotice{W8_FONT_PALETTE_RED,
-                       fmt::sprintf(Data().strings[0x7d3], Data().items[item_id].display_name)});
+            TextNotice{W8_FONT_PALETTE_RED, fmt::sprintf(game.data.strings[0x7d3],
+                                                         game.data.items[item_id].display_name)});
     };
     for (unsigned int equip_slot = 0; equip_slot < W8_EQUIP_SLOT_COUNT; ++equip_slot) {
         const auto& item = character.EquippedItem[equip_slot];
         if (item.iItemNo != -1 &&
-            (Data().items[item.iItemNo].binds_on_equip == 0 || item.bind_announced ||
+            (game.data.items[item.iItemNo].binds_on_equip == 0 || item.bind_announced ||
              !HasPaperDollPosition(static_cast<W8EquipSlot>(equip_slot)) ||
              character.uiCondition[W8_CONDITION_DEAD] != 0))
             stash({W8ItemStorage::Equipment, party_slot, equip_slot});
@@ -333,8 +334,8 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
         game.events.push(CharacterNotice{
             *recipient.slot,
             fmt::sprintf(
-                Data().strings[message],
-                Data().strings[g_gender_name_message_rows[character.gender][pronoun_column]])});
+                game.data.strings[message],
+                game.data.strings[g_gender_name_message_rows[character.gender][pronoun_column]])});
     };
     int item_id;
     unsigned int message_id;
@@ -343,8 +344,9 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     case 2:
         return {};
     case 1: {
-        if (FindCharacterItem(character, ItemOfKind(Data(), 0x83), W8ItemReach::Carried)) return {};
-        auto created = MakeItem(Data(), game.rng, 599, false, true, true);
+        if (FindCharacterItem(character, ItemOfKind(game.data, 0x83), W8ItemReach::Carried))
+            return {};
+        auto created = MakeItem(game.data, game.rng, 599, false, true, true);
         auto stored = StoreWithCharacter(game, recipient, OwnedItem(created), false, true, false);
         if (!stored) stored = StoreInPool(game, OwnedItem(created), true, false);
         if (!stored) return {};
@@ -415,7 +417,7 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     W8ItemLocation location{};
     const auto search = [&](std::span<W8ItemInstance> slots, W8ItemStorage storage) {
         for (unsigned int index = 0; index < slots.size() && !found; ++index) {
-            if (!ItemIsOfKind(Data(), slots[index], 0x83)) continue;
+            if (!ItemIsOfKind(game.data, slots[index], 0x83)) continue;
             found = &slots[index];
             if (recipient.slot) location = {storage, *recipient.slot, index};
         }
@@ -423,7 +425,7 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     search(character.EquippedItem, W8ItemStorage::Equipment);
     search(character.backpack, W8ItemStorage::Backpack);
     if (!found) {
-        location = FindPartyItem(game.party, ItemOfKind(Data(), 0x83), W8ItemReach::Party);
+        location = FindPartyItem(game.party, ItemOfKind(game.data, 0x83), W8ItemReach::Party);
         found = game.party.itemAt(location);
     }
     if (found && found->iItemNo < item_id) {
@@ -469,8 +471,8 @@ void AddPartyGold(Game& game, int amount, bool announce)
     if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT)
         game.status.level_progress[GetLoadedLevelID()].gold_collected += amount;
     if (announce) {
-        game.events.push(TextNotice{
-            8, fmt::format("{} {:d} {}.", Data().strings[0x15f], amount, Data().strings[0x160])});
+        game.events.push(TextNotice{8, fmt::format("{} {:d} {}.", game.data.strings[0x15f], amount,
+                                                   game.data.strings[0x160])});
         if (!wiz8::sound::is_file_playing(sound_path)) wiz8::sound::play(sound_path);
     }
 }
@@ -487,7 +489,7 @@ bool PlaceItemOnCursor(Game& game, int item_id, bool maximum_quantity, bool forc
                        bool mark_special)
 {
     if (game.party.held.item.iItemNo != -1) return false;
-    ReplaceHeldItem(game, MakeItem(Data(), game.rng, item_id, maximum_quantity, force_identified,
+    ReplaceHeldItem(game, MakeItem(game.data, game.rng, item_id, maximum_quantity, force_identified,
                                    mark_special));
     return true;
 }
@@ -495,7 +497,7 @@ bool PlaceItemOnCursor(Game& game, int item_id, bool maximum_quantity, bool forc
 void ReplaceHeldItemWithNew(Game& game, int item_id, bool quality)
 {
     game.party.take({W8ItemStorage::Hand});
-    auto created = MakeItem(Data(), game.rng, item_id, true, quality, false);
+    auto created = MakeItem(game.data, game.rng, item_id, true, quality, false);
     PlaceInEmptyHand(game.rules(), OwnedItem(created));
     FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
 }
@@ -512,8 +514,8 @@ bool ReceiveItemInHand(Game& game, W8ItemInstance& item)
 // An item that may not be discarded is refused.
 std::expected<void, InventoryRefusal> DropItemInHand(Game& game, int unused)
 {
-    if ((Data().items[game.party.held.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0)
-        return std::unexpected(InventoryRefusal{Data().strings[0x4ef]});
+    if ((game.data.items[game.party.held.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0)
+        return std::unexpected(InventoryRefusal{game.data.strings[0x4ef]});
     DropHeldItem(unused);
     FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
     return {};
@@ -546,7 +548,7 @@ bool EquipHeldItemAndStowPartner(Game& game, unsigned actor, W8EquipSlot slot)
     const auto stowed = EquipHeldItemAndStowPartner(game.rules(), actor, slot, npc_keeps);
     if (!stowed) return false;
     const bool pool = stowed->stored && stowed->stored->stored.storage == W8ItemStorage::Pool;
-    Acquire(stowed->stored, pool ? nullptr : &game.party.characters[actor]);
+    Acquire(game, stowed->stored, pool ? nullptr : &game.party.characters[actor]);
     Finish(game, stowed->edit);
     return true;
 }
@@ -604,7 +606,7 @@ bool SwapWeaponSetSlots(Game& game, unsigned int party_slot, bool announce)
     if (!plan) return false;
     CommitWeaponSetSwap(game, party_slot, *plan);
     if (announce)
-        game.events.push(CharacterNotice{party_slot, Data().strings[0x1ec], notice_context});
+        game.events.push(CharacterNotice{party_slot, game.data.strings[0x1ec], notice_context});
     return true;
 }
 
@@ -617,7 +619,7 @@ void BindCharacterItems(Game& game, unsigned int party_slot, bool announce)
     if (game.combat.has_value()) {
         if (!game.combat->round_active && !game.party_movement_mode) {
             game.events.push(TextNotice{W8_FONT_PALETTE_BEIGE,
-                                        Data().strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]});
+                                        game.data.strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]});
             return;
         }
         if (game.combat->resolvingTurnOf(PartyActor{static_cast<int>(party_slot)}) &&
@@ -625,7 +627,7 @@ void BindCharacterItems(Game& game, unsigned int party_slot, bool announce)
              game.party.rows[party_slot].executing.kind == W8_ACTION_BERSERK)) {
             game.events.push(TextNotice{
                 W8_FONT_PALETTE_WHITE,
-                fmt::sprintf(Data().strings[0x1f7], game.party.characters[party_slot].name)});
+                fmt::sprintf(game.data.strings[0x1f7], game.party.characters[party_slot].name)});
             return;
         }
     }
@@ -694,7 +696,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
 {
     W8Character* character = &game.party.characters[party_slot];
     W8ItemInstance* item = game.party.itemAt(location);
-    const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
+    const W8ItemDatabaseRecord* record = &game.data.items[item->iItemNo];
     unsigned int power;
     unsigned int chance;
     W8Skill skill;
@@ -708,29 +710,33 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
     // Retail returned an unset byte for a spent item; nothing was used.
     unsigned char used = 0;
 
-    if (!CanCharacterUseItem(Data(), character, item->iItemNo)) {
-        game.events.push(CharacterNotice{
-            party_slot, fmt::sprintf(Data().strings[0x164], GetItemDisplayName(Data(), item))});
+    if (!CanCharacterUseItem(game.data, character, item->iItemNo)) {
+        game.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x164],
+                                                     GetItemDisplayName(game.data, item))});
         return {};
     }
     if (!CanCharacterActivateItem(character, item)) {
-        game.events.push(CharacterNotice{
-            party_slot, fmt::sprintf(Data().strings[0x165], GetItemDisplayName(Data(), item))});
+        game.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x165],
+                                                     GetItemDisplayName(game.data, item))});
         return {};
     }
 
     if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        game.events.push(CharacterNotice{
-            party_slot, fmt::sprintf(Data().strings[0x1f1], GetItemDisplayName(Data(), item))});
+        game.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x1f1],
+                                                     GetItemDisplayName(game.data, item))});
         event_type = g_special_event13;
     } else if (record->quantity_kind == W8_ITEM_QUANTITY_SHOTS && item->uses_or_charges == 0) {
-        game.events.push(CharacterNotice{
-            party_slot, fmt::sprintf(Data().strings[0x1f2], GetItemDisplayName(Data(), item))});
+        game.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x1f2],
+                                                     GetItemDisplayName(game.data, item))});
         event_type = 39;
     } else {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
             character->uiCondition[W8_CONDITION_SILENCED] != 0) {
-            game.events.push(CharacterNotice{party_slot, Data().strings[0x166]});
+            game.events.push(CharacterNotice{party_slot, game.data.strings[0x166]});
             return {};
         }
 
@@ -762,7 +768,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             skill = GetItemSpellPresentation(record);
             /* The attempt costs fatigue by the carried spell's level, whether
                or not it succeeds. */
-            fatigue_cost = Data().spells[record->spell_id].spell_level * 8 + 0x14;
+            fatigue_cost = game.data.spells[record->spell_id].spell_level * 8 + 0x14;
             power = 7;
             do {
                 if (GetItemUseDifficulty(character, skill, character->skills[skill].level,
@@ -780,8 +786,8 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
 
             if (power == 0) {
                 game.events.push(
-                    CharacterNotice{party_slot, fmt::sprintf(Data().strings[0x1f3],
-                                                             GetItemDisplayName(Data(), item))});
+                    CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x1f3],
+                                                             GetItemDisplayName(game.data, item))});
                 PracticeCharacterSkill(game, character, skill, 1, false);
                 return {{0, own_cost()}};
             }
@@ -810,10 +816,10 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
         if (record->spell_id != W8_SPELL_NONE &&
-            Data().items[item->iItemNo].spell_id != W8_SPELL_NONE &&
-            Data().items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_GADGET &&
-            (Data().items[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
-             Data().items[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
+            game.data.items[item->iItemNo].spell_id != W8_SPELL_NONE &&
+            game.data.items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_GADGET &&
+            (game.data.items[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
+             game.data.items[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
             DispatchWorldCursorNodeCommand(0, 4, 1)) {
             return {{0, 0}};
         }
@@ -823,13 +829,13 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         if (announced && TargetSourceIsCharacter(&target, 0)) {
             game.events.push(CharacterNotice{
                 static_cast<unsigned int>(target.iChar),
-                fmt::format("{} {}", Data().strings[g_item_use_messages[record->category * 2]],
-                            GetItemDisplayName(Data(), item))});
+                fmt::format("{} {}", game.data.strings[g_item_use_messages[record->category * 2]],
+                            GetItemDisplayName(game.data, item))});
         } else if (announced && TargetSourceIsMonster(&target, 0)) {
             game.events.push(TextNotice{
                 9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
-                               Data().strings[g_item_use_messages[record->category * 2]],
-                               GetItemDisplayName(Data(), item))});
+                               game.data.strings[g_item_use_messages[record->category * 2]],
+                               GetItemDisplayName(game.data, item))});
         }
 
         if (g_settings.verbose_combat_messages == 0) {

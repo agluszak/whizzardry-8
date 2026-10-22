@@ -786,7 +786,7 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
 
 /* Deliver the one-time character reaction associated with exceptional items.
    Character creation (screen 5) deliberately suppresses every reaction. */
-void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
+void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
                                     W8Character* character)
 {
     int message;
@@ -799,7 +799,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         if (party_slot == -1) {
             return;
         }
-        character = &CurrentGame().party.characters[party_slot];
+        character = &game.party.characters[party_slot];
     }
     if ((item->effect_used & 1) != 0) {
         return;
@@ -816,7 +816,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         message = 47;
         break;
     case 0x244:
-        message = CurrentGame().story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
+        message = game.story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
         break;
     case 0x264:
         message = 66;
@@ -831,13 +831,13 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&CurrentGame().party.characters[npc_slot], 65, 0,
-                            kCharacterEventFullVolume);
+        QueueCharacterEvent(&game.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
         return;
     }
     default:
-        if (choose_character || !CanCharacterUseItem(Data(), character, item->iItemNo) ||
-            Data().items[item->iItemNo].value / character->uiExpLevel <= 500 || !item->identified) {
+        if (choose_character || !CanCharacterUseItem(game.data, character, item->iItemNo) ||
+            game.data.items[item->iItemNo].value / character->uiExpLevel <= 500 ||
+            !item->identified) {
             return;
         }
         message = 55;

@@ -1,10 +1,8 @@
 #include "wiz8/game_init.h"
 
 #include <cstring>
-#include <exception>
 #include <optional>
 #include <string>
-#include <string_view>
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
@@ -21,22 +19,9 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
-#include "wiz8/version.h"
 
-/* The data bring-up gate the native application initializes last. It stamps
-   the version string, opens the string data, then walks every database loader
-   in turn, abandoning the sequence the moment one fails. */
-bool InitializeGame(GameData& data, GameSession& games, bool load_at_startup,
-                    const std::string& string_data_override)
+bool InitializeGame(const GameData& data, GameSession& games, bool load_at_startup)
 {
-    const auto version = FormatVersionBanner(true, true, true);
-
-    try {
-        data = LoadGameData(!string_data_override.empty() ? std::string_view(string_data_override)
-                                                          : "Data\\Strings\\StringData.DAT");
-    } catch (const std::exception&) {
-        return false;
-    }
     InstallGameData(&data);
     const auto& framebuffer = GetFrameBufferSurface();
     memset(framebuffer.pixels, 0, framebuffer.pitch * framebuffer.h);

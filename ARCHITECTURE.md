@@ -49,9 +49,12 @@ are enforced:
   the string table, the item, item-table, spell, NPC, fact, level, monster and missile
   databases, the encounter tables and the dialogue keyword lists. `LoadGameData` reads
   all of it once at startup, and a malformed database throws; missing or malformed
-  keyword lists leave keywords untranslated. The Application owns the loaded data and
-  installs it; unlayered code reads it through `Data()`. A test owns and installs a small
-  `GameData` it builds for itself with `ScopedGameData`.
+  keyword lists leave keywords untranslated. The Application loads and owns the data
+  before its `GameSession`, which hands it by reference to every `Game`; `Game::rules()`
+  and the commands that take a `Game` read `Game::data`. Unlayered code that receives
+  neither reads the installed data through `Data()`. A test builds a small `GameData`,
+  passes it to its `ScopedGame`, and installs it with `ScopedGameData` only for code that
+  still reads `Data()`.
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
   party storage (`W8Party`, formation), item rules (`item_rules.h`: names, equip slots,
   requirements, item making), the inventory's storage rules (`inventory.h`), character

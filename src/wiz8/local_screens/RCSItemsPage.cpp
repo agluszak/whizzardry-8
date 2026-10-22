@@ -1921,7 +1921,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                     MarkCampCharacterPending(item);
                     if ((CurrentGame().party.held.item.iItemNo != -1)) {
                         choose_character = CurrentGame().party.held.actor == -1;
-                        DeliverExceptionalItemReaction(&CurrentGame().party.held.item,
+                        DeliverExceptionalItemReaction(CurrentGame(),
+                                                       &CurrentGame().party.held.item,
                                                        choose_character, character);
                     }
                     if (origin == W8ItemStorage::Equipment &&
