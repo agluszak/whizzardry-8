@@ -195,11 +195,6 @@ void WorldItemEntity::SetHighlight(bool enabled, bool hovered)
     highlight_colour = glm::vec4(0.0f, green, blue, alpha);
 }
 
-bool WorldItemEntity::IsSelected()
-{
-    return g_current_model_instance == m_psrMesh.get();
-}
-
 void WorldItemEntity::LightRadarBlip()
 {
     countdown = WorldClockMilliseconds() + 10000;

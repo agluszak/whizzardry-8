@@ -40,6 +40,7 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -1063,6 +1064,56 @@ W8Character MakeFighter()
 }
 }
 
+TEST_CASE("Character drafts reconcile their own skill allocations without a screen",
+          "[character][creation]")
+{
+    const ScopedGame current;
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    Game owner(data);
+    CharacterDraft draft(owner);
+    draft.character = MakeFighter();
+    draft.character.uiExpLevel = 2;
+    draft.character.profession_levels[W8_PROFESSION_FIGHTER] = 2;
+    draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base = 100;
+    auto& power_strike = draft.character.skills[W8_SKILL_POWER_STRIKE];
+    power_strike.active = true;
+    power_strike.points = power_strike.level = 10;
+    draft.allocation.attribute_points_total = 3;
+    draft.allocation.attribute_points_remaining = 2;
+    draft.allocation.attribute_values[W8_ATTRIBUTE_STRENGTH] = 1;
+    draft.allocation.attribute_limits[W8_ATTRIBUTE_STRENGTH] = 3;
+    draft.allocation.skill_points_total = 9;
+    draft.allocation.skill_points_remaining = 7;
+    draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] = 2;
+
+    draft.adjustAttribute(W8_ATTRIBUTE_STRENGTH, -1);
+
+    REQUIRE(draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base == 99);
+    REQUIRE_FALSE(power_strike.active);
+    REQUIRE(power_strike.points == 8);
+    REQUIRE(draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] == 0);
+    REQUIRE(draft.allocation.skill_points_remaining == 9);
+    REQUIRE(current.game.events.pending().empty());
+    REQUIRE(owner.events.pending().empty());
+}
+
+TEST_CASE("A second character draft cannot erase a forced-gender choice", "[character][creation]")
+{
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    const ScopedGame current(data);
+    CharacterDraft first(current.game);
+    first.character = MakeFighter();
+    first.character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
+    first.beginLevelUp();
+    first.setProfession(W8_PROFESSION_VALKYRIE);
+    REQUIRE(first.character.gender == W8_GENDER_FEMALE);
+
+    CharacterDraft second(current.game);
+    second.beginCreation();
+    first.setProfession(W8_PROFESSION_FIGHTER);
+    REQUIRE(first.character.gender == W8_GENDER_MALE);
+}
+
 TEST_CASE("Attribute-cap notices follow the party's activity without a screen", "[party][events]")
 {
     struct Scenario {
@@ -1088,9 +1139,9 @@ TEST_CASE("Attribute-cap notices follow the party's activity without a screen", 
         ApplyAttributeChange(game, &character, W8_ATTRIBUTE_STRENGTH);
 
         const auto& pending = game.events.pending();
-        REQUIRE(pending.size() == (scenario.announces ? 2u : 1u));
-        REQUIRE(std::get<SkillAvailabilityChanged>(pending[0]).available);
-        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[1]));
+        REQUIRE(character.skills[W8_SKILL_POWER_STRIKE].active);
+        REQUIRE(pending.size() == (scenario.announces ? 1u : 0u));
+        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[0]));
     }
 }
 
