@@ -626,7 +626,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
         items.reserve(items.size() + drops.size());
     }
     // Publish the complete transfer before encumbrance, reactions or presentation.
-    game.party.item_pool = std::move(pool);
+    game.party.item_pool = pool;
     ConsumeNpcItemQuantity(npc, index, quantity);
     RemoveDepletedNpcStock(npc);
     if (!no_payment) SpendPartyGold(game.party, price);
