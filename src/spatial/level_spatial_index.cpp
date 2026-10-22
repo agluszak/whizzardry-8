@@ -1300,18 +1300,6 @@ void LevelSpatialIndex::AppendBlockerStream(const std::uint32_t* stream,
     }
 }
 
-std::size_t LevelSpatialIndex::ProbeCellForBlockersAppend(const glm::ivec3& cell,
-                                                          OctreeScratch& scratch) const
-{
-    unsigned int leaf_index = LeafIndexForCell(cell);
-    if (leaf_index != 0 && m_leaves[leaf_index].polygon_offset != 0) {
-        const std::uint32_t* stream =
-            m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
-        AppendBlockerStream(stream, scratch);
-    }
-    return scratch.keys.size();
-}
-
 /* Ray-test each live, opaque mesh instance's triangle for the buffered
    (mesh<<16)|polygon keys against the segment. */
 bool LevelSpatialIndex::meshPolygonsBlock(const PlaneSegment& segment,
@@ -1337,28 +1325,32 @@ bool LevelSpatialIndex::meshPolygonsBlock(const PlaneSegment& segment,
 }
 
 /* Collect the (mesh<<16)|polygon keys whose triangles touch the box
-   (x±radius, y-height..y, z±radius) around `center`: every cell in the box is
-   probed through ProbeCellForBlockersAppend, each key is then dropped when the
+   (x±radius, y-height..y, z±radius) around `center`: the polygon entries of
+   every cell in the box are mapped to keys, each key is then dropped when the
    mesh is gone, alpha-flagged or facing away, and when its triangle fails the
    spatial bounds test. The survivors are compacted, sorted for ordered
    consumption and zero-terminated; the shared buffer is returned. */
 std::vector<std::uint32_t> LevelSpatialIndex::polygonsNearPoint(const glm::vec3& position,
                                                                 float radius, float height) const
 {
-    OctreeScratch scratch(m_polygon_bit_count, m_object_bit_count);
-    scratch.keys.clear();
-    std::ranges::fill(scratch.visited_polygons, false);
-
     const BoundingBox box{position - glm::vec3(radius, height, radius),
                           position + glm::vec3(radius, 0, radius)};
-    const auto start = cellAt(box.minimum);
-    const auto end = cellAt(box.maximum);
-    visitOctreeCellBox(start, end,
-                       [&](const glm::ivec3& cell) { ProbeCellForBlockersAppend(cell, scratch); });
+    // Cells share polygon entries; each entry is tested once.
+    std::vector<std::uint32_t> entries;
+    visitOctreeCellBox(cellAt(box.minimum), cellAt(box.maximum), [&](const glm::ivec3& cell) {
+        const unsigned int leaf_index = LeafIndexForCell(cell);
+        if (leaf_index == 0 || m_leaves[leaf_index].polygon_offset == 0) return;
+        const std::uint32_t* stream =
+            m_polygon_index_stream.data() + m_leaves[leaf_index].polygon_offset;
+        entries.insert(entries.end(), stream + 1, stream + 1 + *stream);
+    });
+    std::ranges::sort(entries);
+    entries.erase(std::ranges::unique(entries).begin(), entries.end());
 
     std::vector<std::uint32_t> polygons;
-    polygons.reserve(scratch.keys.size());
-    for (const auto key : scratch.keys) {
+    polygons.reserve(entries.size());
+    for (const auto entry : entries) {
+        const unsigned int key = m_aulPolyLookup[entry];
         const auto mesh_index = key >> 16;
         if (key == 0 || mesh_index >= m_meshCount || !owner_world->psrMeshes[mesh_index] ||
             TestBit(m_alpha_bits, mesh_index))
