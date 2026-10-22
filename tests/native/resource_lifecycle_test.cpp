@@ -240,8 +240,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "[resources][spell]")
 {
     auto& definitions = world.spell_visual_definitions;
-    auto& named = *definitions.emplace_back(std::make_unique<SpellVisual>(&world));
-    auto& generic = *definitions.emplace_back(std::make_unique<SpellVisual>(&world));
+    auto& named = *definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
+    auto& generic = *definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
     named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
     named.asset_name = "Named";
     generic.asset_name = "Generic";
@@ -285,11 +285,11 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
     REQUIRE(visuals.empty());
 }
 
-// A cloned resource must own its animations and light vectors after its source is released.
-template<class Host>
+// An actor must own its animations and light vectors after its definition is released.
+template<class Definition, class Host>
 static void CheckEmitterCloneLifetime()
 {
-    auto source = std::make_unique<Host>();
+    auto source = std::make_unique<Definition>();
     const int cycle = static_cast<int>(source->resources.cycles.size()) - 1;
     source->resources.cycles[cycle].animation = std::make_unique<Animation>();
     source->resources.cycles[cycle].animation->playback_scale = 3.5f;
@@ -298,7 +298,7 @@ static void CheckEmitterCloneLifetime()
     light->transform.setLocation(11, 22, 33);
     light->m_position = {11, 22, 33};
     source->resources.cycles[cycle].lights.lights.push_back(std::move(owned_light));
-    auto copy = std::make_unique<Host>(*source);
+    auto copy = std::make_unique<Host>(*source, nullptr);
     REQUIRE(copy->resources.cycles[cycle].animation != source->resources.cycles[cycle].animation);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front().get() != light);
     source.reset();
@@ -311,8 +311,8 @@ static void CheckEmitterCloneLifetime()
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
 {
-    CheckEmitterCloneLifetime<Missile>();
-    CheckEmitterCloneLifetime<SpellVisual>();
+    CheckEmitterCloneLifetime<MissileDefinition, Missile>();
+    CheckEmitterCloneLifetime<SpellVisualDefinition, SpellVisual>();
 }
 
 // Valid retail animation header and light; optionally truncate after the light
@@ -349,22 +349,16 @@ static void WriteEmitterFixture(unsigned char cycle, bool truncate)
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
                  "[resources][spell]")
 {
-    SpellVisual visual;
-    auto& host = visual;
-    host.visual.current_cycle = 2;
+    SpellVisualDefinition host;
     host.resources.cycles[2].animation = std::make_unique<Animation>();
     auto* original = host.resources.cycles[2].animation.get();
-    const auto original_timer = host.visual.timer;
     for (const auto [cycle, truncate] : {std::pair<unsigned char, bool>{2, true}, {255, false}}) {
         WriteEmitterFixture(cycle, truncate);
         auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         LevelLoadContext info{};
         info.hFile = file.get();
-        REQUIRE_FALSE(ReadEmitterCycle(visual.visual, host.resources.cycles, &info, -1, false));
-        REQUIRE(host.visual.current_cycle == 2);
-        REQUIRE(host.visual.timer == original_timer);
+        REQUIRE_FALSE(ReadEmitterCycle(host.resources.cycles, info, -1));
         REQUIRE(host.resources.cycles[2].animation.get() == original);
-        REQUIRE(visual.visual.m_plsLights == nullptr);
         REQUIRE(GetWorld()->transient_lights.empty());
     }
     WriteEmitterFixture(2, false);
@@ -372,9 +366,9 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         LevelLoadContext info{};
         info.hFile = file.get();
-        REQUIRE(ReadEmitterCycle(visual.visual, host.resources.cycles, &info, -1, false));
-        REQUIRE(visual.visual.m_plsLights == host.resources.cycles[2].lightView());
-        REQUIRE(visual.visual.m_plsLights->size() == 1);
+        REQUIRE(ReadEmitterCycle(host.resources.cycles, info, -1));
+        REQUIRE(host.resources.cycles[2].lights.lights.size() == 1);
+        REQUIRE(host.resources.cycles[2].lights.lights.front()->scene == nullptr);
     }
 }
 
@@ -404,7 +398,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual rows load into their named cy
 }
 
 // Animations hold shared frame meshes; each player shows every frame on a model of
-// its own, so copies of one source animate independently.
+// its own, so players of one animation animate independently.
 TEST_CASE("A cycle player shows every frame on its own model", "[resources][animation]")
 {
     Animation animation;
@@ -417,7 +411,7 @@ TEST_CASE("A cycle player shows every frame on its own model", "[resources][anim
 
     CyclePlayer first;
     first.active_animation = &animation;
-    CyclePlayer second(first);
+    CyclePlayer second;
     second.active_animation = &animation;
     auto* shown = first.SelectCycleFrameLod(0, 2);
     REQUIRE(first.SelectCycleFrameLod(1, 2) == shown);
@@ -707,7 +701,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
 {
     world.camera = &world.scene->camera;
     auto& source =
-        *world.spell_visual_definitions.emplace_back(std::make_unique<SpellVisual>(&world));
+        *world.spell_visual_definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
     source.asset_name = "TargetCone";
     source.mode = W8_SPELL_VISUAL_CONE;
     source.resources.cycles[static_cast<int>(W8_SPELL_VISUAL_CONE) * SPELL_CYCLES_PER_GROUP]

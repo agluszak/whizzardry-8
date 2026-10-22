@@ -201,7 +201,7 @@ void UpdateShakeEffects()
 /* Build the two paths used while reading a .mon resource, verify its one-byte
    version, and hand the open file plus its resource context to the typed cycle
    reader. */
-static bool readCyclePrefix(LevelLoadContext* info, CyclePlayer& cycle, int cycle_index)
+static bool readCyclePrefix(LevelLoadContext* info, CycleDefinition& cycle, int cycle_index)
 try {
     unsigned char has_path;
     unsigned char has_particles;
@@ -211,15 +211,14 @@ try {
 
     info->hFile->read(&has_path, 1);
     if (has_path != 0) {
-        cycle.m_pAI = LoadPathAI(*info->hFile);
+        cycle.path = LoadPathAI(*info->hFile);
     }
 
     info->hFile->read(&has_particles, 1);
     if (has_particles != 0) {
         std::vector<std::unique_ptr<ParticleSystem>> particles;
 
-        success = ReadWorldParticles(info, info->world ? (info->world->scene.get()) : nullptr,
-                                     &particles);
+        success = ReadWorldParticles(info, nullptr, &particles);
         if (!particles.empty()) {
             int index;
 
@@ -244,7 +243,7 @@ try {
     return false;
 }
 
-bool loadAnimationCycle(std::string_view mon_name, CyclePlayer& cycle, int cycle_index,
+bool loadAnimationCycle(std::string_view mon_name, CycleDefinition& cycle, int cycle_index,
                         std::string_view directory,
                         const std::function<bool(LevelLoadContext&, int)>& read_payload,
                         std::string_view bitmap_directory)
@@ -270,7 +269,6 @@ try {
         ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
     }
 
-    info.world = cycle.owner_world;
     info.hFile = handle.get();
     info.bitmap_folder = wiz8::asset_path(bitmap_path);
     success = true;
@@ -308,37 +306,14 @@ CyclePlayer::CyclePlayer(World* owner) : owner_world(owner)
     opacity = 1.0f;
 }
 
-// Copy runtime state, particles and the shadow; representations own borrowed lights.
-CyclePlayer::CyclePlayer(const CyclePlayer& other, World* owner)
-    : owner_world(owner), location(other.location), local_location(other.local_location),
-      parent_location(other.parent_location), rotation(other.rotation),
-      highlight_colour(other.highlight_colour), skin(other.skin), damage_stage(other.damage_stage),
-      light_scale(other.light_scale), emissive_override(other.emissive_override),
-      model_scale(other.model_scale), instance_scale(1.0f), apply_instance_scale(false),
-      subcycle(other.subcycle), pending_subcycle(other.pending_subcycle),
-      timer(GameClockMilliseconds()), rep_active(other.rep_active),
-      animation_playing(other.animation_playing), frame_direction(other.frame_direction),
-      frame_method(other.frame_method), animation_behaviour(other.animation_behaviour),
-      pending_behaviour(other.pending_behaviour), first_frame(other.first_frame),
-      last_frame(other.last_frame), m_bLOD(other.m_bLOD), lod_near(other.lod_near),
-      lod_far(other.lod_far), current_cycle(0), current_subcycle(0), forced_subcycle(-1),
-      pending_cycle(-1), animation_radius(other.animation_radius)
+CyclePlayer::CyclePlayer(const CycleDefinition& definition, World* owner) : CyclePlayer(owner)
 {
-    sound_events = other.sound_events;
-    m_pAI = other.m_pAI;
+    m_pAI = definition.path;
     if (m_pAI) m_pAI->timed = false;
-    current_model_instance = 0;
-    m_plsLights = 0;
-    last_subcycle = other.last_subcycle;
-    wrapped = false;
-    enabled = true;
-    mirror_x = other.mirror_x;
-    aim_set = false;
-    opacity = other.opacity;
-    frame_fraction = 0;
-    shake_events = other.shake_events;
-    particles.reserve(other.particles.size());
-    for (const auto& source : other.particles) {
+    sound_events = definition.sound_events;
+    shake_events = definition.shake_events;
+    particles.reserve(definition.particles.size());
+    for (const auto& source : definition.particles) {
         auto& copy = particles.emplace_back();
         copy.cycle = source.cycle;
         copy.subcycle = source.subcycle;
@@ -349,13 +324,6 @@ CyclePlayer::CyclePlayer(const CyclePlayer& other, World* owner)
         copy.position = source.position;
         copy.rotation = source.rotation;
     }
-    if (other.m_ground_shadow)
-        m_ground_shadow = std::make_unique<GroundShadow>(*other.m_ground_shadow);
-}
-
-W8SoundEvent& CyclePlayer::AddSoundEvent(W8SoundEvent event)
-{
-    return sound_events.emplace_back(std::move(event));
 }
 
 void CyclePlayer::SetLocation(const glm::vec3* new_location)
@@ -395,13 +363,6 @@ CyclePlayer::~CyclePlayer()
     for (const auto& event : shake_events) {
         CameraShakes().Stop(event);
     }
-}
-
-void CyclePlayer::WithdrawFromScene()
-{
-    SetLights(nullptr);
-    for (auto& event : particles)
-        if (event.m_pstParticles) event.m_pstParticles->setScene(nullptr);
 }
 
 void CyclePlayer::RetireParticles(World& world)
@@ -1010,11 +971,6 @@ void CyclePlayer::AttachCycleLights(std::vector<std::unique_ptr<Light>>* lights)
 void CyclePlayer::SetLights(std::vector<std::unique_ptr<Light>>* lights)
 {
     m_plsLights = lights;
-}
-
-void CyclePlayer::AddShakeEffect(ShakeDefinition effect)
-{
-    shake_events.push_back(effect);
 }
 
 void CyclePlayer::CreateGroundShadow(float width, float depth)

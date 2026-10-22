@@ -30,15 +30,16 @@ inline void StartEmitterCycle(CyclePlayer& visual, Animation& animation, signed 
     visual.subcycle = 0;
 }
 
-inline bool ReadEmitterCycle(CyclePlayer& visual, std::span<EmitterCycleResources> cycles,
-                             LevelLoadContext* info, int cycle_index, bool select_lod)
+// Load one .mon animation into its emitter cycle (the one it names, for -1).
+inline bool ReadEmitterCycle(std::span<EmitterCycleResources> cycles, LevelLoadContext& info,
+                             int cycle_index)
 {
     if (cycle_index < -1 || cycle_index >= static_cast<int>(cycles.size())) {
         return false;
     }
     EmitterCycleResources loaded;
     loaded.animation = std::make_unique<Animation>();
-    if (!AnimObjReadFromFile(info, loaded.animation.get(), &loaded.lights.lights)) {
+    if (!AnimObjReadFromFile(&info, loaded.animation.get(), &loaded.lights.lights)) {
         return false;
     }
     const int emitter = cycle_index == -1 ? loaded.animation->cycle : cycle_index;
@@ -46,35 +47,6 @@ inline bool ReadEmitterCycle(CyclePlayer& visual, std::span<EmitterCycleResource
         !std::isfinite(loaded.animation->playback_scale) || loaded.animation->playback_scale <= 0) {
         return false;
     }
-
-    // Resolve any deferred frame resources before publishing the new cycle.
-    signed char lod = visual.m_bLOD;
-    if (select_lod) {
-        if (AnimObjDispatch(loaded.animation.get(), 2, 0)) {
-            lod = 2;
-        } else if (AnimObjDispatch(loaded.animation.get(), 1, 0)) {
-            lod = 1;
-        } else {
-            lod = 0;
-        }
-    }
-
-    // No allocations from here through installation. The retired resources
-    // remain owned by loaded and release animation before lights on return.
-    auto& destination = cycles[emitter];
-    const auto timer = GameClockMilliseconds();
-    destination.swap(loaded);
-    visual.active_animation = destination.animation.get();
-    visual.SetLights(destination.lightView());
-    visual.current_cycle = static_cast<signed char>(emitter);
-    visual.rep_active = true;
-    visual.frame_direction = W8_ANIMATION_FORWARD;
-    visual.timer = timer;
-    visual.animation_behaviour = destination.animation->behaviour;
-    visual.frame_method = destination.animation->frame_method;
-    visual.animation_playing = destination.animation->animation_playing;
-    if (select_lod) {
-        visual.m_bLOD = lod;
-    }
+    cycles[emitter].swap(loaded);
     return true;
 }
