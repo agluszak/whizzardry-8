@@ -648,27 +648,27 @@ void MainGameScreen::openKeyboardMenu(int slot)
     DisableMainGamePortraitSlot(slot);
     edge_targets[slot]->setEnabled(false);
     combat_targets[slot]->setEnabled(false);
-    if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
+    hud->repaint.portrait(slot);
 }
 
 void MainGameScreen::closeKeyboardMenu()
 {
     auto menu = std::move(keyboard_menu);
-    auto& hud = *MainGameHud();
-    const int slot = menu ? menu->slot : hud.combat_slot;
-    hud.combat_slot = -1;
-    hud.hover_combat_slot = slot;
-    hud.cursor_grace = 0;
+    auto& state = *hud;
+    const int slot = menu ? menu->slot : state.combat_slot;
+    state.combat_slot = -1;
+    state.hover_combat_slot = slot;
+    state.cursor_grace = 0;
     RefreshPartySlotRegions();
     combat.setEnabled(game.combat.has_value());
-    if (menu && !hud.portrait_refresh_pending[slot]) {
+    if (menu && !state.portrait_refresh_pending[slot]) {
         ClearSurfaceRect(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
                          menu->origin.y + 0x4a);
         InvalidateRegion(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
                          menu->origin.y + 0x4a);
     }
     menu.reset();
-    if (slot >= 0) hud.repaint.portrait(slot);
+    if (slot >= 0) state.repaint.portrait(slot);
 }
 
 std::string KeyboardActionMenu::tooltip(const Row& row) const
@@ -676,14 +676,14 @@ std::string KeyboardActionMenu::tooltip(const Row& row) const
     if (row.menu == -1) return Data().strings[0x11];
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
         if (!row.enabled) return Data().strings[0x5a];
-        const auto& spell = Data().spells[CurrentGame().party.rows[slot].remembered.spell.detail];
+        const auto& spell = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail];
         return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return Data().strings[0x5d];
-        const auto& party = CurrentGame().party.rows[slot];
-        auto* item = CurrentGame().party.itemAt(party.remembered.item_detail.item_use.item);
+        const auto& party = screen_.game.party.rows[slot];
+        auto* item = screen_.game.party.itemAt(party.remembered.item_detail.item_use.item);
         return fmt::format("{}: {}", Data().strings[0x5d],
                            FormatItemDisplayName(Data(), item, false));
     }
@@ -782,11 +782,10 @@ void KeyboardActionMenu::refresh()
         }
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
-            offset =
-                Data().spells[CurrentGame().party.rows[slot].remembered.spell.detail].realm * 7;
+            offset = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail].realm * 7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset = GetAttackMenuWeaponOffset(
-                         CurrentGame().party.characters[slot].Hand[0].weapon_skill) *
+                         screen_.game.party.characters[slot].Hand[0].weapon_skill) *
                      7;
         row.appearance.quick_image =
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
@@ -828,7 +827,7 @@ void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
     }
     if (action != W8_ACTION_NONE) {
         ChooseAction(slot, action, -1, 0, false, 1);
-        if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
+        hud->repaint.character_action = true;
         closeKeyboardMenu();
         return;
     }
@@ -838,14 +837,14 @@ void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
             if (!gpSCSV) OpenSpellCastingView(slot);
         } else if (CanPartySlotCastRecordedSpell(slot)) {
             StartCharacterSpellCast(slot, 0);
-            if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
+            hud->repaint.character_action = true;
         }
     } else if (menu == W8_SUBMENU_ITEMS) {
         if (item == 1) {
             if (!ItemUseDraft()) OpenUseItemSelectView(slot);
         } else {
             StartCharacterItemUse(slot);
-            if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
+            hud->repaint.character_action = true;
         }
     }
 }
