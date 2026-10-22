@@ -248,22 +248,12 @@ void W8AmbientSound::Service(const glm::vec3& listener, float yaw, bool entered)
             }
             if (!CurrentGame().combat.has_value() && should_play != 0 &&
                 CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-                float angle = -yaw;
-                glm::vec3 camera;
-                glm::mat3 rotation;
-                glm::vec3 offset;
-                glm::vec3 transformed;
-                glm::vec3 to_listener;
-                float distance;
+                const auto offset = position - listener;
+                const auto rotation = glm::mat3_cast(glm::angleAxis(-yaw, glm::vec3(0, 1, 0)));
+                const auto transformed = rotation * offset;
+                const float distance = glm::length(offset);
                 unsigned int volume;
                 float gain_scale;
-
-                camera = listener;
-                rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
-                offset = position - camera;
-                transformed = rotation * offset;
-                to_listener = camera - position;
-                distance = glm::length(to_listener);
                 volume = static_cast<unsigned int>(
                     (PresentationRng().below(volume_max - volume_min) + volume_min));
                 current_volume = volume;
@@ -282,17 +272,10 @@ void W8AmbientSound::Service(const glm::vec3& listener, float yaw, bool entered)
         return;
     }
     if (!group) {
-        float angle = -yaw;
-        glm::vec3 camera;
-        glm::mat3 rotation;
-        glm::vec3 offset;
-        glm::vec3 transformed;
-
-        camera = listener;
         current_volume = volume_max;
-        rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
-        offset = position - camera;
-        transformed = rotation * offset;
+        const auto offset = position - listener;
+        const auto rotation = glm::mat3_cast(glm::angleAxis(-yaw, glm::vec3(0, 1, 0)));
+        const auto transformed = rotation * offset;
         sound_handle = wiz8::sound::play(
             config.wave_name, {.volume = current_volume, .loops = 0, .position = transformed});
         if (sound_handle == nullptr) {
@@ -300,7 +283,7 @@ void W8AmbientSound::Service(const glm::vec3& listener, float yaw, bool entered)
         }
         return;
     }
-    if (group) group->service(*this);
+    group->service(*this);
 }
 
 SharedAmbientGroup::~SharedAmbientGroup()
