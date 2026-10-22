@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "wiz8/data/game_data.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
