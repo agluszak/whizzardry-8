@@ -134,8 +134,6 @@ public:
 };
 
 class W8OptionsInterfacePanel : public W8OptionsPanel {
-    GameOptions& values;
-
 public:
     explicit W8OptionsInterfacePanel(GameOptions& values);
     void OnPrimary(W8ButtonWidget* control);
@@ -143,8 +141,6 @@ public:
 };
 
 class W8OptionsAudioPanel : public W8OptionsPanel {
-    GameOptions& values;
-
 public:
     explicit W8OptionsAudioPanel(GameOptions& values);
     void OnPrimary(W8ButtonWidget* control);
@@ -168,7 +164,7 @@ class W8OptionsKeyboardPanel : public W8OptionsPanel {
     OptionsScreen& screen;
 
 public:
-    W8OptionsKeyboardPanel(OptionsScreen& screen, int panel);
+    W8OptionsKeyboardPanel(OptionsScreen& owner, int panel);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SelectKey(W8OptionsKeyButton* key);
@@ -190,7 +186,7 @@ class W8OptionsSaveLoadPanel : public W8OptionsPanel {
     OptionsScreen& screen;
 
 public:
-    W8OptionsSaveLoadPanel(OptionsScreen& screen, int panel);
+    W8OptionsSaveLoadPanel(OptionsScreen& owner, int panel);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SetCurrent(int current) override;

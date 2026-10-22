@@ -122,7 +122,7 @@ template<> struct Record<W8GameSettings> {
               at(offsetof(Disk, text_display_delay_ms), sizeof(Disk::text_display_delay_ms)));
         value(&runtime.options.combat_delay_ms,
               at(offsetof(Disk, combat_delay_ms), sizeof(Disk::combat_delay_ms)));
-        value(&runtime.options.continuous_combat_start_delay_ms,
+        value(&runtime.continuous_combat_start_delay_ms,
               at(offsetof(Disk, continuous_combat_start_delay_ms),
                  sizeof(Disk::continuous_combat_start_delay_ms)));
         enum_value<std::int32_t>(

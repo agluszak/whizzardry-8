@@ -1,6 +1,7 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <exception>
 #include <functional>
@@ -274,8 +275,8 @@ void W8OptionsSaveRow::ClearSave()
     button.m_dirty = true;
 }
 
-W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(OptionsScreen& screen, int panel)
-    : screen(screen), m_panel(panel)
+W8OptionsSaveLoadPanel::W8OptionsSaveLoadPanel(OptionsScreen& owner, int panel)
+    : screen(owner), m_panel(panel)
 {
     m_background = CatalogArtwork::Load(0xf7);
     m_backgroundImage = 0;
@@ -709,8 +710,8 @@ void W8OptionsKeyButton::SetKeyText(SDL_Keycode key)
     this->text.SetText(text, g_options_detail_font);
 }
 
-W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(OptionsScreen& screen, int panel)
-    : screen(screen), m_panel(panel)
+W8OptionsKeyboardPanel::W8OptionsKeyboardPanel(OptionsScreen& owner, int panel)
+    : screen(owner), m_panel(panel)
 {
     const auto add_key = [this](SDL_Rect bounds, W8MGSCommand primary, W8MGSCommand secondary,
                                 std::string_view caption) {
@@ -1001,7 +1002,7 @@ static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(OptionsScreen& screen,
     return nullptr;
 }
 
-W8OptionsInterfacePanel::W8OptionsInterfacePanel(GameOptions& values) : values(values)
+W8OptionsInterfacePanel::W8OptionsInterfacePanel(GameOptions& values)
 {
     m_content_top += 22;
     m_tooltip_delay = AddSlider(0x80e, static_cast<float>(g_settings.tooltip_delay_ms), 0, 1200);
@@ -1030,7 +1031,7 @@ void W8OptionsInterfacePanel::OnPrimary(W8ButtonWidget* control)
     m_tooltip_delay->SetEnabled(g_settings.tooltips_enabled);
 }
 
-W8OptionsAudioPanel::W8OptionsAudioPanel(GameOptions& values) : values(values)
+W8OptionsAudioPanel::W8OptionsAudioPanel(GameOptions& values)
 {
     for (int index = 0; index < 4; ++index) {
         int volume;
