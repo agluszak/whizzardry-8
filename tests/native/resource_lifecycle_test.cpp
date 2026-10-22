@@ -808,7 +808,6 @@ TEST_CASE("Skill notices stay with the supplied game", "[resources][notices]")
     data.strings.resize(1024);
     data.strings[0x1d9] = data.strings[0x1db] = "%s %u";
     Game detached(data);
-    const ScopedGameData installed(data);
     AnnounceSkillIncrease(detached, 0, W8_SKILL_COMMUNICATION, true);
     REQUIRE(detached.npc_dialogue.has_queued_actions());
     REQUIRE_FALSE(active.game.npc_dialogue.has_queued_actions());
