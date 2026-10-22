@@ -189,13 +189,6 @@ public:
     HitTarget* m_attribute_controls[5];
 };
 
-struct W8CharacterSpellEntry {
-    W8SpellRealm realm;
-    unsigned int spell;
-    bool fSelectable;
-    bool selected;
-};
-
 class W8CharacterSpellList;
 
 class W8CharacterSpellsPage : public W8CharacterPage {
@@ -210,16 +203,15 @@ public:
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void Refresh() override;
-    void SelectSpell(unsigned int entry);
-    void ShowSpellInfo(unsigned int entry);
+    void SelectSpell(unsigned int spell);
+    void ShowSpellInfo(unsigned int spell);
 
 private:
     void UpdateSpellLists();
     std::unique_ptr<W8CharacterSpellList> m_realms[6];
-    W8CharacterSpellEntry m_SpellData[114];
     W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
     unsigned int m_animation_frames[6];
-    unsigned int m_last_selected;
+    std::optional<unsigned int> m_last_selected;
 };
 
 class W8CharacterSkillsPage : public W8CharacterPage {
