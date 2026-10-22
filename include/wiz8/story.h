@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,15 @@ struct World;
    states are created when the opening sequence runs; a load replaces each part from
    its save section. */
 struct Story {
+    // What a party imported from Wizardry 7 brings from its game into this one.
+    struct ImportedOrigin {
+        enum class Alignment { Unaligned, Umpani, Trang };
+        Alignment alignment = Alignment::Unaligned;
+        bool barlone_dead = false;
+        bool rodan_dead = false;
+    };
+    // Set by the import and consumed when the opening sequence seeds the facts.
+    std::optional<ImportedOrigin> imported_origin;
     std::array<unsigned char, W8_FACT_SLOT_COUNT> facts{};
     W8FactionStates factions = StartingFactions();
     W8FactionRelations faction_relations = StartingFactionRelations();

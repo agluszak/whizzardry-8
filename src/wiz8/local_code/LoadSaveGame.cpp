@@ -76,7 +76,6 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/OptionsScreen.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/message_log.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_interaction_state.h"

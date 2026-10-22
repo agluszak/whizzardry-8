@@ -90,10 +90,10 @@ bool W8StatInfoDialogBase::PopulateText()
     bounds.top = m_y + 0x26;
     bounds.right = m_x + 0x11f;
     bounds.bottom = m_y + 0xdf;
-    textarea.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    textarea.Configure(&bounds, g_wiz_text_font_secondary);
     textarea.SetEntrySpacing(0);
-    textarea.AddEntry(Data().strings[0x155], Data().strings[m_detail_id], 10, 0xf, 0);
-    textarea.AddEntry({}, "", 10, 0xf, 0);
+    textarea.AddEntry(Data().strings[0x155], Data().strings[m_detail_id], 10, 0xf);
+    textarea.AddEntry({}, "", 10, 0xf);
     return true;
 }
 
@@ -121,25 +121,25 @@ W8SkillInfoDialog::W8SkillInfoDialog(W8Skill skill, bool first, bool second, boo
 bool W8SkillInfoDialog::PopulateText()
 {
     W8StatInfoDialogBase::PopulateText();
-    textarea.AddEntry(Data().strings[0x156], "", 10, 0xf, 0);
+    textarea.AddEntry(Data().strings[0x156], "", 10, 0xf);
     const W8SkillAttributes* skill = &g_skill_attributes[m_skill];
     textarea.AddEntry({}, Data().strings[g_character_description_first_ids[skill->attribute_1]], 10,
-                      0xf, 0);
+                      0xf);
     if (skill->attribute_1 != skill->attribute_2) {
         textarea.AddEntry({}, Data().strings[g_character_description_first_ids[skill->attribute_2]],
-                          10, 0xf, 0);
+                          10, 0xf);
     }
     if (m_first) {
-        textarea.AddEntry({}, "", 10, 0xf, 0);
-        textarea.AddEntry({}, Data().strings[0x157], 10, 5, 0);
+        textarea.AddEntry({}, "", 10, 0xf);
+        textarea.AddEntry({}, Data().strings[0x157], 10, 5);
     }
     if (m_second) {
-        textarea.AddEntry({}, "", 10, 0xf, 0);
-        textarea.AddEntry({}, Data().strings[0x158], 10, 0xb, 0);
+        textarea.AddEntry({}, "", 10, 0xf);
+        textarea.AddEntry({}, Data().strings[0x158], 10, 0xb);
     }
     if (m_bonus) {
-        textarea.AddEntry({}, "", 10, 0xf, 0);
-        textarea.AddEntry({}, fmt::sprintf(Data().strings[0x159], 0x19), 10, 3, 0);
+        textarea.AddEntry({}, "", 10, 0xf);
+        textarea.AddEntry({}, fmt::sprintf(Data().strings[0x159], 0x19), 10, 3);
     }
     return true;
 }
