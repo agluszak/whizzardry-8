@@ -77,8 +77,7 @@ void ChooseFirstReply(GameHarness& game, const char* step)
         }
     }
     REQUIRE(first != nullptr);
-    const auto bounds = first->bounds();
-    game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
+    game.click(step, *first);
     game.wait(step, [] { return g_modal_owner == nullptr; });
 }
 
