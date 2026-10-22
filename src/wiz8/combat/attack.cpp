@@ -3459,7 +3459,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
     W8MonsterInfo* monster_info = nullptr;
     W8TargetSource source;
     W8TargetSource target_source;
-    W8CombatSlot target;
+    W8CombatSlot target = party_row->executing.target;
     W8SpellEffectDefinition effect;
     std::string location_name;
     bool verbose = g_settings.options.verbose_combat_messages;
