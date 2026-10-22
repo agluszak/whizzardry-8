@@ -32,8 +32,8 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/world/world.h"
 #include "wiz8/targeting_presentation.h"
+#include "wiz8/world/world.h"
 
 // Six classes with three elevation shades; highlights cycle from dim to bright.
 constexpr std::array<glm::vec3, 18> radar_blip_colors = {{

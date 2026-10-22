@@ -516,8 +516,7 @@ void World::acceptPick(Pick intersection, bool in_combat)
                 (!(trigger->flags & W8_TRIGGER_ONCE) || !(trigger->flags & W8_TRIGGER_FIRED)) &&
                 (!in_combat || (trigger->doorData() && !trigger->doorData()->open))) {
                 if (const auto bounds = prop.GetFrameBounds()) {
-                    const float distance =
-                        glm::length(glm::vec3(bounds->center()) - party.eye());
+                    const float distance = glm::length(glm::vec3(bounds->center()) - party.eye());
                     if (trigger->range_minimum <= distance && distance <= trigger->range_maximum)
                         result.subject = &prop;
                 }
@@ -553,8 +552,7 @@ NativeObject* World::selectedNativeObject() const
     const auto* object = std::get_if<NativeObject*>(&picked.subject);
     if (!object || !picked.intersection.hit) return nullptr;
     const auto point = picked.intersection.hit->worldIntersection;
-    return glm::distance(glm::dvec3(point.x, point.y, point.z),
-                         glm::dvec3(party.eye())) <= 5000
+    return glm::distance(glm::dvec3(point.x, point.y, point.z), glm::dvec3(party.eye())) <= 5000
                ? *object
                : nullptr;
 }
