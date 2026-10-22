@@ -174,8 +174,8 @@ void PleaseWaitScreen::frame()
             ReturnToPreviousScreen();
             return;
         }
-        // Departure still has its old presentation. Decoding has already succeeded.
-        LeaveLevel();
+        // Finish combat while its controls exist; release the world after they leave.
+        if (GameInProgress() && CurrentGame().combat) CurrentGame().endCombat(true);
         DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         try {
             std::move(*prepared).install(games);
