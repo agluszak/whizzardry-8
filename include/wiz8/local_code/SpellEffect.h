@@ -84,6 +84,7 @@ struct W8SpellEffectEntry {
     TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
 
     W8SpellId kind = W8_SPELL_NONE;
+    /* Only Hypnotic Lure persists for multiple turns. */
     int turns_remaining = 0;
     /* The cast's original source. */
     W8TargetSource OrigSource;
@@ -110,9 +111,6 @@ struct W8SpellEffectEntry {
     /* When the effect ends without having applied, the tick re-casts
        the spell from the stored source. CastSpellFromSource's `c` argument. */
     bool recast = false;
-    /* Sustained effect - ticks once per turn while turns_remaining
-       counts down (set for the monster-control spell 0x26). */
-    bool sustained = false;
     /* Missiles carrying the effect are still in flight; the tick
        releases them and spawns the impact visual before resolving. */
     bool missiles_pending = false;
@@ -134,6 +132,6 @@ void UpdateSpellEffects(void);
    that owns it. */
 void AbsorbMissileDamage(Missile* missile);
 void ReportSpellResult(W8SpellEffectEntry* effect);
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target);
+void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target);
 
 #endif

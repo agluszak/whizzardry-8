@@ -3,6 +3,7 @@
 
 #include <cstddef>
 
+#include "wiz8/npc_trade_price.h"
 #include "wiz8/rules/item_instance.h"
 
 enum class W8NpcStockChanceTier : signed char {
@@ -12,9 +13,8 @@ enum class W8NpcStockChanceTier : signed char {
     three_quarters = 3,
     always = 4,
 };
-#include "wiz8/npc_trade_price.h"
 
-struct W8ItemInstance;
+class Game;
 struct W8NpcItemEntry;
 struct W8NpcState;
 
@@ -28,26 +28,30 @@ struct W8TradeSelection {
     int slot = -1;
     W8ItemInstance expected{};
     unsigned char stock_quantity = 0;
+    bool operator==(const W8TradeSelection&) const = default;
 };
-W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& selection);
+W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
+                                      const W8TradeSelection& selection);
 enum class W8TradeOutcome : unsigned char {
     Complete,
     InvalidSelection,
     Refused,
     WantedByOwner,
-    InsufficientGold
+    InsufficientGold,
+    Offer,
+    TheftFailed,
+    TheftCaught
 };
+enum class W8TradeAction : unsigned char { Exchange, Steal, Offer };
 struct W8TradeResult {
     W8TradeOutcome outcome;
     bool accepted_topic = false;
     bool dropped_overflow = false;
+    bool theft_succeeded = false;
 };
-W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selection,
-                               unsigned char quantity);
-
-/* NPC stock and trade interface. The implementing source, src/wiz8/
-   npc_items.cpp, sits in an unresolved-fragment gap, so original-TU ownership
-   of these declarations is provisional until the fragment is attributed. */
+W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
+                               const W8TradeSelection& selection, int quantity,
+                               W8TradeAction action);
 
 int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
 int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity);
@@ -66,11 +70,6 @@ bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified);
 bool ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity);
-/* 0x0055B730: move a sold/given party item into NPC stock, paying party gold
-   unless suppressed (the item being a dialogue topic the NPC wants). */
-/* 0x0055B7E0: the stock mutation a completed trade applies for one slot. */
 void DecayNpcInventory(W8NpcState* npc);
-W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
-                                      bool no_payment);
 
 #endif
