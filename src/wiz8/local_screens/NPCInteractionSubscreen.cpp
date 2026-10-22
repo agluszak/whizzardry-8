@@ -153,7 +153,10 @@ void HideNpcQuoteBubbleRegion()
     npc_quote_input.reset();
 }
 
-static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
+static void ToggleNpcTradeFilter(W8NpcTradeFilter filter);
+static constexpr std::array kTradeFilters{
+    W8_NPC_TRADE_HAND, W8_NPC_TRADE_ACCESSORY, W8_NPC_TRADE_USABLE_BY_CHARACTER,
+    W8_NPC_TRADE_BODY, W8_NPC_TRADE_OTHER,     W8_NPC_TRADE_USABLE_BY_PARTY};
 static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
 
@@ -182,8 +185,6 @@ static void ReturnOfferedItem()
 }
 static void HandleNpcDialogueDeparture(unsigned char value);
 static void CreateNpcDialogueControls(void);
-static void ToggleNpcCharacterUsabilityFilter(void);
-static void ToggleNpcPartyUsabilityFilter(void);
 static void SubmitNpcDialogueInput(void);
 static void SubmitNpcWhereIsQuery(void);
 static void BackOutNpcDialogue(void);
@@ -944,40 +945,12 @@ static void CreateNpcDialogueControls()
         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_6].text.SetLayoutBounds(0x5d, 0x197, 0xa0,
                                                                                  0x1a7);
-    Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 0].policy.primary_toggle =
-        ButtonToggle::Release;
-    SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + 0, 0x7c2);
-    Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 1].policy.primary_toggle =
-        ButtonToggle::Release;
-    SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + 1, 0x7c3);
-    Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 2].policy.primary_toggle =
-        ButtonToggle::Release;
-    SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + 2, 0x7c4);
-    Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 3].policy.primary_toggle =
-        ButtonToggle::Release;
-    SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + 3, 0x7c5);
-    Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 4].policy.primary_toggle =
-        ButtonToggle::Release;
-    SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + 4, 0x7c6);
-    Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 5].policy.primary_toggle =
-        ButtonToggle::Release;
-    SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + 5, 0x7c7);
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 0].primary = [] {
-        ToggleNpcTradeCategory(0, W8_NPC_TRADE_HAND);
-    };
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 1].primary = [] {
-        ToggleNpcTradeCategory(1, W8_NPC_TRADE_ACCESSORY);
-    };
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 2].primary =
-        ToggleNpcCharacterUsabilityFilter;
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 3].primary = [] {
-        ToggleNpcTradeCategory(3, W8_NPC_TRADE_BODY);
-    };
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 4].primary = [] {
-        ToggleNpcTradeCategory(4, W8_NPC_TRADE_OTHER);
-    };
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 5].primary =
-        ToggleNpcPartyUsabilityFilter;
+    for (int index = 0; index < static_cast<int>(kTradeFilters.size()); ++index) {
+        auto& action = Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + index];
+        action.policy.primary_toggle = ButtonToggle::Release;
+        action.primary = [filter = kTradeFilters[index]] { ToggleNpcTradeFilter(filter); };
+        SetNpcActionHelp(W8_NPC_CONTROL_OPTION_BUTTONS + index, 0x7c2 + index);
+    }
 
     SetNpcActionHelp(W8_NPC_CONTROL_TEXT_12, 100);
     SetNpcActionHelp(W8_NPC_CONTROL_TEXT_13, 0x65);
@@ -2605,80 +2578,20 @@ void EnableNpcTradeFilterButtons(void)
 {
     for (unsigned int index = 0; index <= 5; ++index) {
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, true);
+        SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + index,
+                            (Panel().trade_filter & kTradeFilters[index]) != 0);
     }
 }
 
-/* The six trade-filter option callbacks share one shape: when the button's
-   secondary state is raised it becomes the exclusive slot-group bit in
-   trade_filter (the previously active sibling is dimmed and cleared), and when it
-   is lowered the bit comes off again; RebuildNpcTradeItemList(1) refreshes the list. */
-static void UpdateNpcTradeFilterBits(int clear_mask, int set_mask = 0)
+// The filter owns the selection; button state is only its presentation.
+static void ToggleNpcTradeFilter(W8NpcTradeFilter filter)
 {
-    const int bits = static_cast<int>(MainGame()->dialogue.trade_filter);
-    MainGame()->dialogue.trade_filter =
-        static_cast<W8NpcTradeFilter>((bits & ~clear_mask) | set_mask);
-}
-
-static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter)
-{
-    const auto& control = MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + button];
-    if (control.interaction.selected) {
-        int previous = MainGame()->dialogue.trade_filter & W8_NPC_TRADE_CATEGORY_MASK;
-        if (previous != filter) {
-            int previous_button;
-            switch (previous) {
-            case W8_NPC_TRADE_HAND:
-                previous_button = 0;
-                break;
-            case W8_NPC_TRADE_BODY:
-                previous_button = 3;
-                break;
-            case W8_NPC_TRADE_ACCESSORY:
-                previous_button = 1;
-                break;
-            case W8_NPC_TRADE_OTHER:
-                previous_button = 4;
-                break;
-            default:
-                previous_button = -1;
-                break;
-            }
-            if (previous_button != -1) {
-                SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + previous_button, false);
-                UpdateNpcTradeFilterBits(previous);
-            }
-        }
-        UpdateNpcTradeFilterBits(0, filter);
-    } else {
-        UpdateNpcTradeFilterBits(filter);
-    }
-    RebuildNpcTradeItemList(true);
-}
-
-/* The "usable by the selected character" toggle is exclusive with the
-   "usable by anyone" toggle: option control 2 lowers bit 0x40 and raises
-   bit 1 while pressed, and drops bit 1 when released. */
-static void ToggleNpcCharacterUsabilityFilter(void)
-{
-    if (Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 2].interaction.selected) {
-        SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + 5, false);
-        UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_PARTY, W8_NPC_TRADE_USABLE_BY_CHARACTER);
-        RebuildNpcTradeItemList(true);
-        return;
-    }
-    UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_CHARACTER);
-    RebuildNpcTradeItemList(true);
-}
-
-static void ToggleNpcPartyUsabilityFilter(void)
-{
-    if (Panel().ui->actions[W8_NPC_CONTROL_OPTION_BUTTONS + 5].interaction.selected) {
-        SetNpcActionPressed(W8_NPC_CONTROL_OPTION_BUTTONS + 2, false);
-        UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_CHARACTER, W8_NPC_TRADE_USABLE_BY_PARTY);
-        RebuildNpcTradeItemList(true);
-        return;
-    }
-    UpdateNpcTradeFilterBits(W8_NPC_TRADE_USABLE_BY_PARTY);
+    auto& panel = Panel();
+    const int group = (filter & W8_NPC_TRADE_CATEGORY_MASK)
+                          ? W8_NPC_TRADE_CATEGORY_MASK
+                          : W8_NPC_TRADE_USABLE_BY_CHARACTER | W8_NPC_TRADE_USABLE_BY_PARTY;
+    panel.trade_filter = static_cast<W8NpcTradeFilter>(
+        (panel.trade_filter & ~group) | ((panel.trade_filter & filter) ? 0 : filter));
     RebuildNpcTradeItemList(true);
 }
 
