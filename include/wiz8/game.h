@@ -15,6 +15,7 @@
 
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/entity_signals.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Factions.h"
@@ -39,10 +40,11 @@ class NativeObject;
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
-   owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
+   owns its world; queries borrow it. The primary world's entities report to
+   `simulation`, which outlives the level. Replacing a slot hands back the previous owner,
    so a world is never reachable from its slot while it is destroyed. */
 struct Level {
-    Level();
+    explicit Level(SimulationSink& simulation);
     ~Level();
     Level(const Level&) = delete;
     Level& operator=(const Level&) = delete;
@@ -50,6 +52,7 @@ struct Level {
     std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
     std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
 
+    SimulationSink& simulation;
     std::unique_ptr<World> primary;
     std::unique_ptr<World> sky;
 };
@@ -193,10 +196,12 @@ public:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */
     std::map<int, std::vector<std::byte>> left_levels;
+    // Resolves what the level's entities report; it outlives the level's worlds.
+    CombatSignals signals{*this};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        The main game leaves the level when it is discarded, before a game that ends in
        play is destroyed; destroying a world does no departure bookkeeping. */
-    Level level;
+    Level level{signals};
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random

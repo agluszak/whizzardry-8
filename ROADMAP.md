@@ -244,8 +244,14 @@ the licensed runtime scenarios after every step.
        `StartMonsterAttack`, `ContinueMonsterAttack`), conditions and spells are free
        functions that reach the game through `CurrentGame()`; so do the fight's other
        operations in `combat/fight.cpp` (rounds, surprise, the end check, action
-       choices). They should take the game, then a `RuleContext`, and return what
-       happened instead of reporting it.
+       choices). They should become classes constructed with the game they act on,
+       with these free functions deleted rather than given a `Game&` parameter, and
+       return what happened instead of reporting it. `CombatSignals` already holds its
+       game; the shared families it still calls as free functions come next: damage
+       (`ApplyDamageToMonster`, `ApplyDamageToCharacter`, `DamageMonstersInRadius`),
+       effect conditions (`ApplyEffectConditions`), spell casting
+       (`CastSpellFromSource`, `MonsterCastsSpell`) and missile firing
+       (`FireMissileSourceToTarget`, `GetMonsterAttackScore`).
      - `Combat::waitingOn` still polls each step: the camera's transition, each combat
        monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
        facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,

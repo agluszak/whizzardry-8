@@ -9,7 +9,6 @@
 #include <utility>
 
 #include "wiz8/audio/soundman.h"
-#include "wiz8/combat/entity_signals.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/rules/events.h"
@@ -23,7 +22,7 @@ namespace {
 GameSession* current_session = nullptr;
 }
 
-Level::Level() = default;
+Level::Level(SimulationSink& simulation) : simulation(simulation) {}
 
 // The sky goes before the level it is drawn behind, each leaving its slot first.
 Level::~Level()
@@ -34,7 +33,7 @@ Level::~Level()
 
 std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
 {
-    if (world) world->simulation = &CombatEntitySignals();
+    if (world) world->simulation = &simulation;
     return std::exchange(primary, std::move(world));
 }
 

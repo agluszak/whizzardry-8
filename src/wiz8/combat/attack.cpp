@@ -21,6 +21,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/entity_signals.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/range.h"
@@ -83,6 +84,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 
 /* Shared combat attribute differential used by pre-hit and hit-location rolls. */
 static int SumCharacterCombatAttributes(const W8Character& character)
@@ -754,11 +756,12 @@ unsigned short g_special_category_name_ids[42] = {
    conditions against the target. An area effect instead reaches the whole
    party when a character was struck, or every active monster within the
    radius of the struck monster's position. */
-void ResolveSpellMissileHit(Missile* missile)
+void CombatSignals::resolveSpellMissileHit(const World& world, Missile& missile)
 {
-    W8TargetSource* source = &missile->m_Source;
-    W8CombatSlot* target = &missile->combat_slot;
-    W8SpellEffectDefinition* definition = &missile->definition;
+    const W8LevelPopulation& population = *world.population;
+    W8TargetSource* source = &missile.m_Source;
+    W8CombatSlot* target = &missile.combat_slot;
+    W8SpellEffectDefinition* definition = &missile.definition;
     const W8SpellRuntimeRecord* spell;
     W8CombatSlot struck;
     unsigned int magnitude;
@@ -769,24 +772,23 @@ void ResolveSpellMissileHit(Missile* missile)
     unsigned int index;
 
     TargetSourceIsCharacter(source, 0);
-    spell = &Data().spells[MissileSpellId(missile->missile_table_index)];
+    spell = &Data().spells[MissileSpellId(missile.missile_table_index)];
     if (spell->sound_name.size() != 0) {
         wiz8::sound::play(fmt::format("Data\\Missiles\\Sounds\\{}.wav", spell->sound_name));
     }
 
     if (definition->radius > 0.0f) {
         if (target->iType == W8_TARGET_KIND_MONSTER) {
-            monster_info = FindMonster(target->iMonsterID);
+            monster_info = population.findMonster(target->iMonsterID);
             DamageMonstersInRadius(monster_info->entity->nav.GetPosition(), definition->radius,
-                                   &definition->magnitude, source, &missile->result);
+                                   &definition->magnitude, source, &missile.result);
             announce = g_settings.verbose_combat_messages != 0;
             verbose = g_settings.verbose_combat_messages != 0;
             glm::vec3 center = monster_info->entity->nav.GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
-            for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-                 ++index) {
-                monster_info = GetMonsterListEntry(index);
+            for (index = 0; index < population.monster_roster.live().size(); ++index) {
+                monster_info = population.monster_roster.live()[index].get();
                 if (monster_info->fActive) {
                     location = monster_info->entity->GetRepresentationLocation();
                     glm::vec3 offset = center - location;
@@ -797,13 +799,13 @@ void ResolveSpellMissileHit(Missile* missile)
                 }
             }
         } else {
-            ApplyRolledHealthChangeToParty(&definition->magnitude, &missile->result, 1);
+            ApplyRolledHealthChangeToParty(&definition->magnitude, &missile.result, 1);
             announce = g_settings.verbose_combat_messages != 0;
             verbose = g_settings.verbose_combat_messages != 0;
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_CHARACTER;
             for (index = 0; index < 8; ++index) {
-                if (CurrentGame().party.members[index].has_value()) {
+                if (game_.party.members[index].has_value()) {
                     struck.iChar = index;
                     ApplyEffectConditions(source, &struck, definition, announce, verbose, 0);
                 }
@@ -817,25 +819,24 @@ void ResolveSpellMissileHit(Missile* missile)
         ApplyEffectAndAnnounce(&magnitude, target, spell->realm, definition->power_level);
         if (magnitude > 0) {
             if (target->iType == W8_TARGET_KIND_MONSTER) {
-                monster_info = FindMonster(target->iMonsterID);
+                monster_info = population.findMonster(target->iMonsterID);
                 ApplyDamageToMonster(monster_info, magnitude, source, false,
-                                     g_settings.verbose_combat_messages, 0, &missile->result,
-                                     false);
+                                     g_settings.verbose_combat_messages, 0, &missile.result, false);
             } else {
                 ApplyDamageToCharacter(target->iChar, magnitude, false,
-                                       g_settings.verbose_combat_messages, false, &missile->result,
+                                       g_settings.verbose_combat_messages, false, &missile.result,
                                        false);
             }
         }
     }
     ApplyEffectConditions(source, target, definition, g_settings.verbose_combat_messages,
-                          g_settings.verbose_combat_messages, &missile->result);
+                          g_settings.verbose_combat_messages, &missile.result);
 }
 
-static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
+static unsigned int RollMonsterHitLocation(Rng& rng, const W8MonsterRecord* record)
 {
     unsigned int total = 0;
-    unsigned int roll = CurrentGame().rng.below(100);
+    unsigned int roll = rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_MONSTER_HIT_LOCATIONS) {
             return 3;
@@ -847,10 +848,10 @@ static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
     }
 }
 
-static unsigned int RollCharacterHitLocation()
+static unsigned int RollCharacterHitLocation(Rng& rng)
 {
     unsigned int total = 0;
-    unsigned int roll = CurrentGame().rng.below(100);
+    unsigned int roll = rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_PC_HIT_LOCATIONS) {
             return 1;
@@ -871,10 +872,10 @@ static unsigned int RollCharacterHitLocation()
    modifier and 5 per point of armour class under 10. A penetrating shot
    rolls the effect size and, when it is not nothing, plays the hit sound,
    applies the damage and rolls the effect's conditions. */
-void ResolveMissileHit(Missile* missile, bool deflected)
+void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool deflected)
 {
-    W8TargetSource* source = &missile->m_Source;
-    W8CombatSlot* target = &missile->combat_slot;
+    W8TargetSource* source = &missile.m_Source;
+    W8CombatSlot* target = &missile.combat_slot;
     const W8MonsterRecord* record;
     std::string text;
     std::string location_name;
@@ -892,35 +893,36 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         return;
     }
     const bool target_is_monster = target->iType == W8_TARGET_KIND_MONSTER;
-    W8MonsterInfo* monster_info = target_is_monster ? FindMonster(target->iMonsterID) : nullptr;
+    W8MonsterInfo* monster_info =
+        target_is_monster ? world.population->findMonster(target->iMonsterID) : nullptr;
     TargetSourceIsCharacter(source, 0);
     text = fmt::format("{} ", Data().strings[0x1bf]);
     target_start = text.size();
     if (target_is_monster) {
         text += GetMonsterName(monster_info, 0, 0);
     } else {
-        text += CurrentGame().party.characters[target->iChar].name;
+        text += game_.party.characters[target->iChar].name;
     }
-    if (missile->retargeted) {
+    if (missile.retargeted) {
         text += " ";
         text += Data().strings[0x1c0];
     }
     target_stop = text.size();
     source_color = GetSourceNoticeColor(source);
     target_color = GetTargetNoticeColor(source, target);
-    CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color), text});
+    game_.events.push(TextNotice{static_cast<unsigned int>(source_color), text});
     if (target_color != source_color) {
         HighlightTextBoxRange(target_color, target_start, target_stop, -1);
     }
     if (deflected) {
-        CurrentGame().events.push(
+        game_.events.push(
             TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x214]});
         return;
     }
 
     if (target_is_monster) {
         record = GetMonsterDataForInfo(monster_info);
-        hit_location = RollMonsterHitLocation(record);
+        hit_location = RollMonsterHitLocation(game_.rng, record);
         if (record->hit_location_chances[hit_location] < 100) {
             location_name =
                 Data().strings[g_monster_hit_location_labels[hit_location][record->constitution]];
@@ -928,36 +930,36 @@ void ResolveMissileHit(Missile* missile, bool deflected)
             location_name = "";
         }
     } else {
-        hit_location = RollCharacterHitLocation();
+        hit_location = RollCharacterHitLocation(game_.rng);
         location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
     }
     if (g_settings.verbose_combat_messages != 0) {
-        CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color),
-                                             fmt::sprintf(Data().strings[0x20c], location_name)});
+        game_.events.push(TextNotice{static_cast<unsigned int>(source_color),
+                                     fmt::sprintf(Data().strings[0x20c], location_name)});
     }
 
-    attack_mode = Data().missiles[missile->missile_table_index].attack_mode;
+    attack_mode = Data().missiles[missile.missile_table_index].attack_mode;
     chance = AttackModeMod(1, attack_mode) + 50 +
              (10 - TargetArmorClassAtLocation(target, attack_mode, hit_location)) * 5;
-    penetration_roll = CurrentGame().rng.below(100) + 1;
+    penetration_roll = game_.rng.below(100) + 1;
     if (penetration_roll <= chance) {
-        magnitude = RollEffectMagnitude(&missile->definition);
+        magnitude = RollEffectMagnitude(&missile.definition);
         if (magnitude > 0) {
-            MakePCHitSound(missile, target, hit_location, -1);
+            MakePCHitSound(&missile, target, hit_location, -1);
             if (target_is_monster) {
                 ApplyDamageToMonster(monster_info, magnitude, source, false, 1, 1, 0, false);
             } else {
                 ApplyDamageToCharacter(target->iChar, magnitude, false, true, true, 0, false);
             }
-            ApplyEffectConditions(source, target, &missile->definition, true, false, 0);
+            ApplyEffectConditions(source, target, &missile.definition, true, false, 0);
         } else if (g_settings.verbose_combat_messages != 0) {
-            CurrentGame().events.push(
+            game_.events.push(
                 TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20e]});
         }
     } else {
-        CurrentGame().events.push(
+        game_.events.push(
             TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20f]});
-        MakePCHitSound(missile, target, hit_location, -1);
+        MakePCHitSound(&missile, target, hit_location, -1);
     }
 }
 
@@ -1666,7 +1668,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             }
             target_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
             target_record = GetMonsterDataForInfo(target_info);
-            hit_location = RollMonsterHitLocation(target_record);
+            hit_location = RollMonsterHitLocation(CurrentGame().rng, target_record);
             if (target_record->hit_location_chances[hit_location] < 100) {
                 location_text =
                     Data().strings[g_monster_hit_location_labels[hit_location]
@@ -3584,7 +3586,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
                 const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-                hit_location = RollMonsterHitLocation(record);
+                hit_location = RollMonsterHitLocation(CurrentGame().rng, record);
                 if (record->hit_location_chances[hit_location] < 100) {
                     location_name =
                         Data().strings[g_monster_hit_location_labels[hit_location]
@@ -3596,7 +3598,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 if (CurrentGame().combat->TargetHit.iType != W8_TARGET_KIND_CHARACTER) {
                     return ActionStep::finishing;
                 }
-                hit_location = RollCharacterHitLocation();
+                hit_location = RollCharacterHitLocation(CurrentGame().rng);
                 location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
             }
             if (!guaranteed_hit && to_hit < roll) {
