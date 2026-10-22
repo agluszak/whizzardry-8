@@ -19,12 +19,8 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/rules/character.h"
-#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-
-struct W8CharacterCreationState;
 
 W8CharacterPageEntry::W8CharacterPageEntry(UiLayer& input, int x, int y, bool compact)
     : m_input(input), m_first(0), m_second(0), m_third(0), m_id(-1), m_draw_background(compact),
@@ -110,6 +106,7 @@ void W8CharacterPageEntry::SetContent(unsigned int id, std::string_view label, u
 
 void W8CharacterPageEntry::SetIncrementAllowed(bool allowed)
 {
+    if (m_increment_allowed == allowed) return;
     m_increment_allowed = allowed;
     UpdateButtons();
     MarkDirty();
@@ -182,8 +179,8 @@ void W8CharacterPageEntry::UpdateButtons()
     }
 }
 
-W8CharacterPage::W8CharacterPage(CatalogArtwork background)
-    : background(std::move(background)), m_screen(nullptr)
+W8CharacterPage::W8CharacterPage(CharacterScreen& owner, CatalogArtwork background)
+    : background(std::move(background)), screen(owner)
 {
 }
 
@@ -193,14 +190,6 @@ void W8CharacterPage::SetActive(bool active)
 {
     m_active = active;
     input.setEnabled(active);
-}
-
-void W8CharacterPage::SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
-                                   W8CharacterScreenMode mode)
-{
-    m_character = character;
-    m_creation_state = creation_state;
-    m_mode = mode;
 }
 
 void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
@@ -218,17 +207,12 @@ void W8CharacterPage::Redraw(SDL_Surface& target, bool full_redraw)
 
 void W8CharacterPage::InvalidateAll()
 {
+    m_instructions_dirty = true;
+    m_contentDirty = true;
     m_dirty = true;
     for (const auto& entry : m_entries) {
         entry->MarkDirty();
     }
-}
-
-void W8CharacterPage::Prepare()
-{
-    InvalidateAll();
-    m_contentDirty = true;
-    m_prepared = true;
 }
 
 W8CharacterPageEntry& W8CharacterPage::AddEntry(int x, int y, bool compact)
