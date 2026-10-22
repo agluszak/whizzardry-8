@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <exception>
+#include <stdexcept>
 
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
@@ -46,12 +47,13 @@ try {
     if (!m_flags.one_shot) {
         return W8GameTimer::Load(handle);
     }
-    m_duration_seconds = handle.ReadValue<float>();
-    {
-        m_start = ReadClock();
-        m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
-        m_end = m_start + m_duration;
-    }
+    const auto seconds = handle.ReadValue<float>();
+    const auto duration = DurationTicks(seconds, m_duration_scale);
+    if (!duration) throw std::runtime_error("invalid saved interval");
+    m_duration_seconds = seconds;
+    m_duration = *duration;
+    m_start = ReadClock();
+    m_end = m_start + m_duration;
     return true;
 } catch (const std::exception&) {
     return false;

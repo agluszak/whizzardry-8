@@ -83,7 +83,11 @@ void GeneratorInterval::save(wiz8::File& handle) const
 void GeneratorInterval::load(W8Chunk& handle)
 {
     const auto saved_progress = handle.ReadValue<float>();
-    scale_ = handle.ReadValue<float>();
+    const auto scale = handle.ReadValue<float>();
+    // advance() converts progress to a count, which needs a nonempty interval.
+    if (!(scale > 0.0f) || !std::isfinite(scale))
+        throw std::runtime_error("invalid saved generator interval");
+    scale_ = scale;
     elapsed_ = saved_progress * length();
 }
 
