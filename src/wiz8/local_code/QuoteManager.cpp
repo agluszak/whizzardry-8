@@ -1694,7 +1694,7 @@ void AnimatePartyPortraits(void)
             (CurrentScreenState().id != W8_SCREEN_CHARACTER || record->portrait_event_active)) {
             AdvancePortraitPose(record->portrait);
             if ((record->portrait.pose_dirty || record->portrait.frame_dirty) &&
-                !record->keyboard_menu_open) {
+                !(MainGame() && MainGame()->keyboardMenuForSlot(party_slot))) {
                 RefreshPartySlotDisplay(party_slot);
             }
         }

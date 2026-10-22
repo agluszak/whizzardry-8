@@ -137,7 +137,6 @@ void ResetGameplaySlot(unsigned int slot)
     record->cached_spell_bar = 0;
     record->portrait_refresh_pinned = false;
     record->auto_portrait_refresh = false;
-    record->keyboard_menu_open = false;
     record->combat_portrait_dirty = false;
     record->acting_portrait_pulse = 0;
     record->level_up_ready = false;
