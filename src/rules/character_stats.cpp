@@ -113,10 +113,10 @@ static void CalcInitiative(W8Character* character)
     }
 }
 
-/* Retail scores swings with the damage bonus its previous calculation left on the hand
-   (0x004ee5ef reads it before resetting it); the baseline supplies that bonus. */
-static void CalcAttacks(const GameData& data, W8Character* character, bool damaged_android,
-                        const std::array<int, 2>& previous_damage_bonus)
+/* Retail scored swings with the damage bonus its previous calculation left on the hand
+   (0x004ee5ef reads it before resetting it), so the count depended on how often the stats
+   had been recalculated. Swings here read the bonus the current inputs give. */
+static void CalcAttacks(const GameData& data, W8Character* character, bool damaged_android)
 {
     W8HandAttack* attacks[2];
     const W8ItemDatabaseRecord* records[2];
@@ -223,9 +223,10 @@ static void CalcAttacks(const GameData& data, W8Character* character, bool damag
             attack->attacks = 2;
         }
 
-        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective +
-                 previous_damage_bonus[hand] * 10 + dual_penalty + physical_experience +
-                 load_penalty + attack->combined_skill) /
+        const int damage_bonus =
+            records[hand] != 0 ? records[hand]->attack_damage_bonus : attack->combined_skill / 10;
+        score = (character->attributes[W8_ATTRIBUTE_SPEED].effective + damage_bonus * 10 +
+                 dual_penalty + physical_experience + load_penalty + attack->combined_skill) /
                 3;
         attack->swings = 1;
         if (score > 66) {
@@ -238,7 +239,7 @@ static void CalcAttacks(const GameData& data, W8Character* character, bool damag
             attack->swings = 1;
         }
 
-        attack->damage_bonus = 0;
+        attack->damage_bonus = damage_bonus;
         attack->hit_bonus = 0;
         attack->attack_bonus = 0;
         attack->damage_percent = 0;
@@ -246,7 +247,6 @@ static void CalcAttacks(const GameData& data, W8Character* character, bool damag
         attack->damage_dice.count = 0;
         attack->damage_dice.sides = 0;
         if (records[hand] != 0) {
-            attack->damage_bonus += records[hand]->attack_damage_bonus;
             attack->hit_bonus += records[hand]->attack_hit_bonus;
             if (other->uiHolds == 3 && records[hand == 0] != 0) {
                 attack->hit_bonus += records[hand == 0]->attack_hit_bonus;
@@ -255,7 +255,6 @@ static void CalcAttacks(const GameData& data, W8Character* character, bool damag
                 attack->damage_percent += records[hand]->damage_dice.base * 10;
             }
         } else {
-            attack->damage_bonus += attack->combined_skill / 10;
             attack->attack_flags = 0x20;
             if (character->skills[attack->weapon_skill].level > 4) {
                 attack->attack_flags = 0x60;
@@ -817,8 +816,7 @@ CharacterBaseline CaptureCharacterBaseline(const W8Character& character)
     return {.hp_max = character.uiHPMax,
             .stamina_max = character.uiStaminaMax,
             .sp_max = std::to_array(character.sp_max),
-            .inventory_weight = character.inventory_weight,
-            .damage_bonus = {character.Hand[0].damage_bonus, character.Hand[1].damage_bonus}};
+            .inventory_weight = character.inventory_weight};
 }
 
 /* The retail code at 0x004ED9D0 sits in a gap between Local Code\Combat.cpp (upper
@@ -826,8 +824,7 @@ CharacterBaseline CaptureCharacterBaseline(const W8Character& character)
    tail nor a separately named unit. Retail calculated the load-dependent values in a second
    pass after the load; here the load comes first and every value is calculated once. */
 // FUNCTION: WIZ8 0x004ed9d0
-void DeriveCharacterStats(const GameData& data, W8Character& character, CharacterStatRules rules,
-                          const CharacterBaseline& baseline)
+void DeriveCharacterStats(const GameData& data, W8Character& character, CharacterStatRules rules)
 {
     character.uiHPMax = HitPointCeiling(character);
     character.uiStaminaMax = StaminaCeiling(character);
@@ -843,6 +840,6 @@ void DeriveCharacterStats(const GameData& data, W8Character& character, Characte
         LoadCategory(character.total_carried_weight, character.carrying_capacity);
 
     CalcInitiative(&character);
-    CalcAttacks(data, &character, rules.damaged_android, baseline.damage_bonus);
+    CalcAttacks(data, &character, rules.damaged_android);
     CalcArmorClasses(data, &character, rules.defensive_action);
 }
