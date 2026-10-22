@@ -5320,8 +5320,8 @@ void SetCombatSelection(int value)
     MainGameHud()->highlighted_item = -1;
     if (value != -1) {
         auto* info = FindMonster(value, false);
-        if (info && info->entity.find()) {
-            const auto bounds = info->entity->GetWorldAnimationBounds();
+        if (Monster* monster = info ? info->entity.find() : nullptr) {
+            const auto bounds = monster->GetWorldAnimationBounds();
             if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
                 MainGameHud()->highlighted_item = value;
         }
@@ -5348,13 +5348,9 @@ void SetCombatTarget(int value)
             MainGameHud()->selected_item = -1;
         } else {
             W8WorldItem* item = ItemInfo(ItemIndex(value));
-            if (item != 0) {
-                if (const auto bounds = GetItemWorldBounds(item->entity.find())) {
-                    const glm::vec3 camera(cameraLocation());
-                    if (traceLineOfSightToBounds(camera, *bounds) != 0) {
-                        MainGameHud()->selected_item = value;
-                    }
-                }
+            if (item != 0 && item->entity &&
+                traceLineOfSightToBounds(cameraLocation(), GetItemWorldBounds(*item->entity))) {
+                MainGameHud()->selected_item = value;
             }
         }
         VideoRemoveToolTip();

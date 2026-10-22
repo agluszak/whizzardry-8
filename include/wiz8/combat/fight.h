@@ -65,6 +65,9 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
 void NotifyNearbyMonsters(int what);
 void BeginCombatRound(void);
 void EndMonsterTurn(W8MonsterInfo* monster_info);
+/* Let a monster still able to fight pick a target and turn to face it: the
+   party, or another monster that has a scene entity. */
+void TurnMonsterToNewTarget(W8MonsterInfo& monster_info);
 void EndMonsterAttack(W8MonsterInfo* monster_info);
 /* Face the monster toward whatever its combat slot targets before
    the attack starts; `alternate` picks the immediate versus animated turn. */

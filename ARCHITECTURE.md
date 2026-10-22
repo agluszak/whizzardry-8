@@ -228,7 +228,9 @@ Unlayered code may use the layers.
   Activation attaches it, and removal or deactivation detaches it before the entity is
   destroyed. An active record always has an entity, but an inactive one may not, so a
   caller says which it needs: `entity.find()` may find none, and `entity->` and
-  `*entity` require one (asserted). Anything that keeps an actor
+  `*entity` require one (asserted). An operation that needs the entity takes
+  `Monster&` or `WorldItemEntity&`, so its caller resolves the link once; one meaningful
+  for an inactive record takes the record and handles absence itself. Anything that keeps an actor
   past the current call keeps its id: a monster's location id or a world item's runtime
   id. It looks the actor up again when it is used and does nothing when the actor is
   gone. Navigators target and follow each other by address, so a destroyed navigator
