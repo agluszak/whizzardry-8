@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_mouse.h>
@@ -43,7 +44,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"

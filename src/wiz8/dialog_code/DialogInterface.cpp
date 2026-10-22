@@ -1,6 +1,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 
-#include <string_view>
+#include <memory>
 
 #include "dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"

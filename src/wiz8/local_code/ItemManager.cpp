@@ -45,7 +45,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
