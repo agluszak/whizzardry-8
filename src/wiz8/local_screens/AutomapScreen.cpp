@@ -1330,11 +1330,11 @@ void RenderAutomapMarkers(void)
     const auto count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
-        Monster* monster = info->entity.find();
+        Monster& monster = *info->entity;
         glm::vec3 location;
-        location = monster->visual.GetLocation();
+        location = monster.visual.GetLocation();
         FindAutomapLayerAtHeight(location.y);
-        if (detect_all || (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
+        if (detect_all || (!monster.disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (location.x < left || left + g_automap_zoom < location.x || location.z < top ||
