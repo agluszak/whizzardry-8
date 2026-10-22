@@ -465,7 +465,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     hud.pending_highlight = {};
     hud.countdown3 = MonotonicMilliseconds() + (0);
     hud.combat_slot = -1;
-    hud.keyboard_menu_open = false;
     hud.hover_combat_slot = -1;
     hud.cursor_grace = 0;
     hud.countdown4 = MonotonicMilliseconds() + (0);
