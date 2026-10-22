@@ -343,7 +343,7 @@ static void AcceptFormationChanges(void)
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
     RefreshFormationBoard();
-    RefreshRadarMap();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
     CloseFormationPanel();
 }
 

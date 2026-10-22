@@ -76,9 +76,6 @@
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"
 
-/* The party slot whose keyboard menu is open. */
-int g_selected_party_slot = -1;
-
 struct W8ItemInstance;
 
 /* Local Screens\MGSKeyboard.cpp owns the binding vector, its command-keyed
@@ -479,8 +476,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (MainGameHud()->radar_map_visible != 0) {
-            ToggleRadarMapZoom();
+        if (MainGame()->radar_map) {
+            MainGame()->radar_map->toggleZoom();
         }
         break;
     case W8_MGS_COMMAND_REPLAY_QUOTE:
@@ -632,132 +629,87 @@ void DispatchMGSCommand(W8MGSCommand command)
     }
 }
 
-glm::ivec2 g_keyboard_row_positions[13] = {
+constexpr glm::ivec2 keyboard_row_positions[13] = {
     {5, 55}, {23, 55}, {41, 55}, {59, 55}, {59, 37}, {5, 37},  {5, 19},
     {5, 1},  {23, 1},  {41, 1},  {59, 1},  {59, 19}, {32, 28},
 };
 
-namespace {
-struct KeyboardMenuRow {
-    int menu = -1;
-    int item = -1;
-    bool enabled = true;
-    HitTarget* target = nullptr;
-    ButtonInteraction press;
-    ButtonAppearance appearance;
-};
-struct KeyboardMenu {
-    UiLayer input{UiLayerOrder::KeyboardMenu};
-    SDL_Point origin;
-    std::array<KeyboardMenuRow, 13> rows;
-    bool dirty = true;
-};
-std::unique_ptr<KeyboardMenu> keyboard_menu;
+bool MainGameScreen::keyboardMenuForSlot(int slot) const
+{
+    return keyboard_menu && keyboard_menu->slot == slot;
 }
 
-static void KeyboardMenuSelectAttack(void);
-static void KeyboardMenuSelectBerserk(void);
-static void KeyboardMenuSelectBreathe(void);
-static void KeyboardMenuSelectPray(void);
-static void KeyboardMenuSelectTurnUndead(void);
-static void KeyboardMenuSelectDefend(void);
-static void KeyboardMenuSelectProtect(void);
-static void KeyboardMenuOpenUseItemView(void);
-static void KeyboardMenuSelectEquip(void);
-static void KeyboardMenuOpenSpellView(void);
-static void KeyboardMenuCastRecordedSpell(void);
-static void KeyboardMenuUseRecordedItem(void);
-
-void OpenKeyboardMenuForSlot(int slot)
+void MainGameScreen::openKeyboardMenu(int slot)
 {
-    g_selected_party_slot = slot;
     keyboard_menu.reset();
-    MainGameHud()->keyboard_menu_open = true;
-    SelectPartyCharacter(g_selected_party_slot);
-    if (BuildKeyboardMenu() == 0) {
-        CloseKeyboardMenu();
-        return;
-    }
+    SelectPartyCharacter(slot);
+    keyboard_menu = std::make_unique<KeyboardActionMenu>(*this, slot);
     UpdateScreenOverlays(0);
-    CurrentGame().monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
-
-    MainGame()->edge_targets[slot]->setEnabled(false);
-    MainGame()->combat_targets[slot]->setEnabled(false);
-    EnableKeyboardMenuInput();
-    if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
+    edge_targets[slot]->setEnabled(false);
+    combat_targets[slot]->setEnabled(false);
+    hud->repaint.portrait(slot);
 }
 
-void CloseKeyboardMenu(void)
+void MainGameScreen::closeKeyboardMenu()
 {
-    CurrentGame().monster_manager_entries[g_selected_party_slot].keyboard_menu_open = false;
-    MainGameHud()->keyboard_menu_open = false;
-    MainGameHud()->combat_slot = -1;
-    MainGameHud()->hover_combat_slot = g_selected_party_slot;
-    MainGameHud()->cursor_grace = 0;
+    auto menu = std::move(keyboard_menu);
+    auto& state = *hud;
+    const int slot = menu ? menu->slot : state.combat_slot;
+    state.combat_slot = -1;
+    state.hover_combat_slot = slot;
+    state.cursor_grace = 0;
     RefreshPartySlotRegions();
-    if (CurrentGame().combat.has_value()) {
-        MainGame()->combat.setEnabled(true);
-    } else {
-        MainGame()->combat.setEnabled(false);
+    combat.setEnabled(game.combat.has_value());
+    if (menu && !state.portrait_refresh_pending[slot]) {
+        ClearSurfaceRect(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
+                         menu->origin.y + 0x4a);
+        InvalidateRegion(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
+                         menu->origin.y + 0x4a);
     }
-    if (keyboard_menu && MainGameHud()->portrait_refresh_pending[g_selected_party_slot] == 0) {
-        ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
-        InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
-    }
-    keyboard_menu.reset();
-    if (auto* hud = MainGameHud()) hud->repaint.portrait(g_selected_party_slot);
+    menu.reset();
+    if (slot >= 0) state.repaint.portrait(slot);
 }
 
-static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
+std::string KeyboardActionMenu::tooltip(const Row& row) const
 {
     if (row.menu == -1) return Data().strings[0x11];
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
         if (!row.enabled) return Data().strings[0x5a];
-        const auto& spell =
-            Data().spells[CurrentGame().party.rows[g_selected_party_slot].remembered.spell.detail];
+        const auto& spell = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail];
         return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
-                           GetAffordableSpellPowerLevel(g_selected_party_slot));
+                           GetAffordableSpellPowerLevel(slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return Data().strings[0x5d];
-        const auto& party = CurrentGame().party.rows[g_selected_party_slot];
-        auto* item = CurrentGame().party.itemAt(party.remembered.item_detail.item_use.item);
+        const auto& party = screen_.game.party.rows[slot];
+        auto* item = screen_.game.party.itemAt(party.remembered.item_detail.item_use.item);
         return fmt::format("{}: {}", Data().strings[0x5d],
                            FormatItemDisplayName(Data(), item, false));
     }
     return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }
 
-bool BuildKeyboardMenu(void)
+KeyboardActionMenu::KeyboardActionMenu(MainGameScreen& screen, int selected_slot)
+    : slot(selected_slot), screen_(screen)
 {
     int left, top, unused_4, unused_5, unused_6, unused_7;
-    GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
-                           &unused_7, 0);
-    keyboard_menu = std::make_unique<KeyboardMenu>();
-    keyboard_menu->origin = {left + 0x17, top};
-    static void (*const actions[4][5])() = {
-        {KeyboardMenuSelectAttack, KeyboardMenuSelectBerserk, KeyboardMenuSelectBreathe,
-         KeyboardMenuSelectTurnUndead, KeyboardMenuSelectPray},
-        {KeyboardMenuSelectDefend, KeyboardMenuSelectProtect},
-        {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
-        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}};
+    GetPartySlotMenuAnchor(slot, &left, &top, &unused_4, &unused_5, &unused_6, &unused_7, 0);
+    origin = {left + 0x17, top};
     int index = 0;
     for (int menu = 0; menu < 4; ++menu)
         for (int item = 0; item < 5; ++item) {
             if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
-            keyboard_menu->rows[index].menu = menu;
-            keyboard_menu->rows[index++].item = item;
+            rows[index].menu = menu;
+            rows[index++].item = item;
         }
     for (int i = 0; i < 13; ++i) {
-        auto& row = keyboard_menu->rows[i];
-        row.target = &keyboard_menu->input.add(
-            SDL_Rect{left + 0x17 + g_keyboard_row_positions[i].x,
-                     top + g_keyboard_row_positions[i].y, 19, 19},
-            [&row](const UiPointerEvent& event) {
-                keyboard_menu->dirty = true;
+        auto& row = rows[i];
+        row.target = &input.add(
+            SDL_Rect{left + 0x17 + keyboard_row_positions[i].x, top + keyboard_row_positions[i].y,
+                     19, 19},
+            [this, &row](const UiPointerEvent& event) {
+                dirty = true;
                 const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
@@ -776,48 +728,41 @@ bool BuildKeyboardMenu(void)
                 if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
                 if (event.action == UiPointerAction::Up && event.inside &&
                     (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
-                    auto action = event.button == UiPointerButton::Right || row.menu == -1
-                                      ? CloseKeyboardMenu
-                                      : actions[row.menu][row.item];
-                    if (action) AfterUiDispatch(action);
+                    const int menu = event.button == UiPointerButton::Right ? -1 : row.menu;
+                    AfterUiDispatch([owner = &screen_, slot = slot, menu, item = row.item] {
+                        owner->chooseKeyboardMenuAction(slot, menu, item);
+                    });
                 }
                 return UiResult::Handled;
             });
-        row.target->setTooltip([&row] { return KeyboardMenuTooltip(row); });
+        row.target->setTooltip([this, &row] { return tooltip(row); });
     }
-    keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
+    rows[12].appearance.quick_image = ButtonGraphics::Load(
         CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
-    keyboard_menu->input.add(
-        SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
-                AfterUiDispatch(CloseKeyboardMenu);
-            return UiResult::Handled;
-        });
-    RefreshKeyboardMenuRows();
-    return true;
+    input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [this](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+            AfterUiDispatch([owner = &screen_] { owner->closeKeyboardMenu(); });
+        return UiResult::Handled;
+    });
+    refresh();
 }
 
-void EnableKeyboardMenuInput(void)
+bool KeyboardActionMenu::containsCursor() const
 {
-    keyboard_menu->input.setEnabled(true);
-}
-
-bool KeyboardMenuContainsCursor(void)
-{
-    const auto [x, y] = keyboard_menu->origin;
+    const auto [x, y] = origin;
     return IsCursorInRectangle(x, y, x + 0x52, y + 0x4a);
 }
 
-void RefreshKeyboardMenuRows(void)
+void KeyboardActionMenu::refresh()
 {
     const auto art = CatalogArtwork::Load(0x89, 0);
-    for (auto& row : keyboard_menu->rows) {
+    for (auto& row : rows) {
         if (row.menu == -1) continue;
         const int base = g_submenu_entry_message_ids[row.menu * 5 + row.item];
         int normal = base;
         int hover = base + 2;
         row.enabled = true;
-        switch (GetSubMenuEntryState(row.menu, row.item, g_selected_party_slot)) {
+        switch (GetSubMenuEntryState(row.menu, row.item, slot)) {
         case W8_SUBMENU_ENTRY_USABLE:
             break;
         case W8_SUBMENU_ENTRY_USABLE_SELECTED:
@@ -837,131 +782,71 @@ void RefreshKeyboardMenuRows(void)
         }
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
-            offset =
-                Data()
-                    .spells[CurrentGame().party.rows[g_selected_party_slot].remembered.spell.detail]
-                    .realm *
-                7;
+            offset = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail].realm * 7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
-            offset =
-                GetAttackMenuWeaponOffset(
-                    CurrentGame().party.characters[g_selected_party_slot].Hand[0].weapon_skill) *
-                7;
+            offset = GetAttackMenuWeaponOffset(
+                         screen_.game.party.characters[slot].Hand[0].weapon_skill) *
+                     7;
         row.appearance.quick_image =
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
                                  normal + offset, hover + offset);
     }
-    keyboard_menu->dirty = true;
+    dirty = true;
 }
 
-void RedrawKeyboardMenuPanel(bool invalidate)
+void KeyboardActionMenu::redraw(bool invalidate)
 {
-    if (!invalidate && !keyboard_menu->dirty) return;
-    const auto [x, y] = keyboard_menu->origin;
+    if (!invalidate && !dirty) return;
+    const auto [x, y] = origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
     for (int index = 0; index < 13; ++index) {
-        const auto& row = keyboard_menu->rows[index];
+        const auto& row = rows[index];
         DrawButtonAppearance(
             target, row.appearance,
-            {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
+            {x + keyboard_row_positions[index].x, y + keyboard_row_positions[index].y, 18, 18},
             {.enabled = row.enabled,
              .pressed = row.press.pressed,
              .hovered = row.target->hovered(),
              .menu_artwork = true});
     }
-    keyboard_menu->dirty = false;
+    dirty = false;
 }
 
-static void ChooseKeyboardMenuAction(W8ActionKind action)
+void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
 {
-    ChooseAction(g_selected_party_slot, action, -1, 0, false, 1);
-    if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
-    CloseKeyboardMenu();
-}
-
-static void KeyboardMenuSelectAttack(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_ATTACK);
-}
-
-static void KeyboardMenuSelectBerserk(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_BERSERK);
-}
-
-static void KeyboardMenuSelectBreathe(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_BREATHE);
-}
-
-static void KeyboardMenuSelectTurnUndead(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_TURN_UNDEAD);
-}
-
-static void KeyboardMenuSelectPray(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_PRAY);
-}
-
-static void KeyboardMenuSelectDefend(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_DEFEND);
-}
-
-static void KeyboardMenuSelectProtect(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_PROTECT);
-}
-
-static void KeyboardMenuOpenSpellView(void)
-{
-
-    CloseKeyboardMenu();
-    if (!gpSCSV) {
-        OpenSpellCastingView(g_selected_party_slot);
+    W8ActionKind action = W8_ACTION_NONE;
+    if (menu == W8_SUBMENU_ATTACK) {
+        static constexpr std::array actions{W8_ACTION_ATTACK, W8_ACTION_BERSERK, W8_ACTION_BREATHE,
+                                            W8_ACTION_TURN_UNDEAD, W8_ACTION_PRAY};
+        action = actions[item];
+    } else if (menu == W8_SUBMENU_DEFEND) {
+        action = item == 0 ? W8_ACTION_DEFEND : W8_ACTION_PROTECT;
+    } else if (menu == W8_SUBMENU_ITEMS && item == 0) {
+        action = W8_ACTION_EQUIP;
     }
-}
-
-static void KeyboardMenuCastRecordedSpell(void)
-{
-
-    CloseKeyboardMenu();
-    if (CanPartySlotCastRecordedSpell(g_selected_party_slot)) {
-        StartCharacterSpellCast(g_selected_party_slot, 0);
-        if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
+    if (action != W8_ACTION_NONE) {
+        ChooseAction(slot, action, -1, 0, false, 1);
+        hud->repaint.character_action = true;
+        closeKeyboardMenu();
+        return;
     }
-}
-
-static void KeyboardMenuSelectEquip(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_EQUIP);
-}
-
-static void KeyboardMenuOpenUseItemView(void)
-{
-
-    CloseKeyboardMenu();
-    if (!ItemUseDraft()) {
-        OpenUseItemSelectView(g_selected_party_slot);
+    closeKeyboardMenu();
+    if (menu == W8_SUBMENU_SPELLS) {
+        if (item == 0) {
+            if (!gpSCSV) OpenSpellCastingView(slot);
+        } else if (CanPartySlotCastRecordedSpell(slot)) {
+            StartCharacterSpellCast(slot, 0);
+            hud->repaint.character_action = true;
+        }
+    } else if (menu == W8_SUBMENU_ITEMS) {
+        if (item == 1) {
+            if (!ItemUseDraft()) OpenUseItemSelectView(slot);
+        } else {
+            StartCharacterItemUse(slot);
+            hud->repaint.character_action = true;
+        }
     }
-}
-
-static void KeyboardMenuUseRecordedItem(void)
-{
-
-    CloseKeyboardMenu();
-    StartCharacterItemUse(g_selected_party_slot);
-    if (auto* hud = MainGameHud()) hud->repaint.character_action = true;
 }
 
 void HandleManualCameraHotkeys(void)

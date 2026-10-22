@@ -132,7 +132,6 @@ TEST_CASE("world graphics")
         auto& portrait = CurrentGame().monster_manager_entries[slot];
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
-        portrait.keyboard_menu_open = false;
         portrait.portrait.pose = portrait.portrait.rendered_pose = 2;
         portrait.portrait.target_pose = 1;
         portrait.portrait.blink_closing = false;
