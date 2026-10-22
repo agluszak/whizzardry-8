@@ -4,7 +4,7 @@
 #include <cassert>
 #include <exception>
 #include <filesystem>
-#include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -18,8 +18,8 @@
 
 // Decode the full frame sequence into detached ownership before publishing it.
 // Source offsets identify resources; frame/channel labels are unnecessary.
-std::unique_ptr<AnimationMesh> ReadAnimatedMesh(wiz8::File& file,
-                                                const std::filesystem::path& texture_directory)
+std::optional<AnimationMesh> ReadAnimatedMesh(wiz8::File& file,
+                                              const std::filesystem::path& texture_directory)
 try {
     unsigned char count;
     file.read_exact(&count, sizeof(count));
@@ -42,18 +42,18 @@ try {
         }
     }
     // Model bounds already include all vertex frames.
-    auto mesh = std::make_unique<AnimationMesh>();
-    mesh->bounds = frames.front().mesh->getBounds().box;
+    AnimationMesh mesh;
+    mesh.bounds = frames.front().mesh->getBounds().box;
     for (const auto& frame : frames) {
         const auto frame_bounds = frame.mesh->getBounds().box;
-        mesh->radius = std::max(mesh->radius,
-                                glm::distance(frame_bounds.minimum, frame_bounds.maximum) * 0.5f);
-        mesh->bounds.include(frame_bounds);
+        mesh.radius =
+            std::max(mesh.radius, glm::distance(frame_bounds.minimum, frame_bounds.maximum) * 0.5f);
+        mesh.bounds.include(frame_bounds);
     }
-    mesh->frames = std::move(frames);
-    mesh->frame_count = count;
-    mesh->vertex_frames = vertex_frames;
-    mesh->source_file = file.physical_path();
+    mesh.frames = std::move(frames);
+    mesh.frame_count = count;
+    mesh.vertex_frames = vertex_frames;
+    mesh.source_file = file.physical_path();
     return mesh;
 } catch (const std::exception&) {
     return {};

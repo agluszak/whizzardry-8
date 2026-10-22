@@ -347,28 +347,41 @@ public:
     }
 };
 
+// Scene visitors look for instances, lights and draws. Those are always
+// children: a state group's commands and descriptors never hold one, and a
+// draw node's only child is its draw command.
+template<class Visitor> void traverseChildren(const vsg::Group& group, Visitor& visitor)
+{
+    for (const auto& child : group.children) child->accept(visitor);
+}
+
 struct SetSortOrder : vsg::Visitor {
     explicit SetSortOrder(std::uint64_t order) : order(order) {}
     std::uint64_t order;
     void apply(vsg::Object& object) override { object.traverse(*this); }
     void apply(vsg::StateGroup& group) override
     {
-        if (auto* draw = dynamic_cast<DrawNode*>(&group)) draw->sort_order = order;
-        group.traverse(*this);
+        if (auto* draw = dynamic_cast<DrawNode*>(&group))
+            draw->sort_order = order;
+        else
+            traverseChildren(group, *this);
     }
 };
 
 struct CountIndices : vsg::ConstVisitor {
     std::size_t sorted = 0;
     std::size_t opaque = 0;
-    std::vector<Light*> lights;
+    std::size_t lights = 0;
+    void apply(const vsg::Object& object) override { object.traverse(*this); }
+    // Ordinary groups and transforms are never lights; only other node types
+    // need the type test.
+    void apply(const vsg::Group& group) override { traverseChildren(group, *this); }
     void apply(const vsg::Node& node) override
     {
         if (const auto* light = dynamic_cast<const LightNode*>(&node); light && light->light)
-            lights.push_back(light->light);
+            ++lights;
         node.traverse(*this);
     }
-    void apply(const vsg::Object& object) override { object.traverse(*this); }
     void apply(const vsg::StateGroup& group) override
     {
         if (const auto* draw = dynamic_cast<const DrawNode*>(&group)) {
@@ -376,8 +389,9 @@ struct CountIndices : vsg::ConstVisitor {
                 sorted += draw->draw->indexCount;
             else if (draw->authored_normals)
                 opaque += draw->draw->indexCount;
+        } else {
+            traverseChildren(group, *this);
         }
-        group.traverse(*this);
     }
 };
 
@@ -725,11 +739,11 @@ vsg::ref_ptr<vsg::View> WorldScene::cachedView(render::RenderContext& context, C
                                   plane->getClipPlane()));
     auto* state = dynamic_cast<render::WorldViewState*>(view->viewDependentState.get());
     if (state && state->usesContext(context))
-        state->refresh(pass, counts.lights.size(), counts.sorted, counts.opaque, clip_planes_eye);
+        state->refresh(pass, counts.lights, counts.sorted, counts.opaque, clip_planes_eye);
     else
         view->viewDependentState =
-            render::WorldViewState::create(view.get(), context, pass, counts.lights.size(),
-                                           counts.sorted, counts.opaque, clip_planes_eye);
+            render::WorldViewState::create(view.get(), context, pass, counts.lights, counts.sorted,
+                                           counts.opaque, clip_planes_eye);
     return view;
 }
 void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const

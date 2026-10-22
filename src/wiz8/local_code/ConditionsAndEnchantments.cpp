@@ -303,7 +303,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
            three later uses of condition in this function already carry. */
         unsigned int condition_index = static_cast<unsigned int>(condition);
         if (old_duration == 0 && condition_index != 0 && condition_index <= 0x12) {
-            SetMonsterSpellIcon(monster_info->entity.find(),
+            SetMonsterSpellIcon(*monster_info->entity,
                                 static_cast<W8MonsterSpellIconId>(condition - 1), true);
         }
         if (monster_info->pCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
@@ -371,7 +371,7 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
         if (condition != W8_CONDITION_NONE && condition < W8_CONDITION_MISSING) {
-            SetMonsterSpellIcon(monster_info->entity.find(),
+            SetMonsterSpellIcon(*monster_info->entity,
                                 static_cast<W8MonsterSpellIconId>(condition - 1), false);
         }
         switch (condition) {
@@ -498,7 +498,7 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
                 static_cast<short>(roll * argument);
         }
         if (previous == 0) {
-            SetMonsterSpellIcon(monster_info->entity.find(),
+            SetMonsterSpellIcon(*monster_info->entity,
                                 static_cast<W8MonsterSpellIconId>(slot + 0x10), true);
         }
         RebuildMonsterDerivedStats(location_id);
@@ -515,7 +515,7 @@ void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
     W8MonsterInfo* monster_info = FindMonster(location_id);
 
     monster_info->enchantments[slot] = {};
-    SetMonsterSpellIcon(monster_info->entity.find(), static_cast<W8MonsterSpellIconId>(slot + 0x10),
+    SetMonsterSpellIcon(*monster_info->entity, static_cast<W8MonsterSpellIconId>(slot + 0x10),
                         false);
     RebuildMonsterDerivedStats(location_id);
     if (slot == W8_ENCHANTMENT_SUPERMAN) {

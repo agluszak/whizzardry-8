@@ -83,8 +83,7 @@ std::vector<Mesh*> MonsterDefinition::CollectModelMeshes()
             const Animation* animation = slot.animation.get();
             if (!animation) continue;
             for (int lod = 0; lod < 3; ++lod) {
-                add(animation->entries[lod].get());
-                for (const auto& mesh : animation->meshes[lod]) add(mesh.get());
+                for (auto& part : animation->parts[lod]) add(&part.mesh);
             }
         }
     }
@@ -494,7 +493,7 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
 
     /* The navigator's bounds are the idle pose's, at the finest level of detail
        the animation has; the frame bounds .mon files record do not depend on it. */
-    const signed char lod = AnimObjDispatch(&idle, 2, 0) ? 2 : AnimObjDispatch(&idle, 1, 0) ? 1 : 0;
+    const signed char lod = idle.frame(2, 0) ? 2 : idle.frame(1, 0) ? 1 : 0;
     auto bounds = AnimObjGetBounds(&idle, lod, 0);
     if (!bounds) return nullptr;
     bounds->minimum *= monster->scale;
@@ -649,15 +648,12 @@ bool MonsterDefinition::ReadCycleData(LevelLoadContext& info, int cycle_index)
     if (cycle_index == W8_MONSTER_CYCLE_NONE) cycle_index = animation->cycle;
     assert(cycle_index >= W8_MONSTER_CYCLE_BIRTH && cycle_index < W8_MONSTER_CYCLE_COUNT);
 
-    if (animation->path_lists == 1) {
-        for (signed char list = 0; list < 3; ++list) {
-            const auto count = static_cast<signed char>(AnimObjListCount(animation.get(), list));
-            for (signed char entry = 0; entry < count; ++entry) {
-                if (KeyframeTrack* path = AnimObjListEntry(animation.get(), list, entry)) {
-                    path->looping = true;
-                    path->discrete_mode = true;
-                    path->speed = animation->playback_scale;
-                }
+    for (auto& group : animation->parts) {
+        for (auto& part : group) {
+            if (part.path) {
+                part.path->looping = true;
+                part.path->discrete_mode = true;
+                part.path->speed = animation->playback_scale;
             }
         }
     }

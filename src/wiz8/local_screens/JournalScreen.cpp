@@ -60,6 +60,11 @@ public:
 private:
     void Activate(JournalAction action);
     void DrawContent(SDL_Surface& target);
+    void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,
+                         bool centered);
+    std::vector<W8JournalEntry> m_entries;
+    Font m_font;
+    Palette16 m_highlight_palette{};
     UiLayer m_input;
     CatalogArtwork m_bar = CatalogArtwork::Load(0xf3, 0);
     std::array<std::unique_ptr<W8ButtonWidget>, 4> m_buttons;
@@ -78,9 +83,6 @@ int g_journal_faction_name_indices[11] = {
 };
 char g_journal_alternate_page[] = "1 / 1";
 int g_journal_page_count = -1;
-/* The highlight palette, frame 0x1b9 of the catalog, taken while the screen is open. */
-Palette16 g_journal_font_palette;
-std::vector<W8JournalEntry> g_journal_entries;
 
 bool g_fact_notifications_suppressed;
 
@@ -127,8 +129,8 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
 }
 
-void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y, int palette,
-                     bool centered)
+void JournalScreen::DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y,
+                                    int palette, bool centered)
 {
     int left;
     int right;
@@ -144,25 +146,25 @@ void DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int
     if (!centered) {
         x = 5;
     } else {
-        x = (right - g_journal_font.textWidth(text)) / 2;
+        x = (right - m_font.textWidth(text)) / 2;
         if (x < 0) {
             x = 0;
         }
     }
     if (palette == 0) {
-        g_journal_font.resetPalette();
+        m_font.resetPalette();
     } else if (palette == 1) {
-        g_journal_font.setPalette(g_journal_font_palette);
+        m_font.setPalette(m_highlight_palette);
     }
     SDL_Rect clip{left, y, right, 0x1e};
     ScopedClipRect clipping(target, clip);
-    DrawText(target, g_journal_font, {left + x, y}, text);
+    DrawText(target, m_font, {left + x, y}, text);
 }
 
 void JournalScreen::Refresh()
 {
     if (!m_alternate_mode) {
-        const int last_page = (static_cast<int>(g_journal_entries.size()) - 1) / 12;
+        const int last_page = (static_cast<int>(m_entries.size()) - 1) / 12;
         const int page_count = last_page + 1;
         if (page_count != g_journal_page_count || g_journal_page < 0 ||
             g_journal_page >= page_count) {
@@ -190,13 +192,13 @@ void JournalScreen::DrawContent(SDL_Surface& target)
 
         int first = g_journal_page * 12;
         int last = first + 11;
-        if (last >= static_cast<int>(g_journal_entries.size())) {
-            last = static_cast<int>(g_journal_entries.size()) - 1;
+        if (last >= static_cast<int>(m_entries.size())) {
+            last = static_cast<int>(m_entries.size()) - 1;
         }
         int previous_level = -1;
         int y = 0x39;
         for (int index = first; index <= last; ++index, y += 0x1e) {
-            const W8JournalEntry* entry = &g_journal_entries[index];
+            const W8JournalEntry* entry = &m_entries[index];
             const W8FactDatabaseRecord* fact = &Data().facts[entry->fact];
             int active = fact->highlight_when_true && GetFact(entry->fact);
             std::string description =
@@ -312,7 +314,7 @@ void JournalScreen::Activate(JournalAction action)
         }
         break;
     case Next:
-        if (g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
+        if (g_journal_page < (static_cast<int>(m_entries.size()) - 1) / 12) {
             ++g_journal_page;
             Refresh();
         }
@@ -335,7 +337,8 @@ bool JournalScreen::enter(const ScreenRequest&)
     SetViewport({0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
-    g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
+    m_font = g_journal_font;
+    m_highlight_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 
     switch (g_settings.difficulty) {
     case W8_DIFFICULTY_NOVICE:
@@ -349,7 +352,7 @@ bool JournalScreen::enter(const ScreenRequest&)
         break;
     }
 
-    g_journal_entries.clear();
+    m_entries.clear();
     for (const auto& entry : CurrentGame().story.journal) {
         // Retail saves can name a fact past the end of FACT.DBS; keep it, show nothing.
         if (static_cast<unsigned>(entry.fact) >= Data().facts.size()) continue;
@@ -358,7 +361,7 @@ bool JournalScreen::enter(const ScreenRequest&)
             entry.alternate_text ? fact->alternate_description : fact->description;
         if ((g_journal_show_all || fact->visibility <= maximum_visibility) &&
             !description.empty()) {
-            g_journal_entries.push_back(entry);
+            m_entries.push_back(entry);
         }
     }
     Refresh();
@@ -367,7 +370,6 @@ bool JournalScreen::enter(const ScreenRequest&)
 
 bool JournalScreen::leave(ScreenDeparture)
 {
-    g_journal_entries.clear();
     if (CurrentGame().activity.conversation_aside) {
         SyncDialogueNpcState();
     }
@@ -385,7 +387,7 @@ void JournalScreen::frame()
                 --g_journal_page;
                 Refresh();
             } else if (input.key == SDLK_RIGHT &&
-                       g_journal_page < (static_cast<int>(g_journal_entries.size()) - 1) / 12) {
+                       g_journal_page < (static_cast<int>(m_entries.size()) - 1) / 12) {
                 ++g_journal_page;
                 Refresh();
             }
