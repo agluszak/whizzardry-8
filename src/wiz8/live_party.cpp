@@ -403,9 +403,9 @@ void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
     UpdateStandaloneCharacterStats(Data(), character, {});
 }
 
-void RecalculateEditedCharacterStats(W8Character& draft)
+void RecalculateEditedCharacterStats(Game& game, W8Character& draft)
 {
     draft.party_weight_share = 0;
-    const auto update = UpdateCharacterStatsFromInputs(Data(), draft, {});
-    if (update.became_overloaded) PresentOverload(CurrentGame(), draft);
+    const auto update = UpdateCharacterStatsFromInputs(game.rules().data, draft, {});
+    if (update.became_overloaded) PresentOverload(game, draft);
 }

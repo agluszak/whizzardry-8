@@ -8,6 +8,8 @@
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_mouse.h>
+#include <SDL3/SDL_rect.h>
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -18,6 +20,7 @@
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/rules/conditions.h"
@@ -73,6 +76,25 @@ void CombatScenario()
     const W8Character& fighter = CurrentGame().party.characters[PremadeSlot()];
     Approach(game, kBeachCrab, 700);
     REQUIRE(CurrentGame().combat.has_value());
+    // Closing and choosing through real menu targets must release its input layer
+    // and restore the same portrait's controls, including deferred destruction.
+    const int slot = PremadeSlot();
+    int left, top, edge, band, unused_x, unused_y;
+    GetPartySlotMenuAnchor(slot, &left, &top, &edge, &band, &unused_x, &unused_y, 0);
+    const SDL_Point attack{left + 0x17 + 14, top + 64};
+    game.click("open-action-menu", *MainGame()->combat_targets[slot]);
+    REQUIRE(MainGame()->keyboardMenuForSlot(slot));
+    game.click("cancel-action-menu", attack, SDL_BUTTON_RIGHT);
+    REQUIRE_FALSE(MainGame()->keyboard_menu);
+    game.click("reopen-action-menu", *MainGame()->combat_targets[slot]);
+    REQUIRE(MainGame()->keyboardMenuForSlot(slot));
+    game.click("choose-menu-defend", SDL_Point{left + 0x17 + 14, top + 46});
+    REQUIRE_FALSE(MainGame()->keyboard_menu);
+    REQUIRE(CurrentGame().party.rows[slot].committed.kind == W8_ACTION_DEFEND);
+    game.click("reopen-menu-for-attack", *MainGame()->combat_targets[slot]);
+    game.click("choose-menu-attack", attack);
+    REQUIRE_FALSE(MainGame()->keyboard_menu);
+    REQUIRE(CurrentGame().party.rows[slot].committed.kind == W8_ACTION_ATTACK);
     const std::vector<W8MonsterInfo*> crabs = CombatMonsters();
     REQUIRE(!crabs.empty());
     std::vector<int> crab_ids;
