@@ -71,6 +71,47 @@ Do not reintroduce them.
   metaprogramming, or elaborate generic infrastructure. Modern C++ is a means
   to clearer code, not an excuse for complexity.
 
+## Architectural changes
+
+**Fix the cause, not the symptom.** Before implementing a nontrivial change,
+identify the actual invariant, its owner, and the simplest desired end state.
+Trace the full creation/use/destruction path, not just the function where the
+problem surfaced. A lifecycle problem usually calls for changing when work
+happens or who owns it, not for a new state type or cleanup protocol.
+
+- **One fact, one representation.** Do not maintain parallel mutable copies,
+  cached summaries, flags, or collections that must be reconciled. Derive cheap
+  values when needed. Distinct serialized and runtime types are justified by
+  genuinely different formats or responsibilities, not by a desire to stage
+  the same fields through more structures.
+- **Make new abstractions pay for themselves.** A new class, base type, wrapper,
+  manager, callback interface, variant, or event queue must remove more
+  complexity than it adds. Do not introduce a type for every processing phase
+  when one value and explicit operations suffice. Avoid inheritance merely to
+  share fields, or visitors and command lists merely to replay ordinary
+  operations. Prefer using the types and owners already present.
+- **Use lifetimes and values instead of protocols.** Move work to its natural
+  boundary; construct objects only when they should become live. Prefer
+  replacing a fully prepared value or discarding a temporary owner over
+  register/unregister pairs, manual synchronization, retirement lists, and
+  rollback machinery. Keep deferred destruction where execution genuinely
+  requires it, rather than inventing it preemptively.
+- **Don't implement hypothetical generality.** Check real callers, data formats,
+  and required ordering before accommodating arbitrary permutations, future
+  extensions, or failure modes. Preserve demonstrated behavior and gameplay
+  timing, including random draws; do not preserve accidental structure.
+- **Account for added complexity.** For a substantial refactor, explain which
+  existing state, code paths, or obligations disappear. Compare production
+  lines added and removed, but also count owners, representations, transitions,
+  and levels of indirection. Refactors should normally be net-negative. A
+  net-positive change needs a concrete correctness or functionality reason
+  and an explanation of why the simpler approach is insufficient. Never game
+  line counts at the expense of clarity.
+
+If a fix introduces another representation or another lifecycle path, reconsider
+the design before polishing or testing it. Tests passing means the behavior is
+covered, not that the architecture is sound.
+
 These are migration goals, not claims that every subsystem already satisfies
 them. Avoid entrenching transitional code as a permanent public interface.
 
