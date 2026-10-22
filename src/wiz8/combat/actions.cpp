@@ -126,16 +126,14 @@ bool StartMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecor
     if (g_settings.verbose_combat_messages != 0) {
         CurrentGame().events.push(TextNotice{
             9,
-            fmt::format(
-                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
-                Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]])});
+            fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0),
+                        Data().strings[MonsterSpecialAttackNameId(record->special_attack_kind)])});
         return true;
     }
     CurrentGame().events.push(TextNotice{
         W8_FONT_PALETTE_RUST,
-        fmt::format(
-            "{} {}", GetMonsterName(monster_info, nullptr, 0),
-            Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]])});
+        fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
+                    Data().strings[MonsterSpecialAttackNameId(record->special_attack_kind)])});
     return true;
 }
 

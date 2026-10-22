@@ -325,9 +325,6 @@ bool CombatAllowsLiveGroups(void)
 
 static unsigned short g_group_hostility_notice_ids[3] = {511, 512, 513};
 
-int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
-                                             1603, 1604, 1605, 1606, 1607, 1608};
-
 void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);

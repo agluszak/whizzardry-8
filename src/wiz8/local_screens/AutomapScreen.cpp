@@ -729,6 +729,7 @@ bool AutomapScreen::leave(ScreenDeparture)
     g_automap_buttons.reset();
     ScreenPointer().reset();
     EnableCursorScene();
+    g_automap_layers.clear(); // Drop borrowed planes before releasing their owners.
     g_automap_created_layers.clear();
     g_automap_party_marker.reset();
     g_automap_friendly_marker.reset();
