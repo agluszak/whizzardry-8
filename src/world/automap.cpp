@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/geometric.hpp"
 #include "wiz8/checked_integer.h"
