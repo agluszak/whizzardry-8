@@ -122,48 +122,42 @@ static void FinishCharacterInventoryEdit(Game& game, ItemRecipient recipient,
 /* What acquiring an item sets off: a handful of plot items update their facts, and an
    exceptional one draws a remark, from the receiver or from a random member when the pool
    took it. A placement into equipment acquires nothing. */
-static void Acquire(const std::optional<ItemPlacement>& placement, W8Character* receiver)
+static void Acquire(Game& game, const std::optional<ItemPlacement>& placement,
+                    W8Character* receiver = nullptr)
 {
     if (!placement || !placement->received) return;
-    UpdateFactsAfterAcquiringItem(placement->received);
-    DeliverExceptionalItemReaction(placement->received, receiver == nullptr, receiver);
+    const auto& received = *placement->received;
+    if (received.location) {
+        const auto location = *received.location;
+        receiver = location.storage == W8ItemStorage::Pool
+                       ? nullptr
+                       : &game.party.characters[location.character];
+    }
+    auto& item = received.get(game.party);
+    UpdateFactsAfterAcquiringItem(&item);
+    DeliverExceptionalItemReaction(&item, receiver == nullptr, receiver);
 }
 
 static std::optional<ItemPlacement> StoreWithCharacter(Game& game, ItemRecipient recipient,
-                                                       ItemSource source, bool equip_if_possible,
+                                                       ItemReference source, bool equip_if_possible,
                                                        bool announce, bool skip_stacking)
 {
     const auto placement = PlaceWithCharacter(game.rules(), recipient, source, equip_if_possible,
                                               announce, skip_stacking);
-    Acquire(placement, &recipient.character);
+    Acquire(game, placement, &recipient.character);
     return placement;
 }
 
-static std::optional<ItemPlacement> StoreInPool(Game& game, ItemSource source, bool announce,
+static std::optional<ItemPlacement> StoreInPool(Game& game, ItemReference source, bool announce,
                                                 bool skip_stacking)
 {
     const auto placement = PlaceInPool(game.rules(), source, announce, skip_stacking);
-    Acquire(placement, nullptr);
+    Acquire(game, placement);
     return placement;
 }
 
-/* Put an item somewhere it will fit. The flag decides which of the character and the party
-   pool is tried first; the other is tried after. */
-static std::optional<ItemPlacement> StoreWithCharacterOrPool(Game& game, ItemRecipient recipient,
-                                                             ItemSource source, bool party_first,
-                                                             bool announce, bool equip_if_possible)
-{
-    std::optional<ItemPlacement> stored;
-    if (!party_first)
-        stored = StoreWithCharacter(game, recipient, source, equip_if_possible, announce, false);
-    if (!stored) stored = StoreInPool(game, source, announce, false);
-    if (!stored && party_first)
-        stored = StoreWithCharacter(game, recipient, source, equip_if_possible, announce, false);
-    return stored;
-}
-
 // The source's location when a store took the item, and where a new entry went.
-static W8ItemLocation From(const ItemSource& source, bool stored)
+static W8ItemLocation From(const ItemReference& source, bool stored)
 {
     return stored && source.location ? *source.location : W8ItemLocation{};
 }
@@ -175,7 +169,7 @@ static W8ItemLocation To(const std::optional<ItemPlacement>& placement)
 
 /* What no store takes is dropped at the party's feet unless it may not be discarded, and
    otherwise goes into an empty hand. Failure leaves the source intact. */
-static bool DropUnstoredItem(Game& game, ItemSource source)
+static bool DropUnstoredItem(Game& game, ItemReference source)
 {
     if ((Data().items[source.get(game.party).iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
@@ -192,7 +186,7 @@ ItemRecipient PartyMember(Game& game, unsigned int party_slot)
     return {game.party.characters[party_slot], party_slot};
 }
 
-bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemSource source,
+bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemReference source,
                         bool equip_if_possible, bool announce, bool skip_stacking)
 {
     const auto stored =
@@ -201,7 +195,7 @@ bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemSource source,
     return stored.has_value();
 }
 
-bool AddItemToParty(Game& game, ItemSource source, bool announce, bool skip_stacking)
+bool AddItemToParty(Game& game, ItemReference source, bool announce, bool skip_stacking)
 {
     const auto stored = StoreInPool(game, source, announce, skip_stacking);
     FinishInventoryEdit(game, {From(source, stored.has_value()), To(stored)});
@@ -210,7 +204,7 @@ bool AddItemToParty(Game& game, ItemSource source, bool announce, bool skip_stac
 
 /* Put an item in the party pool, and when the pool will not take it, drop it at the party's
    feet or into an empty hand. */
-bool AddItemToPartyOrDrop(Game& game, ItemSource source, bool announce)
+bool AddItemToPartyOrDrop(Game& game, ItemReference source, bool announce)
 {
     const auto stored = StoreInPool(game, source, announce, false);
     if (!stored) DropUnstoredItem(game, source);
@@ -219,18 +213,19 @@ bool AddItemToPartyOrDrop(Game& game, ItemSource source, bool announce)
     return stored.has_value();
 }
 
-bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemSource source,
+bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemReference source,
                                    bool party_first, bool announce, bool equip_if_possible)
 {
-    const auto stored =
-        StoreWithCharacterOrPool(game, recipient, source, party_first, announce, equip_if_possible);
+    const auto stored = PlaceWithCharacterOrPool(game.rules(), recipient, source, party_first,
+                                                 announce, equip_if_possible);
+    Acquire(game, stored, &recipient.character);
     FinishCharacterInventoryEdit(game, recipient, {From(source, stored.has_value()), To(stored)});
     return stored.has_value();
 }
 
 /* The character and the party pool are tried in the order the flag asks for, with the other
    tried after - and when the slot cannot take items, only the pool. */
-bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource source,
+bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemReference source,
                                 bool party_first)
 {
     assert(game.status.game_started);
@@ -240,49 +235,26 @@ bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource 
     if (!IsPartySlotEligible(static_cast<int>(party_slot))) {
         if (party_first) destination = StoreInPool(game, source, true, false);
     } else {
-        destination = StoreWithCharacterOrPool(game, PartyMember(game, party_slot), source,
+        destination = PlaceWithCharacterOrPool(game.rules(), PartyMember(game, party_slot), source,
                                                party_first, true, false);
+        Acquire(game, destination);
     }
     // A stored item has left its source; a refused one is untouched.
     FinishInventoryEdit(game, {From(source, destination.has_value()), To(destination)});
     return destination.has_value();
 }
 
-/* The held item is first offered to everybody who could identify it, and then stored with
-   the member or the party pool in the order the flag asks for. The hand is cleared before
-   the outcome is tested, and a store that fails is refused: the notice names the slot when
-   neither destination was open, and the item otherwise. */
+/* Identify the held item first, then use the same transfer as every other party
+   item. Placement owns source consumption; a refused transfer keeps its remainder. */
 std::expected<void, InventoryRefusal>
 GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_first)
 {
     auto& held = game.party.held.item;
-    bool stored = party_first;
     assert(held.iItemNo != -1);
     if (!held.identified) PartyAttemptsToIdentifyItem(&held, 0);
-    assert(game.status.game_started);
-    assert(game.party.members[party_slot].has_value());
-
-    const auto source = PartyItem(game.party, {W8ItemStorage::Hand});
-    const bool eligible = IsPartySlotEligible(static_cast<int>(party_slot));
-    std::optional<ItemPlacement> destination;
-    if (eligible) {
-        destination = StoreWithCharacterOrPool(game, PartyMember(game, party_slot), source,
-                                               party_first, true, false);
-        if (destination) stored = true;
-    } else if (stored) {
-        destination = StoreInPool(game, source, true, false);
-        stored = destination.has_value();
-    }
-
-    // Only a stored item releases the hand; a refused one stays held.
-    if (stored) {
-        game.party.take({W8ItemStorage::Hand});
-        FinishInventoryEdit(game, {{W8ItemStorage::Hand}, To(destination)});
+    const bool slot_closed = !IsPartySlotEligible(static_cast<int>(party_slot)) && !party_first;
+    if (GiveItemToCharacterOrParty(game, party_slot, PartyItem({W8ItemStorage::Hand}), party_first))
         return {};
-    }
-
-    FinishInventoryEdit(game, {});
-    const bool slot_closed = !eligible && !party_first;
     return std::unexpected(InventoryRefusal{Data().strings[slot_closed ? 0x1f5 : 0x90c]});
 }
 
@@ -294,7 +266,7 @@ void StashDepartingCharacterItems(Game& game, unsigned int party_slot)
     auto& character = game.party.characters[party_slot];
     const auto stash = [&](W8ItemLocation location) {
         const int item_id = game.party.itemAt(location)->iItemNo;
-        const auto source = PartyItem(game.party, location);
+        const auto source = PartyItem(location);
         if (StoreInPool(game, source, false, false)) return;
         if (!DropUnstoredItem(game, source)) return;
         game.events.push(
@@ -545,8 +517,7 @@ bool EquipHeldItemAndStowPartner(Game& game, unsigned actor, W8EquipSlot slot)
     };
     const auto stowed = EquipHeldItemAndStowPartner(game.rules(), actor, slot, npc_keeps);
     if (!stowed) return false;
-    const bool pool = stowed->stored && stowed->stored->stored.storage == W8ItemStorage::Pool;
-    Acquire(stowed->stored, pool ? nullptr : &game.party.characters[actor]);
+    Acquire(game, stowed->stored);
     Finish(game, stowed->edit);
     return true;
 }

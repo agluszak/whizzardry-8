@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
 #include <optional>
 #include <vector>
 
@@ -11,9 +10,6 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
-
-// Preserve full-inventory gameplay until its policy and save support change together.
-inline constexpr std::size_t W8_PARTY_POOL_LIMIT = 500;
 
 struct W8HeldItem {
     W8ItemInstance item{.iItemNo = -1};
@@ -43,7 +39,6 @@ struct W8Party {
     // entry closes up; an emptied hand forgets where its item came from.
     W8ItemInstance take(W8ItemLocation location);
     void exchange(W8ItemLocation first, W8ItemLocation second, int actor);
-    bool insertIntoPool(std::size_t index, W8ItemInstance item);
 
     bool redistribution_pending = false;
     std::optional<int> companion_inventory;

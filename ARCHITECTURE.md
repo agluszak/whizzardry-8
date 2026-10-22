@@ -486,12 +486,18 @@ Unlayered code may use the layers.
   capacity and overflow placement before committing stock and payment.
 - **Inventory.** Two headers share the inventory. `rules/inventory.h` holds the
   storage rules over a `RuleContext`: placement (`PlaceWithCharacter`, `PlaceInPool`,
-  `PlaceInEmptyHand`) returns where an item went, and removal, splitting, exchange,
-  stack merging, pool sorting, weapon-set swaps and attack consumption return an
+  `PlaceWithCharacterOrPool`, `PlaceInEmptyHand`) returns where an item went. Removal,
+  splitting, exchange, stack merging, pool sorting, weapon-set swaps and attack
+  consumption return an
   `InventoryEdit` naming the locations they replaced. Rules address members by party
   slot and items by `W8ItemLocation` (`PartyItem`) or as owned values (`OwnedItem`),
-  never by scanning storage for an address. `wiz8/inventory.h` holds the game's
-  commands, which apply a rule and then what it owes the game: acquisition effects
+  never by scanning storage for an address. Placement reports the actual receiving item
+  through the same `ItemReference`, resolving pool locations after compaction or growth;
+  it never substitutes a backpack cell for an equipment destination. The placement rules
+  alone consume a source and enforce the current 500-item admission limit. A move within
+  the pool needs no additional slot, and a refused transfer retains its unstored units.
+  `wiz8/inventory.h` holds the game's commands, which apply a rule and then what it
+  owes the game: acquisition effects
   (story facts, exceptional-item reactions), world drops, and one settlement per
   command (unusable equipment comes off in slot order and is stored like a received
   item, statistics and shared load are recalculated, an exhausted member dies, combat

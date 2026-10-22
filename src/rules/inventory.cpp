@@ -7,6 +7,7 @@
 #include <functional>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -48,18 +49,18 @@ static bool IsCarried(W8ItemLocation location)
            location.storage == W8ItemStorage::Backpack;
 }
 
-W8ItemInstance& ItemSource::get(W8Party& party) const
+W8ItemInstance& ItemReference::get(W8Party& party) const
 {
     return location ? *party.itemAt(*location) : *value;
 }
 
-ItemSource PartyItem(W8Party& party, W8ItemLocation location)
+ItemReference PartyItem(W8ItemLocation location)
 {
     return {nullptr, location};
 }
 
 // Empty a source: a party location gives its item up, closing up the pool; a value clears.
-static void Discard(W8Party& party, ItemSource source)
+static void Discard(W8Party& party, ItemReference source)
 {
     if (source.location)
         party.take(*source.location);
@@ -71,7 +72,7 @@ static void Discard(W8Party& party, ItemSource source)
    locations this is an exchange; moving a value into the hand starts a held item with no
    origin. */
 static void MoveInto(W8Party& party, W8ItemInstance& destination,
-                     std::optional<W8ItemLocation> destination_location, ItemSource source)
+                     std::optional<W8ItemLocation> destination_location, ItemReference source)
 {
     if (destination_location && source.location) {
         party.exchange(*destination_location, *source.location,
@@ -129,10 +130,11 @@ static W8ItemInstance NormalizeItemStack(const GameData& data, W8Party& party, W
         unsigned char quantity = item.stack_count - record.maximum_quantity;
         if (quantity > record.maximum_quantity) quantity = record.maximum_quantity;
         split.stack_count = quantity;
-        if (!party.insertIntoPool(party.item_pool.size(), split)) {
+        if (party.item_pool.size() >= W8_PARTY_POOL_LIMIT) {
             item.stack_count = record.maximum_quantity;
             return item;
         }
+        party.item_pool.push_back(split);
         item.stack_count -= quantity;
     }
     return item;
@@ -140,10 +142,11 @@ static W8ItemInstance NormalizeItemStack(const GameData& data, W8Party& party, W
 
 /* Normalize the destination, then merge as much of the source as fits.
    Like MergeInventoryStacks, an absent result means nothing merged. */
-static std::optional<StackMerge> MergeStack(const GameData& data, W8Party& party, ItemSource target,
-                                            ItemSource source)
+static std::optional<StackMerge> MergeStack(const GameData& data, W8Party& party,
+                                            ItemReference target, ItemReference source)
 {
-    if (target.get(party).iItemNo == -1) return std::nullopt;
+    if (target.get(party).iItemNo == -1 || &target.get(party) == &source.get(party))
+        return std::nullopt;
 
     const auto normalized = NormalizeItemStack(data, party, target.get(party));
     auto& destination = target.get(party);
@@ -169,7 +172,7 @@ static std::optional<StackMerge> MergeStack(const GameData& data, W8Party& party
    stack counts down its count and a charged item its charges; an already exhausted charged
    item is cleared only when the caller allows it, and one whose kind has hidden properties
    is kept even then. */
-static bool ConsumeUse(const GameData& data, W8Party& party, ItemSource source,
+static bool ConsumeUse(const GameData& data, W8Party& party, ItemReference source,
                        bool remove_exhausted)
 {
     auto& item = source.get(party);
@@ -197,7 +200,7 @@ static bool ConsumeUse(const GameData& data, W8Party& party, ItemSource source,
 
 bool ConsumeItemUse(const RuleContext& rules, W8ItemLocation location, bool remove_exhausted)
 {
-    return ConsumeUse(rules.data, rules.party, PartyItem(rules.party, location), remove_exhausted);
+    return ConsumeUse(rules.data, rules.party, PartyItem(location), remove_exhausted);
 }
 
 // ---- Searching
@@ -393,117 +396,110 @@ static W8EquipSlot ChooseCharacterEquipSlot(const RuleContext& rules, W8Characte
    the first empty backpack slot is used. The source item is consumed only after a
    destination accepts it, so the caller can still fall back to the pool. */
 std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRecipient recipient,
-                                                ItemSource source, bool equip_if_possible,
+                                                ItemReference source, bool equip_if_possible,
                                                 bool announce, bool skip_stacking)
 {
-    auto& data = rules.data;
+    const auto& data = rules.data;
     auto& party = rules.party;
     auto& character = recipient.character;
-
     if (equip_if_possible && CanCharacterUseItem(data, &character, source.get(party).iItemNo)) {
-        const W8EquipSlot equip_slot =
-            ChooseCharacterEquipSlot(rules, character, source.get(party).iItemNo);
-        if (equip_slot != W8_EQUIP_SLOT_NONE) {
-            auto& destination = character.EquippedItem[equip_slot];
-            const auto location =
-                RecipientLocation(recipient, W8ItemStorage::Equipment, equip_slot);
-            /* A refused merge leaves the equipment untouched; retail skips the
-               acquisition for it (0x0051c379). */
+        const auto slot = ChooseCharacterEquipSlot(rules, character, source.get(party).iItemNo);
+        if (slot != W8_EQUIP_SLOT_NONE) {
+            auto& destination = character.EquippedItem[slot];
+            const auto location = RecipientLocation(recipient, W8ItemStorage::Equipment, slot);
             if (destination.iItemNo == -1) {
                 MoveInto(party, destination,
                          recipient.slot ? std::optional{location} : std::nullopt, source);
-                return ItemPlacement{location, nullptr};
+                return ItemPlacement{location, std::nullopt};
             }
             if (const auto merge = MergeStack(data, party, OwnedItem(destination), source);
                 merge && merge->complete)
-                return ItemPlacement{{}, nullptr};
+                return ItemPlacement{{}, std::nullopt};
         }
     }
 
-    // Named before a merge can empty the source.
-    const std::string display_name =
-        announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
-    W8ItemInstance* stored_item = nullptr;
-    unsigned int stored_index = 0;
-    bool placed = false;
-    if (data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
-        !skip_stacking) {
-        for (unsigned int index = 0; index < 12 && !stored_item; ++index) {
-            if (const auto merge =
-                    MergeStack(data, party, OwnedItem(character.EquippedItem[index]), source);
-                merge && merge->complete) {
-                stored_item = &character.EquippedItem[index];
-                stored_index = index;
+    const auto name = announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
+    const auto received = [&](W8ItemStorage storage, unsigned int index, bool inserted) {
+        const auto location = RecipientLocation(recipient, storage, index);
+        auto& item = storage == W8ItemStorage::Equipment ? character.EquippedItem[index]
+                                                         : character.backpack[index];
+        if (announce && recipient.slot)
+            rules.events.push(
+                CharacterNotice{*recipient.slot, fmt::sprintf(data.strings[0x1e8], name)});
+        return ItemPlacement{inserted ? location : W8ItemLocation{},
+                             recipient.slot ? PartyItem(location) : OwnedItem(item)};
+    };
+    if (!skip_stacking &&
+        data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+        for (const auto storage : {W8ItemStorage::Equipment, W8ItemStorage::Backpack}) {
+            auto items = storage == W8ItemStorage::Equipment
+                             ? std::span<W8ItemInstance>{character.EquippedItem}
+                             : std::span<W8ItemInstance>{character.backpack};
+            for (unsigned int index = 0; index < items.size(); ++index) {
+                if (const auto merge = MergeStack(data, party, OwnedItem(items[index]), source);
+                    merge && merge->complete)
+                    return received(storage, index, false);
             }
         }
-        for (unsigned int index = 0; index < 8 && !stored_item; ++index) {
-            if (const auto merge =
-                    MergeStack(data, party, OwnedItem(character.backpack[index]), source);
-                merge && merge->complete) {
-                stored_item = &character.backpack[index];
-                stored_index = index;
-            }
-        }
     }
-
-    W8ItemLocation stored{};
-    if (!stored_item) {
-        while (stored_index < 8 && character.backpack[stored_index].iItemNo != -1) ++stored_index;
-        if (stored_index == 8) return std::nullopt;
-        stored_item = &character.backpack[stored_index];
-        stored = RecipientLocation(recipient, W8ItemStorage::Backpack, stored_index);
-        MoveInto(party, *stored_item, recipient.slot ? std::optional{stored} : std::nullopt,
-                 source);
-        placed = true;
-    }
-
-    if (announce && recipient.slot)
-        rules.events.push(
-            CharacterNotice{*recipient.slot, fmt::sprintf(data.strings[0x1e8], display_name)});
-    /* Retail always reports the backpack cell at the stored index, even when the stack was
-       merged into the equipped slot with that index. */
-    return ItemPlacement{placed ? stored : W8ItemLocation{}, &character.backpack[stored_index]};
+    const auto empty = std::ranges::find(character.backpack, -1, &W8ItemInstance::iItemNo);
+    if (empty == std::end(character.backpack)) return std::nullopt;
+    const auto index = static_cast<unsigned int>(empty - character.backpack);
+    const auto location = RecipientLocation(recipient, W8ItemStorage::Backpack, index);
+    MoveInto(party, *empty, recipient.slot ? std::optional{location} : std::nullopt, source);
+    return received(W8ItemStorage::Backpack, index, true);
 }
 
-std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource source, bool announce,
-                                         bool skip_stacking)
+std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemReference source,
+                                         bool announce, bool skip_stacking)
 {
-    auto& data = rules.data;
+    const auto& data = rules.data;
     auto& party = rules.party;
-    // Named before a merge can empty the source.
-    const std::string display_name =
-        announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
-    unsigned int index = 0;
-    bool merged = false;
-
-    if (data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
-        !skip_stacking) {
-        for (; index < party.item_pool.size(); ++index) {
-            if (const auto merge = MergeStack(
-                    data, party, PartyItem(party, {W8ItemStorage::Pool, 0, index}), source);
+    const auto name = announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
+    const auto received = [&](unsigned int index, bool inserted) {
+        if (announce)
+            rules.events.push(
+                TextNotice{W8_FONT_PALETTE_WHITE, fmt::sprintf(data.strings[0x1e9], name)});
+        const W8ItemLocation location{W8ItemStorage::Pool, 0, index};
+        return ItemPlacement{inserted ? location : W8ItemLocation{}, PartyItem(location)};
+    };
+    const bool from_pool = source.location && source.location->storage == W8ItemStorage::Pool;
+    if (!skip_stacking &&
+        data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+        for (unsigned int index = 0; index < party.item_pool.size(); ++index) {
+            if (const auto merge =
+                    MergeStack(data, party, PartyItem({W8ItemStorage::Pool, 0, index}), source);
                 merge && merge->complete) {
-                merged = true;
-                break;
+                // Consuming an earlier pooled source shifts the receiving row down.
+                if (from_pool && source.location->slot < index) --index;
+                return received(index, false);
             }
         }
     }
-
-    if (!merged) {
-        if (party.item_pool.size() >= W8_PARTY_POOL_LIMIT) return std::nullopt;
-        index = 0;
-        W8ItemInstance entry{};
-        MoveInto(party, entry, std::nullopt, source);
-        party.insertIntoPool(0, entry);
-    }
-
-    if (announce)
-        rules.events.push(
-            TextNotice{W8_FONT_PALETTE_WHITE, fmt::sprintf(data.strings[0x1e9], display_name)});
-    return ItemPlacement{merged ? W8ItemLocation{} : W8ItemLocation{W8ItemStorage::Pool, 0, 0},
-                         &party.item_pool[index]};
+    // Moving a row already in the pool needs no additional inventory slot.
+    if (!from_pool && party.item_pool.size() >= W8_PARTY_POOL_LIMIT) return std::nullopt;
+    W8ItemInstance entry{};
+    MoveInto(party, entry, std::nullopt, source);
+    party.item_pool.insert(party.item_pool.begin(), entry);
+    return received(0, true);
 }
 
-bool PlaceInEmptyHand(const RuleContext& rules, ItemSource source)
+std::optional<ItemPlacement> PlaceWithCharacterOrPool(const RuleContext& rules,
+                                                      ItemRecipient recipient, ItemReference source,
+                                                      bool party_first, bool announce,
+                                                      bool equip_if_possible)
+{
+    if (party_first) {
+        if (auto placed = PlaceInPool(rules, source, announce, false)) return placed;
+        return PlaceWithCharacter(rules, recipient, source, equip_if_possible, announce, false);
+    }
+    if (auto placed =
+            PlaceWithCharacter(rules, recipient, source, equip_if_possible, announce, false))
+        return placed;
+    return PlaceInPool(rules, source, announce, false);
+}
+
+bool PlaceInEmptyHand(const RuleContext& rules, ItemReference source)
 {
     auto& party = rules.party;
     if (party.held.item.iItemNo != -1) return false;
@@ -665,7 +661,7 @@ std::optional<InventoryEdit> SplitItemStack(const RuleContext& rules,
     } else if (destination_location.storage == W8ItemStorage::Hand) {
         party.held = {part, source_location, static_cast<int>(actor)};
     } else if (destination_location.storage == W8ItemStorage::Pool) {
-        party.insertIntoPool(destination_location.slot, part);
+        party.item_pool.push_back(part);
     } else {
         *party.itemAt(destination_location) = part;
     }
@@ -753,7 +749,7 @@ EquipHeldItemAndStowPartner(const RuleContext& rules, unsigned actor, W8EquipSlo
                   static_cast<int>(actor)};
     party.held.item.bind_announced = false;
     if (storage.storage == W8ItemStorage::Pool)
-        party.insertIntoPool(0, displaced);
+        party.item_pool.insert(party.item_pool.begin(), displaced);
     else if (storage.storage == W8ItemStorage::Backpack)
         *party.itemAt(storage) = displaced;
 
@@ -764,7 +760,7 @@ EquipHeldItemAndStowPartner(const RuleContext& rules, unsigned actor, W8EquipSlo
                        storage}},
         std::nullopt};
     if (storage.storage != W8ItemStorage::None)
-        result.stored = ItemPlacement{storage, party.itemAt(storage)};
+        result.stored = ItemPlacement{storage, PartyItem(storage)};
     return result;
 }
 
@@ -795,8 +791,10 @@ std::optional<StackMerge> MergeInventoryStacks(const RuleContext& rules,
 std::optional<InventoryEdit> InsertHeldItemInPool(const RuleContext& rules, unsigned index)
 {
     auto& party = rules.party;
-    if (party.held.item.iItemNo == -1 || !party.insertIntoPool(index, party.held.item))
+    if (party.held.item.iItemNo == -1 || index > party.item_pool.size() ||
+        party.item_pool.size() >= W8_PARTY_POOL_LIMIT)
         return std::nullopt;
+    party.item_pool.insert(party.item_pool.begin() + index, party.held.item);
     party.held = {};
     return InventoryEdit{{{W8ItemStorage::Hand}, {W8ItemStorage::Pool, 0, index}}};
 }
@@ -863,8 +861,7 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
         return made;
     }
     if (held.iItemNo == destination->iItemNo) {
-        auto merged = MergeStack(data, party, PartyItem(party, target),
-                                 PartyItem(party, {W8ItemStorage::Hand}));
+        auto merged = MergeStack(data, party, PartyItem(target), PartyItem({W8ItemStorage::Hand}));
         return ItemCombination{.merged = merged.has_value(),
                                .edit = merged ? std::move(merged->edit) : InventoryEdit{}};
     }
@@ -874,7 +871,8 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
 /* Pour one item's uses into another and take that many off the source, one at a time, which
    is what makes the source disappear when it is emptied. Each side counts its quantity the
    way its own record says to. Returns whether the source was used up. */
-static bool MergeUses(const GameData& data, W8Party& party, W8ItemInstance& into, ItemSource from)
+static bool MergeUses(const GameData& data, W8Party& party, W8ItemInstance& into,
+                      ItemReference from)
 {
     const unsigned char available =
         data.items[from.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
@@ -900,9 +898,8 @@ std::optional<InventoryEdit> MergeItemUses(const RuleContext& rules, unsigned ac
     if (actor >= W8_PARTY_SLOT_COUNT || !into || !from || into == from || into->iItemNo == -1 ||
         into->iItemNo != from->iItemNo)
         return std::nullopt;
-    return InventoryEdit{{MergeUses(rules.data, party, *into, PartyItem(party, source))
-                              ? source
-                              : W8ItemLocation{}}};
+    return InventoryEdit{
+        {MergeUses(rules.data, party, *into, PartyItem(source)) ? source : W8ItemLocation{}}};
 }
 
 void AddItemUses(const GameData& data, W8ItemInstance& item, signed char uses)
@@ -1096,7 +1093,7 @@ static W8ItemLocation MergePartnerUses(const RuleContext& rules, unsigned int pa
     const auto partner =
         FindMemberItem(party, party_slot, ItemOfKind(data, related_kind), W8ItemReach::Carried);
     if (partner.storage != W8ItemStorage::None) {
-        const bool emptied = MergeUses(data, party, item, PartyItem(party, partner));
+        const bool emptied = MergeUses(data, party, item, PartyItem(partner));
         rules.events.push(CharacterNotice{party_slot, data.strings[0x1d4]});
         return emptied ? partner : W8ItemLocation{};
     }

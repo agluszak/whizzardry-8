@@ -62,6 +62,7 @@
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_roster.h"
+#include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
@@ -1395,6 +1396,31 @@ W8Character& PrepareMember(unsigned int slot)
     for (auto& attribute : character.attributes) attribute.base = 50;
     return character;
 }
+}
+
+TEST_CASE("A refused party-first transfer keeps the held item", "[party][inventory]")
+{
+    const ScopedActiveParty active;
+    GameData data;
+    data.items.resize(2);
+    data.strings.resize(0x90d);
+    data.strings[0x90c] = "Inventory full";
+    const ScopedGameData installed(std::move(data));
+    auto& character = PrepareMember(0);
+    character.hp_current = 10;
+    character.uiHPMax = 10;
+    REQUIRE(IsPartySlotEligible(0));
+    auto& game = CurrentGame();
+    game.status.game_started = true;
+    for (auto& item : character.backpack) item = {.iItemNo = 1, .identified = true};
+    game.party.item_pool.assign(W8_PARTY_POOL_LIMIT, W8ItemInstance{.iItemNo = 1});
+    game.party.held.item = {.iItemNo = 0, .identified = true};
+    const auto held = game.party.held.item;
+    const auto result = GiveHeldItemToCharacterOrParty(game, 0, true);
+    REQUIRE_FALSE(result.has_value());
+    REQUIRE(result.error().notice == "Inventory full");
+    REQUIRE(game.party.held.item == held);
+    REQUIRE(game.party.item_pool.size() == W8_PARTY_POOL_LIMIT);
 }
 
 TEST_CASE("A split stack travels through the hand and merges back", "[party][inventory]")

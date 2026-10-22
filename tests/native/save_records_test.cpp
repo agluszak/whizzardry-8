@@ -1718,7 +1718,7 @@ TEST_CASE("Party inventory has live items, not a writable disk suffix", "[save][
     auto restored = wiz8::save::decode_game_state(payload);
     REQUIRE(restored.party.item_pool.size() == 1);
     REQUIRE(restored.party.itemAt({W8ItemStorage::Pool, 0, 1}) == nullptr);
-    REQUIRE(restored.party.insertIntoPool(1, {.iItemNo = 77, .unknown_08 = 0x56}));
+    restored.party.item_pool.push_back({.iItemNo = 77, .unknown_08 = 0x56});
     restored.party.exchange({W8ItemStorage::Pool, 0, 0}, {W8ItemStorage::Pool, 0, 1}, -1);
     REQUIRE(restored.party.take({W8ItemStorage::Pool, 0, 1}).iItemNo == 12);
     const auto encoded = wiz8::save::encode(restored);

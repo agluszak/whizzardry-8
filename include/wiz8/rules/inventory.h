@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <cstddef>
 #include <expected>
 #include <functional>
 #include <optional>
@@ -23,6 +24,9 @@ struct W8Party;
    party and report notices and speech as events. They return what they changed: the game's
    inventory commands (inventory.h) apply what acquiring an item sets off and settle the
    party after every edit. */
+
+// Preserve full-inventory gameplay independently of the runtime container and save codec.
+inline constexpr std::size_t W8_PARTY_POOL_LIMIT = 500;
 
 // Why an inventory edit was turned down, worded for the player.
 struct InventoryRefusal {
@@ -85,39 +89,42 @@ struct ItemRecipient {
     // The member's slot; none for a character outside the party.
     std::optional<unsigned int> slot;
 };
-/* An item to place: at a location in the party, or a value the caller owns. A stored item
-   leaves its source; a refused one stays there, and a stack merged in part keeps the rest. */
-struct ItemSource {
+/* Reference an item by party location, or borrow a value outside the pool. Pool
+   references resolve after edits; no address is retained across vector mutations. */
+struct ItemReference {
     // Borrow an external value, or resolve a party location after storage mutations.
     W8ItemInstance* value = nullptr;
     W8ItemInstance& get(W8Party& party) const;
     // Where the item is in the party; none for a value the caller owns.
     std::optional<W8ItemLocation> location;
 };
-ItemSource PartyItem(W8Party& party, W8ItemLocation location);
-inline ItemSource OwnedItem(W8ItemInstance& item)
+ItemReference PartyItem(W8ItemLocation location);
+inline ItemReference OwnedItem(W8ItemInstance& item)
 {
     return {&item, std::nullopt};
 }
-/* Where a placement put an item. `stored` is the location a new entry filled; it is None
-   after merging into a stack and for a recipient outside the party. `received` is the item
-   the acquisition is reported for, valid until the next edit: retail reports the backpack
-   cell at the stored index even after merging into the equipment slot of that index, and
-   the pool entry that took the item. */
+/* The new slot a placement filled (None after merging or for an outsider), and the
+   item whose acquisition the command reports. Party items are resolved by location;
+   standalone character slots are borrowed from their fixed equipment/backpack arrays. */
 struct ItemPlacement {
     W8ItemLocation stored;
-    W8ItemInstance* received = nullptr;
+    std::optional<ItemReference> received;
 };
 /* Place an item with a character: equipped when asked and allowed, else merged into a
    stack or put in the first free backpack slot. Announcing names it in a notice. */
 std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRecipient recipient,
-                                                ItemSource source, bool equip_if_possible,
+                                                ItemReference source, bool equip_if_possible,
                                                 bool announce, bool skip_stacking);
 // Merge into a pool stack, else add a new entry at the front of the pool.
-std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource source, bool announce,
-                                         bool skip_stacking);
+std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemReference source,
+                                         bool announce, bool skip_stacking);
+// Try the character and pool in the requested order; refusal preserves unstored units.
+std::optional<ItemPlacement> PlaceWithCharacterOrPool(const RuleContext& rules,
+                                                      ItemRecipient recipient, ItemReference source,
+                                                      bool party_first, bool announce,
+                                                      bool equip_if_possible);
 // Put an item into an empty hand; false when the hand holds something.
-bool PlaceInEmptyHand(const RuleContext& rules, ItemSource source);
+bool PlaceInEmptyHand(const RuleContext& rules, ItemReference source);
 /* Take one use off an item, a stack's unit or a charge, and empty it after the last one. An
    exhausted charged item is emptied only when asked, and one with hidden properties is
    kept. Returns whether the location was emptied. */

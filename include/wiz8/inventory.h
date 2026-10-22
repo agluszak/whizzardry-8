@@ -33,21 +33,21 @@ inline ItemRecipient Outsider(W8Character& character)
 /* Place an item with a character: equipped when asked and allowed, else merged into a stack
    or put in the first free backpack slot. A character outside the party is also brought up
    to date on its own. */
-bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemSource source,
+bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemReference source,
                         bool equip_if_possible, bool announce, bool skip_stacking);
 // Merge into a pool stack, else add a new entry at the front of the pool.
-bool AddItemToParty(Game& game, ItemSource source, bool announce, bool skip_stacking);
+bool AddItemToParty(Game& game, ItemReference source, bool announce, bool skip_stacking);
 // The pool, else the party's feet, else an empty hand.
-bool AddItemToPartyOrDrop(Game& game, ItemSource source, bool announce);
+bool AddItemToPartyOrDrop(Game& game, ItemReference source, bool announce);
 // The character and the pool, in the order the flag asks for.
-bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemSource source,
+bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemReference source,
                                    bool party_first, bool announce, bool equip_if_possible);
 /* Hand one item to a party member, preferring the member or the party pool according to the
    flag; a member who cannot take items leaves only the pool. */
-bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource source,
+bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemReference source,
                                 bool party_first);
-/* The held-item form, after the whole party has had its identification attempt. A failed
-   party-first attempt still reports success and empties the hand, as retail did. */
+/* The held-item form, after the whole party has had its identification attempt.
+   A failed transfer leaves the unstored item in the hand. */
 std::expected<void, InventoryRefusal>
 GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_first);
 /* A departing member's items go to the pool; equipment bound to its slot stays unless
