@@ -203,8 +203,8 @@ public:
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void Refresh() override;
-    void SelectSpell(unsigned int entry);
-    void ShowSpellInfo(unsigned int entry);
+    void SelectSpell(unsigned int spell);
+    void ShowSpellInfo(unsigned int spell);
 
 private:
     void UpdateSpellLists();

@@ -316,7 +316,7 @@ void W8NpcDialogue::Queue(W8NpcAction action)
 
 void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
 {
-    Queue(W8NpcQueuedNotice{std::move(text), notice});
+    Queue(W8NpcQueuedNotice{std::move(text), std::move(notice)});
 }
 
 /* Resolve the player's reply text to the script line it selects. The current

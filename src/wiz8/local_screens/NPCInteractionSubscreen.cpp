@@ -3510,14 +3510,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
         PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
     if (quote != 0) {
-        /* index is int, not unsigned int: entry_count is an unsigned short,
-           which promotes to int here, and the retail tests the count signed
-           (0x00576521 mov ax,word ptr [ecx+0x9]; 0x00576525 test eax,eax;
-           jle 0x00576543). An unsigned index would make the comparison
-           unsigned and lose that. */
-        for (int index = 0; index < quote->entries.size(); ++index) {
-            if (quote->entries[index].kind == W8_NPC_ENTRY_KEYWORD_INPUT ||
-                quote->entries[index].kind == W8_NPC_ENTRY_OPTIONS) {
+        for (const auto& entry : quote->entries) {
+            if (entry.kind == W8_NPC_ENTRY_KEYWORD_INPUT || entry.kind == W8_NPC_ENTRY_OPTIONS) {
                 flush_notices = true;
             }
         }
