@@ -594,17 +594,17 @@ void CampScreen::CreateCampInput()
         &main_input.add(SDL_Rect{164, 12, 91, 73}, [this](const UiPointerEvent& event) {
             return HandleCampDismissPortrait(event);
         });
-    main_targets[this, 0]->setTooltip([] { return game.rules().data.strings[2368]; });
+    main_targets[0]->setTooltip([this] { return game.rules().data.strings[2368]; });
     main_targets[9] =
         &main_input.add(SDL_Rect{106, 96, 197, 14}, [this](const UiPointerEvent& event) {
             return HandleCampCharacterHeader(event);
         });
-    main_targets[this, 9]->setTooltip([] { return game.rules().data.strings[2362]; });
+    main_targets[9]->setTooltip([this] { return game.rules().data.strings[2362]; });
     main_targets[10] =
         &main_input.add(SDL_Rect{106, 124, 197, 10}, [this](const UiPointerEvent& event) {
             return HandleCampProfessionHistory(event);
         });
-    main_targets[this, 10]->setTooltip([] { return game.rules().data.strings[2363]; });
+    main_targets[10]->setTooltip([this] { return game.rules().data.strings[2363]; });
     for (int slot = 0; slot < 8; ++slot) {
         main_targets[1 + slot] = &main_input.add(
             SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},

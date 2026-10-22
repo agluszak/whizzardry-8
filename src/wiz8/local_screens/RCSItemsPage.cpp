@@ -1236,7 +1236,7 @@ void W8CampItemsPage::DrawCampEquipmentItems(void)
             CatalogArtwork::Load(0x115, 0).drawAndInvalidate(
                 GetFrameBufferSurface(), region->frame + 2, region->x - 2, region->y - 2);
         }
-        if (inventory_targets[this, kCampEquipmentRegionOffset + slot]->hovered()) {
+        if (inventory_targets[kCampEquipmentRegionOffset + slot]->hovered()) {
             if (!(camp.game.party.held.item.iItemNo != -1)) {
                 if (camp.reviewed->EquippedItem[slot].iItemNo == -1) {
                     continue;
