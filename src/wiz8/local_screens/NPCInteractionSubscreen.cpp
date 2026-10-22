@@ -729,7 +729,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     Panel().pending_layout = W8_DIALOGUE_LAYOUT_NONE;
     state->suppress_parting_reaction = true;
     Panel().transcript_open_count = 0;
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
     CreateNpcDialogueControls();
     MainGameHud()->text_box_visible = false;
     EnableDialogueTextBoxRegions();
@@ -1145,7 +1145,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
     SetNpcDialogueInputEnabled(2, false);
     SelectTextBox(0);
     MainGameHud()->text_box_visible = true;
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
     g_npc_text_fields.reset();
     MainGame()->dialogue.ui.reset();
     if (auto* hud = MainGameHud()) {
@@ -2679,7 +2679,7 @@ static void RequestNpcSpellService(int spell_id)
     CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    BeginSpellCast(spell_id, [location, layout] {
+    MainGame()->beginSpellCast(spell_id, [location, layout] {
         BeginNpcDialogue(FindNpcBindingForMonster(FindMonster(location)), 0, -1, 0, 1);
         SwitchNpcDialogueLayout(layout);
     });
@@ -2702,7 +2702,7 @@ static void RequestNpcCharacterService(void)
     CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    OpenUseItemSelectView(CurrentGame().status.selected_character, [] {
+    MainGame()->openItemPicker(CurrentGame().status.selected_character, [] {
         if (CurrentGame().activity.conversation_aside && PendingScreen() != W8_SCREEN_CAMP)
             SyncDialogueNpcState();
     });
@@ -3602,7 +3602,7 @@ static void SetNpcDialogueHidden(signed char value)
     int index;
 
     if (value != 0) {
-        RefreshMainGameLayout(*MainGame());
+        RefreshMainGameLayout();
         SetNpcPanelActive(2, false);
         MainGame()->dialogue.ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
@@ -3625,7 +3625,7 @@ static void SetNpcDialogueHidden(signed char value)
         DisableNpcTradeActions();
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_6, false);
     } else {
-        RefreshMainGameLayout(*MainGame());
+        RefreshMainGameLayout();
         for (index = 0; index < 8; ++index) {
             if (CurrentGame().party.members[index].has_value()) {
                 DisableMainGamePortraitSlot(index);

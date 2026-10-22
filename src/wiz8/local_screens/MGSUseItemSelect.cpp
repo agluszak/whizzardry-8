@@ -104,7 +104,8 @@ void W8UseItemView::CreateControls()
                          [this] { filter->SetPressed(true); });
     filter->Policy().primary_toggle = ButtonToggle::Release;
     filter->SetEnabled(false);
-    close = make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17, CloseUseItemSelectView);
+    close = make_button(0x8e, 4, -1, 5, 6, 7, {0x248, 0x16c, 27, 27}, 17,
+                        [this] { screen.closeItemPicker(); });
     caption.SetLayoutBounds(0x1b, 0x16a, 0xa0, 0x179);
     caption.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     caption.SetText(Data().strings[0x77a], g_wiz_text_font_secondary);
@@ -124,62 +125,53 @@ void W8UseItemView::CreateControls()
     item.setTooltip([] { return Data().strings[98]; });
 }
 
-bool OpenUseItemSelectView(int slot, std::move_only_function<void()> on_return)
+bool MainGameScreen::openItemPicker(int party_slot, std::move_only_function<void()> on_return)
 {
     UpdateScreenOverlays(0);
-    auto& screen = *MainGame();
-    screen.item_picker = std::make_unique<W8UseItemView>(screen, std::move(on_return));
-    if (screen.hud->open_submenu) {
+    item_picker = std::make_unique<W8UseItemView>(*this, std::move(on_return));
+    if (hud->open_submenu) {
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
     CloseMainGameOverlays();
-    RefreshMainGameLayout(screen);
+    RefreshMainGameLayout();
     RestoreSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    screen.hud->text_box_visible = false;
-    if (auto* hud = screen.hud.get()) {
-        hud->repaint.layout = true;
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.submenu_buttons = true;
-    }
-    screen.item_picker->RefreshForSlot(slot);
-    if (screen.item_picker) SelectSpellCastingPartySlot(slot, screen.item_picker->draft);
+    hud->text_box_visible = false;
+    hud->repaint.layout = true;
+    hud->repaint.roof_and_spell_icons = true;
+    hud->repaint.submenu_buttons = true;
+    item_picker->RefreshForSlot(party_slot);
+    if (item_picker) SelectSpellCastingPartySlot(party_slot, item_picker->draft);
     return true;
 }
 
 /* Discard the picker and restore the HUD it took over. */
-void DismissUseItemSelectView(void)
+void MainGameScreen::dismissItemPicker()
 {
-    auto* main_game = MainGame();
-    if (!main_game || !main_game->item_picker) return;
-    auto& screen = *main_game;
+    if (!item_picker) return;
     SetTextBoxScrollInput(false);
     SetTextBoxEnabled(false);
-    screen.hud->action_panel_visible = 0;
+    hud->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     ResetEditorStatusLine(-1);
-    screen.hud->text_box_visible = true;
-    SelectTextBox(screen.game.combat.has_value());
-    screen.item_picker.reset();
-    RefreshMainGameLayout(screen);
-    if (auto* hud = screen.hud.get()) {
-        hud->repaint.layout = true;
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.submenu_buttons = true;
-    }
-    screen.item_drag.reset();
-    screen.game.aging_held = false;
+    hud->text_box_visible = true;
+    SelectTextBox(game.combat.has_value());
+    item_picker.reset();
+    RefreshMainGameLayout();
+    hud->repaint.layout = true;
+    hud->repaint.roof_and_spell_icons = true;
+    hud->repaint.submenu_buttons = true;
+    item_drag.reset();
+    game.aging_held = false;
 }
 
-/* Discard the picker, then let whoever opened it take over again. */
-void CloseUseItemSelectView(void)
+void MainGameScreen::closeItemPicker()
 {
-    auto* view = UseItemPicker();
-    if (!view) return;
-    auto on_return = std::move(view->on_return);
-    DismissUseItemSelectView();
+    if (!item_picker) return;
+    auto on_return = std::move(item_picker->on_return);
+    dismissItemPicker();
     if (on_return) on_return();
 }
 
@@ -189,7 +181,7 @@ void W8UseItemView::RefreshForSlot(int party_slot)
     W8ItemInstance* item;
 
     if (!IsPartySlotEligible(party_slot)) {
-        CloseUseItemSelectView();
+        screen.closeItemPicker();
         return;
     }
     owner = party_slot;
@@ -296,7 +288,7 @@ void W8UseItemView::Commit()
     StartBreathCycle(slot, true);
     SetCharacterItemUse(slot, chosen);
     if (item->iItemNo != -1 && GetItemSpell(item) == 0x17) return;
-    CloseUseItemSelectView();
+    screen.closeItemPicker();
 }
 
 // Rebuild from the selected inventory source; usable entries retain inventory order.
@@ -496,17 +488,17 @@ void W8UseItemView::SelectLine(int iTextLine)
     draft.detail_block.item_use.item = location;
     draft.detail_block.item_use.item_id = item->iItemNo;
     if (Trynnie2UseItem(MakeScriptContext(screen.game), location)) {
-        CloseUseItemSelectView();
+        screen.closeItemPicker();
         return;
     }
     if (IsUsableItemClass(item)) {
         TakeIntoHand();
-        CloseUseItemSelectView();
+        screen.closeItemPicker();
         return;
     }
     if (CanCastFromItem(&screen.game.party.characters[owner], item)) {
         LearnSpellFromItem(&screen.game.party.characters[owner], location);
-        CloseUseItemSelectView();
+        screen.closeItemPicker();
         return;
     }
     SetSelectedTextLine(iTextLine, 2);

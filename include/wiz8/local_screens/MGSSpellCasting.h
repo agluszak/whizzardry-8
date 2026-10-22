@@ -21,10 +21,10 @@ struct W8Character;
 inline constexpr int W8_SPELL_POWER_PIP_COUNT = 9;
 
 /* The spell picker for one caster (`caster`, which follows the selected
-   character). The main-game screen owns it, with its input and controls, for
-   exactly as long as it is open; whoever opened it supplies `on_return`,
-   which runs once a cast is chosen or the picker is cancelled. Abandoning the
-   screen discards the picker without running it. */
+   character). The main-game screen opens and owns it, with its input and
+   controls, for exactly as long as it is open; whoever opened it supplies
+   `on_return`, which the screen runs once a cast is chosen or the picker is
+   cancelled. Abandoning the screen discards the picker without running it. */
 struct W8SpellCastingView {
     W8SpellCastingView(MainGameScreen& screen, std::move_only_function<void()> on_return)
         : screen(screen), on_return(std::move(on_return))
@@ -97,15 +97,6 @@ private:
 
 /* The main game's open spell picker, or null. */
 W8SpellCastingView* SpellPicker();
-/* Open the spell picker for a party slot. `on_return` runs when it closes
-   with a cast chosen or cancelled. */
-bool OpenSpellCastingView(int party_slot, std::move_only_function<void()> on_return = {});
-/* Open the picker for the selected character with one spell preselected. */
-void BeginSpellCast(int spell_id, std::move_only_function<void()> on_return);
-/* Close the picker and return to whoever opened it. */
-void CloseSpellCastingView(void);
-/* Discard the picker without returning to its opener. */
-void DismissSpellCastingView(void);
 void RestoreSpellCastingRegions(void);
 
 /* Destroy callback for the spell/use-item reason notices. */

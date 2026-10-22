@@ -236,7 +236,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         } else if (IsLockInteractionActive()) {
             EndLockInteractMode(0);
         } else if (UseItemPicker()) {
-            CloseUseItemSelectView();
+            MainGame()->closeItemPicker();
         } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
         } else if (FormationPanelOpen()) {
@@ -927,7 +927,7 @@ static void KeyboardMenuOpenSpellView(void)
 
     CloseKeyboardMenu();
     if (!SpellPicker()) {
-        OpenSpellCastingView(g_selected_party_slot);
+        MainGame()->openSpellPicker(g_selected_party_slot);
     }
 }
 
@@ -952,7 +952,7 @@ static void KeyboardMenuOpenUseItemView(void)
 
     CloseKeyboardMenu();
     if (!UseItemPicker()) {
-        OpenUseItemSelectView(g_selected_party_slot);
+        MainGame()->openItemPicker(g_selected_party_slot);
     }
 }
 

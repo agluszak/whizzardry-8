@@ -281,7 +281,7 @@ static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 static void SubMenuButtonUseItem(W8ButtonWidget* button)
 {
     if (UseItemPicker()) {
-        CloseUseItemSelectView();
+        MainGame()->closeItemPicker();
         return;
     }
     if (CurrentGame().combat.has_value()) {
@@ -289,7 +289,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
         ReleaseUiCapture();
         return;
     }
-    OpenUseItemSelectView(CurrentGame().status.selected_character);
+    MainGame()->openItemPicker(CurrentGame().status.selected_character);
 }
 
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
@@ -297,9 +297,9 @@ static void SubMenuButtonSpellView(W8ButtonWidget* button)
     if (CharacterHasCastableSpell(
             &CurrentGame().party.characters[CurrentGame().status.selected_character])) {
         if (SpellPicker()) {
-            CloseSpellCastingView();
+            MainGame()->closeSpellPicker();
         } else {
-            OpenSpellCastingView(CurrentGame().status.selected_character);
+            MainGame()->openSpellPicker(CurrentGame().status.selected_character);
         }
     }
 }

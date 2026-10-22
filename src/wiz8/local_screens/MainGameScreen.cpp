@@ -345,7 +345,7 @@ static void TakeHudForInteraction()
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
@@ -421,7 +421,7 @@ void EndLockInteractMode(signed char suspend)
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
     if (auto* hud = MainGameHud()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
@@ -811,7 +811,7 @@ void W8LockInteraction::Process()
         m_state = W8_LOCK_STATE_IDLE;
         if (CanSelectedCharacterCastKnockKnock()) {
             EndLockInteractMode(1);
-            BeginSpellCast(W8_SPELL_KNOCK_KNOCK, ResumeLockInteraction);
+            MainGame()->beginSpellCast(W8_SPELL_KNOCK_KNOCK, ResumeLockInteraction);
             return;
         }
         break;
@@ -827,7 +827,7 @@ void W8LockInteraction::Process()
     case W8_LOCK_STATE_RELEASE_FOR_ITEM:
         m_state = W8_LOCK_STATE_IDLE;
         EndLockInteractMode(1);
-        OpenUseItemSelectView(CurrentGame().status.selected_character, ResumeLockInteraction);
+        MainGame()->openItemPicker(CurrentGame().status.selected_character, ResumeLockInteraction);
         return;
     case W8_LOCK_STATE_CHECK_PICK_SUCCESS:
         m_state = W8_LOCK_STATE_IDLE;
@@ -1746,13 +1746,13 @@ void W8TrapInteraction::CastTrapSpell()
         CanCharacterCastSpell(&CurrentGame().party.characters[slot], W8_SPELL_DIVINE_TRAP) ? 0x12
                                                                                            : 0x27;
     EndTrapInteractMode(1);
-    BeginSpellCast(spell, ResumeTrapInteraction);
+    MainGame()->beginSpellCast(spell, ResumeTrapInteraction);
 }
 
 void W8TrapInteraction::UseTrapItem()
 {
     EndTrapInteractMode(1);
-    OpenUseItemSelectView(CurrentGame().status.selected_character, ResumeTrapInteraction);
+    MainGame()->openItemPicker(CurrentGame().status.selected_character, ResumeTrapInteraction);
 }
 
 /* Open the trap interaction over a trigger; one already waiting for its trap
@@ -1825,7 +1825,7 @@ void EndTrapInteractMode(signed char suspend)
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
     if (auto* hud = MainGameHud()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
@@ -2247,8 +2247,8 @@ bool MainGameScreen::enter(const ScreenRequest&)
     if (item_drag && item_drag->pending) {
         if (IsPartySlotEligible(item_drag->actor)) {
             SelectPartyCharacter(item_drag->actor);
-            OpenUseItemSelectView(item_drag->actor);
-            if (auto* picker = UseItemPicker()) picker->SelectCurrentLine();
+            openItemPicker(item_drag->actor);
+            if (auto* picker = item_picker.get()) picker->SelectCurrentLine();
         } else {
             item_drag.reset();
             game.aging_held = false;
@@ -2468,7 +2468,7 @@ void MainGameScreen::frame()
         if (!IsWorldCursorVisible() && !g_mouselook_active) pointer.animate();
         game.advance(step_timer.lap(), {.world = {.world = InteractionBlocksWorldAdvancement(),
                                                   .party = LockInteraction() || TrapInteraction()},
-                                        .combat = SpellPicker() || UseItemPicker()});
+                                        .combat = spell_picker || item_picker});
         AnimatePartyPortraits();
         if (game.combat.has_value() && MainGameHud()->refresh_combat_panel &&
             !TimeUntilDeadline(MainGameHud()->combat_panel_timer)) {
@@ -2476,8 +2476,8 @@ void MainGameScreen::frame()
             MainGameHud()->combat_panel_timer = MonotonicMilliseconds() + (500);
             MainGameHud()->refresh_combat_panel = 0;
         }
-        if (auto* picker = SpellPicker()) picker->Update();
-        if (auto* picker = UseItemPicker()) picker->Commit();
+        if (auto* picker = spell_picker.get()) picker->Update();
+        if (auto* picker = item_picker.get()) picker->Commit();
         if (game.activity.conversation) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
         if (IsTrapInteractionActive()) UpdateTrapInteraction();
@@ -2526,8 +2526,8 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (IsLockInteractionActive()) EndLockInteractMode(0);
     if (IsTrapInteractionActive()) EndTrapInteractMode(0);
     // Leaving abandons a picker: it does not return to whatever opened it.
-    DismissSpellCastingView();
-    DismissUseItemSelectView();
+    dismissSpellPicker();
+    dismissItemPicker();
     if (FormationPanelOpen()) CloseFormationPanel();
     if (game.activity.conversation) EndNpcDialogueSession(false);
     if (MainGameHud()->keyboard_menu_open) CloseKeyboardMenu();
@@ -3659,11 +3659,11 @@ void FallbackFromUnreachableAction(int party_slot)
             SelectPartyCharacter(party_slot);
             if (party_slot == CurrentGame().status.selected_character) {
                 if (casting) {
-                    OpenSpellCastingView(party_slot);
+                    MainGame()->openSpellPicker(party_slot);
                     if (auto* picker = SpellPicker())
                         picker->SelectPowerLevel(row->committed.detail_block.spell.power_level - 1);
                 } else {
-                    OpenUseItemSelectView(party_slot);
+                    MainGame()->openItemPicker(party_slot);
                     if (auto* picker = UseItemPicker()) picker->SelectCurrentLine();
                 }
                 return;
@@ -3968,19 +3968,17 @@ W8MainUiMode GetEffectiveMainUiMode()
 void SetMainUiPreference(W8MainUiMode mode)
 {
     g_settings.main_ui_mode = mode;
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
 }
 
-void RefreshMainGameLayout(MainGameScreen& screen)
+void RefreshMainGameLayout()
 {
-    auto& hud = *screen.hud;
-    const auto& game = screen.game;
     const auto mode = GetEffectiveMainUiMode();
     const bool portraits = mode == W8_MAIN_UI_MODE_PORTRAITS;
     const bool constrained =
-        screen.spell_picker || screen.item_picker || IsLockInteractionActive() ||
+        SpellPicker() || UseItemPicker() || IsLockInteractionActive() ||
         IsTrapInteractionActive() ||
-        (game.activity.conversation && !game.npc_interaction.scripted_dialogue);
+        (CurrentGame().activity.conversation && !CurrentGame().npc_interaction.scripted_dialogue);
     SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, -1);
     CloseMainGameOverlays();
     if (portraits) {
@@ -3988,7 +3986,7 @@ void RefreshMainGameLayout(MainGameScreen& screen)
     }
     if (constrained) {
         // The open interaction supplies the bottom panel instead of the action bar.
-        hud.action_panel_visible = true;
+        MainGameHud()->action_panel_visible = true;
     } else if (mode != W8_MAIN_UI_MODE_RADAR) {
         const bool formation = portraits || g_settings.formation_board_preference;
         const bool radar = portraits || g_settings.formation_radar_map_preference;
@@ -3999,17 +3997,25 @@ void RefreshMainGameLayout(MainGameScreen& screen)
         if (action) SetActionPanelVisible(true);
     }
     ClearUiHover();
-    hud.portrait_hover_x_origin = portraits ? 0 : 0x69;
-    hud.portrait_y_shift = hud.action_panel_visible == 0 ? 0x76 : 0;
-    hud.repaint.everything = true;
+    if (!portraits) {
+        MainGameHud()->portrait_hover_x_origin = 0x69;
+    } else {
+        MainGameHud()->portrait_hover_x_origin = 0;
+    }
+    if (MainGameHud()->action_panel_visible == 0) {
+        MainGameHud()->portrait_y_shift = 0x76;
+    } else {
+        MainGameHud()->portrait_y_shift = 0;
+    }
+    if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     SetMouseCursorHotspot(0, 0);
     SyncSystemCursor();
     SetViewportMode(GetMainGameViewportMode());
-    if (game.combat.has_value()) {
-        hud.refresh_combat_panel = 1;
+    if (CurrentGame().combat.has_value()) {
+        MainGameHud()->refresh_combat_panel = 1;
     }
-    hud.repaint.roof_and_spell_icons = true;
-    SyncMainGameModeInput(screen);
+    if (auto* hud = MainGameHud()) hud->repaint.roof_and_spell_icons = true;
+    SyncMainGameModeInput();
 }
 
 void RetireModal(std::unique_ptr<ModalContent> owner, bool completed)
@@ -4061,23 +4067,24 @@ void RefreshPartySlotRegions(void)
 
 /* Set which main-game controls take part in input for the current UI mode
    and open view. Radar mode hides the action panel and every overlay view. */
-void SyncMainGameModeInput(MainGameScreen& state)
+void SyncMainGameModeInput(void)
 {
+    auto& state = *MainGame();
     const W8MainUiMode mode = GetEffectiveMainUiMode();
     const bool panels = mode != W8_MAIN_UI_MODE_RADAR;
     const bool npc_view =
-        state.game.activity.conversation &&
-        !(state.game.activity.conversation && state.game.npc_interaction.scripted_dialogue);
-    const bool view_open = state.spell_picker.get() || npc_view || state.item_picker.get() ||
+        CurrentGame().activity.conversation &&
+        !(CurrentGame().activity.conversation && CurrentGame().npc_interaction.scripted_dialogue);
+    const bool view_open = state.spell_picker || npc_view || state.item_picker ||
                            IsLockInteractionActive() || IsTrapInteractionActive();
 
     state.world.setEnabled(true);
     state.hud_buttons.input.setEnabled(true);
-    state.monster_list->setEnabled(state.hud->group_list_rows != 0);
+    state.monster_list->setEnabled(MainGameHud()->group_list_rows != 0);
     state.edges.setEnabled(mode != W8_MAIN_UI_MODE_PORTRAITS);
     RefreshPartySlotRegions();
-    state.combat.setEnabled(state.game.combat.has_value());
-    if (state.game.combat.has_value()) {
+    state.combat.setEnabled(CurrentGame().combat.has_value());
+    if (CurrentGame().combat.has_value()) {
         DisablePortraitControls();
     } else {
         EnablePortraitAdvanceRegions();
@@ -4089,23 +4096,23 @@ void SyncMainGameModeInput(MainGameScreen& state)
     }
 
     // Spell and item views always raise the text box; otherwise it follows the action panel.
-    const bool spell_text_box = state.spell_picker.get() || (!npc_view && state.item_picker.get());
+    const bool spell_text_box = state.spell_picker || (!npc_view && state.item_picker);
     if (panels && spell_text_box) {
         RestoreSpellCastingRegions();
-    } else if (panels && state.hud->action_panel_visible != 0) {
+    } else if (panels && MainGameHud()->action_panel_visible != 0) {
         EnableActionPanelRegions();
     } else {
         SetTextBoxEnabled(false);
     }
-    if (auto* picker = state.spell_picker.get()) picker->input.setEnabled(panels);
+    if (state.spell_picker) state.spell_picker->input.setEnabled(panels);
     if (npc_view) SetNpcDialogueInputEnabled(2, panels);
-    if (auto* picker = state.item_picker.get()) picker->SetInputEnabled(panels);
+    if (state.item_picker) state.item_picker->SetInputEnabled(panels);
     if (IsLockInteractionActive()) LockInteraction()->EnablePanels(panels);
     if (IsTrapInteractionActive()) TrapInteraction()->EnablePanelInput(panels);
-    state.formation.setEnabled(panels && !view_open && state.hud->formation_board_visible);
-    state.radar.setEnabled(panels && !view_open && state.hud->radar_map_visible != 0);
+    state.formation.setEnabled(panels && !view_open && MainGameHud()->formation_board_visible);
+    state.radar.setEnabled(panels && !view_open && MainGameHud()->radar_map_visible != 0);
 
-    if (PartyMovementPanelShown() && !state.game.advancement.held) {
+    if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
         UpdatePartyMovementPanel();
     } else {
         DisablePartyMovementRegions();
@@ -5495,8 +5502,8 @@ void UpdateScreenOverlays(int frame)
     if (IsTrapInteractionActive()) {
         EndTrapInteractMode(frame);
     }
-    CloseSpellCastingView();
-    CloseUseItemSelectView();
+    MainGame()->closeSpellPicker();
+    MainGame()->closeItemPicker();
     if (FormationPanelOpen()) {
         CloseFormationPanel();
     }
@@ -5642,9 +5649,9 @@ void RunMGSActionKey(unsigned short command)
         break;
     case W8_MGS_ACTION_USE_ITEM_VIEW:
         if (UseItemPicker()) {
-            CloseUseItemSelectView();
+            MainGame()->closeItemPicker();
         } else {
-            OpenUseItemSelectView(CurrentGame().status.selected_character);
+            MainGame()->openItemPicker(CurrentGame().status.selected_character);
         }
         break;
     case W8_MGS_ACTION_USE_RECORDED_ITEM:
@@ -5652,9 +5659,9 @@ void RunMGSActionKey(unsigned short command)
         break;
     case W8_MGS_ACTION_SPELL_VIEW:
         if (SpellPicker()) {
-            CloseSpellCastingView();
+            MainGame()->closeSpellPicker();
         } else {
-            OpenSpellCastingView(CurrentGame().status.selected_character);
+            MainGame()->openSpellPicker(CurrentGame().status.selected_character);
         }
         break;
     case W8_MGS_ACTION_CAST_RECORDED_SPELL:

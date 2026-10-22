@@ -84,10 +84,3 @@ private:
 
 /* The main game's open use-item picker, or null. */
 W8UseItemView* UseItemPicker();
-/* Open the use-item picker for a party slot. `on_return` runs when it closes
-   with a use chosen or cancelled. */
-bool OpenUseItemSelectView(int slot, std::move_only_function<void()> on_return = {});
-/* Close the picker and return to whoever opened it. */
-void CloseUseItemSelectView(void);
-/* Discard the picker without returning to its opener. */
-void DismissUseItemSelectView(void);

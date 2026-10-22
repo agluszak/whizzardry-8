@@ -188,80 +188,71 @@ void W8SpellCastingView::CreateControls()
     cancel->Policy().primary_toggle = ButtonToggle::None;
 }
 
-/* Opens the spell-casting view for one party slot: the main game takes the
+/* Opens the spell-casting view for one party slot: the screen takes the
    picker, swaps its layout and redirects the region sets the view takes over. */
-bool OpenSpellCastingView(int party_slot, std::move_only_function<void()> on_return)
+bool MainGameScreen::openSpellPicker(int party_slot, std::move_only_function<void()> on_return)
 {
     if (!IsPartySlotEligible(party_slot)) {
         return false;
     }
     UpdateScreenOverlays(0);
-    auto& screen = *MainGame();
     auto& view =
-        *(screen.spell_picker = std::make_unique<W8SpellCastingView>(screen, std::move(on_return)));
+        *(spell_picker = std::make_unique<W8SpellCastingView>(*this, std::move(on_return)));
     view.CreateControls();
-    if (screen.hud->open_submenu) {
+    if (hud->open_submenu) {
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    RefreshMainGameLayout(screen);
-    if (screen.game.activity.conversation_aside) {
+    RefreshMainGameLayout();
+    if (game.activity.conversation_aside) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             DisableMainGamePortraitSlot(index);
-            screen.edge_targets[index]->setEnabled(false);
+            edge_targets[index]->setEnabled(false);
         }
     }
     RestoreSpellCastingRegions();
     view.input.setEnabled(true);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    screen.hud->text_box_visible = false;
+    hud->text_box_visible = false;
     SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
     SelectSpellCastingPartySlot(party_slot, view.draft);
     view.SelectCharacter(party_slot);
-    if (auto* hud = screen.hud.get()) {
-        hud->repaint.layout = true;
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.submenu_buttons = true;
-    }
+    hud->repaint.layout = true;
+    hud->repaint.roof_and_spell_icons = true;
+    hud->repaint.submenu_buttons = true;
     return true;
 }
 
 /* Discard the picker and restore the HUD it took over. */
-void DismissSpellCastingView(void)
+void MainGameScreen::dismissSpellPicker()
 {
-    auto* main_game = MainGame();
-    if (!main_game || !main_game->spell_picker) return;
-    auto& screen = *main_game;
-    screen.spell_picker->input.setEnabled(false);
+    if (!spell_picker) return;
+    spell_picker->input.setEnabled(false);
     SetTextBoxScrollInput(false);
-    screen.hud->action_panel_visible = 0;
+    hud->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    if (!screen.game.activity.conversation_aside) {
+    if (!game.activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
-    screen.hud->text_box_visible = true;
-    SelectTextBox(screen.game.combat.has_value());
+    hud->text_box_visible = true;
+    SelectTextBox(game.combat.has_value());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    screen.spell_picker.reset();
-    RefreshMainGameLayout(screen);
-    if (auto* hud = screen.hud.get()) {
-        hud->repaint.layout = true;
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.submenu_buttons = true;
-    }
+    spell_picker.reset();
+    RefreshMainGameLayout();
+    hud->repaint.layout = true;
+    hud->repaint.roof_and_spell_icons = true;
+    hud->repaint.submenu_buttons = true;
     if (IsWorldCursorVisible()) {
         ToggleWorldCursor();
     }
 }
 
-/* Discard the picker, then let whoever opened it take over again. */
-void CloseSpellCastingView(void)
+void MainGameScreen::closeSpellPicker()
 {
-    auto* view = SpellPicker();
-    if (!view) return;
-    auto on_return = std::move(view->on_return);
-    DismissSpellCastingView();
+    if (!spell_picker) return;
+    auto on_return = std::move(spell_picker->on_return);
+    dismissSpellPicker();
     if (on_return) on_return();
 }
 
@@ -299,7 +290,7 @@ void W8SpellCastingView::SelectCharacter(int party_slot)
     if (!CharacterHasCastableSpell(&screen.game.party.characters[party_slot]) ||
         !IsPartySlotEligible(party_slot)) {
         ResetEditorStatusLine(-1);
-        CloseSpellCastingView();
+        screen.closeSpellPicker();
         return;
     }
     caster = &screen.game.party.characters[party_slot];
@@ -537,13 +528,12 @@ void W8SpellCastingView::SelectRow(int index)
 
 /* Opens the spell-casting view for the selected character with the given
    spell's realm and list row selected. */
-void BeginSpellCast(int spell_id, std::move_only_function<void()> on_return)
+void MainGameScreen::beginSpellCast(int spell_id, std::move_only_function<void()> on_return)
 {
-    const int slot = CurrentGame().status.selected_character;
-    if (!OpenSpellCastingView(slot, std::move(on_return))) return;
-    auto* view = SpellPicker();
-    if (view && CanCharacterCastSpell(&CurrentGame().party.characters[slot], spell_id)) {
-        view->SelectSpell(spell_id);
+    const int slot = game.status.selected_character;
+    if (!openSpellPicker(slot, std::move(on_return))) return;
+    if (CanCharacterCastSpell(&game.party.characters[slot], spell_id)) {
+        spell_picker->SelectSpell(spell_id);
     }
 }
 
@@ -777,7 +767,7 @@ void W8SpellCastingView::Cancel()
     if (screen.game.activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
-    CloseSpellCastingView();
+    screen.closeSpellPicker();
 }
 
 /* Per-frame spell-casting pump: advances the selected realm's icon animation
@@ -900,7 +890,7 @@ void W8SpellCastingView::TryCommit()
             // Commit a copy: casting may close the picker.
             const auto chosen = draft;
             SetCharacterSpell(caster, chosen);
-            CloseSpellCastingView();
+            screen.closeSpellPicker();
             return;
         }
         OpenCharacterScreenForPartySlot(CharacterPointerToPartySlot(caster), true);

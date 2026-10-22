@@ -499,7 +499,7 @@ void CheckGameplayUi(GameHarness& game)
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
     int returns = 0;
-    REQUIRE(OpenSpellCastingView(slot, [&] { ++returns; }));
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
     game.frame();
     // A picker constrains the layout without overwriting the stored preference.
     const auto preference = g_settings.main_ui_mode;
@@ -531,8 +531,8 @@ void CheckGameplayUi(GameHarness& game)
     }
     // Committing or cancelling returns to the opener once; abandoning never does.
     REQUIRE(returns == 1);
-    REQUIRE(OpenSpellCastingView(slot, [&] { ++returns; }));
-    DismissSpellCastingView();
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    MainGame()->dismissSpellPicker();
     REQUIRE_FALSE(SpellPicker());
     REQUIRE(returns == 1);
     REQUIRE(CurrentGame().advancement.paused);

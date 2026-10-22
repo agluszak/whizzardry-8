@@ -180,7 +180,7 @@ void SubMenuSelectEquip(void)
 void SubMenuOpenUseItemView(void)
 {
     DestroySubMenuControls();
-    OpenUseItemSelectView(CurrentGame().status.selected_character);
+    MainGame()->openItemPicker(CurrentGame().status.selected_character);
 }
 
 void SubMenuUseRecordedItem(void)
@@ -192,7 +192,7 @@ void SubMenuUseRecordedItem(void)
 void SubMenuOpenSpellView(void)
 {
     DestroySubMenuControls();
-    OpenSpellCastingView(CurrentGame().status.selected_character);
+    MainGame()->openSpellPicker(CurrentGame().status.selected_character);
 }
 
 void SubMenuCastRecordedSpell(void)
@@ -570,7 +570,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
             return;
         }
         g_settings.formation_radar_map_preference = 0;
-        RefreshMainGameLayout(*MainGame());
+        RefreshMainGameLayout();
         return;
     }
     g_settings.formation_radar_map_preference = 1;
@@ -580,7 +580,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
 }
 
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
@@ -591,13 +591,13 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
                 SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
-            RefreshMainGameLayout(*MainGame());
+            RefreshMainGameLayout();
             return;
         }
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
             g_settings.portraits_action_panel_preference = 0;
         }
-        RefreshMainGameLayout(*MainGame());
+        RefreshMainGameLayout();
         return;
     }
     if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
@@ -609,11 +609,11 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
     }
     if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         g_settings.portraits_action_panel_preference = 1;
-        RefreshMainGameLayout(*MainGame());
+        RefreshMainGameLayout();
         return;
     }
     g_settings.formation_action_panel_preference = 1;
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
 }
 
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
@@ -624,7 +624,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
             return;
         }
         g_settings.formation_board_preference = 0;
-        RefreshMainGameLayout(*MainGame());
+        RefreshMainGameLayout();
         return;
     }
     g_settings.formation_board_preference = 1;
@@ -634,7 +634,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    RefreshMainGameLayout(*MainGame());
+    RefreshMainGameLayout();
 }
 
 /* Draw the left layout-arrow strip, mark each arrow dirty, then raise/lower

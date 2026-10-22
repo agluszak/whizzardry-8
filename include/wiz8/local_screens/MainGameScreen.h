@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -39,6 +40,19 @@ struct MainGameScreen final : Screen {
     void frame() override;
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
+
+    /* Open the spell or use-item picker for a party slot, replacing the other one.
+       `on_return` runs once the picker closes with a choice made or cancelled. */
+    bool openSpellPicker(int party_slot, std::move_only_function<void()> on_return = {});
+    bool openItemPicker(int party_slot, std::move_only_function<void()> on_return = {});
+    // Open the spell picker for the selected character with one spell preselected.
+    void beginSpellCast(int spell_id, std::move_only_function<void()> on_return);
+    // Discard the picker, then run its opener's return.
+    void closeSpellPicker();
+    void closeItemPicker();
+    // Discard the picker without returning to its opener.
+    void dismissSpellPicker();
+    void dismissItemPicker();
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
@@ -472,7 +486,7 @@ void SetViewportMode(W8ViewportMode mode);
    region state, and sync both settings and the level-block mode field. */
 W8MainUiMode GetEffectiveMainUiMode();
 void SetMainUiPreference(W8MainUiMode mode);
-void RefreshMainGameLayout(MainGameScreen& screen);
+void RefreshMainGameLayout();
 bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
@@ -481,7 +495,7 @@ void TickAmbientFollowUpIdle(unsigned char input_handled);
 void RefreshPartySlotRegions(void);
 /* Re-sync mouse hotspot, region enables and viewport after a
    main-game mode change. */
-void SyncMainGameModeInput(MainGameScreen& state);
+void SyncMainGameModeInput(void);
 void ClearHighlightOverlayRegion(void);
 void DismissHighlightOverlay(void);
 /* The portrait-hover panel's producer; the four hover entry
