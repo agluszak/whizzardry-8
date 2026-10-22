@@ -97,7 +97,7 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
 }
 
 W8CharacterSpellsPage::W8CharacterSpellsPage()
-    : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, 1)
+    : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, TimerClock::Presentation)
 {
 }
 W8CharacterSpellsPage::~W8CharacterSpellsPage() = default;

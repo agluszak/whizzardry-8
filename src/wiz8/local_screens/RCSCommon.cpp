@@ -247,8 +247,7 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
                                             0x35, 0, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacter(ReviewedPartySlot(), target_slot,
-                                   GetEditedActionContext(ReviewedPartySlot()));
+                    AimAtTarget(ReviewedPartySlot(), CharacterTarget(target_slot));
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }
@@ -268,8 +267,8 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
                                             0x35, 0, kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacterIndirect(ReviewedPartySlot(), target_slot,
-                                           GetEditedActionContext(ReviewedPartySlot()));
+                    AimAtTarget(ReviewedPartySlot(),
+                                CharacterTarget(target_slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }
