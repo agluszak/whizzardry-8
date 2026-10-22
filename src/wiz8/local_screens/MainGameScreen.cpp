@@ -2598,10 +2598,26 @@ MainGameRepaint RepaintOfEverything()
     return all;
 }
 
+/* The party slots whose portrait bands a draw repainted, for the widgets drawn over them. */
+struct RepaintedPortraitBands {
+    std::bitset<8> any;
+    std::bitset<8> complete;
+    std::bitset<8> side_strips;
+
+    void add(int slot, PortraitBandPaint painted)
+    {
+        any.set(slot);
+        complete[slot] = painted.band;
+        side_strips[slot] = painted.side_strip;
+    }
+};
+
 /* Repaint what the HUD's record holds: clear the primary surface for a full repaint,
    refresh the chrome panels the current UI mode owns, and repaint the recorded party
    slots. Dependencies have already been resolved by the presentation update. */
-void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
+static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
+                                 const W8TargetingPresentation& presentation,
+                                 RepaintedPortraitBands& bands)
 {
     const auto& repaint = hud.repaint;
     const auto publish_chrome = [&hud](int left, int top, int right, int bottom) {
@@ -2661,10 +2677,11 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         const bool dirty = repaint.portraits.test(party_slot);
         if (dirty) {
-            RedrawPartyPortraitOverlay(party_slot,
-                                       hud.highlight.LightsPortrait(party_slot) ||
-                                           party_slot == hud.held_item_display,
-                                       true, hud.portrait_refresh_pending[party_slot] == 0);
+            bands.add(party_slot, RedrawPartyPortraitOverlay(
+                                      party_slot,
+                                      hud.highlight.LightsPortrait(party_slot) ||
+                                          party_slot == hud.held_item_display,
+                                      true, hud.portrait_refresh_pending[party_slot] == 0));
             auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
                                                             hud.portrait_hover_x_origin);
             if (hud.portrait_refresh_pending[party_slot]) {
@@ -2814,6 +2831,12 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
             hud.repaint.text_box = true;
         }
     }
+    if (!IsScreenTransitionPending()) {
+        if (hud.open_submenu) UpdateSubMenuAutoClose();
+        if (!CurrentGame().combat.has_value()) UpdatePortraitAdvanceButtons();
+        UpdateConditionButtons();
+        UpdateMainGameButtons();
+    }
     auto& repaint = hud.repaint;
     if (repaint.everything) {
         repaint = RepaintOfEverything();
@@ -2836,23 +2859,25 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
    rectangles, paint overlays, and present. */
 void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
 {
-    if (hud.repaint.any()) {
-        ApplyMainGameRepaint(hud, presentation);
+    RepaintedPortraitBands bands;
+    for (int slot = 0; slot < 8; ++slot) {
+        if (hud.repaint.portrait_frames.test(slot) && !hud.repaint.portraits.test(slot))
+            bands.add(slot, PaintPartyPortraitFrame(slot));
     }
-    hud.repaint = {};
+    if (hud.repaint.any()) {
+        ApplyMainGameRepaint(hud, presentation, bands);
+    }
+    const MainGameRepaint repaint = std::exchange(hud.repaint, {});
     if (!IsScreenTransitionPending()) {
         if (g_modal_owner != 0) {
             g_modal_owner->RefreshModal();
         }
-        if (hud.open_submenu) {
-            UpdateSubMenuAutoClose();
-        }
         if (!CurrentGame().combat.has_value()) {
-            UpdatePortraitAdvanceButtons();
+            RefreshPortraitAdvanceButtons(bands.any);
         } else {
-            RedrawCombatPortraits();
+            PaintCombatPortraits(repaint.combat_portraits | bands.side_strips);
         }
-        UpdateConditionButtons();
+        PaintConditionIcons(repaint.condition_icons, bands.complete);
         if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
             DrawPartyMovementPanel();
         }
@@ -2863,7 +2888,7 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         if (IsTrapInteractionActive()) {
             RedrawTrapInteractionPanels();
         }
-        UpdateMainGameButtons();
+        RefreshMainGameButtons();
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
@@ -3844,7 +3869,7 @@ void UpdateCombatPortraitStatus(void)
                 alternate = image + 10;
             }
             if (image != -1 && image != combat_row->portrait_image) {
-                entry->combat_portrait_dirty = true;
+                MainGameHud()->repaint.combat_portraits.set(slot);
             }
         }
         combat_row->combat_status = status;
@@ -4658,7 +4683,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
                 MainGameHud()->hover_combat_slot = -1;
             }
             MainGameHud()->combat_action_hover_party_slot = -1;
-            CurrentGame().monster_manager_entries[slot].combat_portrait_dirty = true;
+            MainGameHud()->repaint.combat_portraits.set(slot);
             target.setTooltip({});
             return UiResult::Pass;
         }
@@ -4667,7 +4692,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
         }
         if (CurrentGame().combat->round_active) {
             MainGameHud()->combat_action_hover_party_slot = slot;
-            CurrentGame().monster_manager_entries[slot].combat_portrait_dirty = true;
+            MainGameHud()->repaint.combat_portraits.set(slot);
         }
         {
             W8PartySlotRow* row = &CurrentGame().party.rows[slot];

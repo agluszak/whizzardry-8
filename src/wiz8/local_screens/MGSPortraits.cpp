@@ -65,7 +65,7 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-static void DrawDamageSplatOverlay(unsigned int party_slot);
+static bool DrawDamageSplatOverlay(unsigned int party_slot);
 void DrawPortraitEffectIcon(unsigned int party_slot);
 
 /* Dead-character portrait catalog ids, two per race - the small
@@ -95,7 +95,6 @@ struct ConditionIcons {
         HitTarget* target;
         SDL_Point position;
         int catalog = 0;
-        bool dirty = true;
     };
     std::array<Icon, 8> icons;
     bool active = false;
@@ -234,8 +233,8 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
    (or death-variant) catalog image at the current frame plus the running
    damage total in bold text for the first six frames. Frame -1 means the
    splat is deferred behind a portrait refresh or a still-playing effect
-   icon. */
-static void DrawDamageSplatOverlay(unsigned int party_slot)
+   icon. Returns whether it drew. */
+static bool DrawDamageSplatOverlay(unsigned int party_slot)
 {
     W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
     int frame = entry->damage_splat_frame;
@@ -271,10 +270,9 @@ static void DrawDamageSplatOverlay(unsigned int party_slot)
             splat_text.RenderString(fmt::format("{:d}", entry->damage_splat_amount),
                                     g_wiz_text_bold_font, false, GetFrameBufferSurface());
         }
-        if (CurrentGame().combat.has_value()) {
-            entry->combat_portrait_dirty = true;
-        }
+        return true;
     }
+    return false;
 }
 
 /* Draw the in-flight spell/condition effect icon over the slot's portrait.
@@ -380,12 +378,11 @@ void ResetPartyPortraitFx(void)
     }
 }
 
-/* Draw each occupied, living and eligible party slot's combat portrait in the
-   side strip once the slot's dirty flag is raised: the normal frame, or the
-   alternate while the slot is the hovered combat slot, then the can't-act
-   badge or the party-member target marker. The slot currently acting is drawn
-   by the action panel instead. */
-void RedrawCombatPortraits(void)
+/* Draw each given occupied, living and eligible party slot's combat portrait in
+   the side strip: the normal frame, or the alternate while the slot is the
+   hovered combat slot, then the can't-act badge or the party-member target
+   marker. The slot currently acting is drawn by the action panel instead. */
+void PaintCombatPortraits(std::bitset<8> slots)
 {
     int portrait_x;
     int badge_x;
@@ -394,12 +391,11 @@ void RedrawCombatPortraits(void)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* party_row = &CurrentGame().party.rows[slot];
-        W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
-        W8CombatCharacterRow* combat_row = &CurrentGame().combat->characters[slot];
+        const W8PartySlotRow* party_row = &CurrentGame().party.rows[slot];
+        const W8CombatCharacterRow* combat_row = &CurrentGame().combat->characters[slot];
 
-        if (!CanPartySlotParticipate(slot) || combat_row->portrait_image == -1 ||
-            !entry->combat_portrait_dirty || slot == MainGameHud()->combat_slot) {
+        if (!slots.test(slot) || !CanPartySlotParticipate(slot) ||
+            combat_row->portrait_image == -1 || slot == MainGameHud()->combat_slot) {
             continue;
         }
         if ((slot & 1) == 0) {
@@ -431,7 +427,6 @@ void RedrawCombatPortraits(void)
                 CurrentGame().party.orderIndexOf(party_row->committed.target.iChar), badge_x,
                 row_y + 0x38);
         }
-        entry->combat_portrait_dirty = false;
     }
 }
 
@@ -661,11 +656,29 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
     return false;
 }
 
+PortraitBandPaint PaintPartyPortraitFrame(unsigned int party_slot)
+{
+    const auto& hud = *MainGameHud();
+    if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
+        hud.portrait_refresh_pending[party_slot] == 0) {
+        return {};
+    }
+    const unsigned int top = 0x12 + party_slot / 2 * 0x55;
+    const bool overlay_ready =
+        PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
+    const bool highlighted = hud.highlight.LightsPortrait(static_cast<int>(party_slot)) ||
+                             static_cast<int>(party_slot) == hud.held_item_display;
+    auto painted = RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
+                                              hud.portrait_refresh_pending[party_slot] == 0);
+    painted.side_strip = true;
+    return painted;
+}
+
 /* Repaint one party-slot portrait band: frame, live or dead portrait, item
    hands, HP/stamina chrome, labels, condition/enchantment icons, and any
    active overlay callees for that slot. */
-void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
-                                bool slot_enabled)
+PortraitBandPaint RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted,
+                                             bool overlay_ready, bool slot_enabled)
 {
     int menu_x;
     int menu_y;
@@ -842,11 +855,6 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                      {(0x54 - text_width) / 2 + 0x15 + menu_x, menu_y + 0x49}, character->name);
             g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-
-            if (CurrentGame().combat.has_value()) {
-                entry->combat_portrait_dirty = true;
-            }
-            condition_icons->icons[party_slot].dirty = true;
         }
 
         if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
@@ -973,8 +981,11 @@ draw_condition_icons:
     }
 
 portrait_fx:
-    if (entry->damage_splat_active) {
-        DrawDamageSplatOverlay(party_slot);
+    PortraitBandPaint painted;
+    painted.band = overlay_ready && CurrentGame().party.members[party_slot].has_value();
+    painted.side_strip = painted.band;
+    if (entry->damage_splat_active && DrawDamageSplatOverlay(party_slot)) {
+        painted.side_strip = true;
     }
     if (entry->effect_icon_active) {
         DrawPortraitEffectIcon(party_slot);
@@ -996,11 +1007,6 @@ portrait_fx:
         }
         CatalogArtwork::Load(hp_overlay_catalog, 0)
             .draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
-    }
-
-    if (!CurrentGame().combat.has_value() && party_slot < 8 &&
-        CurrentGame().party.members[party_slot].has_value()) {
-        portrait_buttons->buttons[party_slot]->m_dirty = true;
     }
 
     if (MainGameHud()->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
@@ -1032,6 +1038,7 @@ portrait_fx:
         !CurrentGame().activity.scripted_scene) {
         SetNpcDialoguePanelVisible(1);
     }
+    return painted;
 }
 
 void ShadeStatusBarGap(int length, int left, int top)
@@ -1090,7 +1097,7 @@ void EnableConditionButtons()
 {
     condition_icons->active = true;
     condition_icons->input.setEnabled(true);
-    for (auto& icon : condition_icons->icons) icon.dirty = true;
+    if (auto* hud = MainGameHud()) hud->repaint.condition_icons.set();
 }
 
 void EnablePortraitAdvanceRegions()
@@ -1116,10 +1123,17 @@ void InvalidatePortraitPanel()
 void UpdatePortraitAdvanceButtons()
 {
     for (int slot = 0; slot < 8; ++slot) {
-        auto& button = *portrait_buttons->buttons[slot];
-        button.SetVisible(IsCharacterReadyToAdvance(slot) && !CurrentGame().activity.conversation &&
-                          CurrentGame().party.members[slot]->level_up_announced);
-        button.Refresh();
+        portrait_buttons->buttons[slot]->SetVisible(
+            IsCharacterReadyToAdvance(slot) && !CurrentGame().activity.conversation &&
+            CurrentGame().party.members[slot]->level_up_announced);
+    }
+}
+
+void RefreshPortraitAdvanceButtons(std::bitset<8> repainted)
+{
+    for (int slot = 0; slot < 8; ++slot) {
+        portrait_buttons->buttons[slot]->Refresh(repainted.test(slot) &&
+                                                 CurrentGame().party.members[slot].has_value());
     }
 }
 
@@ -1161,7 +1175,7 @@ void CreateConditionButtons()
             [slot](const UiPointerEvent& event) {
                 if (event.action != UiPointerAction::Up || event.captured_buttons)
                     PlayButtonSound(event.action);
-                condition_icons->icons[slot].dirty = true;
+                if (auto* hud = MainGameHud()) hud->repaint.condition_icons.set(slot);
                 if (event.action == UiPointerAction::Leave ||
                     (event.action == UiPointerAction::Up &&
                      event.button == UiPointerButton::Left)) {
@@ -1194,24 +1208,35 @@ void UpdateConditionButtons()
                 catalog = character.enchantment_top + 0xc9;
         }
         if (catalog != icon.catalog) {
-            icon.dirty = true;
-            if (!catalog) {
-                if (!MainGameHud()->portrait_refresh_pending[slot] && !entry.keyboard_menu_open)
-                    ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
-                                     icon.position.y + 19);
-                if (MainGameHud()->condition_highlight_party_slot == slot)
-                    ClearConditionHighlight();
-            }
+            MainGameHud()->repaint.condition_icons.set(slot);
+            if (!catalog && MainGameHud()->condition_highlight_party_slot == slot)
+                ClearConditionHighlight();
             icon.catalog = catalog;
         }
         icon.target->setEnabled(catalog != 0);
-        if (condition_icons->active && catalog && icon.dirty) {
-            auto& target = GetFrameBufferSurface();
-            CatalogArtwork::Load(0xa8, 0).drawAndInvalidate(target, icon.target->hovered() ? 1 : 0,
-                                                            icon.position.x, icon.position.y);
-            CatalogArtwork::Load(catalog, 0)
-                .drawAndInvalidate(target, 0, icon.position.x + 2, icon.position.y + 2);
-            icon.dirty = false;
+    }
+}
+
+/* Draw each shown icon that was requested or whose band was repainted. A
+   requested slot without an icon clears its square unless a portrait or the
+   keyboard menu covers it. */
+void PaintConditionIcons(std::bitset<8> requested, std::bitset<8> repainted_bands)
+{
+    for (int slot = 0; slot < 8; ++slot) {
+        const auto& icon = condition_icons->icons[slot];
+        if (!icon.catalog) {
+            if (requested.test(slot) && !MainGameHud()->portrait_refresh_pending[slot] &&
+                !CurrentGame().monster_manager_entries[slot].keyboard_menu_open)
+                ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
+                                 icon.position.y + 19);
+            continue;
         }
+        if (!condition_icons->active || !(requested.test(slot) || repainted_bands.test(slot)))
+            continue;
+        auto& target = GetFrameBufferSurface();
+        CatalogArtwork::Load(0xa8, 0).drawAndInvalidate(target, icon.target->hovered() ? 1 : 0,
+                                                        icon.position.x, icon.position.y);
+        CatalogArtwork::Load(icon.catalog, 0)
+            .drawAndInvalidate(target, 0, icon.position.x + 2, icon.position.y + 2);
     }
 }

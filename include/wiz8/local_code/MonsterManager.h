@@ -103,9 +103,6 @@ struct W8MonsterManagerEntry {
     /* The keyboard menu is open on this slot's portrait; region input is
        disabled and the menu panel redraws with the portrait. */
     bool keyboard_menu_open;
-    /* The combat side-strip portrait needs redrawing; set by hover and
-       combat-state changes, cleared by the combat portrait redraw. */
-    bool combat_portrait_dirty;
     /* The acting combatant's portrait pulse - a countdown clock that rearms
        the 1..0xc brightness phase. */
     uint64_t acting_portrait_pulse_clock;

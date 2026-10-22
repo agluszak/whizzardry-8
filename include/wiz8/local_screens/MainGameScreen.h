@@ -433,7 +433,6 @@ bool IsScreenIdle(void);
 bool IsModalOpen(void);
 
 struct W8TargetingPresentation;
-void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
 /* A main-game frame updates what it shows, then paints it: the update brings the party's
    facing, the targeting presentation, the radar blips and the text box's repaint in line
    with the game; the draw paints the recorded repaint parts and presents. */

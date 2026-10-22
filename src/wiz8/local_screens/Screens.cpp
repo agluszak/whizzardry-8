@@ -135,13 +135,9 @@ void RequestPartySlotRedraw(int bit)
 
 /* Refresh one party slot's on-screen presentation for the active screen:
    party selection forwards into its portrait helper; camp marks
-   the review panels dirty; main game redraws the portrait overlay. */
+   the review panels dirty; main game requests the portrait's next frame. */
 void RefreshPartySlotDisplay(unsigned int party_slot)
 {
-    unsigned int top;
-    bool overlay_ready;
-    bool highlighted;
-
     switch (CurrentScreenState().id) {
     case W8_SCREEN_CHARACTER:
         return;
@@ -153,46 +149,9 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     case W8_SCREEN_CAMP:
         FindScreen<CampScreen>()->RefreshPartySlot(static_cast<int>(party_slot));
         return;
-    case W8_SCREEN_MAIN_GAME: {
-        const auto* hud = ShownHud();
-        if (hud && (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
-                    hud->portrait_refresh_pending[party_slot] != 0)) {
-            switch (party_slot) {
-            case 0:
-            case 1:
-                top = 0x12;
-                break;
-            case 2:
-            case 3:
-                top = 0x67;
-                break;
-            case 4:
-            case 5:
-                top = 0xbc;
-                break;
-            case 6:
-            case 7:
-                top = 0x111;
-                break;
-            default:
-                top = party_slot;
-                break;
-            }
-            overlay_ready =
-                PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
-            highlighted = false;
-            if (hud->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
-                party_slot == static_cast<unsigned int>(hud->held_item_display)) {
-                highlighted = true;
-            }
-            RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
-                                       hud->portrait_refresh_pending[party_slot] == 0);
-            CurrentGame().monster_manager_entries[party_slot].combat_portrait_dirty = true;
-            InvalidatePortraitControl(party_slot);
-            return;
-        }
+    case W8_SCREEN_MAIN_GAME:
+        if (auto* hud = ShownHud()) hud->repaint.portrait_frames.set(party_slot);
         break;
-    }
     default:
         break;
     }

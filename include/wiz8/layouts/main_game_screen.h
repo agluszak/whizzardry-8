@@ -71,9 +71,17 @@ struct MainGameRepaint {
     /* Run the repaint pass even with no part recorded, for the panels that track their own
        state: the spell page and the keyboard menu. */
     bool panels = false;
+    /* A slot's complete portrait panel: the band, its vitals, its condition icon and, in
+       combat, its side-strip portrait. Each finer request below is part of this one. */
     std::bitset<8> portraits;
-    // Complete vitals panels; a requested portrait redraw includes its panel.
+    // Complete vitals panels.
     std::bitset<8> portrait_bars;
+    /* The widgets painted around the repaint pass, which do not start it: the portrait's
+       next animation frame, the condition or enchantment icon after its hover or icon
+       changed, and the combat side-strip portrait after its hover or status changed. */
+    std::bitset<8> portrait_frames;
+    std::bitset<8> condition_icons;
+    std::bitset<8> combat_portraits;
     bool roof_and_spell_icons = false;
     // The chrome's layout changed: the bottom panels and the buttons around them repaint.
     bool layout = false;
