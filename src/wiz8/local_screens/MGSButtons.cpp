@@ -570,7 +570,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
             return;
         }
         g_settings.formation_radar_map_preference = 0;
-        RefreshMainGameLayout();
+        RefreshMainGameLayout(*MainGame());
         return;
     }
     g_settings.formation_radar_map_preference = 1;
@@ -580,7 +580,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(*MainGame());
 }
 
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
@@ -591,13 +591,13 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
                 SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
-            RefreshMainGameLayout();
+            RefreshMainGameLayout(*MainGame());
             return;
         }
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
             g_settings.portraits_action_panel_preference = 0;
         }
-        RefreshMainGameLayout();
+        RefreshMainGameLayout(*MainGame());
         return;
     }
     if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
@@ -609,11 +609,11 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
     }
     if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         g_settings.portraits_action_panel_preference = 1;
-        RefreshMainGameLayout();
+        RefreshMainGameLayout(*MainGame());
         return;
     }
     g_settings.formation_action_panel_preference = 1;
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(*MainGame());
 }
 
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
@@ -624,7 +624,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
             return;
         }
         g_settings.formation_board_preference = 0;
-        RefreshMainGameLayout();
+        RefreshMainGameLayout(*MainGame());
         return;
     }
     g_settings.formation_board_preference = 1;
@@ -634,7 +634,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(*MainGame());
 }
 
 /* Draw the left layout-arrow strip, mark each arrow dirty, then raise/lower

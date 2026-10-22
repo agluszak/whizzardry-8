@@ -135,7 +135,7 @@ bool OpenUseItemSelectView(int slot, std::move_only_function<void()> on_return)
     }
     CloseNpcDialogueIfActive();
     CloseMainGameOverlays();
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(screen);
     RestoreSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
@@ -164,7 +164,7 @@ void DismissUseItemSelectView(void)
     screen.hud->text_box_visible = true;
     SelectTextBox(screen.game.combat.has_value());
     screen.item_picker.reset();
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(screen);
     if (auto* hud = screen.hud.get()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;

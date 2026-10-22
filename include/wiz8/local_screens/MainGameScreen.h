@@ -472,7 +472,7 @@ void SetViewportMode(W8ViewportMode mode);
    region state, and sync both settings and the level-block mode field. */
 W8MainUiMode GetEffectiveMainUiMode();
 void SetMainUiPreference(W8MainUiMode mode);
-void RefreshMainGameLayout();
+void RefreshMainGameLayout(MainGameScreen& screen);
 bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
@@ -481,7 +481,7 @@ void TickAmbientFollowUpIdle(unsigned char input_handled);
 void RefreshPartySlotRegions(void);
 /* Re-sync mouse hotspot, region enables and viewport after a
    main-game mode change. */
-void SyncMainGameModeInput(void);
+void SyncMainGameModeInput(MainGameScreen& state);
 void ClearHighlightOverlayRegion(void);
 void DismissHighlightOverlay(void);
 /* The portrait-hover panel's producer; the four hover entry

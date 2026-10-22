@@ -204,7 +204,7 @@ bool OpenSpellCastingView(int party_slot, std::move_only_function<void()> on_ret
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(screen);
     if (screen.game.activity.conversation_aside) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             DisableMainGamePortraitSlot(index);
@@ -244,7 +244,7 @@ void DismissSpellCastingView(void)
     SelectTextBox(screen.game.combat.has_value());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     screen.spell_picker.reset();
-    RefreshMainGameLayout();
+    RefreshMainGameLayout(screen);
     if (auto* hud = screen.hud.get()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
