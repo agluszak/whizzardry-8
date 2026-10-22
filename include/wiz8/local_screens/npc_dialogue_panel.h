@@ -4,6 +4,8 @@
 #include <optional>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
+
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/message_box.h"
@@ -40,6 +42,20 @@ enum W8NpcTradeMode : unsigned char {
     W8_NPC_TRADE_SHOPLIFT = 5
 };
 
+// An active quote may have no drawable bubble if both layout attempts fail.
+// Its input and dismissal payload still share the same lifetime.
+struct W8ActiveNpcQuote {
+    std::optional<QuoteBubble> bubble;
+    SDL_Point origin{};
+    W8QuoteNotice notice{};
+    UiLayer input{UiLayerOrder::NpcQuoteBubble};
+
+    SDL_Rect bounds() const
+    {
+        return {origin.x, origin.y, bubble ? bubble->width() : 0, bubble ? bubble->height() : 0};
+    }
+};
+
 /* The NPC dialogue's interface on the main game: the layouts and their widgets, the trade
    table, the transcript view, the quote bubble and the camera turned toward the speaker.
    The main game owns it (`MainGameScreen::dialogue`); what the conversation itself keeps
@@ -53,7 +69,6 @@ struct W8NpcDialoguePanel {
 
     W8NpcSpeech speech;
     W8NpcPresentation presentation = W8NpcPresentation::none;
-    std::unique_ptr<UiLayer> quote_input;
     W8NpcTradeMode trade_mode{};
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout{};
@@ -72,12 +87,7 @@ struct W8NpcDialoguePanel {
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query{};
-    std::optional<QuoteBubble> quote_bubble{};
-    short quote_x{};
-    short quote_y{};
-    short quote_width{};
-    short quote_height{};
-    bool quote_visible{};
+    std::optional<W8ActiveNpcQuote> active_quote;
     /* The option layout was reached through the Exit/farewell path, so backing
        out of it reopens the topic menu instead of the transcript. */
     bool reopen_topics{};
@@ -92,7 +102,6 @@ struct W8NpcDialoguePanel {
        the saved camera angles. */
     bool camera_redirected{};
     float saved_camera_pitch{};
-    W8QuoteNotice quote_notice{};
     int trade_quantity{};
     int selected_trade_row = -1; /* -1 for none */
     /* How many times the transcript layout has opened this session; the
