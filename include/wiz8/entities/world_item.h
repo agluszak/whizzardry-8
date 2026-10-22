@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string_view>
 
 #include "glm/ext/matrix_float3x3.hpp"
@@ -44,7 +43,7 @@ struct WorldItemEntity {
     float bounds_radius = 0.0f;
     float pulse_level = 0.0f;
     unsigned int flags = 0;
-    uint64_t countdown = 0;
+    uint64_t countdown = 0; // Radar highlight deadline on held world time.
 
     void RefreshBounds();
     unsigned int SetFlags(unsigned int mask, bool enabled);
@@ -69,5 +68,5 @@ struct WorldItemEntity {
     bool IsRadarBlipLit();
 };
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item);
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

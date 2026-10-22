@@ -6,7 +6,7 @@ It builds on the recovered source code from [Wizardry 8 Decomp](https://github.c
 
 Linux is the only platform currently tested in CI. macOS and Windows builds are not yet verified, and the game is still under development.
 
-This repository does **not** include game assets. You'll need your own retail copy of Wizardry 8.
+This repository does **not** include retail game assets. You'll need your own retail copy of Wizardry 8.
 
 ## Build on Linux
 
@@ -58,6 +58,18 @@ Then launch the game:
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh
 ```
 
+To try an imported, interactive VSG object in a retail world:
+
+```bash
+WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh /WINDOW /NATIVEOBJECT=examples/native/prism.vsgt
+```
+
+Start or load a game. A prism appears just ahead of the party at level entry.
+Point at it with an empty hand and click to toggle its glow; the normal message
+log describes the action. It uses the world's lights and fog. This optional sample
+is recreated at each level entry, with no changes to retail assets or save records.
+The same option accepts other static indexed VSG position/normal/UV geometry.
+
 Saves, settings and logs go into the system's per-user application directory, separate from the game assets. Set `WIZ8_USER_ROOT` if you'd rather choose that directory yourself.
 
 ## Contributing
@@ -72,15 +84,19 @@ After building, run the tests with:
 ctest --preset linux
 ```
 
-On a headless Linux host, run CTest under `xvfb-run -a`; the graphics scenarios use
-SDL's X11 Vulkan surface. CI also enables the Khronos validation layer and fails
-graphics tests on validation errors.
+Graphics tests and runtime scenarios render through SDL's offscreen video driver, so
+they need no display, open no windows and receive no desktop input. CI also enables
+the Khronos validation layer and fails graphics tests on validation errors.
 
 Some runtime tests also need prepared retail assets:
 
 ```sh
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
 ```
+
+A failing scenario saves the game's frame under `tests/runtime-artifacts/` in the
+build tree; [the runtime fixture notes](tests/runtime/fixtures/README.md) also
+describe the golden screen signatures and how to update them.
 
 C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).
 

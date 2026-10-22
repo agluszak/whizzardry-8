@@ -25,31 +25,6 @@ extern const unsigned int g_W8TextBufferNoWrap = 0x40;
 char g_W8TextSeparator[] = " ";
 static char g_W8TextBreakCharacters[] = " \n";
 
-W8TextBuffer::~W8TextBuffer() = default;
-
-W8TextBuffer::W8TextBuffer()
-{
-    m_buffer.clear();
-    m_font = 0;
-    m_lineCount = 0;
-    m_geometryDirty = false;
-    m_layoutMode = 10;
-    m_maxLineWidth = 0;
-    m_lineHeight = 0;
-    m_renderMode = 4;
-    m_alternateRenderer = 0;
-    m_fontStateIndex = -1;
-    m_highlighted = false;
-    m_layoutBounds.left = 0;
-    m_layoutBounds.top = 0;
-    m_layoutBounds.right = 0;
-    m_layoutBounds.bottom = 0;
-    m_clipBounds.left = 0;
-    m_clipBounds.top = 0;
-    m_clipBounds.right = 0;
-    m_clipBounds.bottom = 0;
-}
-
 void W8TextBuffer::SetText(std::string_view text, Font& font)
 {
     m_font = &font;
@@ -60,20 +35,9 @@ void W8TextBuffer::SetText(std::string_view text, Font& font)
 
 W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                            unsigned int layout_mode, int render_mode)
+    : m_layoutBounds(*bounds), m_clipBounds(*bounds), m_renderMode(render_mode)
 {
-    m_buffer.clear();
-    m_font = 0;
-    m_lineCount = 0;
-    m_maxLineWidth = 0;
-    m_geometryDirty = false;
-    m_lineHeight = 0;
-    m_alternateRenderer = 0;
     SetLayoutMode(layout_mode);
-    m_renderMode = render_mode;
-    m_fontStateIndex = -1;
-    m_highlighted = false;
-    m_layoutBounds = *bounds;
-    m_clipBounds = *bounds;
     SetText(text, font);
 }
 

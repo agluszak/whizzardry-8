@@ -423,7 +423,6 @@ void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* fo
 {
     std::size_t count;
     int index;
-    Monster* monster;
 
     if (monster_group == 0) {
         return;
@@ -431,8 +430,7 @@ void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* fo
     monster_group->formation = *formation;
     count = monster_group->MemberIds().size();
     for (index = 0; index < static_cast<int>(count); ++index) {
-        monster = FindMonster(monster_group->MemberLocationId(index))->entity.find();
-        monster->formation = *formation;
+        FindMonster(monster_group->MemberLocationId(index))->entity->formation = *formation;
     }
 }
 

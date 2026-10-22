@@ -10,6 +10,7 @@
 #include <SDL3/SDL_hints.h>
 #include <SDL3/SDL_init.h>
 #include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_message.hpp>
@@ -32,6 +33,7 @@
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/fog.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
@@ -549,4 +551,43 @@ TEST_CASE("Imported native VSG content shares game lighting, fog and picking")
     const auto dark = draw();
     REQUIRE((dark & 0xff0000) == 0);
     REQUIRE((dark & 255) >= 62);
+}
+
+TEST_CASE("Rectangular world posters sample border texels without half-texel correction")
+{
+    Fixture fixture;
+    WorldScene scene;
+    scene.camera.setProjectionType(Camera3D::PROJECT_ORTHOGRAPHIC);
+    scene.camera.setClipRange(1, 10);
+    scene.camera.setViewPlane({-1, -.5, 1, .5}, 1);
+    auto pixels = CreateCpuStorage(64, 32, SDL_PIXELFORMAT_BGRA32);
+    REQUIRE(SDL_FillSurfaceRect(pixels.get(), nullptr, 0xff00ff00));
+    const SDL_Rect top{0, 0, 64, 1}, bottom{0, 31, 64, 1};
+    const SDL_Rect left{0, 1, 1, 30}, right{63, 1, 1, 30};
+    REQUIRE(SDL_FillSurfaceRect(pixels.get(), &top, 0xffff0000));
+    REQUIRE(SDL_FillSurfaceRect(pixels.get(), &bottom, 0xff0000ff));
+    REQUIRE(SDL_FillSurfaceRect(pixels.get(), &left, 0xffffff00));
+    REQUIRE(SDL_FillSurfaceRect(pixels.get(), &right, 0xffffffff));
+    auto texture = std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(pixels)));
+    texture->setDimensions({64, 32, true});
+    texture->setWrapS(Texture::WRAP_CLAMP);
+    texture->setWrapT(Texture::WRAP_CLAMP);
+    texture->setMipmap(Texture::MIPMAP_NONE);
+    auto poster = MakePosterQuad(texture, 2, 0, false);
+    poster->transform.setLocation(0, 0, 3);
+    scene.attach(*poster);
+    for (auto filter : {Texture::FILTER_NONE, Texture::FILTER_GOOD}) {
+        texture->setMinFilter(filter);
+        texture->setMagFilter(filter);
+        fixture.renderer->beginFrame();
+        fixture.renderer->addView(scene.createView(fixture.renderer->context(), &scene.camera, {},
+                                                   vsg::ViewportState::create(0, 0, 64, 32),
+                                                   fixture.renderer->frameNumber()));
+        fixture.renderer->endFrame(false, true);
+        REQUIRE(fixture.pixel(32, 0) == 0xff0000);
+        REQUIRE(fixture.pixel(32, 31) == 0x0000ff);
+        REQUIRE(fixture.pixel(0, 16) == 0xffff00);
+        REQUIRE(fixture.pixel(63, 16) == 0xffffff);
+        REQUIRE(fixture.pixel(32, 16) == 0x00ff00);
+    }
 }
