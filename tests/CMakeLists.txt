@@ -283,11 +283,6 @@ endforeach()
 set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600
     ENVIRONMENT_MODIFICATION "VK_INSTANCE_LAYERS=unset:")
 set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
-# They take minutes where the rest take seconds; starting them first keeps them
-# from extending a parallel run that has no timing history.
-set_tests_properties(runtime_combat PROPERTIES COST 300)
-set_tests_properties(runtime_random-play PROPERTIES COST 200)
-set_tests_properties(runtime_npc-dialogue PROPERTIES COST 100)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.
 set_tests_properties(runtime_quick-save PROPERTIES FIXTURES_SETUP runtime_save)
