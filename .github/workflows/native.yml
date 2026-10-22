@@ -275,17 +275,17 @@ jobs:
           test = json.load(sys.stdin)["tests"][0]
           for p in test["properties"]:
               if p["name"] == "ENVIRONMENT":
-                  print("\n".join(p["value"]))
-              if p["name"] == "WORKING_DIRECTORY":
-                  print("PWD_FOR_TEST=" + p["value"])')
+                  print("\n".join(p["value"]))')
             unset_layers=()
             [[ $scenario != npc-dialogue ]] && unset_layers=(-u VK_INSTANCE_LAYERS)
             echo "::group::$scenario"
             printf '%s\n' "${environment[@]}"
-            ( cd tests && /usr/bin/time -v env "${unset_layers[@]}" "${environment[@]}" "$perf" record -F 499 -o "../perf-$scenario.data" \
+            ( cd tests && /usr/bin/time -v env "${unset_layers[@]}" "${environment[@]}" "$perf" record -g -F 499 -o "../perf-$scenario.data" \
                 ../native_runtime_test "$scenario" --rng-seed 1 2>&1 | tail -45 )
-            "$perf" report -i "perf-$scenario.data" --no-children --sort dso --stdio 2>/dev/null | grep -v '^#' | head -25
-            "$perf" report -i "perf-$scenario.data" --no-children --sort dso,sym --stdio 2>/dev/null | grep -v '^#' | head -90
+            "$perf" report -i "perf-$scenario.data" --no-children --sort dso --stdio 2>/dev/null | grep -v '^#' | head -15 || true
+            # Inclusive cost of the game's own functions (frame pointers at -O0).
+            "$perf" report -i "perf-$scenario.data" --children --sort sym -g none --stdio 2>/dev/null |
+              grep -v '^#' | grep -v ' std::\| glm::\|ref_ptr\|__gnu_cxx' | head -150 || true
             echo "::endgroup::"
           done
       # Frames saved by failing runtime scenarios and golden-image mismatches.
