@@ -3597,7 +3597,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
             CurrentGame().npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
         }
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
-        active.notice = std::move(notice);
+        active.notice = notice;
         if (level_up) {
             wiz8::sound::play(
                 reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
@@ -3609,7 +3609,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
     auto& active = *MainGame()->dialogue.active_quote;
     bool flush_notices =
         (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(active.notice);
-    W8QuoteNotice dismissed = std::move(active.notice);
+    W8QuoteNotice dismissed = active.notice;
     if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(Data().strings[experience->alternate_message ? 0x231 : 0x232],
