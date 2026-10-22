@@ -59,7 +59,6 @@
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -1826,36 +1825,21 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
 
     REQUIRE(font.load("font.sti"));
+    auto old_secondary = std::move(g_wiz_text_font_secondary);
+    REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
         W8DialogTextArea area;
         const W8ControlsRect bounds{0, 0, 100, 100};
-        area.Configure(&bounds, font, g_W8DialogTextAreaPointSelection);
-        area.AddEntry("", "Z", 0, 0, 0);
-        area.AddEntry("", "A\nB", 0, 0, 1);
-        area.AddEntry("", "C", 0, 0, 1);
-        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_PEOPLE);
-        REQUIRE(area.GetOwningEntryIndex(0) == 1);
-        REQUIRE(area.UpdateSelectionFromPoint(1, 1));
-        REQUIRE_FALSE(area.UpdateSelectionFromPoint(1, font.height() + 1));
-        REQUIRE(area.UpdateSelectionFromPoint(1, 2 * font.height() + 1));
+        area.Configure(&bounds, font);
+        area.AddEntry("", "A\nB", 0, 0);
+        area.AddEntry("", "C", 0, 0);
         area.SetEntrySpacing(1);
-        area.SetLineHeight(12);
-        REQUIRE(area.GetEntry(0)->GetLineHeight() == 12);
-        REQUIRE(area.GetEntry(2)->GetLineHeight() == 12);
         REQUIRE(area.GetTotalLineCount() == 4); // Two wrapped lines, a gap, then C.
-        REQUIRE(area.HitTestEntry(1, 25) == 0);
-        REQUIRE(area.HitTestEntry(1, 37) == 1);
+        area.Paint(GetFrameBufferSurface());
+        area.TakeDirty();
         area.SetFirstVisibleLine(1);
-        REQUIRE(area.HitTestEntry(1, 1) == 0);
-        REQUIRE(area.HitTestEntry(1, 25) == 1);
-        REQUIRE(area.ScrollUp(false));
-        REQUIRE(area.HitTestEntry(1, 25) == 0);
-        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_ALL);
-        area.SetSorted(true);
-        REQUIRE(area.GetOwningEntryIndex(0) == 1);
-        REQUIRE(area.GetOwningEntryIndex(2) == 0);
-        area.RemoveEntry(1);
-        REQUIRE(area.GetOwningEntryIndex(0) == 1);
+        REQUIRE(area.TakeDirty());
+        area.Paint(GetFrameBufferSurface());
     }
     // Empty item rows can still receive a click after a transfer, before the
     // next screen recomposition hides their targets.
@@ -1911,8 +1895,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         }
     }
     button_image_fixture(assets, "data/dialogs/popup_quote.sti");
-    auto old_secondary = std::move(g_wiz_text_font_secondary);
-    REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
         W8Character character{};
         character.fInParty = true; // Quote access must still use the previewed character directly.

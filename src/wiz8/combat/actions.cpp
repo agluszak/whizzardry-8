@@ -203,7 +203,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                  slot->executing.kind == W8_ACTION_BERSERK) &&
                 CharacterCanSwitchTo(
                     party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                    false, false)) {
+                    false)) {
                 PrepareCharacterAttacks(party_slot);
             }
         } else if ((slot->executing.kind == W8_ACTION_ATTACK ||
@@ -226,7 +226,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         if (!CharacterCanSwitchTo(
                 party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                false, false)) {
+                false)) {
             slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
@@ -289,7 +289,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         if (CharacterCanSwitchTo(party_slot,
                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                                 false, false)) {
+                                 false)) {
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
