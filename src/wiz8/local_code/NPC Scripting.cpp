@@ -382,15 +382,15 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current, bool script_eve
     }
 }
 
-bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry)
+bool ShouldDeferCharacterEventForNpcScript(const Game& game, bool require_group_entry)
 {
-    if (CurrentGame().npc_dialogue.is_held_by_scene()) {
+    if (game.npc_dialogue.is_held_by_scene()) {
         return false;
     }
-    if (!IsNpcScriptSessionActive() && !CurrentGame().npc_dialogue.has_queued_actions()) {
+    if (!IsNpcScriptSessionActive() && !game.npc_dialogue.has_queued_actions()) {
         return false;
     }
-    W8NpcState* speaker = CurrentGame().npc_dialogue.speaker();
+    W8NpcState* speaker = game.npc_dialogue.speaker();
     if (speaker == 0) {
         return false;
     }

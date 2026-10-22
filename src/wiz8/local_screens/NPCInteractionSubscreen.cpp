@@ -2958,7 +2958,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
 {
     W8MGSCommand command;
 
-    if (ShouldDeferCharacterEventForNpcScript(false)) {
+    if (ShouldDeferCharacterEventForNpcScript(CurrentGame(), false)) {
         return;
     }
     if (CurrentGame().npc_interaction.modal_dialog_open && event->key != SDLK_ESCAPE) {
@@ -3328,7 +3328,8 @@ void DrainNpcDialogueDeferralInput(void)
     W8NpcDialogueLayout prior_layout;
     bool reopen_topics;
 
-    if (!ShouldDeferCharacterEventForNpcScript(true) || !CurrentGame().activity.conversation) {
+    if (!ShouldDeferCharacterEventForNpcScript(CurrentGame(), true) ||
+        !CurrentGame().activity.conversation) {
         return;
     }
     mouse = CursorPosition();

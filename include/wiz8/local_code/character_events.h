@@ -38,7 +38,8 @@ std::string GetCharacterQuoteText(const W8Character& character, unsigned int eve
 std::string GetCharacterVoicePath(const W8Character& character, unsigned int event_type);
 
 // Resolve the current party/NPC quote as a value, without shared text storage.
-std::string GetPartyQuoteText(const W8Character& character, unsigned int event_type);
+std::string GetPartyQuoteText(const Game& game, const W8Character& character,
+                              unsigned int event_type);
 /* First entry of a -1-terminated event-id table. */
 extern const int g_fact_check_event;
 

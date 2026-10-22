@@ -73,7 +73,7 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
-#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 constexpr unsigned int kPortraitLowHealthPercent = 20;
 constexpr unsigned int kRemappedEventCount = 31;
@@ -121,7 +121,7 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
         W8Character* character = &CurrentGame().party.characters[slot];
         if (CurrentGame().party.members[slot].has_value() && slot != excluded_slot &&
             character->hp_current != 0 && character->highest_condition < W8_CONDITION_ASLEEP &&
-            !GetPartyQuoteText(*character, event_type).empty()) {
+            !GetPartyQuoteText(CurrentGame(), *character, event_type).empty()) {
             eligible[count++] = slot;
         }
     }
@@ -388,14 +388,14 @@ std::string GetCharacterQuoteText(const W8Character& character, unsigned int eve
 }
 
 // Party RPCs use their NPC quote database; character creation uses PC identity.
-std::string GetPartyQuoteText(const W8Character& character, unsigned int event_type)
+std::string GetPartyQuoteText(const Game& game, const W8Character& character,
+                              unsigned int event_type)
 {
     if (event_type >= 0x92) return {};
     if (character.fInParty && CurrentScreenState().id != W8_SCREEN_CHARACTER) {
-        const int slot = CharacterPointerToPartySlot(&character);
-        const int npc_index = CurrentGame().party.npcIndex(slot);
+        const int npc_index = game.party.npcIndex(PartySlotOf(game, &character));
         if (npc_index != -1) {
-            const auto text = GetNpcQuoteText(GetNpcState(npc_index), event_type);
+            const auto text = GetNpcQuoteText(game.story.npc(npc_index), event_type);
             return text.empty() ? std::string{} : fmt::format("\"{}\"", text);
         }
     }
@@ -612,7 +612,7 @@ bool W8CharacterEvent::PlayEventSound(W8CharacterEventQueue& queue, std::string_
         CurrentScreenState().id == W8_SCREEN_CHARACTER) {
         sound_path = GetCharacterVoicePath(*character, sound_event);
     } else {
-        npc = GetNpcState(npc_index);
+        npc = game.story.npc(npc_index);
         if (npc != 0) {
             npc_sound_name = FormatNpcVoiceSoundPath(npc);
             sound_path = fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", npc_sound_name,
@@ -685,13 +685,13 @@ bool W8CharacterEvent::Dispatch(W8CharacterEventQueue& queue)
         row = &game.party.rows[party_slot];
         npc_index = game.party.npcIndex(party_slot);
         if (npc_index != -1 && event_type < 0x93) {
-            npc = GetNpcState(npc_index);
+            npc = game.story.npc(npc_index);
             row->pending_event_type = event_type;
             if (npc == 0) {
                 return true;
             }
             if (npc->name_style == W8_NPC_VI_DOMINA && event_type > 0x8b && event_type < 0x92 &&
-                GetLoadedLevelID() != 0) {
+                (game.level.primary ? game.level.primary->level_id : -1) != 0) {
                 return false;
             }
             game.npc_dialogue.Begin(npc, true, (flags & W8_EVENT_NPC_SCRIPT) != 0);
@@ -701,7 +701,7 @@ bool W8CharacterEvent::Dispatch(W8CharacterEventQueue& queue)
             queue.RecordDispatchedEvent(event_type, party_slot);
             return true;
         }
-        quote = GetPartyQuoteText(*character, event_type);
+        quote = GetPartyQuoteText(game, *character, event_type);
         if (PlayEventSound(queue, quote)) {
             queue.RecordDispatchedEvent(event_type, party_slot);
             if (event_type < 0x92) {
@@ -1026,7 +1026,7 @@ W8CharacterEvent* W8CharacterEventQueue::QueueEntry(std::unique_ptr<W8CharacterE
             return nullptr;
         }
     }
-    if ((ShouldDeferCharacterEventForNpcScript(false) || IsNpcScriptSessionActive()) &&
+    if ((ShouldDeferCharacterEventForNpcScript(game, false) || IsNpcScriptSessionActive()) &&
         (entry->flags & W8_EVENT_NO_NPC_DEFER) == 0) {
         return npc_deferred_events.emplace_back(std::move(entry)).get();
     }
@@ -1109,7 +1109,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
         return;
     }
 
-    if (!npc_deferred_events.empty() && !ShouldDeferCharacterEventForNpcScript(false) &&
+    if (!npc_deferred_events.empty() && !ShouldDeferCharacterEventForNpcScript(game, false) &&
         !IsNpcScriptSessionActive()) {
         /* Requeueing can dispatch, so detach the batch first; anything
            deferred again lands in the emptied list. */

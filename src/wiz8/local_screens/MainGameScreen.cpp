@@ -2415,7 +2415,8 @@ void MainGameScreen::frame()
     point = CursorPosition();
     if (!IsWorldCursorVisible()) {
         if (!g_modal_owner) {
-            if ((!ShouldDeferCharacterEventForNpcScript(true) || !game.activity.conversation) &&
+            if ((!ShouldDeferCharacterEventForNpcScript(game, true) ||
+                 !game.activity.conversation) &&
                 !game.status.world_cursor_gate)
                 UpdateUiPointer(point.x, point.y);
         } else {

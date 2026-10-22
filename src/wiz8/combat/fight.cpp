@@ -146,7 +146,7 @@ bool Game::beginCombat(int surprise)
         }
     }
     if (g_npc_combat_notice_pending) {
-        if (activity.conversation || ShouldDeferCharacterEventForNpcScript(false)) {
+        if (activity.conversation || ShouldDeferCharacterEventForNpcScript(CurrentGame(), false)) {
             return false;
         }
         g_npc_combat_notice_pending = false;

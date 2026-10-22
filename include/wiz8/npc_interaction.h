@@ -4,6 +4,8 @@
 
 #include "wiz8/local_code/NPCScripting.h"
 
+class Game;
+
 /* The NPC-scripting gates NPC Scripting.cpp sets and npc_interaction.cpp
    reads. */
 
@@ -13,7 +15,7 @@ bool IsNpcScriptSessionActive(void);
 /* Raise / drop the world-cursor gate around a scripted world action. */
 void BeginScriptedWorldAction(void);
 void ClearMainGameTargetState(void);
-bool ShouldDeferCharacterEventForNpcScript(bool require_group_entry);
+bool ShouldDeferCharacterEventForNpcScript(const Game& game, bool require_group_entry);
 /* 0x005294C0: format the bound NPC's quote for one event type into the wide
    output. */
 std::string GetNpcQuoteText(W8NpcState* npc, int type);

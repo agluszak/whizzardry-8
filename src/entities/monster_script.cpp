@@ -762,7 +762,7 @@ bool Monster::CanContinueScript()
         }
         break;
     case MONSCR_SAY:
-        if (ShouldDeferCharacterEventForNpcScript(false)) {
+        if (ShouldDeferCharacterEventForNpcScript(CurrentGame(), false)) {
             return false;
         }
         break;
