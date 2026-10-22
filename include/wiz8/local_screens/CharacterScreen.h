@@ -100,7 +100,8 @@ public:
     bool m_prepared;
     bool m_contentDirty; /* page-specific content needs repainting */
 
-    void AddEntry(W8CharacterPageEntry* entry);
+    // Add a value row at (x, y) in this page's input layer.
+    W8CharacterPageEntry& AddEntry(int x, int y, bool compact);
 };
 
 class W8CharacterStatsRow;
@@ -189,13 +190,6 @@ public:
     HitTarget* m_attribute_controls[5];
 };
 
-struct W8CharacterSpellEntry {
-    W8SpellRealm realm;
-    unsigned int spell;
-    bool fSelectable;
-    bool selected;
-};
-
 class W8CharacterSpellList;
 
 class W8CharacterSpellsPage : public W8CharacterPage {
@@ -210,16 +204,15 @@ public:
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void Refresh() override;
-    void SelectSpell(unsigned int entry);
-    void ShowSpellInfo(unsigned int entry);
+    void SelectSpell(unsigned int spell);
+    void ShowSpellInfo(unsigned int spell);
 
 private:
     void UpdateSpellLists();
     std::unique_ptr<W8CharacterSpellList> m_realms[6];
-    W8CharacterSpellEntry m_SpellData[114];
     W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
     unsigned int m_animation_frames[6];
-    unsigned int m_last_selected;
+    std::optional<unsigned int> m_last_selected;
 };
 
 class W8CharacterSkillsPage : public W8CharacterPage {
@@ -273,10 +266,10 @@ private:
     std::optional<TextFieldGroup> m_text_fields;
 };
 
-W8CharacterStatsPage* CreateCharacterStatsPage();
-W8CharacterSpellsPage* CreateCharacterSpellsPage();
-W8CharacterSkillsPage* CreateCharacterSkillsPage();
-W8CharacterPersonalityPage* CreateCharacterPersonalityPage();
+std::unique_ptr<W8CharacterPage> CreateCharacterStatsPage();
+std::unique_ptr<W8CharacterPage> CreateCharacterSpellsPage();
+std::unique_ptr<W8CharacterPage> CreateCharacterSkillsPage();
+std::unique_ptr<W8CharacterPage> CreateCharacterPersonalityPage();
 
 /* Realm animation records shared by the stats page's resistance icons and the
    spells page's realm list. The stats page reads only initial_frame, through
@@ -306,7 +299,8 @@ public:
     static constexpr W8ScreenId id = W8_SCREEN_CHARACTER;
 
     // The screen is rebuilt on every visit, within one game.
-    explicit CharacterScreen(Game& game) : m_game(game) {}
+    explicit CharacterScreen(Game& game);
+    ~CharacterScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
     bool leave(ScreenDeparture departure) override;
@@ -363,7 +357,7 @@ public:
     std::unique_ptr<W8ButtonWidget> m_reset;
     bool m_page_enabled[4] = {};
     std::unique_ptr<W8CharacterPage> m_pages[4];
-    W8DialogBase* m_dialog = nullptr;
+    std::unique_ptr<W8DialogBase> m_dialog;
     unsigned int m_dialog_response = 0;
     bool m_capture_dialog_result = false;
 };

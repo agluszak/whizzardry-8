@@ -49,7 +49,7 @@ void InstallFacts(const std::array<unsigned char, W8_FACT_SLOT_COUNT>& facts)
     if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
         npc = GetNpcStateByKind(0x20);
         if (npc && npc->has_monster) {
-            ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+            ReloadNpcScriptResources(npc);
         }
     }
     if (!GetFact(W8_FACT_IMPORT_TRANG)) {
