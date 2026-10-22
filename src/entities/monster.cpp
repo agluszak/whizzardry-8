@@ -782,14 +782,14 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
     if (animation == 0) {
         return false;
     }
-    if (animation->path_lists != 0) {
+    if (animation->positioned_parts) {
         const auto center = GetAnimationCenter();
         if (!center) return false;
         *position = *center;
         return true;
     }
 
-    const auto frame = AnimObjDispatch(animation, 2, dispatch_value);
+    const auto frame = animation->frame(2, dispatch_value);
     if (frame) {
         Mesh* mesh = frame.mesh.get();
         if (const auto mapped = findMappedVertex(mesh, mapped_index)) {
@@ -1307,7 +1307,7 @@ AnimationMesh* Monster::GetEmitterAniMesh(signed char cycle)
     if (animation == 0) {
         return 0;
     }
-    return AnimObjEntry(animation, visual.m_bLOD, 0);
+    return animation->mesh(visual.m_bLOD, 0);
 }
 
 /* Synchronize the live world representation with the Navigator state, update
@@ -1471,7 +1471,7 @@ unsigned int Monster::ApplyEmitterSetting(signed char cycle)
 {
     Animation* animation = cycles[cycle][visual.current_subcycle].animation.get();
     assert(animation != 0);
-    return AnimObjValue(animation, visual.m_bLOD);
+    return animation->frameCount(visual.m_bLOD);
 }
 
 signed char Monster::GetNumSubCycles()
@@ -1481,7 +1481,7 @@ signed char Monster::GetNumSubCycles()
         representation
             ->cycles[representation->visual.current_cycle][representation->visual.current_subcycle]
             .animation.get();
-    return static_cast<signed char>(AnimObjValue(animation, representation->visual.m_bLOD));
+    return static_cast<signed char>(animation->frameCount(representation->visual.m_bLOD));
 }
 
 /* Monster stores its animation object immediately after the shared
@@ -2269,8 +2269,7 @@ std::vector<Mesh*> Monster::CollectModelMeshes()
             const Animation* animation = slot.animation.get();
             if (!animation) continue;
             for (int lod = 0; lod < 3; ++lod) {
-                add(animation->entries[lod].get());
-                for (const auto& mesh : animation->meshes[lod]) add(mesh.get());
+                for (auto& part : animation->parts[lod]) add(&part.mesh);
             }
         }
     }

@@ -3,7 +3,6 @@
 #include <cassert>
 #include <cstddef>
 #include <exception>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -11,7 +10,6 @@
 
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/checked_integer.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/filesystem.h"
@@ -29,6 +27,7 @@ bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation,
                          std::vector<std::unique_ptr<Light>>* light_list)
 try {
     unsigned char version = 0;
+    unsigned char group_count = 0;
     bool success;
     unsigned char discarded[50];
     unsigned char channel_bytes[8];
@@ -44,15 +43,14 @@ try {
         return true;
     };
     success = (handle->read(&version, 1).bytes == static_cast<std::size_t>(1));
-    success =
-        success && (handle->read(&animation->group_count, 1).bytes == static_cast<std::size_t>(1));
+    success = success && (handle->read(&group_count, 1).bytes == static_cast<std::size_t>(1));
     success = success && read_flag(animation->animation_playing);
     success =
         success && (handle->read(&animation->frame_method, 1).bytes == static_cast<std::size_t>(1));
     success =
         success && (handle->read(&animation->behaviour, 1).bytes == static_cast<std::size_t>(1));
     success = success && (handle->read(&animation->cycle, 1).bytes == static_cast<std::size_t>(1));
-    success = success && read_flag(animation->path_lists);
+    success = success && read_flag(animation->positioned_parts);
 
     if (version < 3) {
         animation->playback_scale = 15.0f;
@@ -82,10 +80,10 @@ try {
     }
     success = success && (handle->read(discarded, sizeof(discarded)).bytes ==
                           static_cast<std::size_t>(sizeof(discarded)));
-    if (!success || animation->group_count > std::size(animation->entries)) {
+    if (!success || group_count > animation->parts.size()) {
         return false;
     }
-    for (index = 0; index < static_cast<signed char>(animation->group_count); ++index) {
+    for (index = 0; index < static_cast<signed char>(group_count); ++index) {
         success = success &&
                   (handle->read(&channel_bytes[index], 1).bytes == static_cast<std::size_t>(1));
     }
@@ -195,7 +193,7 @@ try {
         }
     }
 
-    if (!animation->path_lists && version > 8) {
+    if (!animation->positioned_parts && version > 8) {
         unsigned char has_path;
         handle->read_exact(&has_path, 1);
         if (has_path != 0) {
@@ -213,68 +211,44 @@ try {
         success = success && (handle->read(&ignored, 1).bytes == static_cast<std::size_t>(1));
     }
 
-    if (!animation->path_lists) {
-        int mesh_index;
-        for (mesh_index = 0; mesh_index < static_cast<signed char>(animation->group_count);
-             ++mesh_index) {
-            signed char channel = 0;
-
-            success = success && (handle->read(&channel, 1).bytes == static_cast<std::size_t>(1));
-            if (!success || channel < 0 ||
-                channel >= static_cast<int>(std::size(animation->entries))) {
-                return false;
-            }
+    for (int group = 0; group < group_count; ++group) {
+        signed char count = 1;
+        if (animation->positioned_parts) handle->read_exact(&count, 1);
+        for (int entry = 0; entry < count; ++entry) {
+            signed char channel;
+            handle->read_exact(&channel, 1);
+            if (channel < 0 || channel >= static_cast<int>(animation->parts.size())) return false;
             auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder);
             if (!mesh) return false;
-            animation->entries[channel] = std::move(mesh);
-        }
-    } else {
-        int group;
-        for (group = 0; group < static_cast<signed char>(animation->group_count); ++group) {
-            signed char entry_count;
-            int entry;
-            if (handle->read(&entry_count, 1).bytes != 1) {
-                return false;
-            }
-            for (entry = 0; entry < entry_count; ++entry) {
-                signed char channel;
-
-                if (handle->read(&channel, 1).bytes != 1) {
-                    return false;
-                }
-                if (channel < 0 || channel >= static_cast<int>(std::size(animation->entries))) {
-                    return false;
-                }
-                auto mesh = ReadAnimatedMesh(*handle, info->bitmap_folder);
-                if (!mesh) return false;
-                animation->meshes[channel].insert(animation->meshes[channel].begin() + entry,
-                                                  std::move(mesh));
-                auto path = LoadPathAI(*handle);
-                if (!path) return false;
-                path->discrete_mode = true;
-                path->animated = false;
-                path->speed = animation->playback_scale;
-                animation->frame_count = static_cast<unsigned char>(path->nodes.size());
-                animation->paths[channel].insert(animation->paths[channel].begin() + entry,
-                                                 std::move(path));
+            AnimationPart part{std::move(*mesh), std::nullopt};
+            auto& parts = animation->parts[channel];
+            if (animation->positioned_parts) {
+                part.path = LoadPathAI(*handle);
+                if (!part.path) return false;
+                part.path->discrete_mode = true;
+                part.path->animated = false;
+                part.path->speed = animation->playback_scale;
+                animation->frame_count = static_cast<unsigned char>(part.path->nodes.size());
+                if (std::cmp_greater(entry, parts.size())) return false;
+                parts.insert(parts.begin() + entry, std::move(part));
+            } else {
+                parts.clear();
+                parts.push_back(std::move(part));
             }
         }
     }
 
     if (animation->end_frame == 0) {
-        AnimationMesh* mesh = animation->entries[2].get();
-        if (mesh == 0) {
-            mesh = animation->entries[1].get();
-        }
-        if (mesh == 0) {
-            mesh = animation->entries[0].get();
-        }
-        if (mesh == 0) {
-            animation->end_frame = animation->start_frame;
-        } else if (!animation->path_lists) {
-            animation->end_frame = static_cast<unsigned char>(mesh->frame_count - 1);
-        } else {
-            animation->end_frame = animation->frame_count - 1;
+        // Positioned-part records without an end frame keep their start frame.
+        // Frame sequences use the highest available LOD's mesh extent.
+        animation->end_frame = animation->start_frame;
+        if (!animation->positioned_parts) {
+            for (signed char lod = 2; lod >= 0; --lod) {
+                if (auto* mesh = animation->mesh(lod)) {
+                    animation->end_frame = static_cast<unsigned char>(mesh->frame_count - 1);
+                    break;
+                }
+            }
         }
     }
     return success;
@@ -282,64 +256,43 @@ try {
     return false;
 }
 
-/* Copy the frame lists (their meshes are shared) and the paths; bounds copy as
-   ordinary values. */
+// Mesh resources are shared; each animation keeps its own part/path values.
 Animation::Animation(const Animation& other)
-    : group_count(other.group_count), animation_playing(other.animation_playing),
-      frame_method(other.frame_method), behaviour(other.behaviour), cycle(other.cycle),
-      path_lists(other.path_lists), playback_scale(other.playback_scale),
-      random_play(other.random_play), play_chance(other.play_chance),
-      start_frame(other.start_frame), end_frame(other.end_frame), frame_count(other.frame_count),
+    : animation_playing(other.animation_playing), frame_method(other.frame_method),
+      behaviour(other.behaviour), cycle(other.cycle), positioned_parts(other.positioned_parts),
+      playback_scale(other.playback_scale), random_play(other.random_play),
+      play_chance(other.play_chance), start_frame(other.start_frame), end_frame(other.end_frame),
+      frame_count(other.frame_count), path(other.path), parts(other.parts),
       frame_bounds(other.frame_bounds)
 {
-    for (int group = 0; group < 3; ++group) {
-        if (other.entries[group])
-            entries[group] = std::make_unique<AnimationMesh>(*other.entries[group]);
-        meshes[group].reserve(other.meshes[group].size());
-        for (const auto& mesh : other.meshes[group]) {
-            meshes[group].push_back(mesh ? std::make_unique<AnimationMesh>(*mesh) : nullptr);
-        }
-        paths[group].reserve(other.paths[group].size());
-        for (const auto& source : other.paths[group]) {
-            auto copy = source;
-            if (copy) copy->timed = false;
-            paths[group].push_back(std::move(copy));
-        }
-    }
-    if (other.path) {
-        path = std::optional<KeyframeTrack>(std::in_place, *other.path);
-        path->timed = false;
-    }
+    for (auto& group : parts)
+        for (auto& part : group)
+            if (part.path) part.path->timed = false;
+    if (path) path->timed = false;
 }
 
 /* Cache the frame's mesh bounds: the union of the untransformed part boxes. */
 std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char list_index,
                                             unsigned int frame)
 {
-    if (!animation || list_index < 0 ||
-        std::cmp_greater_equal(list_index, std::size(animation->entries)))
+    if (!animation || list_index < 0 || std::cmp_greater_equal(list_index, animation->parts.size()))
         return std::nullopt;
     frame &= 0xff;
     if (frame < animation->frame_bounds.size() && animation->frame_bounds[frame].known) {
         const auto& bounds = animation->frame_bounds[frame];
         return BoundingBox{bounds.minimum, bounds.maximum};
     }
-    if (!animation->path_lists) {
-        const auto* mesh = animation->entries[list_index].get();
+    if (!animation->positioned_parts) {
+        const auto* mesh = animation->mesh(list_index);
         return mesh ? std::optional{mesh->bounds} : std::nullopt;
     }
     if (frame >= animation->frame_count) return std::nullopt;
     if (animation->frame_bounds.size() < animation->frame_count)
         animation->frame_bounds.resize(animation->frame_count);
-    auto* first_mesh = AnimObjEntry(animation, list_index, 0);
-    if (!first_mesh) return std::nullopt;
-    auto bounds = first_mesh->bounds;
-    const auto count = animation->meshes[list_index].size();
-    for (std::size_t index = 1; index < count; ++index) {
-        const auto* mesh = AnimObjEntry(animation, list_index, index);
-        if (!mesh) return std::nullopt;
-        bounds.include(mesh->bounds);
-    }
+    const auto& parts = animation->parts[list_index];
+    if (parts.empty()) return std::nullopt;
+    auto bounds = parts.front().mesh.bounds;
+    for (const auto& part : parts) bounds.include(part.mesh.bounds);
     animation->frame_bounds[frame] = {true, bounds.minimum, bounds.maximum};
     return bounds;
 }
@@ -358,69 +311,25 @@ void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
     *minimum = transformed.minimum;
 }
 
-/* While the object is inactive the selected owned entry supplies the value;
-   once active, AnimObj keeps the live value in its own byte at 0x16. */
-unsigned int AnimObjValue(const Animation* animation, signed char index)
+unsigned int Animation::frameCount(signed char lod) const
 {
-    assert(animation != 0);
-    if (!animation->path_lists) {
-        return animation->entries[index]->frame_count;
-    }
-    return animation->frame_count;
+    return positioned_parts ? frame_count : parts[lod].front().mesh.frame_count;
 }
 
-unsigned int AnimObjListCount(Animation* animation, signed char index)
+KeyframeTrack* Animation::partPath(signed char lod, signed char part)
 {
-    return wiz8::checked_integer<unsigned int>(animation->meshes[index].size());
+    if (part < 0 || std::cmp_greater_equal(part, parts[lod].size())) return nullptr;
+    auto& path = parts[lod][part].path;
+    return path ? &*path : nullptr;
 }
 
-KeyframeTrack* AnimObjListEntry(Animation* animation, signed char list_index,
-                                signed char entry_index)
+AnimationFrame Animation::frame(signed char lod, unsigned char value, std::size_t part)
 {
-    assert(animation != 0);
-    if (!animation->path_lists) {
-        return 0;
-    }
-    auto& paths = animation->paths[list_index];
-    if (entry_index < 0 || std::cmp_greater_equal(entry_index, paths.size())) {
-        return nullptr;
-    }
-    return paths[entry_index] ? &*paths[entry_index] : nullptr;
+    const auto* selected = mesh(lod, part);
+    return selected ? GetAniMeshFrame(*selected, positioned_parts ? 0 : value) : AnimationFrame{};
 }
 
-AnimationFrame AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value)
+AnimationMesh* Animation::mesh(signed char lod, std::size_t part)
 {
-    assert(animation != 0);
-    const AnimationMesh* entry = animation->path_lists ? AnimObjEntry(animation, list_index, 0)
-                                                       : animation->entries[list_index].get();
-    return entry ? GetAniMeshFrame(*entry, value) : AnimationFrame{};
+    return part < parts[lod].size() ? &parts[lod][part].mesh : nullptr;
 }
-
-AnimationFrame AnimObjDispatchList(Animation* animation, signed char list_index,
-                                   signed char entry_index)
-{
-    assert(animation != 0);
-    if (!animation->path_lists) return {};
-    const auto& list = animation->meshes[list_index];
-    if (entry_index < 0 || std::cmp_greater_equal(entry_index, list.size()) || !list[entry_index])
-        return {};
-    return GetAniMeshFrame(*list[entry_index], 0);
-}
-
-AnimationMesh* AnimObjEntry(Animation* animation, signed char list_index, std::size_t entry_index)
-{
-    assert(animation != 0);
-    if (!animation->path_lists) {
-        return animation->entries[list_index].get();
-    }
-    const auto& meshes = animation->meshes[list_index];
-    const auto frame = entry_index & 0xff;
-    if (frame >= meshes.size()) {
-        return nullptr;
-    }
-    return meshes[frame].get();
-}
-
-/* Type-two light definitions own four synchronized keyframe vectors.  The
-   clone iterates the second vector's count, which is the retail authority for
-   the shared extent, then copies the four scalar playback  */
