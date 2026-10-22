@@ -215,6 +215,8 @@ code has a subclass whose members are that state. Trigger callbacks are
   640×480 design space. A `UiTransaction` spans one input step; objects retired
   during it are destroyed when the outermost transaction ends
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
+  The main game's dialogue panel owns NPC voice playback and the active quote's
+  input; discarding the panel cancels pending voice completion.
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
   parts the next draw repaints. One `Pointer`, owned by the router, holds the cursor
