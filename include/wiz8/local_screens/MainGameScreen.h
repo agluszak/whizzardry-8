@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
-#include <functional>
 #include <bitset>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
