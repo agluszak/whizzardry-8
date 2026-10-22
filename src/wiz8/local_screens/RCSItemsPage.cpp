@@ -134,16 +134,13 @@ void W8CampItemsPage::SetCampInfoPageMode(W8CampInfoPage mode)
 // FUNCTION: WIZ8 0x005BA110
 void W8CampItemsPage::OpenItemInfoDialog(W8ItemInstance* item)
 {
-    W8DialogBase* dialog;
-
-    if (!IsItemWornByCharacter(character, item) && !IsItemCarriedByCharacter(character, item)) {
-        dialog = new W8AssayDialog(*item, 0, {kInfoDialogX, kInfoDialogY});
-    } else {
-        dialog = new W8AssayDialog(*item, character, {kInfoDialogX, kInfoDialogY});
-    }
+    const bool owned =
+        IsItemWornByCharacter(character, item) || IsItemCarriedByCharacter(character, item);
+    auto dialog = std::make_unique<W8AssayDialog>(*item, owned ? character : nullptr,
+                                                  SDL_Point{kInfoDialogX, kInfoDialogY});
     dialog->SetText("");
 
-    dialogs.Display(std::unique_ptr<W8DialogBase>(dialog));
+    dialogs.Display(std::move(dialog));
 }
 
 // FUNCTION: WIZ8 0x005BA2B0
@@ -688,7 +685,6 @@ void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top,
     std::string label;
     std::string name;
     W8ControlsRect bounds;
-    W8TextBuffer* text;
     int width;
     int height;
 
@@ -698,35 +694,30 @@ void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top,
     bounds.top = top;
     bounds.right = left + 0xfa;
     bounds.bottom = top + 0xfa;
-    text = new W8TextBuffer(&bounds, label, g_font10arial,
-                            g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    if (text != 0) {
-        height = text->m_lineCount;
-        width = text->m_maxLineWidth + 4;
-        height = g_font10arial.height() * height + 2;
-        if (flag != 0) {
-            bounds.right -= width;
-            bounds.left -= width;
-            text->SetClipBounds(bounds);
-            text->SetLayoutBounds(&bounds, true);
-        }
-        SDL_Surface& framebuffer = GetFrameBufferSurface();
-        const SDL_Rect fill{bounds.left, bounds.top, width, height};
-        SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
-        if (framebuffer.pixels != nullptr) {
-            // reinterpret-ok: SGP frame-buffer bytes to W8TextBuffer's byte view
-            text->RenderText(framebuffer, 2, 1, true);
-            const Uint16 outline = static_cast<Uint16>(-0x6613);
-            const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
-            const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
-            const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
-            const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
-            SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
-            delete text;
-        }
+    W8TextBuffer text(&bounds, label, g_font10arial,
+                      g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    width = text.m_maxLineWidth + 4;
+    height = g_font10arial.height() * text.m_lineCount + 2;
+    if (flag != 0) {
+        bounds.right -= width;
+        bounds.left -= width;
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
+    }
+    SDL_Surface& framebuffer = GetFrameBufferSurface();
+    const SDL_Rect fill{bounds.left, bounds.top, width, height};
+    SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
+    if (framebuffer.pixels != nullptr) {
+        text.RenderText(framebuffer, 2, 1, true);
+        const Uint16 outline = static_cast<Uint16>(-0x6613);
+        const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
+        const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
+        const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
+        const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
+        SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
     }
 }
 

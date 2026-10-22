@@ -1184,11 +1184,10 @@ W8CharacterSkillsPage::W8CharacterSkillsPage(CharacterScreen& owner)
         const auto category = skill_attribute.category;
         const int category_index = static_cast<int>(category);
         W8CharacterPageEntry* entry =
-            new W8CharacterPageEntry(input, g_character_page2_category_geometry[category_index].x,
-                                     g_character_page2_category_geometry[category_index].y +
-                                         category_count[category_index] * 0xe,
-                                     true);
-        AddEntry(entry);
+            &AddEntry(g_character_page2_category_geometry[category_index].x,
+                      g_character_page2_category_geometry[category_index].y +
+                          category_count[category_index] * 0xe,
+                      true);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         ++category_count[category_index];
