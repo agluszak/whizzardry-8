@@ -11,7 +11,3 @@ int GetLocationVarIDByName(std::string_view name);
 void SetTriggerVariableByName(std::string_view name, int value);
 void CreateLocationVar(std::string_view name, int value);
 int GetLocationVarValueByName(std::string_view name);
-
-class Game;
-struct World;
-void InstallTriggerVariableDefaults(Game& game, const World& world);

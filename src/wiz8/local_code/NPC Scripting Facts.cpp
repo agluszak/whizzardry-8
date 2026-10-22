@@ -79,7 +79,6 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
 {
     W8NpcState* npc;
     W8MonsterGroup* group;
-    W8WorldItem* world_item;
     W8Character* character;
     Trigger* trigger;
     ParticleSystem* particle;
@@ -152,20 +151,12 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_CROCK_KIDNAPPED_PLAYER:
         if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
-            world_item = AddWorldItem(
-                *GetWorld(),
-                SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
-                          0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            if (world_item != 0) {
-                ActivateItem(*GetWorld(), CurrentGame().rng, world_item);
-            }
-            world_item = AddWorldItem(
-                *GetWorld(),
-                SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
-                          0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            if (world_item != 0) {
-                ActivateItem(*GetWorld(), CurrentGame().rng, world_item);
-            }
+            auto& items = GetWorld()->items;
+            for (int flowers = 0; flowers < 2; ++flowers)
+                items.activate(CurrentGame().rng,
+                               items.add(items.spawn(
+                                   CurrentGame().rng, CurrentGame().status.next_world_item_id,
+                                   0x2eb, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
         }
         return;
     case W8_FACT_CROCK_BREKEK_ASSIGN:
@@ -189,7 +180,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0) {
             npc = GetNpcStateByKind(0x20);
             if (npc != 0) {
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+                ReloadNpcScriptResources(npc);
                 if (!npc->is_grouped) {
                     CurrentGame().npc_dialogue.Cancel();
                     CurrentGame().npc_dialogue.Begin(npc, false);

@@ -452,7 +452,7 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
    loaded, cloned or failed. */
 std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
 {
-    ++world->next_legacy_prop_save_id;
+    world->takeLegacyPropSaveId();
     auto& definitions = world->missile_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
@@ -544,7 +544,7 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
     Animation* target = resources.cycles[emitter].animation.get();
 
     assert(target != 0);
-    return AnimObjValue(target, visual.m_bLOD);
+    return target->frameCount(visual.m_bLOD);
 }
 
 unsigned char Missile::ReadCycleData(LevelLoadContext* info, int cycle_index)
@@ -692,7 +692,7 @@ signed char Missile::GetNumSubCycles()
 {
     Animation* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, visual.m_bLOD));
+    return static_cast<signed char>(animation->frameCount(visual.m_bLOD));
 }
 
 bool Missile::IsCycleSupported(signed char cycle)

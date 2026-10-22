@@ -43,17 +43,14 @@ void SpawnActivatedItemAt(const char* entity, int item_id)
 {
     glm::vec3 entity_position;
     glm::vec3 position;
-    W8WorldItem* world_item;
 
     if (FindEntityByName(entity, &entity_position, 0, 0)) {
         position = entity_position;
-        world_item = AddWorldItem(
-            *GetWorld(),
-            SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
-                      item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        if (world_item != 0) {
-            ActivateItem(*GetWorld(), CurrentGame().rng, world_item);
-        }
+        auto& items = GetWorld()->items;
+        items.activate(CurrentGame().rng,
+                       items.add(items.spawn(
+                           CurrentGame().rng, CurrentGame().status.next_world_item_id, item_id,
+                           position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
     }
 }
 

@@ -38,7 +38,7 @@ inline void ClearBit(std::vector<bool>& bits, std::size_t bit)
    words and the magic again. A failed load leaves `bits` unchanged. */
 inline constexpr std::uint32_t kPackedBitsMagic = 0xdeadd00d;
 bool LoadPackedBits(wiz8::File& file, std::vector<bool>& bits);
-bool SavePackedBits(wiz8::File& file, const std::vector<bool>& bits);
+void SavePackedBits(wiz8::File& file, const std::vector<bool>& bits);
 
 struct W8Chunk;
 bool LoadPackedBits(W8Chunk& chunk, std::vector<bool>& bits);

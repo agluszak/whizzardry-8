@@ -123,31 +123,6 @@ static constexpr auto font_translation = [] {
     return table;
 }();
 
-Font::Font(Font&& other) noexcept
-    : glyphs(std::move(other.glyphs)), customPalette(other.customPalette),
-      shades(std::move(other.shades)), currentShade(other.currentShade)
-{
-    other.clear();
-}
-
-Font& Font::operator=(Font&& other) noexcept
-{
-    if (this != &other) {
-        clear();
-        glyphs = std::move(other.glyphs);
-        customPalette = other.customPalette;
-        shades = std::move(other.shades);
-        currentShade = other.currentShade;
-        other.clear();
-    }
-    return *this;
-}
-
-Font::~Font()
-{
-    clear();
-}
-
 void Font::clear()
 {
     glyphs = {};

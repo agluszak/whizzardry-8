@@ -115,7 +115,6 @@ bool Game::beginCombat(int surprise)
 {
     W8MonsterInfo* monster_info;
     W8MonsterInfo* nearest_info;
-    W8CombatSlot chosen;
     W8NpcState* npc;
     float nearest_distance;
     unsigned int index;
@@ -205,18 +204,7 @@ bool Game::beginCombat(int surprise)
             monster_info->pCombat->active = true;
             monster_info->pCombat->settle_ticks = 0;
             CurrentGame().events.push(CombatProgressChanged{});
-            if (monster_info->hp_current > 0 &&
-                monster_info->highest_condition < W8_CONDITION_WEBBED &&
-                monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-                MonsterChooseTarget(monster_info, &chosen,
-                                    W8VisibilityCondition::ThirdLineOfSightFlag);
-                if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                    monster_info->entity->ForwardReferencePosition(0);
-                } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                    monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
-                                                       false);
-                }
-            }
+            TurnMonsterToNewTarget(*monster_info);
             monster_info->death_processed = false;
         }
     }
@@ -302,7 +290,8 @@ bool CombatMayAdvanceContinuously(void)
         W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
         if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
-            CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
+            CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                 false, false) &&
             CharacterActionTargetsEnemies(CurrentGame().party, character, row->committed.kind,
                                           row->committed.detail, &row->committed.detail_block)) {
             return true;
@@ -554,7 +543,8 @@ void BeginCombatExecution(void)
         for (slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* party = &CurrentGame().party.rows[slot];
             if (!IsPartySlotEligible(slot) ||
-                !CharacterCanSwitchTo(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+                !CharacterCanSwitchTo(
+                    slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT), false, false)) {
                 continue;
             }
             if (party->committed.kind == W8_ACTION_DEFEND) {
@@ -809,9 +799,6 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
    it to face whoever it settled on. */
 void EndMonsterTurn(W8MonsterInfo* monster_info)
 {
-    W8CombatSlot chosen;
-    int target_location;
-
     monster_info->action_kind = W8_MONSTER_ACTION_NONE;
     monster_info->action_detail = 0;
     monster_info->pCombat->phase = 0;
@@ -819,20 +806,24 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
     monster_info->pCombat->settle_ticks = 0;
     CurrentGame().events.push(CombatProgressChanged{});
 
-    if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED &&
-        monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-        MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
-        if (chosen.iType == W8_TARGET_KIND_PARTY) {
-            monster_info->entity->ForwardReferencePosition(0);
-            monster_info->death_processed = false;
-            return;
-        }
-        if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-            target_location = chosen.iMonsterID;
-            monster_info->entity->AimAtMonster(GetMonsterByLocationID(target_location), false);
-        }
-    }
+    TurnMonsterToNewTarget(*monster_info);
     monster_info->death_processed = false;
+}
+
+void TurnMonsterToNewTarget(W8MonsterInfo& monster_info)
+{
+    if (monster_info.hp_current == 0 || monster_info.highest_condition >= W8_CONDITION_WEBBED ||
+        monster_info.uiCondition[W8_CONDITION_BLIND] != 0) {
+        return;
+    }
+    W8CombatSlot chosen;
+    MonsterChooseTarget(&monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
+    if (chosen.iType == W8_TARGET_KIND_PARTY) {
+        monster_info.entity->ForwardReferencePosition(0);
+    } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
+        if (Monster* target = GetMonsterByLocationID(chosen.iMonsterID))
+            monster_info.entity->AimAtMonster(*target, false);
+    }
 }
 
 /* Set one monster's turn up, once. How fast it moves through the turn depends
@@ -920,7 +911,9 @@ bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
         if (action != W8_ACTION_DEFEND) {
             return false;
         }
-        if (CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false)) {
+        if (CharacterCanSwitchTo(party_slot,
+                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                 false, false)) {
             return false;
         }
     }
@@ -1007,7 +1000,7 @@ void Game::endCombat(bool forced_cleanup)
     if (search_mode_saved) {
         ToggleSearchMode();
     }
-    ZoomRadarMapOut();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
@@ -1144,8 +1137,12 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
     W8Character* character = &CurrentGame().party.characters[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
         action_kind != W8_ACTION_NONE) {
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, notify)) {
-            AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (!CharacterCanSwitchTo(party_slot,
+                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                  true, notify)) {
+            W8CombatSlot none;
+            ResetCombatSlot(&none);
+            AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
         } else {
             if (!TargetIsInPlay(party_slot, 2,
                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT)) &&
@@ -1184,8 +1181,12 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
     if (!game.combat.has_value()) return;
     const W8ActionKind action = game.party.rows[party_slot].committed.kind;
     if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, true, false)) {
-            AimByKind(party_slot, W8_TARGET_KIND_NONE, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (!CharacterCanSwitchTo(party_slot,
+                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                  true, false)) {
+            W8CombatSlot none;
+            ResetCombatSlot(&none);
+            AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
         } else if (!TargetIsInPlay(
                        party_slot, 2,
                        SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT))) {
@@ -1295,16 +1296,15 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
 }
 } // namespace
 
-/* Whether a slot may switch to the action held in the given context,
+/* Whether a slot may switch to the given action,
    optionally repairing the aim state first when the caller allows it. */
-bool CharacterCanSwitchTo(int party_slot, W8EditedAction context, bool allow_missing_target,
+bool CharacterCanSwitchTo(int party_slot, const W8Action& action, bool allow_missing_target,
                           bool allow_equipment_changes)
 {
     if (const auto gate = GateActionSwitch(party_slot); gate != SwitchGate::CheckAction) {
         return gate == SwitchGate::Allow;
     }
-    return CanPerformAction(party_slot, SelectCombatAction(party_slot, context),
-                            allow_missing_target, allow_equipment_changes);
+    return CanPerformAction(party_slot, action, allow_missing_target, allow_equipment_changes);
 }
 
 bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
@@ -1346,7 +1346,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         if (monster_info->location_id != location_id) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->entity->AimAtMonster(target->entity.find(), alternate);
+                monster_info->entity->AimAtMonster(*target->entity, alternate);
                 return;
             }
         }
@@ -1357,7 +1357,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         if (location_id != -1) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->entity->AimAtMonster(target->entity.find(), alternate);
+                monster_info->entity->AimAtMonster(*target->entity, alternate);
                 return;
             }
         }
@@ -1386,7 +1386,8 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     int selected = CurrentGame().status.selected_character;
-    if (!CharacterCanSwitchTo(selected, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
+    if (!CharacterCanSwitchTo(
+            selected, SelectCombatAction(selected, W8_TARGETING_CONTEXT_IN_COMBAT), false, false) &&
         IsPartySlotEligible(selected)) {
         return;
     }
@@ -1399,7 +1400,9 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     do {
-        if (!CharacterCanSwitchTo(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, false) &&
+        if (!CharacterCanSwitchTo(party_slot,
+                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                  false, false) &&
             IsPartySlotEligible(party_slot)) {
             if (CurrentGame().status.selected_character == party_slot) {
                 return;
@@ -1644,18 +1647,7 @@ void AdvanceCombatRound(void)
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (monster_info->pCombat && monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_WEBBED &&
-            monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-            W8CombatSlot chosen;
-            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
-            if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                monster_info->entity->ForwardReferencePosition(0);
-            } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
-                                                   false);
-            }
-        }
+        if (monster_info->pCombat) TurnMonsterToNewTarget(*monster_info);
         ++index;
     }
 }

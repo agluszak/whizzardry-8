@@ -22,6 +22,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
@@ -326,7 +327,8 @@ bool MtGigas2Script::umpaniAlarm(int command)
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)), false, true);
+        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)),
+                            TimerClock::World, true);
         alarm_sound_ = CreateAndPlaySoundNode(
             world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", position, 1.0f,
             75.0f, true);

@@ -553,8 +553,6 @@ template<> struct Record<W8NpcCharacterTemplate> {
         text(runtime.name_part_2,
              bytes.subspan(offsetof(Disk, name_part_2), sizeof(Disk::name_part_2)),
              Encoding::utf16);
-        value(&runtime.unknown_01a,
-              bytes.subspan(offsetof(Disk, unknown_01a), sizeof(Disk::unknown_01a)));
         value(&runtime.profession,
               bytes.subspan(offsetof(Disk, profession), sizeof(Disk::profession)));
         value(&runtime.race, bytes.subspan(offsetof(Disk, race), sizeof(Disk::race)));
@@ -1005,8 +1003,8 @@ template<> struct Record<W8Character> {
         value(&runtime.record_version, bytes.subspan(0x0, 0x4));
         value(&runtime.fInParty, bytes.subspan(0x4, 0x1));
         text(runtime.name, bytes.subspan(0x5, 0x14), Encoding::utf16);
-        text(runtime.name_part_2, bytes.subspan(0x19, 0xc), Encoding::utf16);
-        value(&runtime.unknown_0025, bytes.subspan(0x25, 0x44));
+        // 0x19: the full name, up to 39 UTF-16 units.
+        text(runtime.name_part_2, bytes.subspan(0x19, 0x50), Encoding::utf16);
         value(&runtime.iProfession, bytes.subspan(0x69, 0x4));
         value(&runtime.original_profession, bytes.subspan(0x6d, 0x4));
         value(&runtime.iRace, bytes.subspan(0x71, 0x4));

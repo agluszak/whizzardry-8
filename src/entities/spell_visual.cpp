@@ -90,7 +90,7 @@ signed char SpellVisual::GetNumSubCycles()
 {
     Animation* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, this->visual.m_bLOD));
+    return static_cast<signed char>(animation->frameCount(this->visual.m_bLOD));
 }
 
 bool SpellVisual::IsCycleSupported(signed char cycle)
@@ -374,7 +374,7 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
 std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_view name,
                                                      W8SpellVisualMode group)
 {
-    ++world->next_legacy_prop_save_id;
+    world->takeLegacyPropSaveId();
     auto& definitions = world->spell_visual_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return candidate->mode == group &&
@@ -667,7 +667,7 @@ unsigned int SpellVisual::ApplyEmitterSetting(signed char emitter)
     Animation* target = this->resources.cycles[emitter].animation.get();
 
     assert(target != 0);
-    return AnimObjValue(target, this->visual.m_bLOD);
+    return target->frameCount(this->visual.m_bLOD);
 }
 
 void SpellVisual::TickAnimation(float time_scale)

@@ -24,7 +24,6 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Factions.h"
@@ -619,14 +618,10 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
             const auto drop_position = FindItemDropPosition();
             if (!drop_position) return {W8TradeOutcome::Refused};
             for (auto& item : overflow)
-                drops.push_back(
-                    CreateWorldItem(*GetWorld(), CurrentGame().status.next_world_item_id, &item,
-                                    &*drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                drops.push_back(GetWorld()->items.create(
+                    CurrentGame().status.next_world_item_id, &item, *drop_position,
+                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
-    }
-    if (!drops.empty()) {
-        auto& items = CurrentLevelPopulation().world_items;
-        items.reserve(items.size() + drops.size());
     }
     // Publish the complete transfer before encumbrance, reactions or presentation.
     std::ranges::copy(pool, game.party.item_pool);
@@ -634,7 +629,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
     ConsumeNpcItemQuantity(npc, index, quantity);
     RemoveDepletedNpcStock(npc);
     if (!no_payment) SpendPartyGold(game.party, price);
-    for (auto& drop : drops) AddWorldItem(*GetWorld(), std::move(drop));
+    for (auto& drop : drops) GetWorld()->items.add(std::move(drop));
     if (held) {
         game.party.held.item = *held;
 

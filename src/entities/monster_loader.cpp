@@ -124,7 +124,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
     auto handle = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
     monster = std::make_unique<Monster>(world);
-    ++world->next_legacy_prop_save_id;
+    world->takeLegacyPropSaveId();
     monster->visual.current_cycle = -1;
 
     {
@@ -605,20 +605,12 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index)
         visual.current_cycle = cycle;
     }
 
-    if (animation->path_lists == 1) {
-        signed char list;
-
-        for (list = 0; list < 3; ++list) {
-            signed char entry;
-            signed char count = static_cast<signed char>(AnimObjListCount(animation, list));
-
-            for (entry = 0; entry < count; ++entry) {
-                KeyframeTrack* path = AnimObjListEntry(animation, list, entry);
-                if (path != 0) {
-                    path->looping = true;
-                    path->discrete_mode = true;
-                    path->speed = animation->playback_scale;
-                }
+    for (auto& group : animation->parts) {
+        for (auto& part : group) {
+            if (part.path) {
+                part.path->looping = true;
+                part.path->discrete_mode = true;
+                part.path->speed = animation->playback_scale;
             }
         }
     }
@@ -630,7 +622,7 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index)
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle)
 {
     auto monster = std::make_unique<Monster>(world);
-    ++world->next_legacy_prop_save_id;
+    world->takeLegacyPropSaveId();
     monster->visual.current_cycle = -1;
     if (!loadAnimationCycle(mon_name, monster->visual, cycle, "data\\monsters",
                             [&](LevelLoadContext& read_info, int read_cycle) {

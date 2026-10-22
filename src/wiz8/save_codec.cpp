@@ -905,8 +905,9 @@ std::vector<std::byte> encode(const MessageBoxes& boxes)
         for (const auto& line : lines) {
             const auto units = text::to_utf16(line.text).size();
             MessageRecord record{};
-            record.character_count =
-                line.text.empty() ? 0 : checked_integer<std::uint32_t>(units + 1);
+            // Even an empty line keeps its terminator: retail allocates the count it reads
+            // and treats the result as a terminated string.
+            record.character_count = checked_integer<std::uint32_t>(units + 1);
             record.font_palette = line.font_palette;
             record.highlight_color = line.highlight_color;
             record.highlight_start = utf16_byte(line.text, line.highlight_start);
@@ -920,11 +921,9 @@ std::vector<std::byte> encode(const MessageBoxes& boxes)
                                       line.text, static_cast<std::size_t>(line.length)));
             std::ranges::copy(line.unknown_1c, record.unknown_1c);
             out.value(record);
-            if (record.character_count != 0) {
-                std::vector<std::byte> characters(std::size_t{record.character_count} * 2);
-                text::to_utf16le(line.text, characters);
-                out.bytes(characters);
-            }
+            std::vector<std::byte> characters(std::size_t{record.character_count} * 2);
+            text::to_utf16le(line.text, characters);
+            out.bytes(characters);
         }
     }
     return out.take();

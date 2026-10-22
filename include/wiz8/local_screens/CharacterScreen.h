@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -78,29 +79,24 @@ public:
     static constexpr SDL_Rect bounds{0xc3, 0x2b, 445, 406};
     bool m_active = false;
     bool m_dirty = true;
-    W8CharacterPage(CatalogArtwork background);
+    W8CharacterPage(CharacterScreen& owner, CatalogArtwork background);
     void SetActive(bool active);
     virtual ~W8CharacterPage();
     virtual void InvalidateAll();
     virtual void Redraw(SDL_Surface& target, bool full_redraw);
-    virtual void SetCharacter(W8Character* character, W8CharacterCreationState* creation_state,
-                              W8CharacterScreenMode mode);
     virtual void Activate() = 0;
     virtual void Deactivate() = 0;
     virtual void Accept() = 0;
     virtual void GetNavigationState(bool* next_enabled, bool* exit_enabled) = 0;
     virtual void HandleInput(const InputEvent* input);
     virtual void Refresh();
-    virtual void Prepare();
     std::vector<std::unique_ptr<W8CharacterPageEntry>> m_entries;
-    CharacterScreen* m_screen;
-    W8Character* m_character;
-    W8CharacterCreationState* m_creation_state;
-    W8CharacterScreenMode m_mode;
-    bool m_prepared;
-    bool m_contentDirty; /* page-specific content needs repainting */
+    CharacterScreen& screen;
+    bool m_instructions_dirty = true;
+    bool m_contentDirty = true; /* page-specific content needs repainting */
 
-    void AddEntry(W8CharacterPageEntry* entry);
+    // Add a value row at (x, y) in this page's input layer.
+    W8CharacterPageEntry& AddEntry(int x, int y, bool compact);
 };
 
 class W8CharacterStatsRow;
@@ -116,16 +112,15 @@ struct W8CharacterStatsRecord {
     int image_enabled;
     int image_disabled;
     unsigned short name_id;
-    unsigned char enabled;
-    unsigned char pad_0f;
 };
 
 class W8CharacterStatsPage;
 
 class W8CharacterStatsRow {
 public:
-    W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count,
-                        const W8CharacterStatsRecord* table,
+    enum class Kind { Profession, Race, Gender };
+    W8CharacterStatsRow(W8CharacterStatsPage& owner, Kind kind, int x, int y,
+                        std::span<const W8CharacterStatsRecord> table,
                         const W8CharacterStatsRecord* default_record, int help_first,
                         int help_second, int help_value);
     ~W8CharacterStatsRow();
@@ -133,17 +128,18 @@ public:
     void CollapseIfNotHovered();
     void Invalidate() { m_dirty = true; }
     void BuildSubpanel();
-    void SetValue(int index);
+    void Select(int index);
+    int selectedValue() const;
+    bool choiceEnabled(int index) const;
     void SetEnabled(bool enabled);
     void Draw(SDL_Surface& target, bool force);
     void DrawChoices(SDL_Surface& target);
     void Step(int direction);
 
-    int m_index = -1;
-    int m_count;
+    Kind kind;
     int m_x;
     int m_y;
-    const W8CharacterStatsRecord* m_table;
+    std::span<const W8CharacterStatsRecord> m_table;
     const W8CharacterStatsRecord* m_default_record;
     W8CharacterStatsPage& m_owner;
     std::unique_ptr<W8ButtonWidget> m_decrement;
@@ -157,17 +153,15 @@ public:
 
 class W8CharacterStatsPage : public W8CharacterPage {
 public:
-    W8CharacterStatsPage() : W8CharacterPage(CatalogArtwork::Load(0x104)) {}
+    explicit W8CharacterStatsPage(CharacterScreen& owner);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
-                              W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void HandleInput(const InputEvent*) override;
     virtual void Refresh() override;
-    virtual void Prepare() override;
+    void InvalidateAll() override;
     void OnRowValueChanged(W8CharacterStatsRow* row, int value);
     void OnRowExpanded(W8CharacterStatsRow* row);
     void OnRowCollapsed(W8CharacterStatsRow* row);
@@ -176,58 +170,42 @@ public:
     void ShowEntryInfo(W8CharacterPageEntry*);
 
 private:
-    void UpdateRowValues();
     void SetRowControlsActive(W8CharacterStatsRow* row, bool active);
 
 public:
     std::unique_ptr<W8CharacterStatsRow> m_profession_row;
     std::unique_ptr<W8CharacterStatsRow> m_race_row;
     std::unique_ptr<W8CharacterStatsRow> m_gender_row;
-    bool nav_next_state;
-    bool m_rows_initialized;
-    unsigned char pad_08a[2];
     HitTarget* m_attribute_controls[5];
-};
-
-struct W8CharacterSpellEntry {
-    W8SpellRealm realm;
-    unsigned int spell;
-    bool fSelectable;
-    bool selected;
 };
 
 class W8CharacterSpellList;
 
 class W8CharacterSpellsPage : public W8CharacterPage {
 public:
-    W8CharacterSpellsPage();
+    explicit W8CharacterSpellsPage(CharacterScreen& owner);
     ~W8CharacterSpellsPage() override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
-                              W8CharacterScreenMode) override;
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
     virtual void GetNavigationState(bool*, bool*) override;
     virtual void Refresh() override;
-    void SelectSpell(unsigned int entry);
-    void ShowSpellInfo(unsigned int entry);
+    void SelectSpell(unsigned int spell);
+    void ShowSpellInfo(unsigned int spell);
 
 private:
     void UpdateSpellLists();
     std::unique_ptr<W8CharacterSpellList> m_realms[6];
-    W8CharacterSpellEntry m_SpellData[114];
-    W8GameTimer anim_timer;
+    W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
     unsigned int m_animation_frames[6];
-    unsigned int m_last_selected;
+    std::optional<unsigned int> m_last_selected;
 };
 
 class W8CharacterSkillsPage : public W8CharacterPage {
 public:
-    W8CharacterSkillsPage() : W8CharacterPage(CatalogArtwork::Load(0x108)) {}
+    explicit W8CharacterSkillsPage(CharacterScreen& owner);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
-                              W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -240,18 +218,12 @@ private:
     void UpdateEntries();
     bool m_force_redraw;
     bool m_show_fifth_category;
-    bool nav_next_state;
 };
 
 class W8CharacterPersonalityPage : public W8CharacterPage {
 public:
-    W8CharacterPersonalityPage()
-        : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, 1), m_animation_active(0)
-    {
-    }
+    explicit W8CharacterPersonalityPage(CharacterScreen& owner);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
-    virtual void SetCharacter(W8Character*, W8CharacterCreationState*,
-                              W8CharacterScreenMode) override;
     virtual void Activate() override;
     virtual void Deactivate() override;
     virtual void Accept() override;
@@ -264,18 +236,13 @@ private:
     std::array<std::unique_ptr<W8ButtonWidget>, 5> m_buttons;
     std::array<HitTarget*, 11> m_choices{};
     bool m_choices_dirty = true;
-    W8GameTimer anim_timer;
+    W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
     int m_animation_frame;
     bool m_animation_active;
     bool m_description_dirty;
     bool m_portrait_dirty;
     std::optional<TextFieldGroup> m_text_fields;
 };
-
-W8CharacterStatsPage* CreateCharacterStatsPage();
-W8CharacterSpellsPage* CreateCharacterSpellsPage();
-W8CharacterSkillsPage* CreateCharacterSkillsPage();
-W8CharacterPersonalityPage* CreateCharacterPersonalityPage();
 
 /* Realm animation records shared by the stats page's resistance icons and the
    spells page's realm list. The stats page reads only initial_frame, through
@@ -305,7 +272,8 @@ public:
     static constexpr W8ScreenId id = W8_SCREEN_CHARACTER;
 
     // The screen is rebuilt on every visit, within one game.
-    explicit CharacterScreen(Game& game) : m_game(game) {}
+    explicit CharacterScreen(Game& game);
+    ~CharacterScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
     bool leave(ScreenDeparture departure) override;
@@ -313,11 +281,6 @@ public:
     {
         return entered;
     }
-
-    /* A skill became available or unavailable while the screen is current
-       (SkillAvailabilityChanged): adjust its allocation and refresh the skills
-       page. */
-    void SkillAvailabilityChanged(W8Skill skill, bool available);
 
     void BuildControls();
     void UpdateDialog();
@@ -348,8 +311,7 @@ public:
     int m_page_index = -1;
     bool m_header_dirty = false;
     W8Character* m_original = nullptr;
-    W8Character m_character;
-    W8CharacterCreationState m_creation_state;
+    CharacterDraft draft;
     bool m_block_advance = false;
     bool m_confirm_profession = false;
     bool m_force_transition = false;
@@ -362,7 +324,7 @@ public:
     std::unique_ptr<W8ButtonWidget> m_reset;
     bool m_page_enabled[4] = {};
     std::unique_ptr<W8CharacterPage> m_pages[4];
-    W8DialogBase* m_dialog = nullptr;
+    std::unique_ptr<W8DialogBase> m_dialog;
     unsigned int m_dialog_response = 0;
     bool m_capture_dialog_result = false;
 };

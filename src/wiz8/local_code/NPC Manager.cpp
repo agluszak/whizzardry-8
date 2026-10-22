@@ -566,8 +566,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
             CurrentGame().party.characters[party_slot].skills[index].available = true;
         }
     }
-    RefreshCharacterSkillAvailability(CurrentGame().events,
-                                      &CurrentGame().party.characters[party_slot]);
+    RefreshCharacterSkillAvailability(Data(), &CurrentGame().party.characters[party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
@@ -580,7 +579,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     npc->is_present = false;
     npc->event_pending = 0;
     npc->pending_restore = false;
-    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+    ReloadNpcScriptResources(npc);
 
     /* Retail writes the race into this initially populated list, then tests
        the value just written. Preserve that assignment and early exit. */
@@ -1034,7 +1033,6 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
    falls back to the kind-0x18 greeter. */
 static void SelectStartNpcGreeting(void)
 {
-    Monster* monster;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     unsigned char value;
@@ -1061,10 +1059,10 @@ static void SelectStartNpcGreeting(void)
             if (monster_info == 0) {
                 return;
             }
-            monster = monster_info->entity.find();
-            head = glm::vec3(monster->nav.movement.position.x,
-                             monster->nav.movement.position.y + monster->nav.movement.height_offset,
-                             monster->nav.movement.position.z);
+            Monster& monster = *monster_info->entity;
+            head = glm::vec3(monster.nav.movement.position.x,
+                             monster.nav.movement.position.y + monster.nav.movement.height_offset,
+                             monster.nav.movement.position.z);
             partyCamera().LookAt(&head, false);
             return;
         }
@@ -1275,7 +1273,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->has_monster = true;
     npc->level_band = GetLevelBand(GetLoadedLevelID());
     npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+    ReloadNpcScriptResources(npc);
 }
 
 /* Expand the record's character block into a fresh group-member character:
@@ -1335,7 +1333,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character, Rng&
     }
     AdvanceCharacterToLevel(&character, source->level);
     CalcCharacterLevelBand(&character);
-    RefreshCharacterSkillAvailability(CurrentGame().events, &character);
+    RefreshCharacterSkillAvailability(Data(), &character);
     RecalculateCharacterDerivedStats(CurrentGame(), character);
     for (index = 1; index < 0x73; ++index) {
         if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {
@@ -1408,7 +1406,7 @@ void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
             npc->has_monster = true;
             npc->level_band = GetLevelBand(GetLoadedLevelID());
             npc->bound_level = GetLoadedLevelID();
-            ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+            ReloadNpcScriptResources(npc);
         }
         if (npc->spawned == 0xffff) npc->spawned = 0;
     }
@@ -2130,23 +2128,17 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         monster_info = GetNpcMonsterInfo(npc);
         if (monster_info != 0) {
             position = monster_info->entity->nav.GetPosition();
-            W8WorldItem* item = AddWorldItem(
-                *GetWorld(),
-                SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
-                          0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-
-            if (item != 0) {
-                ActivateItem(*GetWorld(), CurrentGame().rng, item);
-            }
+            auto& items = GetWorld()->items;
+            items.activate(CurrentGame().rng,
+                           items.add(items.spawn(
+                               CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x1e6,
+                               position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
         } else if (FindEntityByName("NP_Glumph", &position, 0, 0)) {
-            W8WorldItem* item = AddWorldItem(
-                *GetWorld(),
-                SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
-                          0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-
-            if (item != 0) {
-                ActivateItem(*GetWorld(), CurrentGame().rng, item);
-            }
+            auto& items = GetWorld()->items;
+            items.activate(CurrentGame().rng,
+                           items.add(items.spawn(
+                               CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x1e6,
+                               position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
         }
     }
     if (mode == W8MarkedNpcEventMode::release_companion) {
@@ -2243,7 +2235,7 @@ void RebindNpcLevelTriggers(void)
                 npc->has_monster = true;
                 npc->level_band = static_cast<unsigned char>(GetLevelBand(GetLoadedLevelID()));
                 npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+                ReloadNpcScriptResources(npc);
                 npc->is_present = false;
             }
         }

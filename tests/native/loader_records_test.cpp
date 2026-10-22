@@ -47,7 +47,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/Camp.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -718,8 +717,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     REQUIRE(second->path->entry_index == 1);
     REQUIRE(first->path->speed == 15.f);
     REQUIRE(second->path->speed == 7.5f);
-    REQUIRE(first->path->nodes.size() == 2);
-    REQUIRE(first->path->nodes[1].x == 500.f);
+    REQUIRE(first->path->points().size() == 2);
+    REQUIRE(first->path->points()[1].position.x == 500.f);
     world.plsCameras.resize(1);
     for (std::size_t operation = 1; operation <= operations; ++operation) {
         auto file = wiz8::open_file(wiz8::asset_path("cameras.bin"));
@@ -828,8 +827,8 @@ TEST_CASE_METHOD(LoaderFixture,
     LevelLoadContext info{&world, file.get(), {}};
     info.build_state = &build;
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
-    REQUIRE(world.population->world_items.empty());
-    REQUIRE(current.population->world_items.empty());
+    REQUIRE(world.items.records().empty());
+    REQUIRE(current.items.records().empty());
     REQUIRE(current.triggers.empty());
 }
 
@@ -863,17 +862,17 @@ TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candida
         LevelLoadContext info{&candidate, file.get(), {}};
         info.build_state = &build;
         REQUIRE_FALSE(ReadWorldItems(&info, &candidate)); // The model is deliberately absent.
-        REQUIRE(candidate.population->world_items.size() == 1);
-        REQUIRE(candidate.population->world_items.front()->item.iItemNo == 0);
-        REQUIRE(candidate.population->world_items.front()->item.stack_count == quantity);
+        REQUIRE(candidate.items.records().size() == 1);
+        REQUIRE(candidate.items.records().front()->item.iItemNo == 0);
+        REQUIRE(candidate.items.records().front()->item.stack_count == quantity);
         REQUIRE(build.next_item_id == 43);
         REQUIRE(build.rng.next() == expected_rng.next());
         REQUIRE(game.game.status.next_world_item_id == 42);
         REQUIRE(game.game.rng.next() == original_rng.next());
-        REQUIRE(active.population->world_items.empty());
+        REQUIRE(active.items.records().empty());
         REQUIRE(active.plsItems.empty());
     }
-    REQUIRE(active.population->world_items.empty());
+    REQUIRE(active.items.records().empty());
     REQUIRE(active.plsItems.empty());
 }
 
@@ -988,11 +987,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(group->contents[1]->runtime_id == 31);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
-    group->saved_marker = 23;
-    group->contents.front()->saved_marker = 24;
     REQUIRE_NOTHROW(SaveItemFile(*output, *group));
-    REQUIRE(group->saved_marker == 23);
-    REQUIRE(group->contents.front()->saved_marker == 24);
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
@@ -1033,7 +1028,7 @@ TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loa
     // bitmap first. The reader tells them apart without the level's world.
     const auto section = [](const std::vector<bool>* visited) {
         auto writer = wiz8::open_memory_writer();
-        if (visited) REQUIRE(SavePackedBits(*writer, *visited));
+        if (visited) SavePackedBits(*writer, *visited);
         const std::uint32_t signature = 0xf00df00d, count = 0;
         writer->write(&signature, sizeof(signature));
         writer->write(&count, sizeof(count));
@@ -1567,26 +1562,27 @@ TEST_CASE_METHOD(LoaderFixture,
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>(1));
     World candidate(2);
-    const auto old_id = GetWorld()->next_legacy_prop_save_id;
+    const auto old_id = GetWorld()->takeLegacyPropSaveId();
     store("short-prop.bin", "");
     auto file = wiz8::open_file(wiz8::asset_path("short-prop.bin"));
     LevelLoadContext info{&candidate, file.get(), {}};
     REQUIRE_FALSE(CreateAndLoadProp(&info));
-    REQUIRE(candidate.next_legacy_prop_save_id == 2);
-    REQUIRE(GetWorld()->next_legacy_prop_save_id == old_id);
+    // The failed prop took the candidate's first identity, and none of the live world's.
+    REQUIRE(candidate.takeLegacyPropSaveId() == 3);
+    REQUIRE(GetWorld()->takeLegacyPropSaveId() == old_id + 1);
     auto trigger = std::make_unique<Trigger>(&candidate);
     trigger->state_to_modify = "door";
     trigger->initial_location_value = 1;
     candidate.triggers.push_back(std::move(trigger));
     REQUIRE(game.game.story.location_variables.empty());
     game.game.story.location_variables.push_back({"door", 0, 1});
-    InstallTriggerVariableDefaults(game.game, candidate);
+    game.game.story.addTriggerVariableDefaults(candidate);
     REQUIRE(game.game.story.location_variables.size() == 2);
     REQUIRE(game.game.story.location_variables[0].value == 0);
     REQUIRE(game.game.story.location_variables[1].level == 2);
     REQUIRE(game.game.story.location_variables[1].value == 1);
     game.game.story.location_variables[1].value = 7;
-    InstallTriggerVariableDefaults(game.game, candidate);
+    game.game.story.addTriggerVariableDefaults(candidate);
     REQUIRE(game.game.story.location_variables.size() == 2);
     REQUIRE(game.game.story.location_variables[1].value == 7);
 }

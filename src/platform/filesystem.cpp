@@ -159,25 +159,6 @@ File::~File()
 {
     if (stream_) SDL_CloseIO(stream_);
 }
-File::File(File&& other) noexcept
-    : stream_(std::exchange(other.stream_, nullptr)), path_(std::move(other.path_)),
-      writable_(other.writable_), writer_create_time_(other.writer_create_time_),
-      memory_(std::move(other.memory_)), memory_writer_(other.memory_writer_)
-{
-}
-File& File::operator=(File&& other) noexcept
-{
-    if (this != &other) {
-        if (stream_) SDL_CloseIO(stream_);
-        stream_ = std::exchange(other.stream_, nullptr);
-        path_ = std::move(other.path_);
-        writable_ = other.writable_;
-        writer_create_time_ = other.writer_create_time_;
-        memory_ = std::move(other.memory_);
-        memory_writer_ = other.memory_writer_;
-    }
-    return *this;
-}
 SDL_IOStream* File::require_stream() const
 {
     if (!stream_) throw std::logic_error("file is closed");

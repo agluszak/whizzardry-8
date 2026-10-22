@@ -1,11 +1,10 @@
 #pragma once
 
-#include <string_view>
+#include <memory>
 
 class W8DialogBase;
 class W8MessageDialogBase;
 struct W8Character;
 
-W8DialogBase* CreateCharacterSummaryDialog(W8Character* character);
-W8MessageDialogBase* CreateMessageDialog();
-void SetDialogPrompt(W8MessageDialogBase* dialog, std::string_view text);
+std::unique_ptr<W8DialogBase> CreateCharacterSummaryDialog(W8Character* character);
+std::unique_ptr<W8MessageDialogBase> CreateMessageDialog();

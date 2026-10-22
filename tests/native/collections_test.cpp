@@ -40,6 +40,7 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -65,6 +66,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/activity.h"
@@ -221,6 +223,16 @@ static bool groupMemberLookup()
     group.monsters.erase(group.monsters.begin());
     REQUIRE(group.MemberLocationId(0) == 202);
     return true;
+}
+
+TEST_CASE("Resource names match without regard to case", "[collections]")
+{
+    // The sky asks for "SkyGrad0000.ifl"; the prepared file is skygrad0000.ifl.
+    ResourceCache<int> cache;
+    const auto gradient = std::make_shared<int>(7);
+    cache.insert("skygrad0000.ifl", gradient);
+    REQUIRE(cache.find("SkyGrad0000.ifl") == gradient);
+    REQUIRE(cache.find("skytop0000.ifl") == nullptr);
 }
 
 TEST_CASE("Group activity is derived from its own population without recounts", "[collections]")
@@ -693,8 +705,8 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     draft.detail = 9;
     draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
-    CommitActionTarget(0, W8EditedAction{draft}, target, false);
-    const auto assessed = SelectCombatAction(0, W8EditedAction{draft});
+    AimDraft(0, draft, target);
+    const auto assessed = ParticipatingAction(0, draft);
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
     draft.target.iType = W8_TARGET_KIND_NONE;
@@ -1054,6 +1066,56 @@ W8Character MakeFighter()
 }
 }
 
+TEST_CASE("Character drafts reconcile their own skill allocations without a screen",
+          "[character][creation]")
+{
+    const ScopedGame current;
+    Game owner;
+    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    CharacterDraft draft(owner);
+    draft.character = MakeFighter();
+    draft.character.uiExpLevel = 2;
+    draft.character.profession_levels[W8_PROFESSION_FIGHTER] = 2;
+    draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base = 100;
+    auto& power_strike = draft.character.skills[W8_SKILL_POWER_STRIKE];
+    power_strike.active = true;
+    power_strike.points = power_strike.level = 10;
+    draft.allocation.attribute_points_total = 3;
+    draft.allocation.attribute_points_remaining = 2;
+    draft.allocation.attribute_values[W8_ATTRIBUTE_STRENGTH] = 1;
+    draft.allocation.attribute_limits[W8_ATTRIBUTE_STRENGTH] = 3;
+    draft.allocation.skill_points_total = 9;
+    draft.allocation.skill_points_remaining = 7;
+    draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] = 2;
+
+    draft.adjustAttribute(W8_ATTRIBUTE_STRENGTH, -1);
+
+    REQUIRE(draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base == 99);
+    REQUIRE_FALSE(power_strike.active);
+    REQUIRE(power_strike.points == 8);
+    REQUIRE(draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] == 0);
+    REQUIRE(draft.allocation.skill_points_remaining == 9);
+    REQUIRE(current.game.events.pending().empty());
+    REQUIRE(owner.events.pending().empty());
+}
+
+TEST_CASE("A second character draft cannot erase a forced-gender choice", "[character][creation]")
+{
+    const ScopedGame current;
+    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    CharacterDraft first(current.game);
+    first.character = MakeFighter();
+    first.character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
+    first.beginLevelUp();
+    first.setProfession(W8_PROFESSION_VALKYRIE);
+    REQUIRE(first.character.gender == W8_GENDER_FEMALE);
+
+    CharacterDraft second(current.game);
+    second.beginCreation();
+    first.setProfession(W8_PROFESSION_FIGHTER);
+    REQUIRE(first.character.gender == W8_GENDER_MALE);
+}
+
 TEST_CASE("Attribute-cap notices follow the party's activity without a screen", "[party][events]")
 {
     struct Scenario {
@@ -1079,9 +1141,9 @@ TEST_CASE("Attribute-cap notices follow the party's activity without a screen", 
         ApplyAttributeChange(game, &character, W8_ATTRIBUTE_STRENGTH);
 
         const auto& pending = game.events.pending();
-        REQUIRE(pending.size() == (scenario.announces ? 2u : 1u));
-        REQUIRE(std::get<SkillAvailabilityChanged>(pending[0]).available);
-        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[1]));
+        REQUIRE(character.skills[W8_SKILL_POWER_STRIKE].active);
+        REQUIRE(pending.size() == (scenario.announces ? 1u : 0u));
+        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[0]));
     }
 }
 

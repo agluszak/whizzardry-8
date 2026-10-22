@@ -111,7 +111,6 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* r
     monster_info->ubDisposition = group->ubDisposition;
     monster_info->scale = -1.0f;
     monster_info->fActive = false;
-    monster_info->entity.detach();
     monster_info->pCombat = 0;
     monster_info->position = *position;
     monster_info->derived = GetCameraFacingYaw(position);
@@ -177,56 +176,55 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& 
         return;
     }
 
+    if (!monster_info->entity) throw std::runtime_error("missing prepared monster representation");
+    Monster& monster = *monster_info->entity;
     record = MonsterDBFromSpecies(monster_info->monster_species);
-    if (!monster_info->entity || monster_info->entity->IsPendingFinalize()) {
-        if (!monster_info->entity)
-            throw std::runtime_error("missing prepared monster representation");
-        monster_info->entity->SetLocationId(monster_info->location_id);
-        monster_info->entity->SetAdjustedPosition(&monster_info->position);
+    if (monster.IsPendingFinalize()) {
+        monster.SetLocationId(monster_info->location_id);
+        monster.SetAdjustedPosition(&monster_info->position);
 
         if (unborn) {
-            if (!monster_info->entity->IsCycleSupported(0))
-                throw std::runtime_error(fmt::format("unborn monster {} has no birth cycle",
-                                                     monster_info->entity->name));
-            monster_info->entity->visual.SetBehaviour(W8_ANIMATION_PLAY_ONCE);
-            monster_info->entity->SetCycle(0);
-            assert(monster_info->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
-            monster_info->entity->visual.SetSubCycle(0);
-            monster_info->entity->SetAnimating(false);
-            monster_info->entity->nav.active = false;
-            monster_info->entity->inactive = true;
+            if (!monster.IsCycleSupported(0))
+                throw std::runtime_error(
+                    fmt::format("unborn monster {} has no birth cycle", monster.name));
+            monster.visual.SetBehaviour(W8_ANIMATION_PLAY_ONCE);
+            monster.SetCycle(0);
+            assert(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
+            monster.visual.SetSubCycle(0);
+            monster.SetAnimating(false);
+            monster.nav.active = false;
+            monster.inactive = true;
         } else {
-            monster_info->entity->SetCycle(1);
-            monster_info->entity->visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
-            assert(monster_info->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
-            monster_info->entity->visual.SetSubCycle(
-                rng.below(monster_info->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT)));
-            monster_info->entity->SetAnimating(!monster_info->fMotionless);
+            monster.SetCycle(1);
+            monster.visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
+            assert(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
+            monster.visual.SetSubCycle(rng.below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
+            monster.SetAnimating(!monster_info->fMotionless);
         }
 
-        world.active_monsters.push_back(monster_info->entity.find());
-        monster_info->entity->SetFacing(monster_info->derived);
+        world.active_monsters.push_back(&monster);
+        monster.SetFacing(monster_info->derived);
         RebuildMonsterDerivedStats(*monster_info);
-        monster_info->entity->nav.movement.leadership_rank =
+        monster.nav.movement.leadership_rank =
             static_cast<unsigned int>(record->effective_level) * 0x10000U +
             monster_info->location_id;
-        monster_info->entity->SetLocationId(monster_info->location_id);
-        monster_info->entity->pending_finalize = false;
+        monster.SetLocationId(monster_info->location_id);
+        monster.pending_finalize = false;
 
         InitializeMonsterRangeCapabilities(monster_info,
                                            MonsterDBFromSpecies(monster_info->monster_species));
     }
 
     camera_position = cameraLocation(world);
-    monster_info->entity->visual.SelectLOD(&camera_position);
+    monster.visual.SelectLOD(&camera_position);
     UpdateMonsterDamageAppearance(monster_info);
-    monster_info->entity->UpdateRepresentation(&world);
+    monster.UpdateRepresentation(&world);
     world.compiledIndex()->UpdateMonsterLocation(
         static_cast<unsigned short>(monster_info->location_id), monster_info->position);
     monster_info->fActive = true;
     monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
     if (record->can_open_doors) {
-        monster_info->entity->nav.movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
+        monster.nav.movement.navigation_filter |= W8_NAV_THROUGH_DOORS;
     }
 }
 
@@ -254,15 +252,15 @@ void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info, R
         monster_info->entity->visual.mirror_x = monster_info->saved_mirror_x;
     }
 
-    ApplyMonsterRepresentationScale(monster_info->entity.find());
+    monster_info->entity->ApplyRepresentationScale();
     monster_info->entity->SetCycle(1);
-    RefreshMonsterStandingHeight(monster_info->entity.find());
+    monster_info->entity->RefreshStandingHeight();
 }
 
 void ActivateMonster(W8MonsterInfo* monster_info)
 {
     assert(monster_info && !monster_info->fActive);
-    if (monster_info->entity.find()) return;
+    if (monster_info->entity) return;
     auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info, CurrentGame().rng);
     monster_info->entity.attach(*monster);
     GetWorld()->monsters.push_back(std::move(monster));
@@ -485,19 +483,12 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
 {
     Monster* monster = monster_info->entity.find();
-
-    if (monster != 0) {
-        const int count = monster->damage_stage_count;
-        if (count > 1) {
-            int value =
-                ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
-                monster_info->uiHPMax;
-            if (value >= count - 1) {
-                value = count - 1;
-            }
-            monster->visual.damage_stage = value;
-        }
-    }
+    if (!monster || monster->damage_stage_count <= 1) return;
+    const int count = monster->damage_stage_count;
+    const int value =
+        ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
+        monster_info->uiHPMax;
+    monster->visual.damage_stage = std::min(value, count - 1);
 }
 
 int GetMonsterQuadrant(W8MonsterInfo* monster_info)
@@ -645,26 +636,26 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless)
 {
     bool previous = monster_info->fMotionless;
-    Monster* monster = monster_info->entity.find();
+    Monster& monster = *monster_info->entity;
 
     monster_info->fMotionless = motionless;
     if (!motionless) {
         if (previous) {
-            monster->SetAnimating(true);
-            if (monster_info->entity->visual.pending_cycle == -1) {
+            monster.SetAnimating(true);
+            if (monster.visual.pending_cycle == -1) {
                 StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
             }
         }
     } else if (!previous) {
-        signed char cycle_value = monster->visual.pending_cycle;
+        signed char cycle_value = monster.visual.pending_cycle;
 
         if (cycle_value != -1) {
             if (cycle_value == 0x14) {
                 return;
             }
-            monster->SetPendingCycle(-1);
+            monster.SetPendingCycle(-1);
         }
-        monster->SetAnimating(false);
+        monster.SetAnimating(false);
     }
 }
 
@@ -699,8 +690,8 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
     monster_info->scale = CalculateMonsterScale(monster_info, CurrentGame().rng);
     monster_info->entity->scale = monster_info->scale;
-    ApplyMonsterRepresentationScale(monster_info->entity.find());
-    RefreshMonsterStandingHeight(monster_info->entity.find());
+    monster_info->entity->ApplyRepresentationScale();
+    monster_info->entity->RefreshStandingHeight();
 }
 
 void InitializeMonsterRuntimeStats(void)
@@ -746,20 +737,20 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info, Rng& rng)
 }
 
 // FUNCTION: WIZ8 0x004e67a0
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
-                           W8MonsterCycle query_state)
+static void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8MonsterCycle query_state)
 {
     if (monster_info->fActive && monster_info->hp_current > 0 &&
         monster_info->uiCondition[W8_CONDITION_DEAD] == 0 &&
         monster_info->within_viewing_distance && query_state == W8_MONSTER_CYCLE_IDLE) {
-        int result = monster->Query(W8_MONSTER_QUERY_AT_PLAYBACK_END);
+        Monster& monster = *monster_info->entity;
+        int result = monster.Query(W8_MONSTER_QUERY_AT_PLAYBACK_END);
 
         if (result != 0 && !monster_info->fMotionless) {
-            monster->runtime_flags |= 0x80;
-            if (monster->IsCycleSupported(2)) {
-                signed char cycle = monster->visual.pending_cycle;
+            monster.runtime_flags |= 0x80;
+            if (monster.IsCycleSupported(2)) {
+                signed char cycle = monster.visual.pending_cycle;
 
-                if (cycle == 2 || !monster->IsCycleInterruptable(cycle) ||
+                if (cycle == 2 || !monster.IsCycleInterruptable(cycle) ||
                     (CurrentGame().combat.has_value() &&
                      CurrentGame().combat->holdsTurn(MonsterActor{monster_info->location_id}))) {
                     return;
@@ -870,12 +861,11 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
-    if (monster_info->entity.find()) {
+    if (Monster* monster = monster_info->entity.find()) {
         if (removal == W8MonsterRemoval::Despawn)
-            monster_info->entity->visual.RetireParticles(*monster_info->entity->owner_world);
-        DetachMonsterRepresentation(monster_info->entity.find());
-        DestroyWorldMonster(monster_info->entity.find());
+            monster->visual.RetireParticles(*monster->owner_world);
         monster_info->entity.detach();
+        DestroyWorldMonster(*monster);
     }
     // Inactive and unborn records also own visibility/NPC relationships.
     ReleaseMonToMonVisibilityList(monster_info);
@@ -904,7 +894,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->stamina = 0;
         monster_info->entity->nav.active = false;
         monster_info->entity->nav.flags = 0x200000;
-        ClearMonsterSpellIcons(monster_info->entity.find());
+        ClearMonsterSpellIcons(*monster_info->entity);
         ReleaseMonToMonVisibilityList(monster_info);
         position = monster_info->entity->GetRepresentationLocalLocation();
         monster_info->position = position;
@@ -1066,19 +1056,19 @@ void ToggleCombatMode(void)
 // FUNCTION: WIZ8 0x004e4db0
 void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior)
 {
-    Monster* monster = monster_info->entity.find();
+    Monster& monster = *monster_info->entity;
     unsigned char pending;
 
     if (static_cast<signed char>(behavior) == W8_ANIMATION_NEVER_STOP &&
-        !monster->IsCycleInterruptable(static_cast<signed char>(cycle))) {
+        !monster.IsCycleInterruptable(static_cast<signed char>(cycle))) {
         assert(false && "NEVER_STOP needs an interruptable cycle");
     } else {
-        pending = monster->visual.pending_cycle;
+        pending = monster.visual.pending_cycle;
         if (CurrentGame().combat.has_value()) {
-            monster->Query(W8_MONSTER_QUERY_CYCLE);
+            monster.Query(W8_MONSTER_QUERY_CYCLE);
         }
         if (pending != W8_CYCLE_STOP && pending != W8_CYCLE_NONE &&
-            !monster->IsCycleInterruptable(static_cast<signed char>(pending))) {
+            !monster.IsCycleInterruptable(static_cast<signed char>(pending))) {
             if (static_cast<signed char>(cycle) == W8_CYCLE_STOP) {
                 return;
             }
@@ -1088,11 +1078,11 @@ void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehavi
         if (static_cast<signed char>(cycle) == W8_CYCLE_STOP ||
             static_cast<signed char>(cycle) == W8_CYCLE_DEATH ||
             static_cast<signed char>(cycle) == 0 || !monster_info->fMotionless) {
-            monster->SetAnimating(true);
-            monster->SetRuntimeBehaviour(behavior);
-            monster->SetPendingCycle(cycle);
-            monster->visual.pending_subcycle = 0;
-            monster->visual.SubmitTargetValue();
+            monster.SetAnimating(true);
+            monster.SetRuntimeBehaviour(behavior);
+            monster.SetPendingCycle(cycle);
+            monster.visual.pending_subcycle = 0;
+            monster.visual.SubmitTargetValue();
             return;
         }
         assert(false && "a motionless monster can only stop or die");
@@ -1112,26 +1102,26 @@ void ProcessMonsterManagerFrame(void)
          monster_list_index < CurrentLevelPopulation().monster_roster.live().size();
          ++monster_list_index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_list_index);
-        Monster* monster = monster_info->entity.find();
+        Monster& monster = *monster_info->entity;
 
-        if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) != 0) {
-            if (monster->fade_state == W8_MONSTER_FADE_IDLE) {
-                if (monster->removal_state != W8_MONSTER_REMOVAL_NONE) {
-                    monster->ApplyRemovalStateEffects();
+        if ((monster.runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) != 0) {
+            if (monster.fade_state == W8_MONSTER_FADE_IDLE) {
+                if (monster.removal_state != W8_MONSTER_REMOVAL_NONE) {
+                    monster.ApplyRemovalStateEffects();
                 }
                 RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
                 --monster_list_index;
             }
-        } else if ((monster->runtime_flags & (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) !=
+        } else if ((monster.runtime_flags & (W8_MONSTER_REMOVE_NOW | W8_MONSTER_SCRIPT_WAIT)) !=
                    0) {
             RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
             --monster_list_index;
         } else {
-            if ((monster->runtime_flags & W8_MONSTER_PARKED) == 0) {
+            if ((monster.runtime_flags & W8_MONSTER_PARKED) == 0) {
                 const auto query_state =
-                    static_cast<W8MonsterCycle>(monster->Query(W8_MONSTER_QUERY_CYCLE));
-                TryStartMonsterCycle2(monster_info, monster, query_state);
-                if (monster->Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
+                    static_cast<W8MonsterCycle>(monster.Query(W8_MONSTER_QUERY_CYCLE));
+                TryStartMonsterCycle2(monster_info, query_state);
+                if (monster.Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                     if (CurrentGame().combat.has_value() &&
                         query_state == W8_MONSTER_CYCLE_ATTACK_SPECIAL) {
                         monster_info->pCombat->special_ready = true;
@@ -1144,7 +1134,7 @@ void ProcessMonsterManagerFrame(void)
                     case W8_MONSTER_CYCLE_TALK:
                         break;
                     case W8_MONSTER_CYCLE_DIE:
-                        if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
+                        if ((monster.runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) == 0) {
                             monster_info = GetMonsterListEntry(monster_list_index);
                             HandleScriptedNpcDeath(MakeScriptContext(CurrentGame()),
                                                    monster_list_index);
@@ -1161,12 +1151,12 @@ void ProcessMonsterManagerFrame(void)
                                unit and the representation compare the empty
                                slot to -1. W8_CYCLE_NONE is 0xff as int 255,
                                which a signed char never equals. */
-                            if (monster_info->entity->visual.pending_cycle == -1) {
+                            if (monster.visual.pending_cycle == -1) {
                                 StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE,
                                                   W8_ANIMATION_NEVER_STOP);
                             }
-                        } else if (monster->IsAnimating() != 0) {
-                            monster->SetAnimating(false);
+                        } else if (monster.IsAnimating() != 0) {
+                            monster.SetAnimating(false);
                         }
                         break;
                     }

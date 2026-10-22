@@ -270,7 +270,6 @@ struct W8NpcItemStockRule {
 struct W8NpcCharacterTemplate {
     std::string name;
     std::string name_part_2;
-    unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
     W8Profession profession;
     W8Race race;
     int table_value;
