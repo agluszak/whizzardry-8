@@ -23,7 +23,9 @@
 #include <vsg/app/Camera.h>
 #include <vsg/app/CommandGraph.h>
 #include <vsg/app/CompileManager.h>
+#include <vsg/app/CompileTraversal.h>
 #include <vsg/app/ProjectionMatrix.h>
+#include <vsg/app/RecordAndSubmitTask.h>
 #include <vsg/app/RenderGraph.h>
 #include <vsg/app/View.h>
 #include <vsg/app/ViewMatrix.h>
@@ -34,6 +36,7 @@
 #include <vsg/core/Array2D.h>
 #include <vsg/core/Data.h>
 #include <vsg/core/Exception.h>
+#include <vsg/core/Inherit.h>
 #include <vsg/core/Mask.h>
 #include <vsg/core/Value.h>
 #include <vsg/core/observer_ptr.h>
@@ -64,16 +67,21 @@
 #include <vsg/state/Sampler.h>
 #include <vsg/state/ShaderModule.h>
 #include <vsg/state/ShaderStage.h>
+#include <vsg/state/StateCommand.h>
 #include <vsg/state/VertexInputState.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/vk/CommandBuffer.h>
 #include <vsg/vk/CommandPool.h>
+#include <vsg/vk/Context.h>
+#include <vsg/vk/DescriptorPools.h>
 #include <vsg/vk/Device.h>
 #include <vsg/vk/DeviceMemory.h>
 #include <vsg/vk/Framebuffer.h>
 #include <vsg/vk/Instance.h>
 #include <vsg/vk/PhysicalDevice.h>
 #include <vsg/vk/RenderPass.h>
+#include <vsg/vk/ResourceRequirements.h>
+#include <vsg/vk/Slots.h>
 #include <vsg/vk/SubmitCommands.h>
 #include <vsg/vk/Surface.h>
 #include <vulkan/vulkan_core.h>
@@ -133,6 +141,64 @@ SDL_PixelFormat readbackFormat(VkFormat format)
         throw std::runtime_error("Unsupported Vulkan screenshot pixel format");
     }
 }
+
+/* Compiles what a frame reaches that VSG has not compiled yet. VSG's compile
+   methods return early for compiled objects, so a retained graph costs one
+   traversal; new geometry, descriptor sets, pipelines (per view) and views do
+   the work. A view seen for the first time also has its resources collected
+   once: that initializes its view-dependent state, reserves descriptor pools
+   for its content and reports the bins and state slots it records with. */
+class FrameCompiler : public vsg::Inherit<vsg::CompileTraversal, FrameCompiler> {
+public:
+    explicit FrameCompiler(vsg::ref_ptr<vsg::Device> device) : Inherit(device) {}
+    using CompileTraversal::apply;
+
+    void compile(vsg::Viewer& viewer)
+    {
+        result = {};
+        auto& pools = *contexts.front()->descriptorPools;
+        const auto pool_count = pools.descriptorPools.size();
+        for (const auto& task : viewer.recordAndSubmitTasks)
+            for (const auto& graph : task->commandGraphs) graph->accept(*this);
+        if (record()) waitForCompletion();
+        // Descriptor sets beyond the reserved capacity each got a pool of their
+        // own. Reserving for everything drawn grows the pools geometrically.
+        if (pools.descriptorPools.size() > pool_count) {
+            vsg::CollectResourceRequirements collect;
+            for (const auto& task : viewer.recordAndSubmitTasks)
+                for (const auto& graph : task->commandGraphs) graph->accept(collect);
+            pools.reserve(collect.requirements);
+        }
+        result.result = VK_SUCCESS;
+        result.maxSlots = slots;
+        vsg::updateViewer(viewer, result);
+    }
+
+    void apply(vsg::StateCommand& command) override
+    {
+        slots.state = std::max(slots.state, command.slot);
+        CompileTraversal::apply(command);
+    }
+    void apply(vsg::View& view) override
+    {
+        std::erase_if(collected, [](const auto& seen) { return !seen.valid(); });
+        if (std::ranges::none_of(collected, [&](const auto& seen) { return seen == &view; })) {
+            collected.emplace_back(&view);
+            vsg::CollectResourceRequirements collect;
+            view.accept(collect);
+            auto& requirements = collect.requirements;
+            for (auto& context : contexts) context->reserve(requirements);
+            slots.update(requirements.maxSlots);
+            result.views.insert(requirements.views.begin(), requirements.views.end());
+        }
+        CompileTraversal::apply(view);
+    }
+
+private:
+    vsg::Slots slots;
+    vsg::CompileResult result;
+    std::vector<vsg::observer_ptr<vsg::View>> collected;
+};
 }
 
 struct Renderer::Impl {
@@ -143,6 +209,7 @@ struct Renderer::Impl {
     vsg::ref_ptr<vsg::BindGraphicsPipeline> overlayPipeline(OverlayMaterial material);
     void capture(vsg::ref_ptr<vsg::Image> image, VkFormat format, VkExtent2D extent,
                  VkImageLayout layout);
+    void renderOffscreen();
 
     SDL_Window* platform_window;
     vsg::ref_ptr<vsg::Instance> instance;
@@ -153,6 +220,7 @@ struct Renderer::Impl {
     vsg::ref_ptr<vsg::RenderGraph> render_graph;
     vsg::ref_ptr<vsg::RenderGraph> offscreen_graph;
     vsg::ref_ptr<vsg::Image> offscreen_color;
+    vsg::ref_ptr<FrameCompiler> compiler;
     std::unique_ptr<render::RenderContext> context;
     vsg::ref_ptr<vsg::DescriptorSetLayout> overlay_set_layout;
     vsg::ref_ptr<vsg::PipelineLayout> overlay_layout;
@@ -166,7 +234,6 @@ struct Renderer::Impl {
     std::uint64_t frame_number = 0;
     int graphics_family = -1;
     bool open = true;
-    bool capture_enabled = false;
     bool capture_window = false;
 };
 
@@ -219,6 +286,14 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
     graphics_family = commands->queueFamily;
     commands->addChild(render_graph);
     viewer->assignRecordAndSubmitTaskAndPresentation({commands});
+    auto device = window->getOrCreateDevice();
+    compiler = FrameCompiler::create(device);
+    offscreen_viewer->assignRecordAndSubmitTaskAndPresentation(
+        {vsg::CommandGraph::create(device, graphics_family)});
+    // Both targets draw the same graph, so they share the transfer task that
+    // compilation registered its buffers and images with.
+    offscreen_viewer->recordAndSubmitTasks.front()->transferTask =
+        viewer->recordAndSubmitTasks.front()->transferTask;
     createOffscreen();
 }
 
@@ -258,9 +333,10 @@ void Renderer::Impl::createOffscreen()
     offscreen_graph->windowResizeHandler = {};
     offscreen_graph->clearValues = render_graph->clearValues;
     offscreen_graph->addChild(frame_root);
-    auto commands = vsg::CommandGraph::create(device, graphics_family);
-    commands->addChild(offscreen_graph);
-    offscreen_viewer->assignRecordAndSubmitTaskAndPresentation({commands});
+    // The offscreen task outlives its targets: the transfer task it shares
+    // with the window holds the semaphores this task signals.
+    auto& commands = offscreen_viewer->recordAndSubmitTasks.front()->commandGraphs.front();
+    commands->children = {offscreen_graph};
 }
 
 void Renderer::Impl::syncTargets()
@@ -404,10 +480,6 @@ std::uint64_t Renderer::frameNumber() const
 render::RenderContext& Renderer::context()
 {
     return *impl->context;
-}
-void Renderer::setCaptureEnabled(bool enabled)
-{
-    impl->capture_enabled = enabled;
 }
 void Renderer::setVsync(bool enabled)
 try {
@@ -589,30 +661,14 @@ try {
     if (!viewer->advanceToNextFrame()) throw std::runtime_error("VSG frame acquisition failed");
     // WSI acquisition can resize the window before this frame is recorded.
     impl->syncTargets();
-    // Viewer::compile discovers current views and newly attached resources.
-    // Retain its manager so VSG can reuse device memory and descriptor pools.
-    const auto compiled = viewer->compile();
-    if (compiled.result != VK_SUCCESS)
-        throw std::runtime_error("VSG scene compilation failed: " + compiled.message);
+    impl->compiler->compile(*viewer);
     viewer->update();
     viewer->recordAndSubmit();
     // A single completion boundary handles removed graph nodes, replaced
     // descriptors and streamed UI pixels without parallel retirement queues.
     viewer->deviceWaitIdle();
-    if (capture || impl->capture_enabled) {
-        if (present && !impl->capture_window) {
-            // The render graph has no simulation updates: another target sees
-            // the same prepared pose, materials and canvas publication.
-            if (!impl->offscreen_viewer->advanceToNextFrame())
-                throw std::runtime_error("VSG offscreen frame acquisition failed");
-            const auto compiled_offscreen = impl->offscreen_viewer->compile();
-            if (compiled_offscreen.result != VK_SUCCESS)
-                throw std::runtime_error("VSG scene compilation failed: " +
-                                         compiled_offscreen.message);
-            impl->offscreen_viewer->update();
-            impl->offscreen_viewer->recordAndSubmit();
-            impl->offscreen_viewer->deviceWaitIdle();
-        }
+    if (capture) {
+        if (present && !impl->capture_window) impl->renderOffscreen();
         if (present && impl->capture_window) {
             const auto index = impl->window->imageIndex();
             if (index >= impl->window->numFrames())
@@ -637,4 +693,29 @@ try {
 SDL_Surface* Renderer::readback() const
 {
     return impl->captured.get();
+}
+
+/* The render graph has no simulation updates between frames: the offscreen
+   target sees the same prepared pose, materials and canvas publication as the
+   frame last presented. */
+void Renderer::Impl::renderOffscreen()
+{
+    if (!offscreen_viewer->advanceToNextFrame())
+        throw std::runtime_error("VSG offscreen frame acquisition failed");
+    compiler->compile(*offscreen_viewer);
+    offscreen_viewer->update();
+    offscreen_viewer->recordAndSubmit();
+    offscreen_viewer->deviceWaitIdle();
+}
+
+SDL_Surface* Renderer::captureLastFrame()
+try {
+    if (!impl->open) return nullptr;
+    impl->renderOffscreen();
+    const auto image = impl->offscreen_color;
+    impl->capture(image, image->format, {image->extent.width, image->extent.height},
+                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    return impl->captured.get();
+} catch (const vsg::Exception& error) {
+    throw std::runtime_error(error.message);
 }
