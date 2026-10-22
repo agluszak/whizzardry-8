@@ -40,6 +40,7 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -65,6 +66,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/activity.h"
@@ -221,6 +223,16 @@ static bool groupMemberLookup()
     group.monsters.erase(group.monsters.begin());
     REQUIRE(group.MemberLocationId(0) == 202);
     return true;
+}
+
+TEST_CASE("Resource names match without regard to case", "[collections]")
+{
+    // The sky asks for "SkyGrad0000.ifl"; the prepared file is skygrad0000.ifl.
+    ResourceCache<int> cache;
+    const auto gradient = std::make_shared<int>(7);
+    cache.insert("skygrad0000.ifl", gradient);
+    REQUIRE(cache.find("SkyGrad0000.ifl") == gradient);
+    REQUIRE(cache.find("skytop0000.ifl") == nullptr);
 }
 
 TEST_CASE("Group activity is derived from its own population without recounts", "[collections]")
@@ -693,8 +705,8 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     draft.detail = 9;
     draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
-    CommitActionTarget(0, W8EditedAction{draft}, target, false);
-    const auto assessed = SelectCombatAction(0, W8EditedAction{draft});
+    AimDraft(0, draft, target);
+    const auto assessed = ParticipatingAction(0, draft);
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
     draft.target.iType = W8_TARGET_KIND_NONE;
@@ -714,18 +726,40 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
     auto& item = characters[0].backpack[3];
     item = {.iItemNo = 17, .stack_count = 4};
     const W8TradeSelection selected{W8TradeSource::Backpack, 0, 3, item};
-    REQUIRE(ResolveTradeSelection(nullptr, selected) == &item);
+    REQUIRE(ResolveTradeSelection(CurrentGame(), nullptr, selected) == &item);
     item.uses_or_charges = 2;
-    REQUIRE_FALSE(ResolveTradeSelection(nullptr, selected));
+    REQUIRE_FALSE(ResolveTradeSelection(CurrentGame(), nullptr, selected));
     W8NpcState npc{};
     npc.items = {{0, {.iItemNo = 17, .stack_count = 4}, 1},
                  {0, {.iItemNo = 18, .stack_count = 3}, 1}};
     const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
-    REQUIRE(ResolveTradeSelection(&npc, stock) == &npc.items[0].item);
+    REQUIRE(ResolveTradeSelection(CurrentGame(), &npc, stock) == &npc.items[0].item);
     std::swap(npc.items[0], npc.items[1]);
-    REQUIRE_FALSE(ResolveTradeSelection(&npc, stock));
-    REQUIRE(CompleteNpcTrade(&npc, stock, 1).outcome == W8TradeOutcome::InvalidSelection);
+    REQUIRE_FALSE(ResolveTradeSelection(CurrentGame(), &npc, stock));
+    REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Exchange).outcome ==
+            W8TradeOutcome::InvalidSelection);
     REQUIRE(npc.items[0].item.stack_count == 3);
+    // A rejected attempt must not reseed the gameplay RNG or practice pickpocketing.
+    CurrentGame().rng.seed(1);
+    REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Steal).outcome ==
+            W8TradeOutcome::InvalidSelection);
+    const W8TradeSelection current{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    for (int amount : {0, -1, 256})
+        REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, current, amount, W8TradeAction::Steal)
+                    .outcome == W8TradeOutcome::InvalidSelection);
+    REQUIRE(npc.suspicion == 0);
+    REQUIRE(CurrentGame().rng.next() == 41);
+    W8NpcDatabaseRecord owner_record{};
+    owner_record.character.wanted_item_ids[0] = 18;
+    auto owner = std::make_shared<W8NpcState>();
+    owner->record = &owner_record;
+    CurrentGame().story.npcs.push_back(owner);
+    CurrentGame().party.members[0]->npc_index = 0;
+    item = selected.expected;
+    for (auto action : {W8TradeAction::Exchange, W8TradeAction::Offer})
+        REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, selected, 1, action).outcome ==
+                W8TradeOutcome::WantedByOwner);
+    REQUIRE(item == selected.expected);
 }
 
 TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
@@ -773,7 +807,8 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     CurrentGame().rng.seed(1);
     REQUIRE(CalculateNpcTradeStackPrice(&npc, 0, W8_TRADE_PRICE_PARTY_BUYS, 1, true) == 10);
     REQUIRE(CurrentGame().rng.next() == 41); // Drawing a price must not roll an item quantity.
-    const auto result = CompleteNpcItemPurchase(&npc, 0, 1, false);
+    const W8TradeSelection stock{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    const auto result = CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Exchange);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
     REQUIRE(CurrentGame().party.gold == 100);
     REQUIRE(CurrentGame().party.item_count == 500);
@@ -781,6 +816,16 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     REQUIRE(CurrentGame().party.held.item.iItemNo == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
+    CurrentGame().party.item_count = 1;
+    CurrentGame().party.item_pool[0] = {.iItemNo = 0, .stack_count = 8, .identified = true};
+    npc.items[0].item.stack_count = 2;
+    const W8TradeSelection stack{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
+    REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stack, 2, W8TradeAction::Exchange).outcome ==
+            W8TradeOutcome::Complete);
+    REQUIRE(CurrentGame().party.gold == 80);
+    REQUIRE(CurrentGame().party.item_count == 1);
+    REQUIRE(CurrentGame().party.item_pool[0].stack_count == 10);
+    REQUIRE(npc.items.empty());
 }
 
 TEST_CASE("Encounter retirement spends one budget unit per formation, without registration",
@@ -1021,6 +1066,56 @@ W8Character MakeFighter()
 }
 }
 
+TEST_CASE("Character drafts reconcile their own skill allocations without a screen",
+          "[character][creation]")
+{
+    const ScopedGame current;
+    Game owner;
+    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    CharacterDraft draft(owner);
+    draft.character = MakeFighter();
+    draft.character.uiExpLevel = 2;
+    draft.character.profession_levels[W8_PROFESSION_FIGHTER] = 2;
+    draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base = 100;
+    auto& power_strike = draft.character.skills[W8_SKILL_POWER_STRIKE];
+    power_strike.active = true;
+    power_strike.points = power_strike.level = 10;
+    draft.allocation.attribute_points_total = 3;
+    draft.allocation.attribute_points_remaining = 2;
+    draft.allocation.attribute_values[W8_ATTRIBUTE_STRENGTH] = 1;
+    draft.allocation.attribute_limits[W8_ATTRIBUTE_STRENGTH] = 3;
+    draft.allocation.skill_points_total = 9;
+    draft.allocation.skill_points_remaining = 7;
+    draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] = 2;
+
+    draft.adjustAttribute(W8_ATTRIBUTE_STRENGTH, -1);
+
+    REQUIRE(draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base == 99);
+    REQUIRE_FALSE(power_strike.active);
+    REQUIRE(power_strike.points == 8);
+    REQUIRE(draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] == 0);
+    REQUIRE(draft.allocation.skill_points_remaining == 9);
+    REQUIRE(current.game.events.pending().empty());
+    REQUIRE(owner.events.pending().empty());
+}
+
+TEST_CASE("A second character draft cannot erase a forced-gender choice", "[character][creation]")
+{
+    const ScopedGame current;
+    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    CharacterDraft first(current.game);
+    first.character = MakeFighter();
+    first.character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
+    first.beginLevelUp();
+    first.setProfession(W8_PROFESSION_VALKYRIE);
+    REQUIRE(first.character.gender == W8_GENDER_FEMALE);
+
+    CharacterDraft second(current.game);
+    second.beginCreation();
+    first.setProfession(W8_PROFESSION_FIGHTER);
+    REQUIRE(first.character.gender == W8_GENDER_MALE);
+}
+
 TEST_CASE("Attribute-cap notices follow the party's activity without a screen", "[party][events]")
 {
     struct Scenario {
@@ -1046,9 +1141,9 @@ TEST_CASE("Attribute-cap notices follow the party's activity without a screen", 
         ApplyAttributeChange(game, &character, W8_ATTRIBUTE_STRENGTH);
 
         const auto& pending = game.events.pending();
-        REQUIRE(pending.size() == (scenario.announces ? 2u : 1u));
-        REQUIRE(std::get<SkillAvailabilityChanged>(pending[0]).available);
-        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[1]));
+        REQUIRE(character.skills[W8_SKILL_POWER_STRIKE].active);
+        REQUIRE(pending.size() == (scenario.announces ? 1u : 0u));
+        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[0]));
     }
 }
 

@@ -565,8 +565,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
             CurrentGame().party.characters[party_slot].skills[index].available = true;
         }
     }
-    RefreshCharacterSkillAvailability(CurrentGame().events,
-                                      &CurrentGame().party.characters[party_slot]);
+    RefreshCharacterSkillAvailability(Data(), &CurrentGame().party.characters[party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
@@ -579,7 +578,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     npc->is_present = false;
     npc->event_pending = 0;
     npc->pending_restore = false;
-    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+    ReloadNpcScriptResources(npc);
 
     /* Retail writes the race into this initially populated list, then tests
        the value just written. Preserve that assignment and early exit. */
@@ -1033,7 +1032,6 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
    falls back to the kind-0x18 greeter. */
 static void SelectStartNpcGreeting(void)
 {
-    Monster* monster;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     unsigned char value;
@@ -1060,10 +1058,10 @@ static void SelectStartNpcGreeting(void)
             if (monster_info == 0) {
                 return;
             }
-            monster = monster_info->entity.find();
-            head = glm::vec3(monster->nav.movement.position.x,
-                             monster->nav.movement.position.y + monster->nav.movement.height_offset,
-                             monster->nav.movement.position.z);
+            Monster& monster = *monster_info->entity;
+            head = glm::vec3(monster.nav.movement.position.x,
+                             monster.nav.movement.position.y + monster.nav.movement.height_offset,
+                             monster.nav.movement.position.z);
             partyCamera().LookAt(&head, false);
             return;
         }
@@ -1274,7 +1272,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->has_monster = true;
     npc->level_band = GetLevelBand(GetLoadedLevelID());
     npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+    ReloadNpcScriptResources(npc);
 }
 
 /* Expand the record's character block into a fresh group-member character:
@@ -1334,7 +1332,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     }
     AdvanceCharacterToLevel(&character, source->level);
     CalcCharacterLevelBand(&character);
-    RefreshCharacterSkillAvailability(CurrentGame().events, &character);
+    RefreshCharacterSkillAvailability(Data(), &character);
     RecalculateCharacterDerivedStats(CurrentGame(), character);
     for (index = 1; index < 0x73; ++index) {
         if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {
@@ -1407,7 +1405,7 @@ void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
             npc->has_monster = true;
             npc->level_band = GetLevelBand(GetLoadedLevelID());
             npc->bound_level = GetLoadedLevelID();
-            ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+            ReloadNpcScriptResources(npc);
         }
         if (npc->spawned == 0xffff) npc->spawned = 0;
     }
@@ -1606,7 +1604,8 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
    NPC's suspicion byte, the level gap to the NPC's monster, and - when an
    item is offered - its weight and price penalties, all scaled by the
    character's difficulty. */
-static signed char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+static signed char ScoreNpcTheft(Game& game, W8Character* character, W8NpcState* npc, int item_id,
+                                 int count)
 {
     W8ItemInstance item;
     int score;
@@ -1618,14 +1617,14 @@ static signed char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int it
         skill += character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 0x14;
     }
     score = skill + (GetNpcDisposition(npc) - 0x32) / 4;
-    score -= (CurrentGame().rng.below(5) + 10) * static_cast<signed char>(npc->suspicion);
+    score -= (game.rng.below(5) + 10) * static_cast<signed char>(npc->suspicion);
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     unsigned int penalty = character->skills[W8_SKILL_PICKPOCKET].level >> 2;
     score += (character->uiExpLevel - record->effective_level) * 5;
     if (item_id != -1) {
         unsigned int weight = Data().items[item_id].weight * count;
-        item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
+        item = MakeItem(Data(), game.rng, item_id, false, false, false);
         item.stack_count = static_cast<unsigned char>(count);
         penalty = penalty - weight / 10 - GetItemStackValue(&item) / 100;
     }
@@ -1642,19 +1641,19 @@ static signed char ScoreNpcTheft(W8Character* character, W8NpcState* npc, int it
     return result;
 }
 
-static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
+static void SeedNpcTheftRoll(Game& game, W8Character* character, W8NpcState* npc)
 {
     int spins = CharacterPointerToPartySlot(character) + npc->name_style * 0xb +
                 static_cast<signed char>(npc->suspicion) * 7;
     unsigned int seed = 0;
     for (int index = 2; index < 8; ++index) {
-        if (CurrentGame().party.members[index].has_value()) {
-            seed += CurrentGame().party.characters[index].experience;
+        if (game.party.members[index].has_value()) {
+            seed += game.party.characters[index].experience;
         }
     }
-    CurrentGame().rng.seed(seed);
+    game.rng.seed(seed);
     for (; spins != 0; --spins) {
-        CurrentGame().rng.below(100);
+        game.rng.below(100);
     }
 }
 
@@ -1665,13 +1664,14 @@ static void SeedNpcTheftRoll(W8Character* character, W8NpcState* npc)
 W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* npc,
                                            W8ItemInstance* item_out, unsigned int* gold_out)
 {
+    auto& game = CurrentGame();
     bool empty_pick = false;
     // Each of the forty stock slots contributes at most one candidate.
     std::inplace_vector<int, 40> candidates;
     unsigned int picked = 0xffffffff;
     int index;
 
-    SeedNpcTheftRoll(character, npc);
+    SeedNpcTheftRoll(game, character, npc);
     for (index = 0; index < 40; ++index) {
         short item_id = npc->item_ids[index];
         if (item_id != -1 && item_id != 0x242 && item_id != 0x244 && item_id != 0x243) {
@@ -1679,19 +1679,19 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
         }
     }
     signed char score;
-    if (candidates.empty() || CurrentGame().rng.below(100) < 0x21) {
+    if (candidates.empty() || game.rng.below(100) < 0x21) {
         empty_pick = true;
-        score = ScoreNpcTheft(character, npc, -1, 0);
+        score = ScoreNpcTheft(game, character, npc, -1, 0);
     } else {
         W8ItemInstance item;
-        picked = candidates[CurrentGame().rng.below(static_cast<int>(candidates.size()))];
-        item = MakeItem(Data(), CurrentGame().rng, npc->item_ids[picked], true, true, false);
-        score = ScoreNpcTheft(character, npc, item.iItemNo, 1);
+        picked = candidates[game.rng.below(static_cast<int>(candidates.size()))];
+        item = MakeItem(Data(), game.rng, npc->item_ids[picked], true, true, false);
+        score = ScoreNpcTheft(game, character, npc, item.iItemNo, 1);
     }
     if (static_cast<signed char>(npc->suspicion) < 100) {
         ++npc->suspicion;
     }
-    signed char roll = static_cast<signed char>(CurrentGame().rng.below(100));
+    signed char roll = static_cast<signed char>(game.rng.below(100));
     if (roll > 95 || score * 2 < roll) {
         return W8_PICKPOCKET_CAUGHT;
     }
@@ -1700,8 +1700,8 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     }
     if (empty_pick) {
         if (npc->gold != 0) {
-            PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
-            unsigned int taken = CurrentGame().rng.below(100) * 7;
+            PracticeCharacterSkill(game, character, W8_SKILL_PICKPOCKET, 5, false);
+            unsigned int taken = game.rng.below(100) * 7;
             if (static_cast<unsigned int>(npc->gold) < taken) {
                 taken = npc->gold;
             }
@@ -1721,27 +1721,28 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
     short item_id = npc->item_ids[picked & 0xff];
     if (item_id != -1) {
         if (item_out != 0) {
-            *item_out = MakeItem(Data(), CurrentGame().rng, item_id, true, true, false);
+            *item_out = MakeItem(Data(), game.rng, item_id, true, true, false);
         }
         npc->item_ids[picked & 0xff] = -1;
-        PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
+        PracticeCharacterSkill(game, character, W8_SKILL_PICKPOCKET, 5, false);
     }
     return W8_PICKPOCKET_ITEM_TAKEN;
 }
 
 /* The trade-screen steal of one offered item, scored by the same pickpocket
    roll: 0 takes it (and practices the skill), 1 is refused, 2 is caught. */
-signed char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count)
+W8NpcItemTheftResult AttemptNpcItemTheft(Game& game, W8Character* character, W8NpcState* npc,
+                                         int item_id, int count)
 {
-    SeedNpcTheftRoll(character, npc);
-    signed char score = ScoreNpcTheft(character, npc, item_id, count);
+    SeedNpcTheftRoll(game, character, npc);
+    signed char score = ScoreNpcTheft(game, character, npc, item_id, count);
     if (static_cast<signed char>(npc->suspicion) < 100) {
         ++npc->suspicion;
     }
-    signed char roll = static_cast<signed char>(CurrentGame().rng.below(100));
+    signed char roll = static_cast<signed char>(game.rng.below(100));
     if (roll < 96 && roll <= score * 2) {
         if (roll < score) {
-            PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_PICKPOCKET, 5, false);
+            PracticeCharacterSkill(game, character, W8_SKILL_PICKPOCKET, 5, false);
             return W8_ITEM_THEFT_SUCCEEDED;
         }
         return W8_ITEM_THEFT_FAILED;
@@ -2235,7 +2236,7 @@ void RebindNpcLevelTriggers(void)
                 npc->has_monster = true;
                 npc->level_band = static_cast<unsigned char>(GetLevelBand(GetLoadedLevelID()));
                 npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+                ReloadNpcScriptResources(npc);
                 npc->is_present = false;
             }
         }

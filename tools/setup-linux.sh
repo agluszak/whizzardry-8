@@ -2,10 +2,10 @@
 # Prepare an Ubuntu host to build and test, in one step:
 #   tools/setup-linux.sh
 # installs Clang 23 (clang, clang-format, clang-tidy), GCC 16's libstdc++, Ninja, the
-# Vulkan loader, Mesa's software driver and Xvfb, Conan 2 and CMake 4.4.4; resolves the
+# Vulkan loader, Mesa's software driver, Conan 2 and CMake 4.4.4; resolves the
 # Conan dependencies; and configures build/linux. Then:
 #   . build/linux/conan/conanbuild.sh && cmake --build --preset linux
-#   . build/linux/conan/conanrun.sh && xvfb-run -a ctest --preset linux
+#   . build/linux/conan/conanrun.sh && ctest --preset linux
 # It is safe to run again; installed pieces are skipped.
 #
 # Networks that serve git but not GitHub source archives can set:
@@ -38,7 +38,8 @@ fi
 # GCC 16's libstdc++ is in Ubuntu 26.04; older releases take it from the toolchain PPA.
 if ! command -v g++-16 >/dev/null; then
     $sudo apt-get update
-    if ! apt-cache show g++-16 >/dev/null 2>&1; then
+    # apt-cache show treats its argument as a pattern and matches clang-16; ask for a candidate.
+    if ! apt-cache policy g++-16 | grep -q 'Candidate: [0-9]'; then
         codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
         keyring=/etc/apt/keyrings/ubuntu-toolchain-r.asc
         $sudo install -d -m 0755 /etc/apt/keyrings
@@ -52,7 +53,7 @@ if ! command -v g++-16 >/dev/null; then
 fi
 
 apt_install ninja-build ccache python3-pip libvulkan-dev mesa-vulkan-drivers \
-    vulkan-validationlayers xvfb xauth
+    vulkan-validationlayers
 if [[ ${WIZ8_SYSTEM_GLSLANG:-} == 1 ]]; then
     apt_install glslang-tools glslang-dev
 fi
@@ -87,6 +88,10 @@ if [[ ${WIZ8_GIT_SOURCES:-} == 1 ]]; then
         git clone --quiet --depth 1 --branch "$utf8proc_tag" https://github.com/JuliaStrings/utf8proc "$utf8proc"
     cmake_extra+=(-DFETCHCONTENT_SOURCE_DIR_UTF8PROC="$root/$utf8proc")
 fi
+
+# Recipes such as libalsa and SDL's X11/Wayland dependencies install their system packages.
+conan_extra+=(-c tools.system.package_manager:mode=install)
+[[ -z $sudo ]] || conan_extra+=(-c tools.system.package_manager:sudo=True)
 
 CC=clang-23 CXX=clang++-23 conan install "$conanfile" \
     -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \

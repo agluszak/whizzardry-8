@@ -13,6 +13,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "unicode.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
@@ -73,6 +74,7 @@
 #include <wiz8/filesystem.h>
 
 #include "file_faults.h"
+#include "glm/ext/vector_double3.hpp"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
 #include "wiz8/audio/SoundEvent.h"
@@ -93,6 +95,7 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/render/transform.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/level_loader.h"
@@ -133,6 +136,12 @@ static void character_file_contracts(const std::filesystem::path& assets,
         character.skills[0].unknown_14[0] = 0xa5;
         character.Hand[1].attacks = 7;
         character.conditions[1].source_monster = 42;
+        character.attributes[1].change_counter = -2;
+        character.enchantments[2].percent = 0x1234;
+        character.resistances[3].total = 0x5678;
+        character.condition_modifiers.armor_class_adjustment = -3;
+        character.equipment_bonus.skill_bonus[4] = -4;
+        character.bonus.unknown_4c[2] = 0xa5;
         auto expected = bytes;
         std::memcpy(expected.data() + 0x19d + 2, &points, sizeof(points));
         std::memcpy(expected.data() + 0x19d + 0x26 + 6, &level, sizeof(level));
@@ -141,6 +150,16 @@ static void character_file_contracts(const std::filesystem::path& assets,
         const int source_monster = 42;
         std::memcpy(expected.data() + 0x1149 + 0x5b + 0x15, &attacks, sizeof(attacks));
         std::memcpy(expected.data() + 0x1817 + 0x11 + 4, &source_monster, sizeof(source_monster));
+        expected[0x00e5 + 0x14 + 8] = std::byte{0xfe};
+        std::fill_n(expected.begin() + 0x00e5 + 0x14 + 9, 3, std::byte{0xff});
+        expected[0x0a65 + 2 * 0x0c + 4] = std::byte{0x34};
+        expected[0x0a65 + 2 * 0x0c + 5] = std::byte{0x12};
+        expected[0x0edd + 3 * 0x10 + 4] = std::byte{0x78};
+        expected[0x0edd + 3 * 0x10 + 5] = std::byte{0x56};
+        std::fill_n(expected.begin() + 0x0edd + 3 * 0x10 + 6, 2, std::byte{0});
+        expected[0x16a2 + 0x4b] = std::byte{0xfd};
+        expected[0x1709 + 0x13 + 4] = std::byte{0xfc};
+        expected[0x1770 + 0x4c + 2] = std::byte{0xa5};
         REQUIRE(wiz8::retail::encode(character) == expected);
         wiz8::retail::decode<W8Character>(expected, character);
         REQUIRE(character.skills[0].points == points);
@@ -148,6 +167,12 @@ static void character_file_contracts(const std::filesystem::path& assets,
         REQUIRE(character.skills[0].unknown_14[0] == 0xa5);
         REQUIRE(character.Hand[1].attacks == 7);
         REQUIRE(character.conditions[1].source_monster == 42);
+        REQUIRE(character.attributes[1].change_counter == -2);
+        REQUIRE(character.enchantments[2].percent == 0x1234);
+        REQUIRE(character.resistances[3].total == 0x5678);
+        REQUIRE(character.condition_modifiers.armor_class_adjustment == -3);
+        REQUIRE(character.equipment_bonus.skill_bonus[4] == -4);
+        REQUIRE(character.bonus.unknown_4c[2] == 0xa5);
         character.name = "改名";
         const auto edited = wiz8::retail::encode(character);
         REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
@@ -362,6 +387,14 @@ static void unicode_file_contracts()
     three_boxes.resize(three_boxes.size() - 4);
     REQUIRE(wiz8::save::decode_message_boxes(three_boxes, 1.0f)[0][0].text == message);
     REQUIRE_THROWS(wiz8::save::decode_message_boxes(three_boxes, 9.0f));
+    // An empty line is a lone terminator, never a zero count: retail would read a zero-size
+    // allocation as an unterminated string.
+    wiz8::save::MessageBoxes blank;
+    blank[1].emplace_back();
+    const auto blank_payload = wiz8::save::encode(blank);
+    REQUIRE(blank_payload.size() == 8 + 4 + 0x24 + 2 + 2 * 4);
+    REQUIRE(blank_payload[12] == std::byte{1});
+    REQUIRE(wiz8::save::decode_message_boxes(blank_payload, 9.0f)[1][0].text.empty());
 }
 
 static void transcript_contracts()
@@ -434,7 +467,7 @@ static void path_record_contracts()
     constexpr auto filename = "data/path-records.bin";
     auto write_header = [](wiz8::File& file, unsigned char version, int count) {
         const unsigned char kind = 0;
-        const float position = 0;
+        const float position = 0.75f;
         const unsigned int unknown = 17;
         file.write(&kind, 1);
         file.write(&version, 1);
@@ -458,23 +491,21 @@ static void path_record_contracts()
         auto file = wiz8::open_file(wiz8::user_path(filename));
         auto path = LoadPathAI(*file);
         REQUIRE(path);
-        REQUIRE((path->nodes.size() == 2 && path->rotations.size() == 2));
-        REQUIRE((path->nodes[1].x == 500 && path->total_length == 500));
-        REQUIRE((path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1)));
-        REQUIRE((path->scales.size() == (version == 2 ? 2 : 0)));
-        if (version == 2) REQUIRE((path->scales[1].y == 3));
+        REQUIRE(path->points().size() == 2);
+        REQUIRE((path->points()[1].position.x == 500 && path->length() == 500));
+        REQUIRE((path->unknown_08 == 17 && *path->points()[0].rotation == glm::mat3(1)));
+        REQUIRE(path->points()[1].scale.has_value() == (version == 2));
+        if (version == 2) REQUIRE(path->points()[1].scale->y == 3);
         path->timed = true;
-        auto copy = std::optional<KeyframeTrack>(std::in_place, *path);
+        auto copy = path;
         auto restarted = path->restarted();
-        REQUIRE((!restarted.timed));
-        REQUIRE((copy->timed && copy->nodes.data() != path->nodes.data()));
-        REQUIRE((copy->rotations.data() != path->rotations.data()));
-        if (version == 2) REQUIRE((copy->scales.data() != path->scales.data()));
-        copy->nodes[0].x = 99;
-        REQUIRE((path->nodes[0].x == 0));
-        PathAIClearOwned((copy ? &*copy : nullptr));
-        PathAIClearOwned((copy ? &*copy : nullptr));
-        REQUIRE((copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty()));
+        REQUIRE_FALSE(restarted.timed);
+        REQUIRE((copy->timed && copy->geometry == path->geometry));
+        copy->position = 99;
+        REQUIRE(path->position == 0);
+        copy->geometry.reset();
+        REQUIRE(copy->points().empty());
+        REQUIRE(path->points().size() == 2);
         glm::vec3 point(7, 8, 9);
         PathAIPosition(nullptr, &point);
         PathAIPosition((copy ? &*copy : nullptr), &point);
@@ -489,6 +520,11 @@ static void path_record_contracts()
         path->interpolation_fraction = 0.25f;
         PathAIPosition((path ? &*path : nullptr), &point);
         REQUIRE((point.x == 125));
+        Transform3D initial;
+        initial.scale = {7, 8, 9};
+        const auto sampled = sampleKeyframeTrack(*path, initial);
+        REQUIRE(sampled.position.x == 125);
+        REQUIRE(sampled.scale == (version == 2 ? glm::dvec3(2, 3, 4) : initial.scale));
     }
     for (int count : {-1, 0, 1, std::numeric_limits<int>::max()}) {
         {
@@ -537,7 +573,7 @@ static void animation_record_contracts()
         REQUIRE((AnimObjReadFromFile(&info, animation.get(), nullptr)));
         REQUIRE((animation->animation_playing == (flag != 0)));
         REQUIRE((animation->random_play == (flag != 0)));
-        REQUIRE((((animation.get())->path_lists) == (flag != 0)));
+        REQUIRE((((animation.get())->positioned_parts) == (flag != 0)));
         REQUIRE((animation->frame_bounds.size() == 2));
         const auto bounds = AnimObjGetBounds(animation.get(), 0, 1);
         REQUIRE(bounds);
@@ -549,32 +585,30 @@ static void animation_record_contracts()
         REQUIRE(wrapped_bounds);
         REQUIRE(wrapped_bounds->minimum == bounds->minimum);
         REQUIRE(wrapped_bounds->maximum == bounds->maximum);
-        animation->path = std::optional<KeyframeTrack>(std::in_place);
-        PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
-        animation->paths[0].push_back(animation->path);
-        animation->entries[0] = std::make_unique<AnimationMesh>();
-        animation->entries[0]->source_file = std::string(300, 'x');
-        animation->entries[0]->frames.resize(2);
-        animation->meshes[0].push_back(std::make_unique<AnimationMesh>(*animation->entries[0]));
+        animation->path.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
+        auto& part = animation->parts[0].emplace_back();
+        part.path = animation->path;
+        part.mesh.source_file = std::string(300, 'x');
+        part.mesh.frames.resize(2);
         auto copy = std::make_unique<Animation>(*animation);
-        REQUIRE((copy->entries[0] != animation->entries[0]));
-        REQUIRE((copy->meshes[0][0] != animation->meshes[0][0]));
-        REQUIRE((copy->entries[0]->frames.size() == 2));
+        REQUIRE(copy->parts[0].data() != animation->parts[0].data());
+        REQUIRE((copy->parts[0][0].mesh.frames.size() == 2));
         REQUIRE((copy->frame_bounds.data() != animation->frame_bounds.data()));
         REQUIRE(copy->path);
-        copy->path->nodes[0].x = 9;
-        REQUIRE(animation->path->nodes[0].x == 1);
-        REQUIRE(copy->paths[0][0]);
-        copy->paths[0][0]->nodes[0].z = 7;
-        REQUIRE(animation->paths[0][0]->nodes[0].z == 3);
+        copy->path->position = 9;
+        REQUIRE(animation->path->position == 0);
+        REQUIRE(copy->parts[0][0].path);
+        copy->parts[0][0].path->position = 7;
+        REQUIRE(animation->parts[0][0].path->position == 0);
         animation.reset();
-        REQUIRE((copy->entries[0]->source_file == std::string(300, 'x')));
-        REQUIRE((copy->meshes[0][0]->source_file == std::string(300, 'x')));
-        REQUIRE((copy->paths[0][0]->nodes[0].z == 7));
+        REQUIRE((copy->parts[0][0].mesh.source_file == std::string(300, 'x')));
+        REQUIRE((copy->parts[0][0].path->position == 7));
+        REQUIRE(glm::vec3(sampleKeyframeTrack(*copy->parts[0][0].path, {}).position) ==
+                glm::vec3(1, 2, 3));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
         REQUIRE(copy_bounds);
         REQUIRE((copy_bounds.value().minimum.x == -500 && copy_bounds.value().maximum.x == 500));
-        copy->path_lists = true;
+        copy->positioned_parts = true;
         REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2)));
     }
     REQUIRE((wiz8::remove_file(wiz8::user_path(filename))));
@@ -583,8 +617,7 @@ static void animation_record_contracts()
 static void graphical_object_ownership_contracts()
 {
     Missile original;
-    original.visual.m_pAI = std::optional<KeyframeTrack>(std::in_place);
-    PathAIAddPoint(*original.visual.m_pAI, glm::vec3(1, 2, 3));
+    original.visual.m_pAI.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
     auto event = W8SoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     event.pitch = 3;
     original.visual.AddSoundEvent(std::move(event));
@@ -593,8 +626,8 @@ static void graphical_object_ownership_contracts()
             W8SoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     Missile copy(original);
-    REQUIRE((copy.visual.m_pAI->nodes.data() != original.visual.m_pAI->nodes.data()));
-    REQUIRE((copy.visual.m_pAI->nodes[0].y == 2));
+    REQUIRE((copy.visual.m_pAI->geometry == original.visual.m_pAI->geometry));
+    REQUIRE((copy.visual.m_pAI->points()[0].position.y == 2));
     REQUIRE((copy.visual.sound_events.size() == original.visual.sound_events.size()));
     REQUIRE(copy.visual.sound_events.front().pitch == 3);
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
@@ -1181,24 +1214,100 @@ TEST_CASE("Faction sections keep every byte", "[save][records]")
     REQUIRE_THROWS(wiz8::save::decode_factions(bytes));
 }
 
+TEST_CASE_METHOD(SaveFixture, "Ambient sound states read the records retail stored",
+                 "[save][records]")
+{
+    // Retail counts the whole emitter list but skips its empty slots, so the
+    // count can exceed the stored records. Names match without regard to case.
+    const auto path = user / "saves" / "ambient.SAV";
+    W8Chunk save;
+    REQUIRE(save.OpenWrite(path));
+    save.WriteChunk(W8ChunkId("AMBS"), [&] {
+        save.WriteValue(std::uint8_t{1});
+        save.WriteValue(std::uint32_t{3});
+        std::array<char, 128> name{};
+        std::ranges::copy(std::string_view("soundWaterfall01"), name.begin());
+        save.WriteValue(name);
+        save.WriteValue(std::uint8_t{1});
+    });
+    save.Close();
+    REQUIRE(save.OpenRead(path));
+    std::vector<W8AmbientSoundState> states;
+    save.ForEachChunk([&](unsigned) { states = ReadAmbientSoundStates(save); });
+    save.Close();
+    REQUIRE(states.size() == 1);
+    REQUIRE((states[0].name == "soundWaterfall01" && states[0].stopped));
+
+    World world;
+    world.audio.emitters.push_back(std::make_unique<W8AmbientSound>());
+    world.audio.emitters[0]->name = "SOUNDWATERFALL01";
+    ApplyAmbientSoundStates(world, states);
+    REQUIRE(world.audio.emitters[0]->stopped);
+}
+
 TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 {
     W8SpellEffectEntry effect{};
     effect.kind = static_cast<W8SpellId>(0x26);
     effect.turns_remaining = 5;
-    effect.sustained = true;
+    effect.target.point.y = -1000.0f;
+    effect.definition.radius = 1.5f;
+    effect.definition.magnitude = {-123, 4, 8};
+    for (unsigned char index = 0; index < 16; ++index)
+        effect.definition.condition_chances[index] = index;
     effect.definition.power_level = 3;
+    effect.definition.magnitude_base = -2;
+    effect.definition.duration_scale = 17;
+    effect.definition.percent = 75;
+    effect.definition.duration_base = -9;
+    effect.definition.duration_per_power = 2;
     effect.monster_ids = {4, 5}; // Rebuilt while the effect runs, not saved.
     const auto payload = wiz8::save::encode(effect);
     // Spell, turns, two sources and two targets, four flags and the definition.
     REQUIRE(payload.size() == 4 + 4 + 2 * (0x34 + 0x20) + 4 + 0x30);
+    constexpr unsigned char definition[] = {
+        0x00, 0x00, 0xc0, 0x3f, 0x85, 0xff, 0x04, 0x08, 0x00, 0x01, 0x02, 0x03,
+        0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+        0x03, 0x00, 0x00, 0x00, 0xfe, 0xff, 0xff, 0xff, 0x11, 0x00, 0x00, 0x00,
+        0x4b, 0x00, 0x00, 0x00, 0xf7, 0xff, 0xff, 0xff, 0x02, 0x00, 0x00, 0x00,
+    };
+    REQUIRE(std::memcmp(payload.data() + payload.size() - sizeof(definition), definition,
+                        sizeof(definition)) == 0);
     const auto decoded = wiz8::save::decode_monster_control(payload);
-    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 && decoded.sustained &&
-             !decoded.recast && decoded.definition.power_level == 3 &&
-             decoded.monster_ids.empty()));
+    REQUIRE(decoded.kind == effect.kind);
+    REQUIRE(decoded.turns_remaining == 5);
+    REQUIRE_FALSE(decoded.recast);
+    REQUIRE(decoded.definition.power_level == 3);
+    REQUIRE(decoded.target.point.y == -1000.0f);
+    REQUIRE(decoded.monster_ids.empty());
+    REQUIRE(payload[4 + 4 + 2 * (0x34 + 0x20) + 1] == std::byte{1});
     REQUIRE(wiz8::save::encode(decoded) == payload);
     REQUIRE_THROWS(
         wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));
+}
+
+TEST_CASE("The newest unexpired lure is the active monster-control effect", "[effects]")
+{
+    const ScopedGame game;
+    auto& effects = CurrentGame().spell_effects;
+
+    auto previous = std::make_unique<W8SpellEffectEntry>();
+    previous->kind = W8_SPELL_HYPNOTIC_LURE;
+    previous->turns_remaining = 3;
+    auto* previous_ptr = previous.get();
+    effects.push_back(std::move(previous));
+
+    auto replacement = std::make_unique<W8SpellEffectEntry>();
+    replacement->kind = W8_SPELL_HYPNOTIC_LURE;
+    replacement->turns_remaining = 5;
+    auto* replacement_ptr = replacement.get();
+    effects.push_back(std::move(replacement));
+
+    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    previous_ptr->turns_remaining = 0;
+    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    replacement_ptr->turns_remaining = 0;
+    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
@@ -1412,6 +1521,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         sub.operand = 22;
         write(out, sub);
         quote = {};
+        quote.subquote_count = 7; // No subquote block: the runtime collection stays empty.
         memcpy(&quote.entries, &live_handle, sizeof(live_handle));
         write(out, quote);
         quote.entry_count = 1;
@@ -1424,10 +1534,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         out.close();
         char filename[] = "data\\dialogue.nsf";
         auto file = LoadNpcScriptFile(filename);
-        REQUIRE((file && file->quote_count == 3));
+        REQUIRE((file && file->quotes.size() == 3));
         REQUIRE((marker ? file->name == "name" : file->name.empty()));
         W8NpcScriptQuote* quotes = file->quotes.data();
-        REQUIRE((quotes[0].subquote_count == 2 && quotes[0].subquotes[0] == "é中😀"));
+        REQUIRE((quotes[0].subquotes.size() == 2 && quotes[0].subquotes[0] == "é中😀"));
         REQUIRE(quotes[0].subquotes[1].empty());
         W8NpcQuoteSubEntry* subs = quotes[0].entries[0].sub_entries.data();
         REQUIRE((subs[0].operand == 11 && subs[0].text == "line"));

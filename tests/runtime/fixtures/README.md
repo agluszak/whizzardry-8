@@ -28,3 +28,65 @@ record, and cancels and confirms deletion. It also replaces the enumerated save
 with a directory to verify that a failed delete shows an error and leaves the
 row usable for a retry. All writable files stay in the scenario's temporary user
 root; installed assets are read-only inputs.
+
+`runtime_retail-save` loads a save written by the retail game: Peter and
+TBell, a level-23 pair just outside the Rapax Away Camp, offered by its author
+at <https://r0k.us/rock/games/wizardry8/>. It is not checked in.
+`tests/runtime/fetch_downloads.cmake`, run as the `runtime_downloads` CTest
+fixture, downloads it once into `WIZ8_DOWNLOAD_CACHE` (by default
+`~/.cache/whizzardry8/downloads`, shared by every build tree) and verifies it
+by SHA-256; CI keeps that directory in the Actions cache. The scenario checks
+the save's level, position and party, walks, then quick-saves and quick-loads
+it through our writer.
+
+`native_retail_save` reads the same downloaded save without assets or a GPU,
+decodes each section the save codec handles and re-encodes it. Sections that do
+not come back byte for byte must be on the test's commented allow-list, which
+records what we rewrite and why (process addresses, stale bytes after string
+terminators, empty party slots); none may change size.
+
+The same page offers `wiz8imports.zip`, four Wizardry 7 end-game files for the
+7->8 import, fetched the same way. `runtime_import-*` put one of them in
+`Saves\Import`, press the [7->8] button on party selection and start the game.
+They check the page's cast list (name, sex, race, profession), level 1 with
+13,000 experience, and the starting level each ending leads to: the monastery
+(`RichVitalia.end`), outside the Umpani fort at Mt. Gigas (`QuinnUmpani.sav`)
+and outside Marten's Bluff (`QuinnTrang.sav`). `noVitalia.end`, the ending in
+which Vitalia was sacrificed, is refused with the game's notice.
+
+## Images: failure frames, snapshots and goldens
+
+CTest gives every runtime scenario its own `WIZ8_RUNTIME_ARTIFACT_DIR`
+(`tests/runtime-artifacts/<scenario>` in the build tree), emptied of PNGs when
+the scenario starts. Without the variable nothing is written.
+
+- When an assertion fails or an exception (including `FailStep`) leaves a
+  scenario while the game runs, the harness saves the presented frame as
+  `failure-frame<N>.png`, and the 2D interface's CPU frame buffer as
+  `failure-frame<N>-ui.png`, and prints both paths. CI uploads the directory
+  as the `runtime-artifacts-<preset>` artifact when the test step fails.
+- `Snapshot(name, pixels)` and the script command `snap NAME` save frames
+  there for inspection.
+- `ExpectScreen(game, name)` compares the presented frame with
+  `tests/runtime/goldens/<name>.png` at a few deterministic moments: the main
+  menu, party selection, character creation, the premade character's first
+  main-game view, camp, and the retail save's loaded view. Goldens are
+  signatures, not screenshots: the frame averaged over 8x8 cells into an
+  80x60 PNG, so no full-resolution game art is committed. A cell differs when
+  one of its channels moved by more than 4; the check fails when more than 4
+  of the 4800 cells differ, prints the worst cells and writes
+  `<name>-golden-{expected,actual,diff}.png` (enlarged signatures; red cells
+  differ) next to the frame. Goldens are rendered with Mesa's lavapipe, which
+  CTest selects through `VK_DRIVER_FILES`; with another Vulkan driver the
+  comparison is skipped with a notice. After an intended visual change, run
+  the scenarios with `WIZ8_RUNTIME_UPDATE_GOLDENS=1` and review the new PNGs.
+  An `-golden-actual.png` from CI, box-averaged back to 80x60, is exactly the
+  signature CI computed.
+
+  The thresholds come from measurements on 2026-10-21: frames were
+  bit-identical across repeated runs and between -O0 and -O3 builds, and Mesa
+  26.0.8 (Ubuntu 26.04, as in CI) against 26.2.4 changed at most 209 pixels by
+  one level, which moved no cell by more than one. Removing the six-character
+  version banner from the main menu changes 5 cells (by up to 40); darkening
+  the world shader by 10% changes 2085 cells of the premade start and 789 of
+  the dusk retail save.

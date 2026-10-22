@@ -31,6 +31,7 @@ enum class W8MarkedNpcEventMode : unsigned char { arm_restore, release_companion
 
 void QueueNpcHeldItemNotice(int npc_kind);
 
+class Game;
 class Monster;
 class Trigger;
 struct W8GameplayModifierBlock;
@@ -158,7 +159,8 @@ void TellNpcFact(W8NpcState* npc, short fact);
    Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
    unflagged records no loaded state claims. */
 void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs);
-signed char AttemptNpcItemTheft(W8Character* character, W8NpcState* npc, int item_id, int count);
+W8NpcItemTheftResult AttemptNpcItemTheft(Game& game, W8Character* character, W8NpcState* npc,
+                                         int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
 

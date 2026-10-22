@@ -69,9 +69,11 @@ struct MainGameRepaint {
     // Clear the screen and repaint every part.
     bool everything = false;
     /* Run the repaint pass even with no part recorded, for the panels that track their own
-       state: the spell page, the portrait bars and the keyboard menu. */
+       state: the spell page and the keyboard menu. */
     bool panels = false;
     std::bitset<8> portraits;
+    // Complete vitals panels; a requested portrait redraw includes its panel.
+    std::bitset<8> portrait_bars;
     bool roof_and_spell_icons = false;
     // The chrome's layout changed: the bottom panels and the buttons around them repaint.
     bool layout = false;
@@ -100,10 +102,10 @@ struct MainGameRepaint {
     }
     bool any() const
     {
-        return everything || panels || portraits.any() || roof_and_spell_icons || layout || radar ||
-               text_box || submenu_buttons || submenu_panel || formation || portrait_panel ||
-               monster_list || options_button || combat_stance || combat_progress ||
-               character_action || combat_effects;
+        return everything || panels || portraits.any() || portrait_bars.any() ||
+               roof_and_spell_icons || layout || radar || text_box || submenu_buttons ||
+               submenu_panel || formation || portrait_panel || monster_list || options_button ||
+               combat_stance || combat_progress || character_action || combat_effects;
     }
 };
 
@@ -156,7 +158,6 @@ struct W8LevelRuntimeBlock {
     int portrait_refresh_image[8];
     unsigned char action_panel_visible;
     bool formation_board_visible;
-    unsigned char radar_map_visible;
     /* Portraits UI mode selected; picks the portrait-hover layout. */
     unsigned char text_scroll_drag_idle;
     /* The x origin the mode-6 hover panel anchors the slot's portrait
@@ -242,18 +243,13 @@ struct W8LevelRuntimeBlock {
     bool tooltip_pending;
     uint64_t countdown3;
     int combat_slot;
-    /* The keyboard-action menu is open; set before BuildKeyboardMenu,
-       cleared by CloseKeyboardMenu. */
-    bool keyboard_menu_open;
     int hover_combat_slot;
-    /* Keyboard-menu cursor-left grace countdown armed; expires into
-       CloseKeyboardMenu. */
+    /* Keyboard-menu cursor-left grace countdown armed. */
     unsigned char cursor_grace;
     uint64_t countdown4;
     /* PortraitSelectInput right-button hold armed for camp. */
     bool portrait_right_hold_armed;
     unsigned char formation_board_alternate;
-    unsigned char radar_map_alternate;
     /* The party-death or ending screen is up, from its first fade until the
        closing fade's EndReviewTransition. */
     bool review_transition_active;

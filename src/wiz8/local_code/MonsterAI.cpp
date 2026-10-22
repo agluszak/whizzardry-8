@@ -26,7 +26,6 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/entities/spell_visual.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
@@ -400,26 +399,25 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
    noise is investigated while the path to it still looks cheap enough. */
 bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 {
-    Monster* monster;
     bool changed;
     signed char mode;
 
-    monster = monster_info->entity.find();
+    Monster& monster = *monster_info->entity;
     mode = W8_RT_AI_IDLE;
     changed = false;
-    if (monster->face_party && monster_info->pathing_cooldown == 0 &&
+    if (monster.face_party && monster_info->pathing_cooldown == 0 &&
         monster_info->player_visibility.line_of_sight) {
         glm::vec3 delta;
 
-        delta = monster->nav.movement.position - PartyNavigator()->GetPosition();
+        delta = monster.nav.movement.position - PartyNavigator()->GetPosition();
         if (glm::length(delta) < 5e+03f) {
             glm::vec3 camera;
             glm::vec3 position;
 
             camera = cameraLocation();
-            position = monster->nav.GetPosition();
+            position = monster.nav.GetPosition();
             *decision = W8_RT_AI_FACE_DIRECTION;
-            monster->move_direction = camera - position;
+            monster.move_direction = camera - position;
             return true;
         }
     }
@@ -428,13 +426,13 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         return false;
     }
     if ((monster_info->ai_mode & W8_MONSTER_AI_REAPPLY_MODE) != 0) {
-        if (monster->order_mode == W8_MONSTER_ORDER_POINT_PATROL ||
-            monster->order_mode == W8_MONSTER_ORDER_RANDOM_POINT_PATROL) {
+        if (monster.order_mode == W8_MONSTER_ORDER_POINT_PATROL ||
+            monster.order_mode == W8_MONSTER_ORDER_RANDOM_POINT_PATROL) {
             glm::vec3 delta;
             glm::vec3 patrol;
 
-            monster->GetPatrolPoint(&patrol);
-            delta = patrol - monster->nav.GetPosition();
+            monster.GetPatrolPoint(&patrol);
+            delta = patrol - monster.nav.GetPosition();
             if (glm::length(delta) >= 1500.0) {
                 *decision = monster_info->ai_mode;
                 return true;
@@ -452,21 +450,21 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         return false;
     }
     if (monster_info->ai_mode == W8_RT_AI_FACE_NOISE &&
-        fabsf(monster->nav.movement.target_yaw - monster->nav.movement.yaw) >=
+        fabsf(monster.nav.movement.target_yaw - monster.nav.movement.yaw) >=
             g_camera_transition_epsilon) {
         mode = W8_RT_AI_FACE_NOISE;
     } else {
-        if (monster_info->heard_noise_radius > 0 && monster->nav.movement_stopped &&
+        if (monster_info->heard_noise_radius > 0 && monster.nav.movement_stopped &&
             monster_info->ai_mode == W8_RT_AI_INVESTIGATE_NOISE) {
             glm::vec3 delta;
 
-            delta = monster_info->heard_noise_position - monster->nav.GetPosition();
+            delta = monster_info->heard_noise_position - monster.nav.GetPosition();
             if (glm::length(delta) < 1500.0) {
                 monster_info->heard_noise_radius = 0;
             }
         }
         if (monster_info->heard_noise_radius > 0) {
-            if (!monster->nav.movement_stopped &&
+            if (!monster.nav.movement_stopped &&
                 monster_info->ai_mode == W8_RT_AI_INVESTIGATE_NOISE) {
                 mode = W8_RT_AI_INVESTIGATE_NOISE;
             } else {
@@ -479,7 +477,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 if (radius >= g_noise_investigate_radius_cap) {
                     radius = g_noise_investigate_radius_cap;
                 }
-                position = monster->nav.GetPosition();
+                position = monster.nav.GetPosition();
                 const auto path = GetWorldSpatialIndex()->measureNoisePath(
                     position, noise_position, static_cast<float>(radius));
                 if (path &&
@@ -498,22 +496,22 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 mode = W8_RT_AI_FACE_DIRECTION;
                 angle =
                     (CurrentGame().rng.below(0x168) << 1) * g_camera_pi * kInverseFullTurnDegrees;
-                monster->move_direction.x = static_cast<float>(cos(angle) * 500.0);
-                monster->move_direction.y = 0.0f;
-                monster->move_direction.z = static_cast<float>(sin(angle) * 500.0);
+                monster.move_direction.x = static_cast<float>(cos(angle) * 500.0);
+                monster.move_direction.y = 0.0f;
+                monster.move_direction.z = static_cast<float>(sin(angle) * 500.0);
             } else {
                 mode = W8_RT_AI_IDLE;
             }
         } else {
-            switch (monster->order_mode) {
+            switch (monster.order_mode) {
             case W8_MONSTER_ORDER_NONE:
                 break;
             case W8_MONSTER_ORDER_GUARD: {
                 glm::vec3 delta;
                 glm::vec3 patrol;
 
-                monster->GetPatrolPoint(&patrol);
-                delta = patrol - monster->nav.GetPosition();
+                monster.GetPatrolPoint(&patrol);
+                delta = patrol - monster.nav.GetPosition();
                 if (glm::length(delta) < 1500.0) {
                     mode = W8_RT_AI_IDLE;
                 } else {
@@ -523,7 +521,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             }
             case W8_MONSTER_ORDER_PATROL:
                 mode = W8_RT_AI_PATROL_AREA;
-                if (monster->nav.movement_stopped) {
+                if (monster.nav.movement_stopped) {
                     changed = true;
                 }
                 break;
@@ -535,37 +533,36 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 int next;
 
                 mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
-                monster->GetPatrolPoint(&patrol);
-                delta = patrol - monster->nav.GetPosition();
+                monster.GetPatrolPoint(&patrol);
+                delta = patrol - monster.nav.GetPosition();
                 if (glm::length(delta) >= 1500.0) {
                     break;
                 }
-                count = static_cast<int>(monster->vector.size());
-                if (monster->order_mode == W8_MONSTER_ORDER_POINT_PATROL) {
-                    next = monster->patrol_index + 1;
+                count = static_cast<int>(monster.vector.size());
+                if (monster.order_mode == W8_MONSTER_ORDER_POINT_PATROL) {
+                    next = monster.patrol_index + 1;
                     if (next < count) {
-                        monster->patrol_index = static_cast<signed char>(next);
+                        monster.patrol_index = static_cast<signed char>(next);
                     } else {
-                        monster->patrol_index = 0;
+                        monster.patrol_index = 0;
                     }
                 } else if (count < 2) {
-                    monster->patrol_index = 0;
+                    monster.patrol_index = 0;
                 } else if ((monster_info->ai_mode & W8_MONSTER_AI_MODE_MASK) ==
                            W8_RT_AI_MOVE_TO_PATROL_POINT) {
                     do {
                         next = static_cast<signed char>(CurrentGame().rng.below(count));
-                    } while (next == monster->patrol_index);
-                    monster->patrol_index = static_cast<signed char>(next);
+                    } while (next == monster.patrol_index);
+                    monster.patrol_index = static_cast<signed char>(next);
                 } else {
-                    monster->patrol_index =
-                        static_cast<signed char>(CurrentGame().rng.below(count));
+                    monster.patrol_index = static_cast<signed char>(CurrentGame().rng.below(count));
                 }
                 changed = true;
                 break;
             }
             case W8_MONSTER_ORDER_FACE_DIRECTION:
-                monster->move_direction =
-                    glm::vec3(monster->direction_x, monster->direction_y, monster->direction_z);
+                monster.move_direction =
+                    glm::vec3(monster.direction_x, monster.direction_y, monster.direction_z);
                 mode = W8_RT_AI_FACE_DIRECTION;
                 changed = true;
                 break;
@@ -598,12 +595,11 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
    of the decision rides in alongside the mode and only case 6 consumes it. */
 void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decision)
 {
-    Monster* monster = monster_info->entity.find();
+    Monster& monster = *monster_info->entity;
     W8MonsterGroup* monster_group;
     const W8MonsterRecord* record;
     W8MonsterInfo* member;
     W8SpellEffectEntry* effect;
-    SpellVisual* visual;
     glm::vec3 position;
     glm::vec3 patrol_point;
     unsigned char best_range;
@@ -621,7 +617,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
                 best_range = record->attacks[attack].range_category;
             }
         }
-        if (monster->ApproachStartupNavigator(
+        if (monster.ApproachStartupNavigator(
                 CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 1) {
             if (IsSightRangeOverridden()) {
                 monster_group = FindMonsterGroup(monster_info->monster_group_id);
@@ -635,46 +631,45 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         ClearMonsterPathAndResume(monster_info);
         break;
     case W8_RT_AI_LINK_TO_PARTY:
-        monster->LinkToStartupNavigator();
+        monster.LinkToStartupNavigator();
         break;
     case W8_RT_AI_APPROACH_PARTY:
         assert(monster_info->ubDisposition != W8_DISPOSITION_HOSTILE);
-        monster->ApproachStartupNavigator(3000.0);
+        monster.ApproachStartupNavigator(3000.0);
         break;
     case W8_RT_AI_INVESTIGATE_NOISE:
         position = monster_info->heard_noise_position;
-        monster->nav.ConfigureMovementToPosition(&position);
+        monster.nav.ConfigureMovementToPosition(&position);
         break;
     case W8_RT_AI_PATROL_AREA:
         if ((decision & W8_MONSTER_AI_REAPPLY_MODE) != 0) {
-            monster->nav.SetHeightRange(monster->patrol_distance, monster->patrol_variation);
+            monster.nav.SetHeightRange(monster.patrol_distance, monster.patrol_variation);
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
             break;
         }
-        if (monster->formation == glm::vec3(0)) {
-            monster->formation = monster->nav.GetPosition();
+        if (monster.formation == glm::vec3(0)) {
+            monster.formation = monster.nav.GetPosition();
         }
-        position = monster->formation;
-        if (monster->nav.StartPatrol(&position, monster->patrol_distance,
-                                     monster->patrol_variation)) {
+        position = monster.formation;
+        if (monster.nav.StartPatrol(&position, monster.patrol_distance, monster.patrol_variation)) {
             break;
         }
         HandleMonsterPatrolFailure(monster_info);
         decision = W8_RT_AI_IDLE;
         break;
     case W8_RT_AI_MOVE_TO_PATROL_POINT:
-        if (!monster->GetPatrolPoint(&patrol_point)) {
+        if (!monster.GetPatrolPoint(&patrol_point)) {
             decision = W8_RT_AI_IDLE;
             break;
         }
-        if (monster->nav.ConfigureMovementToPosition(&patrol_point) != 0) {
+        if (monster.nav.ConfigureMovementToPosition(&patrol_point) != 0) {
             break;
         }
-        if (!monster->IsWithinWorldRange() &&
+        if (!monster.IsWithinWorldRange() &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
             monster_group = FindMonsterGroup(monster_info->monster_group_id);
             position = patrol_point;
-            if (MoveMonsterGroupToPosition(monster_group, &position, monster->nav.GetYaw(), false,
+            if (MoveMonsterGroupToPosition(monster_group, &position, monster.nav.GetYaw(), false,
                                            true, false, false)) {
                 break;
             }
@@ -683,8 +678,8 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         decision = W8_RT_AI_IDLE;
         break;
     case W8_RT_AI_FACE_NOISE:
-        monster->nav.flags &= ~0x20000000;
-        monster->nav.ClearMovement();
+        monster.nav.flags &= ~0x20000000;
+        monster.nav.ClearMovement();
         position = monster_info->heard_noise_position;
         monster_info->heard_noise_radius = 0;
         monster_info->pathing_cooldown = 0x1e;
@@ -696,20 +691,18 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         break;
     case W8_RT_AI_FOLLOW_LURE:
         effect = FindMonsterControlSpellEffect();
-        if (effect == 0 || (visual = effect->spell_visuals[0]) == 0) {
-            break;
-        }
-        if (monster->nav.SetMovementTargetToNavigator(&(visual)->nav, 2500.0) == 0) {
-            position = visual->nav.GetPosition();
-            monster->nav.AimAtPosition(&position);
+        if (!effect) break;
+        if (monster.nav.SetMovementTargetToAnchor(effect->target.point, 2500.0) == 0) {
+            position = effect->target.point;
+            monster.nav.AimAtPosition(&position);
         }
         break;
     case W8_RT_AI_FACE_DIRECTION:
-        monster->nav.flags &= ~0x20000000;
-        monster->nav.ClearMovement();
-        position = monster->nav.GetPosition();
-        position += monster->move_direction;
-        monster->nav.AimAtPosition(&position);
+        monster.nav.flags &= ~0x20000000;
+        monster.nav.ClearMovement();
+        position = monster.nav.GetPosition();
+        position += monster.move_direction;
+        monster.nav.AimAtPosition(&position);
         break;
     }
     monster_info->ai_mode ^= (monster_info->ai_mode ^ decision) & W8_MONSTER_AI_MODE_MASK;
@@ -2142,8 +2135,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
                     record = FindMonToMonVisibility(monster_info, other);
                     if (record != 0 && record->sight_state == W8_SIGHT_SEEN &&
                         record->los_flags[2]) {
-                        if (!within_reach || monster_info->entity->GetDistanceToMonster(
-                                                 other->entity.find()) <= reach) {
+                        if (!within_reach ||
+                            monster_info->entity->GetDistanceToMonster(*other->entity) <= reach) {
                             return true;
                         }
                     }
@@ -2281,33 +2274,15 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     return furthest;
 }
 
-/* Whether the point the monster-control effect is anchored to is still within
-   reach. spell_visuals.data sits at W8SpellEffectEntry + 0x10c; the first visual is
-   a SpellVisual whose Navigator secondary base is the ordinary GrCycle
-   conversion at +0x18. With no effect running, or nothing anchored, there is
-   nothing to be in range of; failing the test falls back on where the party
-   is standing. */
+/* Follow the saved gameplay anchor even when no lure visual could be created. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
-    W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
-    SpellVisual* visual;
-    Navigator* anchor_navigator;
-    short in_range;
-    glm::vec3 party;
-
-    if (effect == 0) {
-        return 0;
-    }
-    visual = effect->spell_visuals[0];
-    if (visual == 0) {
-        return 0;
-    }
-    anchor_navigator = &(visual)->nav;
-    in_range = monster_info->entity->nav.SetMovementTargetToNavigator(anchor_navigator, 2500.0);
-    if (in_range == 0) {
-        party = anchor_navigator->GetPosition();
-        monster_info->entity->nav.AimAtPosition(&party);
-    }
+    const auto* effect = FindMonsterControlSpellEffect();
+    if (!effect) return 0;
+    const auto& anchor = effect->target.point;
+    auto& nav = monster_info->entity->nav;
+    const auto in_range = nav.SetMovementTargetToAnchor(anchor, 2500.0);
+    if (!in_range) nav.AimAtPosition(&anchor);
     return in_range;
 }
 
@@ -2402,7 +2377,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
                 other->pCombat && other->hp_current != 0 &&
                 other->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 other_distance = other->entity->GetDistanceToPlayer();
-                monster_distance = member->entity->GetDistanceToMonster(other->entity.find());
+                monster_distance = member->entity->GetDistanceToMonster(*other->entity);
                 if (monster_distance + member_distance <
                         other_distance * kReinforcementDistanceSlack &&
                     (member_distance < other_distance || monster_distance < other_distance)) {

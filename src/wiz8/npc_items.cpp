@@ -12,7 +12,6 @@
 #include "character_skills.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -28,6 +27,7 @@
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -444,48 +444,22 @@ std::size_t GetNpcItemCount(W8NpcState* npc)
     return npc->items.size();
 }
 
-static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
-
-static bool SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
-                          bool suppress_payment)
-{
-    W8ItemInstance stack;
-    int amount;
-
-    if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
-        if (NpcAcceptsTradeItemClass(npc, item)) {
-            stack = *item;
-            stack.stack_count = quantity;
-            amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
-            if (!suppress_payment) {
-                AddPartyGold(CurrentGame(), amount, false);
-            }
-            if (item->stack_count == 0) {
-                item->stack_count = 1;
-            }
-            AddNpcItemFromInstance(npc, item, quantity);
-            return true;
-        }
-    }
-    return false;
-}
-
-W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& selection)
+W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
+                                      const W8TradeSelection& selection)
 {
     W8ItemInstance* item = nullptr;
     switch (selection.source) {
     case W8TradeSource::Backpack:
         if (selection.character < 0 || selection.character >= 8 ||
-            !CurrentGame().party.members[selection.character].has_value() || selection.slot < 0 ||
+            !game.party.members[selection.character].has_value() || selection.slot < 0 ||
             selection.slot >= 8)
             return nullptr;
-        item = &CurrentGame().party.characters[selection.character].backpack[selection.slot];
+        item = &game.party.characters[selection.character].backpack[selection.slot];
         break;
     case W8TradeSource::PartyPool:
-        if (selection.slot < 0 ||
-            std::cmp_greater_equal(selection.slot, CurrentGame().party.item_count))
+        if (selection.slot < 0 || std::cmp_greater_equal(selection.slot, game.party.item_count))
             return nullptr;
-        item = &CurrentGame().party.item_pool[selection.slot];
+        item = &game.party.item_pool[selection.slot];
         break;
     case W8TradeSource::NpcStock: {
         auto* entry = npc ? GetNpcItemAt(npc, selection.slot) : nullptr;
@@ -498,34 +472,6 @@ W8ItemInstance* ResolveTradeSelection(W8NpcState* npc, const W8TradeSelection& s
         return nullptr;
     }
     return item->iItemNo != -1 && *item == selection.expected ? item : nullptr;
-}
-
-W8TradeResult CompleteNpcTrade(W8NpcState* npc, const W8TradeSelection& selection,
-                               unsigned char quantity)
-{
-    auto* item = ResolveTradeSelection(npc, selection);
-    if (!item || !npc || quantity == 0) return {W8TradeOutcome::InvalidSelection};
-    if (selection.source == W8TradeSource::NpcStock) {
-        return CompleteNpcItemPurchase(npc, selection.slot, quantity, false);
-    }
-    const auto available = item->stack_count ? item->stack_count : 1;
-    if (quantity > available) return {W8TradeOutcome::InvalidSelection};
-    if (selection.source == W8TradeSource::Backpack) {
-        const int owner = CurrentGame().party.npcIndex(selection.character);
-        auto* owner_npc = owner == -1 ? nullptr : GetNpcState(owner);
-        if (owner_npc && NpcWantsItem(owner_npc, item)) return {W8TradeOutcome::WantedByOwner};
-    }
-    if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
-    const bool wanted = NpcHasTopic(npc, item->iItemNo);
-    if (!SellItemToNpc(npc, item, quantity, wanted)) return {W8TradeOutcome::Refused};
-    const W8ItemLocation sold =
-        selection.source == W8TradeSource::Backpack
-            ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),
-                             static_cast<unsigned>(selection.slot)}
-            : W8ItemLocation{W8ItemStorage::Pool, 0, static_cast<unsigned>(selection.slot)};
-    RemoveInventoryQuantity(CurrentGame(), sold, quantity);
-    wiz8::sound::play(g_sound_cash_transaction);
-    return {W8TradeOutcome::Complete, wanted};
 }
 
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
@@ -599,8 +545,8 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePrice
    non-stack quantity kinds) until the request is filled; the price of the
    accumulated stack then leaves the party purse and the stock entry shrinks.
    The trailing pass drops entries whose remaining count hit zero. */
-W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity,
-                                      bool no_payment)
+static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int index,
+                                             unsigned char quantity, bool no_payment)
 {
     auto* entry = GetNpcItemAt(npc, index);
     if (!entry || quantity == 0 || entry->available_at != 0)
@@ -612,20 +558,19 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     if (quantity > available) return {W8TradeOutcome::InvalidSelection};
     const auto price =
         CalculateNpcTradeStackPrice(npc, stock.iItemNo, W8_TRADE_PRICE_PARTY_BUYS, quantity, true);
-    if (!no_payment && std::cmp_greater(price, CurrentGame().party.gold))
+    if (!no_payment && std::cmp_greater(price, game.party.gold))
         return {W8TradeOutcome::InsufficientGold};
 
     // Plan the destination too. No acquisition callback can observe paid-for
     // stock that has not yet reached its final pool, cursor or world location.
-    std::vector<W8ItemInstance> pool(CurrentGame().party.item_pool,
-                                     CurrentGame().party.item_pool +
-                                         CurrentGame().party.item_count);
+    std::vector<W8ItemInstance> pool(game.party.item_pool,
+                                     game.party.item_pool + game.party.item_count);
     std::vector<std::size_t> acquired;
     std::vector<W8ItemInstance> overflow;
     unsigned int moved = 0;
     while (moved < quantity) {
         W8ItemInstance hand;
-        hand = MakeItem(Data(), CurrentGame().rng, stock.iItemNo, true, true, false);
+        hand = MakeItem(Data(), game.rng, stock.iItemNo, true, true, false);
         unsigned int unit = 1;
         if (record.quantity_kind == W8_ITEM_QUANTITY_STACK) {
             if (record.maximum_quantity == 0) return {W8TradeOutcome::Refused};
@@ -664,7 +609,7 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
     std::vector<std::unique_ptr<W8WorldItem>> drops;
     if (!overflow.empty()) {
         if ((record.flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
-            if ((CurrentGame().party.held.item.iItemNo != -1) || overflow.size() != 1)
+            if ((game.party.held.item.iItemNo != -1) || overflow.size() != 1)
                 return {W8TradeOutcome::Refused};
             held = overflow.front();
             overflow.clear();
@@ -681,26 +626,91 @@ W8TradeResult CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char 
         items.reserve(items.size() + drops.size());
     }
     // Publish the complete transfer before encumbrance, reactions or presentation.
-    std::ranges::copy(pool, CurrentGame().party.item_pool);
-    CurrentGame().party.item_count = static_cast<unsigned int>(pool.size());
+    std::ranges::copy(pool, game.party.item_pool);
+    game.party.item_count = static_cast<unsigned int>(pool.size());
     ConsumeNpcItemQuantity(npc, index, quantity);
     RemoveDepletedNpcStock(npc);
-    if (!no_payment) SpendPartyGold(CurrentGame().party, price);
+    if (!no_payment) SpendPartyGold(game.party, price);
     for (auto& drop : drops) AddWorldItem(std::move(drop));
     if (held) {
-        CurrentGame().party.held.item = *held;
+        game.party.held.item = *held;
 
-        CurrentGame().party.held.actor = -1;
-        CurrentGame().party.held.origin = {};
+        game.party.held.actor = -1;
+        game.party.held.origin = {};
     }
-    SettleActiveParty(CurrentGame());
+    SettleActiveParty(game);
     for (std::size_t slot : acquired) {
-        auto* item = &CurrentGame().party.item_pool[slot];
+        auto* item = &game.party.item_pool[slot];
         UpdateFactsAfterAcquiringItem(item);
         DeliverExceptionalItemReaction(item, true, nullptr);
     }
-    wiz8::sound::play(g_sound_cash_transaction);
     return {W8TradeOutcome::Complete, false, !drops.empty()};
+}
+
+W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
+                               const W8TradeSelection& selection, int quantity,
+                               W8TradeAction action)
+{
+    if (!npc) return {W8TradeOutcome::InvalidSelection};
+    if (action == W8TradeAction::Offer && selection.source == W8TradeSource::Gold)
+        return {W8TradeOutcome::Offer};
+    auto* item = ResolveTradeSelection(game, npc, selection);
+    if (!item) return {W8TradeOutcome::InvalidSelection};
+    if (action != W8TradeAction::Offer && (quantity <= 0 || quantity > 255))
+        return {W8TradeOutcome::InvalidSelection};
+    if (action == W8TradeAction::Steal) {
+        if (selection.source != W8TradeSource::NpcStock || actor < 0 || actor >= 8 ||
+            !game.party.members[actor])
+            return {W8TradeOutcome::InvalidSelection};
+        const auto available = Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
+                                   ? item->stack_count
+                                   : selection.stock_quantity;
+        if (quantity > available) return {W8TradeOutcome::InvalidSelection};
+        switch (AttemptNpcItemTheft(game, &game.party.characters[actor], npc, item->iItemNo,
+                                    quantity)) {
+        case W8_ITEM_THEFT_SUCCEEDED:
+            break;
+        case W8_ITEM_THEFT_FAILED:
+            return {W8TradeOutcome::TheftFailed};
+        case W8_ITEM_THEFT_CAUGHT:
+            SetNpcDispositionBand(npc, W8_NPC_BAND_NEUTRAL);
+            ApplyFactionChange(3, npc->record->faction, 1, -5);
+            return {W8TradeOutcome::TheftCaught};
+        }
+        if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1)
+            AddNpcTopic(npc, item->iItemNo);
+        auto result = CompleteNpcItemPurchase(game, npc, selection.slot, quantity, true);
+        result.theft_succeeded = true;
+        return result;
+    }
+    if (selection.source == W8TradeSource::NpcStock)
+        return action == W8TradeAction::Offer
+                   ? W8TradeResult{W8TradeOutcome::InvalidSelection}
+                   : CompleteNpcItemPurchase(game, npc, selection.slot, quantity, false);
+    const auto available = item->stack_count ? item->stack_count : 1;
+    if (action != W8TradeAction::Offer && quantity > available)
+        return {W8TradeOutcome::InvalidSelection};
+    if (selection.source == W8TradeSource::Backpack) {
+        const int owner = game.party.npcIndex(selection.character);
+        auto* owner_npc = owner == -1 ? nullptr : GetNpcState(owner);
+        if (owner_npc && NpcWantsItem(owner_npc, item)) return {W8TradeOutcome::WantedByOwner};
+    }
+    if (action == W8TradeAction::Offer) return {W8TradeOutcome::Offer};
+    if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
+    const bool wanted = NpcHasTopic(npc, item->iItemNo);
+    auto stack = *item;
+    stack.stack_count = quantity;
+    const auto amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
+    if (!wanted) AddPartyGold(game, amount, false);
+    if (item->stack_count == 0) item->stack_count = 1;
+    AddNpcItemFromInstance(npc, item, quantity);
+    const W8ItemLocation sold =
+        selection.source == W8TradeSource::Backpack
+            ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),
+                             static_cast<unsigned>(selection.slot)}
+            : W8ItemLocation{W8ItemStorage::Pool, 0, static_cast<unsigned>(selection.slot)};
+    RemoveInventoryQuantity(game, sold, quantity);
+    return {W8TradeOutcome::Complete, wanted};
 }
 
 bool ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity)

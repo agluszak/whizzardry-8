@@ -217,20 +217,20 @@ void Light::Update(float seconds)
             }
         }
     }
-    if ((path == 0) || (path->nodes.size() == 0) ||
+    if ((path == 0) || (path->points().size() == 0) ||
         ((seconds - m_path_time) * definition->path_speed < 1.0f)) {
         return;
     }
     int index = static_cast<int>((seconds - m_path_time) * definition->path_speed);
     index = index * m_path_direction + m_path_index;
-    if (index < static_cast<int>(path->nodes.size())) {
+    if (index < static_cast<int>(path->points().size())) {
         if (index < 0) {
             m_path_direction = 1;
             index = 0;
         }
     } else if ((definition->flags & W8_PARAM_LIGHT_PING_PONG_PATH) != 0) {
         m_path_direction = -1;
-        index = static_cast<int>(path->nodes.size()) - 2;
+        index = static_cast<int>(path->points().size()) - 2;
     } else {
         index = 0;
     }

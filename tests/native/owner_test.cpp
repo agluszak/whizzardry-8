@@ -67,6 +67,7 @@
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -209,6 +210,9 @@ void camp_effects()
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 16, 8);
+    for (const auto* name : {"commod_buttons", "ReviewItemButtons", "InventorySwapButtons",
+                             "InventoryFilterButtons", "ReviewFXFilters"})
+        button_image_fixture(assets, fmt::format("data/review/{}.sti", name), 45, false, 16, 8);
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     struct Restore {
@@ -222,41 +226,38 @@ void camp_effects()
     {
         CampScreen independent(game.game, ScreenPointer());
         auto* state = &independent;
-        REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
+        REQUIRE(state->stats.effect_list.empty());
+        REQUIRE(state->stats.stats_range);
         const auto layer_count = LiveUiLayerCount();
-        state->stats.stats_range =
-            std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
-        REQUIRE(LiveUiLayerCount() == layer_count);
         // Disabling one scrollbar must not disable unrelated targets in its layer.
         const auto consume = [](const UiPointerEvent&) { return UiResult::Handled; };
         auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480}, consume);
         state->stats.stats_range->SetActive(true);
         state->stats.stats_range->SetActive(false);
         REQUIRE(sibling.hitAt({0, 0}));
+        REQUIRE(LiveUiLayerCount() == layer_count);
         state->scroll_input.remove(sibling);
         auto& range = *state->stats.stats_range;
-        state->stats.effect_list = {
-            {false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
-            {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
-            {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
-            {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
+        state->stats.effect_list = {{true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 20},
+                                    {false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 30},
+                                    {true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 40},
+                                    {true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 50}};
+        state->stats.effect_items_only = false;
         state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        state->stats.effect_scroll = 100;
+        range.SetRange(0, 100);
+        range.SetValue(100);
         state->stats.FilterCampEffectList();
-        REQUIRE((state->stats.effect_visible_lines == 24 && state->stats.effect_scroll == 7));
-        REQUIRE((state->stats.effect_first_visible == 0 && state->stats.effect_last_visible == 3));
-        REQUIRE((range.m_enabled && range.m_value == 7));
+        REQUIRE((range.m_enabled && range.m_maximum == 86 && range.m_value == 86));
         state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
         state->stats.FilterCampEffectList();
-        REQUIRE((state->stats.effect_visible_lines == 14 && state->stats.effect_scroll == 0));
-        REQUIRE((!range.m_enabled && !state->stats.effect_list[1].visible));
+        REQUIRE((range.m_maximum == 55 && range.m_value == 55));
         state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
         state->stats.FilterCampEffectList();
-        REQUIRE((state->stats.effect_visible_lines == 13 && state->stats.effect_list[3].visible));
+        REQUIRE((range.m_maximum == 65 && range.m_value == 55));
         state->stats.effect_items_only = true;
         state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         state->stats.FilterCampEffectList();
-        REQUIRE((state->stats.effect_visible_lines == 4 && state->stats.effect_first_visible == 2));
+        REQUIRE((range.m_maximum == 24 && range.m_value == 24));
         W8Character character{};
         for (auto& condition : character.uiCondition) condition = 1;
         for (auto& enchantment : character.enchantments) enchantment.turns = 2;
@@ -271,15 +272,17 @@ void camp_effects()
         state->stats.effect_items_only = false;
         state->stats.RebuildCampEffectList(character);
         REQUIRE(state->stats.effect_list.size() == 28);
-        REQUIRE((state->stats.effect_detrimental_count == 20 &&
-                 state->stats.effect_beneficial_count == 8));
+        REQUIRE(std::ranges::count_if(state->stats.effect_list,
+                                      [](const auto& entry) { return entry.detrimental; }) == 20);
+        REQUIRE(std::ranges::count_if(state->stats.effect_list,
+                                      [](const auto& entry) { return entry.beneficial; }) == 8);
         REQUIRE((state->stats.effect_list.front().index == 19 &&
                  state->stats.effect_list.back().index == 0));
-        REQUIRE((state->stats.effect_visible_lines == 64 && range.m_enabled));
+        REQUIRE((range.m_maximum == 47 && range.m_value == 0 && range.m_enabled));
         character = {};
         state->stats.RebuildCampEffectList(character);
-        REQUIRE((state->stats.effect_list.empty() && state->stats.effect_visible_lines == 0));
-        REQUIRE((state->stats.effect_beneficial_count == 0 && !range.m_enabled));
+        REQUIRE(state->stats.effect_list.empty());
+        REQUIRE((!range.m_enabled && range.m_maximum == 0 && range.m_value == 0));
     }
 }
 
@@ -558,6 +561,11 @@ public:
         button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
                              3);
         bitmap_image_fixture(assets, "data/portraits/large/lhummf.sti");
+        for (const auto* name : {"HealthBar", "StaminaBar", "MagicBar", "HealthBarWide",
+                                 "StaminaBarWide", "MagicBarWide"})
+            button_image_fixture(assets, fmt::format("data/main interface/{}.sti", name), 1, false,
+                                 3, 45);
+        button_image_fixture(assets, "data/fonts/vitals.sti", 256, false, 3, 5);
         g_image_assets.clear();
         w8_native::configure_paths({assets.string(), (directory_.path / "user").string()});
     }
@@ -902,8 +910,7 @@ void generic_button_images()
     REQUIRE(many_fonts.back().height() > 0);
     many_fonts.clear();
     // Failed loads retain resources; moves preserve their ownership.
-    // Font's move operations explicitly leave the source empty, so checking its
-    // moved-from state is part of the contract rather than an accidental use.
+    // Moving the shared glyph owner leaves the source without a loaded font.
     {
         Font source, moved;
         REQUIRE(source.height() == 0);
@@ -922,6 +929,15 @@ void generic_button_images()
         source = std::move(moved);
         REQUIRE(source.height() == height);
         REQUIRE(moved.height() == 0); // NOLINT(bugprone-use-after-move)
+        const Palette16 colors{};
+        source.setPalette(colors);
+        Font copy = source;
+        REQUIRE(copy.glyphs == source.glyphs);
+        copy.resetPalette();
+        REQUIRE(source.customPalette.has_value());
+        REQUIRE_FALSE(copy.customPalette.has_value());
+        source.clear();
+        REQUIRE(copy.height() == height);
     }
     button_image_fixture(assets, "font-all-glyphs.sti", 252, false, 2, 2, {1, 2, 3, 4, 5});
     const char* font_filename = "font-all-glyphs.sti";
@@ -1765,9 +1781,23 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     REQUIRE(font.load("font.sti"));
     class MessageDialog final : public W8MessageDialogBase {
     public:
+        using W8DialogBase::m_height;
         using W8MessageDialogBase::m_cancel_button;
         using W8MessageDialogBase::m_confirm_button;
+        using W8MessageDialogBase::m_lines;
     };
+    {
+        MessageDialog dialog;
+        dialog.SetBackground("background.sti", 0);
+        dialog.SetMessage("a\nb\nc\nd\ne\nf\ng\nh", 1, 0, false, false, true, true, 0, 0);
+        REQUIRE(dialog.m_lines.size() == 8);
+        REQUIRE(dialog.m_height == font.height() * 8 + 30);
+        dialog.SetMessage("abcd", 2, 2, false, false, true, false, 0, 0);
+        REQUIRE((dialog.m_lines == std::vector<std::string>{"ab", "cd"}));
+        dialog.SetMessage("", 0, 0, false, false, true, false, 0, 0);
+        REQUIRE(dialog.m_lines.empty());
+        dialog.Draw(GetFrameBufferSurface());
+    }
     for (const bool accept : {false, true}) {
         MessageDialog dialog;
         dialog.SetOrigin(10, 10);
@@ -1993,6 +2023,54 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(bitmap_reloaded != bitmap);
     REQUIRE(original->frames.size() == 1);
     REQUIRE(bitmap->w == 1);
+}
+
+TEST_CASE("Vitals panels publish their complete bounds without changing sampled state",
+          "[owner][portrait]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    ScopedGame game;
+    struct Settings {
+        unsigned char numeric = g_settings.numeric_hit_points;
+        Font font = std::move(g_smfnt_font);
+        ~Settings()
+        {
+            g_settings.numeric_hit_points = numeric;
+            g_smfnt_font = std::move(font);
+        }
+    } settings;
+    REQUIRE(g_smfnt_font.load("data/fonts/vitals.sti"));
+    auto& framebuffer = GetFrameBufferSurface();
+    for (bool numeric : {false, true}) {
+        g_settings.numeric_hit_points = numeric;
+        for (unsigned slot : {0u, 7u}) {
+            auto& entry = game.game.monster_manager_entries[slot];
+            game.game.party.characters[slot].hp_current = 20;
+            entry.cached_hp_bar = 20;
+            entry.cached_stamina_bar = 0;
+            const auto portrait = PartyPortraitBounds(slot);
+            const int x = portrait.left + ((slot & 1) ? 0 : 105);
+            const int y = portrait.top + (numeric ? 16 : 23);
+            REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234));
+            TakeUiUpload();
+            RedrawPartyPortraitBars(slot, false);
+            const auto upload = TakeUiUpload();
+            REQUIRE((upload.x == x && upload.y == y && upload.w == 24 &&
+                     upload.h == (numeric ? 54 : 46)));
+            REQUIRE(surface_pixel(framebuffer, x + (numeric ? 3 : 6), y) != 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x - 1, y) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 3, y - 1) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 24, y + upload.h - 1) == 0x1234);
+            if (numeric)
+                REQUIRE(surface_pixel(framebuffer, x + 2, portrait.top + 63) == 0x8000);
+            else
+                REQUIRE(surface_pixel(framebuffer, x + 10, y + 45) == 0x8001);
+            REQUIRE(entry.cached_hp_bar == 20);
+            REQUIRE(entry.cached_stamina_bar == 0);
+            REQUIRE(game.game.party.characters[slot].hp_current == 20);
+        }
+    }
 }
 
 TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")

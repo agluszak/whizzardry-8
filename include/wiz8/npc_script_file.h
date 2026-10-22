@@ -91,19 +91,15 @@ struct W8NpcQuoteSubEntry {
 struct W8NpcQuoteEntry {
     W8NpcQuoteEntryKind kind = W8_NPC_ENTRY_UNSPECIFIED;
     int operand0{}, operand1{}, operand2{};
-    unsigned char sub_entry_count{};
     std::vector<W8NpcQuoteSubEntry> sub_entries;
 };
 struct W8NpcScriptQuote {
-    unsigned char subquote_count{};
     std::vector<std::string> subquotes;
     std::vector<W8NpcQuoteEntry> entries;
-    unsigned short entry_count{};
     unsigned char dialogue_alert{};
 };
 struct W8NpcScriptFile {
     unsigned char unknown_00[4]{};
-    unsigned short quote_count{};
     std::string name;
     std::vector<W8NpcScriptQuote> quotes;
 };

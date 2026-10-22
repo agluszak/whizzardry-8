@@ -75,13 +75,12 @@ struct W8MonsterManagerEntry {
     int damage_splat_frame;
     int damage_splat_end_frame;
     unsigned char damage_splat_catalog;
-    /* The last-drawn portrait vitals, so the dirty flag is raised only when
-       the computed bars or the numeric hit-point display actually changed. */
+    /* The last-sampled portrait vitals; the screen invalidates their panel
+       when a computed bar or the numeric hit-point display changes. */
     int cached_hp_bar;
     int cached_stamina_bar;
     int cached_spell_bar;
     int cached_hp;
-    bool portrait_stats_dirty;
     /* The spell/condition effect-icon flash over the portrait.
        The setup derives the icon's catalog base from the spell's
        realm and takes the frame count from the same record, shares the
@@ -101,9 +100,6 @@ struct W8MonsterManagerEntry {
        in-flight splat/icon animation or portrait event, so the formation sync
        may release it even while the slot is under the cursor. */
     bool auto_portrait_refresh;
-    /* The keyboard menu is open on this slot's portrait; region input is
-       disabled and the menu panel redraws with the portrait. */
-    bool keyboard_menu_open;
     /* The combat side-strip portrait needs redrawing; set by hover and
        combat-state changes, cleared by the combat portrait redraw. */
     bool combat_portrait_dirty;
@@ -435,8 +431,6 @@ void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
-                           W8MonsterCycle query_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

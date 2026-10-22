@@ -1092,48 +1092,26 @@ bool ShowAutomapNoteTooltip(W8AutomapNote* note)
 }
 
 /* Persist the visited-cell bitmap and every note's position, layer and text.
-   A 0xF00DF00D signature brackets the note records. */
-bool SaveAutomapNotes(wiz8::File& handle)
+   A 0xF00DF00D signature brackets the note records. Write failures throw. */
+void SaveAutomapNotes(wiz8::File& handle)
 {
-    int signature = 0xf00df00d;
-    unsigned char saved;
-    if (!GetWorld()->automap.visited.empty()) {
-        saved = SavePackedBits(handle, GetWorld()->automap.visited);
-    } else {
-        saved = true;
+    const std::uint32_t signature = 0xf00df00d;
+    if (!GetWorld()->automap.visited.empty()) SavePackedBits(handle, GetWorld()->automap.visited);
+    handle.write(&signature, sizeof(signature));
+    const auto count = wiz8::checked_integer<std::uint32_t>(g_automap_notes.size());
+    handle.write(&count, sizeof(count));
+    for (const auto& note : g_automap_notes) {
+        const auto length =
+            wiz8::checked_integer<std::uint32_t>(wiz8::text::to_utf16(note->text).size() + 1);
+        std::vector<std::byte> bytes(length * 2);
+        wiz8::text::to_utf16le(note->text, bytes);
+        handle.write(&note->position.x, sizeof(note->position.x));
+        handle.write(&note->position.y, sizeof(note->position.y));
+        handle.write(&note->layer, sizeof(note->layer));
+        handle.write(&length, sizeof(length));
+        handle.write(bytes.data(), bytes.size());
     }
-    if (saved == 0) {
-        return false;
-    }
-    if ((handle.write(&signature, 4), true) == 0) {
-        return false;
-    }
-    unsigned int count = static_cast<int>(g_automap_notes.size());
-    if ((handle.write(&count, 4), true) == 0) {
-        return false;
-    }
-    for (unsigned int index = 0; index < count; ++index) {
-        W8AutomapNote* note = g_automap_notes[index].get();
-        if (note != 0) {
-            bool ok = (handle.write(&note->position.x, 4), true) != 0 &&
-                      (handle.write(&note->position.y, 4), true) != 0 &&
-                      (handle.write(&note->layer, 4), true) != 0;
-            const auto length =
-                wiz8::checked_integer<std::uint32_t>(wiz8::text::to_utf16(note->text).size() + 1);
-            std::vector<std::byte> bytes(length * 2);
-            wiz8::text::to_utf16le(note->text, bytes);
-            if (!ok) {
-                return false;
-            }
-            if ((handle.write(&length, 4), true) == 0) {
-                return false;
-            }
-            if ((handle.write(bytes.data(), bytes.size()), true) == 0) {
-                return false;
-            }
-        }
-    }
-    return (handle.write(&signature, 4), true) != 0;
+    handle.write(&signature, sizeof(signature));
 }
 
 /* The visited-cell bitmap, present when the level's automap had cells, then the notes. */
@@ -1344,11 +1322,11 @@ void RenderAutomapMarkers(void)
     const auto count = CurrentLevelPopulation().monster_roster.live().size();
     for (unsigned int index = 0; index < count; ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
-        Monster* monster = info->entity.find();
+        Monster& monster = *info->entity;
         glm::vec3 location;
-        location = monster->visual.GetLocation();
+        location = monster.visual.GetLocation();
         FindAutomapLayerAtHeight(location.y);
-        if (detect_all || (!monster->disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
+        if (detect_all || (!monster.disabled && info->party_threat.sight_state == W8_SIGHT_SEEN)) {
             left = g_automap_position.x - g_automap_zoom * 0.5f;
             top = g_automap_position.z - g_automap_zoom * 0.5f;
             if (location.x < left || left + g_automap_zoom < location.x || location.z < top ||

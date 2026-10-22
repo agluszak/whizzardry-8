@@ -81,7 +81,8 @@ ShakeSystem& CameraShakes()
 
 ShakeSystem::Instance::Instance(const ShakeDefinition& definition, const ShakeDefinition* key)
     : definition(definition),
-      timer(std::isfinite(definition.duration) ? definition.duration : 0.0f, false), key(key)
+      timer(std::isfinite(definition.duration) ? definition.duration : 0.0f, TimerClock::World),
+      key(key)
 {
     timer.Restart();
 }
@@ -561,7 +562,7 @@ std::optional<BoundingBox> CyclePlayer::GetAnimationBounds()
 
 unsigned char CyclePlayer::GetAnimationRadius(float* arg_radius)
 {
-    AnimationMesh* mesh = AnimObjEntry(active_animation, m_bLOD, 0);
+    AnimationMesh* mesh = active_animation->mesh(m_bLOD, 0);
 
     assert(mesh != 0);
     *arg_radius = mesh->radius;
@@ -612,13 +613,12 @@ void CyclePlayer::advanceFrame()
         }
     }
 
-    if (animation->path_lists == 1) {
-        unsigned int count = AnimObjListCount(animation, m_bLOD);
+    if (animation->positioned_parts) {
+        const auto count = animation->parts[m_bLOD].size();
         unsigned int index;
 
         for (index = 0; index < count; ++index) {
-            KeyframeTrack* path =
-                AnimObjListEntry(animation, m_bLOD, static_cast<signed char>(index));
+            KeyframeTrack* path = animation->partPath(m_bLOD, static_cast<signed char>(index));
             if (path != 0) {
                 PathAISetValue(path, static_cast<float>(subcycle));
             }
@@ -648,9 +648,8 @@ void CyclePlayer::SetPresentationColour(glm::vec4 colour)
     if (!rep_active) return;
     auto* animation = active_animation;
     if (!animation) return;
-    if (animation->path_lists == 1) {
-        const auto count =
-            std::min<std::size_t>(AnimObjListCount(animation, m_bLOD), models.size());
+    if (animation->positioned_parts) {
+        const auto count = std::min<std::size_t>(animation->parts[m_bLOD].size(), models.size());
         for (std::size_t index = 0; index < count; ++index)
             models[index]->highlight_colour = colour;
     } else if (auto* model = GetCurrentModelInstance()) {
@@ -686,12 +685,11 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         return;
     }
     animation = active_animation;
-    if (animation->path_lists == 1) {
-        int count = static_cast<int>(AnimObjListCount(animation, m_bLOD));
+    if (animation->positioned_parts) {
+        int count = static_cast<int>(animation->parts[m_bLOD].size());
 
         for (index = 0; index < count; ++index) {
-            const auto frame =
-                AnimObjDispatchList(animation, m_bLOD, static_cast<signed char>(index));
+            const auto frame = animation->frame(m_bLOD, 0, static_cast<signed char>(index));
             KeyframeTrack* path;
             glm::mat3 current;
 
@@ -701,7 +699,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
             ApplyAppearance(*this, *psrMesh);
             psrMesh->visible = true;
             psrMesh->setScene((pWorld->scene.get()));
-            path = AnimObjListEntry(animation, m_bLOD, static_cast<signed char>(index));
+            path = animation->partPath(m_bLOD, static_cast<signed char>(index));
             if (path != 0) {
                 (psrMesh)->transform = sampleKeyframeTrack(*(path), (psrMesh)->transform);
             }
@@ -744,13 +742,13 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         m_ground_shadow->transform.setLocation(loc);
         m_ground_shadow->angle = nav.GetYaw();
 
-        m_ground_shadow->setScene((pWorld->scene.get()));
+        m_ground_shadow->setWorld(pWorld);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
         glm::vec3 origin;
 
-        if (animation->path_lists == 1) {
+        if (animation->positioned_parts) {
             origin = GetLocation();
         } else {
             vecPos = nav.movement.position;
@@ -760,7 +758,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         rot = GetRotation();
         for (index = 0; index < count; ++index) {
             Light* light = (*m_plsLights)[index].get();
-            if (animation->path_lists != 1 && current_model_instance) {
+            if (!animation->positioned_parts && current_model_instance) {
                 // The light is a child of the visual. VSG composes it for
                 // rendering; the bake query reads that same parentage.
                 light->transform.setLocation(glm::dvec3(light->m_position));
@@ -786,7 +784,7 @@ void CyclePlayer::DetachRepresentation(World* world)
 {
     Animation* animation = active_animation;
 
-    if (animation->path_lists == 1) {
+    if (animation->positioned_parts) {
         hideModelsFrom(0);
     } else if (current_model_instance != 0) {
         assert(world != 0);
@@ -797,7 +795,7 @@ void CyclePlayer::DetachRepresentation(World* world)
 
     if (m_ground_shadow != 0) {
 
-        m_ground_shadow->setScene(0);
+        m_ground_shadow->setWorld(nullptr);
     }
 }
 
@@ -918,8 +916,8 @@ MeshInstance* CyclePlayer::GetCurrentModelInstance()
     }
 
     Animation* animation = active_animation;
-    if (animation->path_lists == 1) {
-        const auto frame = AnimObjDispatchList(animation, m_bLOD, 0);
+    if (animation->positioned_parts) {
+        const auto frame = animation->frame(m_bLOD, 0, 0);
         if (!frame) return nullptr;
         ShowFrame(model(0), frame);
         return &model(0);
@@ -1019,7 +1017,7 @@ void CyclePlayer::AddShakeEffect(ShakeDefinition effect)
 
 void CyclePlayer::CreateGroundShadow(float width, float depth)
 {
-    m_ground_shadow = std::make_unique<GroundShadow>(nullptr);
+    m_ground_shadow = std::make_unique<GroundShadow>();
     m_ground_shadow->setName("Ground Shadow");
     m_ground_shadow->width = width;
     m_ground_shadow->depth = depth;
@@ -1038,11 +1036,10 @@ void CyclePlayer::SetGroundShadowVisible(bool visible)
 
 signed char CyclePlayer::frameCount() const
 {
-    return active_animation ? static_cast<signed char>(AnimObjValue(active_animation, m_bLOD)) : 0;
+    return active_animation ? static_cast<signed char>(active_animation->frameCount(m_bLOD)) : 0;
 }
 AnimationFrame CyclePlayer::frameModel(signed char frame, signed char lod) const
 {
     if (!active_animation) return {};
-    return active_animation->path_lists ? AnimObjDispatchList(active_animation, lod, 0)
-                                        : AnimObjDispatch(active_animation, lod, frame);
+    return active_animation->frame(lod, frame);
 }

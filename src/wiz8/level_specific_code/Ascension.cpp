@@ -29,6 +29,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
@@ -240,7 +241,7 @@ bool AscensionScript::landShaker(int command)
         return false;
     }
     if (!avalanche_gate_) {
-        avalanche_gate_.emplace(1.0f, false, true);
+        avalanche_gate_.emplace(1.0f, TimerClock::World, true);
         return false;
     }
     if (!avalanche_gate_->PollFinished()) {

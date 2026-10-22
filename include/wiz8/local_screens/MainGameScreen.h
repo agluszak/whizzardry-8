@@ -19,6 +19,8 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class RadarMap;
+class KeyboardActionMenu;
 class Pointer;
 class Trigger;
 class W8LockInteraction;
@@ -35,10 +37,18 @@ struct MainGameScreen final : Screen {
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
+    void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    std::unique_ptr<KeyboardActionMenu> keyboard_menu;
+    std::unique_ptr<RadarMap> radar_map;
+    void setRadarVisible(bool visible);
+    bool keyboardMenuForSlot(int slot) const;
+    void openKeyboardMenu(int slot);
+    void closeKeyboardMenu();
+    void chooseKeyboardMenuAction(int slot, int menu, int item);
     // The pointer the main game aims with, shared with a camp opened over it.
     Pointer& pointer;
     // The time since the screen last stepped the game.
@@ -167,10 +177,10 @@ public:
     float m_progress_duration;
     float m_progress_elapsed;
     int m_progress_drawn; /* widest progress extent drawn so far */
-    W8GameTimer m_timer0;
+    W8GameTimer m_timer0{1.0f, TimerClock::Presentation};
     W8ControlsRect m_text_bounds;
     W8TextBuffer m_text_buffer;
-    W8GameTimer m_timer1;
+    W8GameTimer m_timer1{1.0f, TimerClock::Presentation};
     int m_marker_anim_time; /* drives the 12-frame target-changed marker */
     bool m_target_changed;
     /* Draw the animated target-changed marker this frame; raised while
@@ -263,9 +273,9 @@ public:
     int m_tumbler_count;
     bool m_animating = false, m_dirty = true;
     int m_phase = 0;
-    W8GameTimer m_phase_timer{0.04f, 0};
-    W8GameTimer m_rise_timer{0.03f, 0};
-    W8GameTimer m_fall_timer{0.01f, 0};
+    W8GameTimer m_phase_timer{0.04f, TimerClock::Presentation};
+    W8GameTimer m_rise_timer{0.03f, TimerClock::Presentation};
+    W8GameTimer m_fall_timer{0.01f, TimerClock::Presentation};
 };
 
 class W8LockInfoPanel {
@@ -331,7 +341,7 @@ public:
     int m_tumbler_owner[8];            /* owning party slot per pin, -1 unset */
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
-    W8GameTimer m_timer;               /* state-8 completion delay */
+    W8GameTimer m_timer{1.0f, TimerClock::Presentation}; /* state-8 completion delay */
 };
 
 enum W8TrapInteractionAction {
@@ -385,7 +395,7 @@ public:
     int m_slot_columns[8][8];
     int m_target_difficulty;
     wiz8::sound::Playback m_sound_handle;
-    W8GameTimer m_timer;
+    W8GameTimer m_timer{1.0f, TimerClock::Presentation};
 };
 
 W8TrapInteraction* TrapInteraction();
@@ -455,7 +465,6 @@ enum W8MainGameMode {
 };
 
 extern W8MainGameMode g_main_game_mode;
-extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);
@@ -549,7 +558,6 @@ void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
 W8ViewportMode GetMainGameViewportMode(void);
 void CloseMainGameOverlays(void);
-void SetRadarMapVisible(bool visible);
 void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
@@ -564,10 +572,6 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index);
-/* Destroy callback on the NPC trade split dialog; commits the
-   chosen count to the editor slot and refreshes the trade selection. */
-void NpcTradeSplitDialogResult(int count);
 void RefreshFormationPanel(bool show_portraits);
 void EndLockInteractMode(signed char suspend);
 void UpdateTrapInteraction(void);
@@ -603,6 +607,9 @@ void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
 
-/* Which action the slot is editing: the open picker's draft for the selected
-   slot, otherwise its stored in-combat or out-of-combat action. */
-W8EditedAction GetEditedActionContext(int party_slot);
+/* The action the slot is editing: the open picker's draft for the selected slot, otherwise
+   its stored in-combat or out-of-combat action. Out of combat with no picker open the
+   player is sighting: aiming the executing action without needing a particular target. */
+W8Action* EditedDraft(int party_slot);
+W8Action EditedAction(int party_slot);
+bool IsSighting(int party_slot);
