@@ -28,6 +28,7 @@ struct W8TradeSelection {
     int slot = -1;
     W8ItemInstance expected{};
     unsigned char stock_quantity = 0;
+    bool operator==(const W8TradeSelection&) const = default;
 };
 W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
                                       const W8TradeSelection& selection);
