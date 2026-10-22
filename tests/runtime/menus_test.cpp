@@ -16,6 +16,7 @@
 
 #include "harness.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
