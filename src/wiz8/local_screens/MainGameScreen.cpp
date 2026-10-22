@@ -2197,9 +2197,9 @@ bool MainGameScreen::enter(const ScreenRequest&)
     g_monster_shadow_updates_enabled = 1;
     ClearPrimarySurface();
     if (GetWorld() && GetWorld()->environment.fog_enabled) {
-        EnableSky();
+        EnableSky(CurrentGame());
     } else {
-        DisableSky();
+        DisableSky(CurrentGame().level);
     }
     if (TakePendingSaveFlag()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x782]);
@@ -2557,7 +2557,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     }
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
-    DisableSky();
+    if (GameInProgress()) DisableSky(CurrentGame().level);
     DestroySubMenuPanel();
     DestroySpellIconHudControls();
     return true;

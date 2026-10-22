@@ -2089,19 +2089,17 @@ TEST_CASE("Environment ambient scales scenes and lights while retaining the sour
     world.scene = std::make_unique<WorldScene>();
     auto& scene = *world.scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
-    ApplyEnvironmentColour(&world, 0.75f, &colour);
+    ApplyEnvironmentColour(world, 0.75f, colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
     REQUIRE(world.environment.colour == colour);
     REQUIRE(world.environment.intensity == 0.75f);
-    SetWorldEnvironmentIntensity(&world, 0.5f);
+    REQUIRE(SetWorldEnvironmentIntensity(world, 0.5f) == 0.5f);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.25f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
     REQUIRE(world.environment.colour == colour);
     world.scene = nullptr;
-    glm::vec3 ambient(1);
-    GetWorldLightValue(&world, &ambient);
-    REQUIRE(ambient == glm::vec3(0));
+    REQUIRE(WorldLightValue(world) == glm::vec3(0));
 }
 
 TEST_CASE("Positional sound copies keep placement without sharing playback", "[sound]")

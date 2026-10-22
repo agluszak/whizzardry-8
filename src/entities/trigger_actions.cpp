@@ -740,7 +740,7 @@ void Trigger::FinishAction()
         } else if (action == 0x22) {
             const auto* env = std::get_if<W8EnvironmentTriggerActionData>(&action_payload);
             assert(env);
-            SetWorldEnvironmentIntensity(GetWorld(), env->previous_environment);
+            SetWorldEnvironmentIntensity(*m_pWorld, env->previous_environment);
             action_payload = std::monostate{};
             goto finish_linked_triggers;
         }
@@ -1099,9 +1099,9 @@ void Trigger::Run(int source)
             goto commit_action;
 
         case 0x22: {
-            float previous_value = GetWorld()->environment.intensity;
+            float previous_value = m_pWorld->environment.intensity;
             action_payload = W8EnvironmentTriggerActionData{previous_value};
-            SetWorldEnvironmentIntensity(GetWorld(), 0.0f);
+            SetWorldEnvironmentIntensity(*m_pWorld, 0.0f);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
         }

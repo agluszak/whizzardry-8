@@ -200,6 +200,11 @@ Unlayered code may use the layers.
   are transitional forwarders to the slots, null with no game in progress. World
   identity and resource paths are immutable, and live level queries use the
   primary world. `resume_level` is decoded save data, filled in save snapshots.
+- Each world's `EnvironmentState` holds its lighting, fog, fade and sky state.
+  Environment operations name what they change: per-world helpers take the
+  `World`, fades and fog take the `Level` (they change the primary world and fog
+  colour the sky behind it), and the clock-driven updates take the `Game`, whose
+  calendar supplies the time of day and whose level they apply it to.
 - `World` member order is its teardown order. Destruction stops activity and drops
   borrowed indexes, then releases entities, geometry, the spatial index and
   finally the scene. Replacing the primary world stops callbacks before ownership

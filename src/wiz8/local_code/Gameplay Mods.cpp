@@ -57,12 +57,11 @@ void RebuildPartyEffectBlock(void)
     }
     CurrentGame().party.modifiers = modifiers;
     SettleActiveParty(CurrentGame());
-    if (modifiers.light == 0) {
-        SetSkyNodeVisible(false);
-        return;
-    }
-    SetSkyNodeVisible(true);
-    SetCameraLightIntensity(modifiers.light + kEnvironmentNearScale);
+    World* world = CurrentGame().level.primary.get();
+    if (!world) return;
+    SetCameraLightVisible(*world, modifiers.light != 0);
+    if (modifiers.light != 0)
+        SetCameraLightIntensity(*world, modifiers.light + kEnvironmentNearScale);
 }
 
 /* Fold the party's twelve effect slots into the shared modifier block. */

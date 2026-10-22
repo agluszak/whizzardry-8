@@ -181,7 +181,6 @@ void RenderFrame(void);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
 bool FinishVideoPresentation(void);
-void PublishLightDirection(const glm::vec3* direction);
 bool CreateWizardryWindow(void);
 bool InitializePrimarySurface(void);
 void ReleasePrimarySurface(void);

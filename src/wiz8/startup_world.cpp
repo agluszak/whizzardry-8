@@ -5,7 +5,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 
 static std::unique_ptr<Navigator> party_navigator;
@@ -19,7 +18,6 @@ Navigator* PartyNavigator()
 bool InitializeStartupNavigation(void)
 {
     InitializeRenderQuality();
-    InitializeEnvironmentColours();
 
     party_navigator = std::make_unique<Navigator>();
     auto* navigator = party_navigator.get();
@@ -30,9 +28,8 @@ bool InitializeStartupNavigation(void)
     return true;
 }
 /* Tears down the startup navigation state InitializeStartupNavigation
-   built: the environment globals and the party navigator itself. */
+   built: the party navigator. */
 void ShutdownStartupNavigation(void)
 {
-    ClearEnvironmentObjects();
     party_navigator.reset();
 }

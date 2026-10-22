@@ -69,7 +69,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     }
     CurrentGame().status.difficulty = g_settings.difficulty;
     CurrentGame().party.redistribution_pending = true;
-    SetGameTimeMilliseconds(0x2932e00);
+    SetGameTimeMilliseconds(CurrentGame(), 0x2932e00);
     CurrentGame().status.game_time_days = 1;
     if (notify) {
         ReturnToPreviousScreen();

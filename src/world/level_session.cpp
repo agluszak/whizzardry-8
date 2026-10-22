@@ -164,7 +164,6 @@ void StartLevelMusic(int fade, int replace_current)
 void UnloadSkyWorld(void)
 {
     CurrentLevel().replaceSky(nullptr);
-    ResetEnvironment();
 }
 
 static int LevelFindIDByLocationCode(std::string_view location_code)
@@ -273,7 +272,6 @@ bool LoadSkyWorld(std::string_view sky_path)
     auto replacement = PrepareSkyWorld(sky_path);
     if (!sky_path.empty() && !replacement) return false;
     level.replaceSky(std::move(replacement));
-    if (!level.sky) ResetEnvironment();
     return true;
 }
 
@@ -358,12 +356,12 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     StartLevelMusic(1, 1);
     CurrentGame().status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
-    if (GetWorld()->environment.fog_enabled) UpdateEnvironmentLight();
+    if (GetWorld()->environment.fog_enabled) UpdateEnvironmentLight(CurrentGame());
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
     GetWorld()->party_camera.applySway(*GetWorld()->camera, GetWorld()->initial_camera_sway
                                                                 ? CameraSwayMode::Start
                                                                 : CameraSwayMode::Stop);
-    SetSkyNodeVisible(false);
+    SetCameraLightVisible(*GetWorld(), false);
     ResetAutomapView();
     BeginRestoredLevelActivity(*GetWorld(), status);
 
@@ -422,7 +420,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         ResetCurrentEnvironment();
     }
     g_camera_path_active = false;
-    InitializeLevelEnvironment();
+    InitializeLevelEnvironment(CurrentGame());
     World& world = *GetWorld();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();
@@ -547,7 +545,7 @@ void LeaveLevel()
     }
 
     ReleaseWorldCursor();
-    DisableSky();
+    DisableSky(CurrentLevel());
     EndCameraSway();
     ResetGameTimeAccumulator();
     CurrentLevel().replacePrimary(nullptr);

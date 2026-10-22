@@ -55,7 +55,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
 {
     time += elapsed;
     // Time that passed while the world ran reaches its clock before the new hold applies.
-    PassEnvironmentTime(elapsed);
+    PassEnvironmentTime(*this, elapsed);
     ApplyWorldAdvancement(*this, hold.world);
     if (!hold.speech) {
         speech.ProcessDeferredCharacterEvents();
@@ -102,7 +102,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         UpdateNearbyWorldItems();
         DetachAllWorldItems();
     }
-    if (!advancement.paused || combat.has_value()) UpdateWorlds(elapsed);
+    if (!advancement.paused || combat.has_value()) UpdateWorlds(*this, elapsed);
     // Preserve the game's scene-activity gates and sky-before-world order.
     // Particle clocks keep running while world advancement is held; additional
     // camera views consume these results without advancing them again.

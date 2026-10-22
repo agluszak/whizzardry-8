@@ -84,7 +84,7 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     advancement.hold = hold;
     const bool held = advancement.paused || hold.covered || hold.world;
     const bool time_stopped = held || game.combat.has_value();
-    const World* world = GetWorld();
+    const World* world = game.level.primary.get();
     const bool hold_changed = held != advancement.held;
     const bool time_changed = world != advancement.world || time_stopped == advancement.time_passes;
     advancement.held = held;
@@ -95,7 +95,7 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     }
     if (!world) return;
     if (time_changed) {
-        SetEnvironmentTimeEnabled(!time_stopped);
+        SetEnvironmentTimeEnabled(game, !time_stopped);
         if (time_stopped) {
             StopAllNavigators();
             ResetLevelDataVectors();
@@ -315,8 +315,8 @@ void UpdateSurpriseMode(void)
         if (!surprise.unengaged && static_cast<unsigned int>(CurrentGame().status.world_clock) >=
                                        surprise.deadline_turns) {
             ResetSight();
-            UpdateEnvironmentLight();
-            RefreshEnvironment();
+            UpdateEnvironmentLight(CurrentGame());
+            RefreshEnvironment(CurrentGame());
             ReverseSurpriseFade();
             surprise.phase = SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();

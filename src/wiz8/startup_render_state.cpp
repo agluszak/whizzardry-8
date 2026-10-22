@@ -26,10 +26,3 @@ double RenderClockSeconds()
 }
 
 float g_view_distance = 12.0f;
-
-bool InitializeEnvironmentColours(void)
-{
-    ResetEnvironment();
-    g_view_distance = 12.0f;
-    return true;
-}

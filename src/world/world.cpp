@@ -117,14 +117,14 @@ static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
     SweepFinishedParticles(&world);
 }
 
-void UpdateWorlds(std::chrono::milliseconds elapsed)
+void UpdateWorlds(Game& game, std::chrono::milliseconds elapsed)
 {
     g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
-          (CurrentGame().combat->round_active || CurrentGame().party_movement_mode));
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && game.combat.has_value() &&
+          (game.combat->round_active || game.party_movement_mode));
 
     // Loading registered the sky first; preserve that update order.
-    for (World* world : {GetSecondaryWorld(), GetWorld()}) {
+    for (World* world : {game.level.sky.get(), game.level.primary.get()}) {
         if (world) UpdateWorld(*world, elapsed);
     }
 
@@ -132,7 +132,7 @@ void UpdateWorlds(std::chrono::milliseconds elapsed)
 
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
-    UpdateEnvironment();
+    UpdateEnvironment(game);
     UpdateNpcEvents();
 }
 
@@ -330,10 +330,10 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment.intensity + 0.02f);
+        SetWorldEnvironmentIntensity(*world, world->environment.intensity + 0.02f);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment.intensity - 0.02f);
+        SetWorldEnvironmentIntensity(*world, world->environment.intensity - 0.02f);
     }
 }
 

@@ -1580,7 +1580,7 @@ void AdvanceCombatRound(void)
             ++CurrentGame().combat->unengaged_rounds;
         }
     }
-    AdvanceEnvironmentTime(120000);
+    AdvanceEnvironmentTime(CurrentGame(), 120000);
     if (g_camera_sway_active) {
         UpdateCampFatigue(10);
     }
