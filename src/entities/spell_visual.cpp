@@ -51,7 +51,7 @@
 
 /* Names of the seven bitmap cycles in each of the four spell-visual groups,
    in load order: FLASH, EXPLOSION, TARGET and CONE. */
-const char* g_spell_cycle_names[28] = {
+constexpr const char* g_spell_cycle_names[SPELL_NUM_CYCLES] = {
     "FLASH1",     "FLASH2",     "FLASH3",     "FLASH4",     "FLASH5",     "FLASH6",
     "FLASH7",     "EXPLOSION1", "EXPLOSION2", "EXPLOSION3", "EXPLOSION4", "EXPLOSION5",
     "EXPLOSION6", "EXPLOSION7", "TARGET1",    "TARGET2",    "TARGET3",    "TARGET4",
@@ -93,7 +93,7 @@ void SpellVisual::SetCycle(signed char cycle)
 {
     std::vector<std::unique_ptr<Light>>* lights;
 
-    assert(cycle >= SPELL_CYCLE_FIRST && cycle <= SPELL_CYCLE_LAST);
+    assert(cycle >= 0 && cycle < SPELL_NUM_CYCLES);
 
     lights = this->resources.cycles[this->visual.current_cycle].lightView();
     visual.DetachCycleLights(lights);

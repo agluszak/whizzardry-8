@@ -21,12 +21,8 @@ enum W8SpellVisualMode : int {
    Spells.cpp's own assertions: four groups of SPELL_CYCLES_PER_GROUP rows
    indexed by g_spell_cycle_names. The cast's power level picks the row
    within the group. */
-enum {
-    SPELL_CYCLE_FIRST = 0,
-    SPELL_CYCLE_LAST = 27,
-    SPELL_NUM_CYCLES = 28,
-    SPELL_CYCLES_PER_GROUP = 7
-};
+inline constexpr int SPELL_CYCLES_PER_GROUP = 7;
+inline constexpr int SPELL_NUM_CYCLES = (W8_SPELL_VISUAL_CONE + 1) * SPELL_CYCLES_PER_GROUP;
 
 /* Engine Code\Spells.cpp's 0x1f8-byte GrCycle specialization.  Construction
    installs the primary 0x005ECF40 table and the ordinary Navigator secondary
@@ -64,7 +60,7 @@ public:
     /* Selects the update mode and the cycle group the resource loader
        matches shared visuals by. */
     W8SpellVisualMode mode;
-    EmitterResources<28> resources;
+    EmitterResources<SPELL_NUM_CYCLES> resources;
     /* Set for spawned visuals: UpdateRepresentation then adds the camera-facing yaw
        rotation on top of the mode's orientation. */
     bool billboard{};
