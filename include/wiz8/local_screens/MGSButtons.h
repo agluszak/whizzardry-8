@@ -64,15 +64,8 @@ void ResetSubMenuPanel(void);
 /* Draw roof chrome and the three buttons; the same repaint draws the combat
    progress gauge. */
 void RedrawRoofButtons(void);
-// Sync roof-button visibility/enabled/pressed state.
-void UpdateRoofButtons(void);
-/* Press the roof button that matches the shown layout mode. */
-void SyncRoofButtonPressedState(void);
 // Draw layout-arrow chrome and the visible raise/lower arrows.
 void RedrawLayoutArrowButtons(void);
-/* Sync the six raise/lower arrows against the live action-panel /
-   formation-board / radar-map visibility flags. */
-void UpdateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
 void ConfigureMainGameHudButtons(void);

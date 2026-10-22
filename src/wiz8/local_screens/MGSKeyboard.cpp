@@ -362,22 +362,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (CurrentGame().activity.conversation || CurrentGame().activity.conversation_aside) {
             break;
         }
-        if (IsScreenInputBlocked() != 0) {
-            MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGame()->layout().mode - 1) & 1));
-        } else {
-            MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGame()->layout().mode + 1) % 3));
-        }
+        MainGame()->stepLayoutMode(1);
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
-        if (IsScreenInputBlocked() != 0) {
-            MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGame()->layout().mode - 1) & 1));
-        } else {
-            MainGame()->setPreferredMode(
-                static_cast<W8MainUiMode>((MainGame()->layout().mode + 2) % 3));
-        }
+        MainGame()->stepLayoutMode(-1);
         break;
     case W8_MGS_COMMAND_AUTOMAP:
         if (IsScreenInputBlocked() == 0) {

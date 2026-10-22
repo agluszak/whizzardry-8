@@ -51,6 +51,16 @@ struct MainGameScreen final : Screen {
     /* Re-sync the party slots' portrait and edge hit regions with occupancy, the
        keyboard menu and the shown mode. */
     void refreshPartySlotRegions();
+    // Raise or lower one panel of the formation layout, as the layout arrows do.
+    void toggleRadarMap();
+    void toggleBottomPanel();
+    void toggleFormationBoard();
+    // Step the preferred mode forward (1) or back (-1), as the layout keys do.
+    void stepLayoutMode(int step);
+    // Build the roof mode buttons and the layout arrows.
+    void createLayoutButtons();
+    // Restate the roof buttons and layout arrows from the applied layout.
+    void updateLayoutButtons();
     // The layout the panels, viewport and input currently follow.
     const MainGameLayout& layout() const { return applied_layout; }
 
@@ -101,6 +111,7 @@ struct MainGameScreen final : Screen {
 private:
     MainGameLayout applied_layout;
 
+    void chooseRoofMode(W8MainUiMode mode);
     void showRadarMap(bool visible);
     void showFormationBoard(bool visible);
     void syncInput(const MainGameLayout& layout);

@@ -4074,6 +4074,9 @@ void MainGameScreen::refreshLayout()
             world_view->setShape(
                 SDL_Rect{rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top});
             SetViewport({rect.left, rect.top, rect.right + 1, rect.bottom + 1});
+            partyCamera().bottom_panel_view =
+                layout.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
+                layout.viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
         }
         ClearUiHover();
         SetMouseCursorHotspot(0, 0);
