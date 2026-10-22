@@ -1232,9 +1232,12 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
     REQUIRE(std::memcmp(payload.data() + payload.size() - sizeof(definition), definition,
                         sizeof(definition)) == 0);
     const auto decoded = wiz8::save::decode_monster_control(payload);
-    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 &&
-             !decoded.recast && decoded.definition.power_level == 3 &&
-             decoded.target.point.y == -1000.0f && decoded.monster_ids.empty()));
+    REQUIRE(decoded.kind == effect.kind);
+    REQUIRE(decoded.turns_remaining == 5);
+    REQUIRE_FALSE(decoded.recast);
+    REQUIRE(decoded.definition.power_level == 3);
+    REQUIRE(decoded.target.point.y == -1000.0f);
+    REQUIRE(decoded.monster_ids.empty());
     REQUIRE(payload[4 + 4 + 2 * (0x34 + 0x20) + 1] == std::byte{1});
     REQUIRE(wiz8::save::encode(decoded) == payload);
     REQUIRE_THROWS(
