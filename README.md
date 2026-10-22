@@ -84,15 +84,13 @@ numbers use `signed char` or `std::int8_t`, so no build sets `-fsigned-char`.
 
 The normal tidy allowlist includes assignment-in-condition, string-view C API
 misuse, allocation ownership, dangling string buffers and last-use moves.
-Configure an analysis build with `WIZ8_PRECOMPILE_HEADERS=OFF`, then run:
+Configure the analysis preset and run its checks inside the same container:
 
 ```sh
-CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
-    tools/run-clang-tidy.sh build/linux-tidy
-CLANG_TIDY_CONFIG="$PWD/.clang-tidy-audit" \
-    CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
-    tools/run-clang-tidy.sh build/linux-tidy
-python3 tools/run-diagnostic-audit.py build/linux-tidy
+./build.sh linux-tidy --configure-only
+./build.sh -- bash -c 'source build/linux-tidy/conan/conanbuild.sh; cmake --build build/linux-tidy --target wiz8_shader_headers'
+./build.sh -- bash -c 'CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 tools/run-clang-tidy.sh build/linux-tidy'
+./build.sh -- python3 tools/run-diagnostic-audit.py build/linux-tidy
 ```
 
 The separate audit checks unchecked optional dereferences (intentional `.value()`
@@ -117,9 +115,8 @@ the cache. Failed scans and analyses are always retried; clean files remain
 cached when another file fails. To use this locally:
 
 ```sh
-CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" \
-    CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
-    tools/run-clang-tidy.sh build/linux-tidy
+CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" ./build.sh -- bash -c \
+    'CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 tools/run-clang-tidy.sh build/linux-tidy'
 ```
 
 Unset `CLANG_TIDY_CACHE_DIR` for an uncached run. CI prints hit/miss counts and

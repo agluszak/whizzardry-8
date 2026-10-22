@@ -33,7 +33,8 @@
         "CMAKE_CXX_FLAGS_DEBUG": "-O0 -g1 -Xclang -fno-pch-timestamp",
         "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp",
         "WIZ8_RENDER_UNITY_BUILD": "ON",
-        "WIZ8_WARNINGS_AS_ERRORS": "ON"
+        "WIZ8_WARNINGS_AS_ERRORS": "ON",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG -Xclang -fno-pch-timestamp"
       }
     },
     {
