@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <ios>
 #include <istream>
 #include <limits>
 #include <memory>
@@ -82,12 +83,12 @@ void QuickSaveScenario()
     // Reject a malformed save through the loading screen while the fight is suspended.
     const auto saved_bytes = wiz8::open_file(save)->read_text();
     auto* running = &CurrentGame();
-    auto* world = GetWorld();
+    auto* world = running->level.primary.get();
     std::ofstream(save, std::ios::binary).write("bad", 3);
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     game.wait_screen("rejected-load", W8_SCREEN_MAIN_GAME);
     REQUIRE(&CurrentGame() == running);
-    REQUIRE(GetWorld() == world);
+    REQUIRE(CurrentGame().level.primary.get() == world);
     REQUIRE(CurrentGame().combat.has_value());
     // A valid RIFF with a truncated nested generator section must fail before departure too.
     W8Chunk malformed;
@@ -103,7 +104,7 @@ void QuickSaveScenario()
     REQUIRE(g_logged_errors.back() == "Cannot load save Quick 1: read past RIFF chunk");
     g_logged_errors.pop_back(); // Consume only the diagnostic required by this rejection.
     REQUIRE(&CurrentGame() == running);
-    REQUIRE(GetWorld() == world);
+    REQUIRE(CurrentGame().level.primary.get() == world);
     REQUIRE(CurrentGame().combat.has_value());
     std::ofstream(save, std::ios::binary).write(saved_bytes.data(), saved_bytes.size());
 
