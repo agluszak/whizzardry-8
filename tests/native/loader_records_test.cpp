@@ -715,8 +715,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     REQUIRE(second->path->entry_index == 1);
     REQUIRE(first->path->speed == 15.f);
     REQUIRE(second->path->speed == 7.5f);
-    REQUIRE(first->path->nodes.size() == 2);
-    REQUIRE(first->path->nodes[1].x == 500.f);
+    REQUIRE(first->path->points().size() == 2);
+    REQUIRE(first->path->points()[1].position.x == 500.f);
     world.plsCameras.resize(1);
     for (std::size_t operation = 1; operation <= operations; ++operation) {
         auto file = wiz8::open_file(wiz8::asset_path("cameras.bin"));

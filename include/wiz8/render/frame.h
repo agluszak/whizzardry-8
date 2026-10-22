@@ -146,7 +146,6 @@ extern std::unique_ptr<Renderer> g_renderer;
 /* CPU canvas published as a VSG texture. */
 extern std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
-extern MeshInstance* g_current_model_instance;
 extern DesignRect g_viewport;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;

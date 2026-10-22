@@ -1,14 +1,19 @@
 #include "wiz8/world/world.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -23,6 +28,7 @@
 #include "named_position.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/entities/animation.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
@@ -43,11 +49,14 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/fog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
+#include "wiz8/render/native_content.h" // IWYU pragma: keep - completes the VSG node inheritance for picking.
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/transform.h"
+#include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
@@ -215,7 +224,7 @@ void updatePartyMovement(World& world, unsigned int flags)
         glm::mat3 rotation = pose.getRotation<glm::mat3>();
         ApplyCameraRotation(&rotation);
         if (path->discrete_mode != 0) {
-            if (path->position >= static_cast<int>(path->nodes.size()) - 1.0f) {
+            if (path->position >= static_cast<int>(path->points().size()) - 1.0f) {
                 UpdateCameraPathState(&world, camera_path.get(), 0);
             }
         } else if (path->position >= 1.0) {
@@ -486,4 +495,73 @@ LevelSpatialIndex* World::compiledIndex() const
 LevelSpatialIndex* World::collisionIndex() const
 {
     return spatial && spatial->collision_available ? spatial.get() : nullptr;
+}
+
+void World::acceptPick(Pick intersection, bool in_combat)
+{
+    Selection result{std::move(intersection), std::monostate{}};
+    if (auto* model = render::gameOwner(result.intersection)) {
+        result.subject = model;
+        for (const auto& owned : plsProps) {
+            auto& prop = *owned;
+            if (!prop.active) continue;
+            bool matches;
+            if (prop.currentAnimation()->positioned_parts) {
+                const auto count = std::min<std::size_t>(prop.currentAnimation()->parts[2].size(),
+                                                         prop.models.size());
+                matches = std::ranges::any_of(
+                    prop.models | std::views::take(count),
+                    [model](const auto& instance) { return instance.get() == model; });
+            } else {
+                matches = prop.FrameModel(prop.subcycle) == model;
+            }
+            if (!matches) continue;
+            // Rejected props still occlude what is behind them; never repick.
+            result.subject = std::monostate{};
+            const auto* trigger = prop.trigger;
+            if (trigger && (trigger->flags & W8_TRIGGER_ENABLED) &&
+                (!(trigger->flags & W8_TRIGGER_ONCE) || !(trigger->flags & W8_TRIGGER_FIRED)) &&
+                (!in_combat || (trigger->doorData() && !trigger->doorData()->open))) {
+                if (const auto bounds = prop.GetFrameBounds()) {
+                    const float distance =
+                        glm::length(glm::vec3(bounds->center()) - cameraLocation(*this));
+                    if (trigger->range_minimum <= distance && distance <= trigger->range_maximum)
+                        result.subject = &prop;
+                }
+            }
+            break;
+        }
+    } else if (result.intersection.hit) {
+        const auto& path = result.intersection.hit->nodePath;
+        for (const auto& object : native_objects) {
+            if (std::ranges::find(path, object->node.get()) != path.end()) {
+                result.subject = object.get();
+                break;
+            }
+        }
+    }
+    picked = std::move(result);
+}
+
+MeshInstance* World::selectedModel() const
+{
+    const auto* model = std::get_if<MeshInstance*>(&picked.subject);
+    return model ? *model : nullptr;
+}
+
+Prop* World::selectedProp() const
+{
+    const auto* prop = std::get_if<Prop*>(&picked.subject);
+    return prop ? *prop : nullptr;
+}
+
+NativeObject* World::selectedNativeObject() const
+{
+    const auto* object = std::get_if<NativeObject*>(&picked.subject);
+    if (!object || !picked.intersection.hit) return nullptr;
+    const auto point = picked.intersection.hit->worldIntersection;
+    return glm::distance(glm::dvec3(point.x, point.y, point.z),
+                         glm::dvec3(cameraLocation(*this))) <= 5000
+               ? *object
+               : nullptr;
 }

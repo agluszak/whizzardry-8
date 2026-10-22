@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -287,9 +288,7 @@ TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-b
 TEST_CASE_METHOD(TimerFixture, "World paths, item radar and ambient replay wait for world steps",
                  "[timers][world]")
 {
-    KeyframeTrack path;
-    PathAIAddPoint(path, {0, 0, 0});
-    PathAIAddPoint(path, {10, 0, 0});
+    KeyframeTrack path(std::vector<KeyframePoint>{{{0, 0, 0}}, {{10, 0, 0}}});
     path.speed = 1;
     PathAIEnableTimedMode(&path);
     PathAIResetTick(&path);

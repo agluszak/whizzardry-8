@@ -32,5 +32,4 @@ private:
 };
 
 // Resolve the existing VSG pick only; this does not run another intersection test.
-NativeObject* SelectedNativeObject(const World& world);
 void LoadNativeLevelObject(Game& game);

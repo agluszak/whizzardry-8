@@ -63,7 +63,6 @@ struct WorldItemEntity {
     glm::vec3 GetSearchPosition() const;
     void SetYaw(float angle);
     void SetHighlight(bool enabled, bool hovered = false);
-    bool IsSelected();
     void LightRadarBlip();
     bool IsRadarBlipLit();
 };
