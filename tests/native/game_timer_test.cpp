@@ -13,6 +13,8 @@
 #include "temporary_directory.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
@@ -26,6 +28,8 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/world/world.h"
 
