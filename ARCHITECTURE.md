@@ -704,6 +704,15 @@ the presented frame shows what the UI painted there. On every frame the harness 
 requires a newly active modal input scope to be shown within four frames, so input
 can never be captured by a prompt the player cannot see.
 
+## Party-creation selection
+
+The party selector keeps one selection in the active list: a roster row for saved
+characters, or a party slot during import. The summary character and highlighted
+party portrait are derived from it. Roster entries own saved candidates or name a
+slot in the selector's session; gameplay membership flags never decide ownership.
+Before replacing an imported game, the original roster retains its saved candidates
+without removing members one by one from a game that is about to be replaced.
+
 ## World selection
 
 The world publishes one resolved selection per rendered pick: the actual VSG
