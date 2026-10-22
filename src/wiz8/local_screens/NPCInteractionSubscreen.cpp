@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -203,6 +204,15 @@ static void NpcDialogueTextBoxLeftUp(int x, int y);
 static void NpcDialogueTextBoxRightUp(int x, int y);
 static W8ItemInstance* ResolveNpcTradeRow(int index, bool, signed char, signed char);
 static W8ItemInstance* GetNpcTradeSlotItem(int index);
+static void ShowSelectedNpcTradeItem(const W8ItemInstance* item);
+
+static const W8ItemInstance* SelectedNpcTradeItem()
+{
+    if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_SERVICES)
+        return GetNpcTradeSlotItem(MainGameHud()->selected_text_lines[2]);
+    const auto& selected = MainGame()->dialogue.trade_selection;
+    return selected && selected->source != W8TradeSource::Gold ? &selected->expected : nullptr;
+}
 static void OnNpcDispositionPromptClosed(bool accepted);
 static void SelectNpcDialogueService(void);
 static void SelectNpcDialogueTalk(void);
@@ -705,7 +715,6 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     }
     CurrentGame().npc_interaction.dialogue_panel_hidden = false;
     state->scripted_dialogue = false;
-    Panel().trade_item = 0;
     Panel().last_mouse_x = -1;
     Panel().last_mouse_y = -1;
     Panel().hovered_text_line = -1;
@@ -718,7 +727,6 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     Panel().trade_gold = 0;
     Panel().pending_layout = W8_DIALOGUE_LAYOUT_NONE;
     state->suppress_parting_reaction = true;
-    Panel().selected_trade_row = -1;
     Panel().transcript_open_count = 0;
     RefreshMainGameLayout();
     CreateNpcDialogueControls();
@@ -1515,9 +1523,9 @@ static void NpcDialogueTextBoxDoubleClick(int x, int y)
     }
     slot = MainGameHud()->hovered_text_lines[2];
     if (slot != -1) {
-        MainGame()->dialogue.selected_trade_row = -1;
+        Panel().trade_selection.reset();
         UpdateNpcTradeSelection(slot, 0, 1);
-        if (MainGame()->dialogue.trade_item != 0) {
+        if (SelectedNpcTradeItem() != nullptr) {
             ConfirmNpcTradeItem();
         }
     }
@@ -1556,8 +1564,9 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
         break;
     case W8_DIALOGUE_LAYOUT_SERVICES:
         item = GetNpcTradeSlotItem(index);
-        MainGame()->dialogue.trade_item = item;
-        if (MainGame()->dialogue.trade_item != 0) {
+        if (item != 0) {
+            Panel().trade_quantity = item->stack_count;
+            ShowSelectedNpcTradeItem(item);
             SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, true);
         }
         return;
@@ -1565,18 +1574,14 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
         return;
     }
     item = ResolveNpcTradeRow(index, true, increment, commit);
-    MainGame()->dialogue.trade_item = item;
-    if (MainGame()->dialogue.trade_item != 0) {
+    if (item != 0) {
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, true);
-        SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31,
-                            1 < MainGame()->dialogue.trade_item->stack_count);
-        if (Data().items[MainGame()->dialogue.trade_item->iItemNo].equip_class ==
-            W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+        SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, 1 < item->stack_count);
+        if (Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
         }
-        text = ShortenTextToWidth(
-            FormatItemDisplayName(Data(), MainGame()->dialogue.trade_item, false), 0x7d,
-            g_wiz_text_font_secondary);
+        text = ShortenTextToWidth(FormatItemDisplayName(Data(), item, false), 0x7d,
+                                  g_wiz_text_font_secondary);
         MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_36].text.SetText(
             text, g_wiz_text_font_secondary);
         MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(1);
@@ -1585,31 +1590,28 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
         case W8_NPC_TRADE_BUY:
             if (CurrentGame().party.gold <
                 static_cast<unsigned int>(CalculateNpcTradeStackPrice(
-                    CurrentGame().npc_interaction.dialogue_npc.get(),
-                    MainGame()->dialogue.trade_item->iItemNo, W8_TRADE_PRICE_PARTY_BUYS,
-                    MainGame()->dialogue.trade_quantity,
-                    MainGame()->dialogue.trade_item->identified))) {
+                    CurrentGame().npc_interaction.dialogue_npc.get(), item->iItemNo,
+                    W8_TRADE_PRICE_PARTY_BUYS, MainGame()->dialogue.trade_quantity,
+                    item->identified))) {
                 Panel().ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(0);
                 Panel().ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
             }
-            price_text = fmt::format("{:d}g", CalculateNpcTradeStackPrice(
-                                                  CurrentGame().npc_interaction.dialogue_npc.get(),
-                                                  MainGame()->dialogue.trade_item->iItemNo,
-                                                  W8_TRADE_PRICE_PARTY_BUYS,
-                                                  MainGame()->dialogue.trade_quantity,
-                                                  MainGame()->dialogue.trade_item->identified));
+            price_text = fmt::format(
+                "{:d}g",
+                CalculateNpcTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
+                                            item->iItemNo, W8_TRADE_PRICE_PARTY_BUYS,
+                                            MainGame()->dialogue.trade_quantity, item->identified));
             break;
         case W8_NPC_TRADE_SELL: {
-            wants_item = NpcAcceptsTradeItem(CurrentGame().npc_interaction.dialogue_npc.get(),
-                                             MainGame()->dialogue.trade_item);
+            wants_item =
+                NpcAcceptsTradeItem(CurrentGame().npc_interaction.dialogue_npc.get(), item);
             if (!wants_item) {
                 Panel().ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(0);
                 Panel().ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
             }
             int price = CalculateNpcTradeStackPrice(
-                CurrentGame().npc_interaction.dialogue_npc.get(),
-                MainGame()->dialogue.trade_item->iItemNo, W8_TRADE_PRICE_PARTY_SELLS,
-                MainGame()->dialogue.trade_quantity, MainGame()->dialogue.trade_item->identified);
+                CurrentGame().npc_interaction.dialogue_npc.get(), item->iItemNo,
+                W8_TRADE_PRICE_PARTY_SELLS, MainGame()->dialogue.trade_quantity, item->identified);
             if (wants_item) {
                 price_text = fmt::format("{:d}g", price);
             } else {
@@ -1637,7 +1639,6 @@ void UpdateNpcTradeSelection(int index, int increment, int commit)
 void ResetNpcDialogueItemEditor(void)
 {
     ClearSelectedTextLine(2);
-    MainGame()->dialogue.trade_item = 0;
     MainGame()->dialogue.trade_selection.reset();
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_37, false);
     MainGame()->dialogue.ui->item_preview.reset();
@@ -1648,7 +1649,6 @@ void ResetNpcDialogueItemEditor(void)
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_36].text.SetText(
         "", g_wiz_text_font_secondary);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
-    MainGame()->dialogue.selected_trade_row = -1;
     MainGame()->dialogue.trade_quantity = 1;
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(-1);
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
@@ -2303,11 +2303,10 @@ static void OpenNpcItemAssay(void)
     W8AssayDialog* dialog;
     const auto& image = MainGame()->dialogue.ui->item_preview;
 
-    if (MainGame()->dialogue.trade_item != 0 && image &&
-        image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
+    const auto* item = SelectedNpcTradeItem();
+    if (item && image && image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
         dialog = new W8AssayDialog(
-            *MainGame()->dialogue.trade_item,
-            &CurrentGame().party.characters[CurrentGame().status.selected_character],
+            *item, &CurrentGame().party.characters[CurrentGame().status.selected_character],
             {kInfoDialogX, 0x48});
         dialog->SetText("");
 
@@ -2344,7 +2343,7 @@ static void ConfirmNpcTradeSlot(void)
             UpdateNpcTradeSelection(slot, 0, 0);
             if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_GIVE && slot == 0) {
                 OpenNpcGoldAmountDialog();
-            } else if (MainGame()->dialogue.trade_item->stack_count > 1) {
+            } else if (const auto* item = SelectedNpcTradeItem(); item && item->stack_count > 1) {
                 OpenNpcTradeQuantityDialog();
             }
         }
@@ -2411,11 +2410,12 @@ static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].dirty = true;
 }
 
-static void UpdatePartyTradeQuantity(const W8ItemInstance* item, int row, bool decrement)
+static void UpdatePartyTradeQuantity(const W8ItemInstance* item, bool same_selection,
+                                     bool decrement)
 {
     if (Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         MainGame()->dialogue.trade_quantity = item->stack_count;
-    } else if (MainGame()->dialogue.selected_trade_row == row) {
+    } else if (same_selection) {
         if (!decrement) {
             if (Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
                 ++MainGame()->dialogue.trade_quantity;
@@ -2440,6 +2440,7 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decr
     auto& state = CurrentGame().npc_interaction;
     if (index < 0 || std::cmp_greater_equal(index, Panel().trade_rows.size())) return nullptr;
     const auto selection = Panel().trade_rows[index];
+    const bool same_selection = Panel().trade_selection == selection;
     if (pick) Panel().trade_selection = selection;
     if (selection.source == W8TradeSource::Gold) {
         Panel().trade_gold = CurrentGame().party.gold;
@@ -2453,12 +2454,11 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decr
     if (pick) {
         if (commit) {
             const int previous_quantity = Panel().trade_quantity;
-            UpdatePartyTradeQuantity(item, index, decrement != 0);
+            UpdatePartyTradeQuantity(item, same_selection, decrement != 0);
             if (selection.source == W8TradeSource::NpcStock && item->stack_count &&
                 Panel().trade_quantity != previous_quantity)
                 HighlightNpcTradeQuantity();
         }
-        Panel().selected_trade_row = index;
         if (commit) wiz8::sound::play(g_button_click_1);
         ShowSelectedNpcTradeItem(item);
     }
@@ -2705,58 +2705,16 @@ static void RequestNpcCharacterService(void)
    dialogue_text_16c preview image and its stack-count text. */
 static W8ItemInstance* GetNpcTradeSlotItem(int index)
 {
-    std::string count_text;
-    std::string_view text;
-    W8Character* character;
-    int hit;
-    int slot;
-
-    character = &CurrentGame().party.characters[CurrentGame().status.selected_character];
-    hit = 0;
-    if (MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_4].interaction.selected == 0) {
-        return 0;
-    }
-    for (slot = 0; slot < 12; ++slot) {
-        if (character->EquippedItem[slot].iItemNo != -1 &&
-            CanCharacterActivateItem(character, &character->EquippedItem[slot])) {
-            if (index == hit) {
-                MainGame()->dialogue.ui->item_preview =
-                    ItemSprites(character->EquippedItem[slot].iItemNo);
-                if (character->EquippedItem[slot].stack_count < 2) {
-                    text = "";
-                } else {
-                    count_text = fmt::format("{:d}", character->EquippedItem[slot].stack_count);
-                    text = count_text;
-                }
-                MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].text.SetText(
-                    text, g_wiz_text_font_secondary);
-                MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].dirty = true;
-                return &character->EquippedItem[slot];
-            }
-            ++hit;
+    if (!Panel().ui->actions[W8_NPC_CONTROL_TEXT_4].interaction.selected) return nullptr;
+    auto& character = CurrentGame().party.characters[CurrentGame().status.selected_character];
+    for (auto items : {std::span<W8ItemInstance>{character.EquippedItem},
+                       std::span<W8ItemInstance>{character.backpack}}) {
+        for (auto& item : items) {
+            if (item.iItemNo != -1 && CanCharacterActivateItem(&character, &item) && index-- == 0)
+                return &item;
         }
     }
-    for (slot = 0; slot < 8; ++slot) {
-        if (character->backpack[slot].iItemNo != -1 &&
-            CanCharacterActivateItem(character, &character->backpack[slot])) {
-            if (index == hit) {
-                MainGame()->dialogue.ui->item_preview =
-                    ItemSprites(character->backpack[slot].iItemNo);
-                if (character->backpack[slot].stack_count < 2) {
-                    text = "";
-                } else {
-                    count_text = fmt::format("{:d}", character->backpack[slot].stack_count);
-                    text = count_text;
-                }
-                MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].text.SetText(
-                    text, g_wiz_text_font_secondary);
-                MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].dirty = true;
-                return &character->backpack[slot];
-            }
-            ++hit;
-        }
-    }
-    return 0;
+    return nullptr;
 }
 
 /* Hand the player's reply to the dialogue while one is pending (AnswerNpcReply
@@ -3371,7 +3329,7 @@ void RefreshNpcTradePrice(void)
 {
     std::string text;
 
-    if (MainGame()->dialogue.trade_item != 0) {
+    if (SelectedNpcTradeItem() != nullptr) {
         text = fmt::format("{:d}", MainGame()->dialogue.trade_quantity);
         MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].text.SetText(
             text, g_wiz_text_font_secondary);
