@@ -1020,7 +1020,7 @@ std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info)
 {
     if (!info) throw std::invalid_argument("missing prop load context");
     auto prop = std::make_unique<Prop>();
-    prop->legacy_save_id = ++info->world->next_legacy_prop_save_id;
+    prop->legacy_save_id = info->world->takeLegacyPropSaveId();
     if (!prop->LoadProp(info, prop.get())) return nullptr;
     prop->UpdateAnimationFrameLength();
     prop->ApplyAnimationFrame(info->world ? WorldPathing(*info->world) : nullptr);

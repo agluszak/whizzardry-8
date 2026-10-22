@@ -104,7 +104,7 @@ bool WorldItemEntity::IsRadarBlipLit()
     return WorldClockMilliseconds() < countdown;
 }
 
-std::unique_ptr<WorldItemEntity> LoadItemFromFile(World& world, std::string_view name)
+std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name)
 try {
     const auto filename = fmt::format("data/items3d/{}.itm", name);
     auto file = wiz8::open_file(wiz8::asset_path(filename));
@@ -117,7 +117,6 @@ try {
     mesh->render_flags |= MeshInstance::RENDER_SHADOW;
     SetModelInstanceExclusionMask(mesh.get(), 4);
     auto item = std::make_unique<WorldItemEntity>();
-    ++world.next_legacy_prop_save_id;
     item->m_psrMesh = std::move(mesh);
     item->flags |= W8_ITEM_ENTITY_MESH_LOADED;
     item->RefreshBounds();

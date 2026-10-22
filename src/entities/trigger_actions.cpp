@@ -2051,9 +2051,9 @@ int GetLocationVarIDByName(std::string_view name)
     return found == variables.end() ? -1 : static_cast<int>(found - variables.begin());
 }
 
-void InstallTriggerVariableDefaults(Game& game, const World& world)
+void Story::addTriggerVariableDefaults(const World& world)
 {
-    auto& variables = game.story.location_variables;
+    auto& variables = location_variables;
     for (const auto& trigger : world.triggers) {
         if (!trigger->initial_location_value || trigger->state_to_modify.empty()) continue;
         const auto found = std::ranges::find_if(variables, [&](const auto& variable) {

@@ -53,6 +53,8 @@ struct W8LocationVariable {
     int level = 0;
 };
 
+struct World;
+
 /* What one play-through's story has come to: facts, factions, the journal, the
    learned keywords, the NPCs and the level scripts' variables. A new game starts from these defaults, and NPC
    states are created when the opening sequence runs; a load replaces each part from
@@ -72,4 +74,8 @@ struct Story {
        shares it, so it never starts referring to the slot's new occupant. */
     std::vector<std::shared_ptr<W8NpcState>> npcs;
     std::vector<W8LocationVariable> location_variables;
+
+    /* Give each variable a trigger of `world` initializes the trigger's initial value,
+       unless the level already has the variable. */
+    void addTriggerVariableDefaults(const World& world);
 };
