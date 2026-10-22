@@ -232,7 +232,7 @@ bool LoadPackedBits(W8Chunk& chunk, std::vector<bool>& bits)
                           chunk.RemainingBytes(), bits);
 }
 
-bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
+void SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
 {
     std::vector<std::uint32_t> words(WordCount(bits.size()));
     for (std::size_t bit = 0; bit < bits.size(); ++bit) {
@@ -246,5 +246,4 @@ bool SavePackedBits(wiz8::File& handle, const std::vector<bool>& bits)
     sdlIO::check(SDL_WriteU32LE(handle.io(), static_cast<Uint32>(packed.size())));
     sdlIO::writeExact(handle.io(), packed.data(), packed.size());
     sdlIO::check(SDL_WriteU32LE(handle.io(), kPackedBitsMagic));
-    return true;
 }

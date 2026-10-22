@@ -46,7 +46,7 @@ unsigned short g_spell_range_name_ids[4] = {1307, 1308, 1309, 1310};
 static char g_plus_space[] = "+ ";
 
 W8SpellInfoDialog::W8SpellInfoDialog(unsigned int spell)
-    : m_spell(spell), m_timer(0.05f, 1), m_animation_frame(0)
+    : m_spell(spell), m_timer(0.05f, TimerClock::Presentation), m_animation_frame(0)
 {
     SetOrigin(0x9c, 0x5a);
     SetExtent(0x14a, 0x12c);
