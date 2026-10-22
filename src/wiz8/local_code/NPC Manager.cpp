@@ -579,7 +579,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     npc->is_present = false;
     npc->event_pending = 0;
     npc->pending_restore = false;
-    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+    ReloadNpcScriptResources(npc);
 
     /* Retail writes the race into this initially populated list, then tests
        the value just written. Preserve that assignment and early exit. */
@@ -1033,7 +1033,6 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
    falls back to the kind-0x18 greeter. */
 static void SelectStartNpcGreeting(void)
 {
-    Monster* monster;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     unsigned char value;
@@ -1060,10 +1059,10 @@ static void SelectStartNpcGreeting(void)
             if (monster_info == 0) {
                 return;
             }
-            monster = monster_info->entity.find();
-            head = glm::vec3(monster->nav.movement.position.x,
-                             monster->nav.movement.position.y + monster->nav.movement.height_offset,
-                             monster->nav.movement.position.z);
+            Monster& monster = *monster_info->entity;
+            head = glm::vec3(monster.nav.movement.position.x,
+                             monster.nav.movement.position.y + monster.nav.movement.height_offset,
+                             monster.nav.movement.position.z);
             partyCamera().LookAt(&head, false);
             return;
         }
@@ -1273,7 +1272,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->has_monster = true;
     npc->level_band = GetLevelBand(GetLoadedLevelID());
     npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-    ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+    ReloadNpcScriptResources(npc);
 }
 
 /* Expand the record's character block into a fresh group-member character:
@@ -1404,7 +1403,7 @@ void InstallNpcStates(Story& story, std::vector<std::unique_ptr<W8NpcState>> npc
             npc->has_monster = true;
             npc->level_band = GetLevelBand(-1);
             npc->bound_level = -1;
-            ReloadNpcScriptResources(npc, nullptr);
+            npc->script_file = LoadNpcScriptResources(*npc, nullptr);
         }
         if (npc->spawned == 0xffff) npc->spawned = 0;
     }
@@ -2235,7 +2234,7 @@ void RebindNpcLevelTriggers(void)
                 npc->has_monster = true;
                 npc->level_band = static_cast<unsigned char>(GetLevelBand(GetLoadedLevelID()));
                 npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-                ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+                ReloadNpcScriptResources(npc);
                 npc->is_present = false;
             }
         }

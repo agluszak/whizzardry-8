@@ -24,7 +24,7 @@ class W8DialogTextArea {
     friend class W8NpcDialogueTextController;
 
 public:
-    W8DialogTextArea();
+    W8DialogTextArea() = default;
     ~W8DialogTextArea() = default;
     void Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags);
     void Paint(SDL_Surface& target);
@@ -63,26 +63,25 @@ private:
     }
     unsigned int FindVisibleEntryAtLine(int target);
 
-    W8ControlsRect m_bounds; /* passed to entry construction */
-    Font* m_font;
-    int m_first_visible_entry;
-    int m_first_visible_line;
+    W8ControlsRect m_bounds{}; /* passed to entry construction */
+    Font* m_font = nullptr;
+    int m_first_visible_entry = 0;
+    int m_first_visible_line = 0;
     std::vector<std::unique_ptr<W8DialogTextEntry>> m_all_lines; /* owns entries */
     std::vector<int> m_visible_lines; /* indices into the owning entries */
-    bool m_layout_initialized;
 
 public:
     /* Owning dialogs raise this before Draw, the same way they dirty the
        contained button and scrollbar. */
-    bool m_dirty;
+    bool m_dirty = false;
 
 private:
-    int m_entry_spacing_lines;
-    int m_behavior_flags;
-    int m_line_height_override;
-    int m_selected_visible_entry;
-    int m_highlighted_entry; /* visible entry index, -1 when clear */
-    bool m_relayout_needed;
+    int m_entry_spacing_lines = 0;
+    int m_behavior_flags = 0;
+    int m_line_height_override = -1;
+    int m_selected_visible_entry = -1;
+    int m_highlighted_entry = -1; /* visible entry index, -1 when clear */
+    bool m_relayout_needed = false;
     W8DialogueCategory m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
-    bool m_sorted;
+    bool m_sorted = false;
 };

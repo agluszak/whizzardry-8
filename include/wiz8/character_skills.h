@@ -16,7 +16,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                             bool suppress_notification);
 
 unsigned int GetCharacterSkillNoticeValue(const W8Character* character, W8Skill skill_id);
-void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload* notices);
+void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices);
 
 /* 0x00554170: append one "race-icon Name's skill +level" clause to a notice
    buffer; when continue_line is set, insert a line break first. */

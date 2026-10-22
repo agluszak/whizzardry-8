@@ -50,7 +50,7 @@ void InstallFacts(Game& game, const std::array<unsigned char, W8_FACT_SLOT_COUNT
         const auto npc = std::ranges::find_if(
             game.story.npcs, [](const auto& state) { return state->record->kind == 0x20; });
         if (npc != game.story.npcs.end() && (*npc)->has_monster)
-            ReloadNpcScriptResources(npc->get(), nullptr);
+            (*npc)->script_file = LoadNpcScriptResources(**npc, nullptr);
     }
     // The derived import fact keeps its side effects, which act on the game just begun.
     if (!stored[W8_FACT_IMPORT_TRANG] && !stored[W8_FACT_IMPORT_UMPANI] && !stored[W8_FACT_VIRGIN])

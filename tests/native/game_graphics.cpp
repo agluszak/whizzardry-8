@@ -75,7 +75,6 @@ TEST_CASE("game graphics")
     REQUIRE(CreateWizardryWindow());
     REQUIRE(InitializePrimarySurface());
     REQUIRE(InitializeVideoDevice());
-    g_renderer->setCaptureEnabled(true);
     REQUIRE(g_renderer->isOpen());
     REQUIRE(InitializeRendererSceneObjects());
     auto targa_file = wiz8::open_file(wiz8::asset_path("data\\automap\\map_monsterfriendly_a.tga"));
@@ -105,7 +104,7 @@ TEST_CASE("game graphics")
         g_compositor.draw(*g_renderer, OverlayLayer::Cursor);
         g_renderer->endFrame();
     }
-    auto buffer = g_renderer->readback();
+    auto buffer = g_renderer->captureLastFrame();
     REQUIRE(buffer);
     for (int y = 0; y < 480; ++y)
         for (int x = 0; x < 640; ++x) {
@@ -164,7 +163,7 @@ TEST_CASE("game graphics")
         REQUIRE(!movie.advance());
         // The actual presentation surface reaches GPU output; the game primary stays intact.
         RenderFrame();
-        buffer = g_renderer->readback();
+        buffer = g_renderer->captureLastFrame();
         REQUIRE(buffer);
         unsigned movie_matches = 0;
         for (int y = 0; y < 480; ++y)
@@ -198,6 +197,7 @@ TEST_CASE("game graphics")
     REQUIRE(OpenRendererWindow());
     REQUIRE(g_renderer->isOpen());
     PresentMenuOverlayFrame();
+    REQUIRE(g_renderer->captureLastFrame());
 
     g_screenshot_index = 0;
     SaveJpegScreenshot();
