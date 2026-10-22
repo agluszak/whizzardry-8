@@ -374,9 +374,10 @@ bool AllSpellEffectsStillRunning(void)
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 {
     // Replaced lures remain queued until their visuals are retired.
-    for (auto it = CurrentGame().spell_effects.rbegin();
-         it != CurrentGame().spell_effects.rend(); ++it) {
-        if ((*it)->kind == W8_SPELL_HYPNOTIC_LURE && (*it)->turns_remaining > 0)
+    auto& effects = CurrentGame().spell_effects;
+    for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
+        const auto& effect = **it;
+        if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0)
             return it->get();
     }
     return nullptr;
@@ -2964,8 +2965,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             owner.turns_remaining = RollEffectDuration(&owner.definition);
             bool replaced = false;
             for (const auto& previous : CurrentGame().spell_effects) {
-                if (previous->kind == W8_SPELL_HYPNOTIC_LURE &&
-                    previous->turns_remaining > 0) {
+                if (previous->kind == W8_SPELL_HYPNOTIC_LURE && previous->turns_remaining > 0) {
                     previous->turns_remaining = 0;
                     replaced = true;
                 }
