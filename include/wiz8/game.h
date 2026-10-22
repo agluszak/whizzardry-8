@@ -128,13 +128,8 @@ public:
        by `elapsed` milliseconds (0x00482A20) runs the game clock while the party is in
        the world and places the sky for the new time of day. */
     void advanceCalendar(int elapsed);
-    // Step time reaches the level while the calendar runs.
-    void passCalendarTime(std::chrono::milliseconds elapsed);
     // Run or stop the calendar; running it drops the time the level has not taken up.
     void setCalendarRunning(bool running);
-    /* Advance the calendar by the time scale's share of the step time the level has not
-       taken up yet, while time passes. */
-    void catchUpCalendar();
     /* The per-frame environment update: a running lighting transition, otherwise the
        calendar and, in day/night mode, the day phase's light and colour. */
     void updateEnvironment();
@@ -249,6 +244,13 @@ public:
        The main game leaves the level when it is discarded, before a game that ends in
        play is destroyed; destroying a world does no departure bookkeeping. */
     Level level;
+
+private:
+    // Step time reaches the level while the calendar runs.
+    void passCalendarTime(std::chrono::milliseconds elapsed);
+    /* Advance the calendar by the time scale's share of the step time the level has not
+       taken up yet, while time passes. */
+    void catchUpCalendar();
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random
