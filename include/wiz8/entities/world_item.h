@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string_view>
 
 #include "glm/ext/matrix_float3x3.hpp"
