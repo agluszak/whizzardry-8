@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string_view>
 
 #include "glm/ext/matrix_float3x3.hpp"
@@ -69,5 +68,5 @@ struct WorldItemEntity {
     bool IsRadarBlipLit();
 };
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item);
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

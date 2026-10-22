@@ -330,9 +330,9 @@ std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster
     return script;
 }
 
-void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster)
+void ReloadNpcScriptResources(W8NpcState* npc)
 {
-    npc->script_file = LoadNpcScriptResources(*npc, monster);
+    npc->script_file = LoadNpcScriptResources(*npc, GetNpcMonster(npc));
 }
 
 void W8NpcDialogue::Advance(const ScriptContext& context)

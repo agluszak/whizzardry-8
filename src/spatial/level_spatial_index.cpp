@@ -1383,7 +1383,6 @@ void LevelSpatialIndex::UpdateMonsterLocation(unsigned short location_id, const 
 {
     int queue_id = location_id + 1;
     W8MonsterInfo* info;
-    Monster* monster;
     int sector;
     MeshInstance* mesh;
     glm::ivec3 point;
@@ -1393,12 +1392,12 @@ void LevelSpatialIndex::UpdateMonsterLocation(unsigned short location_id, const 
     }
     info = (owner_world ? owner_world->population->findMonster(location_id) : nullptr);
     if (info != 0 && info->entity) {
-        monster = info->entity.find();
+        Monster& monster = *info->entity;
         sector = GetSectorForPosition(&position);
         if (sector == 0 || (mesh = meshForRegion(sector)) == 0) {
-            monster->sector_mesh = 0;
+            monster.sector_mesh = 0;
         } else {
-            monster->sector_mesh = mesh;
+            monster.sector_mesh = mesh;
         }
     }
     point = cellAt(position);

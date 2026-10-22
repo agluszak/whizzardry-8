@@ -499,9 +499,7 @@ W8CharacterStatsPage::W8CharacterStatsPage(CharacterScreen& owner)
     }
 
     for (int attribute_index = 0; attribute_index < 7; ++attribute_index) {
-        W8CharacterPageEntry* entry =
-            new W8CharacterPageEntry(input, 0xe5, 0x1b + attribute_index * 0xe, false);
-        AddEntry(entry);
+        W8CharacterPageEntry* entry = &AddEntry(0xe5, 0x1b + attribute_index * 0xe, false);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         entry->SetContent(attribute_index,

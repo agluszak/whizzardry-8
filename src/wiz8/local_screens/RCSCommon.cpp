@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_mouse.h>
@@ -372,7 +373,7 @@ void CampScreen::ShowDismissCharacterDialog()
 {
     assert(game.party.members[ReviewedPartySlot()].has_value());
 
-    W8MessageDialogBase* dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
 
     W8Character* character = &game.party.characters[ReviewedPartySlot()];
@@ -389,7 +390,7 @@ void CampScreen::ShowDismissCharacterDialog()
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
     dialog->on_complete = [this](bool accepted) { OnDismissCharacterDialogClosed(accepted); };
-    dialogs.Display(std::unique_ptr<W8DialogBase>(dialog));
+    dialogs.Display(std::move(dialog));
 }
 
 // FUNCTION: WIZ8 0x005b6a60

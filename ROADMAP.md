@@ -18,14 +18,7 @@ audio modules; VSG owns rendering in place of SurRender, the `st*` layer and the
 video integration (its SDL_GPU and flat-render-list design was superseded and is not
 a requirement); entities compose `CyclePlayer`, `Navigator` and other values; spatial
 and navigation queries take explicit inputs; and `Game::level` owns the worlds, which
-own their resources and entities. Its ownership and API tail:
-
-- **Actor entity links.** Records reach their entities through `EntityLink`
-  (ARCHITECTURE.md, "Worlds and levels"), but the migration was mechanical: callers that
-  dereferenced the link now require an entity, and those that passed it on look it up.
-  About 105 `entity.find()` calls hand a possibly null entity to helpers such as
-  `SetMonsterSpellIcon` or `AimAtMonster`; each such helper should take the record or a
-  reference, as its callers' guarantees allow.
+own their resources and entities.
 
 ## Target architecture
 
