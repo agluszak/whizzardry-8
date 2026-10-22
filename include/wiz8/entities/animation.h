@@ -1,6 +1,7 @@
 #ifndef WIZ8_ENGINE_CODE_ANIM_OBJ_H
 #define WIZ8_ENGINE_CODE_ANIM_OBJ_H
 
+#include <array>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -23,18 +24,22 @@ struct W8FrameBounds {
     glm::vec3 maximum{0, 0, 0};
 };
 
+struct AnimationPart {
+    AnimationMesh mesh;
+    std::optional<KeyframeTrack> path;
+};
+
 struct Animation {
     Animation();
     Animation(const Animation& other);
     Animation& operator=(const Animation&) = delete;
     ~Animation();
 
-    unsigned char group_count{};       // mesh/list group count, max 3
     bool animation_playing{}; // copied onto monster/prop animation_playing
     W8AnimationFrameMethod frame_method{}; // copied onto frame_method
     W8AnimationBehaviour behaviour{};     // copied onto animation_behaviour
     unsigned char cycle{};             // default cycle/emitter index
-    bool path_lists{};        // 0 = mesh entries, nonzero = path lists
+    bool positioned_parts{}; // simultaneous placed parts, rather than a frame sequence
     float playback_scale{};
     bool random_play{}; // copied onto prop random_play
     /* Serialized as a float; 0x004A0320 copies its four-byte representation. */
@@ -42,28 +47,20 @@ struct Animation {
     unsigned char start_frame{};
     unsigned char end_frame{};
     unsigned char frame_count{}; // prop clamps frame_index to it
-    std::unique_ptr<AnimationMesh> entries[3];
     std::optional<KeyframeTrack> path;
-    // Each group pairs meshes with the paths that place them.
-    std::vector<std::unique_ptr<AnimationMesh>> meshes[3];
-    std::vector<std::optional<KeyframeTrack>> paths[3];
+    std::array<std::vector<AnimationPart>, 3> parts;
+
+    AnimationMesh* mesh(signed char lod, std::size_t part = 0);
+    KeyframeTrack* partPath(signed char lod, signed char part);
+    AnimationFrame frame(signed char lod, unsigned char frame, std::size_t part = 0);
+    unsigned int frameCount(signed char lod) const;
     std::vector<W8FrameBounds> frame_bounds;
 };
 
 void TransformBounds(const glm::mat3* rotation, const glm::vec3* translation,
                      const glm::vec3* scale, glm::vec3* minimum, glm::vec3* maximum);
-unsigned int AnimObjValue(const Animation* animation, signed char index);
-unsigned int AnimObjListCount(Animation* animation, signed char index);
-KeyframeTrack* AnimObjListEntry(Animation* animation, signed char list_index,
-                                signed char entry_index);
 bool AnimObjReadFromFile(LevelLoadContext* info, Animation* animation,
                          std::vector<std::unique_ptr<Light>>* light_list);
-// The frame a mesh-entry animation shows for `value`, or a path-list animation's first part.
-AnimationFrame AnimObjDispatch(Animation* animation, signed char list_index, unsigned char value);
-// A path-list animation's part `entry_index`.
-AnimationFrame AnimObjDispatchList(Animation* animation, signed char list_index,
-                                   signed char entry_index);
-AnimationMesh* AnimObjEntry(Animation* animation, signed char list_index, std::size_t entry_index);
 std::optional<BoundingBox> AnimObjGetBounds(Animation* animation, signed char list_index,
                                             unsigned int frame);
 

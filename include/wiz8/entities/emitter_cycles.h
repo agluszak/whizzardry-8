@@ -50,9 +50,9 @@ inline bool ReadEmitterCycle(CyclePlayer& visual, std::span<EmitterCycleResource
     // Resolve any deferred frame resources before publishing the new cycle.
     signed char lod = visual.m_bLOD;
     if (select_lod) {
-        if (AnimObjDispatch(loaded.animation.get(), 2, 0)) {
+        if (loaded.animation->frame(2, 0)) {
             lod = 2;
-        } else if (AnimObjDispatch(loaded.animation.get(), 1, 0)) {
+        } else if (loaded.animation->frame(1, 0)) {
             lod = 1;
         } else {
             lod = 0;
