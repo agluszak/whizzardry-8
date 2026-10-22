@@ -1,10 +1,11 @@
-#include <algorithm>
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "asset_paths.h"
 #include "layouts/game_status.h"
@@ -34,6 +35,53 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/utility.h"
+
+enum class W8Wiz7CharacterStatus : unsigned char {
+    unknown = 0,
+    dead_with_status_2 = 2,
+    dead_with_status_3 = 3,
+};
+
+/* One imported Wizardry 7 item record. */
+struct W8Wiz7Item {
+    short item_number;
+    short unknown_02[5];
+};
+
+/* The imported Wizardry 7 character record. */
+struct W8Wiz7Character {
+    char name[0x10]; /* ASCII name TitleCaseString reads */
+    int kill_count;  /* stored verbatim to kill_count */
+    unsigned char unknown_014[0x10];
+    short level;  /* positive values import as level 1 */
+    short deaths; /* stored to death_count minus one */
+    unsigned char unknown_028[0x18];
+    W8Wiz7Item items[2][10]; /* two ten-item lists, 0x78 each */
+    unsigned char unknown_130[0x40];
+    unsigned char attributes[8]; /* ConvertAttribute reads [0..5] */
+    unsigned char skills[0x22];  /* ConvertSkill indexes it by the
+                                          mapped skill id (highest 0x21) and
+                                          reads the contiguous ranges inside */
+    unsigned char unknown_19a[0x98];
+    /* The shared save tag - every record in one import file carries the
+       same byte; its high nibble picks the Wiz7 ending and its low nibble the
+       difficulty. */
+    unsigned char party_tag;
+    unsigned char unknown_233[4];
+    unsigned char race;
+    unsigned char gender;
+    unsigned char profession; /* Wiz7 class byte */
+    unsigned char unknown_23a;
+    W8Wiz7CharacterStatus status; /* 2 or 3 imports as a dead member */
+    unsigned char unknown_23c[0xc];
+};
+
+static void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported);
+static void GrantStartingSpells(W8Character* character, const W8Wiz7Character* imported);
+static void ImportEquipment(W8Character* character, const W8Wiz7Character* imported);
+static unsigned int ConvertSkill(W8Skill skill_id, W8Character* character,
+                                 const W8Wiz7Character* imported);
+static void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported);
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
@@ -80,16 +128,11 @@ static int FindItemByLegacyNumber(short item_number)
     return -1;
 }
 
-/* The Wizardry 7 import file state filled by the loader below: the record
-   count, whether the save carries an ending selector, that selector's two
-   nibbles decoded, the ninety-six flag bits and the character records. */
-int g_import_character_count;
-
-int g_wiz7_ending;
-
-unsigned char g_import_flags[0x60];
-
-W8Wiz7Character g_imported_characters[6];
+struct ImportedParty {
+    std::vector<W8Wiz7Character> characters;
+    Game::ImportedOrigin origin;
+    bool unsupported_ending = false;
+};
 
 /* Load a Wizardry 7 save for import: a 0x34c-byte header (two record-skip
    counts at 0x2cc/0x2ce, the flag bitmask at 0x200), thirty-two skipped
@@ -97,28 +140,30 @@ W8Wiz7Character g_imported_characters[6];
    character count and whose first marks the ending selector, five skipped
    sections, then the character records. Every record must carry the previous
    one's tag byte. On success the ending and difficulty nibbles decode from
-   the shared tag and the flag bits unpack into g_import_flags. */
-unsigned char LoadWizardry7ImportFile(std::string_view path)
+   the shared tag and only the two imported story flags are retained. */
+static std::optional<ImportedParty> LoadWizardry7ImportFile(std::string_view path)
 try {
-    if (path.empty()) return 0;
+    if (path.empty()) return std::nullopt;
     auto file = wiz8::open_file(wiz8::user_path(path), wiz8::OpenMode::read);
     unsigned char header[0x34c];
     short party_block[0x26];
-    W8Wiz7Character characters[6]{};
+    ImportedParty result;
     file->read_exact(header, sizeof(header));
     short record_skip;
     short bank_skip;
     memcpy(&record_skip, header + 0x2cc, sizeof(record_skip));
     memcpy(&bank_skip, header + 0x2ce, sizeof(bank_skip));
-    if (record_skip < 0 || bank_skip < 0) return 0;
+    if (record_skip < 0 || bank_skip < 0) return std::nullopt;
     file->seek(record_skip * 6 + bank_skip * 8 + 0x20 * 0x100, wiz8::SeekOrigin::current);
     file->read_exact(party_block, sizeof(party_block));
     const int character_count = party_block[0x25];
-    if (character_count < 1 || character_count > 6) return 0;
+    if (character_count < 1 || character_count > 6) return std::nullopt;
     file->seek(0x80 + 0x90 + 0x68 + 0x14a + 0x344 + 0x42 + 100, wiz8::SeekOrigin::current);
-    file->read_exact(characters, character_count * sizeof(characters[0]));
+    result.characters.resize(character_count);
+    auto& characters = result.characters;
+    file->read_exact(characters.data(), characters.size() * sizeof(characters[0]));
     for (int index = 1; index < character_count; ++index) {
-        if (characters[index].party_tag != characters[0].party_tag) return 0;
+        if (characters[index].party_tag != characters[0].party_tag) return std::nullopt;
     }
 
     const bool ending_record = party_block[0] == -1;
@@ -138,49 +183,39 @@ try {
             ending = 3;
             break;
         default:
-            return 0;
+            return std::nullopt;
         }
     }
 
-    std::ranges::copy(characters, g_imported_characters);
-    g_import_character_count = character_count;
-    g_wiz7_ending = ending;
-    for (int index = 0; index < 0x60; ++index) {
-        g_import_flags[index] = (header[0x200 + (index >> 3)] >> (index & 7)) & 1;
-    }
-    return 1;
+    if (ending == 1) result.origin.alignment = Game::ImportedOrigin::Alignment::Umpani;
+    if (ending == 2) result.origin.alignment = Game::ImportedOrigin::Alignment::Trang;
+    result.unsupported_ending = ending == 3;
+    result.origin.barlone_dead = (header[0x201] & (1 << 3)) != 0;
+    result.origin.rodan_dead = (header[0x200] & (1 << 5)) != 0;
+    return result;
 } catch (const std::exception&) {
-    return false;
+    return std::nullopt;
 }
 
-/* Apply the loaded Wizardry 7 import: reset the run, seed the party gold,
-   mark the imported-party path and convert each record into a regular member.
-   Reports 1 when the file does not load or a slot cannot take the character,
-   2 when the ending selector holds the value three, 0 otherwise. */
-unsigned char ImportWizardry7Party(GameSession& games, std::string_view path)
+PartyImportResult ImportWizardry7Party(GameSession& games, std::string_view path)
 {
-    W8Character scratch;
-    int index;
-
-    if (LoadWizardry7ImportFile(path) == 0) {
-        return 1;
-    }
+    auto imported = LoadWizardry7ImportFile(path);
+    if (!imported) return PartyImportResult::Unreadable;
     auto& game = BeginNewGame(games);
     game.party.gold = 2500;
-    game.status.skip_loose_character_check = 1;
-    if (g_import_character_count < 7) {
-        for (index = 0; index < g_import_character_count; ++index) {
-            ImportWizardry7Character(&scratch, &g_imported_characters[index]);
-            if (AddCharacterToParty(scratch, -1) == -1) {
-                return 1;
-            }
-        }
-        return (g_wiz7_ending != 3) - 1 & 2;
+    game.status.skip_loose_character_check = true;
+    game.imported_origin = imported->origin;
+    for (auto& record : imported->characters) {
+        W8Character character;
+        ImportWizardry7Character(&character, &record);
+        if (AddCharacterToParty(character, -1) == -1) return PartyImportResult::Unreadable;
     }
-    return 1;
+    // Conversion still precedes rejection, preserving its random draws.
+    return imported->unsupported_ending ? PartyImportResult::UnsupportedEnding
+                                        : PartyImportResult::Success;
 }
 
-void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
+static void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 {
     W8Profession profession;
     unsigned int level;
@@ -276,7 +311,7 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     }
 }
 
-void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
+static void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
 {
     unsigned int imported_values[7] = {0};
     int i;
@@ -356,7 +391,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     character->level_band_base = 1;
 }
 
-void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
+static void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
 {
     W8LearnedSpellState scratch;
     signed char count;
@@ -385,7 +420,7 @@ void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
     BuildLearnedSpellState(&scratch, character);
 }
 
-void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
+static void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 {
     W8ItemInstance item;
     /* The worthiest imported items: band 0 keeps the two most valuable finds
@@ -546,7 +581,8 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 
 /* Retail fell through the failed assert and read `imported->skills` by
    whatever `mapped` held; the recovery keeps that read. */
-unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported)
+static unsigned int ConvertSkill(W8Skill skill_id, W8Character* character,
+                                 const W8Wiz7Character* imported)
 {
     int mapped;
     unsigned int unlocks;

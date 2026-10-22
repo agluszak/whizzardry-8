@@ -36,7 +36,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/PartyImport.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
@@ -1036,34 +1035,29 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
     }
 }
 
-/* Seeds the facts a fresh party starts with. A party imported from Wizardry 7
-   is the skip-loose-character-check path: ending choice 1/2/other maps to facts
-   0x4c/0x4b/0x4d, then two independent import bytes can set 0x199 and 0x7b. The
-   0x7b path unsuppresses and returns; the other imported path and the new-game
-   path unsuppress at the shared exit. */
-void SeedNewGameFacts(const GameStatus& status)
+/* The opening sequence consumes only the imported story choices. The decoded
+   Wizardry 7 records have already been discarded after character conversion. */
+void SeedNewGameFacts(Game& game)
 {
     g_fact_notifications_suppressed = true;
-    if (status.skip_loose_character_check) {
+    if (game.imported_origin) {
         SetFact(W8_FACT_IMPORT, 1, false);
-        switch (g_wiz7_ending) {
-        case 1:
+        switch (game.imported_origin->alignment) {
+        case Game::ImportedOrigin::Alignment::Umpani:
             SetFact(W8_FACT_IMPORT_UMPANI, 1, false);
             break;
-        case 2:
+        case Game::ImportedOrigin::Alignment::Trang:
             SetFact(W8_FACT_IMPORT_TRANG, 1, false);
             break;
         default:
             SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
             break;
         }
-        if (g_import_flags[0xb]) {
+        if (game.imported_origin->barlone_dead) {
             SetFact(W8_FACT_BARLONE_WAS_DEAD, 1, false);
         }
-        if (g_import_flags[5]) {
+        if (game.imported_origin->rodan_dead) {
             SetFact(W8_FACT_RODAN_WAS_DEAD, 1, false);
-            g_fact_notifications_suppressed = false;
-            return;
         }
     } else {
         SetFact(W8_FACT_VIRGIN, 1, false);
@@ -1071,5 +1065,6 @@ void SeedNewGameFacts(const GameStatus& status)
         SetFact(W8_FACT_QUEST_VIRGIN_2, 1, false);
         SetFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
     }
+    game.imported_origin.reset();
     g_fact_notifications_suppressed = false;
 }

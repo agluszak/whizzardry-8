@@ -692,3 +692,12 @@ party portrait are derived from it. Roster entries own saved candidates or name 
 slot in the selector's session; gameplay membership flags never decide ownership.
 Before replacing an imported game, the original roster retains its saved candidates
 without removing members one by one from a game that is about to be replaced.
+
+## Wizardry 7 import
+
+Import parsing returns records as a local value. Only the alignment and two story
+flags survive conversion, owned by the new Game until its opening sequence seeds
+facts. Replacing a game discards these choices with it; no process-global parser
+records, count or flag bitmap need resetting. The selector and successful import
+retain their existing new-game initialization calls because those consume gameplay
+randomness. Conversion order and fact-seeding timing are unchanged.

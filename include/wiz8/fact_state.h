@@ -7,7 +7,7 @@
 #include "wiz8/data/fact_ids.h"
 
 struct ScriptContext;
-struct GameStatus;
+class Game;
 
 /* Raised while facts are seeded, so that the journal records the changes without
    posting their notices. */
@@ -21,7 +21,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
 void HandleScriptedNpcDeath(const ScriptContext& context,
                             unsigned int monster_list_index); /* 0x00508D70 */
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
-void SeedNewGameFacts(const GameStatus& status);
+void SeedNewGameFacts(Game& game);
 /* Install a save's facts, then re-apply the consequences that do not survive a save. */
 void InstallFacts(const std::array<unsigned char, W8_FACT_SLOT_COUNT>& facts);
 
