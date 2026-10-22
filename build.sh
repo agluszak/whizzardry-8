@@ -67,6 +67,7 @@ args=(--rm --init --user "$(id -u):$(id -g)"
     --env WIZ8_BUILD_CONTAINER=1
     --env "HOME=$cache/home" --env "CONAN_HOME=$cache/conan"
     --env "CCACHE_DIR=$root/build/ccache"
+    --env "USER=$(id -un)" --env "LOGNAME=$(id -un)"
     --env "CCACHE_BASEDIR=$root" --env CCACHE_NOHASHDIR=true
     --env CCACHE_MAXSIZE=1G
     --env CCACHE_SLOPPINESS=pch_defines,time_macros)

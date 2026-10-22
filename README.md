@@ -23,7 +23,7 @@ command and image. The host does not need Clang, CMake or Conan.
 Prepare assets from a retail installation once:
 
 ```sh
-build/linux/wiz8_prepare_assets /path/to/prepared-assets /path/to/retail-install
+./run.sh --prepare-assets /path/to/prepared-assets /path/to/retail-install
 ```
 
 Choose a new directory outside the retail installation, then play:
@@ -49,20 +49,20 @@ This is a modernization project, not an exercise in preserving the original engi
 
 For the current technical direction, see [AGENTS.md](AGENTS.md), [the architecture](ARCHITECTURE.md) and [the roadmap](ROADMAP.md).
 
-After building, run the tests with:
+After building, run tests in the same environment as CI:
 
 ```sh
-ctest --preset linux
+./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; xvfb-run -a ctest --preset linux'
 ```
 
-On a headless Linux host, run CTest under `xvfb-run -a`; the graphics scenarios use
+The headless runner uses `xvfb-run -a`; the graphics scenarios use
 SDL's X11 Vulkan surface. CI also enables the Khronos validation layer and fails
 graphics tests on validation errors.
 
 Some runtime tests also need prepared retail assets:
 
 ```sh
-WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
+./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; ctest --preset linux -L runtime'
 ```
 
 C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).
