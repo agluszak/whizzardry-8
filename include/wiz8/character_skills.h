@@ -1,13 +1,10 @@
 #pragma once
 
-#include <string>
-
 #include "wiz8/data/skills.h"
 
 class Events;
 class Game;
 struct W8Character;
-struct W8Party;
 struct W8SkillNoticePayload;
 
 /* 0x00553F10: add usage points to one skill, roll its increase, and report
@@ -17,11 +14,6 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
 
 unsigned int GetCharacterSkillNoticeValue(const W8Character* character, W8Skill skill_id);
 void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices);
-
-/* 0x00554170: append one "race-icon Name's skill +level" clause to a notice
-   buffer; when continue_line is set, insert a line break first. */
-std::string FormatSkillIncreaseNoticeText(const W8Party& party, int party_slot, bool continue_line,
-                                          W8Skill skill_id);
 
 /* Show a member's skill increase as a portrait message now, or keep it in the slot's
    per-skill flags for FlushDeferredSkillNotices. */
