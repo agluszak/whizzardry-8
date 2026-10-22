@@ -214,6 +214,22 @@ void InventoryChestScenario()
     game.click("pick-up-potion", {kCampPoolCell.x + (potion_cell & 1) * 49,
                                   kCampPoolCell.y + (potion_cell >> 1) * 57});
     REQUIRE((CurrentGame().party.held.item.iItemNo != -1));
+    // Blank cells are insertion destinations even though no live item is there.
+    const auto other_items = CurrentGame().party.item_pool;
+    CurrentGame().party.item_pool.clear();
+    FindScreen<CampScreen>()->items.RebuildCampItemList();
+    FindScreen<CampScreen>()->InvalidateAll();
+    game.frame();
+    game.click("put-into-empty-pool", kCampPoolCell);
+    REQUIRE(CurrentGame().party.held.item.iItemNo == -1);
+    REQUIRE(CurrentGame().party.item_pool.size() == 1);
+    game.click("pick-back-from-pool", kCampPoolCell);
+    REQUIRE(CurrentGame().party.held.item.iItemNo != -1);
+    REQUIRE(CurrentGame().party.item_pool.empty());
+    CurrentGame().party.item_pool = other_items;
+    FindScreen<CampScreen>()->items.RebuildCampItemList();
+    FindScreen<CampScreen>()->InvalidateAll();
+    game.frame();
     game.click("drop-potion", kCampBackpackCells[0]);
     REQUIRE_FALSE((CurrentGame().party.held.item.iItemNo != -1));
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
