@@ -4,6 +4,7 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <filesystem>
 #include <initializer_list>
 #include <memory>
@@ -48,10 +49,10 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
+#include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/fog.h" // IWYU pragma: keep - completes world-owned fog nodes.
 #include "wiz8/render/frame.h"
 #include "wiz8/render/light.h"
-#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/render/vsg_scene.h"
