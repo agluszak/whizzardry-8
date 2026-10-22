@@ -1360,19 +1360,16 @@ TEST_CASE("Particle activation preserves emission limits and world placement", "
     particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 5;
-    const auto first = particles.activateParticle(false);
-    REQUIRE(first);
-    REQUIRE(first.value() == 0);
-    REQUIRE(particles.particles[first.value()].velocity == glm::vec3(0, -5, 0));
+    const auto* first = particles.activateParticle(false);
+    REQUIRE(first == &particles.particles[0]);
+    REQUIRE(first->velocity == glm::vec3(0, -5, 0));
     REQUIRE(particles.activateParticle(false));
     REQUIRE(!particles.activateParticle(false));
-    const auto replaced = particles.activateParticle(true);
-    REQUIRE(replaced);
-    REQUIRE(replaced.value() == 0);
+    REQUIRE(particles.activateParticle(true) == first);
     // The old pool compared absolute unsigned ticks, even across wraparound.
     particles.particles[0].birth_tick = 0xfffffffeu;
     particles.particles[1].birth_tick = 2;
-    REQUIRE(particles.activateParticle(true) == 1);
+    REQUIRE(particles.activateParticle(true) == &particles.particles[1]);
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
     particles.emission_limit = particles.emission_count;
     REQUIRE(!particles.activateParticle(true));

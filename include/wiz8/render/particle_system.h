@@ -4,7 +4,6 @@ struct W8Chunk;
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -37,6 +36,17 @@ class File;
 
 class ParticleSystem {
 public:
+    struct Particle {
+        glm::vec3 position{0};
+        glm::vec3 velocity{0};
+        unsigned int birth_tick = 0;
+        bool active = false;
+        float flutter_angle = 0;
+        float alpha = 1;
+        // Animated textures have independent playback per slot.
+        std::shared_ptr<Texture> animation;
+    };
+
     ParticleSystem(WorldScene* scene, int count); /* 0x00497AF0 */
     ParticleSystem(const ParticleSystem& other); /* 0x00498180 */
     ~ParticleSystem();
@@ -44,7 +54,7 @@ public:
     void SetActive(bool active);
     void SetTraversalEnabled(bool enabled);
     bool hasActiveParticles() const;
-    std::optional<unsigned int> activateParticle(bool replaceWhenFull);
+    Particle* activateParticle(bool replaceWhenFull);
     glm::vec3 emissionPosition();
     void SetTexture(std::shared_ptr<Texture> texture);
     void SetMaterial(std::shared_ptr<Material> material);
@@ -66,16 +76,6 @@ public:
     std::shared_ptr<Material> material;
     DrawShader render_flags;
     std::shared_ptr<Texture> texture;
-    struct Particle {
-        glm::vec3 position{0};
-        glm::vec3 velocity{0};
-        unsigned int birth_tick = 0;
-        bool active = false;
-        float flutter_angle = 0;
-        float alpha = 1;
-        // Animated textures have independent playback per slot.
-        std::shared_ptr<Texture> animation;
-    };
     std::vector<Particle> particles;
     /* Both unsigned: 0x004994D0 gates the particle off with the unsigned
        `emission_limit != 0 && emission_limit <= emission_count` pair. */

@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -260,22 +259,22 @@ ParticleSystem::ParticleSystem(const ParticleSystem& other)
     this->transform.setMatrix(world);
 }
 
-std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFull)
+ParticleSystem::Particle* ParticleSystem::activateParticle(bool replaceWhenFull)
 {
     if (particles.empty() || (emission_limit != 0 && emission_count >= emission_limit)) {
-        return std::nullopt;
+        return nullptr;
     }
 
     auto slot = std::ranges::find(particles, false, &Particle::active);
     if (slot == particles.end()) {
-        if (!replaceWhenFull) return std::nullopt;
+        if (!replaceWhenFull) return nullptr;
         // Keep the retail comparison of absolute unsigned birth ticks and first tie.
         slot = std::ranges::min_element(particles, {}, &Particle::birth_tick);
     }
-    const auto index = static_cast<unsigned int>(slot - particles.begin());
+    auto& particle = *slot;
 
-    slot->active = true;
-    slot->birth_tick = GameClockMilliseconds();
+    particle.active = true;
+    particle.birth_tick = GameClockMilliseconds();
 
     float magnitude = 0.0f;
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
@@ -286,7 +285,7 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
     }
     magnitude *= size_scale;
 
-    glm::vec3& velocity = slot->velocity;
+    glm::vec3& velocity = particle.velocity;
     switch (direction_mode) {
     case W8_PARTICLE_DIRECTION_NODE_FORWARD: {
         velocity = glm::vec3(this->transform.forward() * double(magnitude));
@@ -328,16 +327,16 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
         break;
     }
 
-    slot->position = glm::vec3(this->transform.getLocation());
+    particle.position = glm::vec3(this->transform.getLocation());
 
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE) {
-        slot->flutter_angle = PresentationRng().next() * kParticleFlutterAngleRandomScale;
+        particle.flutter_angle = PresentationRng().next() * kParticleFlutterAngleRandomScale;
     }
-    if (slot->animation) {
+    if (particle.animation) {
         // A pool slot may have been inactive for a long time. Restart its
         // selected animation chain at this birth, including nested IFL frames.
         const auto now = GameInProgress() ? CurrentGame().time : std::chrono::milliseconds{};
-        auto* animation = slot->animation.get();
+        auto* animation = particle.animation.get();
         while (animation && animation->playback) {
             animation->SetFrame(0);
             auto& playback = animation->playback.value();
@@ -346,9 +345,9 @@ std::optional<unsigned int> ParticleSystem::activateParticle(bool replaceWhenFul
         }
     }
 
-    slot->alpha = 1.0f;
+    particle.alpha = 1.0f;
     ++emission_count;
-    return index;
+    return &particle;
 }
 
 bool ParticleSystem::hasActiveParticles() const
@@ -467,20 +466,19 @@ void ParticleSystem::Update()
 
     for (;;) {
         unsigned int lag = now - emission_interval - last_emission_tick;
-        const auto activated = activateParticle(replace_when_full);
-        if (!activated) {
+        auto* particle = activateParticle(replace_when_full);
+        if (!particle) {
             last_emission_tick = now;
             return;
         }
 
-        const auto particle_index = *activated;
         if (has_acceleration) {
             const auto scaled = glm::vec3(glm::dvec3(acceleration) * double(lag));
-            particles[particle_index].velocity += glm::vec3(glm::dvec3(scaled) / 1000.0);
+            particle->velocity += glm::vec3(glm::dvec3(scaled) / 1000.0);
         }
-        const auto scaled = glm::vec3(glm::dvec3(particles[particle_index].velocity) * double(lag));
+        const auto scaled = glm::vec3(glm::dvec3(particle->velocity) * double(lag));
         const auto displacement = glm::vec3(glm::dvec3(scaled) / 1000.0);
-        particles[particle_index].position = emissionPosition() + displacement;
+        particle->position = emissionPosition() + displacement;
 
         last_emission_tick += emission_interval;
         if (now - last_emission_tick <= emission_interval) {
@@ -575,9 +573,8 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
         center = bounds.center();
         radius = glm::length(bounds.maximum - center);
     } else {
-        for (unsigned index = 0; index < particles.size(); ++index)
-            if (particles[index].active)
-                radius = std::max(radius, glm::length(particles[index].position - center));
+        for (const auto& particle : particles)
+            if (particle.active) radius = std::max(radius, glm::length(particle.position - center));
         radius += float(particle_size) * size_scale;
     }
     data.cull->bound = vsg::dsphere(center.x, center.y, center.z, radius);
