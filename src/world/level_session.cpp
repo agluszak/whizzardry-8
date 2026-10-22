@@ -1,7 +1,6 @@
 #include "wiz8/world/level_session.h"
 
 #include <cmath>
-#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <memory>
@@ -11,6 +10,7 @@
 #include <utility>
 
 #include <SDL3/SDL_filesystem.h>
+#include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -370,9 +370,8 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         Trigger* trigger = 0;
 
         if (level < W8_LEVEL_COUNT) {
-            char trigger_name[8];
-            sprintf(trigger_name, "%3s%02d", g_level_folders[level].location_code, entrance);
-            trigger = FindTriggerByName(trigger_name);
+            trigger = FindTriggerByName(
+                fmt::format("{:>3}{:02d}", g_level_folders[level].location_code, entrance));
         }
         if (trigger != 0 && ((trigger->flags & W8_TRIGGER_POSITIONED) != 0)) {
             glm::vec3 trigger_position;
