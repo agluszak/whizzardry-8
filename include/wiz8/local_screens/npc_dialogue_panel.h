@@ -1,8 +1,11 @@
 #pragma once
 
+#include <bitset>
 #include <memory>
 #include <optional>
 #include <vector>
+
+#include <SDL3/SDL_surface.h>
 
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -10,6 +13,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/rules/item_instance.h"
 
+struct MainGameScreen;
 struct NpcDialogueUi;
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
@@ -44,7 +48,7 @@ enum W8NpcTradeMode : unsigned char {
    is the game's (`W8NpcInteractionState`). */
 struct W8NpcDialoguePanel {
     // Out of line, where the dialogue's widgets are a complete type.
-    W8NpcDialoguePanel();
+    explicit W8NpcDialoguePanel(MainGameScreen& screen);
     ~W8NpcDialoguePanel();
     W8NpcDialoguePanel(const W8NpcDialoguePanel&) = delete;
     W8NpcDialoguePanel& operator=(const W8NpcDialoguePanel&) = delete;
@@ -95,4 +99,20 @@ struct W8NpcDialoguePanel {
     /* The main text box is collapsed to a single line while the dialogue is
        fresh; cleared when the next transcript line scrolls. */
     bool text_box_collapsed{};
+
+    // Request a dialogue panel's repaint.
+    void requestRepaint(int panel);
+    /* Before the draw, add the panels whose transcript or action text changed to
+       `panels`; the draw then paints the requested ones. */
+    void updatePanels(std::bitset<7>& panels);
+    void paintPanels(std::bitset<7> panels) const;
+    // Show and expand the transcript panel, without repainting the layout.
+    void showTranscript();
+    /* A repainted portrait band covers the open transcript: show it again while
+       the transcript layout is up, unhidden and not waiting on a reply. */
+    void keepTranscriptOverPortraits();
+
+private:
+    void paintPanel(int index, SDL_Surface& target, bool force) const;
+    MainGameScreen& screen_;
 };

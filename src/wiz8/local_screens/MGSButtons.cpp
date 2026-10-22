@@ -875,23 +875,23 @@ void SetSubMenuButtonTooltips(int enabled)
 /* Restate every HUD button from the game: the nine bank buttons, the scroll
    arrows (idle submenu only), the options/disk button outside modal modes, and
    the panel, stance, roof and layout-arrow sets. */
-void UpdateMainGameButtons(void)
+void MainGameScreen::updateHudButtons()
 {
     for (int index = 0; index < 9; ++index) UpdateSubMenuButton(index);
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
-    const bool enabled = !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
-                         !IsTrapInteractionActive() && !CurrentGame().activity.conversation_aside &&
+    const bool enabled = !game.activity.conversation && !IsLockInteractionActive() &&
+                         !IsTrapInteractionActive() && !game.activity.conversation_aside &&
                          !LockInteractionSuspended() && !TrapInteractionSuspended();
-    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
+    hud_buttons.options_disk.SetEnabled(enabled);
     UpdateCombatStanceButtons();
-    MainGame()->updateLayoutButtons();
+    updateLayoutButtons();
 }
 
 // Draw the HUD buttons whose state or hover changed since they were last drawn.
-void RefreshMainGameButtons(void)
+void MainGameScreen::refreshHudButtons()
 {
-    auto& buttons = MainGame()->hud_buttons;
+    auto& buttons = hud_buttons;
     for (auto& button : buttons.submenu) button.Refresh();
     for (auto& button : buttons.submenu_scroll) button.Refresh();
     for (auto& button : buttons.submenu_panel) button.Refresh();

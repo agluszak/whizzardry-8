@@ -380,7 +380,7 @@ void ResetPartyPortraitFx(void)
    the side strip: the normal frame, or the alternate while the slot is the
    hovered combat slot, then the can't-act badge or the party-member target
    marker. The slot currently acting is drawn by the action panel instead. */
-void PaintCombatPortraits(std::bitset<8> slots)
+void MainGameScreen::paintCombatPortraits(std::bitset<8> slots) const
 {
     int portrait_x;
     int badge_x;
@@ -389,11 +389,11 @@ void PaintCombatPortraits(std::bitset<8> slots)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        const W8PartySlotRow* party_row = &CurrentGame().party.rows[slot];
-        const W8CombatCharacterRow* combat_row = &CurrentGame().combat->characters[slot];
+        const W8PartySlotRow* party_row = &game.party.rows[slot];
+        const W8CombatCharacterRow* combat_row = &game.combat->characters[slot];
 
         if (!slots.test(slot) || !CanPartySlotParticipate(slot) ||
-            combat_row->portrait_image == -1 || slot == MainGameHud()->combat_slot) {
+            combat_row->portrait_image == -1 || slot == hud->combat_slot) {
             continue;
         }
         if ((slot & 1) == 0) {
@@ -404,12 +404,12 @@ void PaintCombatPortraits(std::bitset<8> slots)
             badge_x = 0x25b;
         }
         row_y = (slot >> 1) * 0x55;
-        if (MainGame()->layout().mode != W8_MAIN_UI_MODE_PORTRAITS &&
-            MainGameHud()->portrait_refresh_pending[slot] == 0) {
+        if (applied_layout.mode != W8_MAIN_UI_MODE_PORTRAITS &&
+            hud->portrait_refresh_pending[slot] == 0) {
             EraseRegion(portrait_x, row_y + 0x37, portrait_x + 0x14, row_y + 0x58);
         }
-        if (MainGameHud()->combat_action_hover_party_slot == -1 ||
-            MainGameHud()->combat_action_hover_party_slot != slot) {
+        if (hud->combat_action_hover_party_slot == -1 ||
+            hud->combat_action_hover_party_slot != slot) {
             portrait_image = combat_row->portrait_image;
         } else {
             portrait_image = combat_row->portrait_image_alternate;
@@ -422,9 +422,8 @@ void PaintCombatPortraits(std::bitset<8> slots)
                                                             row_y + 0x37);
         } else if (party_row->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
             CatalogArtwork::Load(0x8c, 0).drawAndInvalidate(
-                GetFrameBufferSurface(),
-                CurrentGame().party.orderIndexOf(party_row->committed.target.iChar), badge_x,
-                row_y + 0x38);
+                GetFrameBufferSurface(), game.party.orderIndexOf(party_row->committed.target.iChar),
+                badge_x, row_y + 0x38);
         }
     }
 }
@@ -647,10 +646,10 @@ static bool PartyPortraitFrameShowsBand(unsigned int party_slot)
             CurrentGame().party.characters[party_slot].highest_condition == W8_CONDITION_MISSING);
 }
 
-bool PartyPortraitFrameCoversBand(unsigned int party_slot)
+bool MainGameScreen::partyPortraitFrameCoversBand(unsigned int party_slot) const
 {
-    return (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS ||
-            MainGameHud()->portrait_refresh_pending[party_slot] != 0) &&
+    return (applied_layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
+            hud->portrait_refresh_pending[party_slot] != 0) &&
            PartyPortraitFrameShowsBand(party_slot);
 }
 
@@ -670,10 +669,10 @@ bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, uns
            PartyPortraitFrameShowsBand(party_slot);
 }
 
-PortraitBandPaint PaintPartyPortraitFrame(unsigned int party_slot)
+PortraitBandPaint MainGameScreen::paintPartyPortraitFrame(unsigned int party_slot) const
 {
-    const auto& hud = *MainGameHud();
-    if (MainGame()->layout().mode != W8_MAIN_UI_MODE_PORTRAITS &&
+    const auto& hud = *this->hud;
+    if (applied_layout.mode != W8_MAIN_UI_MODE_PORTRAITS &&
         hud.portrait_refresh_pending[party_slot] == 0) {
         return {};
     }
@@ -1114,11 +1113,11 @@ void UpdatePortraitAdvanceButtons()
     }
 }
 
-void RefreshPortraitAdvanceButtons(std::bitset<8> repainted)
+void MainGameScreen::refreshPortraitAdvanceButtons(std::bitset<8> repainted) const
 {
     for (int slot = 0; slot < 8; ++slot) {
         portrait_buttons->buttons[slot]->Refresh(repainted.test(slot) &&
-                                                 CurrentGame().party.members[slot].has_value());
+                                                 game.party.members[slot].has_value());
     }
 }
 
@@ -1205,13 +1204,14 @@ void UpdateConditionButtons()
 /* Draw each shown icon that was requested or whose band was repainted. A
    requested slot without an icon clears its square unless a portrait or the
    keyboard menu covers it. */
-void PaintConditionIcons(std::bitset<8> requested, std::bitset<8> repainted_bands)
+void MainGameScreen::paintConditionIcons(std::bitset<8> requested,
+                                         std::bitset<8> repainted_bands) const
 {
     for (int slot = 0; slot < 8; ++slot) {
         const auto& icon = condition_icons->icons[slot];
         if (!icon.catalog) {
-            if (requested.test(slot) && !MainGameHud()->portrait_refresh_pending[slot] &&
-                !(MainGame() && MainGame()->keyboardMenuForSlot(slot)))
+            if (requested.test(slot) && !hud->portrait_refresh_pending[slot] &&
+                !keyboardMenuForSlot(slot))
                 ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
                                  icon.position.y + 19);
             continue;

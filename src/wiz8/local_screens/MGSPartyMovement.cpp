@@ -2,7 +2,6 @@
 
 #include <array>
 #include <cassert>
-#include <cstdint>
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -32,30 +31,17 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-namespace {
-struct PartyMovementPanel {
-    UiLayer input{UiLayerOrder::PartyMovement};
-    std::array<std::unique_ptr<W8ButtonWidget>, 2> buttons;
-    std::unique_ptr<W8TextBuffer> caption;
-    uint64_t animation_clock = 0;
-    unsigned int animation_frame = 0;
-    int visible_button = 1;
-};
-std::unique_ptr<PartyMovementPanel> movement;
-}
-
-bool CreatePartyMovementPanel(void)
+PartyMovementPanel::PartyMovementPanel(MainGameScreen& screen) : screen_(screen)
 {
-    movement = std::make_unique<PartyMovementPanel>();
-    InvalidatePartyMovementPanel();
+    requestRepaint();
     const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
-    movement->caption =
+    caption_ =
         std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
                                        g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     const auto art = CatalogArtwork::Load(0x94, 0);
     for (int index = 0; index < 2; ++index) {
-        auto& button = movement->buttons[index];
-        button = std::make_unique<W8ButtonWidget>(movement->input);
+        auto& button = buttons_[index];
+        button = std::make_unique<W8ButtonWidget>(input_);
         button->Configure(ButtonGraphics::Load(art.spriteSheet(), 7, 4, 5, 6, 6),
                           {.on_click =
                                [index](auto*) {
@@ -71,48 +57,37 @@ bool CreatePartyMovementPanel(void)
         button->Resize(20, 20);
         button->SetVisible(index == 1);
     }
-    MainGame()->party_movement_panel = true;
-    CurrentGame().combat->party_move_percent = 100;
-    MainGameHud()->move_percent_shown = 100;
-    return true;
+    screen_.game.combat->party_move_percent = 100;
 }
 
-void ShowPartyMovementGauge(bool force)
-{
-    const int percent = CurrentGame().combat->party_move_percent;
-    if (!force && percent == MainGameHud()->move_percent_shown) return;
-    InvalidatePartyMovementPanel();
-    MainGameHud()->move_percent_shown = percent;
-}
+PartyMovementPanel::~PartyMovementPanel() = default;
 
-void ReleasePartyMovement(void)
+void PartyMovementPanel::showGauge(bool force)
 {
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
-    }
-    if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
-    movement.reset();
-    if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
+    const int percent = screen_.game.combat->party_move_percent;
+    if (!force && percent == percent_shown_) return;
+    requestRepaint();
+    percent_shown_ = percent;
 }
 
 // Show the free-turn button while the party can move, the cancel button otherwise.
-static void SyncPartyMovementButtons()
+void PartyMovementPanel::syncButtons()
 {
     const int visible = CanPartyMove() ? 1 : 0;
-    if (visible != movement->visible_button) InvalidatePartyMovementPanel();
-    movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
+    if (visible != visible_button_) requestRepaint();
+    visible_button_ = visible;
+    for (int index = 0; index < 2; ++index) buttons_[index]->SetVisible(index == visible);
 }
 
-void UpdatePartyMovementPanel(void)
+void PartyMovementPanel::enableInput()
 {
-    movement->input.setEnabled(true);
-    SyncPartyMovementButtons();
+    input_.setEnabled(true);
+    syncButtons();
 }
 
-void DisablePartyMovementRegions(void)
+void PartyMovementPanel::disableInput()
 {
-    if (movement) movement->input.setEnabled(false);
+    input_.setEnabled(false);
 }
 
 /* The gauge image: 0 while the party can move, 1 while it runs out, 2 once the
@@ -124,45 +99,42 @@ static int PartyMovementGaugeImage()
 }
 
 // Whether the gauge shows the action under way rather than the one planned next.
-static bool PartyMovementShowsCurrentAction()
+static bool ShowsCurrentAction(const Combat& combat)
 {
-    return !CanPartyMove() ||
-           (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0);
+    return !CanPartyMove() || (combat.execution_active != 0 && IsPartyEngaged() == 0);
 }
 
-void UpdatePartyMovementGauge(void)
+void PartyMovementPanel::update()
 {
-    SyncPartyMovementButtons();
-    if (movement->visible_button == 1)
-        movement->buttons[1]->SetEnabled(CurrentGame().combat->round_active);
+    const auto& combat = *screen_.game.combat;
+    syncButtons();
+    if (visible_button_ == 1) buttons_[1]->SetEnabled(combat.round_active);
     const bool running = PartyMovementGaugeImage() == 1;
-    if (running && TimeUntilDeadline(movement->animation_clock) != 0) return;
+    if (running && TimeUntilDeadline(animation_clock_) != 0) return;
     if (running) {
-        movement->animation_frame = (movement->animation_frame + 1) % 12;
-        InvalidatePartyMovementPanel();
+        animation_frame_ = (animation_frame_ + 1) % 12;
+        requestRepaint();
     }
-    const W8PartyAction action = PartyMovementShowsCurrentAction()
-                                     ? CurrentGame().combat->uiCurrentPartyAction
-                                     : CurrentGame().combat->uiNextPartyAction;
-    movement->animation_clock =
-        MonotonicMilliseconds() + (action == W8_PARTY_ACTION_RUN ? 0x32 : 0x5a);
+    const W8PartyAction action =
+        ShowsCurrentAction(combat) ? combat.uiCurrentPartyAction : combat.uiNextPartyAction;
+    animation_clock_ = MonotonicMilliseconds() + (action == W8_PARTY_ACTION_RUN ? 0x32 : 0x5a);
 }
 
 /* The panel, its live button, the gauge bar clipped to the party's remaining
    move with its animated end, the caption, and the portrait plate it covers. */
-void DrawPartyMovementPanel(bool requested)
+void PartyMovementPanel::paint(bool requested) const
 {
-    assert(CurrentGame().combat.has_value());
-    assert((CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
-            CurrentGame().combat->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) ||
-           CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE);
-    const int visible = movement->visible_button;
-    if (!requested && !movement->buttons[visible]->m_dirty) return;
+    const auto& combat = *screen_.game.combat;
+    assert((combat.uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
+            combat.uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) ||
+           combat.uiNextPartyAction != W8_PARTY_ACTION_NONE);
+    auto& button = *buttons_[visible_button_];
+    if (!requested && !button.m_dirty) return;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0x93, 0).drawAndInvalidate(target, 0, 0xb1, 0x13f);
-    movement->buttons[visible]->Refresh(true);
+    button.Refresh(true);
 
-    const int percent = CurrentGame().combat->party_move_percent;
+    const int percent = combat.party_move_percent;
     const short right = 0x1b9 - percent * 0xf6 / 100;
     const int image = PartyMovementGaugeImage();
     int caption;
@@ -170,42 +142,72 @@ void DrawPartyMovementPanel(bool requested)
         caption = ((percent != 100) - 1 & 0x77f) - 1;
     } else if (image == 2) {
         caption = 0x77d;
-    } else if (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0) {
-        caption = (CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
+    } else if (combat.execution_active != 0 && IsPartyEngaged() == 0) {
+        caption = (combat.uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
     } else {
-        caption = (CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
+        caption = (combat.uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
     }
     {
         ScopedClipRect clipped(target, SDL_Rect{right, 0, 0x1b9 - right, 0x1e0});
         CatalogArtwork::Load(0x96, 0).drawAndInvalidate(target, image, 0xc3, 0x144);
     }
 
-    const W8PartyAction action = PartyMovementShowsCurrentAction()
-                                     ? CurrentGame().combat->uiCurrentPartyAction
-                                     : CurrentGame().combat->uiNextPartyAction;
+    const W8PartyAction action =
+        ShowsCurrentAction(combat) ? combat.uiCurrentPartyAction : combat.uiNextPartyAction;
     const int frame_base = action == W8_PARTY_ACTION_RUN ? 0 : 0x24;
     const int frame = image == 0 ? 0x18 : image == 2 ? 0xc : 0;
-    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(
-        target, movement->animation_frame + frame_base + frame, right - 0xf, 0x142);
+    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(target, animation_frame_ + frame_base + frame,
+                                                    right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
-        movement->caption->RenderString(Data().strings[caption], g_wiz_text_font_secondary, false,
-                                        target);
+        caption_->RenderString(Data().strings[caption], g_wiz_text_font_secondary, false, target);
     }
-    PaintPortraitPlate(*MainGameHud());
+    screen_.paintPortraitPlate();
 }
 
-void InvalidatePartyMovementPanel(void)
+void PartyMovementPanel::requestRepaint()
 {
-    if (auto* hud = MainGameHud()) hud->repaint.movement_panel = true;
+    screen_.hud->repaint.movement_panel = true;
 }
 
-void DisableFreeTurnButton(void)
+void PartyMovementPanel::setFreeTurnEnabled(bool enabled)
 {
-    movement->buttons[0]->SetEnabled(false);
+    buttons_[0]->SetEnabled(enabled);
 }
 
-void EnableFreeTurnButton(void)
+void ShowPartyMovementPanel(void)
 {
-    movement->buttons[0]->SetEnabled(true);
+    auto* screen = MainGame();
+    if (!screen) return;
+    if (screen->party_movement)
+        screen->party_movement->requestRepaint();
+    else
+        screen->party_movement = std::make_unique<PartyMovementPanel>(*screen);
+}
+
+void ReleasePartyMovement(void)
+{
+    auto* screen = MainGame();
+    if (!screen || !screen->party_movement) return;
+    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
+    screen->hud->repaint.portrait_panel = true;
+    screen->party_movement.reset();
+}
+
+void ShowPartyMovementGauge(bool force)
+{
+    if (auto* screen = MainGame(); screen && screen->party_movement)
+        screen->party_movement->showGauge(force);
+}
+
+void RepaintPartyMovementPanel(void)
+{
+    if (auto* screen = MainGame(); screen && screen->party_movement)
+        screen->party_movement->requestRepaint();
+}
+
+void SetFreeTurnEnabled(bool enabled)
+{
+    if (auto* screen = MainGame(); screen && screen->party_movement)
+        screen->party_movement->setFreeTurnEnabled(enabled);
 }

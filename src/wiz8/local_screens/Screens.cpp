@@ -29,6 +29,7 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -258,7 +259,7 @@ struct GameEventPresentation {
     {
         ScreenPointer().reset();
         auto* main_game = MainGame();
-        if (main_game) main_game->party_movement_panel = false;
+        if (main_game) main_game->party_movement.reset();
         DisablePortraitControls();
         if (main_game) main_game->combat.setEnabled(true);
         if (auto* hud = ShownHud()) {
