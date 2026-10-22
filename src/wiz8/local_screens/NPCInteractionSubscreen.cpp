@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
@@ -83,7 +84,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/message_log.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_items.h"
@@ -1445,10 +1445,9 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
     W8NoticeWord* word;
     int slot;
     W8ItemInstance* item;
-    W8AssayDialog* dialog;
 
     switch (CurrentGame().npc_interaction.dialogue_layout) {
-    case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX:
+    case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX: {
         slot = MainGameHud()->hovered_text_lines[2];
         if (slot == -1) {
             return;
@@ -1458,16 +1457,17 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
         if (item == 0) {
             return;
         }
-        dialog = new W8AssayDialog(
+        auto dialog = std::make_unique<W8AssayDialog>(
             *item, &CurrentGame().party.characters[CurrentGame().status.selected_character],
-            {kInfoDialogX, 0x48});
+            SDL_Point{kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] {
             if (auto* hud = MainGameHud()) hud->repaint.everything = true;
         };
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
         return;
+    }
     case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
         word = HitTestNoticeWord(3, x, y, &line);
         if (word == 0) {
@@ -1717,11 +1717,11 @@ static void LeaveNpcDialogueLayout(void)
 
 static void PromptNpcDispositionChange(void)
 {
-    W8MessageDialogBase* dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
 
-    SetDialogPrompt(dialog, Data().strings[0x798]);
+    dialog->SetMessage(Data().strings[0x798], 1, 0x32, true, true, true, false, 0, 0);
     dialog->on_complete = OnNpcDispositionPromptClosed;
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 static void OnNpcDispositionPromptClosed(bool accepted)
@@ -2300,20 +2300,19 @@ void CloseNpcDialogueOptionLayout(void)
 
 static void OpenNpcItemAssay(void)
 {
-    W8AssayDialog* dialog;
     const auto& image = MainGame()->dialogue.ui->item_preview;
 
     const auto* item = SelectedNpcTradeItem();
     if (item && image && image != CatalogArtwork::Load(0x1ac).spriteSheet()) {
-        dialog = new W8AssayDialog(
+        auto dialog = std::make_unique<W8AssayDialog>(
             *item, &CurrentGame().party.characters[CurrentGame().status.selected_character],
-            {kInfoDialogX, 0x48});
+            SDL_Point{kInfoDialogX, 0x48});
         dialog->SetText("");
 
         dialog->on_close = [] {
             if (auto* hud = MainGameHud()) hud->repaint.everything = true;
         };
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
     }
 }
 
@@ -2358,7 +2357,6 @@ static void ConfirmNpcTradeSlot(void)
    result lands back through OnNpcTradeSplitDialogDestroy. */
 static void OpenNpcGoldAmountDialog(void)
 {
-    W8SplitAmountDialog* dialog;
 
     ResetNpcDialogueItemEditor();
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_1, false);
@@ -2367,15 +2365,15 @@ static void OpenNpcGoldAmountDialog(void)
         SetNpcActionEnabled(W8_NPC_CONTROL_OPTION_BUTTONS + index, false);
     }
     MainGame()->dialogue.ui->panels[1].dirty = true;
-    dialog = new W8SplitAmountDialog(CurrentGame().party.gold,
-                                     {kSplitDialogOriginX, kSplitDialogOriginY});
+    auto dialog = std::make_unique<W8SplitAmountDialog>(
+        CurrentGame().party.gold, SDL_Point{kSplitDialogOriginX, kSplitDialogOriginY});
     dialog->SetText("");
 
     dialog->on_complete = [](int amount) {
         MainGame()->dialogue.trade_gold = amount;
         ShowNpcTradeGold();
     };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 static void HighlightNpcTradeQuantity()
@@ -3192,7 +3190,6 @@ static void ConfirmNpcTradePurchase(void)
 
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 {
-    W8MessageDialogBase* dialog;
     std::string message;
     bool result;
 
@@ -3202,12 +3199,12 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
             ConfirmNpcTradePurchase();
             return 1;
         }
-        dialog = CreateMessageDialog();
+        auto dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 200);
         message = Data().strings[0x7d6];
         dialog->SetMessage(message, 1, 0x32, true, true, true, true, 0, 0x15e);
         dialog->on_complete = OnNpcTradeDialogClosed;
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
         return 1;
     }
     if (GetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc.get()) ==
@@ -3505,19 +3502,13 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
                                 experience->amount),
                    0);
     } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
-        PostSkillIncreaseNotices(CurrentGame(), skills);
+        PostSkillIncreaseNotices(CurrentGame(), *skills);
     } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
         PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
     if (quote != 0) {
-        /* index is int, not unsigned int: entry_count is an unsigned short,
-           which promotes to int here, and the retail tests the count signed
-           (0x00576521 mov ax,word ptr [ecx+0x9]; 0x00576525 test eax,eax;
-           jle 0x00576543). An unsigned index would make the comparison
-           unsigned and lose that. */
-        for (int index = 0; index < quote->entry_count; ++index) {
-            if (quote->entries[index].kind == W8_NPC_ENTRY_KEYWORD_INPUT ||
-                quote->entries[index].kind == W8_NPC_ENTRY_OPTIONS) {
+        for (const auto& entry : quote->entries) {
+            if (entry.kind == W8_NPC_ENTRY_KEYWORD_INPUT || entry.kind == W8_NPC_ENTRY_OPTIONS) {
                 flush_notices = true;
             }
         }
@@ -3743,7 +3734,7 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         return;
     }
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
-        for (index = 0; index < request->sub_entry_count; ++index) {
+        for (index = 0; index < std::ssize(request->sub_entries); ++index) {
             if (index == npc_dialog->m_selected_option) {
                 entry_text = request->sub_entries[index].text.c_str();
                 if (!CurrentGame().activity.conversation ||

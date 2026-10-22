@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <iterator>
 #include <list>
 #include <optional>
 #include <string>
@@ -50,7 +52,7 @@ int W8NpcDialogue::SelectResponse(const ScriptContext& context, const W8NpcQuote
     if (entry->operand2 == 4 && entry->operand1 != 2) {
         index = 1;
     }
-    while (index < entry->sub_entry_count) {
+    while (index < std::ssize(entry->sub_entries)) {
         expected = static_cast<unsigned char>(
             entry->sub_entries[index + 1].operand) /* c-style-cast-ok: packed byte operand */;
         if (GetFact(static_cast<W8FactId>(entry->sub_entries[index].operand)) != expected) {
@@ -84,12 +86,12 @@ int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
     int sub_index;
 
     script = CurrentGame().npc_dialogue.binding().script.get();
-    for (quote_index = 0; quote_index < script->quote_count; quote_index++) {
+    for (quote_index = 0; quote_index < std::ssize(script->quotes); quote_index++) {
         quote = &script->quotes[quote_index];
-        for (item_index = 0; item_index < quote->entry_count; item_index++) {
+        for (item_index = 0; item_index < std::ssize(quote->entries); item_index++) {
             entry = &quote->entries[item_index];
             if (entry->kind == W8_NPC_ENTRY_KEYWORD) {
-                for (sub_index = 0; sub_index < entry->sub_entry_count; sub_index++) {
+                for (sub_index = 0; sub_index < std::ssize(entry->sub_entries); sub_index++) {
                     text = entry->sub_entries[sub_index].text.c_str();
                     if (CompareTextIgnoreAsciiCase(text, keyword) == 0) {
                         if (entry_index != 0) {
@@ -132,15 +134,16 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
     if (script_line != session_.finished_quote_index) {
         session_.subquote_index = 0;
     }
-    if (script_line < script_owner->quote_count) {
+    if (script_line < std::ssize(script_owner->quotes)) {
         quote = &script_owner->quotes[script_line];
-        if (session_.subquote_index == quote->subquote_count) {
+        if (session_.subquote_index == std::ssize(quote->subquotes)) {
             session_.subquote_index = 0;
         }
         response = -1;
         finished = false;
-        if (session_.subquote_index == quote->subquote_count - 1 && quote->entry_count != 0) {
-            for (entry_index = 0; entry_index < quote->entry_count; entry_index++) {
+        if (session_.subquote_index + 1 == std::ssize(quote->subquotes) &&
+            !quote->entries.empty()) {
+            for (entry_index = 0; entry_index < std::ssize(quote->entries); entry_index++) {
                 entry = &quote->entries[entry_index];
                 switch (entry->kind) {
                 case W8_NPC_ENTRY_NEXT_QUOTE:
@@ -286,7 +289,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
         if (session_.current_quote_index == 0) {
             session_.npc->greeting_pending = false;
         }
-        if (session_.subquote_index < quote->subquote_count) {
+        if (session_.subquote_index < std::ssize(quote->subquotes)) {
             QueueQuote(session_.current_quote_index, false, true, true);
         }
     }
@@ -316,7 +319,7 @@ void W8NpcDialogue::Queue(W8NpcAction action)
 
 void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
 {
-    Queue(W8NpcQueuedNotice{std::move(text), notice});
+    Queue(W8NpcQueuedNotice{std::move(text), std::move(notice)});
 }
 
 /* Resolve the player's reply text to the script line it selects. The current
@@ -327,56 +330,27 @@ void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
    quote has no usable reply. */
 int W8NpcDialogue::FindReplyQuote(std::string_view text) const
 {
-    const W8NpcScriptQuote* quote;
-    const W8NpcQuoteEntry* entry;
-    std::string sub_text;
-    int quote_index;
-    int index;
-    int sub;
-
-    quote_index = session_.current_quote_index;
-    quote = session_.binding.script->quotes.data() + quote_index;
-    for (index = 0; index < quote->entry_count; ++index) {
-        entry = &quote->entries[index];
-        if (entry->kind == W8_NPC_ENTRY_OPTIONS || entry->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-            break;
+    const auto& entries = session_.binding.script->quotes[session_.current_quote_index].entries;
+    const auto matches = [text](const W8NpcQuoteEntry& entry) {
+        return std::ranges::any_of(entry.sub_entries, [text](const auto& sub) {
+            return CompareTextIgnoreAsciiCase(sub.text, text) == 0;
+        });
+    };
+    const auto options = std::ranges::find_if(entries, [](const auto& entry) {
+        return entry.kind == W8_NPC_ENTRY_OPTIONS || entry.kind == W8_NPC_ENTRY_KEYWORD_INPUT;
+    });
+    const bool matched = options != entries.end() && matches(*options);
+    if (matched) {
+        for (const auto& entry : entries) {
+            if (entry.kind == W8_NPC_ENTRY_REPLY && entry.operand2 == 3 && matches(entry)) {
+                return entry.operand0;
+            }
         }
     }
-
-    if (index < quote->entry_count) {
-        for (sub = 0; sub < entry->sub_entry_count; ++sub) {
-            sub_text = entry->sub_entries[sub].text;
-            if (CompareTextIgnoreAsciiCase(sub_text, text) != 0) {
-                continue;
-            }
-            /* The reply matched an option: a keyword answer, else the generic
-               answer. */
-            for (index = 0; index < quote->entry_count; ++index) {
-                entry = &quote->entries[index];
-                if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 3 &&
-                    entry->sub_entry_count != 0) {
-                    for (sub = 0; sub < entry->sub_entry_count; ++sub) {
-                        sub_text = entry->sub_entries[sub].text;
-                        if (CompareTextIgnoreAsciiCase(sub_text, text) == 0) {
-                            return entry->operand0;
-                        }
-                    }
-                }
-            }
-            for (index = 0; index < quote->entry_count; ++index) {
-                entry = &quote->entries[index];
-                if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 1) {
-                    return entry->operand0;
-                }
-            }
-            return -1;
-        }
-    }
-
-    for (index = 0; index < quote->entry_count; ++index) {
-        entry = &quote->entries[index];
-        if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 2) {
-            return entry->operand0;
+    // A recognized option uses the generic answer; other text uses the fallback.
+    for (const auto& entry : entries) {
+        if (entry.kind == W8_NPC_ENTRY_REPLY && entry.operand2 == (matched ? 1 : 2)) {
+            return entry.operand0;
         }
     }
     return -1;
@@ -385,7 +359,7 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
 std::string GetNpcQuoteText(W8NpcState* npc, int type)
 {
     const W8NpcScriptFile* script = npc->script_file.get();
-    if (type < 0 || type >= static_cast<int>(script->quote_count)) return {};
+    if (type < 0 || type >= std::ssize(script->quotes)) return {};
     const auto& record = script->quotes[type];
     if (record.subquotes.empty() || record.subquotes[0].empty()) return {};
     return record.subquotes[0];
@@ -413,7 +387,7 @@ void W8NpcDialogue::RunDeclineActions(const ScriptContext& context, int quote_in
 
     const auto script_owner = session_.binding.script;
     quote = script_owner->quotes.data() + quote_index;
-    for (index = 0; index < quote->entry_count; ++index) {
+    for (index = 0; index < std::ssize(quote->entries); ++index) {
         if (quote->entries[index].kind == W8_NPC_ENTRY_DECLINE_QUOTE) {
             Speak(context, quote->entries[index].operand0, false);
         }

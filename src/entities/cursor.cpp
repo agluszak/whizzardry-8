@@ -140,8 +140,7 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     GetWorld()->cursor_recall.projection_distance = glm::length(delta);
 
-    DetachMonsterRepresentation(cursor->monster);
-    DestroyWorldMonster(cursor->monster);
+    DestroyWorldMonster(*cursor->monster);
     if (cursor->light != 0) {
         WorldRemoveLight(GetWorld(), cursor->light);
         cursor->light = 0;
