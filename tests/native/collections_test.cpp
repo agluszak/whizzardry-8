@@ -823,7 +823,7 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
 
 TEST_CASE("Encounter decoding does not require an active game", "[groups][save]")
 {
-    const auto file = wiz8::open_memory_writer();
+    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
     W8Chunk chunk;
     REQUIRE(chunk.OpenWrite(file));
     chunk.WriteChunk(W8ChunkId("MONG"), [&] {
