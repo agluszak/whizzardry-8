@@ -251,8 +251,8 @@ public:
     void GetPlayerSightFlags(bool* primary, bool* secondary);
     bool IsVisibleToPlayer(bool use_bounds);
     void GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const glm::vec3* source);
-    bool HasLineOfSightToMonster(Monster* monster);
-    void GetMonsterSightFlags(Monster* monster, bool* primary, bool* secondary);
+    bool HasLineOfSightToMonster(const Monster& monster);
+    void GetMonsterSightFlags(const Monster& monster, bool* primary, bool* secondary);
     bool HasLineOfSightFromPoint(glm::vec3 point);
     bool IsFacingMonster(const Monster& monster);
     bool IsFacingPlayer();

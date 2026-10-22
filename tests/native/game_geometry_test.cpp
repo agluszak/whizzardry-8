@@ -967,7 +967,7 @@ TEST_CASE("Collision index expands level bounds locally", "[geometry][octree]")
             std::vector<const W8GDSurface*>{&surfaces[1]});
 }
 
-TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
+TEST_CASE("Item bounds preserve local extents", "[geometry][item]")
 {
     WorldItemEntity item;
     item.m_psrMesh = nullptr;
@@ -978,16 +978,15 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
 
     const auto local = item.GetCachedLocalBounds();
     const auto radius = item.GetBoundsRadius();
-    auto world = GetItemWorldBounds(&item);
-    REQUIRE(world);
+    auto world = GetItemWorldBounds(item);
     REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
     REQUIRE(local.maximum == glm::vec3(7, 9, 11));
     REQUIRE(radius == 12);
-    REQUIRE(world.value().minimum == glm::vec3(95, 197, 299));
-    REQUIRE(world.value().maximum == glm::vec3(107, 209, 311));
-    world.value().minimum = glm::vec3(0);
+    REQUIRE(world.minimum == glm::vec3(95, 197, 299));
+    REQUIRE(world.maximum == glm::vec3(107, 209, 311));
+    world.minimum = glm::vec3(0);
     REQUIRE(item.GetCachedLocalBounds().minimum == local.minimum);
-    REQUIRE(GetItemWorldBounds(&item).value().minimum == glm::vec3(95, 197, 299));
+    REQUIRE(GetItemWorldBounds(item).minimum == glm::vec3(95, 197, 299));
 
     const auto search = item.GetSearchPosition();
     REQUIRE(close(search, {100, 207.92f, 300}));
@@ -997,7 +996,6 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
     REQUIRE(item.GetBoundsRadius() == 0);
     REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
     REQUIRE(radius == 12);
-    REQUIRE_FALSE(GetItemWorldBounds(nullptr));
 }
 
 TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geometry][viewport]")

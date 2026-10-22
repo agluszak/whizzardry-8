@@ -666,7 +666,6 @@ SavedMonster ReadMonster(W8Chunk& chunk)
     auto& script = saved.script;
     if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
     info.fActive = false;
-    info.entity.detach();
     info.pCombat = nullptr;
     saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
     auto& movement = saved.movement;
@@ -1320,10 +1319,10 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             group->leader_group_id = 0;
         for (int& ally : group->allied_group_ids)
             if (ally == group->group_id || (ally && !population.findGroup(ally))) ally = 0;
-        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
-        leader->formation = group->formation;
-        if (group->encounter_registered && !leader->script)
-            leader->UseScript(data.default_script, true);
+        Monster& leader = *population.findMonster(group->leader_location_id)->entity;
+        leader.formation = group->formation;
+        if (group->encounter_registered && !leader.script)
+            leader.UseScript(data.default_script, true);
         auto* lead_group = group.get();
         size_t remaining = population.monster_groups.size();
         while (lead_group->leader_group_id) {
@@ -1331,25 +1330,24 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             lead_group = population.findGroup(lead_group->leader_group_id);
             if (!lead_group) throw std::runtime_error("missing monster group leader");
         }
-        auto* formation_leader = population.findMonster(lead_group->leader_location_id);
-        if (!formation_leader) throw std::runtime_error("missing formation leader");
+        auto* formation_leader_info = population.findMonster(lead_group->leader_location_id);
+        if (!formation_leader_info) throw std::runtime_error("missing formation leader");
+        Monster& formation_leader = *formation_leader_info->entity;
         for (int id : group->MemberIds()) {
-            auto* member = population.findMonster(id)->entity.find();
-            member->nav.LinkGroupNavigator(member == formation_leader->entity.find()
-                                               ? nullptr
-                                               : &formation_leader->entity->nav,
-                                           false);
+            Monster& member = *population.findMonster(id)->entity;
+            member.nav.LinkGroupNavigator(
+                &member == &formation_leader ? nullptr : &formation_leader.nav, false);
         }
     }
     for (const auto& group : population.monster_groups) {
         if (group->leader_group_id) continue;
-        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
+        Monster& leader = *population.findMonster(group->leader_location_id)->entity;
         // Restored levels start outside combat. Propagate the saved path using
         // this population, independently of the old world's combat clock.
-        leader->nav.CopyPathToGroup();
-        if (!leader->nav.movement_stopped) {
+        leader.nav.CopyPathToGroup();
+        if (!leader.nav.movement_stopped) {
             for (const auto& member : population.monster_roster.live())
-                if (member->entity->nav.linked_navigator == &(leader)->nav)
+                if (member->entity->nav.linked_navigator == &leader.nav)
                     member->entity->nav.movement_stopped = false;
         }
     }

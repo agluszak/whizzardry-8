@@ -69,5 +69,5 @@ struct WorldItemEntity {
     bool IsRadarBlipLit();
 };
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item);
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

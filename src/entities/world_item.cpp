@@ -206,13 +206,10 @@ void WorldItemEntity::LightRadarBlip()
     countdown = MonotonicMilliseconds() + 10000;
 }
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item)
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item)
 {
-    if (!item) {
-        return std::nullopt;
-    }
-    auto bounds = item->GetCachedLocalBounds();
-    bounds.minimum += item->location;
-    bounds.maximum += item->location;
+    auto bounds = item.GetCachedLocalBounds();
+    bounds.minimum += item.location;
+    bounds.maximum += item.location;
     return bounds;
 }

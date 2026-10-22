@@ -829,7 +829,6 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
     glm::vec3 position;
     float pitch;
     float angle;
-    Monster* monster;
     bool track;
 
     if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
@@ -842,18 +841,18 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
             return;
         }
     }
-    monster = monster_info->entity.find();
-    if (!monster->IsRenderable(true)) {
+    Monster& monster = *monster_info->entity;
+    if (!monster.IsRenderable(true)) {
         return;
     }
-    if (monster->nav.movement.height_offset - monster->nav.movement.secondary_height_offset <
+    if (monster.nav.movement.height_offset - monster.nav.movement.secondary_height_offset <
             1e+03f ||
-        monster->GetDistanceToPlayer() > 2e+03f) {
-        position = monster->nav.movement.position;
-        position.y += monster->nav.movement.secondary_height_offset;
+        monster.GetDistanceToPlayer() > 2e+03f) {
+        position = monster.nav.movement.position;
+        position.y += monster.nav.movement.secondary_height_offset;
     } else {
-        position = monster->nav.movement.position;
-        position.y += monster->nav.movement.height_offset;
+        position = monster.nav.movement.position;
+        position.y += monster.nav.movement.height_offset;
     }
     if (track) {
         if (!animate) {

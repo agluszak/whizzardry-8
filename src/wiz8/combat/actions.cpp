@@ -794,7 +794,6 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
     int progress_pct;
     const W8MonsterRecord* record;
     W8MonsterCombatState* combat;
-    Monster* entity;
     int action_kind;
 
     switch (monster_info->action_kind) {
@@ -813,20 +812,13 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
             TurnMonsterToNewTarget(*monster_info);
         }
         RefreshAllSight();
-        entity = monster_info->entity.find();
         combat = monster_info->pCombat.get();
-        if (static_cast<int>((entity->nav.movement.callback_threshold <= 0.0f
-                                  ? entity->nav.movement.callback_progress /
-                                        entity->nav.movement.callback_threshold
-                                  : 0.0f) *
-                             g_octree_cell_scale) < 100) {
-            progress_pct = static_cast<int>((entity->nav.movement.callback_threshold <= 0.0f
-                                                 ? entity->nav.movement.callback_progress /
-                                                       entity->nav.movement.callback_threshold
-                                                 : 0.0f) *
-                                            g_octree_cell_scale);
-        } else {
-            progress_pct = 100;
+        {
+            const auto& movement = monster_info->entity->nav.movement;
+            const float progress = movement.callback_threshold <= 0.0f
+                                       ? movement.callback_progress / movement.callback_threshold
+                                       : 0.0f;
+            progress_pct = std::min(100, static_cast<int>(progress * g_octree_cell_scale));
         }
         if (static_cast<int>(game.rng.below(100)) < 100 - progress_pct) {
             if (monster_info->action_kind != W8_MONSTER_ACTION_CONTROLLED_MOVE) {

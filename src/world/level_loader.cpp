@@ -581,18 +581,18 @@ try {
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info);
-        auto* monster = monster_info->entity.find();
+        Monster& monster = *monster_info->entity;
         const glm::vec3 camera_position = cameraLocation(*world);
-        monster->visual.SelectLOD(&camera_position);
-        monster->nav.SetPathAI(std::move(path));
+        monster.visual.SelectLOD(&camera_position);
+        monster.nav.SetPathAI(std::move(path));
         if (has_options) {
             if (options[1] == '0' || options[1] == '\0') {
                 group->members_active = false;
-                monster->visual.rep_active = false;
+                monster.visual.rep_active = false;
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }
-        monster->UpdateRepresentation(world);
+        monster.UpdateRepresentation(world);
     }
     return true;
 } catch (const std::exception&) {

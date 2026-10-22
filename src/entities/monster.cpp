@@ -888,26 +888,26 @@ void Monster::GetPlayerToMonsterSightFlags(bool* primary, bool* secondary, const
     applySightFlags(hit, *primary, *secondary);
 }
 
-bool Monster::HasLineOfSightToMonster(Monster* monster)
+bool Monster::HasLineOfSightToMonster(const Monster& monster)
 {
     glm::vec3 from;
     glm::vec3 to;
 
     from = nav.movement.position;
     from.y += nav.movement.height_offset;
-    to = monster->nav.movement.position;
-    to.y += monster->nav.movement.height_offset;
+    to = monster.nav.movement.position;
+    to.y += monster.nav.movement.height_offset;
     return GetWorldSpatialIndex()->hasLineOfSight(from, to);
 }
 
-void Monster::GetMonsterSightFlags(Monster* monster, bool* primary, bool* secondary)
+void Monster::GetMonsterSightFlags(const Monster& monster, bool* primary, bool* secondary)
 {
     glm::vec3 from = nav.movement.position;
     from.y += nav.movement.height_offset;
-    glm::vec3 to = monster->nav.movement.position;
-    to.y += monster->nav.movement.height_offset;
+    glm::vec3 to = monster.nav.movement.position;
+    to.y += monster.nav.movement.height_offset;
     const auto hit = GetWorldSpatialIndex()->traceSight(
-        from, to, {.locations = SightLocations{location_id, monster->location_id}});
+        from, to, {.locations = SightLocations{location_id, monster.location_id}});
     applySightFlags(hit, *primary, *secondary);
 }
 
@@ -955,28 +955,27 @@ bool Monster::IsFacingPlayer()
    rep's object count tracks the live markers. */
 void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on)
 {
-    Monster* rep;
     W8MonsterInfo* info;
     WorldItemEntity* item;
     std::string path;
 
     info = FindMonster(location_id);
-    rep = info->entity.find();
+    Monster& rep = *info->entity;
     if (on == 0) {
-        item = rep->objects[party_slot].get();
+        item = rep.objects[party_slot].get();
         if (item != 0) {
             item->DetachMesh();
-            rep->objects[party_slot].reset();
-            --rep->icon_count;
+            rep.objects[party_slot].reset();
+            --rep.icon_count;
         }
     } else {
-        if (rep->objects[party_slot] == 0) {
+        if (rep.objects[party_slot] == 0) {
             path = fmt::format(
                 "Data\\Monsters\\Bitmaps\\{}",
                 g_party_target_marker_bitmaps[CurrentGame().party.orderIndexOf(party_slot)]);
-            rep->objects[party_slot] =
+            rep.objects[party_slot] =
                 CreateMonsterIconItem(*info->entity->owner_world, path.c_str());
-            ++rep->icon_count;
+            ++rep.icon_count;
         }
     }
     info->entity->UpdateAttachedObjects();

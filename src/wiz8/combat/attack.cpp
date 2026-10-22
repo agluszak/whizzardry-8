@@ -2972,8 +2972,6 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     unsigned char position_ok;
     glm::vec3 source_position{};
     glm::vec3 target_position{};
-    W8MonsterInfo* monster_info;
-    Monster* monster;
     Missile* missile;
     float speed;
     float base_speed;
@@ -2994,10 +2992,9 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     if (target->iType == W8_TARGET_KIND_CHARACTER || target->iType == W8_TARGET_KIND_PARTY) {
         target_position = cameraLocation();
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = FindMonster(target->iMonsterID);
-        monster = monster_info->entity.find();
-        target_position = monster->nav.movement.position;
-        target_position.y += monster->nav.movement.height_offset;
+        const Monster& target_monster = *FindMonster(target->iMonsterID)->entity;
+        target_position = target_monster.nav.movement.position;
+        target_position.y += target_monster.nav.movement.height_offset;
     } else if (target->iType == W8_TARGET_KIND_PLACE) {
         target_position = target->point;
     } else {
@@ -3010,8 +3007,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
                 source_position = cameraLocation();
             }
         } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-            monster = GetMonsterByLocationID(target->iMonsterID);
-            if (monster != nullptr) {
+            if (Monster* monster = GetMonsterByLocationID(target->iMonsterID)) {
                 monster->GetPlayerToMonsterSightFlags(&primary, &secondary, &source_position);
             }
             if (!secondary || (!Data().missiles[missile_type].spell_missile && !primary)) {
@@ -3026,21 +3022,21 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         blind = CurrentGame().party.characters[source->iChar].uiCondition[W8_CONDITION_BLIND] != 0;
     } else if (TargetSourceIsMonster(source, 0)) {
         assert(source->iMonsterID != -1);
-        monster_info = FindMonster(source->iMonsterID);
-        monster = monster_info->entity.find();
+        const W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
+        Monster& source_monster = *monster_info->entity;
         if (!Data().missiles[missile_type].spell_missile) {
-            position_ok = monster->GetProjectilePosition(&source_position);
+            position_ok = source_monster.GetProjectilePosition(&source_position);
         } else if (!source->point_source) {
-            position_ok = monster->GetSpellPosition(&source_position);
+            position_ok = source_monster.GetSpellPosition(&source_position);
         } else {
             position_ok = missile_type;
         }
         if (position_ok == 0) {
-            source_position =
-                glm::vec3(monster->nav.movement.position.x,
-                          monster->nav.movement.position.y + monster->nav.movement.height_offset,
-                          monster->nav.movement.position.z);
-            monster->GetAnimationRadius(&radius);
+            source_position = glm::vec3(source_monster.nav.movement.position.x,
+                                        source_monster.nav.movement.position.y +
+                                            source_monster.nav.movement.height_offset,
+                                        source_monster.nav.movement.position.z);
+            source_monster.GetAnimationRadius(&radius);
             pitch = GetElevationAngle(&source_position, &target_position);
             yaw = GetHeadingAngle(&source_position, &target_position);
             OffsetPositionByYawPitch(radius + radius, &source_position, yaw, pitch);
