@@ -564,7 +564,7 @@ void SyncRoofButtonPressedState(void)
 
 static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
-    if (MainGameHud()->radar_map_visible != 0) {
+    if (MainGame()->radar_map) {
         if (!MainGameHud()->formation_board_visible && MainGameHud()->action_panel_visible == 0) {
             SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
@@ -587,7 +587,7 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
     if (MainGameHud()->action_panel_visible != 0) {
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
-            if (MainGameHud()->radar_map_visible == 0 && !MainGameHud()->formation_board_visible) {
+            if (!MainGame()->radar_map && !MainGameHud()->formation_board_visible) {
                 SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
@@ -619,7 +619,7 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
     if (MainGameHud()->formation_board_visible) {
-        if (MainGameHud()->radar_map_visible == 0 && MainGameHud()->action_panel_visible == 0) {
+        if (!MainGame()->radar_map && MainGameHud()->action_panel_visible == 0) {
             SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             return;
         }
@@ -665,7 +665,7 @@ void RedrawLayoutArrowButtons(void)
     }
     MainGame()->hud_buttons.layout_arrows[2].SetEnabled(enabled);
 
-    if (MainGameHud()->radar_map_visible == 0) {
+    if (!MainGame()->radar_map) {
         MainGame()->hud_buttons.layout_arrows[3].SetVisible(true);
         MainGame()->hud_buttons.layout_arrows[0].SetVisible(false);
         draw_button = &MainGame()->hud_buttons.layout_arrows[3];

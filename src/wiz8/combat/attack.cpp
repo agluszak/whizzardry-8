@@ -833,25 +833,25 @@ void CombatSignals::resolveSpellMissileHit(const World& world, Missile& missile)
                           g_settings.verbose_combat_messages, &missile.result);
 }
 
-static unsigned int RollMonsterHitLocation(Rng& rng, const W8MonsterRecord* record)
+// The monster body location a roll of 0-99 lands on, by the body's own chances.
+static unsigned int MonsterHitLocation(const W8MonsterRecord& record, unsigned int roll)
 {
     unsigned int total = 0;
-    unsigned int roll = rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_MONSTER_HIT_LOCATIONS) {
             return 3;
         }
-        total += record->hit_location_chances[hit_location];
+        total += record.hit_location_chances[hit_location];
         if (roll < total) {
             return hit_location;
         }
     }
 }
 
-static unsigned int RollCharacterHitLocation(Rng& rng)
+// The character body location a roll of 0-99 lands on, by gubLocalACPercent.
+static unsigned int CharacterHitLocation(unsigned int roll)
 {
     unsigned int total = 0;
-    unsigned int roll = rng.below(100);
     for (unsigned int hit_location = 0;; ++hit_location) {
         if (hit_location >= W8_PC_HIT_LOCATIONS) {
             return 1;
@@ -861,6 +861,16 @@ static unsigned int RollCharacterHitLocation(Rng& rng)
             return hit_location;
         }
     }
+}
+
+static unsigned int RollMonsterHitLocation(const W8MonsterRecord* record)
+{
+    return MonsterHitLocation(*record, CurrentGame().rng.below(100));
+}
+
+static unsigned int RollCharacterHitLocation()
+{
+    return CharacterHitLocation(CurrentGame().rng.below(100));
 }
 
 /* Land a physical missile on its target. The notice names the target, with
@@ -922,7 +932,7 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
 
     if (target_is_monster) {
         record = GetMonsterDataForInfo(monster_info);
-        hit_location = RollMonsterHitLocation(game_.rng, record);
+        hit_location = MonsterHitLocation(*record, game_.rng.below(100));
         if (record->hit_location_chances[hit_location] < 100) {
             location_name =
                 Data().strings[g_monster_hit_location_labels[hit_location][record->constitution]];
@@ -930,7 +940,7 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
             location_name = "";
         }
     } else {
-        hit_location = RollCharacterHitLocation(game_.rng);
+        hit_location = CharacterHitLocation(game_.rng.below(100));
         location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
     }
     if (g_settings.verbose_combat_messages != 0) {
@@ -1668,7 +1678,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             }
             target_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
             target_record = GetMonsterDataForInfo(target_info);
-            hit_location = RollMonsterHitLocation(CurrentGame().rng, target_record);
+            hit_location = RollMonsterHitLocation(target_record);
             if (target_record->hit_location_chances[hit_location] < 100) {
                 location_text =
                     Data().strings[g_monster_hit_location_labels[hit_location]
@@ -3586,7 +3596,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
                 const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-                hit_location = RollMonsterHitLocation(CurrentGame().rng, record);
+                hit_location = RollMonsterHitLocation(record);
                 if (record->hit_location_chances[hit_location] < 100) {
                     location_name =
                         Data().strings[g_monster_hit_location_labels[hit_location]
@@ -3598,7 +3608,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 if (CurrentGame().combat->TargetHit.iType != W8_TARGET_KIND_CHARACTER) {
                     return ActionStep::finishing;
                 }
-                hit_location = RollCharacterHitLocation(CurrentGame().rng);
+                hit_location = RollCharacterHitLocation();
                 location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
             }
             if (!guaranteed_hit && to_hit < roll) {
