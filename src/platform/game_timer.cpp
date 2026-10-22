@@ -6,7 +6,6 @@
 #include "wiz8/chunk.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/timer.h"
 
 std::uint64_t WorldClockMilliseconds()
@@ -20,22 +19,16 @@ std::uint32_t GameClockMilliseconds()
 }
 
 bool g_shared_timer_paused;
-bool g_shared_timer_flag0;
 bool g_level_motion_resume_pending;
 
 void PauseSharedGameTimers(void)
 {
     g_shared_timer_paused = true;
-
-    GameTimeAccumulator().m_flags.paused = true;
 }
 
 void ResumeSharedGameTimers(void)
 {
     g_shared_timer_paused = false;
-    g_shared_timer_flag0 = false;
-
-    GameTimeAccumulator().m_flags.paused = false;
 }
 
 W8GameTimer::W8GameTimer() : W8GameTimer(1.0f) {}

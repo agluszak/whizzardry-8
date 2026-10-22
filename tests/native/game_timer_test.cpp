@@ -44,7 +44,6 @@ struct TimerFixture {
         g_runtime_test_hooks.virtual_clock = true;
         g_runtime_test_hooks.clock_us = 1'000'000;
         g_shared_timer_paused = false;
-        g_shared_timer_flag0 = false;
         g_level_motion_resume_pending = false;
         CurrentGame().status.game_time_days = 0;
         CurrentGame().status.game_time_ms = 0;

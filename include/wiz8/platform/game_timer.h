@@ -8,7 +8,6 @@ class File;
 }
 
 extern bool g_shared_timer_paused;
-extern bool g_shared_timer_flag0;
 extern bool g_level_motion_resume_pending;
 
 /* The shared game timer counts in 1/10000-second units. */
@@ -26,7 +25,7 @@ void ResumeSharedGameTimers(void);
    that stand in for such timers stop with them. */
 inline bool SharedGameTimersHeld()
 {
-    return g_shared_timer_paused || g_shared_timer_flag0 || g_level_motion_resume_pending;
+    return g_shared_timer_paused || g_level_motion_resume_pending;
 }
 
 // Choose the owner at construction: world holds, game steps, UI presentation, or

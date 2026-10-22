@@ -44,7 +44,7 @@ void W8GameTimeAccumulator::ResetTimeScale()
 
 float W8GameTimeAccumulator::Update(std::chrono::milliseconds elapsed)
 {
-    if (m_flags.paused || SharedGameTimersHeld()) {
+    if (SharedGameTimersHeld()) {
         m_frame_delta = 0.0f;
     } else {
         const auto ticks =
