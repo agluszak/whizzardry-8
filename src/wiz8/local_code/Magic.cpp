@@ -468,9 +468,9 @@ void StartCharacterBreathAttack(int party_slot)
 
     assert(CanCharReBreathe(party_slot));
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
-    AimAtTarget(party_slot, &row->remembered.breath_target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, row->remembered.breath_target);
     if (IsSpellTargetStillValid(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
-                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH))) {
+                                ParticipatingAction(party_slot, row->remembered.breath()))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -820,13 +820,13 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     if (CurrentGame().combat.has_value()) {
         SetCharacterCombatAction(party_slot, choice, 1);
     } else {
-        AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, choice.target);
         ChooseAction(party_slot, choice.kind, choice.detail, &choice.detail_block, false, 1);
     }
-    AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, choice.target);
 
     if (IsSpellTargetStillValid(party_slot, row->remembered.spell.detail,
-                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+                                ParticipatingAction(party_slot, row->remembered.spell))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -842,15 +842,15 @@ void StartCharacterItemUse(int party_slot)
     W8CombatSlot saved_target = row->remembered.item_target;
 
     if (!CurrentGame().combat.has_value()) {
-        AimAtTarget(party_slot, &row->remembered.item_target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, row->remembered.item_target);
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->remembered.item_detail, false, 1);
-    AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, saved_target);
 
     if (IsSpellTargetStillValid(
             party_slot,
             GetItemSpell(CurrentGame().party.itemAt(row->remembered.item_detail.item_use.item)),
-            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
+            ParticipatingAction(party_slot, row->remembered.item()))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -1101,8 +1101,10 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         return false;
     }
     if (!CurrentGame().combat.has_value() &&
-        !IsSpellTargetStillValid(party_slot, spell_id,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+        !IsSpellTargetStillValid(
+            party_slot, spell_id,
+            ParticipatingAction(party_slot,
+                                CurrentGame().party.rows[party_slot].remembered.spell))) {
         return false;
     }
     return true;
@@ -1138,8 +1140,10 @@ int GetAffordableSpellPowerLevel(int party_slot)
         return 0;
     }
     if (!CurrentGame().combat.has_value() &&
-        !IsSpellTargetStillValid(party_slot, spell_id,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+        !IsSpellTargetStillValid(
+            party_slot, spell_id,
+            ParticipatingAction(party_slot,
+                                CurrentGame().party.rows[party_slot].remembered.spell))) {
         return 0;
     }
 
@@ -1196,8 +1200,10 @@ bool CanPartySlotUseRecordedItem(int party_slot)
         return false;
     }
     if (!CurrentGame().combat.has_value() &&
-        !IsSpellTargetStillValid(party_slot, spell_id,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
+        !IsSpellTargetStillValid(
+            party_slot, spell_id,
+            ParticipatingAction(party_slot,
+                                CurrentGame().party.rows[party_slot].remembered.item()))) {
         return false;
     }
     return true;

@@ -25,6 +25,8 @@ struct ActionChoices {
     bool weapon_sets_locked = false;
 
     W8Action basic() const { return {basic_kind, basic_detail}; }
+    W8Action item() const { return {W8_ACTION_USE_ITEM, -1, item_target, item_detail}; }
+    W8Action breath() const { return {W8_ACTION_BREATHE, -1, breath_target}; }
     void chooseBasic(W8ActionKind kind, int detail)
     {
         basic_kind = kind;
