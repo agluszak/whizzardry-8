@@ -344,8 +344,3 @@ void W8CharacterSpellsPage::ShowSpellInfo(unsigned int spell)
 {
     screen.ShowSpellInfo(spell);
 }
-
-W8CharacterSpellsPage* CreateCharacterSpellsPage()
-{
-    return new W8CharacterSpellsPage();
-}

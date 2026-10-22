@@ -911,7 +911,7 @@ void W8CharacterPersonalityPage::Activate()
     auto& fields = m_text_fields.emplace(input, g_wiz_text_mono_font);
     fields.UseGameStyle();
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xab, 0x106, 0x10,
-               0x7f, screen.draft.character.name_part_2, 5, 0xf, true);
+               0x7f, screen.draft.character.name_part_2, 0x27, 0xf, true);
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xc7, 0x106, 0x10,
                0x7f, screen.draft.character.name, 9, 0xf, true);
     if (fields.Text(0).empty())
