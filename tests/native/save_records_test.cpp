@@ -1094,7 +1094,7 @@ static GameData ThreeNpcs()
 
 struct NpcGlobalGuard {
     const ScopedGameData data{ThreeNpcs()};
-    const ScopedGame game;
+    ScopedGame game;
 };
 
 // The spell table, with Sleep aimed at enemies.
@@ -1387,6 +1387,12 @@ template<class T> static void append_bytes(std::vector<std::byte>& bytes, const 
 TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[save][npc]")
 {
     NpcGlobalGuard globals;
+    // Load a game holding only these NPC states.
+    const auto install_npcs = [&](std::vector<std::unique_ptr<W8NpcState>> npcs) {
+        SavedGame saved;
+        saved.npcs = std::move(npcs);
+        std::move(saved).install(globals.game.session);
+    };
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version =
@@ -1415,8 +1421,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         }
         // Version >= 2 follows the states with an item count for each NPC.
         for (unsigned int i = 0; i < 3; ++i) append_bytes(bytes, 0u);
-        InstallNpcStates(CurrentGame().story,
-                         wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
+        install_npcs(wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
         REQUIRE(static_cast<int>(CurrentGame().story.npcs.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = CurrentGame().story.npcs[i].get();
@@ -1432,9 +1437,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         // Round-trip the current version through its encoder.
         CurrentGame().story.npcs[1]->items.push_back(
             {.available_at = 7, .item = {}, .quantity = 2});
-        InstallNpcStates(CurrentGame().story,
-                         wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
-                                                       Data().npcs.size()));
+        install_npcs(wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
+                                                   Data().npcs.size()));
         REQUIRE(CurrentGame().story.npcs.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = CurrentGame().story.npcs[index].get();

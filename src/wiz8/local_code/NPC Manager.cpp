@@ -27,7 +27,6 @@
 #if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
 #pragma clang diagnostic pop
 #endif
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -1387,32 +1386,6 @@ void ReleaseNpcBinding(int value)
     }
 }
 
-void InstallNpcStates(Story& story, std::vector<std::unique_ptr<W8NpcState>> npcs)
-{
-    auto& states = story.npcs;
-    states.assign(std::make_move_iterator(npcs.begin()), std::make_move_iterator(npcs.end()));
-    for (std::size_t index = 0; index < states.size(); ++index) {
-        auto* npc = states[index].get();
-        npc->partner_index = static_cast<unsigned char>(index);
-        npc->script_file.reset();
-        npc->has_monster = false;
-        npc->record = &Data().npcs[npc->name_style];
-        if (npc->is_grouped) {
-            // Entering the saved level binds the NPC to its monster.
-            npc->is_present = false;
-            npc->has_monster = true;
-            npc->level_band = GetLevelBand(-1);
-            npc->bound_level = -1;
-            npc->script_file = LoadNpcScriptResources(*npc, nullptr);
-        }
-        if (npc->spawned == 0xffff) npc->spawned = 0;
-    }
-    for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
-        const auto claimed = std::ranges::any_of(
-            states, [&](const auto& npc) { return npc->record->kind == static_cast<int>(npc_id); });
-        if (Data().npcs[npc_id].monster_bound == 0 && !claimed) CreateNpcRuntimeNode(story, npc_id);
-    }
-}
 
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the

@@ -156,10 +156,6 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
-/* Install the states a save's NPCT section holds in the story of a game a load just
-   began, bound to their database records. Grouped NPCs wait for the saved level to bind
-   them, and runtime nodes are created for the unflagged records no loaded state claims. */
-void InstallNpcStates(Story& story, std::vector<std::unique_ptr<W8NpcState>> npcs);
 W8NpcItemTheftResult AttemptNpcItemTheft(Game& game, W8Character* character, W8NpcState* npc,
                                          int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);

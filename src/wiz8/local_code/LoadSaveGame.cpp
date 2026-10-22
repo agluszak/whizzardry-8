@@ -39,6 +39,7 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
@@ -58,6 +59,7 @@
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -68,6 +70,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/UtilityFunctions.h"
@@ -88,6 +91,8 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
@@ -1825,8 +1830,48 @@ void SavedGame::install(GameSession& games) &&
     game.story.location_variables = std::move(location_variables);
     if (transcript)
         InstallDialogueTranscript(std::move(*transcript), game.story, game.npc_interaction);
-    if (npcs) InstallNpcStates(game.story, std::move(*npcs));
-    if (facts) InstallFacts(game, *facts);
+    if (npcs) {
+        // Bind each state to its record. The game has no level yet, so grouped NPCs wait for
+        // the saved level to bind their monsters.
+        auto& states = game.story.npcs;
+        states.assign(std::make_move_iterator(npcs->begin()), std::make_move_iterator(npcs->end()));
+        for (std::size_t index = 0; index < states.size(); ++index) {
+            auto& npc = *states[index];
+            npc.partner_index = static_cast<unsigned char>(index);
+            npc.script_file.reset();
+            npc.has_monster = npc.is_grouped;
+            npc.record = &Data().npcs[npc.name_style];
+            if (npc.is_grouped) {
+                npc.is_present = false;
+                npc.level_band = GetLevelBand(-1);
+                npc.bound_level = -1;
+                npc.script_file = LoadNpcScriptResources(npc, nullptr);
+            }
+            if (npc.spawned == 0xffff) npc.spawned = 0;
+        }
+        // The unflagged records no saved state claims start as new runtime nodes.
+        for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+            const auto claimed = std::ranges::any_of(states, [&](const auto& npc) {
+                return npc->record->kind == static_cast<int>(npc_id);
+            });
+            if (Data().npcs[npc_id].monster_bound == 0 && !claimed)
+                CreateNpcRuntimeNode(game.story, npc_id);
+        }
+    }
+    if (facts) {
+        // Re-apply the consequences of the facts that do not survive a save.
+        const auto& stored = game.story.facts = *facts;
+        if (stored[W8_FACT_RFS81_HAS_BEEN_FIXED]) {
+            const auto npc = std::ranges::find_if(
+                game.story.npcs, [](const auto& state) { return state->record->kind == 0x20; });
+            if (npc != game.story.npcs.end() && (*npc)->has_monster)
+                (*npc)->script_file = LoadNpcScriptResources(**npc, nullptr);
+        }
+        // The derived import fact keeps its side effects, which act on the game just begun.
+        if (!stored[W8_FACT_IMPORT_TRANG] && !stored[W8_FACT_IMPORT_UMPANI] &&
+            !stored[W8_FACT_VIRGIN])
+            SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
+    }
     if (factions) {
         game.story.faction_relations = factions->relations;
         game.story.factions = factions->states;
@@ -1839,5 +1884,17 @@ void SavedGame::install(GameSession& games) &&
             message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
         }
     }
-    SanitizeLoadedItems(game);
+    // Drop equipment a character can no longer wear, then normalize every carried item's
+    // quantity byte.
+    SettleActiveParty(game);
+    const auto normalize = [](std::span<W8ItemInstance> items) {
+        for (auto& item : items)
+            if (item.iItemNo != -1) NormalizeItemQuantityKind(&item);
+    };
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!game.party.members[slot].has_value()) continue;
+        normalize(game.party.characters[slot].EquippedItem);
+        normalize(game.party.characters[slot].backpack);
+    }
+    normalize(std::span(game.party.item_pool).first(game.party.item_count));
 }

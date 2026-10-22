@@ -1,6 +1,5 @@
 #include "wiz8/fact_state.h"
 
-#include <algorithm>
 #include <array>
 #include <vector>
 
@@ -39,22 +38,6 @@ void PostNewGameLoad(void)
     SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
     SetFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
     g_fact_notifications_suppressed = false;
-}
-
-/* Install a save's facts in the game a load just began, then re-apply the consequences
-   that do not survive a save. The game has no level yet, so no NPC stands in its world. */
-void InstallFacts(Game& game, const std::array<unsigned char, W8_FACT_SLOT_COUNT>& facts)
-{
-    auto& stored = game.story.facts = facts;
-    if (stored[W8_FACT_RFS81_HAS_BEEN_FIXED]) {
-        const auto npc = std::ranges::find_if(
-            game.story.npcs, [](const auto& state) { return state->record->kind == 0x20; });
-        if (npc != game.story.npcs.end() && (*npc)->has_monster)
-            (*npc)->script_file = LoadNpcScriptResources(**npc, nullptr);
-    }
-    // The derived import fact keeps its side effects, which act on the game just begun.
-    if (!stored[W8_FACT_IMPORT_TRANG] && !stored[W8_FACT_IMPORT_UMPANI] && !stored[W8_FACT_VIRGIN])
-        SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
 }
 
 /* Evaluate one derived fact from the party's live state. Most facts either
