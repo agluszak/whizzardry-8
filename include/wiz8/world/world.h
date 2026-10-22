@@ -25,6 +25,7 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/world_items.h"
 #include "wiz8/world_cursor.h"
 
 class NativeObject;
@@ -94,6 +95,7 @@ struct World {
     AmbientAudioSystem audio;
     PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
+    WorldItems items{*this};
     W8AutomapCells automap;
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};

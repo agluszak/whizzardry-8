@@ -33,14 +33,11 @@ void DisableBellTrigger(const char* name)
 bool MicroDoor2(Trigger* pTrigger)
 {
     glm::vec3 position;
-    W8WorldItem* item;
 
     position = glm::vec3(13085.0f, -80.0f, -49440.0f);
-    item = AddWorldItem(*GetWorld(), SpawnItem(*GetWorld(), 0x2d7, &position,
-                                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-    if (item != 0) {
-        ActivateItem(*GetWorld(), item);
-    }
+    auto& items = GetWorld()->items;
+    items.activate(
+        items.add(items.spawn(0x2d7, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
     return true;
 }
 

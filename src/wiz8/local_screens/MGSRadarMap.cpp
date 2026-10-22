@@ -34,6 +34,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/targeting_presentation.h"
+#include "wiz8/world/world.h"
 
 // Six classes with three elevation shades; highlights cycle from dim to bright.
 constexpr std::array<glm::vec3, 18> radar_blip_colors = {{
@@ -152,7 +153,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
     }
     detect_all = PartyHasCondition(0x40);
 
-    for (const auto& world_item : CurrentLevelPopulation().world_items) {
+    for (const auto& world_item : GetWorld()->items.records()) {
         WorldItemEntity* item = world_item->entity.find();
 
         if (item != 0) {

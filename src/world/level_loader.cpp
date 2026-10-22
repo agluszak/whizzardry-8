@@ -494,12 +494,12 @@ try {
         file.read_exact(unknown_tail.data(), sizeof(unknown_tail));
         if (*item_id < 0) continue;
         position *= kWorldScale;
-        auto* item = AddWorldItem(*world, SpawnItem(*world, *item_id, &position,
-                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        ActivateItem(*world, item);
+        auto& item = world->items.add(
+            world->items.spawn(*item_id, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        world->items.activate(item);
         if (trigger != nullptr) {
             trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-            item->trigger = trigger;
+            item.trigger = trigger;
         }
     }
     return true;

@@ -43,7 +43,6 @@ bool DoorDone(Trigger* pTrigger)
 {
     glm::vec3 entity_position;
     glm::vec3 position;
-    W8WorldItem* world_item;
     int item_id;
 
     if (GetLocationVarIDByName("TMakeTreasure") != -1) {
@@ -53,12 +52,9 @@ bool DoorDone(Trigger* pTrigger)
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
                     if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                         position = entity_position;
-                        world_item = AddWorldItem(
-                            *GetWorld(), SpawnItem(*GetWorld(), item_id, &position,
-                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-                        if (world_item != 0) {
-                            ActivateItem(*GetWorld(), world_item);
-                        }
+                        auto& items = GetWorld()->items;
+                        items.activate(items.add(items.spawn(
+                            item_id, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
                     }
                     RunTreasureDoor();
                     return false;
@@ -92,7 +88,6 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
 {
     glm::vec3 entity_position;
     glm::vec3 position;
-    W8WorldItem* world_item;
     int item_id;
     int var_id;
 
@@ -113,12 +108,9 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
-                    world_item = AddWorldItem(
-                        *GetWorld(), SpawnItem(*GetWorld(), item_id, &position,
-                                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-                    if (world_item != 0) {
-                        ActivateItem(*GetWorld(), world_item);
-                    }
+                    auto& items = GetWorld()->items;
+                    items.activate(items.add(items.spawn(
+                        item_id, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
                 }
                 RunTreasureDoor();
                 return true;

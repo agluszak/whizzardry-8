@@ -23,7 +23,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -112,7 +111,7 @@ static std::vector<W8Searchable> CollectSearchablesInView(World& world)
         if (trigger->trigger_kind == W8TriggerKind::item && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
-    for (const auto& group : CurrentLevelPopulation().world_items) {
+    for (const auto& group : GetWorld()->items.records()) {
         if (ItemHasFlags(group.get(), W8_WORLD_ITEM_HIDDEN)) collect({group.get(), nullptr});
         for (const auto& item : group->contents)
             if (ItemHasFlags(item.get(), W8_WORLD_ITEM_HIDDEN)) collect({item.get(), nullptr});

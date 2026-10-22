@@ -47,7 +47,6 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/Camp.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -823,8 +822,8 @@ TEST_CASE_METHOD(LoaderFixture,
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     LevelLoadContext info{&world, file.get(), {}};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
-    REQUIRE(world.population->world_items.empty());
-    REQUIRE(current.population->world_items.empty());
+    REQUIRE(world.items.records().empty());
+    REQUIRE(current.items.records().empty());
     REQUIRE(current.triggers.empty());
 }
 
@@ -849,12 +848,12 @@ TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candida
         auto file = wiz8::open_file(wiz8::asset_path("candidate-items.bin"));
         LevelLoadContext info{&candidate, file.get(), {}};
         REQUIRE_FALSE(ReadWorldItems(&info, &candidate)); // The model is deliberately absent.
-        REQUIRE(candidate.population->world_items.size() == 1);
-        REQUIRE(candidate.population->world_items.front()->item.iItemNo == 0);
-        REQUIRE(active.population->world_items.empty());
+        REQUIRE(candidate.items.records().size() == 1);
+        REQUIRE(candidate.items.records().front()->item.iItemNo == 0);
+        REQUIRE(active.items.records().empty());
         REQUIRE(active.plsItems.empty());
     }
-    REQUIRE(active.population->world_items.empty());
+    REQUIRE(active.items.records().empty());
     REQUIRE(active.plsItems.empty());
 }
 

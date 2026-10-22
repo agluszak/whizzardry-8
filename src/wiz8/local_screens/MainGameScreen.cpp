@@ -4834,7 +4834,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             !IsLockInteractionActive() && !IsTrapInteractionActive() &&
             (g_settings.ctrl_right_click_info == 0 ||
              ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
-            W8WorldItem* world_item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
+            W8WorldItem* world_item = GetWorld()->items.find(MainGameHud()->selected_item);
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(world_item->item, -1);
             return UiResult::Handled;
@@ -5336,7 +5336,7 @@ void SetCombatTarget(int value)
         if (value == -1) {
             MainGameHud()->selected_item = -1;
         } else {
-            W8WorldItem* item = ItemInfo(ItemIndex(value));
+            W8WorldItem* item = GetWorld()->items.find(value);
             if (item != 0 && item->entity &&
                 traceLineOfSightToBounds(cameraLocation(), GetItemWorldBounds(*item->entity))) {
                 MainGameHud()->selected_item = value;
@@ -5356,7 +5356,7 @@ void SetCombatTarget(int value)
         W8WorldItem* item;
 
         point = CursorPosition();
-        item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
+        item = GetWorld()->items.find(MainGameHud()->selected_item);
         if (item != 0) {
             auto text = FormatItemDisplayName(Data(), &item->item, true);
 

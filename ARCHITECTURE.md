@@ -41,7 +41,9 @@ ScreenRouter (file-scope in screen_router.cpp)
 - **`World`** (`world/world.h`) owns a loaded level: the VSG scene, environment,
   spatial index, audio, entities, monster records and groups, world items, the
   encounter state, the level script and the cursor. Its member order is its
-  teardown order.
+  teardown order. `WorldItems` (`world/world_items.h`) owns the item records and
+  places them on the ground, on the prop beneath them and in the scene of its own
+  world, so a world being loaded never touches the active one.
 - **Screens** are built by the router when first requested, with the session or
   game for the screens that need one, and destroyed when discarded.
 

@@ -425,7 +425,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
     } while (angle < g_camera_pi);
 
     if (check_items) {
-        for (const auto& item : CurrentLevelPopulation().world_items) {
+        for (const auto& item : GetWorld()->items.records()) {
             WorldItemEntity* owner = item->entity.find();
             if (owner != 0) {
                 glm::vec3 center;

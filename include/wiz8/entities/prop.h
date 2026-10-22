@@ -189,6 +189,9 @@ public:
     void BindTrigger(Trigger* owner, NavigationMesh* pathing);
     bool ContainsPathCoordinate(unsigned short x, unsigned short y) const;
     bool HasSupportedItems();
+    // List an item resting on this prop, building its path representation first.
+    void supportItem(W8WorldItem& item, NavigationMesh* pathing);
+    void releaseItem(W8WorldItem& item);
     BoundingBox computeBounds();
     std::span<const unsigned short> conditionalEdges() const { return m_path_edges; }
     std::span<const unsigned short> conditionalWaypoints() const { return m_path_waypoints; }
@@ -201,6 +204,3 @@ Prop* FindPropByName(World* world, std::string_view name);
 std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info);
 
 void UpdateWorldProps(World* world);
-
-void AddItemToSector(World& world, int sector, W8WorldItem* item);
-void RemoveItemFromSector(World& world, int sector, W8WorldItem* item);

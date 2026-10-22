@@ -623,11 +623,9 @@ void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 
 void WriteWorldItems(W8Chunk& chunks)
 {
-    const auto count =
-        wiz8::checked_integer<std::uint32_t>(CurrentLevelPopulation().world_items.size());
-    chunks.WriteValue(count);
-    for (unsigned int index = 0; index < count; ++index)
-        SaveItemFile(chunks.WriteStream(), *ItemInfo(index));
+    const auto& items = GetWorld()->items.records();
+    chunks.WriteValue(wiz8::checked_integer<std::uint32_t>(items.size()));
+    for (const auto& item : items) SaveItemFile(chunks.WriteStream(), *item);
 }
 
 struct SavedMonsterGroup {
@@ -1275,7 +1273,7 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
         list.push_back(std::move(saved.group));
     }
-    population.world_items = std::move(data.items);
+    world.items.restore(std::move(data.items));
     std::vector<W8MonsterInfo*> records;
     records.reserve(data.monsters.size());
     for (auto& saved : data.monsters) {
