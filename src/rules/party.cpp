@@ -5,6 +5,9 @@
 #include <optional>
 #include <utility>
 
+#include <fmt/format.h>
+
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
@@ -94,4 +97,16 @@ bool W8Party::insertIntoPool(unsigned int index, W8ItemInstance item)
     item_pool[index] = item;
     ++item_count;
     return true;
+}
+
+TextNotice W8Party::characterNotice(const CharacterNotice& notice) const
+{
+    const auto& name = characters[notice.party_slot].name;
+    const auto& text = notice.text;
+    const auto separator = text.starts_with("'") || text.starts_with(":") ? "" : " ";
+    const auto stop = name.size() + (text.starts_with("'s") ? 2 : text.starts_with("'") ? 1 : 0);
+    return {.palette = W8_FONT_PALETTE_WHITE,
+            .text = fmt::format("{}{}{}", name, separator, text),
+            .text_box = notice.context,
+            .highlight = {static_cast<unsigned char>(orderIndexOf(notice.party_slot)), 0, stop}};
 }

@@ -66,9 +66,6 @@ struct CharacterNotice {
     short context = W8_NOTICE_TEXT_BOX_AUTOMATIC;
 };
 
-struct W8Party;
-TextNotice FormatCharacterNotice(const W8Party& party, const CharacterNotice& notice);
-
 /* A message dialog the player closes; `on_closed`, when set, receives whether it was
    accepted. A confirmation offers OK, and `cancel` adds a cancel button. */
 struct NoticeDialog {

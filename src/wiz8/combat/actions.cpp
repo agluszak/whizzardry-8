@@ -328,16 +328,14 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             result = 0;
         }
         break;
-    case W8_ACTION_TURN_UNDEAD: {
-        TextNotice notice;
+    case W8_ACTION_TURN_UNDEAD:
         if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
-            TurnUndead(party_slot, true, notice) > 0) {
+            TurnUndead(party_slot, true) > 0) {
             fatigue_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
         } else {
             result = 0;
         }
         break;
-    }
     case W8_ACTION_ATTACK:
         result = StartCharacterAttack(party_slot, W8_ATTACK_MODE_NONE);
         break;

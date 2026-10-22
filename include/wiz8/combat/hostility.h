@@ -4,6 +4,7 @@
 
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 
 struct W8Party;
@@ -54,9 +55,10 @@ void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool re
 /* Write the fatigue the slot's pending pray costs, or -1 when it
    cannot be paid; the flag picks the check flavor. */
 /* Turn the undead in sight; answers how many it reached, zero when it could not. With
-   `check` it is the member's once-per-combat action and is refused when used up. */
-struct TextNotice;
-int TurnUndead(int party_slot, bool check, TextNotice& notice);
+   `check` it is the member's once-per-combat action and is refused when used up, and it
+   announces itself. Without, `announcement` is the line the turning completes; it is
+   used only when something was reached. */
+int TurnUndead(int party_slot, bool check, TextNotice announcement = {});
 /* The fatigue the slot's pending turn-undead costs, zero when it
    cannot be carried out. */
 int CharacterPrayAction(int party_slot);

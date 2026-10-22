@@ -735,8 +735,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
         } else {
             position = cameraLocation();
             position.y -= g_default_world_height;
-            notice = FormatCharacterNotice(
-                CurrentGame().party,
+            notice = CurrentGame().party.characterNotice(
                 {static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
         }
         if (g_settings.verbose_combat_messages != 0)
@@ -2375,8 +2374,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     }
     TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
     if (g_settings.verbose_combat_messages == 0) {
-        notice = FormatCharacterNotice(
-            CurrentGame().party,
+        notice = CurrentGame().party.characterNotice(
             {static_cast<unsigned int>(party_slot),
              continue_cast ? Data().strings[0x18d]
                            : fmt::sprintf(Data().strings[0x18c], record->display_name,

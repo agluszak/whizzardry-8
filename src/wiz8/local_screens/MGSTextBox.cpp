@@ -425,8 +425,7 @@ int GetTextBoxVisibleLineCount(void)
 
 void PostCharacterNotice(int party_slot, std::string_view text, int context)
 {
-    const auto notice = FormatCharacterNotice(
-        CurrentGame().party,
+    const auto notice = CurrentGame().party.characterNotice(
         {static_cast<unsigned int>(party_slot), std::string(text), static_cast<short>(context)});
     ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width, notice.force_dialog,
                notice.highlight);
