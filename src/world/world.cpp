@@ -1,5 +1,6 @@
 #include "wiz8/world/world.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -71,7 +72,6 @@
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
-#include "wiz8/startup_world.h"
 
 constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 
@@ -157,6 +157,9 @@ World::World(int level_id, std::string path)
       scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
 {
     SetSceneAmbientLightWhite(scene.get());
+    party_navigator.configureStartupRange(500.0f);
+    party_navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),
+                                          g_default_world_height);
 }
 
 World::~World() = default;
@@ -172,12 +175,9 @@ void mirrorPartyNavigator(Navigator& navigator, const PartyCamera& camera)
     navigator.SetPositionInternal(&position);
 }
 
-/* The navigator follows only the active world's party; an unpublished world's party
-   moves nothing. */
-static void syncPartyNavigator(const World& world)
+static void syncPartyNavigator(World& world)
 {
-    if (&world != GetWorld()) return;
-    if (auto* navigator = PartyNavigator()) mirrorPartyNavigator(*navigator, world.party_camera);
+    mirrorPartyNavigator(world.party_navigator, world.party_camera);
 }
 
 /* One frame of party movement in the primary world: the turn and look input, the motion
@@ -286,6 +286,12 @@ CameraPose partyPose(const World& world)
 {
     const auto& camera = world.party_camera;
     return {camera.m_position, {camera.m_yaw, camera.m_pitch}, camera.saved_pose_bytes};
+}
+
+BoundingSphere partyCollisionSphere(const World& world)
+{
+    const auto& movement = world.party_navigator.movement;
+    return {movement.position, movement.alternate_radius};
 }
 
 void placeParty(World& world, const glm::vec3& position)

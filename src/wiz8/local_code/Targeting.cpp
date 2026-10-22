@@ -60,7 +60,6 @@
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -666,7 +665,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 
     if (target->iType == W8_TARGET_KIND_PARTY || target->iType == W8_TARGET_KIND_CHARACTER) {
         if (sight_probe) {
-            point = PartyNavigator()->GetPosition();
+            point = GetWorld()->party_navigator.GetPosition();
         } else {
             point = cameraLocation();
         }
@@ -1795,7 +1794,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
     int start_count = static_cast<int>(found.size());
     float radius;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        radius = PartyNavigator()->radius;
+        radius = GetWorld()->party_navigator.radius;
     } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
         radius = source_info->entity->nav.radius;

@@ -15,7 +15,6 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/bounding_sphere.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
 // Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
 // Limit the workaround to diagnostics originating in that library header.
@@ -1765,8 +1764,7 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
     for (const int mode : {10, 20, 30}) {
         const auto placement = GetWorldSpatialIndex()->navigatorPositions(
             party_position, yaw, 1000.0f, 1, true, false, true, mode, false,
-            BoundingSphere{PartyNavigator()->movement.position,
-                           PartyNavigator()->movement.alternate_radius});
+            partyCollisionSphere(*GetWorld()));
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();

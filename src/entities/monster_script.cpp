@@ -53,7 +53,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/party_camera.h"
@@ -297,7 +296,7 @@ void Monster::ProcessScript()
                     break;
                 }
                 if (SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
-                    nav.SetMovementTargetToNavigator(PartyNavigator(), 5.0);
+                    nav.SetMovementTargetToNavigator(&owner_world->party_navigator, 5.0);
                 } else {
                     nav.ConfigureMovementToPosition(&position);
                 }

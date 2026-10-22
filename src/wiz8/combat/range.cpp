@@ -40,7 +40,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 
@@ -172,7 +171,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         float dz = point.z - camera.z;
         if (distance + 1.0f <
             sqrtf(dx * dx + (point.y - camera.y) * (point.y - camera.y) + dz * dz) -
-                PartyNavigator()->radius) {
+                GetWorld()->party_navigator.radius) {
             return false;
         }
         if (trace) {
@@ -643,7 +642,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 {
     float distance = CalcRangeDistance(range_category);
     if (TargetSourceIsCharacter(source, 0)) {
-        return PartyNavigator()->movement.alternate_radius + distance;
+        return GetWorld()->party_navigator.movement.alternate_radius + distance;
     }
     if (TargetSourceIsMonster(source, 0)) {
         assert(source->iMonsterID != -1);
@@ -657,7 +656,8 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
    CalcRangeDistance, then add the startup navigator's movement collision_radius. */
 float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 {
-    return CalcRangeDistance(range_category) + PartyNavigator()->movement.collision_radius;
+    return CalcRangeDistance(range_category) +
+           GetWorld()->party_navigator.movement.collision_radius;
 }
 
 /* Shrink a short-range category by the formation rows CountRowsBetween says

@@ -20,6 +20,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
@@ -97,6 +98,9 @@ struct World {
     std::vector<MeshInstance*> psrMeshes;
     std::vector<Prop*> collidable_props;
     std::vector<Navigator*> navigators;
+    /* The party's collision and pathing proxy in this world, at navigation height below
+       `party_camera`. It registers in `navigators` and goes before the spatial index. */
+    Navigator party_navigator{this};
     std::vector<Monster*> active_monsters;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;
@@ -177,13 +181,15 @@ void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
 /* The party's pose is `World::party_camera`: the eye position and the orientation,
    with the retail pose bytes the save keeps. Gameplay queries, saves and the rendered
-   views all read it; rendering never writes it. */
+   views all read it; rendering never writes it. Every change moves the world's party
+   navigator with it. */
 CameraPose partyPose(const World& world);
 glm::mat3 cameraRotation(const World& world);
 // The party's eye position.
 glm::vec3 cameraLocation(const World& world);
-/* Place the party's eye at `position`, as a level entrance, a portal or a reload does. The
-   party navigator follows when the world is the active one. */
+// The party navigator's sphere that other movers in the world collide with.
+BoundingSphere partyCollisionSphere(const World& world);
+// Place the party's eye at `position`, as a level entrance, a portal or a reload does.
 void placeParty(World& world, const glm::vec3& position);
 // Restore a saved pose: the position, the orientation and the retail pose bytes.
 void restorePartyPose(World& world, const CameraPose& pose);

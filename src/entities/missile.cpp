@@ -38,6 +38,7 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/legacy_prop_save_ids.h"
+#include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -53,7 +54,6 @@
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
@@ -167,11 +167,12 @@ float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps
     position = record->missile->nav.GetPosition();
     (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
                        position.z + direction.z * advance);
-    if (GetWorld()->compiledIndex() != 0) {
-        if (const auto hit = GetWorld()->compiledIndex()->traceProps(position, (*out), {})) {
+    World& world = *record->missile->owner_world;
+    if (world.compiledIndex() != 0) {
+        if (const auto hit = world.compiledIndex()->traceProps(position, (*out), {})) {
             *out = hit->position;
             record->limit = 1.0f;
-            prop = GetWorld()->collidable_props[hit->prop_id];
+            prop = world.collidable_props[hit->prop_id];
             prop->RunMissileTrigger(record);
         }
     }
@@ -273,18 +274,13 @@ void UpdateWorldMissiles(World* world)
     while (index < count) {
         Missile* missile = world->missiles[index].get();
         if (missile != 0) {
-            missile->visual.DetachRepresentation(world);
+            missile->visual.DetachRepresentation();
             if (!missile->flight_done || missile->block_released == 0) {
                 missile->StartIfHostActive();
-                missile->visual.UpdateRepresentation(world, missile->nav);
-                missile->nav.UpdateNavigation(
-                    0, false,
-                    world == GetWorld()
-                        ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
-                                                       PartyNavigator()->movement.alternate_radius}}
-                        : std::nullopt);
+                missile->visual.UpdateRepresentation(missile->nav);
+                missile->nav.UpdateNavigation(0, false, partyCollisionSphere(*world));
             } else {
-                missile->visual.RetireParticles(*world);
+                missile->visual.RetireParticles();
                 world->missiles.erase(world->missiles.begin() + index);
                 --index;
                 --count;
@@ -496,7 +492,7 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
         missile->visual.SetRotation(&aim);
         missile->nav.SetAngles(heading);
         missile->nav.SetPitch(pitch);
-        octree = GetWorld()->compiledIndex();
+        octree = missile->owner_world->compiledIndex();
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
@@ -729,7 +725,7 @@ void Missile::AnnounceCollisionTarget()
     text = fmt::format("{} ", Data().strings[0x1bf]);
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
+        W8MonsterInfo* monster_info = owner_world->population->findMonster(combat_slot.iMonsterID);
         text += GetMonsterName(monster_info, 0, 0);
     } else {
         text += CurrentGame().party.characters[combat_slot.iChar].name;

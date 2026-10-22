@@ -24,7 +24,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
@@ -105,13 +104,13 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
     source.point = point;
     if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_POINT) {
         target.iType = W8_TARGET_KIND_PLACE;
-        target.point = PartyNavigator()->GetPosition();
+        target.point = GetWorld()->party_navigator.GetPosition();
         CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
                             W8SpellCastKind::Standard, 0, 0);
     } else {
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_PARTY;
-        target.point = PartyNavigator()->GetPosition();
+        target.point = GetWorld()->party_navigator.GetPosition();
         eligible = 0;
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CanPartySlotParticipate(index)) {

@@ -90,7 +90,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
@@ -591,7 +590,7 @@ try {
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }
-        monster->UpdateRepresentation(world);
+        monster->UpdateRepresentation();
     }
     return true;
 } catch (const std::exception&) {

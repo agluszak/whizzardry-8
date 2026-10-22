@@ -50,7 +50,6 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"

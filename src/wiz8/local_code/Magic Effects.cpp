@@ -77,7 +77,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/level_session.h"
@@ -2557,8 +2556,8 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
-                float radius = PartyNavigator()->radius;
-                glm::vec3 centre = PartyNavigator()->GetPosition();
+                float radius = GetWorld()->party_navigator.radius;
+                glm::vec3 centre = GetWorld()->party_navigator.GetPosition();
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1,
                                             W8AreaSightRule::RequireLineOfSight);
             }

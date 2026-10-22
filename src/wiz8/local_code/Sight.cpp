@@ -44,7 +44,6 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -686,7 +685,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 npc->record->monster_bound == 0 &&
                                 ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
-                                delta = own_position - PartyNavigator()->GetPosition();
+                                delta = own_position - GetWorld()->party_navigator.GetPosition();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !CurrentGame().surprise_possible) &&
                                     GetLoadedLevelID() != 4) {

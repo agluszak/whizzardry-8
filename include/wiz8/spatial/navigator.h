@@ -205,7 +205,7 @@ public:
     Navigator(const Navigator& other, World* owner); /* 0x00452220 */
     Navigator& operator=(const Navigator&) = delete;
     LevelSpatialIndex* NavigationOctree() const;
-    World* const owner_world; // Null for persistent navigation, such as the party.
+    World* const owner_world; // Whose geometry, population and registry it uses.
     ~Navigator();                /* 0x00452120 */
     /* Takes ownership, releasing the previous path. Null clears it;
        assigning the current path preserves it. GetPathAI only borrows. */

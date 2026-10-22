@@ -42,7 +42,6 @@
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
@@ -129,7 +128,7 @@ void SpellVisual::SetCycle(signed char cycle)
 
 /* Position and orient each live spell visual according to its attachment
    mode, then let the common GrCycle update submit the resulting state. */
-void SpellVisual::UpdateRepresentation(World* world)
+void SpellVisual::UpdateRepresentation()
 {
     glm::mat3 rotation;
     glm::vec3 camera_position;
@@ -140,7 +139,7 @@ void SpellVisual::UpdateRepresentation(World* world)
         float angle;
         float pitch;
 
-        position = cameraLocation();
+        position = cameraLocation(*owner_world);
         SetCyclePosition(&position);
         rotation = glm::mat3(1);
         angle = GetCameraYawRadians() - g_monster_rotation_offset;
@@ -166,7 +165,7 @@ void SpellVisual::UpdateRepresentation(World* world)
     } else if (mode == W8_SPELL_VISUAL_CONE) {
         visual.GetCurrentModelInstance();
         if (!fixed_transform) {
-            camera_position = cameraLocation();
+            camera_position = cameraLocation(*owner_world);
             if (location_id == 0) {
                 SetCyclePosition(&camera_position);
                 rotation = partyCamera().rotationMatrix();
@@ -201,7 +200,7 @@ void SpellVisual::UpdateRepresentation(World* world)
         float angle;
 
         billboard = glm::mat3(1);
-        camera_position = cameraLocation();
+        camera_position = cameraLocation(*owner_world);
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
         billboard *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -212,13 +211,13 @@ void SpellVisual::UpdateRepresentation(World* world)
     if (instance != 0) {
         static_cast<MeshInstance*>(instance)->render_flags |= MeshInstance::RENDER_NO_PICK;
     }
-    visual.UpdateRepresentation(world, nav);
+    visual.UpdateRepresentation(nav);
 }
 
 static void DestroySpellVisual(World* world, SpellVisual* visual)
 {
     if (world->target_cone == visual) world->target_cone = nullptr;
-    visual->visual.RetireParticles(*world);
+    visual->visual.RetireParticles();
     std::erase_if(world->spell_visuals,
                   [visual](const auto& owner) { return owner.get() == visual; });
 }
@@ -237,16 +236,11 @@ void UpdateWorldSpellVisuals(World* world)
     while (index < count) {
         SpellVisual* visual = world->spell_visuals[index].get();
         if (visual != 0) {
-            visual->visual.DetachRepresentation(world);
+            visual->visual.DetachRepresentation();
             if (!visual->finished || !visual->auto_release) {
                 visual->StartIfHostActive();
-                visual->UpdateRepresentation(world);
-                visual->nav.UpdateNavigation(
-                    0, false,
-                    world == GetWorld()
-                        ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
-                                                       PartyNavigator()->movement.alternate_radius}}
-                        : std::nullopt);
+                visual->UpdateRepresentation();
+                visual->nav.UpdateNavigation(0, false, partyCollisionSphere(*world));
             } else {
                 DestroySpellVisual(world, visual);
                 --index;

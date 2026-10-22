@@ -80,12 +80,12 @@ public:
     void SetFrameMethod(W8AnimationFrameMethod method);
 
     // Gameplay despawning lets active particles finish; level destruction does not.
-    void RetireParticles(World& world);
+    void RetireParticles();
     void TickAnimation(float rate, const glm::vec3& position, bool reset_frame_bounds,
                        const std::function<bool(unsigned char)>& frame_event); /* 0x004A6E20 */
     void finishCycleSelection(const glm::vec3& position); /* 0x004A6FC0 */
     void SetPresentationColour(glm::vec4 colour);
-    void UpdateRepresentation(World* world, const Navigator& nav); /* 0x004A7470 */
+    void UpdateRepresentation(const Navigator& nav); /* 0x004A7470 */
 
     std::optional<BoundingBox> GetAnimationBounds();
     unsigned char GetAnimationRadius(float* radius);
@@ -100,7 +100,7 @@ public:
     void CreateGroundShadow(float width, float depth);
     void SetGroundShadowVisible(bool visible);
     void ResetRepresentation();
-    void DetachRepresentation(World* world);
+    void DetachRepresentation();
     /* Runs at the end of every representation update; its own body is the
        shake/particle event walk. */
     void UpdateParticleAttachments();

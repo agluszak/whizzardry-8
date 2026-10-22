@@ -218,7 +218,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
     camera_position = cameraLocation(world);
     monster_info->entity->visual.SelectLOD(&camera_position);
     UpdateMonsterDamageAppearance(monster_info);
-    monster_info->entity->UpdateRepresentation(&world);
+    monster_info->entity->UpdateRepresentation();
     world.compiledIndex()->UpdateMonsterLocation(
         static_cast<unsigned short>(monster_info->location_id), monster_info->position);
     monster_info->fActive = true;
@@ -867,9 +867,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (monster_info->entity.find()) {
-        if (removal == W8MonsterRemoval::Despawn)
-            monster_info->entity->visual.RetireParticles(*monster_info->entity->owner_world);
-        DetachMonsterRepresentation(monster_info->entity.find());
+        if (removal == W8MonsterRemoval::Despawn) monster_info->entity->visual.RetireParticles();
         DestroyWorldMonster(monster_info->entity.find());
         monster_info->entity.detach();
     }

@@ -366,7 +366,7 @@ CyclePlayer::~CyclePlayer()
     }
 }
 
-void CyclePlayer::RetireParticles(World& world)
+void CyclePlayer::RetireParticles()
 {
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
@@ -374,7 +374,7 @@ void CyclePlayer::RetireParticles(World& world)
         if (owner && owner->active_particle_count != 0) {
             owner->SetActive(true);
             owner->emission_limit = 1;
-            RetireParticle(world, std::move(owner));
+            RetireParticle(*owner_world, std::move(owner));
         }
     }
 }
@@ -635,7 +635,7 @@ static void ApplyAppearance(const CyclePlayer& player, MeshInstance& model)
     model.emissive_override = player.emissive_override.value_or(0.0f);
 }
 
-void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
+void CyclePlayer::UpdateRepresentation(const Navigator& nav)
 {
     Animation* animation;
     glm::mat3 rot;
@@ -643,7 +643,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
     glm::vec3 vecPos;
     int index;
 
-    assert(pWorld != 0);
+    assert(owner_world != 0);
     if (!rep_active) {
         return;
     }
@@ -662,7 +662,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
             ShowFrame(*psrMesh, frame);
             ApplyAppearance(*this, *psrMesh);
             psrMesh->visible = true;
-            psrMesh->setScene((pWorld->scene.get()));
+            psrMesh->setScene((owner_world->scene.get()));
             path = AnimObjListEntry(animation, m_bLOD, static_cast<signed char>(index));
             if (path != 0) {
                 (psrMesh)->transform = sampleKeyframeTrack(*(path), (psrMesh)->transform);
@@ -696,7 +696,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
 
         current_model_instance = psrMesh;
         psrMesh->draw_parts = true;
-        psrMesh->setScene((pWorld->scene.get()));
+        psrMesh->setScene((owner_world->scene.get()));
     }
     UpdateParticleAttachments();
     if (m_ground_shadow != 0) {
@@ -706,7 +706,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         m_ground_shadow->transform.setLocation(loc);
         m_ground_shadow->angle = nav.GetYaw();
 
-        m_ground_shadow->setWorld(pWorld);
+        m_ground_shadow->setWorld(owner_world);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
@@ -744,14 +744,13 @@ void CyclePlayer::hideModelsFrom(std::size_t first)
     }
 }
 
-void CyclePlayer::DetachRepresentation(World* world)
+void CyclePlayer::DetachRepresentation()
 {
     Animation* animation = active_animation;
 
     if (animation->path_lists == 1) {
         hideModelsFrom(0);
     } else if (current_model_instance != 0) {
-        assert(world != 0);
         current_model_instance->draw_parts = false;
         hideModelsFrom(0);
         current_model_instance = 0;

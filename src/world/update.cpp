@@ -60,10 +60,10 @@ void UpdateWorldMonsters(World* world)
     for (int index = 0; index < static_cast<int>(count); ++index) {
         Monster* monster = world->active_monsters[index];
         if (monster != 0) {
-            monster->visual.DetachRepresentation(world);
+            monster->visual.DetachRepresentation();
             monster->visual.SelectLOD(&position);
             monster->Update();
-            monster->UpdateRepresentation(world);
+            monster->UpdateRepresentation();
         }
     }
 }

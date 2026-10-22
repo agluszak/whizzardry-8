@@ -77,7 +77,6 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
@@ -997,8 +996,8 @@ LevelSpatialIndex::traceSphereHit(const glm::vec3& from, const glm::vec3& to, in
     const glm::vec3 low(glm::mix(from, to, reversed) - inflate);
     const glm::vec3 high(glm::mix(to, from, reversed) + inflate);
     if (target == -1) {
-        radius = PartyNavigator()->movement.alternate_radius;
-        navigator = PartyNavigator();
+        navigator = &owner_world->party_navigator;
+        radius = navigator->movement.alternate_radius;
     } else {
         if (target < 1) {
             goto no_probes;
@@ -1064,7 +1063,8 @@ no_probes:;
     }
     if (excluded != -1 && excluded_location != -1) {
         const float distance = sphereDistance(cameraLocation(*owner_world));
-        const float camera_radius = PartyNavigator()->radius * g_camera_sphere_radius_scale;
+        const float camera_radius =
+            owner_world->party_navigator.radius * g_camera_sphere_radius_scale;
         if (distance < camera_radius)
             return SphereTraceHit{sphereOffset(camera_radius, distance) + from, 0};
     }

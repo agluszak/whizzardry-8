@@ -466,7 +466,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
         particle->active_particle_count = 1;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
         cycle.visual.particles.emplace_back().m_pstParticles = std::move(particle);
-        cycle.visual.RetireParticles(world);
+        cycle.visual.RetireParticles();
     }
     REQUIRE(world.retired_particles.size() == 1);
     REQUIRE_FALSE(world.retired_particles.front()->callback);
@@ -537,6 +537,10 @@ TEST_CASE_METHOD(SpellVisualFixture,
     prepared_pose.retail.pitch.fill(std::byte{0x45});
     restorePartyPose(replacement, prepared_pose);
     REQUIRE(replacement.party_camera.m_position == prepared_pose.position);
+    // The prepared world's party proxy follows its own pose; the active one stays put.
+    REQUIRE(replacement.party_navigator.GetPosition() ==
+            navigationPosition(prepared_pose.position));
+    REQUIRE(world.party_navigator.GetPosition() == glm::vec3(0));
     const auto snapshot = partyPose(replacement);
     REQUIRE(snapshot.orientation.yaw == 0.5f);
     REQUIRE(snapshot.retail.yaw == prepared_pose.retail.yaw);
@@ -556,7 +560,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
         REQUIRE(world.compiledIndex()->registry.maximum_navigation_radius == 500.0f);
         StopAllNavigators();
         REQUIRE(published.halted);
+        REQUIRE(world.party_navigator.halted);
         REQUIRE_FALSE(prepared.halted);
+        REQUIRE_FALSE(replacement.party_navigator.halted);
         prepared.halted = true;
         ResumeAllNavigators();
         REQUIRE_FALSE(published.halted);

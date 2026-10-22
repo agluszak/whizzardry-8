@@ -59,7 +59,6 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/bounding_sphere.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/story.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/camera_pose.h"
@@ -2225,7 +2224,7 @@ void CombatScenario()
 
     // Placement consumes the supplied player exclusion, including its absence.
     auto& octree = *GetWorld()->spatial;
-    const auto origin = PartyNavigator()->movement.position;
+    const auto origin = GetWorld()->party_navigator.movement.position;
     const auto available =
         octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, std::nullopt);
     REQUIRE_FALSE(available.positions.empty());

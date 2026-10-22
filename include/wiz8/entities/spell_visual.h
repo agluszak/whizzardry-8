@@ -69,7 +69,7 @@ public:
     SpellVisual& operator=(const SpellVisual&) = delete;
     ~SpellVisual();
 
-    void UpdateRepresentation(World* world);
+    void UpdateRepresentation();
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
     signed char GetTotalAnimationCount();

@@ -101,7 +101,7 @@ public:
     ~Monster();
 
     bool CanEnterCycle(signed char cycle);
-    void UpdateRepresentation(World* world);
+    void UpdateRepresentation();
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
     signed char GetTotalAnimationCount();
@@ -413,7 +413,7 @@ struct W8MonsterShakeCallback {
     W8AnimationFrameMethod saved_frame_method{};
 };
 
-void DetachMonsterRepresentation(Monster* monster);
+// Detach the monster from its scene and destroy it in its own world.
 void DestroyWorldMonster(Monster* monster);
 void RefreshMonsterStandingHeight(Monster* monster);
 /* The shared forwarder four call sites use to advance a cycle's
