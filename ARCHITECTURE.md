@@ -22,6 +22,17 @@ disk records still keep it until they get records of their own (ROADMAP.md,
 retail UTF-16LE fields are decoded and encoded explicitly by utf8proc-based
 codecs, including malformed-input replacement and fixed field limits.
 
+Retail records also hold four-byte words that were process addresses when retail wrote
+them. No reader trusts one as an address. Each is one of these:
+- a presence word (`pointer_slot`, `presence_slot`): the writer stores whether the live
+  object exists, and a reader that needs the answer reads it from the disk image (an
+  NPC's character, a monster group's members, an NPC record's stock rules);
+- a framing word set by the section's writer: the world item marker, and its `next`
+  word, which says whether another record follows;
+- a dead address, written as a constant and ignored on read: the combat target's item
+  marker, a party slot's item address and the message list word are written as zero,
+  and the status block's two buffer words as one.
+
 The game only reads compiled OCT/WPT/PVL geometry; there is no level compiler or
 editor. Shipped `.rlk` region links remain readable.
 
