@@ -1739,8 +1739,8 @@ try {
 
 /* Decode a save slot before the game in progress or its presentation is released, so a
    malformed section, nested level groups included, rejects the load and the current game
-   resumes. Each level's group is decoded to check it; the game keeps it as bytes, which a
-   save copies and entering the level decodes again. */
+   resumes. Each level's group is decoded and its species checked; the game keeps it as
+   bytes, which a save copies and entering the level decodes again. */
 std::optional<PreparedGame> ReadSavedGame(std::string_view slot_name)
 try {
     W8Chunk chunks;
@@ -1755,7 +1755,7 @@ try {
             auto image = CopyLevelGroupImage(chunks);
             W8Chunk group;
             OpenLevelImage(group, image);
-            DecodeLevelState(group, level, false);
+            if (auto state = DecodeLevelState(group, level, false)) CheckLevelSpecies(*state->data);
             prepared.sections.emplace_back([level, image = std::move(image)](Game& game) mutable {
                 game.left_levels[level] = std::move(image);
             });
