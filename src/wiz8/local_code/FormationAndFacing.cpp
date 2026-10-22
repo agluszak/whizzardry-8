@@ -335,7 +335,7 @@ bool PositionFacesOppositeToDecided(int target_position, int position)
 bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
 {
     glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
-    glm::vec3 party_position = GetWorld()->party.position();
+    glm::vec3 party_position = monster_info->entity->owner_world.party.position();
     float bearing = NormalizeAngle(GetHeadingAngle(&monster_position, &party_position));
     float facing = monster_info->entity->nav.GetYaw();
 
@@ -567,7 +567,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
    usual facing tolerance - the mirror of IsPartyLookingAt. */
 int IsMonsterFacingParty(W8MonsterInfo* monster_info)
 {
-    glm::vec3 party_position = GetWorld()->party.position();
+    glm::vec3 party_position = monster_info->entity->owner_world.party.position();
     return IsPartyLookingAt(monster_info, party_position);
 }
 

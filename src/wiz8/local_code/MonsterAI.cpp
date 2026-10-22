@@ -375,7 +375,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
             (!monster_info->entity->face_party || monster_info->pathing_cooldown != 0 ||
              mode != W8_RT_AI_FACE_DIRECTION || !monster_info->player_visibility.line_of_sight ||
              glm::length((((monster_info->entity->nav.movement.position -
-                            GetWorld()->party.position())))) >= 5e+03f)) {
+                            monster_info->entity->owner_world.party.position())))) >= 5e+03f)) {
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
         }
         if (decision <= W8_RT_AI_LINK_TO_PARTY || decision == W8_RT_AI_FOLLOW_LURE) {
@@ -409,7 +409,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         monster_info->player_visibility.line_of_sight) {
         glm::vec3 delta;
 
-        delta = monster->nav.movement.position - GetWorld()->party.position();
+        delta = monster->nav.movement.position - monster->owner_world.party.position();
         if (glm::length(delta) < 5e+03f) {
             glm::vec3 camera;
             glm::vec3 position;
@@ -924,7 +924,7 @@ members:
                 if (!waypoint_checked) {
                     leader = FindMonster(monster_group->leader_location_id);
                     if (leader != 0 && leader->fActive) {
-                        destination = GetWorld()->party.position();
+                        destination = leader->entity->owner_world.party.position();
                         source = leader->entity->nav.GetPosition();
                         waypoint_result =
                             GetWorldSpatialIndex()
@@ -2544,7 +2544,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 if (reach <= minimum) {
                     reach = minimum;
                 }
-                party = GetWorld()->party.position();
+                party = leader->entity->owner_world.party.position();
                 if (glm::length((leader->entity->nav.movement.position - party)) <= reach &&
                     leader->entity->nav.FindNavigatorPathDistance(750.0f, &path_distance) &&
                     path_distance <= reach) {

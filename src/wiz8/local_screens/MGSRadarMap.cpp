@@ -306,7 +306,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                     }
                     center = bounds->center();
                     position = center + info->party_threat.own_position;
-                    party = GetWorld()->party.position();
+                    party = monster->owner_world.party.position();
                     delta = position - party;
                     float distance = glm::length(delta);
                     if (distance - monster->nav.radius < g_radar_outer_radius) {
@@ -334,7 +334,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
                 center = bounds->center();
                 party = monster->nav.GetPosition();
                 position = center + party;
-                party = GetWorld()->party.position();
+                party = monster->owner_world.party.position();
                 delta = position - party;
                 float distance = glm::length(delta);
                 if (distance - monster->nav.radius < g_radar_outer_radius) {
@@ -368,7 +368,7 @@ void UpdateRadarBlips(const W8TargetingPresentation& presentation)
             center = bounds->center();
             party = missile->nav.GetPosition();
             position = center + party;
-            party = GetWorld()->party.position();
+            party = missile->owner_world.party.position();
             delta = position - party;
             if (glm::length(delta) < g_radar_outer_radius) {
                 PlaceRadarBlip(&delta, 5, false);
