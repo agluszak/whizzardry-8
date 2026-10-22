@@ -213,7 +213,8 @@ void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, b
 {
     switch (CurrentScreenState().id) {
     case W8_SCREEN_CAMP:
-        ShowCampNoticeLine(text, callback, confirmation, cancel);
+        FindScreen<CampScreen>()->dialogs.ShowNotice(text, std::move(callback), confirmation,
+                                                     cancel);
         break;
     case W8_SCREEN_MAIN_GAME:
         ShowMainGameNoticeLine(text, callback, confirmation, cancel);
@@ -376,11 +377,6 @@ struct GameEventPresentation {
         if (hud->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
-    void operator()(const SkillAvailabilityChanged& change) const
-    {
-        if (auto* screen = FindScreen<CharacterScreen>())
-            screen->SkillAvailabilityChanged(change.skill, change.available);
-    }
     void operator()(const SkillImproved& improved) const
     {
         auto& game = CurrentGame();
@@ -467,13 +463,11 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     hud.pending_highlight = {};
     hud.countdown3 = MonotonicMilliseconds() + (0);
     hud.combat_slot = -1;
-    hud.keyboard_menu_open = false;
     hud.hover_combat_slot = -1;
     hud.cursor_grace = 0;
     hud.countdown4 = MonotonicMilliseconds() + (0);
     hud.portrait_right_hold_armed = false;
     hud.formation_board_alternate = 0;
-    hud.radar_map_alternate = 0;
     hud.review_transition_active = false;
     hud.countdown5 = MonotonicMilliseconds() + (0);
     RebuildMessageLogWords();

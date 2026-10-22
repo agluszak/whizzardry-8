@@ -334,9 +334,9 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             CurrentGame().status.long_quote = 1;
         }
     } else if (force_dialog) {
-        W8MessageDialogBase* dialog = CreateMessageDialog();
+        auto dialog = CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
         g_modal_owner->RefreshModal();
     }
 }

@@ -499,7 +499,7 @@ bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, const W8MonsterRec
     }
 
     float distance = CalcRangeDistance(range);
-    if (monster_info->entity->GetDistanceToMonster(target->entity.find()) <= distance) {
+    if (monster_info->entity->GetDistanceToMonster(*target->entity) <= distance) {
         return true;
     }
     return false;
@@ -907,8 +907,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
                 other->pCombat && MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE) {
                 W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, other);
                 if (IsVisibleUnderConditions(monster_info, row, condition)) {
-                    float distance =
-                        monster_info->entity->GetDistanceToMonster(other->entity.find());
+                    float distance = monster_info->entity->GetDistanceToMonster(*other->entity);
                     if (distance < best) {
                         out->iType = W8_TARGET_KIND_MONSTER;
                         out->iMonsterID = other->location_id;
@@ -973,7 +972,7 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
         if (target->fActive && target->hp_current != 0 && target->pCombat) {
             W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
             if (IsVisibleUnderConditions(monster_info, row, condition)) {
-                float distance = monster_info->entity->GetDistanceToMonster(target->entity.find());
+                float distance = monster_info->entity->GetDistanceToMonster(*target->entity);
                 if (distance < best) {
                     best_id = target->location_id;
                     best = distance;
@@ -987,26 +986,15 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
 /* The attack-origin offset for `kind` 1 (projectile) or 3 (spell): the
    monster's height offset, shifted by the delta between its navigator
    position and the muzzle/hand point when that point resolves. */
-void GetMonsterAttackSourceOffset(Monster* monster, int kind, glm::vec3* out)
+glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind)
 {
-    (*out) = glm::vec3(0.0f, monster->nav.movement.height_offset, 0.0f);
-    if (kind == 1) {
-        if (monster->GetProjectilePosition(out)) {
-            glm::vec3 position = monster->nav.GetPosition();
-            *out -= position;
-            return;
-        }
-    } else {
-        if (kind != 3) {
-            return;
-        }
-        if (monster->GetSpellPosition(out)) {
-            glm::vec3 position = monster->nav.GetPosition();
-            *out -= position;
-            return;
-        }
-    }
     // A model without the origin vertex attacks from its height offset.
+    glm::vec3 origin(0.0f, monster.nav.movement.height_offset, 0.0f);
+    if ((kind == 1 && monster.GetProjectilePosition(&origin)) ||
+        (kind == 3 && monster.GetSpellPosition(&origin))) {
+        return origin - monster.nav.GetPosition();
+    }
+    return origin;
 }
 
 bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, const W8Action& action)

@@ -609,8 +609,9 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 {
     if (!monster_info->fActive || monster_info->entity->IsDying() ||
-        monster_info->entity->hostility_preserved ||
-        monster_info->entity->visual.GetCurrentModelInstance() != g_current_model_instance) {
+        monster_info->entity->hostility_preserved || !monster_info->entity->owner_world ||
+        monster_info->entity->visual.GetCurrentModelInstance() !=
+            monster_info->entity->owner_world->selectedModel()) {
         return false;
     }
     if (!monster_info->party_threat.use_bounds) {
@@ -637,7 +638,7 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
         if (!IsMonsterHoverSelectable(monster_info)) {
             continue;
         }
-        distance = MonsterDistanceToCamera(monster_info->entity.find());
+        distance = MonsterDistanceToCamera(*monster_info->entity);
         if (distance < best_distance) {
             result = monster_info->location_id;
             best_distance = distance;
@@ -832,7 +833,6 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
 
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        Monster* monster = monster_info->entity.find();
         const W8MonsterRecord* record;
         glm::vec3 position;
 
@@ -848,12 +848,12 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
             continue;
         }
 
-        position = monster->nav.GetPosition();
-        if (radius < glm::length((*centre - position)) - monster->nav.radius) {
+        Monster& monster = *monster_info->entity;
+        position = monster.nav.GetPosition();
+        if (radius < glm::length((*centre - position)) - monster.nav.radius) {
             continue;
         }
-        if (sight_rule == W8AreaSightRule::GeometryOnly ||
-            monster_info->entity->HasLineOfSightFromPoint(*eye)) {
+        if (sight_rule == W8AreaSightRule::GeometryOnly || monster.HasLineOfSightFromPoint(*eye)) {
             found.push_back(monster_info->location_id);
         }
     }
@@ -982,7 +982,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
             distance = member->GetDistanceToPlayer();
         } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
             assert(source->iMonsterID != BAD_INDEX);
-            distance = member->GetDistanceToMonster(source_monster);
+            distance = member->GetDistanceToMonster(*source_monster);
         }
         if (distance <= max_distance) {
             return true;
@@ -1674,14 +1674,14 @@ void RefreshMonsterTargetCounts(void)
 
 /* Whether `monster` is closer than `max_distance` to the player and its
    elevated centre or either animation-bound corner still projects on the world
-   camera. `position` is unused; the distance is measured to the player. */
-bool IsMonsterVisibleWithinDistance(Monster* monster, const glm::vec3* position, float max_distance)
+   camera. */
+bool IsMonsterVisibleWithinDistance(Monster& monster, float max_distance)
 {
-    if (!(monster->GetDistanceToPlayer() < max_distance)) return false;
-    const auto bounds = monster->GetWorldAnimationBounds();
+    if (!(monster.GetDistanceToPlayer() < max_distance)) return false;
+    const auto bounds = monster.GetWorldAnimationBounds();
     if (!bounds) return false;
-    auto center = monster->nav.movement.position;
-    center.y += monster->nav.movement.height_offset;
+    auto center = monster.nav.movement.position;
+    center.y += monster.nav.movement.height_offset;
     const std::array points{center, bounds->minimum, bounds->maximum};
     return GetWorld()->camera->projectsAny(points);
 }
@@ -1690,7 +1690,6 @@ bool IsMonsterVisibleWithinDistance(Monster* monster, const glm::vec3* position,
    the scan at the last match. */
 bool AnyMonsterVisible(void)
 {
-    glm::vec3 camera;
     float limit;
     std::ptrdiff_t count;
     int index;
@@ -1699,20 +1698,17 @@ bool AnyMonsterVisible(void)
     if (GetWorld() == 0 || GetWorld()->camera == 0) {
         return false;
     }
-    camera = cameraLocation();
     count = CurrentLevelPopulation().monster_roster.live().size();
     if (0 <= g_last_visible_monster && g_last_visible_monster < count) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(g_last_visible_monster);
-        if (monster_info->entity &&
-            IsMonsterVisibleWithinDistance(monster_info->entity.find(), &camera, limit)) {
+        if (monster_info->entity && IsMonsterVisibleWithinDistance(*monster_info->entity, limit)) {
             return true;
         }
     }
     for (index = 0; index < count; ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
-        if (monster_info->entity &&
-            IsMonsterVisibleWithinDistance(monster_info->entity.find(), &camera, limit)) {
+        if (monster_info->entity && IsMonsterVisibleWithinDistance(*monster_info->entity, limit)) {
             g_last_visible_monster = index;
             return true;
         }
@@ -1809,13 +1805,13 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
             const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
             if (record->untargetable == 0 &&
                 (monster_info->ubDisposition == disposition || disposition == 3)) {
-                Monster* monster = monster_info->entity.find();
+                Monster& monster = *monster_info->entity;
                 glm::vec3 point;
-                point = glm::vec3(monster->nav.movement.position.x,
-                                  monster->nav.movement.position.y +
-                                      monster->nav.movement.height_offset,
-                                  monster->nav.movement.position.z);
-                if (TargetInRangeAndArcs(&point, monster->nav.radius, eye, radius, heading,
+                point =
+                    glm::vec3(monster.nav.movement.position.x,
+                              monster.nav.movement.position.y + monster.nav.movement.height_offset,
+                              monster.nav.movement.position.z);
+                if (TargetInRangeAndArcs(&point, monster.nav.radius, eye, radius, heading,
                                          elevation, range) &&
                     SourceCanSeeMonster(source, monster_info, 1, sight_flag) != 0) {
                     found.push_back(monster_info->location_id);
