@@ -64,7 +64,6 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/pointer.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
