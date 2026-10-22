@@ -345,7 +345,7 @@ void W8CharacterSpellsPage::ShowSpellInfo(unsigned int spell)
     m_screen->ShowSpellInfo(spell);
 }
 
-W8CharacterSpellsPage* CreateCharacterSpellsPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterSpellsPage()
 {
-    return new W8CharacterSpellsPage();
+    return std::make_unique<W8CharacterSpellsPage>();
 }
